@@ -92,6 +92,10 @@ def extract_episode(filename):
     Returns:
         episode_numbers: list of ints (supports multi-episode files)
         title: str or None
+        is_season_relative: bool — True if the number came from an S##E##
+            pattern (guaranteed season-relative), False if it came from a
+            bare-number or dash-delimited pattern (likely absolute for
+            anime and other series with continuous numbering).
 
     FIX #1: S##E## pattern is tried first — it's the most reliable.
     FIX #2: Multi-episode patterns like S01E01E02 and S01E01-E02 are handled.
@@ -100,31 +104,34 @@ def extract_episode(filename):
 
     # --- Pattern 1 (BEST): S##E## with optional multi-episode ---
     # Matches: S01E05, S01E05E06, S01E05-E06, S1E5
+    # These numbers are ALWAYS season-relative by convention.
     m = re.search(r"S(\d+)E(\d+)(?:[E-]?E?(\d+))?\s*[-.]?\s*(.*)", name, re.IGNORECASE)
     if m:
         eps = [int(m.group(2))]
         if m.group(3):
             eps.append(int(m.group(3)))
         title = m.group(4).strip() if m.group(4) else None
-        return eps, title
+        return eps, title, True  # season-relative
 
     # --- Pattern 2: Dash-delimited " - 05 - Title" (common in organized releases) ---
+    # These are typically ABSOLUTE episode numbers (e.g. anime fansubs).
     m = re.search(r"-\s*(\d{1,3})\s*-\s*(.*)", name)
     if m:
-        return [int(m.group(1))], m.group(2).strip()
+        return [int(m.group(1))], m.group(2).strip(), False  # likely absolute
 
     # --- Pattern 3: Episode number preceded by space/separator ---
     # Only match 1-3 digit numbers that DON'T look like a year (1900-2099)
     # or a resolution (480, 720, 1080, 2160). FIX #1: avoids false positives.
+    # These are also typically absolute numbers.
     m = re.search(r"(?<!\d)(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?", name, re.IGNORECASE)
     if m:
         num = int(m.group(1))
         # Reject numbers that look like years or resolutions
         if num not in (480, 720, 1080, 2160) and not (1900 <= num <= 2099):
             title = m.group(2).strip() if m.group(2) else None
-            return [num], title
+            return [num], title, False  # likely absolute
 
-    return [], None
+    return [], None, False
 
 
 def get_season(folder):
@@ -420,7 +427,10 @@ class PlexRenamerApp:
                       values=["aired", "dvd", "absolute"], width=10).pack(side="left", padx=3)
 
         tk.Button(toolbar, text="Preview", command=lambda: self.run_preview(dry_run=True)).pack(side="left", padx=3)
-        tk.Button(toolbar, text="Rename", command=lambda: self.run_preview(dry_run=False)).pack(side="left", padx=3)
+        # FIX: Rename button calls execute_rename directly, using the
+        # existing preview state and checkbox selections — NOT run_preview,
+        # which would wipe check_vars and rebuild everything from scratch.
+        tk.Button(toolbar, text="Rename", command=self.execute_rename).pack(side="left", padx=3)
         tk.Button(toolbar, text="Undo Last", command=self.undo).pack(side="left", padx=3)
 
         # --- Search bar ---
@@ -576,10 +586,124 @@ class PlexRenamerApp:
         else:
             self.show_poster_label.configure(image="", text="(No poster)")
 
+    def _fetch_tmdb_season_map(self, api_key):
+        """
+        Build a complete map of TMDB's season structure for this show.
+
+        Returns:
+            tmdb_seasons: dict of season_num -> {titles: {ep->title}, posters: {ep->path}, count: int}
+            total_episodes: total episode count across all TMDB seasons (excluding season 0/specials)
+        """
+        # First, get the show details to find out how many seasons TMDB has
+        try:
+            r = requests.get(
+                f"https://api.themoviedb.org/3/tv/{self.show_info['id']}",
+                params={"api_key": api_key}, timeout=10
+            )
+            if not r.ok:
+                return {}, 0
+            show_data = r.json()
+        except requests.RequestException:
+            return {}, 0
+
+        tmdb_seasons = {}
+        total_episodes = 0
+
+        for season_info in show_data.get("seasons", []):
+            sn = season_info.get("season_number", 0)
+            if sn == 0:
+                continue  # Skip specials
+            titles, posters = tmdb_episode_titles(self.show_info["id"], sn, api_key)
+            count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
+            tmdb_seasons[sn] = {"titles": titles, "posters": posters, "count": count}
+            total_episodes += count
+
+        return tmdb_seasons, total_episodes
+
+    def _detect_season_mismatch(self, season_dirs, tmdb_seasons):
+        """
+        Detect whether the user's folder structure matches TMDB's seasons.
+
+        A mismatch occurs when the user has season folders that TMDB
+        doesn't recognize (e.g., user has Season 1 + Season 2 but TMDB
+        has only Season 1 with all 64 episodes).
+
+        Returns:
+            mismatched: bool — True if folder structure doesn't match TMDB
+            user_season_nums: set of season numbers from the user's folders
+            tmdb_season_nums: set of season numbers from TMDB
+        """
+        user_season_nums = {sn for _, sn in season_dirs}
+        tmdb_season_nums = set(tmdb_seasons.keys())
+
+        # Mismatch if user has seasons that TMDB doesn't
+        extra_user_seasons = user_season_nums - tmdb_season_nums
+        if extra_user_seasons:
+            return True, user_season_nums, tmdb_season_nums
+
+        return False, user_season_nums, tmdb_season_nums
+
+    def _prompt_season_fix(self, user_season_nums, tmdb_season_nums, tmdb_seasons):
+        """
+        Prompt the user about the season structure mismatch and ask if
+        they want to consolidate files into the correct TMDB structure.
+
+        Returns True if the user accepts the fix, False otherwise.
+        """
+        extra = sorted(user_season_nums - tmdb_season_nums)
+        tmdb_desc = ", ".join(
+            f"Season {sn} ({tmdb_seasons[sn]['count']} eps)"
+            for sn in sorted(tmdb_season_nums)
+        )
+        user_desc = ", ".join(f"Season {sn}" for sn in sorted(user_season_nums))
+
+        msg = (
+            f"Folder structure mismatch detected!\n\n"
+            f"Your folders: {user_desc}\n"
+            f"TMDB structure: {tmdb_desc}\n\n"
+            f"TMDB does not have: {', '.join(f'Season {s}' for s in extra)}\n\n"
+            f"Would you like to automatically fix this?\n"
+            f"Files will be renamed with correct TMDB episode numbers "
+            f"and moved into the proper TMDB season folder(s).\n\n"
+            f"Empty folders will be removed after the move."
+        )
+        return messagebox.askyesno("Season Structure Mismatch", msg)
+
+    def _build_absolute_file_list(self, season_dirs):
+        """
+        Collect ALL video files across all season folders, sorted by
+        their absolute episode number (parsed from filename) or by
+        folder order + filename order as a fallback.
+
+        Returns a list of (file_path, parsed_absolute_ep, raw_title) tuples,
+        sorted by absolute episode number.
+        """
+        all_files = []
+        for season_dir, season_num in season_dirs:
+            if isinstance(season_dir, tuple):
+                season_dir, season_num = season_dir
+            for f in sorted(season_dir.iterdir()):
+                if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
+                    continue
+                eps, raw_title, is_season_relative = extract_episode(f.name)
+                # Use the parsed episode number for sorting; fall back to
+                # a large number so unparseable files sort to the end
+                abs_num = eps[0] if eps else 9999
+                all_files.append((f, abs_num, raw_title, eps, is_season_relative))
+
+        # Sort by absolute episode number to get the correct global order
+        all_files.sort(key=lambda x: x[1])
+        return all_files
+
     def run_preview(self, dry_run=True):
         """
         Scan the folder, match files to TMDB episode titles,
-        and either preview or execute the rename.
+        and display the preview. The Rename button calls execute_rename()
+        directly so that the user's checkbox selections are preserved.
+
+        Detects season structure mismatches between the user's folders
+        and TMDB, and offers to consolidate files into the correct
+        TMDB season structure.
         """
         if not self.folder or not self.show_info:
             messagebox.showwarning("Not Ready", "Select a folder and show first.")
@@ -605,10 +729,105 @@ class PlexRenamerApp:
         else:
             season_dirs = [(d, get_season(d)) for d in season_dirs]
 
+        # Fetch the full TMDB season structure for this show
+        tmdb_seasons, total_tmdb_eps = self._fetch_tmdb_season_map(api_key)
+
+        # Detect season structure mismatch
+        mismatched, user_season_nums, tmdb_season_nums = self._detect_season_mismatch(
+            season_dirs, tmdb_seasons
+        )
+
+        if mismatched and self._prompt_season_fix(user_season_nums, tmdb_season_nums, tmdb_seasons):
+            # User accepted the fix — consolidate into TMDB structure
+            self._build_consolidated_preview(season_dirs, tmdb_seasons, api_key)
+        else:
+            # No mismatch or user declined — normal per-folder processing
+            self._build_normal_preview(season_dirs, tmdb_seasons, api_key)
+
+        # FIX #14: Check for duplicate target filenames
+        self._check_duplicates()
+
+        # Always show the preview — rename uses the existing state
+        self.display_preview()
+
+    def _build_consolidated_preview(self, season_dirs, tmdb_seasons, api_key):
+        """
+        Build preview items that consolidate files from mismatched season
+        folders into the correct TMDB season structure.
+
+        All files are collected, sorted by absolute episode number, then
+        mapped sequentially to TMDB's season/episode structure. Files are
+        targeted to the correct TMDB season folder (created if necessary).
+        """
+        # Collect all video files in absolute order across all folders
+        all_files = self._build_absolute_file_list(season_dirs)
+
+        # Build a flat list of (tmdb_season, tmdb_episode, title) in order
+        tmdb_episode_list = []
+        for sn in sorted(tmdb_seasons.keys()):
+            season_data = tmdb_seasons[sn]
+            for ep_num in sorted(season_data["titles"].keys()):
+                tmdb_episode_list.append((sn, ep_num, season_data["titles"][ep_num]))
+
+        # Store TMDB data for detail panel lookups
+        for sn, sdata in tmdb_seasons.items():
+            self.episode_titles.update({(sn, k): v for k, v in sdata["titles"].items()})
+            self.episode_posters.update({(sn, k): v for k, v in sdata["posters"].items()})
+
+        # Map each file to its correct TMDB season + episode
+        for i, (f, abs_num, raw_title, eps, is_sr) in enumerate(all_files):
+            if i < len(tmdb_episode_list):
+                target_season, target_ep, tmdb_title = tmdb_episode_list[i]
+            else:
+                # More files than TMDB episodes — can't map
+                self.preview_items.append({
+                    "original": f,
+                    "new_name": None,
+                    "target_dir": None,
+                    "season": 0,
+                    "episodes": eps,
+                    "status": "SKIP: no matching TMDB episode (extra file?)",
+                })
+                continue
+
+            # Build the target season folder path
+            target_dir = self.folder / f"Season {target_season:02d}"
+
+            new_name = build_name(
+                self.show_info["name"],
+                self.show_info["year"],
+                target_season,
+                [target_ep],
+                tmdb_title,
+                f.suffix
+            )
+
+            self.preview_items.append({
+                "original": f,
+                "new_name": new_name,
+                "target_dir": target_dir,
+                "season": target_season,
+                "episodes": [target_ep],
+                "status": "OK",
+            })
+
+    def _build_normal_preview(self, season_dirs, tmdb_seasons, api_key):
+        """
+        Build preview items using normal per-folder processing.
+        Used when folder structure matches TMDB or the user declined
+        the consolidation fix.
+        """
         for season_dir, season_num in season_dirs:
             if isinstance(season_dir, tuple):
                 season_dir, season_num = season_dir
-            titles, posters = tmdb_episode_titles(self.show_info["id"], season_num, api_key)
+
+            # Get TMDB data for this season (from cache or fetch)
+            if season_num in tmdb_seasons:
+                titles = tmdb_seasons[season_num]["titles"]
+                posters = tmdb_seasons[season_num]["posters"]
+            else:
+                titles, posters = tmdb_episode_titles(self.show_info["id"], season_num, api_key)
+
             self.episode_titles.update({(season_num, k): v for k, v in titles.items()})
             self.episode_posters.update({(season_num, k): v for k, v in posters.items()})
 
@@ -616,18 +835,19 @@ class PlexRenamerApp:
                 if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
                     continue
 
-                eps, raw_title = extract_episode(f.name)
+                eps, raw_title, is_season_relative = extract_episode(f.name)
                 if not eps:
                     self.preview_items.append({
                         "original": f,
                         "new_name": None,
+                        "target_dir": None,
                         "season": season_num,
                         "episodes": [],
                         "status": "SKIP: could not parse episode number",
                     })
                     continue
 
-                # Use TMDB title for the first episode; fallback to parsed title
+                # For normal mode, use the parsed episode numbers directly
                 tmdb_title = titles.get(eps[0], raw_title or f"Episode {eps[0]}")
 
                 new_name = build_name(
@@ -642,18 +862,11 @@ class PlexRenamerApp:
                 self.preview_items.append({
                     "original": f,
                     "new_name": new_name,
+                    "target_dir": None,  # None = same folder as source
                     "season": season_num,
                     "episodes": eps,
                     "status": "OK",
                 })
-
-        # FIX #14: Check for duplicate target filenames
-        self._check_duplicates()
-
-        if dry_run:
-            self.display_preview()
-        else:
-            self.execute_rename()
 
     def _check_duplicates(self):
         """
@@ -674,6 +887,7 @@ class PlexRenamerApp:
         """
         FIX #9, #15: Show the rename preview with per-file checkboxes
         so the user can include or exclude individual files.
+        Shows the target folder when files are being moved cross-folder.
         """
         # Clear existing preview widgets
         for w in self.preview_inner.winfo_children():
@@ -692,10 +906,20 @@ class PlexRenamerApp:
             cb = tk.Checkbutton(frame, variable=var)
             cb.pack(side="left")
 
-            # Original name
+            # Build display text showing original and new name
             orig_text = item["original"].name
+            src_folder = item["original"].parent.name
+
             if item["new_name"]:
-                label_text = f"{orig_text}\n  → {item['new_name']}"
+                target_dir = item.get("target_dir")
+                if target_dir and target_dir != item["original"].parent:
+                    # Cross-folder move — show the target folder
+                    label_text = (
+                        f"[{src_folder}] {orig_text}\n"
+                        f"  → [{target_dir.name}] {item['new_name']}"
+                    )
+                else:
+                    label_text = f"{orig_text}\n  → {item['new_name']}"
             else:
                 label_text = f"{orig_text}\n  → [{item['status']}]"
 
@@ -707,6 +931,9 @@ class PlexRenamerApp:
             elif "CONFLICT" in item["status"]:
                 fg = "red"
                 var.set(False)
+            elif item.get("target_dir") and item["target_dir"] != item["original"].parent:
+                # Highlight files that will be moved to a different folder
+                fg = "blue"
 
             lbl = tk.Label(frame, text=label_text, justify="left", anchor="w", fg=fg)
             lbl.pack(side="left", fill="x", expand=True)
@@ -715,8 +942,15 @@ class PlexRenamerApp:
             lbl.bind("<Button-1>", lambda e, idx=i: self.show_episode_detail(idx))
 
         count_ok = sum(1 for it in self.preview_items if it["status"] == "OK")
-        self.status_var.set(f"Preview: {count_ok} files ready to rename, "
-                            f"{len(self.preview_items) - count_ok} skipped/conflicting")
+        count_move = sum(1 for it in self.preview_items
+                         if it.get("target_dir") and it["target_dir"] != it["original"].parent)
+        status = f"Preview: {count_ok} files ready to rename"
+        if count_move:
+            status += f", {count_move} will be moved to a different folder"
+        skip_count = len(self.preview_items) - count_ok
+        if skip_count:
+            status += f", {skip_count} skipped/conflicting"
+        self.status_var.set(status)
 
     def show_episode_detail(self, index):
         """Show detail info and episode still for a selected preview item."""
@@ -748,21 +982,38 @@ class PlexRenamerApp:
 
     def execute_rename(self):
         """
-        Perform the actual file renames for checked items.
+        Perform the actual file renames/moves for checked items.
+        Uses the existing preview_items and check_vars built by run_preview + display_preview.
 
-        FIX #13: Builds the full rename batch, checks for conflicts,
-        then executes atomically with undo log.
+        Supports cross-folder moves when target_dir differs from the
+        source folder (used for season structure consolidation).
+        Creates target directories as needed and removes empty source
+        directories after all moves complete.
         """
+        # Guard: must preview before renaming so check_vars exist
+        if not self.preview_items or not self.check_vars:
+            messagebox.showwarning("Preview First",
+                                   "Click 'Preview' to scan and review files before renaming.")
+            return
+
         renames = []
+        source_dirs = set()  # Track source dirs for cleanup
+
         for i, item in enumerate(self.preview_items):
             key = str(i)
-            if not self.check_vars.get(key, tk.BooleanVar(value=False)).get():
+            # Use the checkbox state set by the user in the preview UI
+            check_var = self.check_vars.get(key)
+            if check_var is None or not check_var.get():
                 continue
             if item["new_name"] is None or item["status"] != "OK":
                 continue
 
             src = item["original"]
-            dst = src.parent / item["new_name"]
+            source_dirs.add(src.parent)
+
+            # Determine destination: target_dir if set, otherwise same folder
+            target_dir = item.get("target_dir") or src.parent
+            dst = target_dir / item["new_name"]
 
             # FIX #14: Final safety check — don't overwrite existing files
             if dst.exists() and src != dst:
@@ -770,35 +1021,66 @@ class PlexRenamerApp:
                                      f"Target already exists:\n{dst}\n\nAborting all renames.")
                 return
 
-            renames.append((src, dst))
+            renames.append((src, dst, target_dir))
 
         if not renames:
             messagebox.showinfo("Nothing to do", "No files selected for rename.")
             return
 
-        confirm = messagebox.askyesno(
-            "Confirm Rename",
-            f"Rename {len(renames)} file(s)?\n\nThis can be undone via 'Undo Last'."
-        )
-        if not confirm:
+        # Build a descriptive confirmation message
+        move_count = sum(1 for s, d, td in renames if s.parent != td)
+        msg = f"Rename {len(renames)} file(s)?"
+        if move_count:
+            msg += f"\n\n{move_count} file(s) will be moved to a different folder."
+            msg += "\nEmpty source folders will be removed."
+        msg += "\n\nThis can be undone via 'Undo Last'."
+
+        if not messagebox.askyesno("Confirm Rename", msg):
             return
 
         # Build undo log entry BEFORE renaming
         log_entry = {
             "show": self.show_info["name"] if self.show_info else "Unknown",
             "renames": [],
+            "created_dirs": [],   # Track dirs we create for undo
+            "removed_dirs": [],   # Track dirs we remove for undo
         }
 
         errors = []
-        for src, dst in renames:
+        for src, dst, target_dir in renames:
             try:
-                src.rename(dst)
+                # Create the target directory if it doesn't exist
+                if not target_dir.exists():
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    if str(target_dir) not in log_entry["created_dirs"]:
+                        log_entry["created_dirs"].append(str(target_dir))
+
+                # Use shutil.move for cross-filesystem moves; Path.rename
+                # only works within the same filesystem
+                if src.parent != target_dir:
+                    shutil.move(str(src), str(dst))
+                else:
+                    src.rename(dst)
+
                 log_entry["renames"].append({
                     "old": str(src),
                     "new": str(dst),
                 })
-            except OSError as e:
+            except (OSError, shutil.Error) as e:
                 errors.append(f"{src.name}: {e}")
+
+        # Clean up empty source directories
+        for src_dir in source_dirs:
+            try:
+                # Only remove if it's a season subfolder (not the root show folder)
+                # and it's now empty (no files or subdirs left)
+                if src_dir != self.folder and src_dir.exists():
+                    remaining = list(src_dir.iterdir())
+                    if not remaining:
+                        src_dir.rmdir()
+                        log_entry["removed_dirs"].append(str(src_dir))
+            except OSError:
+                pass  # Not critical if cleanup fails
 
         # Save log (appending to history)
         log = load_log()
@@ -810,42 +1092,96 @@ class PlexRenamerApp:
                                    f"Renamed {len(log_entry['renames'])} files.\n\n"
                                    f"Errors ({len(errors)}):\n" + "\n".join(errors[:5]))
         else:
-            messagebox.showinfo("Done", f"Successfully renamed {len(log_entry['renames'])} files.")
+            result_msg = f"Successfully renamed {len(log_entry['renames'])} files."
+            if log_entry["removed_dirs"]:
+                removed = [Path(d).name for d in log_entry["removed_dirs"]]
+                result_msg += f"\n\nRemoved empty folders: {', '.join(removed)}"
+            messagebox.showinfo("Done", result_msg)
 
         self.status_var.set(f"Renamed {len(log_entry['renames'])} files.")
         # Refresh preview
         self.run_preview(dry_run=True)
 
     def undo(self):
-        """Undo the most recent rename batch using the log file."""
+        """
+        Undo the most recent rename batch using the log file.
+        Handles cross-folder moves by recreating removed directories
+        and cleaning up directories that were created during the rename.
+        """
         log = load_log()
         if not log:
             messagebox.showinfo("Nothing to Undo", "No rename history found.")
             return
 
         last = log[-1]
-        confirm = messagebox.askyesno(
-            "Undo Rename",
-            f"Undo {len(last['renames'])} renames for '{last['show']}'?"
+        move_count = sum(
+            1 for e in last["renames"]
+            if Path(e["old"]).parent != Path(e["new"]).parent
         )
-        if not confirm:
+
+        desc = f"Undo {len(last['renames'])} renames for '{last['show']}'?"
+        if move_count:
+            desc += f"\n\n{move_count} file(s) will be moved back to their original folders."
+        if last.get("removed_dirs"):
+            dirs = [Path(d).name for d in last["removed_dirs"]]
+            desc += f"\n\nThese folders will be recreated: {', '.join(dirs)}"
+
+        if not messagebox.askyesno("Undo Rename", desc):
             return
 
         errors = []
+
+        # Step 1: Recreate any directories that were removed during the rename
+        for dir_path_str in last.get("removed_dirs", []):
+            dir_path = Path(dir_path_str)
+            try:
+                dir_path.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                errors.append(f"Could not recreate folder {dir_path.name}: {e}")
+
+        # Step 2: Move/rename all files back to their original locations
         for entry in reversed(last["renames"]):
             new_path = Path(entry["new"])
             old_path = Path(entry["old"])
             try:
+                # Ensure the original parent directory exists
+                old_path.parent.mkdir(parents=True, exist_ok=True)
+
                 if new_path.exists():
-                    new_path.rename(old_path)
+                    if new_path.parent != old_path.parent:
+                        # Cross-folder move — use shutil for reliability
+                        shutil.move(str(new_path), str(old_path))
+                    else:
+                        new_path.rename(old_path)
                 else:
                     errors.append(f"File not found: {new_path.name}")
-            except OSError as e:
+            except (OSError, shutil.Error) as e:
                 errors.append(f"{new_path.name}: {e}")
+
+        # Step 3: Remove any directories that were created during the rename
+        # (only if they're now empty after moving files out)
+        for dir_path_str in last.get("created_dirs", []):
+            dir_path = Path(dir_path_str)
+            try:
+                if dir_path.exists() and not list(dir_path.iterdir()):
+                    dir_path.rmdir()
+            except OSError:
+                pass  # Not critical
 
         # Remove the last entry from the log
         log.pop()
         save_log(log)
+
+        if errors:
+            messagebox.showwarning("Partial Undo",
+                                   f"Errors:\n" + "\n".join(errors[:5]))
+        else:
+            messagebox.showinfo("Undone", "Rename successfully undone.")
+
+        self.status_var.set("Undo complete.")
+        # Refresh preview if a folder is loaded
+        if self.folder and self.show_info:
+            self.run_preview(dry_run=True)
 
         if errors:
             messagebox.showwarning("Partial Undo",
