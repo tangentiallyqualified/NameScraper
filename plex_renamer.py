@@ -403,77 +403,298 @@ class PlexRenamerApp:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Plex Advanced Renamer")
-        self.root.geometry("1100x750")
+        self.root.title("Plex Renamer")
+        self.root.geometry("1200x800")
+        self.root.minsize(900, 600)
 
         # State
         self.folder = None
-        self.show_info = None          # Currently selected TMDB show dict
-        self.episode_titles = {}       # ep_num -> title from TMDB/TVDB
-        self.episode_posters = {}      # ep_num -> poster path
-        self.preview_items = []        # List of dicts with rename info
-        self._image_refs = []          # FIX #16: prevent GC of PhotoImage objects
-        self.check_vars = {}           # ep key -> BooleanVar for checkboxes
+        self.show_info = None
+        self.episode_titles = {}
+        self.episode_posters = {}
+        self.preview_items = []
+        self._image_refs = []          # Episode still images (cleared on refresh)
+        self._poster_ref = None        # Show poster image (never cleared by preview)
+        self.check_vars = {}
+        self._selected_index = None
 
-        # --- Top toolbar ---
-        toolbar = tk.Frame(self.root)
-        toolbar.pack(fill="x", padx=10, pady=5)
-        tk.Button(toolbar, text="Manage API Keys", command=self.manage_keys).pack(side="left", padx=3)
-        tk.Button(toolbar, text="Select Show Folder", command=self.pick_folder).pack(side="left", padx=3)
+        # --- Color palette: dark cinema theme ---
+        self.colors = {
+            "bg_dark":      "#0f0f0f",
+            "bg_mid":       "#1a1a1a",
+            "bg_card":      "#222222",
+            "bg_card_hover":"#2a2a2a",
+            "bg_input":     "#2c2c2c",
+            "border":       "#333333",
+            "border_light": "#444444",
+            "text":         "#e8e8e8",
+            "text_dim":     "#888888",
+            "text_muted":   "#555555",
+            "accent":       "#e5a00d",     # Plex gold
+            "accent_hover": "#f0b429",
+            "accent_dim":   "#7a5a10",
+            "success":      "#3ea463",
+            "error":        "#d44040",
+            "info":         "#4a9eda",
+            "move":         "#6c8ebf",
+        }
+        c = self.colors
 
-        tk.Label(toolbar, text="  Episode Order:").pack(side="left")
+        # Configure root
+        self.root.configure(bg=c["bg_dark"])
+        self.root.option_add("*Font", "Helvetica 11")
+
+        # --- Configure ttk styles ---
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        style.configure(".", background=c["bg_dark"], foreground=c["text"],
+                         fieldbackground=c["bg_input"], bordercolor=c["border"],
+                         insertcolor=c["text"], selectbackground=c["accent_dim"],
+                         selectforeground=c["text"])
+
+        style.configure("TFrame", background=c["bg_dark"])
+        style.configure("Card.TFrame", background=c["bg_card"])
+        style.configure("Mid.TFrame", background=c["bg_mid"])
+
+        style.configure("TLabel", background=c["bg_dark"], foreground=c["text"],
+                         font=("Helvetica", 11))
+        style.configure("Title.TLabel", font=("Helvetica", 20, "bold"),
+                         foreground=c["accent"])
+        style.configure("Subtitle.TLabel", font=("Helvetica", 11),
+                         foreground=c["text_dim"])
+        style.configure("Card.TLabel", background=c["bg_card"],
+                         foreground=c["text"])
+        style.configure("CardDim.TLabel", background=c["bg_card"],
+                         foreground=c["text_dim"], font=("Helvetica", 10))
+        style.configure("Detail.TLabel", background=c["bg_mid"],
+                         foreground=c["text"])
+        style.configure("DetailDim.TLabel", background=c["bg_mid"],
+                         foreground=c["text_dim"], font=("Helvetica", 10))
+        style.configure("Status.TLabel", background=c["bg_mid"],
+                         foreground=c["text_dim"], font=("Helvetica", 10),
+                         padding=(12, 6))
+
+        # Buttons
+        style.configure("Accent.TButton", font=("Helvetica", 11, "bold"),
+                         background=c["accent"], foreground=c["bg_dark"],
+                         padding=(16, 8), borderwidth=0)
+        style.map("Accent.TButton",
+                   background=[("active", c["accent_hover"]),
+                               ("disabled", c["border"])])
+
+        style.configure("TButton", font=("Helvetica", 11),
+                         background=c["bg_card"], foreground=c["text"],
+                         padding=(14, 8), borderwidth=1)
+        style.map("TButton",
+                   background=[("active", c["border_light"]),
+                               ("disabled", c["bg_mid"])])
+
+        style.configure("Small.TButton", font=("Helvetica", 10),
+                         padding=(10, 5))
+
+        # Entry
+        style.configure("TEntry", padding=(8, 6), font=("Helvetica", 11))
+
+        # Combobox — both the widget and its dropdown Listbox
+        style.configure("TCombobox", padding=(8, 6),
+                         fieldbackground=c["bg_input"],
+                         background=c["bg_card"],
+                         foreground=c["text"],
+                         arrowcolor=c["text_dim"])
+        style.map("TCombobox",
+                   fieldbackground=[("readonly", c["bg_input"]),
+                                     ("readonly focus", c["bg_input"])],
+                   foreground=[("readonly", c["text"])],
+                   selectbackground=[("readonly", c["accent_dim"])],
+                   selectforeground=[("readonly", c["text"])])
+        # The dropdown Listbox is a Tk widget — style via option_add
+        self.root.option_add("*TCombobox*Listbox.background", c["bg_input"])
+        self.root.option_add("*TCombobox*Listbox.foreground", c["text"])
+        self.root.option_add("*TCombobox*Listbox.selectBackground", c["accent"])
+        self.root.option_add("*TCombobox*Listbox.selectForeground", c["bg_dark"])
+        self.root.option_add("*TCombobox*Listbox.font", "Helvetica 11")
+        self.root.option_add("*TCombobox*Listbox.borderWidth", "0")
+        self.root.option_add("*TCombobox*Listbox.highlightThickness", "0")
+
+        # Checkbutton
+        style.configure("Card.TCheckbutton", background=c["bg_card"],
+                         foreground=c["text"])
+        style.map("Card.TCheckbutton",
+                   background=[("active", c["bg_card_hover"])])
+
+        # Scrollbar
+        style.configure("TScrollbar", background=c["bg_mid"],
+                         troughcolor=c["bg_dark"], borderwidth=0,
+                         arrowcolor=c["text_dim"])
+
+        # Separator
+        style.configure("TSeparator", background=c["border"])
+
+        # =====================================================================
+        # LAYOUT
+        # =====================================================================
+
+        # --- Header bar ---
+        header = ttk.Frame(self.root, style="Mid.TFrame")
+        header.pack(fill="x", padx=0, pady=0)
+
+        header_inner = ttk.Frame(header, style="Mid.TFrame")
+        header_inner.pack(fill="x", padx=20, pady=(16, 12))
+
+        # App title + show info
+        title_area = ttk.Frame(header_inner, style="Mid.TFrame")
+        title_area.pack(side="left")
+
+        ttk.Label(title_area, text="PLEX RENAMER", style="Title.TLabel",
+                  background=c["bg_mid"]).pack(anchor="w")
+
+        self.show_label_var = tk.StringVar(value="No show selected")
+        ttk.Label(title_area, textvariable=self.show_label_var,
+                  style="Subtitle.TLabel",
+                  background=c["bg_mid"]).pack(anchor="w", pady=(2, 0))
+
+        # Header buttons (right side)
+        btn_area = ttk.Frame(header_inner, style="Mid.TFrame")
+        btn_area.pack(side="right")
+
+        ttk.Button(btn_area, text="API Keys",
+                   command=self.manage_keys,
+                   style="Small.TButton").pack(side="left", padx=(0, 8))
+        ttk.Button(btn_area, text="Undo Last",
+                   command=self.undo,
+                   style="Small.TButton").pack(side="left", padx=(0, 8))
+
+        # Separator
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x")
+
+        # --- Action bar ---
+        action_bar = ttk.Frame(self.root)
+        action_bar.pack(fill="x", padx=20, pady=12)
+
+        ttk.Button(action_bar, text="Select Show Folder",
+                   command=self.pick_folder,
+                   style="TButton").pack(side="left", padx=(0, 10))
+
+        # Episode order selector
+        order_frame = ttk.Frame(action_bar)
+        order_frame.pack(side="left", padx=(0, 10))
+        ttk.Label(order_frame, text="Order:",
+                  foreground=c["text_dim"]).pack(side="left", padx=(0, 6))
         self.order_var = tk.StringVar(value="aired")
-        ttk.Combobox(toolbar, textvariable=self.order_var,
-                      values=["aired", "dvd", "absolute"], width=10).pack(side="left", padx=3)
+        ttk.Combobox(order_frame, textvariable=self.order_var,
+                      values=["aired", "dvd", "absolute"],
+                      width=10, state="readonly").pack(side="left")
 
-        tk.Button(toolbar, text="Preview", command=lambda: self.run_preview(dry_run=True)).pack(side="left", padx=3)
-        # FIX: Rename button calls execute_rename directly, using the
-        # existing preview state and checkbox selections — NOT run_preview,
-        # which would wipe check_vars and rebuild everything from scratch.
-        tk.Button(toolbar, text="Rename", command=self.execute_rename).pack(side="left", padx=3)
-        tk.Button(toolbar, text="Undo Last", command=self.undo).pack(side="left", padx=3)
-
-        # --- Search bar ---
-        search_frame = tk.Frame(self.root)
-        search_frame.pack(fill="x", padx=10)
-        tk.Label(search_frame, text="Filter:").pack(side="left")
+        # Search / filter
+        search_frame = ttk.Frame(action_bar)
+        search_frame.pack(side="left", fill="x", expand=True, padx=(10, 10))
+        ttk.Label(search_frame, text="Filter:",
+                  foreground=c["text_dim"]).pack(side="left", padx=(0, 6))
         self.search_var = tk.StringVar()
-        tk.Entry(search_frame, textvariable=self.search_var, width=40).pack(side="left", padx=5)
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var,
+                                  width=30)
+        search_entry.pack(side="left", fill="x", expand=True)
         self.search_var.trace_add("write", lambda *_: self.update_search())
 
-        # --- FIX #10: PanedWindow for reliable split layout ---
-        pane = tk.PanedWindow(self.root, orient="horizontal", sashwidth=6)
-        pane.pack(fill="both", expand=True, padx=10, pady=5)
+        # Selection controls: Select All + tally counter
+        sel_frame = ttk.Frame(action_bar)
+        sel_frame.pack(side="right", padx=(0, 12))
 
-        # Left: scrollable preview list (FIX #12)
-        left_frame = tk.Frame(pane)
-        pane.add(left_frame, stretch="always")
+        self.tally_var = tk.StringVar(value="0 / 0")
+        ttk.Label(sel_frame, textvariable=self.tally_var,
+                  foreground=c["accent"],
+                  font=("Helvetica", 11, "bold")).pack(side="left", padx=(0, 8))
+        ttk.Label(sel_frame, text="selected",
+                  foreground=c["text_dim"],
+                  font=("Helvetica", 10)).pack(side="left", padx=(0, 10))
 
-        canvas = tk.Canvas(left_frame)
-        scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=canvas.yview)
-        self.preview_inner = tk.Frame(canvas)
-        self.preview_inner.bind("<Configure>",
-                                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self.preview_inner, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(sel_frame, text="Select All",
+                   command=self.select_all,
+                   style="Small.TButton").pack(side="left")
+
+        # Preview + Rename buttons (right side, prominent)
+        ttk.Button(action_bar, text="Refresh",
+                   command=lambda: self.run_preview(dry_run=True),
+                   style="TButton").pack(side="right", padx=(8, 0))
+        ttk.Button(action_bar, text="Rename Files",
+                   command=self.execute_rename,
+                   style="Accent.TButton").pack(side="right")
+
+        # --- Main content area (split: file list + detail panel) ---
+        content = ttk.Frame(self.root)
+        content.pack(fill="both", expand=True, padx=20, pady=(0, 0))
+        content.columnconfigure(0, weight=3)
+        content.columnconfigure(1, weight=0)
+        content.rowconfigure(0, weight=1)
+
+        # Left: scrollable preview list
+        list_container = ttk.Frame(content)
+        list_container.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+
+        self.preview_canvas = tk.Canvas(list_container, bg=c["bg_dark"],
+                                         highlightthickness=0, bd=0)
+        scrollbar = ttk.Scrollbar(list_container, orient="vertical",
+                                   command=self.preview_canvas.yview)
+        self.preview_inner = ttk.Frame(self.preview_canvas)
+        self.preview_inner.bind(
+            "<Configure>",
+            lambda e: self.preview_canvas.configure(
+                scrollregion=self.preview_canvas.bbox("all")
+            )
+        )
+        self.preview_canvas.create_window((0, 0), window=self.preview_inner,
+                                           anchor="nw")
+        self.preview_canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
+        self.preview_canvas.pack(side="left", fill="both", expand=True)
 
-        # Right: detail/poster panel
-        right_frame = tk.Frame(pane, width=250)
-        pane.add(right_frame, stretch="never")
+        # Mousewheel scrolling
+        def _on_mousewheel(event):
+            self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.preview_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        # Linux scroll support
+        self.preview_canvas.bind_all("<Button-4>",
+                                      lambda e: self.preview_canvas.yview_scroll(-3, "units"))
+        self.preview_canvas.bind_all("<Button-5>",
+                                      lambda e: self.preview_canvas.yview_scroll(3, "units"))
 
-        self.show_poster_label = tk.Label(right_frame)
-        self.show_poster_label.pack(pady=5)
-        self.detail_label = tk.Label(right_frame, text="", justify="left", wraplength=230)
-        self.detail_label.pack(pady=5)
-        self.detail_image = tk.Label(right_frame)
-        self.detail_image.pack(pady=5)
+        # Right: detail / poster panel
+        detail_panel = ttk.Frame(content, style="Mid.TFrame", width=280)
+        detail_panel.grid(row=0, column=1, sticky="nsew")
+        detail_panel.grid_propagate(False)
 
-        # Status bar
-        self.status_var = tk.StringVar(value="Ready")
-        tk.Label(self.root, textvariable=self.status_var, anchor="w",
-                 relief="sunken", bd=1).pack(side="bottom", fill="x")
+        detail_inner = ttk.Frame(detail_panel, style="Mid.TFrame")
+        detail_inner.pack(fill="both", expand=True, padx=16, pady=16)
+
+        # Show poster at top of detail panel
+        self.show_poster_label = ttk.Label(detail_inner, style="Detail.TLabel",
+                                            background=c["bg_mid"])
+        self.show_poster_label.pack(anchor="center", pady=(0, 12))
+
+        ttk.Separator(detail_inner, orient="horizontal").pack(fill="x", pady=8)
+
+        # Episode detail section
+        ttk.Label(detail_inner, text="EPISODE DETAIL",
+                  style="DetailDim.TLabel",
+                  font=("Helvetica", 9, "bold")).pack(anchor="w", pady=(8, 6))
+
+        self.detail_label = ttk.Label(detail_inner, text="Click an episode to view details",
+                                       style="Detail.TLabel",
+                                       wraplength=240, justify="left")
+        self.detail_label.pack(anchor="w", fill="x")
+
+        self.detail_image = ttk.Label(detail_inner, style="Detail.TLabel",
+                                       background=c["bg_mid"])
+        self.detail_image.pack(anchor="center", pady=(12, 0))
+
+        # --- Status bar ---
+        status_bar = ttk.Frame(self.root, style="Mid.TFrame")
+        status_bar.pack(fill="x", side="bottom")
+
+        self.status_var = tk.StringVar(value="Ready — select a show folder to begin")
+        ttk.Label(status_bar, textvariable=self.status_var,
+                  style="Status.TLabel").pack(fill="x")
 
     # ------------------------------------------------------------------
     # FIX #9: All GUI methods fully implemented below
@@ -481,21 +702,31 @@ class PlexRenamerApp:
 
     def manage_keys(self):
         """Dialog to set/update TMDB and TVDB API keys via OS keyring."""
+        c = self.colors
         win = tk.Toplevel(self.root)
-        win.title("API Key Manager")
-        win.geometry("400x200")
+        win.title("API Keys")
+        win.geometry("480x220")
+        win.configure(bg=c["bg_mid"])
         win.transient(self.root)
         win.grab_set()
 
-        for row, service in enumerate(["TMDB", "TVDB"]):
-            tk.Label(win, text=f"{service} API Key:").grid(row=row, column=0, padx=10, pady=10, sticky="e")
+        ttk.Label(win, text="API KEY MANAGER", style="Title.TLabel",
+                  font=("Helvetica", 14, "bold"),
+                  background=c["bg_mid"]).pack(anchor="w", padx=20, pady=(16, 12))
+
+        for service in ["TMDB", "TVDB"]:
+            row = ttk.Frame(win, style="Mid.TFrame")
+            row.pack(fill="x", padx=20, pady=4)
+
+            ttk.Label(row, text=f"{service}:", width=6,
+                      background=c["bg_mid"],
+                      foreground=c["text_dim"]).pack(side="left")
             var = tk.StringVar(value=get_api_key(service) or "")
-            entry = tk.Entry(win, textvariable=var, width=35, show="*")
-            entry.grid(row=row, column=1, padx=10, pady=10)
-            # Use default arg in lambda to capture current values
-            tk.Button(win, text="Save",
-                      command=lambda s=service, v=var: self._save_key(s, v.get(), win)
-                      ).grid(row=row, column=2, padx=5)
+            entry = ttk.Entry(row, textvariable=var, width=36, show="*")
+            entry.pack(side="left", padx=(8, 8), fill="x", expand=True)
+            ttk.Button(row, text="Save", style="Small.TButton",
+                       command=lambda s=service, v=var: self._save_key(s, v.get(), win)
+                       ).pack(side="left")
 
     def _save_key(self, service, key, win):
         if key.strip():
@@ -534,30 +765,49 @@ class PlexRenamerApp:
 
         # Display show poster
         self._display_show_poster()
-        self.status_var.set(f"Show: {self.show_info['name']} ({self.show_info['year']})")
+        self.show_label_var.set(f"{self.show_info['name']} ({self.show_info['year']})")
+        self.status_var.set(f"Scanning files...")
+
+        # Auto-preview after folder selection
+        self.root.update_idletasks()
+        self.run_preview(dry_run=True)
 
     def _pick_show_dialog(self, results):
         """
-        FIX #7: Present a dialog with all TMDB search results so the user
-        can pick the correct show instead of blindly using the first match.
+        Present a dialog with all TMDB search results so the user
+        can pick the correct show.
         """
         if len(results) == 1:
             return results[0]
 
+        c = self.colors
         win = tk.Toplevel(self.root)
         win.title("Select Show")
-        win.geometry("500x350")
+        win.geometry("520x400")
+        win.configure(bg=c["bg_mid"])
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text="Multiple matches found. Select the correct show:").pack(pady=5)
+        ttk.Label(win, text="SELECT SHOW", style="Title.TLabel",
+                  font=("Helvetica", 14, "bold"),
+                  background=c["bg_mid"]).pack(anchor="w", padx=20, pady=(16, 4))
+        ttk.Label(win, text="Multiple matches found — select the correct one:",
+                  style="Subtitle.TLabel",
+                  background=c["bg_mid"]).pack(anchor="w", padx=20, pady=(0, 12))
 
-        listbox = tk.Listbox(win, width=70, height=12)
-        listbox.pack(padx=10, pady=5, fill="both", expand=True)
+        listbox = tk.Listbox(win, width=70, height=12,
+                              bg=c["bg_card"], fg=c["text"],
+                              selectbackground=c["accent"],
+                              selectforeground=c["bg_dark"],
+                              font=("Helvetica", 11),
+                              borderwidth=0, highlightthickness=1,
+                              highlightcolor=c["border_light"],
+                              highlightbackground=c["border"])
+        listbox.pack(padx=20, pady=(0, 12), fill="both", expand=True)
 
         for i, show in enumerate(results):
             year = f" ({show['year']})" if show['year'] else ""
-            listbox.insert(i, f"{show['name']}{year}")
+            listbox.insert(i, f"  {show['name']}{year}")
 
         listbox.selection_set(0)
         selected = [None]
@@ -568,7 +818,8 @@ class PlexRenamerApp:
                 selected[0] = results[sel[0]]
             win.destroy()
 
-        tk.Button(win, text="OK", command=on_ok).pack(pady=5)
+        ttk.Button(win, text="Confirm Selection", command=on_ok,
+                   style="Accent.TButton").pack(pady=(0, 16))
         self.root.wait_window(win)
         return selected[0]
 
@@ -580,8 +831,9 @@ class PlexRenamerApp:
         img = fetch_tmdb_poster(self.show_info["id"], api_key)
         if img:
             photo = ImageTk.PhotoImage(img)
-            # FIX #16: Keep a reference so tkinter doesn't garbage-collect the image
-            self._image_refs.append(photo)
+            # Store on _poster_ref — separate from _image_refs so it
+            # is never cleared when display_preview refreshes the list.
+            self._poster_ref = photo
             self.show_poster_label.configure(image=photo)
         else:
             self.show_poster_label.configure(image="", text="(No poster)")
@@ -885,84 +1137,131 @@ class PlexRenamerApp:
 
     def display_preview(self):
         """
-        FIX #9, #15: Show the rename preview with per-file checkboxes
-        so the user can include or exclude individual files.
-        Shows the target folder when files are being moved cross-folder.
+        Show the rename preview with per-file checkboxes and styled dark cards.
         """
+        c = self.colors
+
         # Clear existing preview widgets
         for w in self.preview_inner.winfo_children():
             w.destroy()
         self._image_refs.clear()
         self.check_vars.clear()
+        self._selected_index = None
+
+        if not self.preview_items:
+            placeholder = ttk.Frame(self.preview_inner, style="TFrame")
+            placeholder.pack(fill="x", pady=60)
+            ttk.Label(placeholder, text="No files to preview",
+                      foreground=c["text_muted"],
+                      font=("Helvetica", 13)).pack(anchor="center")
+            ttk.Label(placeholder, text="Select a show folder, then click Preview",
+                      foreground=c["text_muted"],
+                      font=("Helvetica", 10)).pack(anchor="center", pady=(4, 0))
+            return
 
         for i, item in enumerate(self.preview_items):
-            frame = tk.Frame(self.preview_inner, bd=1, relief="groove", padx=5, pady=3)
-            frame.pack(fill="x", padx=5, pady=2)
+            # Card container
+            card = tk.Frame(self.preview_inner, bg=c["bg_card"],
+                            highlightthickness=1,
+                            highlightbackground=c["border"],
+                            highlightcolor=c["accent"])
+            card.pack(fill="x", padx=4, pady=2, ipadx=10, ipady=7)
 
-            # FIX #15: Checkbox to include/exclude this file from rename
+            # Checkbox — traces _update_tally on every toggle
             key = str(i)
             var = tk.BooleanVar(value=(item["status"] == "OK"))
+            var.trace_add("write", lambda *_, s=self: s._update_tally())
             self.check_vars[key] = var
-            cb = tk.Checkbutton(frame, variable=var)
-            cb.pack(side="left")
+            cb = ttk.Checkbutton(card, variable=var, style="Card.TCheckbutton")
+            cb.pack(side="left", padx=(4, 10))
 
-            # Build display text showing original and new name
+            # Text content area
+            text_area = tk.Frame(card, bg=c["bg_card"])
+            text_area.pack(side="left", fill="x", expand=True)
+
             orig_text = item["original"].name
             src_folder = item["original"].parent.name
 
-            if item["new_name"]:
-                target_dir = item.get("target_dir")
-                if target_dir and target_dir != item["original"].parent:
-                    # Cross-folder move — show the target folder
-                    label_text = (
-                        f"[{src_folder}] {orig_text}\n"
-                        f"  → [{target_dir.name}] {item['new_name']}"
-                    )
-                else:
-                    label_text = f"{orig_text}\n  → {item['new_name']}"
-            else:
-                label_text = f"{orig_text}\n  → [{item['status']}]"
-
-            # Color code by status
-            fg = "black"
+            # Determine colors and display text by status
             if "SKIP" in item["status"]:
-                fg = "gray"
+                name_fg, arrow_fg = c["text_muted"], c["text_muted"]
                 var.set(False)
+                arrow_text = item["status"]
             elif "CONFLICT" in item["status"]:
-                fg = "red"
+                name_fg, arrow_fg = c["error"], c["error"]
                 var.set(False)
+                arrow_text = item["status"]
             elif item.get("target_dir") and item["target_dir"] != item["original"].parent:
-                # Highlight files that will be moved to a different folder
-                fg = "blue"
+                name_fg, arrow_fg = c["text"], c["move"]
+                arrow_text = f"[{item['target_dir'].name}]  {item['new_name']}"
+                orig_text = f"[{src_folder}]  {orig_text}"
+            else:
+                name_fg, arrow_fg = c["text"], c["success"]
+                arrow_text = item["new_name"] or ""
 
-            lbl = tk.Label(frame, text=label_text, justify="left", anchor="w", fg=fg)
-            lbl.pack(side="left", fill="x", expand=True)
+            orig_lbl = tk.Label(text_area, text=orig_text, bg=c["bg_card"],
+                                fg=name_fg, anchor="w", font=("Helvetica", 11))
+            orig_lbl.pack(anchor="w")
 
-            # Click to show episode detail
-            lbl.bind("<Button-1>", lambda e, idx=i: self.show_episode_detail(idx))
+            if arrow_text:
+                new_lbl = tk.Label(text_area, text=f"  →  {arrow_text}",
+                                    bg=c["bg_card"], fg=arrow_fg, anchor="w",
+                                    font=("Helvetica", 10))
+                new_lbl.pack(anchor="w")
+            else:
+                new_lbl = None
 
+            # Click handlers for detail view
+            for w in [card, text_area, orig_lbl] + ([new_lbl] if new_lbl else []):
+                w.bind("<Button-1>", lambda e, idx=i: self._select_card(idx))
+
+        # Status bar
         count_ok = sum(1 for it in self.preview_items if it["status"] == "OK")
         count_move = sum(1 for it in self.preview_items
                          if it.get("target_dir") and it["target_dir"] != it["original"].parent)
-        status = f"Preview: {count_ok} files ready to rename"
+        parts = [f"{count_ok} ready"]
         if count_move:
-            status += f", {count_move} will be moved to a different folder"
-        skip_count = len(self.preview_items) - count_ok
-        if skip_count:
-            status += f", {skip_count} skipped/conflicting"
-        self.status_var.set(status)
+            parts.append(f"{count_move} moving")
+        skip = len(self.preview_items) - count_ok
+        if skip:
+            parts.append(f"{skip} skipped")
+        self.status_var.set("Preview:  " + "  ·  ".join(parts))
+
+        # Update selection tally
+        self._update_tally()
+
+    def _select_card(self, index):
+        """Highlight the selected card and show its detail."""
+        c = self.colors
+        for i, widget in enumerate(self.preview_inner.winfo_children()):
+            if isinstance(widget, tk.Frame):
+                widget.configure(highlightbackground=c["border"])
+        children = self.preview_inner.winfo_children()
+        if index < len(children) and isinstance(children[index], tk.Frame):
+            children[index].configure(highlightbackground=c["accent"])
+        self._selected_index = index
+        self.show_episode_detail(index)
 
     def show_episode_detail(self, index):
-        """Show detail info and episode still for a selected preview item."""
+        """Show styled detail info and episode still for a selected item."""
+        c = self.colors
         item = self.preview_items[index]
-        info_lines = [
-            f"Original: {item['original'].name}",
-            f"New: {item['new_name'] or 'N/A'}",
-            f"Season: {item['season']}",
-            f"Episode(s): {item['episodes']}",
-            f"Status: {item['status']}",
-        ]
-        self.detail_label.configure(text="\n".join(info_lines))
+
+        # Build detail text with labels
+        lines = []
+        lines.append(f"Original\n{item['original'].name}\n")
+        if item['new_name']:
+            lines.append(f"New Name\n{item['new_name']}\n")
+        lines.append(f"Season {item['season']}  ·  "
+                      f"Episode{'s' if len(item['episodes']) > 1 else ''} "
+                      f"{', '.join(str(e) for e in item['episodes']) if item['episodes'] else '—'}\n")
+
+        status_text = item['status']
+        if item.get("target_dir") and item["target_dir"] != item["original"].parent:
+            status_text += f"\nMoving to {item['target_dir'].name}"
+
+        lines.append(status_text)
+        self.detail_label.configure(text="\n".join(lines))
 
         # Try to load episode still image
         if item["episodes"]:
@@ -1183,17 +1482,6 @@ class PlexRenamerApp:
         if self.folder and self.show_info:
             self.run_preview(dry_run=True)
 
-        if errors:
-            messagebox.showwarning("Partial Undo",
-                                   f"Errors:\n" + "\n".join(errors[:5]))
-        else:
-            messagebox.showinfo("Undone", "Rename successfully undone.")
-
-        self.status_var.set("Undo complete.")
-        # Refresh preview if a folder is loaded
-        if self.folder and self.show_info:
-            self.run_preview(dry_run=True)
-
     def update_search(self):
         """
         Filter the preview list based on the search bar text.
@@ -1206,9 +1494,51 @@ class PlexRenamerApp:
             item = self.preview_items[i]
             text = (item["original"].name + " " + (item["new_name"] or "")).lower()
             if query in text:
-                widget.pack(fill="x", padx=5, pady=2)
+                widget.pack(fill="x", padx=4, pady=2, ipadx=10, ipady=7)
             else:
                 widget.pack_forget()
+
+    def select_all(self):
+        """
+        Toggle selection: if all selectable items are checked, uncheck them all.
+        Otherwise, check all selectable items.
+        """
+        selectable = []
+        for i, item in enumerate(self.preview_items):
+            if item["status"] == "OK":
+                selectable.append(str(i))
+
+        if not selectable:
+            return
+
+        # Check if all selectable are currently checked
+        all_checked = all(
+            self.check_vars.get(k, tk.BooleanVar(value=False)).get()
+            for k in selectable
+        )
+
+        # Toggle: if all checked -> uncheck all; otherwise check all
+        new_val = not all_checked
+        for k in selectable:
+            if k in self.check_vars:
+                self.check_vars[k].set(new_val)
+
+        self._update_tally()
+
+    def _update_tally(self):
+        """
+        Update the running tally showing how many episodes are selected
+        out of the total selectable episodes.
+        """
+        total_selectable = sum(1 for it in self.preview_items if it["status"] == "OK")
+        selected = 0
+        for i, item in enumerate(self.preview_items):
+            if item["status"] == "OK":
+                var = self.check_vars.get(str(i))
+                if var and var.get():
+                    selected += 1
+
+        self.tally_var.set(f"{selected} / {total_selectable}")
 
     def run(self):
         """Start the tkinter main loop. FIX #11: Separated from __init__."""
