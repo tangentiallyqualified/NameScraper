@@ -277,14 +277,14 @@ def tmdb_episode_titles(show_id, season, api_key):
     return titles, posters
 
 
-def fetch_tmdb_poster(tmdb_id, api_key, season=None, ep_poster=None):
+def fetch_tmdb_poster(tmdb_id, api_key, season=None, ep_poster=None, target_width=300):
     """
     Fetch a poster/still image from TMDB.
 
     Priority: episode still -> season poster -> show poster.
-    Returns a PIL Image object (not yet converted to ImageTk) or None.
+    Returns a PIL Image object scaled to target_width, or None.
     """
-    base = "https://image.tmdb.org/t/p/w300"
+    base = "https://image.tmdb.org/t/p/w500"
     path = ep_poster
 
     if not path:
@@ -308,7 +308,10 @@ def fetch_tmdb_poster(tmdb_id, api_key, season=None, ep_poster=None):
         try:
             img_r = requests.get(base + path, timeout=10)
             img = Image.open(io.BytesIO(img_r.content))
-            img = img.resize((200, int(img.height * 200 / img.width)))
+            # Scale to target width while preserving aspect ratio
+            scale = target_width / img.width
+            new_h = int(img.height * scale)
+            img = img.resize((target_width, new_h), Image.LANCZOS)
             return img
         except Exception:
             return None
@@ -402,10 +405,56 @@ class PlexRenamerApp:
     """
 
     def __init__(self):
+        # --- Windows DPI awareness (must be set BEFORE creating Tk) ---
+        # Without this, Windows UI scaling (125%, 150%, etc.) causes
+        # blurry text and incorrect layout measurements.
+        try:
+            import ctypes
+            # Per-monitor DPI aware (Windows 8.1+)
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except (AttributeError, OSError):
+            try:
+                # Fallback: system DPI aware (Windows Vista+)
+                ctypes.windll.user32.SetProcessDPIAware()
+            except (AttributeError, OSError):
+                pass  # Not on Windows, or old version — skip
+
         self.root = tk.Tk()
         self.root.title("Plex Renamer")
-        self.root.geometry("1200x800")
-        self.root.minsize(900, 600)
+
+        # Tkinter's tk scaling tells us the ratio of pixels to "points".
+        # On a 96 DPI display this is 1.0; at 150% Windows scaling it's ~1.5.
+        # winfo_screenwidth/height return values in tk's coordinate space,
+        # which may already be divided by the scale factor. We use these
+        # directly for geometry (since geometry uses the same coordinate
+        # space) but remove the hard pixel cap that was preventing the
+        # window from being large enough on high-DPI screens.
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+
+        # Use 92% of screen width and 85% of height — leaves room for
+        # the taskbar which winfo_screenheight includes in its measurement.
+        win_w = int(screen_w * 0.92)
+        win_h = int(screen_h * 0.85)
+
+        # Center horizontally, pin near the top vertically.
+        # winfo_screenheight() includes the taskbar, so centering
+        # vertically pushes the bottom of the window behind it.
+        # A small top offset (10px) keeps the title bar accessible.
+        x = (screen_w - win_w) // 2
+        y = 10
+        self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        self.root.minsize(760, 500)
+
+        # Detect the DPI scale factor so we can size custom-drawn elements
+        # (checkboxes, dialog windows) correctly on high-DPI displays.
+        # tk scaling returns pixels-per-point; base is ~1.0 at 96 DPI.
+        try:
+            self.dpi_scale = self.root.tk.call("tk", "scaling")
+            if self.dpi_scale < 1.0:
+                self.dpi_scale = 1.0
+        except Exception:
+            self.dpi_scale = 1.0
 
         # State
         self.folder = None
@@ -517,16 +566,31 @@ class PlexRenamerApp:
         self.root.option_add("*TCombobox*Listbox.borderWidth", "0")
         self.root.option_add("*TCombobox*Listbox.highlightThickness", "0")
 
-        # Checkbutton
+        # Checkbutton — custom indicator images for usable size on high-DPI
+        # ttk's native checkbox is tiny on Windows with DPI scaling.
+        # Scale the checkbox size with the DPI factor.
+        check_size = max(20, int(18 * self.dpi_scale))
+        self._check_imgs = self._create_checkbox_images(c, size=check_size)
+        style.element_create("custom_check", "image", self._check_imgs["unchecked"],
+                              ("selected", self._check_imgs["checked"]),
+                              sticky="w")
+        style.layout("Card.TCheckbutton", [
+            ("Checkbutton.padding", {"sticky": "nswe", "children": [
+                ("custom_check", {"side": "left", "sticky": ""}),
+                ("Checkbutton.label", {"side": "left", "sticky": "nswe"})
+            ]})
+        ])
         style.configure("Card.TCheckbutton", background=c["bg_card"],
                          foreground=c["text"])
         style.map("Card.TCheckbutton",
                    background=[("active", c["bg_card_hover"])])
 
-        # Scrollbar
+        # Scrollbar — scale width with DPI for usability
+        sb_width = max(14, int(12 * self.dpi_scale))
         style.configure("TScrollbar", background=c["bg_mid"],
                          troughcolor=c["bg_dark"], borderwidth=0,
-                         arrowcolor=c["text_dim"])
+                         arrowcolor=c["text_dim"], width=sb_width,
+                         arrowsize=sb_width)
 
         # Separator
         style.configure("TSeparator", background=c["border"])
@@ -568,64 +632,66 @@ class PlexRenamerApp:
         # Separator
         ttk.Separator(self.root, orient="horizontal").pack(fill="x")
 
-        # --- Action bar ---
+        # --- Action bar (two-row grid for proper scaling) ---
         action_bar = ttk.Frame(self.root)
-        action_bar.pack(fill="x", padx=20, pady=12)
+        action_bar.pack(fill="x", padx=20, pady=(10, 6))
+        # Column 0 stretches to absorb extra space (filter entry lives here)
+        action_bar.columnconfigure(2, weight=1)
 
+        # Row 0: Folder selector, order dropdown, filter
         ttk.Button(action_bar, text="Select Show Folder",
                    command=self.pick_folder,
-                   style="TButton").pack(side="left", padx=(0, 10))
+                   style="TButton").grid(row=0, column=0, padx=(0, 8), sticky="w")
 
-        # Episode order selector
         order_frame = ttk.Frame(action_bar)
-        order_frame.pack(side="left", padx=(0, 10))
+        order_frame.grid(row=0, column=1, padx=(0, 8), sticky="w")
         ttk.Label(order_frame, text="Order:",
-                  foreground=c["text_dim"]).pack(side="left", padx=(0, 6))
+                  foreground=c["text_dim"]).pack(side="left", padx=(0, 4))
         self.order_var = tk.StringVar(value="aired")
         ttk.Combobox(order_frame, textvariable=self.order_var,
                       values=["aired", "dvd", "absolute"],
-                      width=10, state="readonly").pack(side="left")
+                      width=9, state="readonly").pack(side="left")
 
-        # Search / filter
         search_frame = ttk.Frame(action_bar)
-        search_frame.pack(side="left", fill="x", expand=True, padx=(10, 10))
+        search_frame.grid(row=0, column=2, sticky="ew", padx=(0, 8))
         ttk.Label(search_frame, text="Filter:",
-                  foreground=c["text_dim"]).pack(side="left", padx=(0, 6))
+                  foreground=c["text_dim"]).pack(side="left", padx=(0, 4))
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var,
-                                  width=30)
-        search_entry.pack(side="left", fill="x", expand=True)
+        ttk.Entry(search_frame, textvariable=self.search_var).pack(
+            side="left", fill="x", expand=True)
         self.search_var.trace_add("write", lambda *_: self.update_search())
 
-        # Selection controls: Select All + tally counter
+        # Row 1: Selection controls (left) + action buttons (right)
+        # Small vertical gap between rows
         sel_frame = ttk.Frame(action_bar)
-        sel_frame.pack(side="right", padx=(0, 12))
+        sel_frame.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         self.tally_var = tk.StringVar(value="0 / 0")
         ttk.Label(sel_frame, textvariable=self.tally_var,
                   foreground=c["accent"],
-                  font=("Helvetica", 11, "bold")).pack(side="left", padx=(0, 8))
+                  font=("Helvetica", 11, "bold")).pack(side="left", padx=(0, 4))
         ttk.Label(sel_frame, text="selected",
                   foreground=c["text_dim"],
                   font=("Helvetica", 10)).pack(side="left", padx=(0, 10))
-
         ttk.Button(sel_frame, text="Select All",
                    command=self.select_all,
                    style="Small.TButton").pack(side="left")
 
-        # Preview + Rename buttons (right side, prominent)
-        ttk.Button(action_bar, text="Refresh",
+        btn_frame = ttk.Frame(action_bar)
+        btn_frame.grid(row=1, column=2, sticky="e", pady=(8, 0))
+
+        ttk.Button(btn_frame, text="Refresh",
                    command=lambda: self.run_preview(dry_run=True),
-                   style="TButton").pack(side="right", padx=(8, 0))
-        ttk.Button(action_bar, text="Rename Files",
+                   style="TButton").pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="Rename Files",
                    command=self.execute_rename,
-                   style="Accent.TButton").pack(side="right")
+                   style="Accent.TButton").pack(side="left")
 
         # --- Main content area (split: file list + detail panel) ---
         content = ttk.Frame(self.root)
         content.pack(fill="both", expand=True, padx=20, pady=(0, 0))
-        content.columnconfigure(0, weight=3)
-        content.columnconfigure(1, weight=0)
+        content.columnconfigure(0, weight=3, minsize=350)
+        content.columnconfigure(1, weight=1, minsize=300)
         content.rowconfigure(0, weight=1)
 
         # Left: scrollable preview list
@@ -649,6 +715,15 @@ class PlexRenamerApp:
         scrollbar.pack(side="right", fill="y")
         self.preview_canvas.pack(side="left", fill="both", expand=True)
 
+        # Sync the inner frame width to the canvas width so cards
+        # packed with fill="x" stretch to the full available width,
+        # eliminating the gap between the cards and the scrollbar.
+        def _sync_preview_width(event):
+            self.preview_canvas.itemconfig(
+                self.preview_canvas.find_all()[0], width=event.width
+            )
+        self.preview_canvas.bind("<Configure>", _sync_preview_width)
+
         # Mousewheel scrolling
         def _on_mousewheel(event):
             self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
@@ -659,34 +734,90 @@ class PlexRenamerApp:
         self.preview_canvas.bind_all("<Button-5>",
                                       lambda e: self.preview_canvas.yview_scroll(3, "units"))
 
-        # Right: detail / poster panel
-        detail_panel = ttk.Frame(content, style="Mid.TFrame", width=280)
+        # Right: detail / poster panel (scrollable to prevent overflow)
+        detail_panel = ttk.Frame(content, style="Mid.TFrame")
         detail_panel.grid(row=0, column=1, sticky="nsew")
-        detail_panel.grid_propagate(False)
 
-        detail_inner = ttk.Frame(detail_panel, style="Mid.TFrame")
-        detail_inner.pack(fill="both", expand=True, padx=16, pady=16)
+        # Scrollable container for the detail panel — prevents content
+        # (poster + detail text + episode still) from running off the
+        # bottom of the window on smaller or scaled displays.
+        detail_canvas = tk.Canvas(detail_panel, bg=c["bg_mid"],
+                                   highlightthickness=0, bd=0)
+        detail_scrollbar = ttk.Scrollbar(detail_panel, orient="vertical",
+                                          command=detail_canvas.yview)
+        self.detail_inner = ttk.Frame(detail_canvas, style="Mid.TFrame")
+        self.detail_inner.bind(
+            "<Configure>",
+            lambda e: detail_canvas.configure(
+                scrollregion=detail_canvas.bbox("all")
+            )
+        )
+        detail_canvas.create_window((0, 0), window=self.detail_inner,
+                                     anchor="nw")
+        detail_canvas.configure(yscrollcommand=detail_scrollbar.set)
+        detail_scrollbar.pack(side="right", fill="y")
+        detail_canvas.pack(side="left", fill="both", expand=True)
 
-        # Show poster at top of detail panel
-        self.show_poster_label = ttk.Label(detail_inner, style="Detail.TLabel",
+        # Sync detail_inner width to the canvas so content fills horizontally
+        def _sync_detail_width(event):
+            detail_canvas.itemconfig(
+                detail_canvas.find_all()[0], width=event.width
+            )
+        detail_canvas.bind("<Configure>", _sync_detail_width)
+
+        # Mousewheel scrolling for detail panel
+        def _detail_mousewheel(event):
+            detail_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        detail_canvas.bind("<Enter>",
+                            lambda e: detail_canvas.bind_all("<MouseWheel>", _detail_mousewheel))
+        detail_canvas.bind("<Leave>",
+                            lambda e: detail_canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        # Linux scroll for detail panel
+        detail_canvas.bind("<Enter>", lambda e: (
+            detail_canvas.bind_all("<Button-4>",
+                                    lambda ev: detail_canvas.yview_scroll(-3, "units")),
+            detail_canvas.bind_all("<Button-5>",
+                                    lambda ev: detail_canvas.yview_scroll(3, "units"))
+        ), add="+")
+        detail_canvas.bind("<Leave>", lambda e: (
+            self.preview_canvas.bind_all("<Button-4>",
+                                          lambda ev: self.preview_canvas.yview_scroll(-3, "units")),
+            self.preview_canvas.bind_all("<Button-5>",
+                                          lambda ev: self.preview_canvas.yview_scroll(3, "units"))
+        ), add="+")
+
+        # Detail panel content (inside scrollable frame)
+        pad = ttk.Frame(self.detail_inner, style="Mid.TFrame")
+        pad.pack(fill="both", expand=True, padx=16, pady=16)
+
+        # Show poster at top of detail panel — centered
+        self.show_poster_label = ttk.Label(pad, style="Detail.TLabel",
                                             background=c["bg_mid"])
-        self.show_poster_label.pack(anchor="center", pady=(0, 12))
+        self.show_poster_label.pack(anchor="center", fill="x", pady=(0, 12))
 
-        ttk.Separator(detail_inner, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=8)
 
         # Episode detail section
-        ttk.Label(detail_inner, text="EPISODE DETAIL",
+        ttk.Label(pad, text="EPISODE DETAIL",
                   style="DetailDim.TLabel",
-                  font=("Helvetica", 9, "bold")).pack(anchor="w", pady=(8, 6))
+                  font=("Helvetica", 9, "bold")).pack(anchor="w", fill="x", pady=(8, 6))
 
-        self.detail_label = ttk.Label(detail_inner, text="Click an episode to view details",
+        # wraplength is set dynamically when the panel resizes
+        self.detail_label = ttk.Label(pad, text="Click an episode to view details",
                                        style="Detail.TLabel",
-                                       wraplength=240, justify="left")
+                                       wraplength=260, justify="left")
         self.detail_label.pack(anchor="w", fill="x")
 
-        self.detail_image = ttk.Label(detail_inner, style="Detail.TLabel",
+        self.detail_image = ttk.Label(pad, style="Detail.TLabel",
                                        background=c["bg_mid"])
-        self.detail_image.pack(anchor="center", pady=(12, 0))
+        self.detail_image.pack(anchor="center", fill="x", pady=(12, 0))
+
+        # Dynamically adjust wraplength and image sizes when panel resizes
+        def _on_detail_resize(event):
+            available = event.width - 40  # account for padding
+            if available > 100:
+                self.detail_label.configure(wraplength=available)
+        pad.bind("<Configure>", _on_detail_resize)
 
         # --- Status bar ---
         status_bar = ttk.Frame(self.root, style="Mid.TFrame")
@@ -700,15 +831,81 @@ class PlexRenamerApp:
     # FIX #9: All GUI methods fully implemented below
     # ------------------------------------------------------------------
 
-    def manage_keys(self):
-        """Dialog to set/update TMDB and TVDB API keys via OS keyring."""
+    @staticmethod
+    def _create_checkbox_images(colors, size=18):
+        """
+        Draw custom checkbox indicator images at the given size.
+        Returns a dict with 'checked' and 'unchecked' PhotoImage objects.
+        These are used as ttk Checkbutton indicators so the checkboxes
+        are a usable size on high-DPI Windows displays.
+        """
+        from PIL import ImageDraw
+
+        # Unchecked: rounded square outline
+        img_off = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw_off = ImageDraw.Draw(img_off)
+        # Parse the border color
+        border = colors["border_light"]
+        draw_off.rounded_rectangle([1, 1, size - 2, size - 2],
+                                    radius=3, outline=border, width=2)
+
+        # Checked: filled rounded square with a checkmark
+        img_on = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw_on = ImageDraw.Draw(img_on)
+        accent = colors["accent"]
+        draw_on.rounded_rectangle([1, 1, size - 2, size - 2],
+                                   radius=3, fill=accent)
+        # Draw a checkmark in dark color
+        dark = colors["bg_dark"]
+        # Checkmark path scaled to the box size
+        cx, cy = size * 0.28, size * 0.52
+        mx, my = size * 0.45, size * 0.70
+        ex, ey = size * 0.75, size * 0.32
+        draw_on.line([(cx, cy), (mx, my), (ex, ey)],
+                      fill=dark, width=max(2, size // 8))
+
+        return {
+            "unchecked": ImageTk.PhotoImage(img_off),
+            "checked": ImageTk.PhotoImage(img_on),
+        }
+
+    def _create_dialog(self, title, width=500, height=300):
+        """
+        Create a properly sized and centered Toplevel dialog window.
+        Accounts for DPI scaling so dialogs aren't squished on high-DPI
+        displays. Centers the dialog over the main window.
+        """
         c = self.colors
         win = tk.Toplevel(self.root)
-        win.title("API Keys")
-        win.geometry("480x220")
+        win.title(title)
         win.configure(bg=c["bg_mid"])
         win.transient(self.root)
         win.grab_set()
+
+        # Scale dimensions with DPI
+        scaled_w = int(width * self.dpi_scale)
+        scaled_h = int(height * self.dpi_scale)
+
+        # Center over the main window
+        self.root.update_idletasks()
+        root_x = self.root.winfo_x()
+        root_y = self.root.winfo_y()
+        root_w = self.root.winfo_width()
+        root_h = self.root.winfo_height()
+        x = root_x + (root_w - scaled_w) // 2
+        y = root_y + (root_h - scaled_h) // 2
+        # Keep on screen
+        x = max(0, x)
+        y = max(0, y)
+
+        win.geometry(f"{scaled_w}x{scaled_h}+{x}+{y}")
+        win.minsize(scaled_w, scaled_h)
+        return win
+
+    def manage_keys(self):
+        """Dialog to set/update TMDB and TVDB API keys via OS keyring."""
+        c = self.colors
+        win = self._create_dialog("API Keys", width=480, height=200)
 
         ttk.Label(win, text="API KEY MANAGER", style="Title.TLabel",
                   font=("Helvetica", 14, "bold"),
@@ -781,12 +978,7 @@ class PlexRenamerApp:
             return results[0]
 
         c = self.colors
-        win = tk.Toplevel(self.root)
-        win.title("Select Show")
-        win.geometry("520x400")
-        win.configure(bg=c["bg_mid"])
-        win.transient(self.root)
-        win.grab_set()
+        win = self._create_dialog("Select Show", width=520, height=400)
 
         ttk.Label(win, text="SELECT SHOW", style="Title.TLabel",
                   font=("Helvetica", 14, "bold"),
@@ -824,15 +1016,26 @@ class PlexRenamerApp:
         return selected[0]
 
     def _display_show_poster(self):
-        """Fetch and display the show poster in the detail panel."""
+        """Fetch and display the show poster in the detail panel, sized to fit."""
         if not self.show_info:
             return
         api_key = get_api_key("TMDB")
-        img = fetch_tmdb_poster(self.show_info["id"], api_key)
+        # Fetch at a generous width — will be displayed at panel width
+        img = fetch_tmdb_poster(self.show_info["id"], api_key, target_width=400)
         if img:
+            # Scale poster to fit the detail panel width (minus padding)
+            self.root.update_idletasks()
+            try:
+                panel_w = self.detail_inner.winfo_width() - 40
+            except Exception:
+                panel_w = 280
+            if panel_w < 150:
+                panel_w = 280
+            if img.width > panel_w:
+                scale = panel_w / img.width
+                img = img.resize((panel_w, int(img.height * scale)), Image.LANCZOS)
+
             photo = ImageTk.PhotoImage(img)
-            # Store on _poster_ref — separate from _image_refs so it
-            # is never cleared when display_preview refreshes the list.
             self._poster_ref = photo
             self.show_poster_label.configure(image=photo)
         else:
@@ -1263,16 +1466,28 @@ class PlexRenamerApp:
         lines.append(status_text)
         self.detail_label.configure(text="\n".join(lines))
 
-        # Try to load episode still image
+        # Try to load episode still image, scaled to panel width
         if item["episodes"]:
             poster_path = self.episode_posters.get((item["season"], item["episodes"][0]))
             api_key = get_api_key("TMDB")
             if poster_path and api_key and self.show_info:
                 img = fetch_tmdb_poster(
                     self.show_info["id"], api_key,
-                    season=item["season"], ep_poster=poster_path
+                    season=item["season"], ep_poster=poster_path,
+                    target_width=400
                 )
                 if img:
+                    # Scale to fit panel width
+                    try:
+                        panel_w = self.detail_inner.winfo_width() - 40
+                    except Exception:
+                        panel_w = 280
+                    if panel_w < 150:
+                        panel_w = 280
+                    if img.width > panel_w:
+                        scale = panel_w / img.width
+                        img = img.resize((panel_w, int(img.height * scale)), Image.LANCZOS)
+
                     photo = ImageTk.PhotoImage(img)
                     self._image_refs.append(photo)
                     self.detail_image.configure(image=photo)
