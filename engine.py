@@ -444,6 +444,73 @@ class MovieScanner:
             if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
         )
 
+    @staticmethod
+    def _filter_sequential_batches(
+        files: list[Path],
+    ) -> tuple[list[Path], list[PreviewItem]]:
+        """
+        Detect groups of files that look like sequentially numbered TV episodes.
+
+        Groups files by parent folder, extracts a dash-delimited number from
+        each filename (e.g. "Title - 03"), and if 3+ files in the same folder
+        share a common prefix with sequential-ish numbers, marks them as TV skips.
+
+        Returns (remaining_files, skipped_items).
+        """
+        # Pattern: anything, then " - ##" before tags/extension
+        _NUM_PATTERN = re.compile(
+            r"^(.*?)\s*-\s*(\d{1,3})\s*(?:[\s.\-(v]|$)",
+        )
+
+        # Group by parent folder
+        from collections import defaultdict
+        by_folder: dict[Path, list[tuple[Path, str, int]]] = defaultdict(list)
+
+        for f in files:
+            m = _NUM_PATTERN.search(f.stem)
+            if m:
+                prefix = m.group(1).strip().lower()
+                num = int(m.group(2))
+                # Skip numbers that look like years
+                if 1900 <= num <= 2099:
+                    continue
+                by_folder[f.parent].append((f, prefix, num))
+
+        # Find sequential batches (3+ files with same prefix)
+        skip_set: set[Path] = set()
+        for folder, entries in by_folder.items():
+            # Group by prefix
+            prefix_groups: dict[str, list[tuple[Path, int]]] = defaultdict(list)
+            for f, prefix, num in entries:
+                prefix_groups[prefix].append((f, num))
+
+            for prefix, group in prefix_groups.items():
+                if len(group) < 3:
+                    continue
+                # Check if numbers are roughly sequential (allow gaps)
+                nums = sorted(n for _, n in group)
+                # If the range of numbers is reasonable for a TV series
+                # (not like 1, 500, 999) and there are enough of them
+                num_range = nums[-1] - nums[0]
+                if num_range < len(group) * 3:  # Allow some gaps
+                    for f, _ in group:
+                        skip_set.add(f)
+
+        remaining = []
+        skipped = []
+        for f in files:
+            if f in skip_set:
+                skipped.append(PreviewItem(
+                    original=f, new_name=None, target_dir=None,
+                    season=None, episodes=[],
+                    status="SKIP: looks like a TV episode (sequential batch)",
+                    media_type=MediaType.MOVIE,
+                ))
+            else:
+                remaining.append(f)
+
+        return remaining, skipped
+
     def scan(
         self,
         pick_movie_callback: callable | None = None,
@@ -477,6 +544,14 @@ class MovieScanner:
                 ))
             else:
                 video_files.append(f)
+
+        # Phase 1b: Batch detection — if 3+ remaining files in the same
+        # folder share a common name prefix with sequential dash-delimited
+        # numbers (e.g. "Title - 01", "Title - 02", "Title - 03"), they're
+        # almost certainly TV episodes even without S##E## markers.
+        if len(video_files) >= 3:
+            video_files, batch_skipped = self._filter_sequential_batches(video_files)
+            items.extend(batch_skipped)
 
         if not video_files:
             return items
