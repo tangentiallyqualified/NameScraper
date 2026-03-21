@@ -240,10 +240,36 @@ def get_season(folder):
       - "Staffel 3" (German)
       - "Saison 3" (French)
       - Bare number folders: "02", "2" (only 1-2 digits)
+      - "Season 00", "S00" → 0
+      - Specials/extras folders → 0 (mapped to Plex Season 00)
 
     Returns the season number as an int, or None if not found.
     """
     name = folder.name
+
+    # Pattern 0: Specials / extras folders → Season 0
+    # These map to Plex's "Season 00" (Specials) convention.
+    _specials = re.compile(
+        r"^(?:"
+        r"specials?|extras?|bonus|behind[\s._\-]*the[\s._\-]*scenes"
+        r"|deleted[\s._\-]*scenes|featurettes?|shorts?"
+        r"|OVAs?|OADs?|ONAs?|movies?"
+        r"|special[\s._\-]*features?"
+        r"|Season[\s._\-]*0+(?:[\s._\-]|$)"  # "Season 0", "Season 00"
+        r")$",
+        re.IGNORECASE
+    )
+    # Check if the ENTIRE folder name is a specials keyword,
+    # or if it ends with one after the show name prefix
+    if _specials.match(name.strip()):
+        return 0
+    # Also match "Show Name - Specials" or "Show Name Extras"
+    if re.search(
+        r"[\s._\-](?:specials?|extras?|bonus|OVAs?|OADs?|ONAs?|"
+        r"special[\s._\-]*features?|featurettes?|shorts?)$",
+        name, re.IGNORECASE
+    ):
+        return 0
 
     # Pattern 1: "Season ##" anywhere in the name
     m = re.search(r"season\s*(\d+)", name, re.IGNORECASE)
@@ -628,6 +654,13 @@ class PlexRenamerApp:
             "error":        "#d44040",
             "info":         "#4a9eda",
             "move":         "#6c8ebf",
+            # Badge colors for episode types
+            "badge_multi_bg":   "#2d1f4e",     # Deep purple bg
+            "badge_multi_fg":   "#b48efa",     # Soft purple text
+            "badge_multi_bd":   "#4a3370",     # Purple border
+            "badge_special_bg": "#1a3a2a",     # Deep teal bg
+            "badge_special_fg": "#5ec4a0",     # Teal text
+            "badge_special_bd": "#2a5e45",     # Teal border
         }
         c = self.colors
 
@@ -1221,12 +1254,13 @@ class PlexRenamerApp:
 
         for season_info in show_data.get("seasons", []):
             sn = season_info.get("season_number", 0)
-            if sn == 0:
-                continue  # Skip specials
             titles, posters = tmdb_episode_titles(self.show_info["id"], sn, api_key)
             count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
             tmdb_seasons[sn] = {"titles": titles, "posters": posters, "count": count}
-            total_episodes += count
+            # Don't count specials toward the total episode count
+            # (used for season mismatch detection)
+            if sn > 0:
+                total_episodes += count
 
         return tmdb_seasons, total_episodes
 
@@ -1246,8 +1280,9 @@ class PlexRenamerApp:
         user_season_nums = {sn for _, sn in season_dirs}
         tmdb_season_nums = set(tmdb_seasons.keys())
 
-        # Mismatch if user has seasons that TMDB doesn't
-        extra_user_seasons = user_season_nums - tmdb_season_nums
+        # Exclude Season 0 (specials) from mismatch detection — specials
+        # folders are handled separately and shouldn't trigger consolidation.
+        extra_user_seasons = (user_season_nums - tmdb_season_nums) - {0}
         if extra_user_seasons:
             return True, user_season_nums, tmdb_season_nums
 
@@ -1440,6 +1475,12 @@ class PlexRenamerApp:
         Build preview items using normal per-folder processing.
         Used when folder structure matches TMDB or the user declined
         the consolidation fix.
+
+        Season 0 (specials/extras) gets special handling:
+          - Fetches TMDB Season 0 data if available
+          - Tries to match files by episode number or fuzzy title match
+          - If matched: renames with proper Plex formatting
+          - If not matched: keeps original filename, just moves to Season 00
         """
         for season_dir, season_num in season_dirs:
             if isinstance(season_dir, tuple):
@@ -1455,11 +1496,83 @@ class PlexRenamerApp:
             self.episode_titles.update({(season_num, k): v for k, v in titles.items()})
             self.episode_posters.update({(season_num, k): v for k, v in posters.items()})
 
+            # For Season 0 (specials), build a lookup of normalized TMDB
+            # titles so we can fuzzy-match files that don't have episode numbers.
+            tmdb_title_lookup = {}  # normalized_title -> (ep_num, original_title)
+            if season_num == 0 and titles:
+                for ep_num, title in titles.items():
+                    normalized = re.sub(r"[^a-z0-9]+", "", title.lower())
+                    tmdb_title_lookup[normalized] = (ep_num, title)
+
+            # Target dir for specials: always "Season 00"
+            specials_target = self.folder / "Season 00" if season_num == 0 else None
+
             for f in sorted(season_dir.iterdir()):
                 if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
                     continue
 
                 eps, raw_title, is_season_relative = extract_episode(f.name)
+
+                # --- Season 0 special handling ---
+                if season_num == 0:
+                    matched_ep = None
+                    matched_title = None
+
+                    # Try 1: Match by episode number if we parsed one
+                    if eps:
+                        for ep_num in eps:
+                            if ep_num in titles:
+                                matched_ep = ep_num
+                                matched_title = titles[ep_num]
+                                break
+
+                    # Try 2: Fuzzy match by title from the filename
+                    if not matched_ep and raw_title:
+                        normalized_raw = re.sub(r"[^a-z0-9]+", "", raw_title.lower())
+                        if normalized_raw in tmdb_title_lookup:
+                            matched_ep, matched_title = tmdb_title_lookup[normalized_raw]
+                        else:
+                            # Partial match: check if any TMDB title contains
+                            # the filename title or vice versa
+                            for norm_key, (ep_n, orig_t) in tmdb_title_lookup.items():
+                                if (normalized_raw and norm_key and
+                                    (normalized_raw in norm_key or norm_key in normalized_raw)):
+                                    matched_ep = ep_n
+                                    matched_title = orig_t
+                                    break
+
+                    if matched_ep is not None:
+                        # Found a TMDB match — rename with proper formatting
+                        new_name = build_name(
+                            self.show_info["name"],
+                            self.show_info["year"],
+                            0,
+                            [matched_ep],
+                            [matched_title],
+                            f.suffix
+                        )
+                        self.preview_items.append({
+                            "original": f,
+                            "new_name": new_name,
+                            "target_dir": specials_target,
+                            "season": 0,
+                            "episodes": [matched_ep],
+                            "status": "OK",
+                        })
+                    else:
+                        # No TMDB match — keep original filename, just
+                        # ensure it ends up in the Season 00 directory.
+                        self.preview_items.append({
+                            "original": f,
+                            "new_name": f.name,  # Keep original name
+                            "target_dir": specials_target,
+                            "season": 0,
+                            "episodes": eps,
+                            "status": "OK",
+                        })
+                    continue
+
+                # --- Normal season handling ---
                 if not eps:
                     self.preview_items.append({
                         "original": f,
@@ -1471,7 +1584,6 @@ class PlexRenamerApp:
                     })
                     continue
 
-                # For normal mode, use the parsed episode numbers directly.
                 # Look up TMDB titles for ALL episodes (multi-ep files
                 # like S01E01-E02 need both "Rising (1)" and "Rising (2)").
                 ep_titles = []
@@ -1536,12 +1648,29 @@ class PlexRenamerApp:
             return
 
         for i, item in enumerate(self.preview_items):
-            # Card container
+            # Detect card type for visual distinction
+            is_multi = len(item.get("episodes", [])) > 1
+            is_special = item.get("season") == 0
+
+            # Card container — specials and multi-eps get a colored left border
+            if is_special:
+                card_border = c["badge_special_bd"]
+            elif is_multi:
+                card_border = c["badge_multi_bd"]
+            else:
+                card_border = c["border"]
+
             card = tk.Frame(self.preview_inner, bg=c["bg_card"],
                             highlightthickness=1,
-                            highlightbackground=c["border"],
+                            highlightbackground=card_border,
                             highlightcolor=c["accent"])
             card.pack(fill="x", padx=4, pady=2, ipadx=10, ipady=7)
+
+            # Colored left accent bar for specials/multi-episode
+            if is_special or is_multi:
+                accent_color = c["badge_special_bd"] if is_special else c["badge_multi_bd"]
+                accent_bar = tk.Frame(card, bg=accent_color, width=4)
+                accent_bar.pack(side="left", fill="y", padx=(0, 6))
 
             # Checkbox — traces _update_tally on every toggle
             key = str(i)
@@ -1554,6 +1683,32 @@ class PlexRenamerApp:
             # Text content area
             text_area = tk.Frame(card, bg=c["bg_card"])
             text_area.pack(side="left", fill="x", expand=True)
+
+            # Top row: badges + original filename
+            top_row = tk.Frame(text_area, bg=c["bg_card"])
+            top_row.pack(anchor="w", fill="x")
+
+            # Type badges
+            if is_multi:
+                ep_count = len(item["episodes"])
+                badge_m = tk.Label(top_row, text=f" {ep_count}-PART ",
+                                    bg=c["badge_multi_bg"],
+                                    fg=c["badge_multi_fg"],
+                                    font=("Helvetica", 8, "bold"),
+                                    padx=4, pady=1,
+                                    highlightthickness=1,
+                                    highlightbackground=c["badge_multi_bd"])
+                badge_m.pack(side="left", padx=(0, 6), pady=1)
+
+            if is_special:
+                badge_s = tk.Label(top_row, text=" SPECIAL ",
+                                    bg=c["badge_special_bg"],
+                                    fg=c["badge_special_fg"],
+                                    font=("Helvetica", 8, "bold"),
+                                    padx=4, pady=1,
+                                    highlightthickness=1,
+                                    highlightbackground=c["badge_special_bd"])
+                badge_s.pack(side="left", padx=(0, 6), pady=1)
 
             orig_text = item["original"].name
             src_folder = item["original"].parent.name
@@ -1575,9 +1730,9 @@ class PlexRenamerApp:
                 name_fg, arrow_fg = c["text"], c["success"]
                 arrow_text = item["new_name"] or ""
 
-            orig_lbl = tk.Label(text_area, text=orig_text, bg=c["bg_card"],
+            orig_lbl = tk.Label(top_row, text=orig_text, bg=c["bg_card"],
                                 fg=name_fg, anchor="w", font=("Helvetica", 11))
-            orig_lbl.pack(anchor="w")
+            orig_lbl.pack(side="left", fill="x", expand=True)
 
             if arrow_text:
                 new_lbl = tk.Label(text_area, text=f"  →  {arrow_text}",
@@ -1588,14 +1743,33 @@ class PlexRenamerApp:
                 new_lbl = None
 
             # Click handlers for detail view
-            for w in [card, text_area, orig_lbl] + ([new_lbl] if new_lbl else []):
+            clickables = [card, text_area, top_row, orig_lbl]
+            if new_lbl:
+                clickables.append(new_lbl)
+            if is_special or is_multi:
+                # Include accent bar and badges in click targets
+                for child in card.winfo_children():
+                    if child not in clickables:
+                        clickables.append(child)
+                for child in top_row.winfo_children():
+                    if child not in clickables:
+                        clickables.append(child)
+            for w in clickables:
                 w.bind("<Button-1>", lambda e, idx=i: self._select_card(idx))
 
-        # Status bar
+        # Status bar with counts by type
         count_ok = sum(1 for it in self.preview_items if it["status"] == "OK")
         count_move = sum(1 for it in self.preview_items
                          if it.get("target_dir") and it["target_dir"] != it["original"].parent)
+        count_multi = sum(1 for it in self.preview_items
+                          if len(it.get("episodes", [])) > 1)
+        count_special = sum(1 for it in self.preview_items
+                            if it.get("season") == 0)
         parts = [f"{count_ok} ready"]
+        if count_multi:
+            parts.append(f"{count_multi} multi-ep")
+        if count_special:
+            parts.append(f"{count_special} specials")
         if count_move:
             parts.append(f"{count_move} moving")
         skip = len(self.preview_items) - count_ok
@@ -1623,13 +1797,28 @@ class PlexRenamerApp:
         c = self.colors
         item = self.preview_items[index]
 
+        is_multi = len(item.get("episodes", [])) > 1
+        is_special = item.get("season") == 0
+
         # Build detail text with labels
         lines = []
+
+        # Type indicator at the top
+        type_tags = []
+        if is_multi:
+            type_tags.append(f"MULTI-EPISODE ({len(item['episodes'])} parts)")
+        if is_special:
+            type_tags.append("SPECIAL")
+        if type_tags:
+            lines.append(" · ".join(type_tags) + "\n")
+
         lines.append(f"Original\n{item['original'].name}\n")
         if item['new_name']:
             lines.append(f"New Name\n{item['new_name']}\n")
-        lines.append(f"Season {item['season']}  ·  "
-                      f"Episode{'s' if len(item['episodes']) > 1 else ''} "
+
+        season_label = "Specials" if item['season'] == 0 else f"Season {item['season']}"
+        lines.append(f"{season_label}  ·  "
+                      f"Episode{'s' if is_multi else ''} "
                       f"{', '.join(str(e) for e in item['episodes']) if item['episodes'] else '—'}\n")
 
         status_text = item['status']
