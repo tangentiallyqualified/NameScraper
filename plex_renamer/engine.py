@@ -67,6 +67,9 @@ class TVScanner:
       - Season structure mismatch detection (user folders vs TMDB)
       - Consolidated (absolute) and per-folder preview building
       - Specials / Season 0 fuzzy matching
+
+    Caches season_dirs and tmdb_seasons after first computation to avoid
+    redundant filesystem walks and API calls across scan/mismatch/consolidated.
     """
 
     def __init__(self, tmdb: TMDBClient, show_info: dict, root_folder: Path):
@@ -76,6 +79,43 @@ class TVScanner:
         # Populated during scan — used by the GUI for detail panel
         self.episode_titles: dict[tuple[int, int], str] = {}
         self.episode_posters: dict[tuple[int, int], str | None] = {}
+        # Cached scan data — computed once, reused across methods
+        self._season_dirs: list[tuple[Path, int]] | None = None
+        self._tmdb_seasons: dict | None = None
+
+    def _get_season_dirs(self) -> list[tuple[Path, int]]:
+        """Find and sort season subdirectories. Cached after first call."""
+        if self._season_dirs is not None:
+            return self._season_dirs
+
+        # Compute season number once per directory, filter and sort
+        dirs_with_season = []
+        for d in self.root.iterdir():
+            if not d.is_dir():
+                continue
+            sn = get_season(d)
+            if sn is not None:
+                dirs_with_season.append((d, sn))
+
+        dirs_with_season.sort(key=lambda x: x[1])
+
+        if not dirs_with_season:
+            self._season_dirs = [(self.root, 1)]
+        else:
+            self._season_dirs = dirs_with_season
+        return self._season_dirs
+
+    def _get_tmdb_seasons(self) -> dict:
+        """Fetch TMDB season map. Cached after first call (also cached in TMDBClient)."""
+        if self._tmdb_seasons is not None:
+            return self._tmdb_seasons
+        self._tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        return self._tmdb_seasons
+
+    def invalidate_cache(self) -> None:
+        """Force re-scan on next call (e.g. after renames)."""
+        self._season_dirs = None
+        self._tmdb_seasons = None
 
     def scan(self) -> tuple[list[PreviewItem], bool]:
         """
@@ -85,12 +125,10 @@ class TVScanner:
             (items, has_mismatch) — the preview list and whether a
             season structure mismatch was detected.
         """
-        season_dirs = self._find_season_dirs()
-        tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        season_dirs = self._get_season_dirs()
+        tmdb_seasons = self._get_tmdb_seasons()
 
-        mismatched, user_nums, tmdb_nums = self._detect_mismatch(
-            season_dirs, tmdb_seasons,
-        )
+        mismatched, _, _ = self._detect_mismatch(season_dirs, tmdb_seasons)
 
         return (
             self._build_normal_preview(season_dirs, tmdb_seasons),
@@ -99,14 +137,14 @@ class TVScanner:
 
     def scan_consolidated(self) -> list[PreviewItem]:
         """Build a consolidated (absolute order) preview for mismatch fixes."""
-        season_dirs = self._find_season_dirs()
-        tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        season_dirs = self._get_season_dirs()
+        tmdb_seasons = self._get_tmdb_seasons()
         return self._build_consolidated_preview(season_dirs, tmdb_seasons)
 
     def get_mismatch_info(self) -> dict:
         """Return info about the season mismatch for UI display."""
-        season_dirs = self._find_season_dirs()
-        tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        season_dirs = self._get_season_dirs()
+        tmdb_seasons = self._get_tmdb_seasons()
         _, user_nums, tmdb_nums = self._detect_mismatch(season_dirs, tmdb_seasons)
         extra = sorted(user_nums - tmdb_nums)
         return {
@@ -120,16 +158,6 @@ class TVScanner:
         }
 
     # ─── Internal ─────────────────────────────────────────────────────
-
-    def _find_season_dirs(self) -> list[tuple[Path, int]]:
-        """Find and sort season subdirectories, or treat root as Season 1."""
-        dirs = sorted(
-            [d for d in self.root.iterdir() if d.is_dir() and get_season(d) is not None],
-            key=lambda d: get_season(d),
-        )
-        if not dirs:
-            return [(self.root, 1)]
-        return [(d, get_season(d)) for d in dirs]
 
     def _detect_mismatch(
         self,
@@ -338,6 +366,38 @@ class TVScanner:
 
 # ─── Movie scanning ──────────────────────────────────────────────────────────
 
+def _prepare_movie_query(stem: str) -> tuple[str, str | None]:
+    """
+    Shared helper: clean a filename stem into a TMDB search query and year hint.
+
+    Eliminates the duplicated logic that was in both scan() and _scan_single().
+    """
+    raw_name = clean_folder_name(stem)
+    search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", raw_name).strip()
+    year_hint = extract_year(stem)
+    return search_query, year_hint
+
+
+def _build_movie_preview_item(
+    f: Path, chosen: dict,
+) -> PreviewItem:
+    """
+    Shared helper: build a PreviewItem from a chosen TMDB movie match.
+
+    Eliminates the duplicated PreviewItem construction in scan(), _scan_single(),
+    and rematch_file().
+    """
+    new_name = build_movie_name(chosen["title"], chosen["year"], f.suffix)
+    folder_name = build_movie_name(chosen["title"], chosen["year"], "")
+    target_dir = f.parent / folder_name
+
+    return PreviewItem(
+        original=f, new_name=new_name, target_dir=target_dir,
+        season=None, episodes=[], status="OK",
+        media_type=MediaType.MOVIE,
+    )
+
+
 class MovieScanner:
     """
     Scans movie files and builds PreviewItems using TMDB data.
@@ -393,10 +453,6 @@ class MovieScanner:
 
         For single-file mode (1 file), the pick callback is invoked for
         immediate confirmation.
-
-        Args:
-            pick_movie_callback: (results, filename) -> dict | None | _CANCEL_SCAN
-            progress_callback: (completed, total, phase_str) -> None
         """
         items: list[PreviewItem] = []
 
@@ -424,13 +480,8 @@ class MovieScanner:
                 video_files[0], pick_movie_callback,
             )
 
-        # Phase 2: Build search queries
-        queries: list[tuple[str, str | None]] = []
-        for f in video_files:
-            raw_name = clean_folder_name(f.stem)
-            search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", raw_name).strip()
-            year_hint = extract_year(f.stem)
-            queries.append((search_query, year_hint))
+        # Phase 2: Build search queries (shared helper eliminates duplication)
+        queries = [_prepare_movie_query(f.stem) for f in video_files]
 
         # Phase 3: Parallel TMDB search
         def _progress(done, total):
@@ -457,22 +508,19 @@ class MovieScanner:
                 continue
 
             raw_name = clean_folder_name(f.stem)
-            chosen = self._best_match(results, raw_name, year_hint)
+            chosen, confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[f] = chosen
 
-            new_name = build_movie_name(
-                chosen["title"], chosen["year"], f.suffix,
-            )
-            folder_name = build_movie_name(
-                chosen["title"], chosen["year"], "",
-            )
-            target_dir = f.parent / folder_name
-
-            items.append(PreviewItem(
-                original=f, new_name=new_name, target_dir=target_dir,
-                season=None, episodes=[], status="OK",
-                media_type=MediaType.MOVIE,
-            ))
+            if confidence < _AUTO_ACCEPT_THRESHOLD:
+                # Low confidence — flag for user review instead of auto-accepting
+                item = _build_movie_preview_item(f, chosen)
+                item.status = (
+                    f"REVIEW: best match \"{chosen['title']}\" "
+                    f"(confidence {confidence:.0%}) — click to verify"
+                )
+                items.append(item)
+            else:
+                items.append(_build_movie_preview_item(f, chosen))
 
         return items
 
@@ -482,9 +530,7 @@ class MovieScanner:
         pick_movie_callback: callable | None,
     ) -> list[PreviewItem]:
         """Handle single-file scan with confirmation dialog."""
-        raw_name = clean_folder_name(f.stem)
-        search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", raw_name).strip()
-        year_hint = extract_year(f.stem)
+        search_query, year_hint = _prepare_movie_query(f.stem)
 
         results = self.tmdb.search_movie(search_query, year_hint)
         if not results:
@@ -508,15 +554,7 @@ class MovieScanner:
             )]
 
         self.movie_info[f] = chosen
-        new_name = build_movie_name(chosen["title"], chosen["year"], f.suffix)
-        folder_name = build_movie_name(chosen["title"], chosen["year"], "")
-        target_dir = f.parent / folder_name
-
-        return [PreviewItem(
-            original=f, new_name=new_name, target_dir=target_dir,
-            season=None, episodes=[], status="OK",
-            media_type=MediaType.MOVIE,
-        )]
+        return [_build_movie_preview_item(f, chosen)]
 
     def rematch_file(
         self, item: PreviewItem, chosen: dict,
@@ -527,22 +565,8 @@ class MovieScanner:
         Called from the GUI when the user corrects an auto-match or
         resolves a REVIEW item from the preview.
         """
-        f = item.original
-        self.movie_info[f] = chosen
-
-        new_name = build_movie_name(
-            chosen["title"], chosen["year"], f.suffix,
-        )
-        folder_name = build_movie_name(
-            chosen["title"], chosen["year"], "",
-        )
-        target_dir = f.parent / folder_name
-
-        return PreviewItem(
-            original=f, new_name=new_name, target_dir=target_dir,
-            season=None, episodes=[], status="OK",
-            media_type=MediaType.MOVIE,
-        )
+        self.movie_info[item.original] = chosen
+        return _build_movie_preview_item(item.original, chosen)
 
     def get_search_results(self, f: Path) -> list[dict]:
         """Return cached TMDB search results for a file."""
@@ -551,17 +575,118 @@ class MovieScanner:
     @staticmethod
     def _best_match(
         results: list[dict], raw_name: str, year_hint: str | None,
-    ) -> dict:
+    ) -> tuple[dict, float]:
         """
-        Pick the best TMDB result for auto-matching.
+        Pick the best TMDB result using title similarity + year matching.
 
-        Prefers exact year match, then falls back to first result.
+        Returns (best_result, confidence) where confidence is 0.0–1.0.
+        A confidence below ~0.5 means the match is dubious and should
+        be flagged for user review.
+
+        Scoring:
+          - Title similarity (normalized, case-insensitive) weighted at 70%
+          - Year match weighted at 30%
+          - Exact title match gets a bonus
         """
-        if year_hint:
-            for r in results:
-                if r.get("year") == year_hint:
-                    return r
-        return results[0]
+        query_norm = _normalize_for_match(raw_name)
+
+        best = None
+        best_score = -1.0
+
+        for r in results:
+            title = r.get("title", "")
+            title_norm = _normalize_for_match(title)
+
+            # Title similarity: ratio of common length to max length
+            title_score = _title_similarity(query_norm, title_norm)
+
+            # Year match: 1.0 for exact, 0.3 for ±1 year, 0.0 otherwise
+            year_score = 0.0
+            if year_hint and r.get("year"):
+                try:
+                    diff = abs(int(year_hint) - int(r["year"]))
+                    if diff == 0:
+                        year_score = 1.0
+                    elif diff == 1:
+                        year_score = 0.3
+                except (ValueError, TypeError):
+                    pass
+
+            # Weighted combination
+            score = (title_score * 0.7) + (year_score * 0.3)
+
+            # Bonus for exact match (after normalization)
+            if query_norm == title_norm:
+                score = min(1.0, score + 0.15)
+
+            if score > best_score:
+                best_score = score
+                best = r
+
+        return best or results[0], max(0.0, best_score)
+
+
+def _normalize_for_match(text: str) -> str:
+    """
+    Normalize a title for fuzzy comparison.
+
+    Strips year suffixes, punctuation, articles, and extra whitespace.
+    Returns lowercase with single spaces.
+    """
+    t = re.sub(r"\s*\(\d{4}\)\s*$", "", text)  # strip trailing (YYYY)
+    t = re.sub(r"[^\w\s]", " ", t)  # punctuation → spaces
+    t = t.lower().strip()
+    # Remove leading articles for matching ("the matrix" == "matrix")
+    t = re.sub(r"^(?:the|a|an)\s+", "", t)
+    return re.sub(r"\s+", " ", t)
+
+
+def _title_similarity(a: str, b: str) -> float:
+    """
+    Compute a simple title similarity score between 0.0 and 1.0.
+
+    Uses the longest common subsequence ratio, which handles:
+      - Exact matches → 1.0
+      - Substring matches (Daybreakers vs Daybreak) → high but < 1.0
+      - Partial overlaps → proportional score
+      - Completely different → near 0.0
+
+    This is lightweight and doesn't need external libraries.
+    """
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+
+    # Quick check: one is substring of the other
+    # "daybreak" in "daybreakers" → high but penalized for length diff
+    if a in b or b in a:
+        shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+        return len(shorter) / len(longer)
+
+    # LCS length ratio
+    m, n = len(a), len(b)
+    # Optimize: only keep two rows for O(min(m,n)) space
+    if m < n:
+        a, b = b, a
+        m, n = n, m
+
+    prev = [0] * (n + 1)
+    for i in range(1, m + 1):
+        curr = [0] * (n + 1)
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                curr[j] = prev[j - 1] + 1
+            else:
+                curr[j] = max(curr[j - 1], prev[j])
+        prev = curr
+
+    lcs_len = prev[n]
+    return (2.0 * lcs_len) / (m + n)  # Dice-like coefficient
+
+
+# Minimum confidence for auto-accepting a match without review
+_AUTO_ACCEPT_THRESHOLD = 0.55
 
 
 # Sentinel value returned by the pick callback to cancel the entire scan.
