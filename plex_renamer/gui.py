@@ -1,23 +1,27 @@
 """
 Tkinter GUI for Plex Renamer.
 
-This is a thin presentation layer.  All business logic (scanning, renaming,
-undo, TMDB interaction) lives in the engine module.  The GUI's job is:
+Responsibilities:
   - Collect user input (folder, show/movie selection, checkboxes)
   - Display preview items from the engine
   - Forward rename/undo commands to the engine
+
+All business logic lives in the engine module.
+Theme/styling lives in the styles module.
 """
 
 from __future__ import annotations
 
 import re
+import threading
 import tkinter as tk
+import tkinter.font as tkfont
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageTk
 
-from .constants import MediaType
+from .constants import MediaType, VIDEO_EXTENSIONS
 from .engine import (
     MovieScanner,
     PreviewItem,
@@ -29,6 +33,7 @@ from .engine import (
 )
 from .keys import get_api_key, save_api_key
 from .parsing import clean_folder_name
+from .styles import COLORS, get_dpi_scale, setup_styles
 from .tmdb import TMDBClient
 from .undo_log import load_log
 
@@ -44,19 +49,11 @@ class PlexRenamerApp:
         preview_items   – list of PreviewItem from the engine
         tv_scanner      – active TVScanner (or None)
         movie_scanner   – active MovieScanner (or None)
+        tmdb            – shared TMDBClient instance (avoids recreating sessions)
     """
 
     def __init__(self):
-        # Windows DPI awareness (must be set BEFORE creating Tk)
-        try:
-            import ctypes
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except (AttributeError, OSError):
-            try:
-                import ctypes
-                ctypes.windll.user32.SetProcessDPIAware()
-            except (AttributeError, OSError):
-                pass
+        self._init_platform()
 
         self.root = tk.Tk()
         self.root.title("Plex Renamer")
@@ -67,16 +64,11 @@ class PlexRenamerApp:
         win_w = int(screen_w * 0.92)
         win_h = int(screen_h * 0.85)
         x = (screen_w - win_w) // 2
-        y = 10
-        self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        self.root.geometry(f"{win_w}x{win_h}+{x}+10")
         self.root.minsize(760, 500)
 
-        try:
-            self.dpi_scale = self.root.tk.call("tk", "scaling")
-            if self.dpi_scale < 1.0:
-                self.dpi_scale = 1.0
-        except Exception:
-            self.dpi_scale = 1.0
+        self.dpi_scale = get_dpi_scale(self.root)
+        self.c = COLORS
 
         # ── State ─────────────────────────────────────────────────────
         self.folder: Path | None = None
@@ -85,172 +77,77 @@ class PlexRenamerApp:
         self.preview_items: list[PreviewItem] = []
         self.tv_scanner: TVScanner | None = None
         self.movie_scanner: MovieScanner | None = None
+        self.tmdb: TMDBClient | None = None  # Shared client — created once
 
-        self._image_refs: list = []
-        self._poster_ref = None
+        self._poster_ref = None       # Single poster reference (not a growing list)
+        self._detail_img_ref = None   # Single detail image reference
         self.check_vars: dict[str, tk.BooleanVar] = {}
         self._selected_index: int | None = None
+        self._card_positions: list[tuple[int, int, int]] = []
+        self._display_order: list[int] = []
+        self._resize_after_id = None
+        self._last_canvas_width: int = 0
 
-        # ── Theme ─────────────────────────────────────────────────────
-        self.colors = {
-            "bg_dark":          "#0f0f0f",
-            "bg_mid":           "#1a1a1a",
-            "bg_card":          "#222222",
-            "bg_card_hover":    "#2a2a2a",
-            "bg_input":         "#2c2c2c",
-            "border":           "#333333",
-            "border_light":     "#444444",
-            "text":             "#e8e8e8",
-            "text_dim":         "#888888",
-            "text_muted":       "#555555",
-            "accent":           "#e5a00d",
-            "accent_hover":     "#f0b429",
-            "accent_dim":       "#7a5a10",
-            "success":          "#3ea463",
-            "error":            "#d44040",
-            "info":             "#4a9eda",
-            "move":             "#6c8ebf",
-            "badge_multi_bg":   "#2d1f4e",
-            "badge_multi_fg":   "#b48efa",
-            "badge_multi_bd":   "#4a3370",
-            "badge_special_bg": "#1a3a2a",
-            "badge_special_fg": "#5ec4a0",
-            "badge_special_bd": "#2a5e45",
-        }
-
-        self._setup_styles()
+        # ── Theme + layout ────────────────────────────────────────────
+        self._check_imgs = setup_styles(self.root, self.dpi_scale)
         self._build_layout()
 
-    # ══════════════════════════════════════════════════════════════════
-    #  Styles
-    # ══════════════════════════════════════════════════════════════════
+        # Keyboard bindings
+        self.root.bind("<Control-z>", lambda e: self.undo())
+        self.root.bind("<F5>", lambda e: self.run_preview())
 
-    def _setup_styles(self):
-        c = self.colors
-        self.root.configure(bg=c["bg_dark"])
-        self.root.option_add("*Font", "Helvetica 11")
-
-        style = ttk.Style()
-        style.theme_use("clam")
-
-        style.configure(".", background=c["bg_dark"], foreground=c["text"],
-                         fieldbackground=c["bg_input"], bordercolor=c["border"],
-                         insertcolor=c["text"], selectbackground=c["accent_dim"],
-                         selectforeground=c["text"])
-
-        style.configure("TFrame", background=c["bg_dark"])
-        style.configure("Card.TFrame", background=c["bg_card"])
-        style.configure("Mid.TFrame", background=c["bg_mid"])
-
-        style.configure("TLabel", background=c["bg_dark"], foreground=c["text"],
-                         font=("Helvetica", 11))
-        style.configure("Title.TLabel", font=("Helvetica", 20, "bold"),
-                         foreground=c["accent"])
-        style.configure("Subtitle.TLabel", font=("Helvetica", 11),
-                         foreground=c["text_dim"])
-        style.configure("Card.TLabel", background=c["bg_card"], foreground=c["text"])
-        style.configure("CardDim.TLabel", background=c["bg_card"],
-                         foreground=c["text_dim"], font=("Helvetica", 10))
-        style.configure("Detail.TLabel", background=c["bg_mid"], foreground=c["text"])
-        style.configure("DetailDim.TLabel", background=c["bg_mid"],
-                         foreground=c["text_dim"], font=("Helvetica", 10))
-        style.configure("Status.TLabel", background=c["bg_mid"],
-                         foreground=c["text_dim"], font=("Helvetica", 10),
-                         padding=(12, 6))
-
-        # Buttons
-        style.configure("Accent.TButton", font=("Helvetica", 11, "bold"),
-                         background=c["accent"], foreground=c["bg_dark"],
-                         padding=(16, 8), borderwidth=0)
-        style.map("Accent.TButton",
-                   background=[("active", c["accent_hover"]),
-                               ("disabled", c["border"])])
-
-        style.configure("TButton", font=("Helvetica", 11),
-                         background=c["bg_card"], foreground=c["text"],
-                         padding=(14, 8), borderwidth=1)
-        style.map("TButton",
-                   background=[("active", c["border_light"]),
-                               ("disabled", c["bg_mid"])])
-
-        style.configure("Small.TButton", font=("Helvetica", 10), padding=(10, 5))
-
-        # Entry / Combobox
-        style.configure("TEntry", padding=(8, 6), font=("Helvetica", 11))
-        style.configure("TCombobox", padding=(8, 6),
-                         fieldbackground=c["bg_input"], background=c["bg_card"],
-                         foreground=c["text"], arrowcolor=c["text_dim"])
-        style.map("TCombobox",
-                   fieldbackground=[("readonly", c["bg_input"]),
-                                     ("readonly focus", c["bg_input"])],
-                   foreground=[("readonly", c["text"])],
-                   selectbackground=[("readonly", c["accent_dim"])],
-                   selectforeground=[("readonly", c["text"])])
-
-        self.root.option_add("*TCombobox*Listbox.background", c["bg_input"])
-        self.root.option_add("*TCombobox*Listbox.foreground", c["text"])
-        self.root.option_add("*TCombobox*Listbox.selectBackground", c["accent"])
-        self.root.option_add("*TCombobox*Listbox.selectForeground", c["bg_dark"])
-        self.root.option_add("*TCombobox*Listbox.font", "Helvetica 11")
-        self.root.option_add("*TCombobox*Listbox.borderWidth", "0")
-        self.root.option_add("*TCombobox*Listbox.highlightThickness", "0")
-
-        # Checkbutton with custom images
-        check_size = max(20, int(18 * self.dpi_scale))
-        self._check_imgs = self._create_checkbox_images(c, size=check_size)
-        style.element_create("custom_check", "image", self._check_imgs["unchecked"],
-                              ("selected", self._check_imgs["checked"]), sticky="w")
-        style.layout("Card.TCheckbutton", [
-            ("Checkbutton.padding", {"sticky": "nswe", "children": [
-                ("custom_check", {"side": "left", "sticky": ""}),
-                ("Checkbutton.label", {"side": "left", "sticky": "nswe"})
-            ]})
-        ])
-        style.configure("Card.TCheckbutton", background=c["bg_card"],
-                         foreground=c["text"])
-        style.map("Card.TCheckbutton",
-                   background=[("active", c["bg_card_hover"])])
-
-        # Scrollbar
-        sb_width = max(14, int(12 * self.dpi_scale))
-        style.configure("TScrollbar", background=c["bg_mid"],
-                         troughcolor=c["bg_dark"], borderwidth=0,
-                         arrowcolor=c["text_dim"], width=sb_width, arrowsize=sb_width)
-
-        style.configure("TSeparator", background=c["border"])
+    @staticmethod
+    def _init_platform():
+        """Platform-specific initialization (DPI awareness on Windows)."""
+        try:
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except (AttributeError, OSError):
+            try:
+                import ctypes
+                ctypes.windll.user32.SetProcessDPIAware()
+            except (AttributeError, OSError):
+                pass
 
     # ══════════════════════════════════════════════════════════════════
     #  Layout
     # ══════════════════════════════════════════════════════════════════
 
     def _build_layout(self):
-        c = self.colors
+        c = self.c
 
-        # ── Header bar ────────────────────────────────────────────────
+        # ── Header ────────────────────────────────────────────────────
         header = ttk.Frame(self.root, style="Mid.TFrame")
         header.pack(fill="x")
 
         header_inner = ttk.Frame(header, style="Mid.TFrame")
-        header_inner.pack(fill="x", padx=20, pady=(16, 12))
+        header_inner.pack(fill="x", padx=20, pady=(14, 10))
 
         title_area = ttk.Frame(header_inner, style="Mid.TFrame")
         title_area.pack(side="left")
 
-        ttk.Label(title_area, text="PLEX RENAMER", style="Title.TLabel",
-                  background=c["bg_mid"]).pack(anchor="w")
+        ttk.Label(
+            title_area, text="PLEX RENAMER", style="Title.TLabel",
+            background=c["bg_mid"],
+        ).pack(anchor="w")
 
         self.media_label_var = tk.StringVar(value="No media selected")
-        ttk.Label(title_area, textvariable=self.media_label_var,
-                  style="Subtitle.TLabel",
-                  background=c["bg_mid"]).pack(anchor="w", pady=(2, 0))
+        ttk.Label(
+            title_area, textvariable=self.media_label_var,
+            style="Subtitle.TLabel", background=c["bg_mid"],
+        ).pack(anchor="w", pady=(2, 0))
 
         btn_area = ttk.Frame(header_inner, style="Mid.TFrame")
         btn_area.pack(side="right")
 
-        ttk.Button(btn_area, text="API Keys", command=self.manage_keys,
-                   style="Small.TButton").pack(side="left", padx=(0, 8))
-        ttk.Button(btn_area, text="Undo Last", command=self.undo,
-                   style="Small.TButton").pack(side="left", padx=(0, 8))
+        ttk.Button(
+            btn_area, text="API Keys", command=self._manage_keys,
+            style="Small.TButton",
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            btn_area, text="Undo Last", command=self.undo,
+            style="Small.TButton",
+        ).pack(side="left", padx=(0, 8))
 
         ttk.Separator(self.root, orient="horizontal").pack(fill="x")
 
@@ -259,160 +156,157 @@ class PlexRenamerApp:
         action_bar.pack(fill="x", padx=20, pady=(10, 6))
         action_bar.columnconfigure(3, weight=1)
 
-        # Select button area — swaps between folder-only (TV) and
-        # folder + file picker (Movies) based on media type.
+        # Select buttons
         self.select_btn_frame = ttk.Frame(action_bar)
         self.select_btn_frame.grid(row=0, column=0, padx=(0, 8), sticky="w")
 
         self.btn_select_folder = ttk.Button(
             self.select_btn_frame, text="Select Show Folder",
-            command=self.pick_folder, style="TButton")
+            command=self.pick_folder,
+        )
         self.btn_select_folder.pack(side="left")
 
-        # Movie-mode buttons (hidden initially)
         self.btn_select_movie_folder = ttk.Button(
             self.select_btn_frame, text="Select Folder",
-            command=self.pick_folder, style="TButton")
+            command=self.pick_folder,
+        )
         self.btn_select_movie_files = ttk.Button(
             self.select_btn_frame, text="Select File(s)",
-            command=self.pick_files, style="TButton")
+            command=self.pick_files,
+        )
 
         # Media type selector
         type_frame = ttk.Frame(action_bar)
         type_frame.grid(row=0, column=1, padx=(0, 8), sticky="w")
-        ttk.Label(type_frame, text="Type:",
-                  foreground=c["text_dim"]).pack(side="left", padx=(0, 4))
+        ttk.Label(type_frame, text="Type:", foreground=c["text_dim"]).pack(
+            side="left", padx=(0, 4))
         self.type_var = tk.StringVar(value="TV Series")
-        type_combo = ttk.Combobox(type_frame, textvariable=self.type_var,
-                                   values=["TV Series", "Movie"],
-                                   width=10, state="readonly")
+        type_combo = ttk.Combobox(
+            type_frame, textvariable=self.type_var,
+            values=["TV Series", "Movie"], width=10, state="readonly",
+        )
         type_combo.pack(side="left")
         type_combo.bind("<<ComboboxSelected>>", self._on_type_change)
 
         # Episode order (TV only)
         self.order_frame = ttk.Frame(action_bar)
         self.order_frame.grid(row=0, column=2, padx=(0, 8), sticky="w")
-        ttk.Label(self.order_frame, text="Order:",
-                  foreground=c["text_dim"]).pack(side="left", padx=(0, 4))
+        ttk.Label(self.order_frame, text="Order:", foreground=c["text_dim"]).pack(
+            side="left", padx=(0, 4))
         self.order_var = tk.StringVar(value="aired")
-        ttk.Combobox(self.order_frame, textvariable=self.order_var,
-                      values=["aired", "dvd", "absolute"],
-                      width=9, state="readonly").pack(side="left")
+        ttk.Combobox(
+            self.order_frame, textvariable=self.order_var,
+            values=["aired", "dvd", "absolute"], width=9, state="readonly",
+        ).pack(side="left")
 
         # Filter
         search_frame = ttk.Frame(action_bar)
         search_frame.grid(row=0, column=3, sticky="ew", padx=(0, 8))
-        ttk.Label(search_frame, text="Filter:",
-                  foreground=c["text_dim"]).pack(side="left", padx=(0, 4))
+        ttk.Label(search_frame, text="Filter:", foreground=c["text_dim"]).pack(
+            side="left", padx=(0, 4))
         self.search_var = tk.StringVar()
         ttk.Entry(search_frame, textvariable=self.search_var).pack(
             side="left", fill="x", expand=True)
-        self.search_var.trace_add("write", lambda *_: self.update_search())
+        self.search_var.trace_add("write", lambda *_: self._update_search())
 
         # Row 1: selection controls + action buttons
         sel_frame = ttk.Frame(action_bar)
         sel_frame.grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
         self.tally_var = tk.StringVar(value="0 / 0")
-        ttk.Label(sel_frame, textvariable=self.tally_var,
-                  foreground=c["accent"],
-                  font=("Helvetica", 11, "bold")).pack(side="left", padx=(0, 4))
-        ttk.Label(sel_frame, text="selected", foreground=c["text_dim"],
-                  font=("Helvetica", 10)).pack(side="left", padx=(0, 10))
-        ttk.Button(sel_frame, text="Select All", command=self.select_all,
-                   style="Small.TButton").pack(side="left")
+        ttk.Label(
+            sel_frame, textvariable=self.tally_var,
+            foreground=c["accent"], font=("Helvetica", 11, "bold"),
+        ).pack(side="left", padx=(0, 4))
+        ttk.Label(
+            sel_frame, text="selected", foreground=c["text_dim"],
+            font=("Helvetica", 10),
+        ).pack(side="left", padx=(0, 10))
+        ttk.Button(
+            sel_frame, text="Select All", command=self._select_all,
+            style="Small.TButton",
+        ).pack(side="left")
 
         btn_frame = ttk.Frame(action_bar)
         btn_frame.grid(row=1, column=3, sticky="e", pady=(8, 0))
 
-        ttk.Button(btn_frame, text="Refresh",
-                   command=lambda: self.run_preview(),
-                   style="TButton").pack(side="left", padx=(0, 8))
-        ttk.Button(btn_frame, text="Rename Files",
-                   command=self.execute_rename,
-                   style="Accent.TButton").pack(side="left")
+        ttk.Button(
+            btn_frame, text="Refresh", command=self.run_preview,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            btn_frame, text="Rename Files", command=self._execute_rename,
+            style="Accent.TButton",
+        ).pack(side="left")
 
-        # ── Main content (preview list + detail panel) ────────────────
+        # ── Main content ──────────────────────────────────────────────
         content = ttk.Frame(self.root)
         content.pack(fill="both", expand=True, padx=20)
         content.columnconfigure(0, weight=3, minsize=350)
-        content.columnconfigure(1, weight=1, minsize=300)
+        content.columnconfigure(1, weight=1, minsize=280)
         content.rowconfigure(0, weight=1)
 
         # Left: scrollable preview list
         list_container = ttk.Frame(content)
-        list_container.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        list_container.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        self.preview_canvas = tk.Canvas(list_container, bg=c["bg_dark"],
-                                         highlightthickness=0, bd=0)
-        scrollbar = ttk.Scrollbar(list_container, orient="vertical",
-                                   command=self.preview_canvas.yview)
+        self.preview_canvas = tk.Canvas(
+            list_container, bg=c["bg_dark"], highlightthickness=0, bd=0,
+        )
+        scrollbar = ttk.Scrollbar(
+            list_container, orient="vertical",
+            command=self.preview_canvas.yview,
+        )
         self.preview_canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.preview_canvas.pack(side="left", fill="both", expand=True)
 
-        # Debounced redraw on canvas resize so card widths match
-        self._resize_after_id = None
+        # Smart resize — only redraws when width actually changes
         def _on_canvas_resize(event):
+            if abs(event.width - self._last_canvas_width) < 10:
+                return  # Width didn't meaningfully change
+            self._last_canvas_width = event.width
             if self._resize_after_id:
                 self.root.after_cancel(self._resize_after_id)
             self._resize_after_id = self.root.after(
-                150, lambda: self._display_preview()
-                if hasattr(self, '_card_positions') and self._card_positions
-                else None)
+                100, self._display_preview if self._card_positions else lambda: None,
+            )
         self.preview_canvas.bind("<Configure>", _on_canvas_resize)
 
-        # Mousewheel
-        def _on_mousewheel(event):
-            self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.preview_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        self.preview_canvas.bind_all(
-            "<Button-4>", lambda e: self.preview_canvas.yview_scroll(-3, "units"))
-        self.preview_canvas.bind_all(
-            "<Button-5>", lambda e: self.preview_canvas.yview_scroll(3, "units"))
+        # Mousewheel binding
+        self._bind_mousewheel(self.preview_canvas)
 
-        # Right: detail panel (scrollable)
+        # Right: detail panel
         detail_panel = ttk.Frame(content, style="Mid.TFrame")
         detail_panel.grid(row=0, column=1, sticky="nsew")
 
-        detail_canvas = tk.Canvas(detail_panel, bg=c["bg_mid"],
-                                   highlightthickness=0, bd=0)
-        detail_scrollbar = ttk.Scrollbar(detail_panel, orient="vertical",
-                                          command=detail_canvas.yview)
+        detail_canvas = tk.Canvas(
+            detail_panel, bg=c["bg_mid"], highlightthickness=0, bd=0,
+        )
+        detail_sb = ttk.Scrollbar(
+            detail_panel, orient="vertical", command=detail_canvas.yview,
+        )
         self.detail_inner = ttk.Frame(detail_canvas, style="Mid.TFrame")
         self.detail_inner.bind(
             "<Configure>",
-            lambda e: detail_canvas.configure(scrollregion=detail_canvas.bbox("all")))
+            lambda e: detail_canvas.configure(scrollregion=detail_canvas.bbox("all")),
+        )
         detail_canvas.create_window((0, 0), window=self.detail_inner, anchor="nw")
-        detail_canvas.configure(yscrollcommand=detail_scrollbar.set)
-        detail_scrollbar.pack(side="right", fill="y")
+        detail_canvas.configure(yscrollcommand=detail_sb.set)
+        detail_sb.pack(side="right", fill="y")
         detail_canvas.pack(side="left", fill="both", expand=True)
 
+        self._detail_canvas = detail_canvas
+
         def _sync_detail_width(event):
-            detail_canvas.itemconfig(detail_canvas.find_all()[0], width=event.width)
+            items = detail_canvas.find_all()
+            if items:
+                detail_canvas.itemconfig(items[0], width=event.width)
         detail_canvas.bind("<Configure>", _sync_detail_width)
 
-        # Detail panel mousewheel management
-        def _detail_mousewheel(event):
-            detail_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        detail_canvas.bind("<Enter>",
-            lambda e: detail_canvas.bind_all("<MouseWheel>", _detail_mousewheel))
-        detail_canvas.bind("<Leave>",
-            lambda e: detail_canvas.bind_all("<MouseWheel>", _on_mousewheel))
-        detail_canvas.bind("<Enter>", lambda e: (
-            detail_canvas.bind_all("<Button-4>",
-                lambda ev: detail_canvas.yview_scroll(-3, "units")),
-            detail_canvas.bind_all("<Button-5>",
-                lambda ev: detail_canvas.yview_scroll(3, "units"))
-        ), add="+")
-        detail_canvas.bind("<Leave>", lambda e: (
-            self.preview_canvas.bind_all("<Button-4>",
-                lambda ev: self.preview_canvas.yview_scroll(-3, "units")),
-            self.preview_canvas.bind_all("<Button-5>",
-                lambda ev: self.preview_canvas.yview_scroll(3, "units"))
-        ), add="+")
+        # Mousewheel focus management for detail panel
+        self._setup_detail_mousewheel(detail_canvas)
 
-        # Detail panel content
+        # Detail content
         pad = ttk.Frame(self.detail_inner, style="Mid.TFrame")
         pad.pack(fill="both", expand=True, padx=16, pady=16)
 
@@ -421,23 +315,27 @@ class PlexRenamerApp:
 
         ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=8)
 
-        ttk.Label(pad, text="DETAIL", style="DetailDim.TLabel",
-                  font=("Helvetica", 9, "bold")).pack(anchor="w", fill="x", pady=(8, 6))
+        # Detail header
+        self.detail_header = ttk.Label(
+            pad, text="SELECT AN ITEM",
+            style="DetailDim.TLabel", font=("Helvetica", 9, "bold"),
+        )
+        self.detail_header.pack(anchor="w", fill="x", pady=(8, 6))
 
-        self.detail_label = ttk.Label(pad, text="Click an item to view details",
-                                       style="Detail.TLabel",
-                                       wraplength=260, justify="left")
+        self.detail_label = ttk.Label(
+            pad, text="Click a file from the list\nto view its details",
+            style="Detail.TLabel", wraplength=260, justify="left",
+        )
         self.detail_label.pack(anchor="w", fill="x")
 
         self.detail_image = ttk.Label(pad, style="Detail.TLabel", background=c["bg_mid"])
         self.detail_image.pack(anchor="center", fill="x", pady=(12, 0))
 
-        # Re-match button for movies — hidden until a movie card is selected
+        # Re-match button (movies only)
         self.rematch_btn = ttk.Button(
             pad, text="Re-match on TMDB",
             command=self._rematch_selected_movie,
-            style="TButton")
-        # Not packed yet — shown/hidden by _show_detail
+        )
 
         def _on_detail_resize(event):
             available = event.width - 40
@@ -450,40 +348,91 @@ class PlexRenamerApp:
         status_bar.pack(fill="x", side="bottom")
 
         self.status_var = tk.StringVar(value="Ready — select a folder to begin")
-        ttk.Label(status_bar, textvariable=self.status_var,
-                  style="Status.TLabel").pack(fill="x")
+        ttk.Label(
+            status_bar, textvariable=self.status_var, style="Status.TLabel",
+        ).pack(side="left", fill="x", expand=True)
+
+        # Progress bar (hidden by default)
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(
+            status_bar, variable=self.progress_var, maximum=100,
+            style="Accent.Horizontal.TProgressbar", length=200,
+        )
+
+    # ── Mousewheel helpers ────────────────────────────────────────────
+
+    def _bind_mousewheel(self, canvas: tk.Canvas):
+        """Bind mousewheel scrolling for a canvas (cross-platform)."""
+        def _scroll(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _scroll)
+        canvas.bind_all(
+            "<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
+        canvas.bind_all(
+            "<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+
+    def _setup_detail_mousewheel(self, detail_canvas: tk.Canvas):
+        """Manage mousewheel focus between preview and detail canvases."""
+        def _detail_scroll(event):
+            detail_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        def _preview_scroll(event):
+            self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        detail_canvas.bind("<Enter>", lambda e: (
+            detail_canvas.bind_all("<MouseWheel>", _detail_scroll),
+            detail_canvas.bind_all("<Button-4>",
+                lambda ev: detail_canvas.yview_scroll(-3, "units")),
+            detail_canvas.bind_all("<Button-5>",
+                lambda ev: detail_canvas.yview_scroll(3, "units")),
+        ))
+        detail_canvas.bind("<Leave>", lambda e: (
+            self.preview_canvas.bind_all("<MouseWheel>", _preview_scroll),
+            self.preview_canvas.bind_all("<Button-4>",
+                lambda ev: self.preview_canvas.yview_scroll(-3, "units")),
+            self.preview_canvas.bind_all("<Button-5>",
+                lambda ev: self.preview_canvas.yview_scroll(3, "units")),
+        ))
+
+    # ══════════════════════════════════════════════════════════════════
+    #  TMDB Client management
+    # ══════════════════════════════════════════════════════════════════
+
+    def _ensure_tmdb(self) -> TMDBClient | None:
+        """
+        Get or create the shared TMDB client.
+
+        Reuses the existing client/session instead of creating a new one
+        for every operation (fixes the redundant session creation issue).
+        """
+        api_key = get_api_key("TMDB")
+        if not api_key:
+            messagebox.showwarning(
+                "No Key", "Set your TMDB API key first via 'API Keys'.")
+            return None
+        if self.tmdb is None or self.tmdb.api_key != api_key:
+            self.tmdb = TMDBClient(api_key)
+        return self.tmdb
 
     # ══════════════════════════════════════════════════════════════════
     #  Helpers
     # ══════════════════════════════════════════════════════════════════
 
-    @staticmethod
-    def _create_checkbox_images(colors, size=18):
-        from PIL import ImageDraw
+    def _scale_to_panel(self, img: Image.Image) -> Image.Image:
+        """Scale a PIL Image to fit the detail panel width."""
+        self.root.update_idletasks()
+        try:
+            panel_w = self.detail_inner.winfo_width() - 40
+        except Exception:
+            panel_w = 260
+        panel_w = max(150, panel_w)
+        if img.width > panel_w:
+            scale = panel_w / img.width
+            img = img.resize((panel_w, int(img.height * scale)), Image.LANCZOS)
+        return img
 
-        img_off = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        draw_off = ImageDraw.Draw(img_off)
-        draw_off.rounded_rectangle([1, 1, size - 2, size - 2],
-                                    radius=3, outline=colors["border_light"], width=2)
-
-        img_on = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        draw_on = ImageDraw.Draw(img_on)
-        draw_on.rounded_rectangle([1, 1, size - 2, size - 2],
-                                   radius=3, fill=colors["accent"])
-        dark = colors["bg_dark"]
-        cx, cy = size * 0.28, size * 0.52
-        mx, my = size * 0.45, size * 0.70
-        ex, ey = size * 0.75, size * 0.32
-        draw_on.line([(cx, cy), (mx, my), (ex, ey)],
-                      fill=dark, width=max(2, size // 8))
-
-        return {
-            "unchecked": ImageTk.PhotoImage(img_off),
-            "checked": ImageTk.PhotoImage(img_on),
-        }
-
-    def _create_dialog(self, title, width=500, height=300):
-        c = self.colors
+    def _create_dialog(self, title: str, width: int = 500, height: int = 300) -> tk.Toplevel:
+        """Create a centered modal dialog window."""
+        c = self.c
         win = tk.Toplevel(self.root)
         win.title(title)
         win.configure(bg=c["bg_mid"])
@@ -494,39 +443,34 @@ class PlexRenamerApp:
         scaled_h = int(height * self.dpi_scale)
 
         self.root.update_idletasks()
-        root_x = self.root.winfo_x()
-        root_y = self.root.winfo_y()
-        root_w = self.root.winfo_width()
-        root_h = self.root.winfo_height()
-        x = max(0, root_x + (root_w - scaled_w) // 2)
-        y = max(0, root_y + (root_h - scaled_h) // 2)
+        rx = self.root.winfo_x()
+        ry = self.root.winfo_y()
+        rw = self.root.winfo_width()
+        rh = self.root.winfo_height()
+        x = max(0, rx + (rw - scaled_w) // 2)
+        y = max(0, ry + (rh - scaled_h) // 2)
 
         win.geometry(f"{scaled_w}x{scaled_h}+{x}+{y}")
         win.minsize(scaled_w, scaled_h)
         return win
 
-    def _get_tmdb_client(self) -> TMDBClient | None:
-        """Get a TMDB client, or show a warning and return None."""
-        api_key = get_api_key("TMDB")
-        if not api_key:
-            messagebox.showwarning(
-                "No Key", "Set your TMDB API key first via 'API Keys'.")
-            return None
-        return TMDBClient(api_key)
+    def _show_progress(self, visible: bool):
+        """Show or hide the progress bar in the status bar."""
+        if visible:
+            self.progress_bar.pack(side="right", padx=(8, 12), pady=4)
+        else:
+            self.progress_bar.pack_forget()
+            self.progress_var.set(0)
 
-    def _scale_to_panel(self, img: Image.Image) -> Image.Image:
-        """Scale a PIL Image to fit the detail panel width."""
-        self.root.update_idletasks()
-        try:
-            panel_w = self.detail_inner.winfo_width() - 40
-        except Exception:
-            panel_w = 280
-        if panel_w < 150:
-            panel_w = 280
-        if img.width > panel_w:
-            scale = panel_w / img.width
-            img = img.resize((panel_w, int(img.height * scale)), Image.LANCZOS)
-        return img
+    def _set_scan_buttons_enabled(self, enabled: bool):
+        """Enable or disable scan-related buttons."""
+        state = "normal" if enabled else "disabled"
+        for btn in (self.btn_select_folder, self.btn_select_movie_folder,
+                    self.btn_select_movie_files):
+            try:
+                btn.configure(state=state)
+            except Exception:
+                pass
 
     # ══════════════════════════════════════════════════════════════════
     #  Event handlers
@@ -538,25 +482,24 @@ class PlexRenamerApp:
         if val == "TV Series":
             self.media_type = MediaType.TV
             self.order_frame.grid()
-            # Show TV button, hide movie buttons
             self.btn_select_movie_folder.pack_forget()
             self.btn_select_movie_files.pack_forget()
             self.btn_select_folder.pack(side="left")
         else:
             self.media_type = MediaType.MOVIE
             self.order_frame.grid_remove()
-            # Show movie buttons, hide TV button
             self.btn_select_folder.pack_forget()
             self.btn_select_movie_folder.pack(side="left", padx=(0, 4))
             self.btn_select_movie_files.pack(side="left")
 
-    def manage_keys(self):
-        c = self.colors
+    def _manage_keys(self):
+        c = self.c
         win = self._create_dialog("API Keys", width=480, height=160)
 
-        ttk.Label(win, text="API KEY MANAGER", style="Title.TLabel",
-                  font=("Helvetica", 14, "bold"),
-                  background=c["bg_mid"]).pack(anchor="w", padx=20, pady=(16, 12))
+        ttk.Label(
+            win, text="API KEY MANAGER", style="Title.TLabel",
+            font=("Helvetica", 14, "bold"), background=c["bg_mid"],
+        ).pack(anchor="w", padx=20, pady=(16, 12))
 
         row = ttk.Frame(win, style="Mid.TFrame")
         row.pack(fill="x", padx=20, pady=4)
@@ -566,36 +509,31 @@ class PlexRenamerApp:
         var = tk.StringVar(value=get_api_key("TMDB") or "")
         entry = ttk.Entry(row, textvariable=var, width=36, show="*")
         entry.pack(side="left", padx=(8, 8), fill="x", expand=True)
-        ttk.Button(row, text="Save", style="Small.TButton",
-                   command=lambda: self._save_key("TMDB", var.get(), win)
-                   ).pack(side="left")
 
-    def _save_key(self, service, key, win):
-        if key.strip():
-            save_api_key(service, key.strip())
-            messagebox.showinfo("Saved", f"{service} key saved.", parent=win)
-        else:
-            messagebox.showwarning("Empty", "Key cannot be empty.", parent=win)
+        def _save():
+            key = var.get().strip()
+            if key:
+                save_api_key("TMDB", key)
+                self.tmdb = None  # Force client refresh with new key
+                messagebox.showinfo("Saved", "TMDB key saved.", parent=win)
+            else:
+                messagebox.showwarning("Empty", "Key cannot be empty.", parent=win)
+
+        ttk.Button(row, text="Save", style="Small.TButton",
+                   command=_save).pack(side="left")
 
     # ══════════════════════════════════════════════════════════════════
     #  Folder & media selection
     # ══════════════════════════════════════════════════════════════════
 
     def pick_folder(self):
-        """
-        Let the user select a folder, then begin the appropriate workflow.
-
-        TV Series: folder name → TMDB show search → user picks show → scan
-        Movies:    folder is just the container — each file is matched
-                   individually against TMDB during the scan phase.
-        """
         folder = filedialog.askdirectory(title="Select Media Folder")
         if not folder:
             return
         self.folder = Path(folder)
         self.status_var.set(f"Selected: {self.folder}")
 
-        tmdb = self._get_tmdb_client()
+        tmdb = self._ensure_tmdb()
         if not tmdb:
             return
 
@@ -608,14 +546,6 @@ class PlexRenamerApp:
             self._setup_movie_scan(tmdb)
 
     def pick_files(self):
-        """
-        Let the user select one or more individual movie files.
-
-        The parent directory of the first file is used as the root folder
-        for output (new movie subfolders are created there).
-        """
-        from .constants import VIDEO_EXTENSIONS
-
         ext_list = " ".join(f"*{e}" for e in sorted(VIDEO_EXTENSIONS))
         files = filedialog.askopenfilenames(
             title="Select Movie File(s)",
@@ -626,10 +556,9 @@ class PlexRenamerApp:
 
         file_paths = [Path(f) for f in files]
         self.folder = file_paths[0].parent
-        self.status_var.set(
-            f"Selected: {len(file_paths)} file(s) in {self.folder}")
+        self.status_var.set(f"Selected: {len(file_paths)} file(s) in {self.folder}")
 
-        tmdb = self._get_tmdb_client()
+        tmdb = self._ensure_tmdb()
         if not tmdb:
             return
 
@@ -650,9 +579,7 @@ class PlexRenamerApp:
                 return
 
         chosen = self._pick_media_dialog(
-            results,
-            title_key="name",
-            dialog_title="Select Show",
+            results, title_key="name", dialog_title="Select Show",
             search_callback=tmdb.search_tv,
         )
         if not chosen:
@@ -664,25 +591,13 @@ class PlexRenamerApp:
 
         self._display_poster(tmdb, chosen["id"], "tv")
         year = chosen.get("year", "")
-        self.media_label_var.set(f"{chosen['name']}" + (f" ({year})" if year else ""))
+        self.media_label_var.set(
+            f"{chosen['name']}" + (f" ({year})" if year else ""))
         self.status_var.set("Scanning files...")
         self.root.update_idletasks()
         self.run_preview()
 
-    def _setup_movie_scan(
-        self, tmdb: TMDBClient, files: list[Path] | None = None,
-    ):
-        """
-        Set up the movie workflow.
-
-        Unlike TV, there is no single "show" to select up front — each
-        file is its own movie matched individually against TMDB.
-
-        Args:
-            tmdb: TMDB client.
-            files: Explicit file list (from file picker), or None to scan
-                   the entire folder.
-        """
+    def _setup_movie_scan(self, tmdb: TMDBClient, files: list[Path] | None = None):
         self.media_info = {"_type": "movie_batch"}
         self.movie_scanner = MovieScanner(tmdb, self.folder, files=files)
         self.tv_scanner = None
@@ -697,19 +612,12 @@ class PlexRenamerApp:
         else:
             self.media_label_var.set(f"Movies — {self.folder.name}")
 
-        # For single-file explicit picks, run synchronously with the
-        # confirmation dialog.  For everything else, run_preview will
-        # launch the async background scan.
         if files and len(files) == 1:
             self._run_single_movie_scan(files[0])
         else:
             self.run_preview()
 
     def _run_single_movie_scan(self, file_path: Path):
-        """
-        Run a single-movie scan synchronously with the confirmation dialog.
-        This is fast (1-2 API calls) and needs the dialog, so no threading.
-        """
         self.status_var.set("Searching TMDB...")
         self.root.update_idletasks()
 
@@ -720,11 +628,14 @@ class PlexRenamerApp:
         check_duplicates(self.preview_items)
         self._display_preview()
 
-        # Auto-select the card to show poster
         ok_items = [it for it in self.preview_items if it.status == "OK"]
         if len(ok_items) == 1:
             idx = self.preview_items.index(ok_items[0])
             self._select_card(idx)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  Media selection dialog
+    # ══════════════════════════════════════════════════════════════════
 
     def _pick_media_dialog(
         self,
@@ -734,36 +645,24 @@ class PlexRenamerApp:
         allow_skip: bool = False,
         search_callback: callable | None = None,
     ) -> dict | None:
-        """
-        Show a selection dialog for TMDB results.
-
-        Always shows the dialog so the user can verify even single-result
-        matches.  Includes a re-search field so the user can manually
-        correct the query if the auto-detected name was wrong.
-
-        Args:
-            results: TMDB search results to display.
-            title_key: Key for the display name ("name" for TV, "title" for movies).
-            dialog_title: Window title.
-            allow_skip: If True, show a Skip button (used for per-file movie matching).
-            search_callback: If provided, enables the re-search field.
-                Should be a function(query: str) -> list[dict].
-        """
-        c = self.colors
+        c = self.c
         win = self._create_dialog(dialog_title, width=520, height=440)
 
-        ttk.Label(win, text=dialog_title.upper(), style="Title.TLabel",
-                  font=("Helvetica", 14, "bold"),
-                  background=c["bg_mid"]).pack(anchor="w", padx=20, pady=(16, 4))
+        ttk.Label(
+            win, text=dialog_title.upper(), style="Title.TLabel",
+            font=("Helvetica", 14, "bold"), background=c["bg_mid"],
+        ).pack(anchor="w", padx=20, pady=(16, 4))
 
-        subtitle = ("No auto-match found — search manually:" if not results
-                     else "Confirm the match:" if len(results) == 1
-                     else "Multiple matches — select the correct one:")
-        self._subtitle_label = ttk.Label(win, text=subtitle, style="Subtitle.TLabel",
-                  background=c["bg_mid"])
-        self._subtitle_label.pack(anchor="w", padx=20, pady=(0, 8))
+        subtitle = (
+            "No auto-match found — search manually:" if not results
+            else "Confirm the match:" if len(results) == 1
+            else "Multiple matches — select the correct one:"
+        )
+        ttk.Label(
+            win, text=subtitle, style="Subtitle.TLabel",
+            background=c["bg_mid"],
+        ).pack(anchor="w", padx=20, pady=(0, 8))
 
-        # Re-search bar
         current_results = list(results)
 
         if search_callback:
@@ -772,14 +671,14 @@ class PlexRenamerApp:
             search_entry = ttk.Entry(search_row, width=40)
             search_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        listbox = tk.Listbox(win, width=70, height=10,
-                              bg=c["bg_card"], fg=c["text"],
-                              selectbackground=c["accent"],
-                              selectforeground=c["bg_dark"],
-                              font=("Helvetica", 11),
-                              borderwidth=0, highlightthickness=1,
-                              highlightcolor=c["border_light"],
-                              highlightbackground=c["border"])
+        listbox = tk.Listbox(
+            win, width=70, height=10,
+            bg=c["bg_card"], fg=c["text"],
+            selectbackground=c["accent"], selectforeground=c["bg_dark"],
+            font=("Helvetica", 11), borderwidth=0,
+            highlightthickness=1, highlightcolor=c["border_light"],
+            highlightbackground=c["border"],
+        )
         listbox.pack(padx=20, pady=(0, 12), fill="both", expand=True)
 
         def _populate(items):
@@ -826,13 +725,24 @@ class PlexRenamerApp:
         btn_row = ttk.Frame(win, style="Mid.TFrame")
         btn_row.pack(pady=(0, 16))
         if allow_skip:
-            ttk.Button(btn_row, text="Skip", command=on_skip,
-                       style="TButton").pack(side="left", padx=(0, 8))
+            ttk.Button(btn_row, text="Skip", command=on_skip).pack(
+                side="left", padx=(0, 8))
         ttk.Button(btn_row, text="Confirm", command=on_ok,
                    style="Accent.TButton").pack(side="left")
 
+        listbox.bind("<Double-Button-1>", lambda e: on_ok())
+
         self.root.wait_window(win)
         return selected[0]
+
+    def _pick_movie_for_file(self, results: list[dict], filename: str):
+        tmdb = self._ensure_tmdb()
+        return self._pick_media_dialog(
+            results, title_key="title",
+            dialog_title=f"Match: {filename}",
+            allow_skip=True,
+            search_callback=tmdb.search_movie if tmdb else None,
+        )
 
     def _display_poster(self, tmdb: TMDBClient, media_id: int, media_type: str):
         img = tmdb.fetch_poster(media_id, media_type, target_width=400)
@@ -845,7 +755,7 @@ class PlexRenamerApp:
             self.poster_label.configure(image="", text="(No poster)")
 
     # ══════════════════════════════════════════════════════════════════
-    #  Preview
+    #  Preview scanning
     # ══════════════════════════════════════════════════════════════════
 
     def run_preview(self):
@@ -858,6 +768,9 @@ class PlexRenamerApp:
         self.check_vars = {}
 
         if self.media_type == MediaType.TV and self.tv_scanner:
+            self.status_var.set("Scanning TV files...")
+            self.root.update_idletasks()
+
             items, has_mismatch = self.tv_scanner.scan()
 
             if has_mismatch:
@@ -873,45 +786,36 @@ class PlexRenamerApp:
             self._run_movie_scan_async()
 
     def _run_movie_scan_async(self):
-        """
-        Run the movie scan in a background thread so the GUI stays
-        responsive during potentially hundreds of TMDB API calls.
-
-        Progress updates are marshalled back to the main thread via
-        root.after() which is the only thread-safe way to touch tkinter.
-        """
-        import threading
-
+        """Run movie scan in background thread with progress updates."""
         scanner = self.movie_scanner
         self.status_var.set("Scanning files...")
+        self._show_progress(True)
+        self._set_scan_buttons_enabled(False)
         self.root.update_idletasks()
 
-        # Disable buttons during scan to prevent double-starts
-        self._set_scan_buttons_enabled(False)
-
-        result_holder: list[list[PreviewItem]] = [None]
+        result_holder: list[list[PreviewItem] | None] = [None]
         error_holder: list[Exception | None] = [None]
 
         def _progress(done, total, phase):
-            # Schedule GUI update on the main thread
-            self.root.after(0, lambda: self.status_var.set(
-                f"{phase} {done}/{total}"))
+            pct = (done / total * 100) if total else 0
+            self.root.after(0, lambda: (
+                self.status_var.set(f"{phase} {done}/{total}"),
+                self.progress_var.set(pct),
+            ))
 
         def _scan_worker():
             try:
-                items = scanner.scan(
-                    pick_movie_callback=None,  # No dialogs from bg thread
+                result_holder[0] = scanner.scan(
+                    pick_movie_callback=None,
                     progress_callback=_progress,
                 )
-                result_holder[0] = items
             except Exception as e:
                 error_holder[0] = e
+            self.root.after(0, _on_complete)
 
-            # Schedule completion handler on the main thread
-            self.root.after(0, _on_scan_complete)
-
-        def _on_scan_complete():
+        def _on_complete():
             self._set_scan_buttons_enabled(True)
+            self._show_progress(False)
 
             if error_holder[0]:
                 messagebox.showerror(
@@ -923,39 +827,12 @@ class PlexRenamerApp:
             check_duplicates(self.preview_items)
             self._display_preview()
 
-            # For a single movie, auto-display its poster
             ok_items = [it for it in self.preview_items if it.status == "OK"]
             if len(ok_items) == 1:
                 idx = self.preview_items.index(ok_items[0])
                 self._select_card(idx)
 
-        thread = threading.Thread(target=_scan_worker, daemon=True)
-        thread.start()
-
-    def _set_scan_buttons_enabled(self, enabled: bool):
-        """Enable or disable scan-related buttons."""
-        state = "normal" if enabled else "disabled"
-        for btn in (self.btn_select_folder, self.btn_select_movie_folder,
-                    self.btn_select_movie_files):
-            try:
-                btn.configure(state=state)
-            except Exception:
-                pass
-
-    def _pick_movie_for_file(self, results: list[dict], filename: str):
-        """
-        Callback for MovieScanner single-file mode.
-
-        Returns a chosen dict, None to skip, or _CANCEL_SCAN to abort.
-        """
-        tmdb = self._get_tmdb_client()
-        chosen = self._pick_media_dialog(
-            results, title_key="title",
-            dialog_title=f"Match: {filename}",
-            allow_skip=True,
-            search_callback=tmdb.search_movie if tmdb else None,
-        )
-        return chosen
+        threading.Thread(target=_scan_worker, daemon=True).start()
 
     def _prompt_season_fix(self, info: dict) -> bool:
         extra = info["extra_user_seasons"]
@@ -977,29 +854,23 @@ class PlexRenamerApp:
         return messagebox.askyesno("Season Structure Mismatch", msg)
 
     # ══════════════════════════════════════════════════════════════════
-    #  Display preview
+    #  Preview rendering
     # ══════════════════════════════════════════════════════════════════
 
     def _display_preview(self):
         """
-        Render the preview list using canvas primitives for performance.
+        Render the preview list using canvas primitives.
 
-        Draws styled cards with badge pills, accent bars, checkboxes,
-        two-line text (original → new), and status indicators — all as
-        lightweight canvas items instead of widget trees.
-
-        Items are sorted: OK first, then REVIEW, then SKIP/CONFLICT.
+        Cards are sorted: OK first, then REVIEW, then SKIP/CONFLICT.
+        Each card shows original filename, new name, status, and badges.
         """
-        c = self.colors
+        c = self.c
         cv = self.preview_canvas
 
-        # Preserve existing selections across redraws
-        saved_checks = {}
-        for k, v in self.check_vars.items():
-            saved_checks[k] = v.get()
+        # Preserve selections across redraws
+        saved_checks = {k: v.get() for k, v in self.check_vars.items()}
 
         cv.delete("all")
-        self._image_refs.clear()
         self._card_positions = []
         self._display_order = []
 
@@ -1015,217 +886,199 @@ class PlexRenamerApp:
             self._selected_index = None
             return
 
-        # Sort: OK first, then REVIEW, then everything else
+        # Sort order
         def _sort_key(idx):
             s = self.preview_items[idx].status
             if s == "OK":
                 return (0, idx)
             elif "REVIEW" in s:
                 return (1, idx)
-            else:
-                return (2, idx)
+            return (2, idx)
 
-        self._display_order = sorted(
-            range(len(self.preview_items)), key=_sort_key)
+        self._display_order = sorted(range(len(self.preview_items)), key=_sort_key)
 
-        # Create / restore BooleanVars
+        # Create BooleanVars
         self.check_vars.clear()
         for i, item in enumerate(self.preview_items):
             key = str(i)
             default = item.status == "OK"
             var = tk.BooleanVar(value=saved_checks.get(key, default))
-            var.trace_add("write", lambda *_, s=self: s._update_tally())
+            var.trace_add("write", lambda *_: self._update_tally())
             self.check_vars[key] = var
 
-        # ── Layout constants (DPI-aware) ─────────────────────────────
-        # Measure actual font heights from tkinter so we don't guess.
-        import tkinter.font as tkfont
-
+        # Font metrics
         font_orig = tkfont.Font(family="Helvetica", size=11)
         font_new = tkfont.Font(family="Helvetica", size=10)
         font_badge = tkfont.Font(family="Helvetica", size=8, weight="bold")
         font_check = tkfont.Font(family="Helvetica", size=14)
-        font_season = tkfont.Font(family="Helvetica", size=9)
 
-        # linespace gives the full line height including ascent + descent + leading
-        line1_h = font_orig.metrics("linespace")     # original filename
-        line2_h = font_new.metrics("linespace")      # new name
-        line3_h = font_season.metrics("linespace")    # season info
+        line1_h = font_orig.metrics("linespace")
+        line2_h = font_new.metrics("linespace")
         badge_text_h = font_badge.metrics("linespace")
-        check_h = font_check.metrics("linespace")
 
         canvas_w = max(600, cv.winfo_width())
-        scale = self.dpi_scale
-        card_margin_x = int(6 * scale)
-        card_margin_y = int(3 * scale)
-        card_pad_x = int(14 * scale)
-        card_pad_y = int(12 * scale)
-        accent_bar_w = int(4 * scale)
-        check_col_w = int(28 * scale)
-        badge_h = badge_text_h + int(8 * scale)  # text + vertical padding
-        badge_pad_x = int(6 * scale)
-        badge_gap = int(6 * scale)
-        line_gap = int(8 * scale)
+        s = self.dpi_scale
+        margin_x = int(4 * s)
+        margin_y = int(2 * s)
+        pad_x = int(14 * s)
+        pad_y = int(10 * s)
+        bar_w = int(4 * s)
+        check_w = int(28 * s)
+        badge_h = badge_text_h + int(8 * s)
+        badge_px = int(6 * s)
+        gap = int(6 * s)
 
-        # Convert font objects to tuples for canvas (canvas doesn't accept Font objects)
         font_orig_t = ("Helvetica", 11)
         font_new_t = ("Helvetica", 10)
         font_badge_t = ("Helvetica", 8, "bold")
         font_check_t = ("Helvetica", 14)
-        font_season_t = ("Helvetica", 9)
 
-        y = card_margin_y
+        y = margin_y
 
         for display_idx, item_idx in enumerate(self._display_order):
             item = self.preview_items[item_idx]
             is_multi = len(item.episodes) > 1
             is_special = item.season == 0
             is_movie = item.media_type == MediaType.MOVIE
-            has_badges = is_multi or is_special
-            item_tag = f"item_{item_idx}"
+            has_review = "REVIEW" in item.status
+            has_badges = is_multi or is_special or is_movie or has_review
+            tag = f"item_{item_idx}"
 
-            # ── Determine text content and colors ─────────────────────
+            # Determine text and colors
             if "SKIP" in item.status:
                 name_fg, arrow_fg = c["text_muted"], c["text_muted"]
                 arrow_text = item.status
-                card_bg = c["bg_card"]
-            elif "REVIEW" in item.status:
+            elif has_review:
                 name_fg, arrow_fg = c["text"], c["info"]
                 arrow_text = item.status
-                card_bg = c["bg_card"]
             elif "CONFLICT" in item.status:
                 name_fg, arrow_fg = c["error"], c["error"]
                 arrow_text = item.status
-                card_bg = c["bg_card"]
             elif item.is_move():
                 name_fg, arrow_fg = c["text"], c["move"]
                 arrow_text = f"→  [{item.target_dir.name}]  {item.new_name}"
-                card_bg = c["bg_card"]
             else:
                 name_fg, arrow_fg = c["text"], c["success"]
                 arrow_text = f"→  {item.new_name}" if item.new_name else ""
-                card_bg = c["bg_card"]
 
             orig_text = item.original.name
             if item.is_move():
                 orig_text = f"[{item.original.parent.name}]  {orig_text}"
 
             # Card border color
-            if is_special:
+            if has_review:
+                border_color = c["badge_review_bd"]
+            elif is_special:
                 border_color = c["badge_special_bd"]
             elif is_multi:
                 border_color = c["badge_multi_bd"]
             else:
                 border_color = c["border"]
 
-            # ── Calculate row height dynamically ──────────────────────
-            # All heights come from actual font metrics, not guesses.
-            # Season/episode info is shown in the detail panel only —
-            # it's redundant on TV cards where S01E01 is in the filename.
-            badge_row_h = (badge_h + line_gap) if has_badges else 0
+            # Row height
+            badge_row_h = (badge_h + gap) if has_badges else 0
             has_line2 = bool(arrow_text)
-
-            row_content_h = (card_pad_y
-                             + badge_row_h
-                             + line1_h
-                             + (line_gap + line2_h if has_line2 else 0)
-                             + card_pad_y)
-            row_h = max(int(48 * scale), row_content_h)
+            content_h = (pad_y + badge_row_h + line1_h
+                         + (gap + line2_h if has_line2 else 0) + pad_y)
+            row_h = max(int(44 * s), content_h)
 
             y_start = y
-            x_left = card_margin_x
-            x_right = canvas_w - card_margin_x
+            x_left = margin_x
+            x_right = canvas_w - margin_x
 
-            # ── Card background ───────────────────────────────────────
+            # Card background
+            is_selected = (self._selected_index == item_idx)
+            card_bg = c["bg_card_selected"] if is_selected else c["bg_card"]
+            card_outline = c["accent"] if is_selected else border_color
+
             cv.create_rectangle(
                 x_left, y, x_right, y + row_h,
-                fill=card_bg, outline=border_color,
-                tags=("card", item_tag))
+                fill=card_bg, outline=card_outline,
+                tags=("card", tag))
 
-            # ── Accent bar (left edge) ────────────────────────────────
-            if is_special:
-                cv.create_rectangle(
-                    x_left, y, x_left + accent_bar_w, y + row_h,
-                    fill=c["badge_special_bd"], outline="",
-                    tags=(item_tag,))
+            # Accent bar
+            bar_color = None
+            if has_review:
+                bar_color = c["badge_review_bd"]
+            elif is_special:
+                bar_color = c["badge_special_bd"]
             elif is_multi:
-                cv.create_rectangle(
-                    x_left, y, x_left + accent_bar_w, y + row_h,
-                    fill=c["badge_multi_bd"], outline="",
-                    tags=(item_tag,))
+                bar_color = c["badge_multi_bd"]
+            elif is_movie:
+                bar_color = c["badge_movie_bd"]
 
-            # ── Checkbox ──────────────────────────────────────────────
+            if bar_color:
+                cv.create_rectangle(
+                    x_left, y, x_left + bar_w, y + row_h,
+                    fill=bar_color, outline="", tags=(tag,))
+
+            # Checkbox
             check_var = self.check_vars[str(item_idx)]
-            check_x = x_left + accent_bar_w + card_pad_x
+            check_x = x_left + bar_w + pad_x
             check_cy = y + row_h // 2
             check_char = "☑" if check_var.get() else "☐"
             check_color = c["accent"] if check_var.get() else c["border_light"]
             cv.create_text(
                 check_x, check_cy, text=check_char,
                 fill=check_color, font=font_check_t, anchor="w",
-                tags=(f"check_{display_idx}", "check", item_tag))
+                tags=(f"check_{display_idx}", "check", tag))
 
-            # Text content starts after checkbox column
-            text_x = check_x + check_col_w
-            text_y = y + card_pad_y
+            text_x = check_x + check_w
+            text_y = y + pad_y
 
-            # ── Badge pills ───────────────────────────────────────────
+            # Badge pills
             if has_badges:
                 bx = text_x
-                by = text_y
-
+                badges_to_draw = []
+                if has_review:
+                    badges_to_draw.append((" NEEDS REVIEW ", c["badge_review_bg"],
+                                            c["badge_review_fg"], c["badge_review_bd"]))
+                if is_movie:
+                    badges_to_draw.append((" MOVIE ", c["badge_movie_bg"],
+                                            c["badge_movie_fg"], c["badge_movie_bd"]))
                 if is_multi:
-                    label = f" {len(item.episodes)}-PART "
-                    tw = font_badge.measure(label)
-                    pill_w = tw + badge_pad_x * 2
-                    cv.create_rectangle(
-                        bx, by, bx + pill_w, by + badge_h,
-                        fill=c["badge_multi_bg"], outline=c["badge_multi_bd"],
-                        tags=(item_tag,))
-                    cv.create_text(
-                        bx + badge_pad_x, by + badge_h // 2, text=label,
-                        fill=c["badge_multi_fg"], font=font_badge_t, anchor="w",
-                        tags=(item_tag,))
-                    bx += pill_w + badge_gap
-
+                    badges_to_draw.append((f" {len(item.episodes)}-PART ",
+                                            c["badge_multi_bg"], c["badge_multi_fg"],
+                                            c["badge_multi_bd"]))
                 if is_special:
-                    label = " SPECIAL "
+                    badges_to_draw.append((" SPECIAL ", c["badge_special_bg"],
+                                            c["badge_special_fg"], c["badge_special_bd"]))
+
+                for label, bg, fg, bd in badges_to_draw:
                     tw = font_badge.measure(label)
-                    pill_w = tw + badge_pad_x * 2
+                    pill_w = tw + badge_px * 2
                     cv.create_rectangle(
-                        bx, by, bx + pill_w, by + badge_h,
-                        fill=c["badge_special_bg"], outline=c["badge_special_bd"],
-                        tags=(item_tag,))
+                        bx, text_y, bx + pill_w, text_y + badge_h,
+                        fill=bg, outline=bd, tags=(tag,))
                     cv.create_text(
-                        bx + badge_pad_x, by + badge_h // 2, text=label,
-                        fill=c["badge_special_fg"], font=font_badge_t, anchor="w",
-                        tags=(item_tag,))
+                        bx + badge_px, text_y + badge_h // 2, text=label,
+                        fill=fg, font=font_badge_t, anchor="w", tags=(tag,))
+                    bx += pill_w + gap
 
-                text_y += badge_h + line_gap
+                text_y += badge_h + gap
 
-            # ── Line 1: Original filename ─────────────────────────────
+            # Line 1: original filename
             cv.create_text(
                 text_x, text_y, text=orig_text,
                 fill=name_fg, font=font_orig_t, anchor="nw",
-                tags=("text", item_tag))
+                tags=("text", tag))
             text_y += line1_h
 
-            # ── Line 2: Arrow + new name ──────────────────────────────
+            # Line 2: arrow + new name
             if arrow_text:
-                text_y += line_gap
+                text_y += gap
                 cv.create_text(
                     text_x + 4, text_y, text=arrow_text,
                     fill=arrow_fg, font=font_new_t, anchor="nw",
-                    tags=("text", item_tag))
+                    tags=("text", tag))
 
             self._card_positions.append((y_start, y_start + row_h, item_idx))
-            y += row_h + card_margin_y
+            y += row_h + margin_y
 
-        # Scroll region
         cv.configure(scrollregion=(0, 0, canvas_w, y + 10))
         cv.bind("<Button-1>", self._on_canvas_click)
 
-        # Status counts
+        # Status summary
         count_ok = sum(1 for it in self.preview_items if it.status == "OK")
         count_move = sum(1 for it in self.preview_items if it.is_move())
         count_multi = sum(1 for it in self.preview_items if len(it.episodes) > 1)
@@ -1247,8 +1100,11 @@ class PlexRenamerApp:
         self.status_var.set("Preview:  " + "  ·  ".join(parts))
         self._update_tally()
 
+    # ══════════════════════════════════════════════════════════════════
+    #  Canvas interaction
+    # ══════════════════════════════════════════════════════════════════
+
     def _on_canvas_click(self, event):
-        """Handle clicks on the preview canvas — checkbox toggles and card selection."""
         cy = self.preview_canvas.canvasy(event.y)
         cx = self.preview_canvas.canvasx(event.x)
         check_zone = int(55 * self.dpi_scale)
@@ -1262,16 +1118,15 @@ class PlexRenamerApp:
                 return
 
     def _toggle_check(self, item_idx: int):
-        """Toggle checkbox and redraw just the checkbox character."""
         key = str(item_idx)
         var = self.check_vars.get(key)
         if not var:
             return
         var.set(not var.get())
 
-        c = self.colors
+        c = self.c
         cv = self.preview_canvas
-        scale = self.dpi_scale
+        s = self.dpi_scale
 
         for display_idx, (y_start, y_end, idx) in enumerate(self._card_positions):
             if idx == item_idx:
@@ -1279,7 +1134,7 @@ class PlexRenamerApp:
                 cv.delete(check_tag)
                 check_char = "☑" if var.get() else "☐"
                 check_color = c["accent"] if var.get() else c["border_light"]
-                check_x = int(6 * scale) + int(4 * scale) + int(14 * scale)
+                check_x = int(4 * s) + int(4 * s) + int(14 * s)
                 check_cy = y_start + (y_end - y_start) // 2
                 cv.create_text(
                     check_x, check_cy, text=check_char,
@@ -1287,40 +1142,48 @@ class PlexRenamerApp:
                     tags=(check_tag, "check", f"item_{idx}"))
                 break
 
-    # ══════════════════════════════════════════════════════════════════
-    #  Detail panel
-    # ══════════════════════════════════════════════════════════════════
+    def _select_card(self, item_idx: int):
+        c = self.c
+        cv = self.preview_canvas
 
-    def _select_card(self, item_idx):
-        """Highlight the selected card on the canvas and show its detail."""
-        c = self.colors
+        # Reset all card outlines
+        for tag_id in cv.find_withtag("card"):
+            cv.itemconfigure(tag_id, outline=c["border"], fill=c["bg_card"])
 
-        # Reset all card backgrounds
-        for tag_id in self.preview_canvas.find_withtag("card"):
-            self.preview_canvas.itemconfigure(tag_id, outline=c["border"])
-
-        # Highlight the selected card
-        for tag_id in self.preview_canvas.find_withtag(f"item_{item_idx}"):
-            item_type = self.preview_canvas.type(tag_id)
-            if item_type == "rectangle":
-                tags = self.preview_canvas.gettags(tag_id)
-                if "card" in tags:
-                    self.preview_canvas.itemconfigure(tag_id, outline=c["accent"])
+        # Highlight selected
+        for tag_id in cv.find_withtag(f"item_{item_idx}"):
+            if cv.type(tag_id) == "rectangle" and "card" in cv.gettags(tag_id):
+                cv.itemconfigure(
+                    tag_id, outline=c["accent"], fill=c["bg_card_selected"])
 
         self._selected_index = item_idx
         self._show_detail(item_idx)
 
-    def _show_detail(self, index):
-        c = self.colors
+    # ══════════════════════════════════════════════════════════════════
+    #  Detail panel
+    # ══════════════════════════════════════════════════════════════════
+
+    def _show_detail(self, index: int):
+        c = self.c
         item = self.preview_items[index]
 
         is_multi = len(item.episodes) > 1
         is_special = item.season == 0
         is_movie = item.media_type == MediaType.MOVIE
 
+        # Header
+        if is_movie:
+            self.detail_header.configure(text="MOVIE DETAILS")
+        elif is_special:
+            self.detail_header.configure(text="SPECIAL DETAILS")
+        elif is_multi:
+            self.detail_header.configure(text="MULTI-EPISODE DETAILS")
+        else:
+            self.detail_header.configure(text="FILE DETAILS")
+
+        # Build detail text
         lines = []
 
-        # Type indicator
         type_tags = []
         if is_movie:
             type_tags.append("MOVIE")
@@ -1340,74 +1203,68 @@ class PlexRenamerApp:
             ep_str = (", ".join(str(e) for e in item.episodes)
                       if item.episodes else "—")
             lines.append(f"{season_label}  ·  "
-                          f"Episode{'s' if is_multi else ''} {ep_str}\n")
+                         f"Episode{'s' if is_multi else ''} {ep_str}\n")
 
         status_text = item.status
         if item.is_move():
             status_text += f"\nMoving to {item.target_dir.name}"
-
         lines.append(status_text)
+
         self.detail_label.configure(text="\n".join(lines))
 
-        # Show/hide the Re-match button for movie items
+        # Re-match button visibility
         if is_movie:
             self.rematch_btn.pack(anchor="w", pady=(12, 0))
         else:
             self.rematch_btn.pack_forget()
 
-        # Episode still (TV) or movie poster (Movie)
-        tmdb = self._get_tmdb_client()
+        # Load image (uses shared tmdb client — no new sessions)
+        self._load_detail_image(item)
+
+    def _load_detail_image(self, item: PreviewItem):
+        """Load the appropriate image for the detail panel."""
+        tmdb = self._ensure_tmdb()
         if not tmdb or not self.media_info:
             self.detail_image.configure(image="")
             return
 
-        if is_movie:
-            movie_data = (self.movie_scanner.movie_info.get(item.original)
-                          if self.movie_scanner else None)
+        img = None
+        is_movie = item.media_type == MediaType.MOVIE
+
+        if is_movie and self.movie_scanner:
+            movie_data = self.movie_scanner.movie_info.get(item.original)
             if movie_data and movie_data.get("poster_path"):
                 img = tmdb.fetch_image(movie_data["poster_path"], target_width=400)
-                if img:
-                    img = self._scale_to_panel(img)
-                    photo = ImageTk.PhotoImage(img)
-                    self._image_refs.append(photo)
-                    self.detail_image.configure(image=photo)
-                    return
         elif self.tv_scanner and item.episodes:
             poster_path = self.tv_scanner.episode_posters.get(
                 (item.season, item.episodes[0]))
             if poster_path:
                 img = tmdb.fetch_image(poster_path, target_width=400)
-                if img:
-                    img = self._scale_to_panel(img)
-                    photo = ImageTk.PhotoImage(img)
-                    self._image_refs.append(photo)
-                    self.detail_image.configure(image=photo)
-                    return
 
-        self.detail_image.configure(image="")
+        if img:
+            img = self._scale_to_panel(img)
+            photo = ImageTk.PhotoImage(img)
+            # Replace the single reference — no unbounded list growth
+            self._detail_img_ref = photo
+            self.detail_image.configure(image=photo)
+        else:
+            self.detail_image.configure(image="")
+            self._detail_img_ref = None
 
     def _rematch_selected_movie(self):
-        """
-        Open a match dialog for the currently selected movie card.
-
-        Uses cached search results as the starting point but allows
-        the user to re-search.  Updates the preview item in place.
-        """
         if self._selected_index is None:
             return
         item = self.preview_items[self._selected_index]
         if item.media_type != MediaType.MOVIE or not self.movie_scanner:
             return
 
-        tmdb = self._get_tmdb_client()
+        tmdb = self._ensure_tmdb()
         if not tmdb:
             return
 
-        # Start with cached results, allow re-search
         cached = self.movie_scanner.get_search_results(item.original)
         chosen = self._pick_media_dialog(
-            cached,
-            title_key="title",
+            cached, title_key="title",
             dialog_title=f"Re-match: {item.original.name}",
             allow_skip=True,
             search_callback=tmdb.search_movie,
@@ -1416,42 +1273,33 @@ class PlexRenamerApp:
         if not chosen:
             return
 
-        # Update the preview item in place
         new_item = self.movie_scanner.rematch_file(item, chosen)
         self.preview_items[self._selected_index] = new_item
-
-        # Re-check for duplicates and refresh the display
         check_duplicates(self.preview_items)
         self._display_preview()
-
-        # Re-select the same card to update the detail panel
         self._select_card(self._selected_index)
 
     # ══════════════════════════════════════════════════════════════════
     #  Rename / Undo
     # ══════════════════════════════════════════════════════════════════
 
-    def execute_rename(self):
+    def _execute_rename(self):
         if not self.preview_items or not self.check_vars:
             messagebox.showwarning(
-                "Preview First",
-                "Scan and review files before renaming.")
+                "Preview First", "Scan and review files before renaming.")
             return
 
-        checked = set()
-        for i, item in enumerate(self.preview_items):
-            key = str(i)
-            var = self.check_vars.get(key)
-            if var and var.get() and item.status == "OK" and item.new_name:
-                checked.add(i)
+        checked = {
+            i for i, item in enumerate(self.preview_items)
+            if self.check_vars.get(str(i), tk.BooleanVar(value=False)).get()
+            and item.status == "OK" and item.new_name
+        }
 
         if not checked:
             messagebox.showinfo("Nothing to do", "No files selected for rename.")
             return
 
-        move_count = sum(
-            1 for i in checked if self.preview_items[i].is_move()
-        )
+        move_count = sum(1 for i in checked if self.preview_items[i].is_move())
         msg = f"Rename {len(checked)} file(s)?"
         if move_count:
             msg += f"\n\n{move_count} file(s) will be moved to a different folder."
@@ -1461,13 +1309,13 @@ class PlexRenamerApp:
         if not messagebox.askyesno("Confirm Rename", msg):
             return
 
-        media_name = (self.media_info.get("name")
-                       or self.media_info.get("title")
-                       or self.folder.name)
-
-        result = execute_rename(
-            self.preview_items, checked, media_name, self.folder,
+        media_name = (
+            self.media_info.get("name")
+            or self.media_info.get("title")
+            or self.folder.name
         )
+
+        result = execute_rename(self.preview_items, checked, media_name, self.folder)
 
         if result.errors:
             messagebox.showwarning(
@@ -1489,6 +1337,10 @@ class PlexRenamerApp:
             messagebox.showinfo("Done", result_msg)
 
         self.status_var.set(f"Renamed {result.renamed_count} files.")
+
+        # Invalidate scanner cache since files have moved
+        if self.tv_scanner:
+            self.tv_scanner.invalidate_cache()
         self.run_preview()
 
     def undo(self):
@@ -1517,35 +1369,34 @@ class PlexRenamerApp:
 
         if errors:
             messagebox.showwarning("Partial Undo",
-                                    f"Errors:\n" + "\n".join(errors[:5]))
+                                   f"Errors:\n" + "\n".join(errors[:5]))
         else:
             messagebox.showinfo("Undone", "Rename successfully undone.")
 
         self.status_var.set("Undo complete.")
+        if self.tv_scanner:
+            self.tv_scanner.invalidate_cache()
         if self.folder and self.media_info:
             self.run_preview()
 
     # ══════════════════════════════════════════════════════════════════
-    #  Search / selection helpers
+    #  Search / selection
     # ══════════════════════════════════════════════════════════════════
 
-    def update_search(self):
+    def _update_search(self):
         query = self.search_var.get().lower()
-        if not hasattr(self, '_card_positions'):
+        if not self._card_positions:
             return
 
         for y_start, y_end, item_idx in self._card_positions:
             item = self.preview_items[item_idx]
             text = (item.original.name + " " + (item.new_name or "")).lower()
             tag = f"item_{item_idx}"
-            if query and query not in text:
-                for cid in self.preview_canvas.find_withtag(tag):
-                    self.preview_canvas.itemconfigure(cid, state="hidden")
-            else:
-                for cid in self.preview_canvas.find_withtag(tag):
-                    self.preview_canvas.itemconfigure(cid, state="normal")
+            state = "normal" if (not query or query in text) else "hidden"
+            for cid in self.preview_canvas.find_withtag(tag):
+                self.preview_canvas.itemconfigure(cid, state=state)
 
-    def select_all(self):
+    def _select_all(self):
         selectable = [
             str(i) for i, item in enumerate(self.preview_items)
             if item.status == "OK"
@@ -1565,12 +1416,11 @@ class PlexRenamerApp:
 
     def _update_tally(self):
         total = sum(1 for it in self.preview_items if it.status == "OK")
-        selected = 0
-        for i, item in enumerate(self.preview_items):
-            if item.status == "OK":
-                var = self.check_vars.get(str(i))
-                if var and var.get():
-                    selected += 1
+        selected = sum(
+            1 for i, item in enumerate(self.preview_items)
+            if item.status == "OK"
+            and self.check_vars.get(str(i), tk.BooleanVar(value=False)).get()
+        )
         self.tally_var.set(f"{selected} / {total}")
 
     # ══════════════════════════════════════════════════════════════════
