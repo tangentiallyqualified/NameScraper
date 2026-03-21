@@ -67,6 +67,101 @@ def get_api_key(service):
 # -------------------------
 # Name Parsing Utilities
 # -------------------------
+
+# Tokens commonly found in release-group folder names that are NOT part
+# of the show title. Matched case-insensitively. Order doesn't matter —
+# we stop at the first token that matches to avoid eating title words.
+_RELEASE_NOISE = re.compile(
+    r"""
+    (?:^|[ .\-_])                     # preceded by separator or start
+    (?:
+        # --- Resolution ---
+        \d{3,4}[pi]                   # 480p, 720p, 1080p, 1080i, 2160p
+        |4K|UHD
+        # --- Source ---
+        |Blu[\- .]?Ray|BDRip|BRRip|BDMV
+        |WEB[\- .]?(?:DL|Rip)|WEBRip|HDTV|DVDRip|DVD|SDTV
+        |AMZN|DSNP|ATVP|NF|HULU|HMAX|PMTP|iT
+        # --- Video codec ---
+        |[xh][\.]?26[45]|HEVC|AVC|AV1|MPEG[24]?|VP9|10[\- .]?Bit
+        # --- Audio ---
+        |AAC(?:[ .\-]?\d\.\d)?|AC3|EAC3|DTS(?:[\- .]?HD)?(?:[\- .]?MA)?
+        |TrueHD|Atmos|FLAC|LPCM|Opus
+        |(?:Dual|Multi)[\- .]?Audio|[257]\.\d
+        # --- Release tags ---
+        |REMUX|REPACK|PROPER|iNTERNAL|EXTENDED|UNCUT|DC|THEATRICAL
+        |HQ|LQ|SDR|HDR(?:10)?(?:\+)?|DV|DoVi
+        |COMPLETE
+        # --- Season indicators (not part of the show title) ---
+        |S\d{1,2}(?:[\-]S\d{1,2})?(?:E\d{1,3})?
+        # --- General noise after a dash (release group name) ---
+        # e.g. "-iAHD", "-SPARKS", "-FGT"
+    )
+    (?=[ .\-_]|$)                     # followed by separator or end
+    """,
+    re.IGNORECASE | re.VERBOSE
+)
+
+# The trailing release group after the last hyphen, e.g. "-iAHD"
+_TRAILING_GROUP = re.compile(r"-[A-Za-z0-9]{2,10}$")
+
+
+def clean_folder_name(name):
+    """
+    Extract a human-readable show title from a release-group style
+    folder name like:
+        Dragon.Ball.Super.1080p.Blu-Ray.10-Bit.Dual-Audio.TrueHD.x265-iAHD
+
+    Strategy:
+      1. Replace dots/underscores with spaces
+      2. Remove bracketed tags [group] and (tags)
+      3. Strip the trailing release group after the last hyphen
+      4. Walk tokens left-to-right; stop at the first release-noise token
+      5. Everything before that noise token is the show title
+      6. If a 4-digit year is found, preserve it in parentheses
+
+    Returns the cleaned show name string.
+    """
+    # Step 1: Replace dots and underscores with spaces
+    s = name.replace(".", " ").replace("_", " ")
+
+    # Step 2: Remove bracketed/parenthesized tags
+    s = re.sub(r"\[.*?\]", "", s)
+    s = re.sub(r"\(.*?\)", "", s)
+
+    # Step 3: Strip trailing release group (e.g. "-iAHD")
+    s = _TRAILING_GROUP.sub("", s)
+
+    # Step 4: Walk tokens and stop at the first noise match
+    tokens = s.split()
+    title_tokens = []
+    for token in tokens:
+        # Check if this token (with surrounding context) is noise
+        if _RELEASE_NOISE.search(f" {token} "):
+            break
+        title_tokens.append(token)
+
+    title = " ".join(title_tokens).strip()
+
+    # Step 5: If we got nothing useful, fall back to the full cleaned string
+    if len(title) < 2:
+        title = re.sub(r"\s+", " ", s).strip()
+
+    # Step 6: Try to extract a year from the original name and format
+    # it consistently as "(YYYY)" appended to the title.
+    year_match = re.search(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", name)
+    if year_match:
+        year = year_match.group(1)
+        yr = int(year)
+        if 1950 <= yr <= 2030:
+            # Remove bare year from title if it leaked through as a token
+            title = re.sub(r"\s*\(?\b" + year + r"\b\)?\s*", " ", title).strip()
+            title = f"{title} ({year})"
+
+    # Collapse spaces
+    return re.sub(r"\s+", " ", title).strip()
+
+
 def clean_name(name):
     """
     Normalize a filename for pattern matching.
@@ -136,12 +231,42 @@ def extract_episode(filename):
 
 def get_season(folder):
     """
-    Extract the season number from a folder name like 'Season 02'.
-    Returns None if no season info is found.
+    Extract the season number from a folder name.
+
+    Recognizes many common formats:
+      - "Season 02", "Season02", "season 2"
+      - "S02", "s2"
+      - "Show Name S02", "Show Name (2004) S02"
+      - "Staffel 3" (German)
+      - "Saison 3" (French)
+      - Bare number folders: "02", "2" (only 1-2 digits)
+
+    Returns the season number as an int, or None if not found.
     """
-    m = re.search(r"season\s*(\d+)", folder.name, re.IGNORECASE)
+    name = folder.name
+
+    # Pattern 1: "Season ##" anywhere in the name
+    m = re.search(r"season\s*(\d+)", name, re.IGNORECASE)
     if m:
         return int(m.group(1))
+
+    # Pattern 2: "S##" as a standalone token (not part of a longer word)
+    # Handles: "S02", "Show Name S02", "Show Name (2004) S02"
+    m = re.search(r"(?:^|[\s._\-])S(\d{1,2})(?:[\s._\-]|$)", name)
+    if m:
+        return int(m.group(1))
+
+    # Pattern 3: International variants
+    m = re.search(r"(?:staffel|saison|temporada|stagione)\s*(\d+)", name, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+
+    # Pattern 4: Bare number folder (e.g. "01", "2") — only if the
+    # entire folder name is just 1-2 digits
+    m = re.fullmatch(r"(\d{1,2})", name.strip())
+    if m:
+        return int(m.group(1))
+
     return None
 
 
@@ -161,25 +286,42 @@ def sanitize_filename(name):
     return name
 
 
-def build_name(show, year, season, episodes, title, ext):
+def build_name(show, year, season, episodes, titles, ext):
     """
     Build a Plex-compatible episode filename.
 
-    FIX #2: Supports multi-episode naming (S01E01E02).
-    FIX #5: Output is sanitized for filesystem safety.
+    Supports multi-episode files with proper formatting:
+      Single:  Show (2004) - S01E01 - Pilot.mkv
+      Multi:   Show (2004) - S01E01-E02 - Title 1-Title 2.mkv
 
     Args:
         show: Show name string
         year: Year string or empty
         season: Season number (int)
         episodes: List of episode numbers
-        title: Episode title string
+        titles: List of episode title strings (one per episode),
+                or a single string for backward compatibility
         ext: File extension including the dot
     """
     year_part = f" ({year})" if year else ""
-    # Multi-episode: S01E01E02, single: S01E01
-    ep_part = "".join(f"E{ep:02d}" for ep in episodes)
-    raw = f"{show}{year_part} - S{season:02d}{ep_part} - {title}{ext}"
+
+    # Episode number part: S01E01 or S01E01-E02
+    if len(episodes) == 1:
+        ep_part = f"E{episodes[0]:02d}"
+    else:
+        ep_part = "-".join(f"E{ep:02d}" for ep in episodes)
+
+    # Title part: combine multiple titles with a dash
+    if isinstance(titles, str):
+        title_part = titles
+    elif len(titles) == 1:
+        title_part = titles[0]
+    else:
+        # Deduplicate if all titles are the same (e.g. both parts named "Rising")
+        unique = list(dict.fromkeys(titles))  # preserves order
+        title_part = "-".join(unique)
+
+    raw = f"{show}{year_part} - S{season:02d}{ep_part} - {title_part}{ext}"
     return sanitize_filename(raw)
 
 
@@ -945,15 +1087,28 @@ class PlexRenamerApp:
             messagebox.showwarning("No Key", "Set your TMDB API key first via 'Manage API Keys'.")
             return
 
-        # Use the folder name as the initial search query
+        # Use the folder name as the initial search query, cleaned of
+        # release-group noise (codecs, resolution, source, group tags).
         show_name = self.folder.name
-        # Strip trailing year like "Show Name (2020)" for a cleaner search
-        show_name_clean = re.sub(r"\s*\(\d{4}\)\s*$", "", show_name)
+        show_name_clean = clean_folder_name(show_name)
+        # Also strip a trailing year for the search query (TMDB handles
+        # year matching better as a separate parameter)
+        search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", show_name_clean).strip()
 
-        results = tmdb_search_show(show_name_clean, api_key)
+        results = tmdb_search_show(search_query, api_key)
         if not results:
-            messagebox.showinfo("Not Found", f"No TMDB results for '{show_name_clean}'.")
-            return
+            # Let the user manually enter a show name if auto-detection failed
+            manual = simpledialog.askstring(
+                "Show Not Found",
+                f"No TMDB results for '{search_query}'.\n\n"
+                f"(Extracted from: {show_name})\n\n"
+                f"Enter the show name manually:",
+                parent=self.root
+            )
+            if manual and manual.strip():
+                results = tmdb_search_show(manual.strip(), api_key)
+            if not results:
+                return
 
         # FIX #7: Let the user pick from the search results
         self.show_info = self._pick_show_dialog(results)
@@ -1229,12 +1384,14 @@ class PlexRenamerApp:
             self.episode_titles.update({(sn, k): v for k, v in sdata["titles"].items()})
             self.episode_posters.update({(sn, k): v for k, v in sdata["posters"].items()})
 
-        # Map each file to its correct TMDB season + episode
-        for i, (f, abs_num, raw_title, eps, is_sr) in enumerate(all_files):
-            if i < len(tmdb_episode_list):
-                target_season, target_ep, tmdb_title = tmdb_episode_list[i]
-            else:
-                # More files than TMDB episodes — can't map
+        # Map each file to its correct TMDB season + episode.
+        # Multi-episode files consume multiple entries from the list.
+        tmdb_idx = 0
+        for f, abs_num, raw_title, eps, is_sr in all_files:
+            # How many TMDB episodes does this file cover?
+            num_eps = max(1, len(eps))
+
+            if tmdb_idx >= len(tmdb_episode_list):
                 self.preview_items.append({
                     "original": f,
                     "new_name": None,
@@ -1245,6 +1402,18 @@ class PlexRenamerApp:
                 })
                 continue
 
+            # Gather TMDB entries for all episodes this file covers
+            file_eps = []
+            file_titles = []
+            target_season = tmdb_episode_list[tmdb_idx][0]
+            for j in range(num_eps):
+                if tmdb_idx + j < len(tmdb_episode_list):
+                    sn, ep, title = tmdb_episode_list[tmdb_idx + j]
+                    file_eps.append(ep)
+                    file_titles.append(title)
+                    target_season = sn
+            tmdb_idx += num_eps
+
             # Build the target season folder path
             target_dir = self.folder / f"Season {target_season:02d}"
 
@@ -1252,8 +1421,8 @@ class PlexRenamerApp:
                 self.show_info["name"],
                 self.show_info["year"],
                 target_season,
-                [target_ep],
-                tmdb_title,
+                file_eps,
+                file_titles,
                 f.suffix
             )
 
@@ -1262,7 +1431,7 @@ class PlexRenamerApp:
                 "new_name": new_name,
                 "target_dir": target_dir,
                 "season": target_season,
-                "episodes": [target_ep],
+                "episodes": file_eps,
                 "status": "OK",
             })
 
@@ -1302,15 +1471,19 @@ class PlexRenamerApp:
                     })
                     continue
 
-                # For normal mode, use the parsed episode numbers directly
-                tmdb_title = titles.get(eps[0], raw_title or f"Episode {eps[0]}")
+                # For normal mode, use the parsed episode numbers directly.
+                # Look up TMDB titles for ALL episodes (multi-ep files
+                # like S01E01-E02 need both "Rising (1)" and "Rising (2)").
+                ep_titles = []
+                for ep_num in eps:
+                    ep_titles.append(titles.get(ep_num, raw_title or f"Episode {ep_num}"))
 
                 new_name = build_name(
                     self.show_info["name"],
                     self.show_info["year"],
                     season_num,
                     eps,
-                    tmdb_title,
+                    ep_titles,
                     f.suffix
                 )
 
@@ -1558,6 +1731,7 @@ class PlexRenamerApp:
             "renames": [],
             "created_dirs": [],   # Track dirs we create for undo
             "removed_dirs": [],   # Track dirs we remove for undo
+            "renamed_dirs": [],   # Track season folders we normalize for undo
         }
 
         errors = []
@@ -1583,6 +1757,37 @@ class PlexRenamerApp:
             except (OSError, shutil.Error) as e:
                 errors.append(f"{src.name}: {e}")
 
+        # Normalize season folder names to Plex standard "Season ##" format.
+        # Folders like "Show Name S02" or "Staffel 3" get renamed.
+        # This runs AFTER file moves so the files are already in the right place.
+        all_season_dirs = set()
+        for src_dir in source_dirs:
+            all_season_dirs.add(src_dir)
+        # Also include target dirs that were created or already existed
+        for _, dst, target_dir in renames:
+            all_season_dirs.add(target_dir)
+
+        for season_dir in all_season_dirs:
+            if not season_dir.exists() or season_dir == self.folder:
+                continue
+            season_num = get_season(season_dir)
+            if season_num is None:
+                continue
+            proper_name = f"Season {season_num:02d}"
+            if season_dir.name == proper_name:
+                continue  # Already correct
+            proper_path = season_dir.parent / proper_name
+            if proper_path.exists():
+                continue  # Target name already taken — skip to avoid conflict
+            try:
+                season_dir.rename(proper_path)
+                log_entry["renamed_dirs"].append({
+                    "old": str(season_dir),
+                    "new": str(proper_path),
+                })
+            except OSError:
+                pass  # Not critical
+
         # Clean up empty source directories
         for src_dir in source_dirs:
             try:
@@ -1607,6 +1812,10 @@ class PlexRenamerApp:
                                    f"Errors ({len(errors)}):\n" + "\n".join(errors[:5]))
         else:
             result_msg = f"Successfully renamed {len(log_entry['renames'])} files."
+            if log_entry.get("renamed_dirs"):
+                renamed = [f"{Path(d['old']).name} → {Path(d['new']).name}"
+                           for d in log_entry["renamed_dirs"]]
+                result_msg += f"\n\nRenamed folders:\n" + "\n".join(renamed)
             if log_entry["removed_dirs"]:
                 removed = [Path(d).name for d in log_entry["removed_dirs"]]
                 result_msg += f"\n\nRemoved empty folders: {', '.join(removed)}"
@@ -1645,6 +1854,21 @@ class PlexRenamerApp:
 
         errors = []
 
+        # Step 0: Reverse any season folder renames FIRST, because file
+        # paths in the log reference the new (normalized) folder names.
+        # We need to revert folders so the files inside them are at the
+        # expected paths when we move them back.
+        dir_rename_map = {}  # new_path -> old_path for path fixup
+        for entry in reversed(last.get("renamed_dirs", [])):
+            new_dir = Path(entry["new"])
+            old_dir = Path(entry["old"])
+            try:
+                if new_dir.exists():
+                    new_dir.rename(old_dir)
+                    dir_rename_map[str(new_dir)] = str(old_dir)
+            except OSError as e:
+                errors.append(f"Could not revert folder {new_dir.name}: {e}")
+
         # Step 1: Recreate any directories that were removed during the rename
         for dir_path_str in last.get("removed_dirs", []):
             dir_path = Path(dir_path_str)
@@ -1653,17 +1877,27 @@ class PlexRenamerApp:
             except OSError as e:
                 errors.append(f"Could not recreate folder {dir_path.name}: {e}")
 
-        # Step 2: Move/rename all files back to their original locations
+        # Step 2: Move/rename all files back to their original locations.
+        # Fix up file paths if their parent folder was renamed in step 0.
         for entry in reversed(last["renames"]):
             new_path = Path(entry["new"])
             old_path = Path(entry["old"])
+
+            # If the file's parent folder was reverted, update the path
+            for renamed_new, renamed_old in dir_rename_map.items():
+                new_str = str(new_path)
+                if new_str.startswith(renamed_new):
+                    new_path = Path(new_str.replace(renamed_new, renamed_old, 1))
+                old_str = str(old_path)
+                if old_str.startswith(renamed_new):
+                    old_path = Path(old_str.replace(renamed_new, renamed_old, 1))
+
             try:
                 # Ensure the original parent directory exists
                 old_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if new_path.exists():
                     if new_path.parent != old_path.parent:
-                        # Cross-folder move — use shutil for reliability
                         shutil.move(str(new_path), str(old_path))
                     else:
                         new_path.rename(old_path)
