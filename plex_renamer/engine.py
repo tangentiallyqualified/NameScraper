@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import shutil
+from collections import defaultdict
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -79,6 +80,7 @@ class TVScanner:
         # Populated during scan — used by the GUI for detail panel
         self.episode_titles: dict[tuple[int, int], str] = {}
         self.episode_posters: dict[tuple[int, int], str | None] = {}
+        self.episode_meta: dict[tuple[int, int], dict] = {}  # Rich metadata per episode
         # Cached scan data — computed once, reused across methods
         self._season_dirs: list[tuple[Path, int]] | None = None
         self._tmdb_seasons: dict | None = None
@@ -169,10 +171,13 @@ class TVScanner:
         extra = (user_nums - tmdb_nums) - {0}
         return bool(extra), user_nums, tmdb_nums
 
-    def _store_tmdb_data(self, season_num: int, titles: dict, posters: dict):
+    def _store_tmdb_data(self, season_num: int, titles: dict, posters: dict,
+                         episodes: dict | None = None):
         """Cache TMDB data for the detail panel."""
         self.episode_titles.update({(season_num, k): v for k, v in titles.items()})
         self.episode_posters.update({(season_num, k): v for k, v in posters.items()})
+        if episodes:
+            self.episode_meta.update({(season_num, k): v for k, v in episodes.items()})
 
     def _build_normal_preview(
         self,
@@ -185,12 +190,14 @@ class TVScanner:
             if season_num in tmdb_seasons:
                 titles = tmdb_seasons[season_num]["titles"]
                 posters = tmdb_seasons[season_num]["posters"]
+                episodes = tmdb_seasons[season_num].get("episodes", {})
             else:
                 season_data = self.tmdb.get_season(self.show_info["id"], season_num)
                 titles = season_data["titles"]
                 posters = season_data["posters"]
+                episodes = season_data.get("episodes", {})
 
-            self._store_tmdb_data(season_num, titles, posters)
+            self._store_tmdb_data(season_num, titles, posters, episodes)
 
             # Fuzzy title lookup for Season 0
             tmdb_title_lookup = {}
@@ -308,7 +315,8 @@ class TVScanner:
 
         # Cache TMDB data
         for sn, sdata in tmdb_seasons.items():
-            self._store_tmdb_data(sn, sdata["titles"], sdata["posters"])
+            self._store_tmdb_data(sn, sdata["titles"], sdata["posters"],
+                                  sdata.get("episodes", {}))
 
         items: list[PreviewItem] = []
         tmdb_idx = 0
@@ -437,6 +445,72 @@ class MovieScanner:
             if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
         )
 
+    @staticmethod
+    def _filter_sequential_batches(
+        files: list[Path],
+    ) -> tuple[list[Path], list[PreviewItem]]:
+        """
+        Detect groups of files that look like sequentially numbered TV episodes.
+
+        Groups files by parent folder, extracts a dash-delimited number from
+        each filename (e.g. "Title - 03"), and if 3+ files in the same folder
+        share a common prefix with sequential-ish numbers, marks them as TV skips.
+
+        Returns (remaining_files, skipped_items).
+        """
+        # Pattern: anything, then " - ##" before tags/extension
+        _NUM_PATTERN = re.compile(
+            r"^(.*?)\s*-\s*(\d{1,3})\s*(?:[\s.\-(v]|$)",
+        )
+
+        # Group by parent folder
+        by_folder: dict[Path, list[tuple[Path, str, int]]] = defaultdict(list)
+
+        for f in files:
+            m = _NUM_PATTERN.search(f.stem)
+            if m:
+                prefix = m.group(1).strip().lower()
+                num = int(m.group(2))
+                # Skip numbers that look like years
+                if 1900 <= num <= 2099:
+                    continue
+                by_folder[f.parent].append((f, prefix, num))
+
+        # Find sequential batches (3+ files with same prefix)
+        skip_set: set[Path] = set()
+        for folder, entries in by_folder.items():
+            # Group by prefix
+            prefix_groups: dict[str, list[tuple[Path, int]]] = defaultdict(list)
+            for f, prefix, num in entries:
+                prefix_groups[prefix].append((f, num))
+
+            for prefix, group in prefix_groups.items():
+                if len(group) < 3:
+                    continue
+                # Check if numbers are roughly sequential (allow gaps)
+                nums = sorted(n for _, n in group)
+                # If the range of numbers is reasonable for a TV series
+                # (not like 1, 500, 999) and there are enough of them
+                num_range = nums[-1] - nums[0]
+                if num_range < len(group) * 3:  # Allow some gaps
+                    for f, _ in group:
+                        skip_set.add(f)
+
+        remaining = []
+        skipped = []
+        for f in files:
+            if f in skip_set:
+                skipped.append(PreviewItem(
+                    original=f, new_name=None, target_dir=None,
+                    season=None, episodes=[],
+                    status="SKIP: looks like a TV episode (sequential batch)",
+                    media_type=MediaType.MOVIE,
+                ))
+            else:
+                remaining.append(f)
+
+        return remaining, skipped
+
     def scan(
         self,
         pick_movie_callback: callable | None = None,
@@ -470,6 +544,14 @@ class MovieScanner:
                 ))
             else:
                 video_files.append(f)
+
+        # Phase 1b: Batch detection — if 3+ remaining files in the same
+        # folder share a common name prefix with sequential dash-delimited
+        # numbers (e.g. "Title - 01", "Title - 02", "Title - 03"), they're
+        # almost certainly TV episodes even without S##E## markers.
+        if len(video_files) >= 3:
+            video_files, batch_skipped = self._filter_sequential_batches(video_files)
+            items.extend(batch_skipped)
 
         if not video_files:
             return items
@@ -511,7 +593,7 @@ class MovieScanner:
             chosen, confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[f] = chosen
 
-            if confidence < _AUTO_ACCEPT_THRESHOLD:
+            if confidence < AUTO_ACCEPT_THRESHOLD:
                 # Low confidence — flag for user review instead of auto-accepting
                 item = _build_movie_preview_item(f, chosen)
                 item.status = (
@@ -539,7 +621,7 @@ class MovieScanner:
 
         if pick_movie_callback:
             chosen = pick_movie_callback(results or [], f.name)
-            if chosen is _CANCEL_SCAN:
+            if chosen is CANCEL_SCAN:
                 return []
         else:
             chosen = results[0] if results else None
@@ -580,53 +662,15 @@ class MovieScanner:
         Pick the best TMDB result using title similarity + year matching.
 
         Returns (best_result, confidence) where confidence is 0.0–1.0.
-        A confidence below ~0.5 means the match is dubious and should
-        be flagged for user review.
-
-        Scoring:
-          - Title similarity (normalized, case-insensitive) weighted at 70%
-          - Year match weighted at 30%
-          - Exact title match gets a bonus
+        Delegates scoring to the shared ``score_results`` function.
         """
-        query_norm = _normalize_for_match(raw_name)
-
-        best = None
-        best_score = -1.0
-
-        for r in results:
-            title = r.get("title", "")
-            title_norm = _normalize_for_match(title)
-
-            # Title similarity: ratio of common length to max length
-            title_score = _title_similarity(query_norm, title_norm)
-
-            # Year match: 1.0 for exact, 0.3 for ±1 year, 0.0 otherwise
-            year_score = 0.0
-            if year_hint and r.get("year"):
-                try:
-                    diff = abs(int(year_hint) - int(r["year"]))
-                    if diff == 0:
-                        year_score = 1.0
-                    elif diff == 1:
-                        year_score = 0.3
-                except (ValueError, TypeError):
-                    pass
-
-            # Weighted combination
-            score = (title_score * 0.7) + (year_score * 0.3)
-
-            # Bonus for exact match (after normalization)
-            if query_norm == title_norm:
-                score = min(1.0, score + 0.15)
-
-            if score > best_score:
-                best_score = score
-                best = r
-
-        return best or results[0], max(0.0, best_score)
+        scored = score_results(results, raw_name, year_hint, title_key="title")
+        if scored:
+            return scored[0]
+        return results[0], 0.0
 
 
-def _normalize_for_match(text: str) -> str:
+def normalize_for_match(text: str) -> str:
     """
     Normalize a title for fuzzy comparison.
 
@@ -641,7 +685,7 @@ def _normalize_for_match(text: str) -> str:
     return re.sub(r"\s+", " ", t)
 
 
-def _title_similarity(a: str, b: str) -> float:
+def title_similarity(a: str, b: str) -> float:
     """
     Compute a simple title similarity score between 0.0 and 1.0.
 
@@ -686,11 +730,67 @@ def _title_similarity(a: str, b: str) -> float:
 
 
 # Minimum confidence for auto-accepting a match without review
-_AUTO_ACCEPT_THRESHOLD = 0.55
+AUTO_ACCEPT_THRESHOLD = 0.55
 
 
 # Sentinel value returned by the pick callback to cancel the entire scan.
-_CANCEL_SCAN = object()
+CANCEL_SCAN = object()
+
+
+def score_results(
+    results: list[dict],
+    raw_name: str,
+    year_hint: str | None,
+    title_key: str = "title",
+) -> list[tuple[dict, float]]:
+    """
+    Score a list of TMDB search results against a cleaned name.
+
+    Shared by both TV and movie matching paths.  Each result gets a
+    confidence score between 0.0 and 1.0 based on:
+      - Title similarity (normalized, case-insensitive) weighted at 70%
+      - Year match weighted at 30%  (exact = 1.0, ±1 year = 0.3)
+      - Exact normalized title match gets a +0.15 bonus
+
+    Args:
+        results:    List of TMDB result dicts.
+        raw_name:   Cleaned folder/filename to match against.
+        year_hint:  4-digit year string extracted from the source, or None.
+        title_key:  Key in each result dict holding the title
+                    ("title" for movies, "name" for TV).
+
+    Returns:
+        List of (result, score) tuples sorted by score descending.
+    """
+    query_norm = normalize_for_match(raw_name)
+    scored: list[tuple[dict, float]] = []
+
+    for r in results:
+        title = r.get(title_key, "")
+        title_norm = normalize_for_match(title)
+
+        t_score = title_similarity(query_norm, title_norm)
+
+        year_score = 0.0
+        if year_hint and r.get("year"):
+            try:
+                diff = abs(int(year_hint) - int(r["year"]))
+                if diff == 0:
+                    year_score = 1.0
+                elif diff == 1:
+                    year_score = 0.3
+            except (ValueError, TypeError):
+                pass
+
+        score = (t_score * 0.7) + (year_score * 0.3)
+
+        if query_norm == title_norm:
+            score = min(1.0, score + 0.15)
+
+        scored.append((r, score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored
 
 
 # ─── Shared utilities ─────────────────────────────────────────────────────────

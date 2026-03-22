@@ -26,13 +26,15 @@ from .engine import (
     MovieScanner,
     PreviewItem,
     TVScanner,
-    _CANCEL_SCAN,
+    CANCEL_SCAN,
+    AUTO_ACCEPT_THRESHOLD,
+    score_results,
     check_duplicates,
     execute_rename,
     execute_undo,
 )
 from .keys import get_api_key, save_api_key
-from .parsing import clean_folder_name
+from .parsing import clean_folder_name, extract_year
 from .styles import COLORS, get_dpi_scale, setup_styles
 from .tmdb import TMDBClient
 from .undo_log import load_log
@@ -91,6 +93,12 @@ class PlexRenamerApp:
         # ── Theme + layout ────────────────────────────────────────────
         self._check_imgs = setup_styles(self.root, self.dpi_scale)
         self._build_layout()
+
+        # ── Cached font objects (reused across redraws) ───────────────
+        self._font_orig = tkfont.Font(family="Helvetica", size=11)
+        self._font_new = tkfont.Font(family="Helvetica", size=10)
+        self._font_badge = tkfont.Font(family="Helvetica", size=8, weight="bold")
+        self._font_check = tkfont.Font(family="Helvetica", size=14)
 
         # Keyboard bindings
         self.root.bind("<Control-z>", lambda e: self.undo())
@@ -154,7 +162,7 @@ class PlexRenamerApp:
         # ── Action bar ────────────────────────────────────────────────
         action_bar = ttk.Frame(self.root)
         action_bar.pack(fill="x", padx=20, pady=(10, 6))
-        action_bar.columnconfigure(3, weight=1)
+        action_bar.columnconfigure(2, weight=1)
 
         # Select buttons
         self.select_btn_frame = ttk.Frame(action_bar)
@@ -188,20 +196,9 @@ class PlexRenamerApp:
         type_combo.pack(side="left")
         type_combo.bind("<<ComboboxSelected>>", self._on_type_change)
 
-        # Episode order (TV only)
-        self.order_frame = ttk.Frame(action_bar)
-        self.order_frame.grid(row=0, column=2, padx=(0, 8), sticky="w")
-        ttk.Label(self.order_frame, text="Order:", foreground=c["text_dim"]).pack(
-            side="left", padx=(0, 4))
-        self.order_var = tk.StringVar(value="aired")
-        ttk.Combobox(
-            self.order_frame, textvariable=self.order_var,
-            values=["aired", "dvd", "absolute"], width=9, state="readonly",
-        ).pack(side="left")
-
         # Filter
         search_frame = ttk.Frame(action_bar)
-        search_frame.grid(row=0, column=3, sticky="ew", padx=(0, 8))
+        search_frame.grid(row=0, column=2, sticky="ew", padx=(0, 8))
         ttk.Label(search_frame, text="Filter:", foreground=c["text_dim"]).pack(
             side="left", padx=(0, 4))
         self.search_var = tk.StringVar()
@@ -228,7 +225,7 @@ class PlexRenamerApp:
         ).pack(side="left")
 
         btn_frame = ttk.Frame(action_bar)
-        btn_frame.grid(row=1, column=3, sticky="e", pady=(8, 0))
+        btn_frame.grid(row=1, column=2, sticky="e", pady=(8, 0))
 
         ttk.Button(
             btn_frame, text="Refresh", command=self.run_preview,
@@ -306,41 +303,127 @@ class PlexRenamerApp:
         # Mousewheel focus management for detail panel
         self._setup_detail_mousewheel(detail_canvas)
 
-        # Detail content
-        pad = ttk.Frame(self.detail_inner, style="Mid.TFrame")
-        pad.pack(fill="both", expand=True, padx=16, pady=16)
+        # Detail content — built as a structured panel that gets
+        # populated/cleared by _show_detail and _reset_detail
+        self._detail_pad = ttk.Frame(self.detail_inner, style="Mid.TFrame")
+        self._detail_pad.pack(fill="both", expand=True, padx=14, pady=14)
+        pad = self._detail_pad
 
-        self.poster_label = ttk.Label(pad, style="Detail.TLabel", background=c["bg_mid"])
-        self.poster_label.pack(anchor="center", fill="x", pady=(0, 12))
+        # ── Series poster + show info (side by side) ────────────────
+        self.poster_row = ttk.Frame(pad, style="Mid.TFrame")
+        self.poster_row.pack(fill="x", pady=(0, 6))
 
-        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=8)
+        # Poster on the left — fixed width so text gets the rest
+        self.poster_label = ttk.Label(
+            self.poster_row, style="Detail.TLabel", background=c["bg_mid"],
+        )
+        self.poster_label.pack(side="left", anchor="nw", padx=(0, 10))
 
-        # Detail header
+        # Show info text to the right of the poster
+        self.show_info_frame = ttk.Frame(self.poster_row, style="Mid.TFrame")
+        self.show_info_frame.pack(side="left", fill="both", expand=True, anchor="nw")
+        self.show_info_label = ttk.Label(
+            self.show_info_frame, text="", style="DetailDim.TLabel",
+            wraplength=140, justify="left",
+        )
+        self.show_info_label.pack(anchor="nw", fill="x")
+
+        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=6)
+
+        # ── Section header (changes contextually) ────────────────────
         self.detail_header = ttk.Label(
             pad, text="SELECT AN ITEM",
             style="DetailDim.TLabel", font=("Helvetica", 9, "bold"),
         )
-        self.detail_header.pack(anchor="w", fill="x", pady=(8, 6))
+        self.detail_header.pack(anchor="w", fill="x", pady=(6, 4))
 
-        self.detail_label = ttk.Label(
-            pad, text="Click a file from the list\nto view its details",
-            style="Detail.TLabel", wraplength=260, justify="left",
-        )
-        self.detail_label.pack(anchor="w", fill="x")
-
+        # ── Episode still / movie poster (content-specific image) ────
         self.detail_image = ttk.Label(pad, style="Detail.TLabel", background=c["bg_mid"])
-        self.detail_image.pack(anchor="center", fill="x", pady=(12, 0))
+        self.detail_image.pack(anchor="center", fill="x", pady=(0, 8))
 
-        # Re-match button (movies only)
+        # ── Episode/movie title ──────────────────────────────────────
+        self.detail_ep_title = ttk.Label(
+            pad, text="", style="DetailEpTitle.TLabel",
+            wraplength=260, justify="left",
+        )
+        self.detail_ep_title.pack(anchor="w", fill="x", pady=(0, 2))
+
+        # ── Metadata row (rating, runtime, air date) ─────────────────
+        self.detail_meta_frame = ttk.Frame(pad, style="Mid.TFrame")
+        self.detail_meta_frame.pack(fill="x", pady=(0, 8))
+        self.detail_meta_label = ttk.Label(
+            self.detail_meta_frame, text="", style="DetailDim.TLabel",
+        )
+        self.detail_meta_label.pack(anchor="w")
+
+        # ── Rename info card (original → new, status) ────────────────
+        # Placed above overview so it's always visible without scrolling
+        self.detail_rename_frame = ttk.Frame(pad, style="DetailCard.TFrame")
+        self.detail_rename_frame.pack(fill="x", pady=(0, 8))
+
+        rename_inner = ttk.Frame(self.detail_rename_frame, style="DetailCard.TFrame")
+        rename_inner.pack(fill="x", padx=10, pady=8)
+
+        ttk.Label(
+            rename_inner, text="RENAME", style="DetailMeta.TLabel",
+            font=("Helvetica", 8, "bold"),
+        ).pack(anchor="w", pady=(0, 4))
+
+        self.detail_orig_label = ttk.Label(
+            rename_inner, text="", style="DetailMeta.TLabel",
+            wraplength=240, justify="left",
+        )
+        self.detail_orig_label.pack(anchor="w", fill="x")
+
+        self.detail_new_label = ttk.Label(
+            rename_inner, text="", style="DetailMeta.TLabel",
+            wraplength=240, justify="left", foreground=c["success"],
+        )
+        self.detail_new_label.pack(anchor="w", fill="x", pady=(2, 0))
+
+        self.detail_status_label = ttk.Label(
+            rename_inner, text="", style="DetailMeta.TLabel",
+        )
+        self.detail_status_label.pack(anchor="w", fill="x", pady=(4, 0))
+
+        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=6)
+
+        # ── Overview / synopsis ──────────────────────────────────────
+        self.detail_overview = ttk.Label(
+            pad, text="", style="DetailOverview.TLabel",
+            wraplength=260, justify="left",
+        )
+        self.detail_overview.pack(anchor="w", fill="x", pady=(0, 8))
+
+        # ── Crew & cast info ─────────────────────────────────────────
+        self.detail_crew_frame = ttk.Frame(pad, style="Mid.TFrame")
+        self.detail_crew_frame.pack(fill="x", pady=(0, 8))
+        self.detail_crew_label = ttk.Label(
+            self.detail_crew_frame, text="", style="DetailDim.TLabel",
+            wraplength=260, justify="left",
+        )
+        self.detail_crew_label.pack(anchor="w", fill="x")
+
+        # ── Re-match button (movies only) ────────────────────────────
         self.rematch_btn = ttk.Button(
             pad, text="Re-match on TMDB",
             command=self._rematch_selected_movie,
         )
 
+        # ── Default empty state ──────────────────────────────────────
+        self._reset_detail()
+
         def _on_detail_resize(event):
-            available = event.width - 40
+            available = event.width - 32
             if available > 100:
-                self.detail_label.configure(wraplength=available)
+                self.detail_overview.configure(wraplength=available)
+                self.detail_ep_title.configure(wraplength=available)
+                # Show info sits beside the poster — gets ~50% of panel
+                info_wrap = max(80, int(available * 0.5))
+                self.show_info_label.configure(wraplength=info_wrap)
+                self.detail_orig_label.configure(wraplength=available - 20)
+                self.detail_new_label.configure(wraplength=available - 20)
+                self.detail_crew_label.configure(wraplength=available)
         pad.bind("<Configure>", _on_detail_resize)
 
         # ── Status bar ────────────────────────────────────────────────
@@ -362,36 +445,25 @@ class PlexRenamerApp:
     # ── Mousewheel helpers ────────────────────────────────────────────
 
     def _bind_mousewheel(self, canvas: tk.Canvas):
-        """Bind mousewheel scrolling for a canvas (cross-platform)."""
+        """Bind mousewheel scrolling to a specific canvas (not globally)."""
         def _scroll(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas.bind_all("<MouseWheel>", _scroll)
-        canvas.bind_all(
-            "<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
-        canvas.bind_all(
-            "<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+        canvas.bind("<MouseWheel>", _scroll)
+        canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
+        canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+        # Ensure canvas can receive focus for wheel events
+        canvas.bind("<Enter>", lambda e: canvas.focus_set())
 
     def _setup_detail_mousewheel(self, detail_canvas: tk.Canvas):
-        """Manage mousewheel focus between preview and detail canvases."""
-        def _detail_scroll(event):
+        """Bind mousewheel to the detail canvas independently."""
+        def _scroll(event):
             detail_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        def _preview_scroll(event):
-            self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        detail_canvas.bind("<Enter>", lambda e: (
-            detail_canvas.bind_all("<MouseWheel>", _detail_scroll),
-            detail_canvas.bind_all("<Button-4>",
-                lambda ev: detail_canvas.yview_scroll(-3, "units")),
-            detail_canvas.bind_all("<Button-5>",
-                lambda ev: detail_canvas.yview_scroll(3, "units")),
-        ))
-        detail_canvas.bind("<Leave>", lambda e: (
-            self.preview_canvas.bind_all("<MouseWheel>", _preview_scroll),
-            self.preview_canvas.bind_all("<Button-4>",
-                lambda ev: self.preview_canvas.yview_scroll(-3, "units")),
-            self.preview_canvas.bind_all("<Button-5>",
-                lambda ev: self.preview_canvas.yview_scroll(3, "units")),
-        ))
+        detail_canvas.bind("<MouseWheel>", _scroll)
+        detail_canvas.bind("<Button-4>",
+            lambda e: detail_canvas.yview_scroll(-3, "units"))
+        detail_canvas.bind("<Button-5>",
+            lambda e: detail_canvas.yview_scroll(3, "units"))
+        detail_canvas.bind("<Enter>", lambda e: detail_canvas.focus_set())
 
     # ══════════════════════════════════════════════════════════════════
     #  TMDB Client management
@@ -428,6 +500,19 @@ class PlexRenamerApp:
         if img.width > panel_w:
             scale = panel_w / img.width
             img = img.resize((panel_w, int(img.height * scale)), Image.LANCZOS)
+        return img
+
+    def _scale_poster(self, img: Image.Image) -> Image.Image:
+        """Scale the series/movie poster to ~45% of panel width for side-by-side layout."""
+        self.root.update_idletasks()
+        try:
+            panel_w = self.detail_inner.winfo_width() - 40
+        except Exception:
+            panel_w = 260
+        target_w = max(80, int(panel_w * 0.45))
+        if img.width != target_w:
+            scale = target_w / img.width
+            img = img.resize((target_w, int(img.height * scale)), Image.LANCZOS)
         return img
 
     def _create_dialog(self, title: str, width: int = 500, height: int = 300) -> tk.Toplevel:
@@ -481,13 +566,11 @@ class PlexRenamerApp:
         val = self.type_var.get()
         if val == "TV Series":
             self.media_type = MediaType.TV
-            self.order_frame.grid()
             self.btn_select_movie_folder.pack_forget()
             self.btn_select_movie_files.pack_forget()
             self.btn_select_folder.pack(side="left")
         else:
             self.media_type = MediaType.MOVIE
-            self.order_frame.grid_remove()
             self.btn_select_folder.pack_forget()
             self.btn_select_movie_folder.pack(side="left", padx=(0, 4))
             self.btn_select_movie_files.pack(side="left")
@@ -565,6 +648,15 @@ class PlexRenamerApp:
         self._setup_movie_scan(tmdb, files=file_paths)
 
     def _search_tv(self, tmdb: TMDBClient, query: str, raw_name: str):
+        """
+        Search TMDB for a TV show and select the best match.
+
+        Auto-accepts the top result if it's a strong title+year match
+        against the folder name. Only prompts the user when:
+          - No results found (asks for manual search query)
+          - Low confidence match (shows selection dialog)
+          - Multiple close results (shows selection dialog)
+        """
         results = tmdb.search_tv(query)
         if not results:
             manual = simpledialog.askstring(
@@ -578,18 +670,38 @@ class PlexRenamerApp:
             if not results:
                 return
 
-        chosen = self._pick_media_dialog(
-            results, title_key="name", dialog_title="Select Show",
-            search_callback=tmdb.search_tv,
-        )
-        if not chosen:
-            return
+        # Score results against the cleaned folder name
+        year_hint = extract_year(raw_name)
+        scored = score_results(results, raw_name, year_hint, title_key="name")
 
+        best, best_score = scored[0]
+
+        # Auto-accept if high confidence and clear winner
+        # (clear winner = top score is meaningfully above #2)
+        runner_up_score = scored[1][1] if len(scored) > 1 else 0.0
+        clear_winner = (best_score - runner_up_score) > 0.1
+
+        if best_score >= AUTO_ACCEPT_THRESHOLD and clear_winner:
+            chosen = best
+        else:
+            # Ambiguous — let user pick
+            chosen = self._pick_media_dialog(
+                results, title_key="name", dialog_title="Select Show",
+                search_callback=tmdb.search_tv,
+            )
+            if not chosen:
+                return
+
+        self._accept_tv_show(tmdb, chosen)
+
+    def _accept_tv_show(self, tmdb: TMDBClient, chosen: dict):
+        """Accept a TV show match and proceed to scanning."""
         self.media_info = chosen
         self.tv_scanner = TVScanner(tmdb, chosen, self.folder)
         self.movie_scanner = None
 
         self._display_poster(tmdb, chosen["id"], "tv")
+        self._populate_show_info(tmdb, chosen["id"])
         year = chosen.get("year", "")
         self.media_label_var.set(
             f"{chosen['name']}" + (f" ({year})" if year else ""))
@@ -604,6 +716,8 @@ class PlexRenamerApp:
 
         self.poster_label.configure(image="", text="")
         self._poster_ref = None
+        self.show_info_label.configure(text="")
+        self._reset_detail()
 
         if files and len(files) == 1:
             self.media_label_var.set(f"Movie — {files[0].name}")
@@ -747,7 +861,7 @@ class PlexRenamerApp:
     def _display_poster(self, tmdb: TMDBClient, media_id: int, media_type: str):
         img = tmdb.fetch_poster(media_id, media_type, target_width=400)
         if img:
-            img = self._scale_to_panel(img)
+            img = self._scale_poster(img)
             photo = ImageTk.PhotoImage(img)
             self._poster_ref = photo
             self.poster_label.configure(image=photo)
@@ -906,11 +1020,10 @@ class PlexRenamerApp:
             var.trace_add("write", lambda *_: self._update_tally())
             self.check_vars[key] = var
 
-        # Font metrics
-        font_orig = tkfont.Font(family="Helvetica", size=11)
-        font_new = tkfont.Font(family="Helvetica", size=10)
-        font_badge = tkfont.Font(family="Helvetica", size=8, weight="bold")
-        font_check = tkfont.Font(family="Helvetica", size=14)
+        # Font metrics (using cached font objects)
+        font_orig = self._font_orig
+        font_new = self._font_new
+        font_badge = self._font_badge
 
         line1_h = font_orig.metrics("linespace")
         line2_h = font_new.metrics("linespace")
@@ -1146,9 +1259,23 @@ class PlexRenamerApp:
         c = self.c
         cv = self.preview_canvas
 
-        # Reset all card outlines
-        for tag_id in cv.find_withtag("card"):
-            cv.itemconfigure(tag_id, outline=c["border"], fill=c["bg_card"])
+        # Reset only the previously selected card (O(1) instead of O(n))
+        prev = self._selected_index
+        if prev is not None and prev != item_idx:
+            # Determine the correct resting border for the old card
+            old_item = self.preview_items[prev]
+            if "REVIEW" in old_item.status:
+                old_border = c["badge_review_bd"]
+            elif old_item.season == 0:
+                old_border = c["badge_special_bd"]
+            elif len(old_item.episodes) > 1:
+                old_border = c["badge_multi_bd"]
+            else:
+                old_border = c["border"]
+            for tag_id in cv.find_withtag(f"item_{prev}"):
+                if cv.type(tag_id) == "rectangle" and "card" in cv.gettags(tag_id):
+                    cv.itemconfigure(
+                        tag_id, outline=old_border, fill=c["bg_card"])
 
         # Highlight selected
         for tag_id in cv.find_withtag(f"item_{item_idx}"):
@@ -1163,7 +1290,89 @@ class PlexRenamerApp:
     #  Detail panel
     # ══════════════════════════════════════════════════════════════════
 
+    @staticmethod
+    def _format_rating(vote_avg: float, vote_count: int = 0) -> str:
+        """Format a TMDB rating as a star display string."""
+        if not vote_avg:
+            return ""
+        # Convert 0-10 scale to 5-star display
+        stars = vote_avg / 2
+        full = int(stars)
+        half = stars - full >= 0.3
+        empty = 5 - full - (1 if half else 0)
+        star_str = "★" * full + ("½" if half else "") + "☆" * empty
+        count_str = f"  ({vote_count})" if vote_count else ""
+        return f"{star_str}  {vote_avg:.1f}/10{count_str}"
+
+    @staticmethod
+    def _format_runtime(minutes: int | None) -> str:
+        """Format runtime in minutes to a human readable string."""
+        if not minutes:
+            return ""
+        if minutes >= 60:
+            h, m = divmod(minutes, 60)
+            return f"{h}h {m}m" if m else f"{h}h"
+        return f"{minutes}m"
+
+    def _reset_detail(self):
+        """Clear the detail panel to its empty state."""
+        self.detail_header.configure(text="SELECT AN ITEM")
+        self.detail_image.configure(image="")
+        self._detail_img_ref = None
+        self.detail_ep_title.configure(text="Click a file from the list\nto view its details")
+        self.detail_meta_label.configure(text="")
+        self.detail_overview.configure(text="")
+        self.detail_crew_label.configure(text="")
+        self.detail_orig_label.configure(text="")
+        self.detail_new_label.configure(text="")
+        self.detail_status_label.configure(text="")
+        self.rematch_btn.pack_forget()
+
+    def _populate_show_info(self, tmdb: TMDBClient, show_id: int):
+        """Populate the show-level info beside the poster."""
+        details = tmdb.get_tv_details(show_id)
+        if not details:
+            self.show_info_label.configure(text="")
+            return
+
+        lines = []
+
+        # Rating on its own line (most prominent)
+        vote_avg = details.get("vote_average", 0)
+        if vote_avg:
+            lines.append(self._format_rating(vote_avg, details.get("vote_count", 0)))
+
+        # Genres
+        genres = [g["name"] for g in details.get("genres", [])]
+        if genres:
+            lines.append(" · ".join(genres))
+
+        # Status + network on same line
+        status_parts = []
+        status = details.get("status", "")
+        if status:
+            status_parts.append(status)
+        networks = [n["name"] for n in details.get("networks", [])]
+        if networks:
+            status_parts.append(networks[0])
+        if status_parts:
+            lines.append(" · ".join(status_parts))
+
+        # Seasons/episodes count
+        n_seasons = details.get("number_of_seasons")
+        n_episodes = details.get("number_of_episodes")
+        if n_seasons and n_episodes:
+            lines.append(f"{n_seasons} seasons, {n_episodes} eps")
+
+        # Created by
+        creators = [c["name"] for c in details.get("created_by", [])]
+        if creators:
+            lines.append(", ".join(creators))
+
+        self.show_info_label.configure(text="\n".join(lines))
+
     def _show_detail(self, index: int):
+        """Populate the detail panel with rich metadata for the selected item."""
         c = self.c
         item = self.preview_items[index]
 
@@ -1171,61 +1380,218 @@ class PlexRenamerApp:
         is_special = item.season == 0
         is_movie = item.media_type == MediaType.MOVIE
 
-        # Header
+        # ── Section header ────────────────────────────────────────────
         if is_movie:
             self.detail_header.configure(text="MOVIE DETAILS")
         elif is_special:
-            self.detail_header.configure(text="SPECIAL DETAILS")
+            self.detail_header.configure(text="SPECIAL")
         elif is_multi:
-            self.detail_header.configure(text="MULTI-EPISODE DETAILS")
+            self.detail_header.configure(
+                text=f"S{item.season:02d} · EPISODES "
+                     + ", ".join(str(e) for e in item.episodes))
+        elif item.season is not None and item.episodes:
+            self.detail_header.configure(
+                text=f"S{item.season:02d}E{item.episodes[0]:02d}")
         else:
             self.detail_header.configure(text="FILE DETAILS")
 
-        # Build detail text
-        lines = []
+        # ── Load content-specific image ───────────────────────────────
+        self._load_detail_image(item)
 
-        type_tags = []
+        # ── Populate based on media type ──────────────────────────────
         if is_movie:
-            type_tags.append("MOVIE")
-        if is_multi:
-            type_tags.append(f"MULTI-EPISODE ({len(item.episodes)} parts)")
-        if is_special:
-            type_tags.append("SPECIAL")
-        if type_tags:
-            lines.append(" · ".join(type_tags) + "\n")
+            self._show_movie_detail(item)
+        else:
+            self._show_tv_detail(item)
 
-        lines.append(f"Original\n{item.original.name}\n")
+        # ── Rename info card (common to both) ─────────────────────────
+        self.detail_orig_label.configure(
+            text=f"FROM:  {item.original.name}",
+            foreground=c["text_dim"],
+        )
+
         if item.new_name:
-            lines.append(f"New Name\n{item.new_name}\n")
+            new_text = f"TO:  {item.new_name}"
+            if item.is_move():
+                new_text += f"\nINTO:  {item.target_dir.name}/"
+            self.detail_new_label.configure(text=new_text)
+        else:
+            self.detail_new_label.configure(text="")
 
-        if not is_movie and item.season is not None:
-            season_label = "Specials" if item.season == 0 else f"Season {item.season}"
-            ep_str = (", ".join(str(e) for e in item.episodes)
-                      if item.episodes else "—")
-            lines.append(f"{season_label}  ·  "
-                         f"Episode{'s' if is_multi else ''} {ep_str}\n")
-
-        status_text = item.status
-        if item.is_move():
-            status_text += f"\nMoving to {item.target_dir.name}"
-        lines.append(status_text)
-
-        self.detail_label.configure(text="\n".join(lines))
+        # Status with color coding
+        status = item.status
+        if status == "OK":
+            self.detail_status_label.configure(
+                text="✓ Ready to rename", foreground=c["success"])
+        elif "REVIEW" in status:
+            self.detail_status_label.configure(
+                text=f"⚠ {status}", foreground=c["accent"])
+        elif "CONFLICT" in status:
+            self.detail_status_label.configure(
+                text=f"✗ {status}", foreground=c["error"])
+        elif "SKIP" in status:
+            self.detail_status_label.configure(
+                text=f"— {status}", foreground=c["text_muted"])
+        else:
+            self.detail_status_label.configure(
+                text=status, foreground=c["text_dim"])
 
         # Re-match button visibility
         if is_movie:
-            self.rematch_btn.pack(anchor="w", pady=(12, 0))
+            self.rematch_btn.pack(anchor="w", pady=(8, 0))
         else:
             self.rematch_btn.pack_forget()
 
-        # Load image (uses shared tmdb client — no new sessions)
-        self._load_detail_image(item)
+    def _show_tv_detail(self, item: PreviewItem):
+        """Populate detail panel with TV episode metadata from TMDB."""
+        c = self.c
+        meta = None
+
+        # Get rich metadata for the first episode
+        if self.tv_scanner and item.episodes:
+            meta = self.tv_scanner.episode_meta.get(
+                (item.season, item.episodes[0]))
+
+        if not meta:
+            # Fallback: just show the episode title from basic data
+            if self.tv_scanner and item.episodes:
+                title = self.tv_scanner.episode_titles.get(
+                    (item.season, item.episodes[0]), "")
+                self.detail_ep_title.configure(text=title or "Unknown Episode")
+            else:
+                self.detail_ep_title.configure(text="")
+            self.detail_meta_label.configure(text="")
+            self.detail_overview.configure(text="")
+            self.detail_crew_label.configure(text="")
+            return
+
+        # Episode title
+        ep_title = meta.get("name", "")
+        if item.episodes and len(item.episodes) == 1:
+            display_title = ep_title
+        elif item.episodes:
+            # Multi-episode: show first title
+            titles = []
+            for ep in item.episodes:
+                m = self.tv_scanner.episode_meta.get((item.season, ep))
+                if m:
+                    titles.append(m.get("name", f"Episode {ep}"))
+            display_title = " / ".join(titles) if titles else ep_title
+        else:
+            display_title = ep_title
+        self.detail_ep_title.configure(text=display_title)
+
+        # Metadata row: rating · runtime · air date
+        meta_parts = []
+        rating = meta.get("vote_average", 0)
+        if rating:
+            meta_parts.append(self._format_rating(
+                rating, meta.get("vote_count", 0)))
+        runtime = self._format_runtime(meta.get("runtime"))
+        if runtime:
+            meta_parts.append(runtime)
+        air_date = meta.get("air_date", "")
+        if air_date:
+            meta_parts.append(air_date)
+        self.detail_meta_label.configure(text="   ·   ".join(meta_parts))
+
+        # Overview
+        overview = meta.get("overview", "")
+        self.detail_overview.configure(
+            text=overview if overview else "No synopsis available.")
+
+        # Crew & guest stars
+        crew_parts = []
+        directors = meta.get("directors", [])
+        if directors:
+            crew_parts.append(f"Directed by  {', '.join(directors)}")
+        writers = meta.get("writers", [])
+        if writers:
+            crew_parts.append(f"Written by  {', '.join(writers)}")
+        guests = meta.get("guest_stars", [])
+        if guests:
+            guest_strs = []
+            for g in guests[:4]:
+                name = g.get("name", "")
+                char = g.get("character", "")
+                if name and char:
+                    guest_strs.append(f"{name} as {char}")
+                elif name:
+                    guest_strs.append(name)
+            if guest_strs:
+                crew_parts.append(f"Guest stars  {', '.join(guest_strs)}")
+        self.detail_crew_label.configure(text="\n".join(crew_parts))
+
+    def _show_movie_detail(self, item: PreviewItem):
+        """Populate detail panel with movie metadata from TMDB."""
+        c = self.c
+        tmdb = self._ensure_tmdb()
+
+        movie_data = (self.movie_scanner.movie_info.get(item.original)
+                      if self.movie_scanner else None)
+
+        if not movie_data or not tmdb:
+            self.detail_ep_title.configure(text=item.new_name or "")
+            self.detail_meta_label.configure(text="")
+            self.detail_overview.configure(text="")
+            self.detail_crew_label.configure(text="")
+            return
+
+        # Fetch full movie details for rich info
+        details = tmdb.get_movie_details(movie_data["id"])
+        if not details:
+            self.detail_ep_title.configure(
+                text=f"{movie_data.get('title', '')} ({movie_data.get('year', '')})")
+            self.detail_meta_label.configure(text="")
+            self.detail_overview.configure(
+                text=movie_data.get("overview", ""))
+            self.detail_crew_label.configure(text="")
+            return
+
+        # Title + tagline
+        title = details.get("title", "")
+        year = (details.get("release_date") or "")[:4]
+        tagline = details.get("tagline", "")
+        title_text = f"{title}" + (f" ({year})" if year else "")
+        if tagline:
+            title_text += f"\n\"{tagline}\""
+        self.detail_ep_title.configure(text=title_text)
+
+        # Metadata row: rating · runtime · genres · release date
+        meta_parts = []
+        vote_avg = details.get("vote_average", 0)
+        if vote_avg:
+            meta_parts.append(self._format_rating(
+                vote_avg, details.get("vote_count", 0)))
+        runtime = self._format_runtime(details.get("runtime"))
+        if runtime:
+            meta_parts.append(runtime)
+        release_date = details.get("release_date", "")
+        if release_date:
+            meta_parts.append(release_date)
+        self.detail_meta_label.configure(text="   ·   ".join(meta_parts))
+
+        # Overview
+        overview = details.get("overview", "")
+        self.detail_overview.configure(
+            text=overview if overview else "No synopsis available.")
+
+        # Genres + production info
+        info_parts = []
+        genres = [g["name"] for g in details.get("genres", [])]
+        if genres:
+            info_parts.append(" · ".join(genres))
+        companies = [c["name"] for c in details.get("production_companies", [])[:3]]
+        if companies:
+            info_parts.append(", ".join(companies))
+        self.detail_crew_label.configure(text="\n".join(info_parts))
 
     def _load_detail_image(self, item: PreviewItem):
-        """Load the appropriate image for the detail panel."""
+        """Load the appropriate image for the detail panel's episode/movie still."""
         tmdb = self._ensure_tmdb()
         if not tmdb or not self.media_info:
             self.detail_image.configure(image="")
+            self._detail_img_ref = None
             return
 
         img = None
@@ -1244,7 +1610,6 @@ class PlexRenamerApp:
         if img:
             img = self._scale_to_panel(img)
             photo = ImageTk.PhotoImage(img)
-            # Replace the single reference — no unbounded list growth
             self._detail_img_ref = photo
             self.detail_image.configure(image=photo)
         else:
@@ -1291,7 +1656,8 @@ class PlexRenamerApp:
 
         checked = {
             i for i, item in enumerate(self.preview_items)
-            if self.check_vars.get(str(i), tk.BooleanVar(value=False)).get()
+            if self.check_vars.get(str(i)) is not None
+            and self.check_vars[str(i)].get()
             and item.status == "OK" and item.new_name
         }
 
@@ -1405,8 +1771,9 @@ class PlexRenamerApp:
             return
 
         all_checked = all(
-            self.check_vars.get(k, tk.BooleanVar(value=False)).get()
+            self.check_vars[k].get()
             for k in selectable
+            if k in self.check_vars
         )
         new_val = not all_checked
         for k in selectable:
@@ -1419,7 +1786,8 @@ class PlexRenamerApp:
         selected = sum(
             1 for i, item in enumerate(self.preview_items)
             if item.status == "OK"
-            and self.check_vars.get(str(i), tk.BooleanVar(value=False)).get()
+            and self.check_vars.get(str(i)) is not None
+            and self.check_vars[str(i)].get()
         )
         self.tally_var.set(f"{selected} / {total}")
 

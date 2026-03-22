@@ -14,8 +14,8 @@ Performance features:
 from __future__ import annotations
 
 import io
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
 from typing import Any
 
 import requests
@@ -46,6 +46,9 @@ class TMDBClient:
         self._show_cache: dict[int, dict] = {}
         self._season_cache: dict[tuple[int, int], dict] = {}
         self._season_map_cache: dict[int, tuple[dict, int]] = {}
+        self._movie_cache: dict[int, dict] = {}
+        # Image cache keyed by (image_path, target_width)
+        self._image_cache: dict[tuple[str, int], Image.Image] = {}
 
     # ─── Helpers ──────────────────────────────────────────────────────
 
@@ -106,6 +109,7 @@ class TMDBClient:
             {
                 "titles": {ep_num: title, ...},
                 "posters": {ep_num: still_path_or_None, ...},
+                "episodes": {ep_num: {full episode metadata}, ...},
             }
         """
         cache_key = (show_id, season_num)
@@ -114,17 +118,40 @@ class TMDBClient:
 
         data = self._get(f"/tv/{show_id}/season/{season_num}")
         if not data:
-            result = {"titles": {}, "posters": {}}
+            result = {"titles": {}, "posters": {}, "episodes": {},
+                      "season_poster_path": None}
             self._season_cache[cache_key] = result
             return result
 
         titles = {}
         posters = {}
+        episodes = {}
         for ep in data.get("episodes", []):
             num = ep["episode_number"]
             titles[num] = ep.get("name", f"Episode {num}")
             posters[num] = ep.get("still_path")
-        result = {"titles": titles, "posters": posters}
+            # Store rich metadata for the detail panel
+            guest_stars = ep.get("guest_stars", [])
+            crew = ep.get("crew", [])
+            episodes[num] = {
+                "name": titles[num],
+                "overview": ep.get("overview", ""),
+                "air_date": ep.get("air_date", ""),
+                "vote_average": ep.get("vote_average", 0),
+                "vote_count": ep.get("vote_count", 0),
+                "runtime": ep.get("runtime"),
+                "still_path": posters[num],
+                "directors": [c["name"] for c in crew
+                              if c.get("job") == "Director"],
+                "writers": [c["name"] for c in crew
+                            if c.get("job") in ("Writer", "Teleplay", "Story")],
+                "guest_stars": [
+                    {"name": g.get("name", ""), "character": g.get("character", "")}
+                    for g in guest_stars[:5]  # Top 5 guests
+                ],
+            }
+        result = {"titles": titles, "posters": posters, "episodes": episodes,
+                  "season_poster_path": data.get("poster_path")}
         self._season_cache[cache_key] = result
         return result
 
@@ -133,7 +160,7 @@ class TMDBClient:
         Build a complete map of TMDB's season structure for a show. Cached.
 
         Returns:
-            tmdb_seasons: {season_num: {"titles": {...}, "posters": {...}, "count": int}}
+            tmdb_seasons: {season_num: {"titles": {...}, "posters": {...}, "episodes": {...}, "count": int}}
             total_episodes: total across non-special seasons
         """
         if show_id in self._season_map_cache:
@@ -154,6 +181,7 @@ class TMDBClient:
             tmdb_seasons[sn] = {
                 "titles": titles,
                 "posters": season_data["posters"],
+                "episodes": season_data.get("episodes", {}),
                 "count": count,
             }
             if sn > 0:
@@ -193,8 +221,13 @@ class TMDBClient:
         return results
 
     def get_movie_details(self, movie_id: int) -> dict | None:
-        """Fetch full movie details."""
-        return self._get(f"/movie/{movie_id}")
+        """Fetch full movie details. Cached."""
+        if movie_id in self._movie_cache:
+            return self._movie_cache[movie_id]
+        data = self._get(f"/movie/{movie_id}")
+        if data:
+            self._movie_cache[movie_id] = data
+        return data
 
     def search_movies_batch(
         self,
@@ -218,16 +251,19 @@ class TMDBClient:
         """
         total = len(queries)
         results: list[list[dict] | None] = [None] * total
-        completed = [0]  # mutable counter for the callback
+        completed = [0]
+        lock = threading.Lock()
 
         def _search(index: int, query: str, year: str | None) -> None:
             res = self.search_movie(query, year)
             if not res and year:
                 res = self.search_movie(query)
             results[index] = res
-            completed[0] += 1
+            with lock:
+                completed[0] += 1
+                count = completed[0]
             if progress_callback:
-                progress_callback(completed[0], total)
+                progress_callback(count, total)
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = []
@@ -246,7 +282,7 @@ class TMDBClient:
         target_width: int = 300,
     ) -> Image.Image | None:
         """
-        Download and scale an image from TMDB.
+        Download and scale an image from TMDB. Cached by (path, width).
 
         Args:
             image_path: The TMDB image path (e.g. "/abc123.jpg").
@@ -257,12 +293,16 @@ class TMDBClient:
         """
         if not image_path:
             return None
+        cache_key = (image_path, target_width)
+        if cache_key in self._image_cache:
+            return self._image_cache[cache_key]
         try:
             r = self._session.get(IMAGE_BASE_URL + image_path, timeout=10)
             img = Image.open(io.BytesIO(r.content))
             scale = target_width / img.width
             new_h = int(img.height * scale)
             img = img.resize((target_width, new_h), Image.LANCZOS)
+            self._image_cache[cache_key] = img
             return img
         except Exception:
             return None
@@ -287,14 +327,14 @@ class TMDBClient:
             if img:
                 return img
 
-        # Try season poster (TV only) — use cache if available
+        # Try season poster (TV only) — read from cache, no extra API call
         if media_type == "tv" and season is not None:
             cache_key = (media_id, season)
             if cache_key not in self._season_cache:
                 self.get_season(media_id, season)  # populates cache
-            data = self._get(f"/tv/{media_id}/season/{season}")
-            if data and data.get("poster_path"):
-                img = self.fetch_image(data["poster_path"], target_width)
+            cached = self._season_cache.get(cache_key)
+            if cached and cached.get("season_poster_path"):
+                img = self.fetch_image(cached["season_poster_path"], target_width)
                 if img:
                     return img
 
@@ -313,3 +353,5 @@ class TMDBClient:
         self._show_cache.clear()
         self._season_cache.clear()
         self._season_map_cache.clear()
+        self._movie_cache.clear()
+        self._image_cache.clear()
