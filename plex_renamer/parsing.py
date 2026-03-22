@@ -48,13 +48,10 @@ def clean_folder_name(name: str) -> str:
         title = re.sub(r"\s+", " ", s).strip()
 
     # Preserve a year from the original name as "(YYYY)"
-    year_match = re.search(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", name)
-    if year_match:
-        year = year_match.group(1)
-        yr = int(year)
-        if 1950 <= yr <= 2030:
-            title = re.sub(r"\s*\(?\b" + year + r"\b\)?\s*", " ", title).strip()
-            title = f"{title} ({year})"
+    year = extract_year(name)
+    if year:
+        title = re.sub(r"\s*\(?\b" + year + r"\b\)?\s*", " ", title).strip()
+        title = f"{title} ({year})"
 
     return re.sub(r"\s+", " ", title).strip()
 
@@ -112,6 +109,17 @@ _TV_EPISODE_PATTERNS = [
     re.compile(r"\b(?:Episode|Ep)[\s._-]*\d{1,3}\b", re.IGNORECASE),
 ]
 
+# Anime/fansub pattern: [Group] Title - ## (tags)
+# The combination of a [bracket group] tag AND a dash-delimited episode number
+# is an extremely strong TV signal — movies essentially never use this format.
+_FANSUB_EPISODE_PATTERN = re.compile(
+    r"^\[.+?\]"              # starts with [FansubGroup]
+    r".+"                    # title text
+    r"\s+-\s+"               # dash separator with spaces
+    r"\d{1,3}"               # 1-3 digit episode number
+    r"(?:\s|\.|\(|$)",       # followed by space, dot, paren, or end
+)
+
 # Parent folder names that strongly suggest TV content
 _TV_FOLDER_PATTERNS = re.compile(
     r"(?:^|[\s._\-])(?:Season|S\d{1,2}|Staffel|Saison|Temporada|Stagione)"
@@ -124,15 +132,20 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     """
     Quick heuristic check for whether a file is likely a TV episode.
 
-    Checks the filename for S##E## patterns, episode markers, and
-    the parent folder name for season indicators.  Uses only strong
-    signals to avoid false-positiving on movies with numbers in the title.
+    Checks the filename for S##E## patterns, episode markers, anime/fansub
+    naming conventions, and the parent folder name for season indicators.
+    Uses only strong signals to avoid false-positiving on movies with
+    numbers in the title.
     """
     name = filepath.name
 
     for pattern in _TV_EPISODE_PATTERNS:
         if pattern.search(name):
             return True
+
+    # Anime/fansub pattern: [Group] Title - 02 (tags)
+    if _FANSUB_EPISODE_PATTERN.search(name):
+        return True
 
     # Check parent folder — "Season 01", "S02", "Staffel 3", etc.
     parent = filepath.parent.name

@@ -137,6 +137,19 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
                      foreground=c["text_dim"], font=("Helvetica", 10))
     style.configure("DetailTitle.TLabel", background=c["bg_mid"],
                      foreground=c["text"], font=("Helvetica", 12, "bold"))
+    style.configure("DetailEpTitle.TLabel", background=c["bg_mid"],
+                     foreground=c["accent"], font=("Helvetica", 11, "bold"))
+    style.configure("DetailFieldName.TLabel", background=c["bg_mid"],
+                     foreground=c["text_dim"], font=("Helvetica", 9))
+    style.configure("DetailFieldValue.TLabel", background=c["bg_mid"],
+                     foreground=c["text"], font=("Helvetica", 10))
+    style.configure("DetailOverview.TLabel", background=c["bg_mid"],
+                     foreground=c["text_dim"], font=("Helvetica", 10))
+    style.configure("DetailRating.TLabel", background=c["bg_mid"],
+                     foreground=c["accent"], font=("Helvetica", 11, "bold"))
+    style.configure("DetailMeta.TLabel", background=c["bg_card"],
+                     foreground=c["text_dim"], font=("Helvetica", 9))
+    style.configure("DetailCard.TFrame", background=c["bg_card"])
     style.configure("Status.TLabel", background=c["bg_mid"],
                      foreground=c["text_dim"], font=("Helvetica", 10),
                      padding=(12, 6))
