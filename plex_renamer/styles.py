@@ -162,6 +162,13 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
                background=[("active", c["accent_hover"]),
                            ("disabled", c["border"])])
 
+    style.configure("Complete.TButton", font=("Helvetica", 11, "bold"),
+                     background=c["success"], foreground=c["bg_dark"],
+                     padding=(16, 8), borderwidth=0)
+    style.map("Complete.TButton",
+               background=[("active", "#4bbf73"),
+                           ("disabled", c["border"])])
+
     style.configure("TButton", font=("Helvetica", 11),
                      background=c["bg_card"], foreground=c["text"],
                      padding=(14, 8), borderwidth=1)

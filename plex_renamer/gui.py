@@ -23,8 +23,10 @@ from PIL import Image, ImageTk
 
 from .constants import MediaType, VIDEO_EXTENSIONS
 from .engine import (
+    CompletenessReport,
     MovieScanner,
     PreviewItem,
+    SeasonCompleteness,
     TVScanner,
     CANCEL_SCAN,
     AUTO_ACCEPT_THRESHOLD,
@@ -89,6 +91,7 @@ class PlexRenamerApp:
         self._display_order: list[int] = []
         self._resize_after_id = None
         self._last_canvas_width: int = 0
+        self._completeness: CompletenessReport | None = None
 
         # ── Theme + layout ────────────────────────────────────────────
         self._check_imgs = setup_styles(self.root, self.dpi_scale)
@@ -230,10 +233,11 @@ class PlexRenamerApp:
         ttk.Button(
             btn_frame, text="Refresh", command=self.run_preview,
         ).pack(side="left", padx=(0, 8))
-        ttk.Button(
+        self.btn_rename = ttk.Button(
             btn_frame, text="Rename Files", command=self._execute_rename,
             style="Accent.TButton",
-        ).pack(side="left")
+        )
+        self.btn_rename.pack(side="left")
 
         # ── Main content ──────────────────────────────────────────────
         content = ttk.Frame(self.root)
@@ -327,6 +331,20 @@ class PlexRenamerApp:
             wraplength=140, justify="left",
         )
         self.show_info_label.pack(anchor="nw", fill="x")
+
+        # Completeness summary (TV only) — lives under show info, beside poster
+        self.completeness_summary_label = ttk.Label(
+            self.show_info_frame, text="", style="DetailDim.TLabel",
+            justify="left", wraplength=140,
+        )
+        self.completeness_summary_label.pack(anchor="nw", fill="x", pady=(4, 0))
+
+        # Per-season collapsible details — each season is a clickable header + hidden body
+        self.completeness_detail_frame = ttk.Frame(
+            self.show_info_frame, style="Mid.TFrame")
+        self.completeness_detail_frame.pack(anchor="nw", fill="x", pady=(2, 0))
+        self._season_detail_widgets: dict[int, dict] = {}
+        self._expanded_seasons: set[int] = set()
 
         ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=6)
 
@@ -424,6 +442,7 @@ class PlexRenamerApp:
                 self.detail_orig_label.configure(wraplength=available - 20)
                 self.detail_new_label.configure(wraplength=available - 20)
                 self.detail_crew_label.configure(wraplength=available)
+                self.completeness_summary_label.configure(wraplength=info_wrap)
         pad.bind("<Configure>", _on_detail_resize)
 
         # ── Status bar ────────────────────────────────────────────────
@@ -445,25 +464,39 @@ class PlexRenamerApp:
     # ── Mousewheel helpers ────────────────────────────────────────────
 
     def _bind_mousewheel(self, canvas: tk.Canvas):
-        """Bind mousewheel scrolling to a specific canvas (not globally)."""
+        """Bind mousewheel scrolling for a canvas via enter/leave focus tracking."""
         def _scroll(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas.bind("<MouseWheel>", _scroll)
-        canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
-        canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
-        # Ensure canvas can receive focus for wheel events
-        canvas.bind("<Enter>", lambda e: canvas.focus_set())
+        def _scroll_linux_up(event):
+            canvas.yview_scroll(-3, "units")
+        def _scroll_linux_down(event):
+            canvas.yview_scroll(3, "units")
+        # Store the scroll target on the app so enter/leave can swap it
+        self._scroll_target = canvas
+        self._scroll_fn = _scroll
+        self._scroll_linux_up_fn = _scroll_linux_up
+        self._scroll_linux_down_fn = _scroll_linux_down
+
+        def _on_wheel(event):
+            self._scroll_target.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        def _on_linux_up(event):
+            self._scroll_target.yview_scroll(-3, "units")
+        def _on_linux_down(event):
+            self._scroll_target.yview_scroll(3, "units")
+
+        canvas.bind_all("<MouseWheel>", _on_wheel)
+        canvas.bind_all("<Button-4>", _on_linux_up)
+        canvas.bind_all("<Button-5>", _on_linux_down)
+
+        # Track which canvas the mouse is over
+        canvas.bind("<Enter>", lambda e: setattr(self, '_scroll_target', canvas))
 
     def _setup_detail_mousewheel(self, detail_canvas: tk.Canvas):
-        """Bind mousewheel to the detail canvas independently."""
-        def _scroll(event):
-            detail_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        detail_canvas.bind("<MouseWheel>", _scroll)
-        detail_canvas.bind("<Button-4>",
-            lambda e: detail_canvas.yview_scroll(-3, "units"))
-        detail_canvas.bind("<Button-5>",
-            lambda e: detail_canvas.yview_scroll(3, "units"))
-        detail_canvas.bind("<Enter>", lambda e: detail_canvas.focus_set())
+        """Route mousewheel to detail canvas when mouse enters it."""
+        detail_canvas.bind("<Enter>",
+            lambda e: setattr(self, '_scroll_target', detail_canvas))
+        detail_canvas.bind("<Leave>",
+            lambda e: setattr(self, '_scroll_target', self.preview_canvas))
 
     # ══════════════════════════════════════════════════════════════════
     #  TMDB Client management
@@ -699,6 +732,7 @@ class PlexRenamerApp:
         self.media_info = chosen
         self.tv_scanner = TVScanner(tmdb, chosen, self.folder)
         self.movie_scanner = None
+        self._clear_completeness()
 
         self._display_poster(tmdb, chosen["id"], "tv")
         self._populate_show_info(tmdb, chosen["id"])
@@ -713,6 +747,7 @@ class PlexRenamerApp:
         self.media_info = {"_type": "movie_batch"}
         self.movie_scanner = MovieScanner(tmdb, self.folder, files=files)
         self.tv_scanner = None
+        self._clear_completeness()
 
         self.poster_label.configure(image="", text="")
         self._poster_ref = None
@@ -894,7 +929,9 @@ class PlexRenamerApp:
 
             self.preview_items = items
             check_duplicates(self.preview_items)
+            self._completeness = self.tv_scanner.get_completeness(self.preview_items)
             self._display_preview()
+            self._display_completeness()
 
         elif self.media_type == MediaType.MOVIE and self.movie_scanner:
             self._run_movie_scan_async()
@@ -1000,14 +1037,23 @@ class PlexRenamerApp:
             self._selected_index = None
             return
 
-        # Sort order
-        def _sort_key(idx):
-            s = self.preview_items[idx].status
-            if s == "OK":
-                return (0, idx)
-            elif "REVIEW" in s:
-                return (1, idx)
-            return (2, idx)
+        # Sort order — group by season for TV, flat for movies
+        is_tv_mode = self.media_type == MediaType.TV
+        if is_tv_mode:
+            def _sort_key(idx):
+                item = self.preview_items[idx]
+                sn = item.season if item.season is not None else 9999
+                status_pri = 0 if item.status == "OK" else (1 if "REVIEW" in item.status else 2)
+                ep = item.episodes[0] if item.episodes else 9999
+                return (sn, status_pri, ep, idx)
+        else:
+            def _sort_key(idx):
+                s = self.preview_items[idx].status
+                if s == "OK":
+                    return (0, idx)
+                elif "REVIEW" in s:
+                    return (1, idx)
+                return (2, idx)
 
         self._display_order = sorted(range(len(self.preview_items)), key=_sort_key)
 
@@ -1045,11 +1091,23 @@ class PlexRenamerApp:
         font_new_t = ("Helvetica", 10)
         font_badge_t = ("Helvetica", 8, "bold")
         font_check_t = ("Helvetica", 14)
+        font_header_t = ("Helvetica", 10, "bold")
+        font_header_sub_t = ("Helvetica", 9)
 
         y = margin_y
+        last_season_drawn: int | None = None
 
         for display_idx, item_idx in enumerate(self._display_order):
             item = self.preview_items[item_idx]
+
+            # ── Season header bar (TV mode only) ─────────────────────
+            if is_tv_mode and item.season is not None and item.season != last_season_drawn:
+                last_season_drawn = item.season
+                y = self._draw_season_header(
+                    cv, y, item.season, canvas_w, margin_x, margin_y, s,
+                    font_header_t, font_header_sub_t,
+                )
+
             is_multi = len(item.episodes) > 1
             is_special = item.season == 0
             is_movie = item.media_type == MediaType.MOVIE
@@ -1212,6 +1270,236 @@ class PlexRenamerApp:
             parts.append(f"{skip} skipped")
         self.status_var.set("Preview:  " + "  ·  ".join(parts))
         self._update_tally()
+
+    def _draw_season_header(
+        self,
+        cv: tk.Canvas,
+        y: int,
+        season_num: int,
+        canvas_w: int,
+        margin_x: int,
+        margin_y: int,
+        s: float,
+        font_header_t: tuple,
+        font_header_sub_t: tuple,
+    ) -> int:
+        """
+        Draw a season header bar with completeness info in the preview canvas.
+
+        Returns the new y position after the header.
+        """
+        c = self.c
+        header_h = int(32 * s)
+        pad_x = int(12 * s)
+        progress_h = int(4 * s)
+        progress_w = int(80 * s)
+        x_left = margin_x
+        x_right = canvas_w - margin_x
+
+        # Build label text
+        if season_num == 0:
+            label = "Specials"
+        else:
+            label = f"Season {season_num}"
+
+        # Get completeness data for this season
+        sc = None
+        if self._completeness:
+            if season_num == 0:
+                sc = self._completeness.specials
+            else:
+                sc = self._completeness.seasons.get(season_num)
+
+        # Header background
+        cv.create_rectangle(
+            x_left, y, x_right, y + header_h,
+            fill=c["bg_mid"], outline=c["border"],
+            tags=("season_header",))
+
+        # Season label on the left
+        cv.create_text(
+            x_left + pad_x, y + header_h // 2,
+            text=label, fill=c["text"], font=font_header_t,
+            anchor="w", tags=("season_header",))
+
+        if sc and sc.expected > 0:
+            # Tally text
+            if sc.is_complete:
+                tally_text = f"{sc.matched}/{sc.expected} — Complete"
+                tally_color = c["success"]
+            else:
+                tally_text = f"{sc.matched}/{sc.expected} ({sc.pct:.0f}%)"
+                tally_color = c["accent"] if sc.pct >= 50 else c["error"]
+
+            # Progress bar background (right-aligned)
+            bar_x = x_right - pad_x - progress_w
+            bar_y = y + (header_h - progress_h) // 2
+
+            cv.create_rectangle(
+                bar_x, bar_y, bar_x + progress_w, bar_y + progress_h,
+                fill=c["bg_card"], outline="", tags=("season_header",))
+
+            # Progress bar fill
+            fill_w = int(progress_w * sc.pct / 100)
+            if fill_w > 0:
+                cv.create_rectangle(
+                    bar_x, bar_y, bar_x + fill_w, bar_y + progress_h,
+                    fill=tally_color, outline="", tags=("season_header",))
+
+            # Tally text to the left of the progress bar
+            cv.create_text(
+                bar_x - int(8 * s), y + header_h // 2,
+                text=tally_text, fill=tally_color, font=font_header_sub_t,
+                anchor="e", tags=("season_header",))
+
+        return y + header_h + margin_y
+
+    def _display_completeness(self):
+        """
+        Populate the completeness summary next to the poster.
+
+        Shows overall progress on the summary label, then builds
+        collapsible per-season rows with missing episode details.
+        The rename button style changes when the series is 100% matched.
+        """
+        c = self.c
+        report = self._completeness
+
+        if not report:
+            self.completeness_summary_label.configure(text="")
+            self._clear_season_details()
+            self._update_rename_button_style()
+            return
+
+        # ── Overall summary line ─────────────────────────────────────
+        if report.is_complete:
+            summary = (f"✓ Complete — "
+                       f"{report.total_matched}/{report.total_expected} episodes")
+            fg = c["success"]
+        else:
+            summary = (f"{report.total_matched}/{report.total_expected} "
+                       f"episodes ({report.pct:.0f}%)")
+            if report.pct >= 75:
+                fg = c["accent"]
+            elif report.pct >= 40:
+                fg = c["info"]
+            else:
+                fg = c["error"]
+
+        self.completeness_summary_label.configure(text=summary, foreground=fg)
+
+        # ── Per-season collapsible rows ──────────────────────────────
+        self._clear_season_details()
+        self._expanded_seasons.clear()
+
+        all_seasons: list[tuple[int, SeasonCompleteness]] = sorted(report.seasons.items())
+        if report.specials and report.specials.expected > 0:
+            all_seasons.append((0, report.specials))
+
+        for sn, sc in all_seasons:
+            self._build_season_row(sn, sc)
+
+        # ── Rename button style ──────────────────────────────────────
+        self._update_rename_button_style()
+
+    def _build_season_row(self, sn: int, sc: SeasonCompleteness):
+        """Build a single collapsible season row in the completeness detail area."""
+        c = self.c
+        frame = ttk.Frame(self.completeness_detail_frame, style="Mid.TFrame")
+        frame.pack(fill="x", anchor="w")
+
+        # Header line — clickable if there are missing episodes
+        if sn == 0:
+            label_text = f"Specials: {sc.matched}/{sc.expected}"
+        else:
+            label_text = f"S{sn:02d}: {sc.matched}/{sc.expected}"
+
+        if sc.is_complete:
+            label_text += " ✓"
+            header_fg = c["success"]
+        else:
+            label_text += f" ({sc.pct:.0f}%)"
+            header_fg = c["accent"] if sc.pct >= 50 else c["error"]
+
+        has_missing = len(sc.missing) > 0
+
+        if has_missing:
+            label_text = "▸ " + label_text
+
+        header = tk.Label(
+            frame, text=label_text, fg=header_fg,
+            bg=c["bg_mid"], font=("Helvetica", 9),
+            anchor="w", cursor="hand2" if has_missing else "",
+        )
+        header.pack(fill="x", anchor="w")
+
+        # Body — hidden by default, contains missing episodes
+        body = ttk.Frame(frame, style="Mid.TFrame")
+        # Don't pack body yet — collapsed by default
+
+        if has_missing:
+            for ep_num, title in sc.missing:
+                prefix = f"S00E{ep_num:02d}" if sn == 0 else f"E{ep_num:02d}"
+                tk.Label(
+                    body, text=f"    {prefix} – {title}",
+                    fg=c["text_muted"], bg=c["bg_mid"],
+                    font=("Helvetica", 8), anchor="w",
+                ).pack(fill="x", anchor="w")
+
+            # Click handler to toggle
+            def _toggle(event, _sn=sn):
+                self._toggle_season_detail(_sn)
+            header.bind("<Button-1>", _toggle)
+
+        self._season_detail_widgets[sn] = {
+            "frame": frame, "header": header, "body": body,
+            "has_missing": has_missing,
+        }
+
+    def _toggle_season_detail(self, sn: int):
+        """Expand or collapse a season's missing episode list."""
+        c = self.c
+        widgets = self._season_detail_widgets.get(sn)
+        if not widgets or not widgets["has_missing"]:
+            return
+
+        header = widgets["header"]
+        body = widgets["body"]
+        text = header.cget("text")
+
+        if sn in self._expanded_seasons:
+            # Collapse
+            self._expanded_seasons.discard(sn)
+            body.pack_forget()
+            header.configure(text=text.replace("▾ ", "▸ ", 1))
+        else:
+            # Expand
+            self._expanded_seasons.add(sn)
+            body.pack(fill="x", anchor="w")
+            header.configure(text=text.replace("▸ ", "▾ ", 1))
+
+    def _clear_season_details(self):
+        """Remove all season detail widgets."""
+        for sn, widgets in self._season_detail_widgets.items():
+            widgets["frame"].destroy()
+        self._season_detail_widgets.clear()
+
+    def _update_rename_button_style(self):
+        """Set rename button to green 'Complete' style when series is fully matched."""
+        report = self._completeness
+        if report and report.is_complete:
+            self.btn_rename.configure(
+                style="Complete.TButton", text="✓ Rename Files")
+        else:
+            self.btn_rename.configure(
+                style="Accent.TButton", text="Rename Files")
+
+    def _clear_completeness(self):
+        """Clear completeness data and widgets (e.g. on mode/show switch)."""
+        self._completeness = None
+        self.completeness_summary_label.configure(text="")
+        self._clear_season_details()
+        self._update_rename_button_style()
 
     # ══════════════════════════════════════════════════════════════════
     #  Canvas interaction
