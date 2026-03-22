@@ -17,6 +17,7 @@ import threading
 import tkinter as tk
 import tkinter.font as tkfont
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
@@ -38,7 +39,7 @@ from .engine import (
     execute_undo,
 )
 from .keys import get_api_key, save_api_key
-from .parsing import clean_folder_name, extract_year
+from .parsing import build_show_folder_name, clean_folder_name, extract_year
 from .styles import COLORS, get_dpi_scale, setup_styles
 from .tmdb import TMDBClient
 from .undo_log import load_log
@@ -515,16 +516,18 @@ class PlexRenamerApp:
         """
         Get or create the shared TMDB client.
 
-        Reuses the existing client/session instead of creating a new one
-        for every operation (fixes the redundant session creation issue).
+        Reuses the existing client/session. Only reads the keyring when
+        no client exists yet. Key changes are handled by _manage_keys
+        which sets self.tmdb = None to force re-creation.
         """
+        if self.tmdb is not None:
+            return self.tmdb
         api_key = get_api_key("TMDB")
         if not api_key:
             messagebox.showwarning(
                 "No Key", "Set your TMDB API key first via 'API Keys'.")
             return None
-        if self.tmdb is None or self.tmdb.api_key != api_key:
-            self.tmdb = TMDBClient(api_key)
+        self.tmdb = TMDBClient(api_key)
         return self.tmdb
 
     # ══════════════════════════════════════════════════════════════════
@@ -598,6 +601,126 @@ class PlexRenamerApp:
                 btn.configure(state=state)
             except Exception:
                 pass
+
+    def _clear_canvas(self) -> tuple[tk.Canvas, int, float]:
+        """
+        Reset the preview canvas to a blank state for result/status views.
+
+        Clears all items, resets all card tracking state, and returns
+        (canvas, canvas_width, dpi_scale) for the caller to draw on.
+        """
+        cv = self.preview_canvas
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        self._card_positions = []
+        self._season_header_positions = []
+        self._display_order = []
+        self.check_vars.clear()
+        self._selected_index = None
+        return cv, max(600, cv.winfo_width()), self.dpi_scale
+
+    def _draw_canvas_button(
+        self,
+        cv: tk.Canvas,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        text: str,
+        fill: str,
+        outline: str,
+        text_color: str,
+        tag: str,
+    ) -> tuple[int, int, int, int]:
+        """
+        Draw a styled button on the canvas and return its hit region.
+
+        Returns (x, y, x+w, y+h) for click hit-testing.
+        """
+        cv.create_rectangle(
+            x, y, x + w, y + h,
+            fill=fill, outline=outline, tags=(tag,))
+        cv.create_text(
+            x + w // 2, y + h // 2,
+            text=text, fill=text_color,
+            font=("Helvetica", 10, "bold"), anchor="center",
+            tags=(tag,))
+        return x, y, x + w, y + h
+
+    def _draw_action_buttons(
+        self,
+        cv: tk.Canvas,
+        y: int,
+        canvas_w: int,
+        show_undo: bool = True,
+        show_scan: bool = True,
+    ) -> tuple[int, int, dict[str, tuple[int, int, int, int]]]:
+        """
+        Draw Undo and/or Scan Again buttons centered on the canvas.
+
+        Returns:
+            (btn_y_top, btn_y_bottom, hit_regions)
+            where hit_regions is a dict mapping "undo"/"scan" to (x1, y1, x2, y2).
+        """
+        c = self.c
+        s = self.dpi_scale
+        btn_h = int(36 * s)
+        btn_w = int(130 * s)
+        btn_gap = int(12 * s)
+        regions: dict[str, tuple[int, int, int, int]] = {}
+
+        if show_undo and show_scan:
+            undo_x = canvas_w // 2 - btn_w - btn_gap // 2
+            scan_x = canvas_w // 2 + btn_gap // 2
+        elif show_undo:
+            undo_x = canvas_w // 2 - btn_w // 2
+            scan_x = 0  # unused
+        else:
+            undo_x = 0  # unused
+            scan_x = canvas_w // 2 - btn_w // 2
+
+        if show_undo:
+            regions["undo"] = self._draw_canvas_button(
+                cv, undo_x, y, btn_w, btn_h,
+                "Undo", c["error_dim"], c["error"], c["error"], "btn_undo")
+
+        if show_scan:
+            regions["scan"] = self._draw_canvas_button(
+                cv, scan_x, y, btn_w, btn_h,
+                "Scan Again", c["bg_card"], c["border_light"], c["text"], "btn_scan")
+
+        return y, y + btn_h, regions
+
+    def _make_button_click_handler(
+        self,
+        cv: tk.Canvas,
+        btn_y_top: int,
+        btn_y_bottom: int,
+        regions: dict[str, tuple[int, int, int, int]],
+        extra_handler: Callable | None = None,
+    ) -> None:
+        """
+        Bind a click handler to the canvas that dispatches to Undo/Scan buttons.
+
+        Args:
+            extra_handler: Optional callback(cx, cy) for additional hit regions
+                (e.g. collapsible season headers). Called if no button was hit.
+        """
+        def _on_click(event):
+            cx = cv.canvasx(event.x)
+            cy_click = cv.canvasy(event.y)
+            if btn_y_top <= cy_click <= btn_y_bottom:
+                for name, (x1, y1, x2, y2) in regions.items():
+                    if x1 <= cx <= x2:
+                        if name == "undo":
+                            self.undo()
+                        elif name == "scan":
+                            self.run_preview()
+                        return
+            if extra_handler:
+                extra_handler(cx, cy_click)
+
+        cv.bind("<Button-1>", _on_click)
 
     # ══════════════════════════════════════════════════════════════════
     #  Event handlers
@@ -953,9 +1076,9 @@ class PlexRenamerApp:
             self.preview_items = items
             check_duplicates(self.preview_items)
 
-            # Compute completeness first so season headers can show tallies
-            # Use all OK items as "checked" for initial computation since
-            # check_vars don't exist yet (created inside _display_preview)
+            # Compute completeness so season headers can show tallies.
+            # Use all OK items as "checked" — matches the default check_var
+            # values that _display_preview will create.
             initial_checked = {
                 i for i, it in enumerate(self.preview_items)
                 if it.status == "OK"
@@ -964,11 +1087,6 @@ class PlexRenamerApp:
                 self.preview_items, checked_indices=initial_checked)
 
             self._display_preview()
-
-            # Recompute with actual check_vars (now created) and update detail panel
-            checked = self._get_checked_indices()
-            self._completeness = self.tv_scanner.get_completeness(
-                self.preview_items, checked_indices=checked)
             self._display_completeness()
 
             # Detect "already renamed" — all OK items have matching names
@@ -985,7 +1103,7 @@ class PlexRenamerApp:
             # Recreate scanner to pick up any renamed/moved files
             tmdb = self._ensure_tmdb()
             if tmdb:
-                old_files = self.movie_scanner._explicit_files
+                old_files = self.movie_scanner.explicit_files
                 if old_files:
                     # For explicit file mode, check if files still exist at old paths
                     # If not, fall back to folder scanning (files were renamed/moved)
@@ -1243,28 +1361,16 @@ class PlexRenamerApp:
             else:
                 border_color = c["border"]
 
-            # Row height
-            badge_row_h = (badge_h + gap) if has_badges else 0
-            has_line2 = bool(arrow_text)
-            content_h = (pad_y + badge_row_h + line1_h
-                         + (gap + line2_h if has_line2 else 0) + pad_y)
-            row_h = max(int(44 * s), content_h)
-
             y_start = y
             x_left = margin_x
             x_right = canvas_w - margin_x
 
-            # Card background
+            # Card colors (computed now, drawn after text measurement)
             is_selected = (self._selected_index == item_idx)
             card_bg = c["bg_card_selected"] if is_selected else c["bg_card"]
             card_outline = c["accent"] if is_selected else border_color
 
-            cv.create_rectangle(
-                x_left, y, x_right, y + row_h,
-                fill=card_bg, outline=card_outline,
-                tags=("card", tag))
-
-            # Accent bar
+            # Accent bar color
             bar_color = None
             if has_review:
                 bar_color = c["badge_review_bd"]
@@ -1275,24 +1381,12 @@ class PlexRenamerApp:
             elif is_movie:
                 bar_color = c["badge_movie_bd"]
 
-            if bar_color:
-                cv.create_rectangle(
-                    x_left, y, x_left + bar_w, y + row_h,
-                    fill=bar_color, outline="", tags=(tag,))
-
-            # Checkbox
-            check_var = self.check_vars[str(item_idx)]
+            # Text starts after bar + padding + checkbox
             check_x = x_left + bar_w + pad_x
-            check_cy = y + row_h // 2
-            check_char = "☑" if check_var.get() else "☐"
-            check_color = c["accent"] if check_var.get() else c["border_light"]
-            cv.create_text(
-                check_x, check_cy, text=check_char,
-                fill=check_color, font=font_check_t, anchor="w",
-                tags=(f"check_{display_idx}", "check", tag))
 
             text_x = check_x + check_w
             text_y = y + pad_y
+            max_text_w = x_right - text_x - pad_x  # Available width for text
 
             # Badge pills
             if has_badges:
@@ -1325,20 +1419,55 @@ class PlexRenamerApp:
 
                 text_y += badge_h + gap
 
-            # Line 1: original filename
-            cv.create_text(
+            # Line 1: original filename (with wrapping)
+            id1 = cv.create_text(
                 text_x, text_y, text=orig_text,
                 fill=name_fg, font=font_orig_t, anchor="nw",
+                width=max_text_w,
                 tags=("text", tag))
-            text_y += line1_h
+            bbox1 = cv.bbox(id1)
+            line1_actual_h = (bbox1[3] - bbox1[1]) if bbox1 else line1_h
+            text_y += line1_actual_h
 
-            # Line 2: arrow + new name
+            # Line 2: arrow + new name (with wrapping)
+            line2_actual_h = 0
             if arrow_text:
                 text_y += gap
-                cv.create_text(
+                id2 = cv.create_text(
                     text_x + 4, text_y, text=arrow_text,
                     fill=arrow_fg, font=font_new_t, anchor="nw",
+                    width=max_text_w,
                     tags=("text", tag))
+                bbox2 = cv.bbox(id2)
+                line2_actual_h = (bbox2[3] - bbox2[1]) if bbox2 else line2_h
+
+            # Compute actual card height now that text is placed
+            content_bottom = text_y + line2_actual_h + pad_y
+            row_h = max(int(44 * s), content_bottom - y)
+
+            # Draw card background *behind* the already-placed text
+            card_id = cv.create_rectangle(
+                x_left, y, x_right, y + row_h,
+                fill=card_bg, outline=card_outline,
+                tags=("card", tag))
+            cv.tag_lower(card_id)  # Send behind text and badges
+
+            # Accent bar (on top of card bg, behind text)
+            if bar_color:
+                bar_id = cv.create_rectangle(
+                    x_left, y, x_left + bar_w, y + row_h,
+                    fill=bar_color, outline="", tags=(tag,))
+                cv.tag_raise(bar_id, card_id)
+
+            # Checkbox (vertically centered in final card height)
+            check_var = self.check_vars[str(item_idx)]
+            check_cy = y + row_h // 2
+            check_char = "☑" if check_var.get() else "☐"
+            check_color = c["accent"] if check_var.get() else c["border_light"]
+            cv.create_text(
+                check_x, check_cy, text=check_char,
+                fill=check_color, font=font_check_t, anchor="w",
+                tags=(f"check_{display_idx}", "check", tag))
 
             self._card_positions.append((y_start, y_start + row_h, item_idx))
             y += row_h + margin_y
@@ -2149,7 +2278,25 @@ class PlexRenamerApp:
             or self.folder.name
         )
 
-        result = execute_rename(self.preview_items, checked, media_name, self.folder)
+        # For TV, compute the proper show folder name so the root can be renamed
+        show_folder = None
+        if self.media_type == MediaType.TV and self.media_info:
+            show_folder = build_show_folder_name(
+                self.media_info.get("name", ""),
+                self.media_info.get("year", ""),
+            )
+
+        result = execute_rename(
+            self.preview_items, checked, media_name, self.folder,
+            show_folder_name=show_folder,
+        )
+
+        # If the root show folder was renamed, update our state to point
+        # to the new path so subsequent scans and undos work correctly
+        if result.new_root:
+            self.folder = result.new_root
+            if self.tv_scanner:
+                self.tv_scanner.root = result.new_root
 
         # Invalidate scanner cache since files have moved
         if self.tv_scanner:
@@ -2178,18 +2325,7 @@ class PlexRenamerApp:
         (old → new), any errors, and action buttons for scan-again / undo.
         """
         c = self.c
-        cv = self.preview_canvas
-
-        cv.delete("all")
-        self._canvas_in_preview_mode = False
-        self._card_positions = []
-        self._season_header_positions = []
-        self._display_order = []
-        self.check_vars.clear()
-        self._selected_index = None
-
-        canvas_w = max(600, cv.winfo_width())
-        s = self.dpi_scale
+        cv, canvas_w, s = self._clear_canvas()
         margin_x = int(16 * s)
         x_left = margin_x
         x_right = canvas_w - margin_x
@@ -2230,52 +2366,17 @@ class PlexRenamerApp:
         y += int(28 * s)
 
         # ── Action buttons (immediately visible at top) ──────────────
-        btn_h = int(36 * s)
-        btn_gap = int(12 * s)
-
-        # Determine if Scan Again makes sense (not for single-file movie mode)
         is_single_movie = (
             self.media_type == MediaType.MOVIE
             and self.movie_scanner
-            and self.movie_scanner._explicit_files
-            and len(self.movie_scanner._explicit_files) == 1
+            and self.movie_scanner.explicit_files
+            and len(self.movie_scanner.explicit_files) == 1
         )
         show_scan_again = not is_single_movie
 
-        if show_scan_again:
-            undo_w = int(130 * s)
-            undo_x = canvas_w // 2 - undo_w - btn_gap // 2
-        else:
-            undo_w = int(130 * s)
-            undo_x = canvas_w // 2 - undo_w // 2
-
-        cv.create_rectangle(
-            undo_x, y, undo_x + undo_w, y + btn_h,
-            fill=c["error_dim"], outline=c["error"],
-            tags=("btn_undo",))
-        cv.create_text(
-            undo_x + undo_w // 2, y + btn_h // 2,
-            text="Undo", fill=c["error"],
-            font=("Helvetica", 10, "bold"), anchor="center",
-            tags=("btn_undo",))
-
-        scan_x = scan_w = 0
-        if show_scan_again:
-            scan_w = int(130 * s)
-            scan_x = canvas_w // 2 + btn_gap // 2
-            cv.create_rectangle(
-                scan_x, y, scan_x + scan_w, y + btn_h,
-                fill=c["bg_card"], outline=c["border_light"],
-                tags=("btn_scan",))
-            cv.create_text(
-                scan_x + scan_w // 2, y + btn_h // 2,
-                text="Scan Again", fill=c["text"],
-                font=("Helvetica", 10, "bold"), anchor="center",
-                tags=("btn_scan",))
-
-        btn_y_top = y
-        btn_y_bot = y + btn_h
-        y += btn_h + int(20 * s)
+        btn_y_top, btn_y_bot, regions = self._draw_action_buttons(
+            cv, y, canvas_w, show_undo=True, show_scan=show_scan_again)
+        y = btn_y_bot + int(20 * s)
 
         # ── Errors section (if any) ──────────────────────────────────
         if has_errors:
@@ -2362,32 +2463,55 @@ class PlexRenamerApp:
                 continue
 
             for item in items:
-                cv.create_rectangle(
-                    x_left, y, x_right, y + card_h,
-                    fill=c["bg_card"], outline=c["border"])
-                cv.create_rectangle(
-                    x_left, y, x_left + bar_w, y + card_h,
-                    fill=c["success"], outline="")
-                cv.create_text(
-                    x_left + bar_w + pad, y + card_h // 2,
-                    text="\u2713", fill=c["success"],
-                    font=("Helvetica", 12, "bold"), anchor="w")
-
                 text_x = x_left + bar_w + pad + int(22 * s)
-                cv.create_text(
+                max_text_w = x_right - text_x - pad
+
+                # Line 1: original filename (with wrapping)
+                id1 = cv.create_text(
                     text_x, y + pad,
                     text=item.original.name, fill=c["text_muted"],
-                    font=("Helvetica", 9), anchor="nw")
+                    font=("Helvetica", 9), anchor="nw",
+                    width=max_text_w)
 
                 new_text = item.new_name or item.original.name
                 if item.is_move() and item.target_dir:
                     new_text = f"[{item.target_dir.name}]  {new_text}"
-                cv.create_text(
-                    text_x, y + pad + int(16 * s),
-                    text=f"\u2192  {new_text}", fill=c["success"],
-                    font=("Helvetica", 10), anchor="nw")
 
-                y += card_h + int(2 * s)
+                # Measure line 1 to position line 2
+                bbox1 = cv.bbox(id1)
+                line1_bottom = (bbox1[3] if bbox1 else y + pad + int(14 * s))
+
+                # Line 2: new name (with wrapping)
+                id2 = cv.create_text(
+                    text_x, line1_bottom + int(2 * s),
+                    text=f"\u2192  {new_text}", fill=c["success"],
+                    font=("Helvetica", 10), anchor="nw",
+                    width=max_text_w)
+
+                # Compute actual card height from content
+                bbox2 = cv.bbox(id2)
+                content_bottom = (bbox2[3] if bbox2 else line1_bottom + int(16 * s))
+                actual_h = max(card_h, content_bottom - y + pad)
+
+                # Draw card background behind text
+                bg_id = cv.create_rectangle(
+                    x_left, y, x_right, y + actual_h,
+                    fill=c["bg_card"], outline=c["border"])
+                cv.tag_lower(bg_id)
+
+                # Accent bar
+                bar_id = cv.create_rectangle(
+                    x_left, y, x_left + bar_w, y + actual_h,
+                    fill=c["success"], outline="")
+                cv.tag_raise(bar_id, bg_id)
+
+                # Checkmark
+                cv.create_text(
+                    x_left + bar_w + pad, y + actual_h // 2,
+                    text="\u2713", fill=c["success"],
+                    font=("Helvetica", 12, "bold"), anchor="w")
+
+                y += actual_h + int(2 * s)
 
             y += int(8 * s)
 
@@ -2395,16 +2519,7 @@ class PlexRenamerApp:
         cv.configure(scrollregion=(0, 0, canvas_w, y))
 
         # Click handler -- buttons + collapsible season headers
-        def _on_result_click(event):
-            cx = cv.canvasx(event.x)
-            cy_click = cv.canvasy(event.y)
-            if btn_y_top <= cy_click <= btn_y_bot:
-                if undo_x <= cx <= undo_x + undo_w:
-                    self.undo()
-                    return
-                if scan_x <= cx <= scan_x + scan_w:
-                    self.run_preview()
-                    return
+        def _on_season_click(cx, cy_click):
             for sy_top, sy_bot, sk in result_season_positions:
                 if sy_top <= cy_click <= sy_bot:
                     if sk in self._result_collapsed_seasons:
@@ -2414,8 +2529,8 @@ class PlexRenamerApp:
                     self._show_rename_result(result, renamed_items)
                     return
 
-        cv.bind("<Button-1>", _on_result_click)
-
+        self._make_button_click_handler(
+            cv, btn_y_top, btn_y_bot, regions, extra_handler=_on_season_click)
 
         # Update status bar
         if has_errors:
@@ -2443,18 +2558,7 @@ class PlexRenamerApp:
         3. Some non-special episodes missing — show them.
         """
         c = self.c
-        cv = self.preview_canvas
-
-        cv.delete("all")
-        self._canvas_in_preview_mode = False
-        self._card_positions = []
-        self._season_header_positions = []
-        self._display_order = []
-        self.check_vars.clear()
-        self._selected_index = None
-
-        canvas_w = max(600, cv.winfo_width())
-        s = self.dpi_scale
+        cv, canvas_w, s = self._clear_canvas()
         margin_x = int(16 * s)
         x_left = margin_x
         y = int(30 * s)
@@ -2513,46 +2617,11 @@ class PlexRenamerApp:
             y += int(30 * s)
 
         # ── Action buttons ───────────────────────────────────────────
-        btn_h = int(36 * s)
-        btn_gap = int(12 * s)
+        has_undo = bool(load_log())
 
-        # Check if undo history exists
-        from .undo_log import load_log as _load_log
-        has_undo = bool(_load_log())
-
-        if has_undo:
-            undo_w = int(130 * s)
-            undo_x = canvas_w // 2 - undo_w - btn_gap // 2
-            cv.create_rectangle(
-                undo_x, y, undo_x + undo_w, y + btn_h,
-                fill=c["error_dim"], outline=c["error"],
-                tags=("btn_undo",))
-            cv.create_text(
-                undo_x + undo_w // 2, y + btn_h // 2,
-                text="Undo", fill=c["error"],
-                font=("Helvetica", 10, "bold"), anchor="center",
-                tags=("btn_undo",))
-
-            scan_w = int(130 * s)
-            scan_x = canvas_w // 2 + btn_gap // 2
-        else:
-            undo_x = undo_w = 0  # no undo button
-            scan_w = int(130 * s)
-            scan_x = canvas_w // 2 - scan_w // 2
-
-        cv.create_rectangle(
-            scan_x, y, scan_x + scan_w, y + btn_h,
-            fill=c["bg_card"], outline=c["border_light"],
-            tags=("btn_scan",))
-        cv.create_text(
-            scan_x + scan_w // 2, y + btn_h // 2,
-            text="Scan Again", fill=c["text"],
-            font=("Helvetica", 10, "bold"), anchor="center",
-            tags=("btn_scan",))
-
-        btn_y_top = y
-        btn_y_bot = y + btn_h
-        y += btn_h + int(20 * s)
+        btn_y_top, btn_y_bot, regions = self._draw_action_buttons(
+            cv, y, canvas_w, show_undo=has_undo, show_scan=True)
+        y = btn_y_bot + int(20 * s)
 
         # ── Missing episodes (if not complete) ───────────────────────
         if report and not episodes_complete and report.total_missing:
@@ -2597,18 +2666,7 @@ class PlexRenamerApp:
         y += int(10 * s)
         cv.configure(scrollregion=(0, 0, canvas_w, y))
 
-        def _on_click(event):
-            cx = cv.canvasx(event.x)
-            cy_click = cv.canvasy(event.y)
-            if btn_y_top <= cy_click <= btn_y_bot:
-                if scan_x <= cx <= scan_x + scan_w:
-                    self.run_preview()
-                    return
-                if has_undo and undo_x <= cx <= undo_x + undo_w:
-                    self.undo()
-                    return
-
-        cv.bind("<Button-1>", _on_click)
+        self._make_button_click_handler(cv, btn_y_top, btn_y_bot, regions)
 
         if fully_complete:
             self.status_var.set("✓ Series fully complete — no action needed")
@@ -2629,18 +2687,7 @@ class PlexRenamerApp:
         files already have their target names and are in the right folders.
         """
         c = self.c
-        cv = self.preview_canvas
-
-        cv.delete("all")
-        self._canvas_in_preview_mode = False
-        self._card_positions = []
-        self._season_header_positions = []
-        self._display_order = []
-        self.check_vars.clear()
-        self._selected_index = None
-
-        canvas_w = max(600, cv.winfo_width())
-        s = self.dpi_scale
+        cv, canvas_w, s = self._clear_canvas()
         margin_x = int(16 * s)
         x_left = margin_x
         y = int(30 * s)
@@ -2666,28 +2713,15 @@ class PlexRenamerApp:
         y += int(30 * s)
 
         # ── Undo button (only if undo history exists) ────────────────
-        from .undo_log import load_log as _load_log
-        has_undo = bool(_load_log())
-
-        btn_h = int(36 * s)
-        undo_x = undo_w = 0
-        btn_y_top = y
-        btn_y_bot = y
+        has_undo = bool(load_log())
 
         if has_undo:
-            undo_w = int(130 * s)
-            undo_x = canvas_w // 2 - undo_w // 2
-            cv.create_rectangle(
-                undo_x, y, undo_x + undo_w, y + btn_h,
-                fill=c["error_dim"], outline=c["error"],
-                tags=("btn_undo",))
-            cv.create_text(
-                undo_x + undo_w // 2, y + btn_h // 2,
-                text="Undo", fill=c["error"],
-                font=("Helvetica", 10, "bold"), anchor="center",
-                tags=("btn_undo",))
-            btn_y_bot = y + btn_h
-            y += btn_h + int(20 * s)
+            btn_y_top, btn_y_bot, regions = self._draw_action_buttons(
+                cv, y, canvas_w, show_undo=True, show_scan=False)
+            y = btn_y_bot + int(20 * s)
+        else:
+            btn_y_top = btn_y_bot = y
+            regions = {}
 
         # ── List the properly named files ────────────────────────────
         cv.create_text(
@@ -2705,15 +2739,7 @@ class PlexRenamerApp:
         y += int(10 * s)
         cv.configure(scrollregion=(0, 0, canvas_w, y))
 
-        def _on_click(event):
-            cx = cv.canvasx(event.x)
-            cy_click = cv.canvasy(event.y)
-            if has_undo and btn_y_top <= cy_click <= btn_y_bot:
-                if undo_x <= cx <= undo_x + undo_w:
-                    self.undo()
-                    return
-
-        cv.bind("<Button-1>", _on_click)
+        self._make_button_click_handler(cv, btn_y_top, btn_y_bot, regions)
 
         self.status_var.set("✓ Movies already properly named — no action needed")
 
@@ -2741,6 +2767,17 @@ class PlexRenamerApp:
 
         success, errors = execute_undo()
 
+        # If the root show folder was renamed as part of this batch,
+        # revert self.folder to the original path
+        for entry in last.get("renamed_dirs", []):
+            if Path(entry["new"]) == self.folder:
+                old_root = Path(entry["old"])
+                if old_root.exists():
+                    self.folder = old_root
+                    if self.tv_scanner:
+                        self.tv_scanner.root = old_root
+                break
+
         if errors:
             messagebox.showwarning("Partial Undo",
                                    f"Errors:\n" + "\n".join(errors[:5]))
@@ -2755,7 +2792,7 @@ class PlexRenamerApp:
             # Recreate movie scanner so it rescans fresh files
             tmdb = self._ensure_tmdb()
             if tmdb:
-                files = self.movie_scanner._explicit_files
+                files = self.movie_scanner.explicit_files
                 self.movie_scanner = MovieScanner(tmdb, self.folder, files=files)
         if self.folder and self.media_info:
             self.run_preview()

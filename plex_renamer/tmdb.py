@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -233,7 +234,7 @@ class TMDBClient:
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: callable | None = None,
+        progress_callback: Callable | None = None,
     ) -> list[list[dict]]:
         """
         Search TMDB for multiple movies in parallel.
