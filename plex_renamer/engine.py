@@ -407,7 +407,9 @@ class TVScanner:
         return all_files
 
     def get_completeness(
-        self, items: list[PreviewItem],
+        self,
+        items: list[PreviewItem],
+        checked_indices: set[int] | None = None,
     ) -> CompletenessReport:
         """
         Compute completeness of matched episodes vs TMDB expectations.
@@ -415,13 +417,20 @@ class TVScanner:
         Compares the episode numbers found in *items* against the full
         TMDB season map.  Season 0 (specials) is tallied separately.
 
+        Args:
+            items: Preview items from a scan.
+            checked_indices: If provided, only items at these indices
+                count as matched.  If None, all items count.
+
         Must be called after scan() so that episode_titles is populated.
         """
         tmdb_seasons = self._get_tmdb_seasons()
 
         # Collect matched episode numbers per season from preview items
         matched_by_season: dict[int, set[int]] = defaultdict(set)
-        for item in items:
+        for i, item in enumerate(items):
+            if checked_indices is not None and i not in checked_indices:
+                continue
             if item.season is not None and item.episodes:
                 for ep in item.episodes:
                     matched_by_season[item.season].add(ep)
@@ -489,12 +498,18 @@ def _build_movie_preview_item(
     """
     Shared helper: build a PreviewItem from a chosen TMDB movie match.
 
-    Eliminates the duplicated PreviewItem construction in scan(), _scan_single(),
-    and rematch_file().
+    If the file is already inside a folder matching the target name,
+    target_dir is set to the current parent (no move needed) to avoid
+    creating a nested duplicate folder.
     """
     new_name = build_movie_name(chosen["title"], chosen["year"], f.suffix)
     folder_name = build_movie_name(chosen["title"], chosen["year"], "")
-    target_dir = f.parent / folder_name
+
+    # Check if parent folder already matches the target folder name
+    if f.parent.name == folder_name:
+        target_dir = f.parent
+    else:
+        target_dir = f.parent / folder_name
 
     return PreviewItem(
         original=f, new_name=new_name, target_dir=target_dir,

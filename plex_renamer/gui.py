@@ -16,6 +16,7 @@ import re
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
+from collections import defaultdict
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
@@ -26,6 +27,7 @@ from .engine import (
     CompletenessReport,
     MovieScanner,
     PreviewItem,
+    RenameResult,
     SeasonCompleteness,
     TVScanner,
     CANCEL_SCAN,
@@ -88,10 +90,16 @@ class PlexRenamerApp:
         self.check_vars: dict[str, tk.BooleanVar] = {}
         self._selected_index: int | None = None
         self._card_positions: list[tuple[int, int, int]] = []
+        self._season_header_positions: list[tuple[int, int, int]] = []  # (y_start, y_end, season_num)
         self._display_order: list[int] = []
         self._resize_after_id = None
         self._last_canvas_width: int = 0
         self._completeness: CompletenessReport | None = None
+        self._completeness_after_id = None  # Debounce timer for check changes
+        self._collapsed_seasons: set[int] = set()  # Season nums collapsed in preview
+        self._result_collapsed_seasons: set[int] = set()  # Collapsed in results view
+        self._last_rename_result: RenameResult | None = None
+        self._last_renamed_items: list[PreviewItem] | None = None
 
         # ── Theme + layout ────────────────────────────────────────────
         self._check_imgs = setup_styles(self.root, self.dpi_scale)
@@ -262,15 +270,15 @@ class PlexRenamerApp:
         self.preview_canvas.pack(side="left", fill="both", expand=True)
 
         # Smart resize — only redraws when width actually changes
+        self._canvas_in_preview_mode = False  # Guard against resize during result views
         def _on_canvas_resize(event):
             if abs(event.width - self._last_canvas_width) < 10:
                 return  # Width didn't meaningfully change
             self._last_canvas_width = event.width
             if self._resize_after_id:
                 self.root.after_cancel(self._resize_after_id)
-            self._resize_after_id = self.root.after(
-                100, self._display_preview if self._card_positions else lambda: None,
-            )
+            if self._canvas_in_preview_mode and self._card_positions:
+                self._resize_after_id = self.root.after(100, self._display_preview)
         self.preview_canvas.bind("<Configure>", _on_canvas_resize)
 
         # Mousewheel binding
@@ -346,7 +354,8 @@ class PlexRenamerApp:
         self._season_detail_widgets: dict[int, dict] = {}
         self._expanded_seasons: set[int] = set()
 
-        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=6)
+        self._separator_after_poster = ttk.Separator(pad, orient="horizontal")
+        self._separator_after_poster.pack(fill="x", pady=6)
 
         # ── Section header (changes contextually) ────────────────────
         self.detail_header = ttk.Label(
@@ -752,6 +761,7 @@ class PlexRenamerApp:
         self.poster_label.configure(image="", text="")
         self._poster_ref = None
         self.show_info_label.configure(text="")
+        self.poster_row.pack_forget()  # Hide poster row to eliminate whitespace
         self._reset_detail()
 
         if files and len(files) == 1:
@@ -770,14 +780,24 @@ class PlexRenamerApp:
         self.status_var.set("Searching TMDB...")
         self.root.update_idletasks()
 
+        # Use batch scan with no callback — auto-matches using confidence scoring.
+        # The pick_movie_callback dialog is only needed for manual re-matching.
         self.preview_items = self.movie_scanner.scan(
-            pick_movie_callback=self._pick_movie_for_file,
+            pick_movie_callback=None,
         )
 
         check_duplicates(self.preview_items)
         self._display_preview()
 
         ok_items = [it for it in self.preview_items if it.status == "OK"]
+        if ok_items and all(
+            it.new_name == it.original.name
+            and (it.target_dir is None or it.target_dir == it.original.parent)
+            for it in ok_items
+        ):
+            self._show_already_renamed_movies(ok_items)
+            return
+
         if len(ok_items) == 1:
             idx = self.preview_items.index(ok_items[0])
             self._select_card(idx)
@@ -895,6 +915,9 @@ class PlexRenamerApp:
 
     def _display_poster(self, tmdb: TMDBClient, media_id: int, media_type: str):
         img = tmdb.fetch_poster(media_id, media_type, target_width=400)
+        # Ensure poster row is visible
+        if not self.poster_row.winfo_ismapped():
+            self.poster_row.pack(fill="x", pady=(0, 6), before=self._separator_after_poster)
         if img:
             img = self._scale_poster(img)
             photo = ImageTk.PhotoImage(img)
@@ -929,11 +952,50 @@ class PlexRenamerApp:
 
             self.preview_items = items
             check_duplicates(self.preview_items)
-            self._completeness = self.tv_scanner.get_completeness(self.preview_items)
+
+            # Compute completeness first so season headers can show tallies
+            # Use all OK items as "checked" for initial computation since
+            # check_vars don't exist yet (created inside _display_preview)
+            initial_checked = {
+                i for i, it in enumerate(self.preview_items)
+                if it.status == "OK"
+            }
+            self._completeness = self.tv_scanner.get_completeness(
+                self.preview_items, checked_indices=initial_checked)
+
             self._display_preview()
+
+            # Recompute with actual check_vars (now created) and update detail panel
+            checked = self._get_checked_indices()
+            self._completeness = self.tv_scanner.get_completeness(
+                self.preview_items, checked_indices=checked)
             self._display_completeness()
 
+            # Detect "already renamed" — all OK items have matching names
+            ok_items = [it for it in self.preview_items if it.status == "OK"]
+            if ok_items and all(
+                it.new_name == it.original.name
+                and (it.target_dir is None or it.target_dir == it.original.parent)
+                for it in ok_items
+            ):
+                self._show_already_renamed(self._completeness)
+                return
+
         elif self.media_type == MediaType.MOVIE and self.movie_scanner:
+            # Recreate scanner to pick up any renamed/moved files
+            tmdb = self._ensure_tmdb()
+            if tmdb:
+                old_files = self.movie_scanner._explicit_files
+                if old_files:
+                    # For explicit file mode, check if files still exist at old paths
+                    # If not, fall back to folder scanning (files were renamed/moved)
+                    still_exist = [f for f in old_files if f.exists()]
+                    if still_exist:
+                        self.movie_scanner = MovieScanner(tmdb, self.folder, files=still_exist)
+                    else:
+                        self.movie_scanner = MovieScanner(tmdb, self.folder)
+                else:
+                    self.movie_scanner = MovieScanner(tmdb, self.folder)
             self._run_movie_scan_async()
 
     def _run_movie_scan_async(self):
@@ -976,11 +1038,40 @@ class PlexRenamerApp:
 
             self.preview_items = result_holder[0] or []
             check_duplicates(self.preview_items)
-            self._display_preview()
 
+            # Separate already-renamed items from items needing action
             ok_items = [it for it in self.preview_items if it.status == "OK"]
-            if len(ok_items) == 1:
-                idx = self.preview_items.index(ok_items[0])
+            already_done = [
+                it for it in ok_items
+                if it.new_name == it.original.name
+                and (it.target_dir is None or it.target_dir == it.original.parent)
+            ]
+            needs_action = [
+                it for it in self.preview_items
+                if it not in already_done
+            ]
+
+            if already_done and not needs_action:
+                # Everything is already properly named
+                self._display_preview()
+                self._show_already_renamed_movies(already_done)
+                return
+
+            if already_done and needs_action:
+                # Partial: filter out the already-done items, show only what needs work
+                self.preview_items = needs_action
+                check_duplicates(self.preview_items)
+                self._display_preview()
+                # Show count of already-done files in status
+                self.status_var.set(
+                    f"Preview: {len(needs_action)} file(s) to review  ·  "
+                    f"{len(already_done)} already properly named")
+            else:
+                self._display_preview()
+
+            ok_remaining = [it for it in self.preview_items if it.status == "OK"]
+            if len(ok_remaining) == 1:
+                idx = self.preview_items.index(ok_remaining[0])
                 self._select_card(idx)
 
         threading.Thread(target=_scan_worker, daemon=True).start()
@@ -1022,7 +1113,9 @@ class PlexRenamerApp:
         saved_checks = {k: v.get() for k, v in self.check_vars.items()}
 
         cv.delete("all")
+        cv.yview_moveto(0)
         self._card_positions = []
+        self._season_header_positions = []
         self._display_order = []
 
         if not self.preview_items:
@@ -1063,7 +1156,7 @@ class PlexRenamerApp:
             key = str(i)
             default = item.status == "OK"
             var = tk.BooleanVar(value=saved_checks.get(key, default))
-            var.trace_add("write", lambda *_: self._update_tally())
+            var.trace_add("write", lambda *_: self._on_check_changed())
             self.check_vars[key] = var
 
         # Font metrics (using cached font objects)
@@ -1107,6 +1200,10 @@ class PlexRenamerApp:
                     cv, y, item.season, canvas_w, margin_x, margin_y, s,
                     font_header_t, font_header_sub_t,
                 )
+
+            # Skip cards for collapsed seasons
+            if is_tv_mode and item.season is not None and item.season in self._collapsed_seasons:
+                continue
 
             is_multi = len(item.episodes) > 1
             is_special = item.season == 0
@@ -1246,8 +1343,11 @@ class PlexRenamerApp:
             self._card_positions.append((y_start, y_start + row_h, item_idx))
             y += row_h + margin_y
 
-        cv.configure(scrollregion=(0, 0, canvas_w, y + 10))
+        content_h = y + 10
+        visible_h = cv.winfo_height()
+        cv.configure(scrollregion=(0, 0, canvas_w, max(content_h, visible_h)))
         cv.bind("<Button-1>", self._on_canvas_click)
+        self._canvas_in_preview_mode = True
 
         # Status summary
         count_ok = sum(1 for it in self.preview_items if it.status == "OK")
@@ -1284,7 +1384,8 @@ class PlexRenamerApp:
         font_header_sub_t: tuple,
     ) -> int:
         """
-        Draw a season header bar with completeness info in the preview canvas.
+        Draw a season header bar with collapse toggle, season checkbox,
+        completeness info, and progress bar.
 
         Returns the new y position after the header.
         """
@@ -1295,12 +1396,25 @@ class PlexRenamerApp:
         progress_w = int(80 * s)
         x_left = margin_x
         x_right = canvas_w - margin_x
+        is_collapsed = season_num in self._collapsed_seasons
+        tag = f"season_hdr_{season_num}"
 
         # Build label text
+        arrow = "▸" if is_collapsed else "▾"
         if season_num == 0:
-            label = "Specials"
+            label = f"{arrow}  Specials"
         else:
-            label = f"Season {season_num}"
+            label = f"{arrow}  Season {season_num}"
+
+        # Season checkbox state — checked if all OK items in this season are checked
+        season_items = [
+            (i, it) for i, it in enumerate(self.preview_items)
+            if it.season == season_num and it.status == "OK"
+        ]
+        all_checked = all(
+            self.check_vars.get(str(i)) is not None and self.check_vars[str(i)].get()
+            for i, _ in season_items
+        ) if season_items else False
 
         # Get completeness data for this season
         sc = None
@@ -1314,13 +1428,24 @@ class PlexRenamerApp:
         cv.create_rectangle(
             x_left, y, x_right, y + header_h,
             fill=c["bg_mid"], outline=c["border"],
-            tags=("season_header",))
+            tags=("season_header", tag))
 
-        # Season label on the left
+        # Season checkbox
+        check_x = x_left + pad_x
+        check_char = "☑" if all_checked else "☐"
+        check_color = c["accent"] if all_checked else c["border_light"]
         cv.create_text(
-            x_left + pad_x, y + header_h // 2,
+            check_x, y + header_h // 2,
+            text=check_char, fill=check_color,
+            font=("Helvetica", 14), anchor="w",
+            tags=("season_header", tag, f"season_check_{season_num}"))
+
+        # Season label (after checkbox)
+        label_x = check_x + int(24 * s)
+        cv.create_text(
+            label_x, y + header_h // 2,
             text=label, fill=c["text"], font=font_header_t,
-            anchor="w", tags=("season_header",))
+            anchor="w", tags=("season_header", tag))
 
         if sc and sc.expected > 0:
             # Tally text
@@ -1337,21 +1462,22 @@ class PlexRenamerApp:
 
             cv.create_rectangle(
                 bar_x, bar_y, bar_x + progress_w, bar_y + progress_h,
-                fill=c["bg_card"], outline="", tags=("season_header",))
+                fill=c["bg_card"], outline="", tags=("season_header", tag))
 
             # Progress bar fill
             fill_w = int(progress_w * sc.pct / 100)
             if fill_w > 0:
                 cv.create_rectangle(
                     bar_x, bar_y, bar_x + fill_w, bar_y + progress_h,
-                    fill=tally_color, outline="", tags=("season_header",))
+                    fill=tally_color, outline="", tags=("season_header", tag))
 
             # Tally text to the left of the progress bar
             cv.create_text(
                 bar_x - int(8 * s), y + header_h // 2,
                 text=tally_text, fill=tally_color, font=font_header_sub_t,
-                anchor="e", tags=("season_header",))
+                anchor="e", tags=("season_header", tag))
 
+        self._season_header_positions.append((y, y + header_h, season_num))
         return y + header_h + margin_y
 
     def _display_completeness(self):
@@ -1508,7 +1634,22 @@ class PlexRenamerApp:
     def _on_canvas_click(self, event):
         cy = self.preview_canvas.canvasy(event.y)
         cx = self.preview_canvas.canvasx(event.x)
-        check_zone = int(55 * self.dpi_scale)
+        check_zone = int(40 * self.dpi_scale)
+
+        # Check season headers first
+        for y_start, y_end, season_num in self._season_header_positions:
+            if y_start <= cy <= y_end:
+                if cx < check_zone:
+                    # Season checkbox — toggle all OK items in this season
+                    self._toggle_season_check(season_num)
+                else:
+                    # Collapse/expand toggle — redraw
+                    if season_num in self._collapsed_seasons:
+                        self._collapsed_seasons.discard(season_num)
+                    else:
+                        self._collapsed_seasons.add(season_num)
+                    self._display_preview()
+                return
 
         for y_start, y_end, item_idx in self._card_positions:
             if y_start <= cy <= y_end:
@@ -1517,6 +1658,40 @@ class PlexRenamerApp:
                 else:
                     self._select_card(item_idx)
                 return
+
+    def _toggle_season_check(self, season_num: int):
+        """Toggle all OK checkboxes in a season on or off."""
+        season_indices = [
+            i for i, it in enumerate(self.preview_items)
+            if it.season == season_num and it.status == "OK"
+        ]
+        if not season_indices:
+            return
+
+        # If all checked, uncheck all; otherwise check all
+        all_checked = all(
+            self.check_vars.get(str(i)) is not None and self.check_vars[str(i)].get()
+            for i in season_indices
+        )
+        new_val = not all_checked
+        for i in season_indices:
+            key = str(i)
+            if key in self.check_vars:
+                self.check_vars[key].set(new_val)
+
+        # Cancel any pending debounced refresh and update immediately
+        # so the season header tally is correct when we redraw
+        if self._completeness_after_id:
+            self.root.after_cancel(self._completeness_after_id)
+            self._completeness_after_id = None
+        if self.tv_scanner and self.preview_items:
+            checked = self._get_checked_indices()
+            self._completeness = self.tv_scanner.get_completeness(
+                self.preview_items, checked_indices=checked)
+
+        self._update_tally()
+        self._display_preview()
+        self._display_completeness()
 
     def _toggle_check(self, item_idx: int):
         key = str(item_idx)
@@ -1963,6 +2138,11 @@ class PlexRenamerApp:
         if not messagebox.askyesno("Confirm Rename", msg):
             return
 
+        # Snapshot the items before they get invalidated
+        renamed_items = [
+            self.preview_items[i] for i in sorted(checked)
+        ]
+
         media_name = (
             self.media_info.get("name")
             or self.media_info.get("title")
@@ -1971,31 +2151,571 @@ class PlexRenamerApp:
 
         result = execute_rename(self.preview_items, checked, media_name, self.folder)
 
-        if result.errors:
-            messagebox.showwarning(
-                "Partial Rename",
-                f"Renamed {result.renamed_count} files.\n\n"
-                f"Errors ({len(result.errors)}):\n"
-                + "\n".join(result.errors[:5]))
-        else:
-            result_msg = f"Successfully renamed {result.renamed_count} files."
-            if result.log_entry.get("renamed_dirs"):
-                renamed = [
-                    f"{Path(d['old']).name} → {Path(d['new']).name}"
-                    for d in result.log_entry["renamed_dirs"]
-                ]
-                result_msg += f"\n\nRenamed folders:\n" + "\n".join(renamed)
-            if result.log_entry.get("removed_dirs"):
-                removed = [Path(d).name for d in result.log_entry["removed_dirs"]]
-                result_msg += f"\n\nRemoved empty folders: {', '.join(removed)}"
-            messagebox.showinfo("Done", result_msg)
-
-        self.status_var.set(f"Renamed {result.renamed_count} files.")
-
         # Invalidate scanner cache since files have moved
         if self.tv_scanner:
             self.tv_scanner.invalidate_cache()
-        self.run_preview()
+
+        # Show success state instead of messagebox + re-scan
+        # Pre-collapse seasons where all files were successfully renamed
+        self._result_collapsed_seasons = set()
+        by_season: dict[int | None, list[PreviewItem]] = defaultdict(list)
+        for item in renamed_items:
+            by_season[item.season].append(item)
+        if self._completeness:
+            for sn, sc in self._completeness.seasons.items():
+                if sc.is_complete and sn in by_season:
+                    self._result_collapsed_seasons.add(sn)
+            sp = self._completeness.specials
+            if sp and sp.is_complete and 0 in by_season:
+                self._result_collapsed_seasons.add(0)
+        self._show_rename_result(result, renamed_items)
+
+    def _show_rename_result(self, result: RenameResult, renamed_items: list[PreviewItem]):
+        """
+        Replace the preview canvas with a success/result summary.
+
+        Shows a completion badge, stats, the list of renames performed
+        (old → new), any errors, and action buttons for scan-again / undo.
+        """
+        c = self.c
+        cv = self.preview_canvas
+
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        self._card_positions = []
+        self._season_header_positions = []
+        self._display_order = []
+        self.check_vars.clear()
+        self._selected_index = None
+
+        canvas_w = max(600, cv.winfo_width())
+        s = self.dpi_scale
+        margin_x = int(16 * s)
+        x_left = margin_x
+        x_right = canvas_w - margin_x
+        y = int(20 * s)
+
+        has_errors = len(result.errors) > 0
+
+        # ── Completion badge ─────────────────────────────────────────
+        if has_errors:
+            badge_text = "⚠  Partially Complete"
+            badge_fg = c["accent"]
+        else:
+            badge_text = "✓  Rename Complete"
+            badge_fg = c["success"]
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text=badge_text, fill=badge_fg,
+            font=("Helvetica", 18, "bold"), anchor="n")
+        y += int(36 * s)
+
+        # ── Stats line ───────────────────────────────────────────────
+        stats_parts = [f"{result.renamed_count} files renamed"]
+        move_count = sum(1 for it in renamed_items if it.is_move())
+        if move_count:
+            stats_parts.append(f"{move_count} moved")
+        dir_renames = result.log_entry.get("renamed_dirs", [])
+        if dir_renames:
+            stats_parts.append(f"{len(dir_renames)} folders renamed")
+        removed_dirs = result.log_entry.get("removed_dirs", [])
+        if removed_dirs:
+            stats_parts.append(f"{len(removed_dirs)} empty folders removed")
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text="  ·  ".join(stats_parts), fill=c["text_dim"],
+            font=("Helvetica", 11), anchor="n")
+        y += int(28 * s)
+
+        # ── Action buttons (immediately visible at top) ──────────────
+        btn_h = int(36 * s)
+        btn_gap = int(12 * s)
+
+        # Determine if Scan Again makes sense (not for single-file movie mode)
+        is_single_movie = (
+            self.media_type == MediaType.MOVIE
+            and self.movie_scanner
+            and self.movie_scanner._explicit_files
+            and len(self.movie_scanner._explicit_files) == 1
+        )
+        show_scan_again = not is_single_movie
+
+        if show_scan_again:
+            undo_w = int(130 * s)
+            undo_x = canvas_w // 2 - undo_w - btn_gap // 2
+        else:
+            undo_w = int(130 * s)
+            undo_x = canvas_w // 2 - undo_w // 2
+
+        cv.create_rectangle(
+            undo_x, y, undo_x + undo_w, y + btn_h,
+            fill=c["error_dim"], outline=c["error"],
+            tags=("btn_undo",))
+        cv.create_text(
+            undo_x + undo_w // 2, y + btn_h // 2,
+            text="Undo", fill=c["error"],
+            font=("Helvetica", 10, "bold"), anchor="center",
+            tags=("btn_undo",))
+
+        scan_x = scan_w = 0
+        if show_scan_again:
+            scan_w = int(130 * s)
+            scan_x = canvas_w // 2 + btn_gap // 2
+            cv.create_rectangle(
+                scan_x, y, scan_x + scan_w, y + btn_h,
+                fill=c["bg_card"], outline=c["border_light"],
+                tags=("btn_scan",))
+            cv.create_text(
+                scan_x + scan_w // 2, y + btn_h // 2,
+                text="Scan Again", fill=c["text"],
+                font=("Helvetica", 10, "bold"), anchor="center",
+                tags=("btn_scan",))
+
+        btn_y_top = y
+        btn_y_bot = y + btn_h
+        y += btn_h + int(20 * s)
+
+        # ── Errors section (if any) ──────────────────────────────────
+        if has_errors:
+            cv.create_text(
+                x_left, y, text="ERRORS",
+                fill=c["error"], font=("Helvetica", 9, "bold"), anchor="nw")
+            y += int(18 * s)
+
+            for err in result.errors[:10]:
+                cv.create_text(
+                    x_left + int(8 * s), y, text=f"  {err}",
+                    fill=c["error"], font=("Helvetica", 9), anchor="nw")
+                y += int(16 * s)
+
+            y += int(12 * s)
+
+        # ── Folder operations ────────────────────────────────────────
+        if dir_renames or removed_dirs:
+            cv.create_text(
+                x_left, y, text="FOLDER CHANGES",
+                fill=c["text_dim"], font=("Helvetica", 9, "bold"), anchor="nw")
+            y += int(18 * s)
+
+            for d in dir_renames:
+                old_name = Path(d["old"]).name
+                new_name = Path(d["new"]).name
+                cv.create_text(
+                    x_left + int(8 * s), y,
+                    text=f"{old_name}  →  {new_name}",
+                    fill=c["move"], font=("Helvetica", 9), anchor="nw")
+                y += int(16 * s)
+
+            for d in removed_dirs:
+                cv.create_text(
+                    x_left + int(8 * s), y,
+                    text=f"Removed: {Path(d).name}/",
+                    fill=c["text_muted"], font=("Helvetica", 9), anchor="nw")
+                y += int(16 * s)
+
+            y += int(12 * s)
+
+        # ── Renamed files list (grouped by season, collapsible) ────────
+        cv.create_text(
+            x_left, y, text="RENAMED FILES",
+            fill=c["text_dim"], font=("Helvetica", 9, "bold"), anchor="nw")
+        y += int(22 * s)
+
+        self._last_rename_result = result
+        self._last_renamed_items = renamed_items
+
+        by_season: dict[int | None, list[PreviewItem]] = defaultdict(list)
+        for item in renamed_items:
+            by_season[item.season].append(item)
+
+        card_h = int(48 * s)
+        pad = int(10 * s)
+        bar_w = int(3 * s)
+        result_season_positions: list[tuple[int, int, int | None]] = []
+
+        for season_key in sorted(by_season.keys(), key=lambda k: k if k is not None else -1):
+            items = by_season[season_key]
+            is_collapsed = season_key in self._result_collapsed_seasons
+
+            if season_key is not None and len(by_season) > 1:
+                arrow = "\u25b8" if is_collapsed else "\u25be"
+                if season_key == 0:
+                    hdr_text = f"{arrow}  Specials ({len(items)} files)"
+                else:
+                    hdr_text = f"{arrow}  Season {season_key} ({len(items)} files)"
+
+                hdr_h = int(24 * s)
+                hdr_y = y
+                cv.create_rectangle(
+                    x_left, y, x_right, y + hdr_h,
+                    fill=c["bg_mid"], outline=c["border"])
+                cv.create_text(
+                    x_left + int(8 * s), y + hdr_h // 2,
+                    text=hdr_text, fill=c["text_dim"],
+                    font=("Helvetica", 9, "bold"), anchor="w")
+                result_season_positions.append((hdr_y, hdr_y + hdr_h, season_key))
+                y += hdr_h + int(4 * s)
+
+            if is_collapsed:
+                continue
+
+            for item in items:
+                cv.create_rectangle(
+                    x_left, y, x_right, y + card_h,
+                    fill=c["bg_card"], outline=c["border"])
+                cv.create_rectangle(
+                    x_left, y, x_left + bar_w, y + card_h,
+                    fill=c["success"], outline="")
+                cv.create_text(
+                    x_left + bar_w + pad, y + card_h // 2,
+                    text="\u2713", fill=c["success"],
+                    font=("Helvetica", 12, "bold"), anchor="w")
+
+                text_x = x_left + bar_w + pad + int(22 * s)
+                cv.create_text(
+                    text_x, y + pad,
+                    text=item.original.name, fill=c["text_muted"],
+                    font=("Helvetica", 9), anchor="nw")
+
+                new_text = item.new_name or item.original.name
+                if item.is_move() and item.target_dir:
+                    new_text = f"[{item.target_dir.name}]  {new_text}"
+                cv.create_text(
+                    text_x, y + pad + int(16 * s),
+                    text=f"\u2192  {new_text}", fill=c["success"],
+                    font=("Helvetica", 10), anchor="nw")
+
+                y += card_h + int(2 * s)
+
+            y += int(8 * s)
+
+        y += int(10 * s)
+        cv.configure(scrollregion=(0, 0, canvas_w, y))
+
+        # Click handler -- buttons + collapsible season headers
+        def _on_result_click(event):
+            cx = cv.canvasx(event.x)
+            cy_click = cv.canvasy(event.y)
+            if btn_y_top <= cy_click <= btn_y_bot:
+                if undo_x <= cx <= undo_x + undo_w:
+                    self.undo()
+                    return
+                if scan_x <= cx <= scan_x + scan_w:
+                    self.run_preview()
+                    return
+            for sy_top, sy_bot, sk in result_season_positions:
+                if sy_top <= cy_click <= sy_bot:
+                    if sk in self._result_collapsed_seasons:
+                        self._result_collapsed_seasons.discard(sk)
+                    else:
+                        self._result_collapsed_seasons.add(sk)
+                    self._show_rename_result(result, renamed_items)
+                    return
+
+        cv.bind("<Button-1>", _on_result_click)
+
+
+        # Update status bar
+        if has_errors:
+            self.status_var.set(
+                f"Renamed {result.renamed_count} files with "
+                f"{len(result.errors)} error(s)")
+        else:
+            self.status_var.set(
+                f"✓ Successfully renamed {result.renamed_count} files")
+
+        # Clear detail panel to show completion state
+        self._reset_detail()
+        self.detail_header.configure(text="RENAME COMPLETE")
+        self.detail_ep_title.configure(text="")
+        self.detail_overview.configure(text="")
+
+    def _show_already_renamed(self, report: CompletenessReport | None):
+        """
+        Show an 'already renamed' state when all matched files already
+        have their target names.
+
+        Three cases:
+        1. Fully complete including specials — nothing to do at all.
+        2. Episodes complete but specials missing — note the missing specials.
+        3. Some non-special episodes missing — show them.
+        """
+        c = self.c
+        cv = self.preview_canvas
+
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        self._card_positions = []
+        self._season_header_positions = []
+        self._display_order = []
+        self.check_vars.clear()
+        self._selected_index = None
+
+        canvas_w = max(600, cv.winfo_width())
+        s = self.dpi_scale
+        margin_x = int(16 * s)
+        x_left = margin_x
+        y = int(30 * s)
+
+        episodes_complete = report and report.is_complete
+        sp = report.specials if report else None
+        specials_complete = sp and sp.expected > 0 and sp.is_complete
+        specials_missing = sp and sp.expected > 0 and not sp.is_complete
+        fully_complete = episodes_complete and (specials_complete or not sp or sp.expected == 0)
+
+        # ── Badge ────────────────────────────────────────────────────
+        if fully_complete:
+            badge_text = "✓  Fully Complete"
+            badge_fg = c["success"]
+            sub_text = "All episodes and specials are present and correctly named."
+        elif episodes_complete and specials_missing:
+            badge_text = "✓  Episodes Complete"
+            badge_fg = c["success"]
+            sub_text = "All episodes are properly named. Some specials are missing."
+        elif episodes_complete:
+            badge_text = "✓  Already Properly Named"
+            badge_fg = c["success"]
+            sub_text = "All episodes are present and correctly named. No action needed."
+        else:
+            badge_text = "✓  Matched Files Already Named"
+            badge_fg = c["accent"]
+            sub_text = "All matched files already have their correct names."
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text=badge_text, fill=badge_fg,
+            font=("Helvetica", 18, "bold"), anchor="n")
+        y += int(34 * s)
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text=sub_text, fill=c["text_dim"],
+            font=("Helvetica", 11), anchor="n")
+        y += int(30 * s)
+
+        # ── Completeness summary ─────────────────────────────────────
+        if report and report.total_expected > 0:
+            if episodes_complete:
+                summary = (f"{report.total_matched}/{report.total_expected} "
+                           f"episodes — complete")
+                summary_fg = c["success"]
+            else:
+                summary = (f"{report.total_matched}/{report.total_expected} "
+                           f"episodes matched ({report.pct:.0f}%)")
+                summary_fg = c["accent"]
+
+            cv.create_text(
+                canvas_w // 2, y,
+                text=summary, fill=summary_fg,
+                font=("Helvetica", 12, "bold"), anchor="n")
+            y += int(30 * s)
+
+        # ── Action buttons ───────────────────────────────────────────
+        btn_h = int(36 * s)
+        btn_gap = int(12 * s)
+
+        # Check if undo history exists
+        from .undo_log import load_log as _load_log
+        has_undo = bool(_load_log())
+
+        if has_undo:
+            undo_w = int(130 * s)
+            undo_x = canvas_w // 2 - undo_w - btn_gap // 2
+            cv.create_rectangle(
+                undo_x, y, undo_x + undo_w, y + btn_h,
+                fill=c["error_dim"], outline=c["error"],
+                tags=("btn_undo",))
+            cv.create_text(
+                undo_x + undo_w // 2, y + btn_h // 2,
+                text="Undo", fill=c["error"],
+                font=("Helvetica", 10, "bold"), anchor="center",
+                tags=("btn_undo",))
+
+            scan_w = int(130 * s)
+            scan_x = canvas_w // 2 + btn_gap // 2
+        else:
+            undo_x = undo_w = 0  # no undo button
+            scan_w = int(130 * s)
+            scan_x = canvas_w // 2 - scan_w // 2
+
+        cv.create_rectangle(
+            scan_x, y, scan_x + scan_w, y + btn_h,
+            fill=c["bg_card"], outline=c["border_light"],
+            tags=("btn_scan",))
+        cv.create_text(
+            scan_x + scan_w // 2, y + btn_h // 2,
+            text="Scan Again", fill=c["text"],
+            font=("Helvetica", 10, "bold"), anchor="center",
+            tags=("btn_scan",))
+
+        btn_y_top = y
+        btn_y_bot = y + btn_h
+        y += btn_h + int(20 * s)
+
+        # ── Missing episodes (if not complete) ───────────────────────
+        if report and not episodes_complete and report.total_missing:
+            cv.create_text(
+                x_left, y, text="MISSING EPISODES",
+                fill=c["error"], font=("Helvetica", 9, "bold"), anchor="nw")
+            y += int(20 * s)
+
+            for sn, ep_num, title in report.total_missing:
+                cv.create_text(
+                    x_left + int(8 * s), y,
+                    text=f"S{sn:02d}E{ep_num:02d} – {title}",
+                    fill=c["text_dim"], font=("Helvetica", 10), anchor="nw")
+                y += int(18 * s)
+
+            y += int(12 * s)
+
+        # ── Missing specials (itemized) ──────────────────────────────
+        if specials_missing and sp.missing:
+            cv.create_text(
+                x_left, y, text="MISSING SPECIALS",
+                fill=c["text_dim"], font=("Helvetica", 9, "bold"), anchor="nw")
+            y += int(20 * s)
+
+            for ep_num, title in sp.missing:
+                cv.create_text(
+                    x_left + int(8 * s), y,
+                    text=f"S00E{ep_num:02d} – {title}",
+                    fill=c["text_muted"], font=("Helvetica", 10), anchor="nw")
+                y += int(18 * s)
+
+            y += int(12 * s)
+
+        # ── Specials tally (if present and complete) ─────────────────
+        if specials_complete:
+            cv.create_text(
+                x_left, y,
+                text=f"Specials: {sp.matched}/{sp.expected} ✓",
+                fill=c["success"], font=("Helvetica", 10), anchor="nw")
+            y += int(24 * s)
+
+        y += int(10 * s)
+        cv.configure(scrollregion=(0, 0, canvas_w, y))
+
+        def _on_click(event):
+            cx = cv.canvasx(event.x)
+            cy_click = cv.canvasy(event.y)
+            if btn_y_top <= cy_click <= btn_y_bot:
+                if scan_x <= cx <= scan_x + scan_w:
+                    self.run_preview()
+                    return
+                if has_undo and undo_x <= cx <= undo_x + undo_w:
+                    self.undo()
+                    return
+
+        cv.bind("<Button-1>", _on_click)
+
+        if fully_complete:
+            self.status_var.set("✓ Series fully complete — no action needed")
+        elif episodes_complete and specials_missing:
+            self.status_var.set(
+                f"✓ Episodes complete — {len(sp.missing)} specials missing")
+        elif episodes_complete:
+            self.status_var.set("✓ Series is properly named — no action needed")
+        else:
+            self.status_var.set(
+                f"Matched files already named — "
+                f"{len(report.total_missing)} episodes missing"
+                if report else "Matched files already named")
+
+    def _show_already_renamed_movies(self, ok_items: list[PreviewItem]):
+        """
+        Show an 'already renamed' state for movie mode when all matched
+        files already have their target names and are in the right folders.
+        """
+        c = self.c
+        cv = self.preview_canvas
+
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        self._card_positions = []
+        self._season_header_positions = []
+        self._display_order = []
+        self.check_vars.clear()
+        self._selected_index = None
+
+        canvas_w = max(600, cv.winfo_width())
+        s = self.dpi_scale
+        margin_x = int(16 * s)
+        x_left = margin_x
+        y = int(30 * s)
+
+        count = len(ok_items)
+        badge_text = "✓  Already Properly Named"
+        badge_fg = c["success"]
+        if count == 1:
+            sub_text = "This movie is already correctly named. No action needed."
+        else:
+            sub_text = f"All {count} movies are already correctly named. No action needed."
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text=badge_text, fill=badge_fg,
+            font=("Helvetica", 18, "bold"), anchor="n")
+        y += int(34 * s)
+
+        cv.create_text(
+            canvas_w // 2, y,
+            text=sub_text, fill=c["text_dim"],
+            font=("Helvetica", 11), anchor="n")
+        y += int(30 * s)
+
+        # ── Undo button (only if undo history exists) ────────────────
+        from .undo_log import load_log as _load_log
+        has_undo = bool(_load_log())
+
+        btn_h = int(36 * s)
+        undo_x = undo_w = 0
+        btn_y_top = y
+        btn_y_bot = y
+
+        if has_undo:
+            undo_w = int(130 * s)
+            undo_x = canvas_w // 2 - undo_w // 2
+            cv.create_rectangle(
+                undo_x, y, undo_x + undo_w, y + btn_h,
+                fill=c["error_dim"], outline=c["error"],
+                tags=("btn_undo",))
+            cv.create_text(
+                undo_x + undo_w // 2, y + btn_h // 2,
+                text="Undo", fill=c["error"],
+                font=("Helvetica", 10, "bold"), anchor="center",
+                tags=("btn_undo",))
+            btn_y_bot = y + btn_h
+            y += btn_h + int(20 * s)
+
+        # ── List the properly named files ────────────────────────────
+        cv.create_text(
+            x_left, y, text="PROPERLY NAMED FILES",
+            fill=c["text_dim"], font=("Helvetica", 9, "bold"), anchor="nw")
+        y += int(20 * s)
+
+        for item in ok_items:
+            cv.create_text(
+                x_left + int(8 * s), y,
+                text=f"✓  {item.original.name}",
+                fill=c["success"], font=("Helvetica", 10), anchor="nw")
+            y += int(18 * s)
+
+        y += int(10 * s)
+        cv.configure(scrollregion=(0, 0, canvas_w, y))
+
+        def _on_click(event):
+            cx = cv.canvasx(event.x)
+            cy_click = cv.canvasy(event.y)
+            if has_undo and btn_y_top <= cy_click <= btn_y_bot:
+                if undo_x <= cx <= undo_x + undo_w:
+                    self.undo()
+                    return
+
+        cv.bind("<Button-1>", _on_click)
+
+        self.status_var.set("✓ Movies already properly named — no action needed")
 
     def undo(self):
         log = load_log()
@@ -2028,8 +2748,15 @@ class PlexRenamerApp:
             messagebox.showinfo("Undone", "Rename successfully undone.")
 
         self.status_var.set("Undo complete.")
+        self._reset_detail()
         if self.tv_scanner:
             self.tv_scanner.invalidate_cache()
+        if self.movie_scanner:
+            # Recreate movie scanner so it rescans fresh files
+            tmdb = self._ensure_tmdb()
+            if tmdb:
+                files = self.movie_scanner._explicit_files
+                self.movie_scanner = MovieScanner(tmdb, self.folder, files=files)
         if self.folder and self.media_info:
             self.run_preview()
 
@@ -2078,6 +2805,31 @@ class PlexRenamerApp:
             and self.check_vars[str(i)].get()
         )
         self.tally_var.set(f"{selected} / {total}")
+
+    def _get_checked_indices(self) -> set[int]:
+        """Return the set of item indices whose checkboxes are checked."""
+        return {
+            i for i in range(len(self.preview_items))
+            if self.check_vars.get(str(i)) is not None
+            and self.check_vars[str(i)].get()
+        }
+
+    def _on_check_changed(self):
+        """Called when any checkbox changes — updates tally and schedules completeness refresh."""
+        self._update_tally()
+        # Debounce completeness refresh to avoid N recalculations during select-all
+        if self._completeness_after_id:
+            self.root.after_cancel(self._completeness_after_id)
+        self._completeness_after_id = self.root.after(50, self._refresh_completeness)
+
+    def _refresh_completeness(self):
+        """Recalculate and redisplay completeness based on current checkbox state."""
+        self._completeness_after_id = None
+        if self.tv_scanner and self.preview_items:
+            checked = self._get_checked_indices()
+            self._completeness = self.tv_scanner.get_completeness(
+                self.preview_items, checked_indices=checked)
+            self._display_completeness()
 
     # ══════════════════════════════════════════════════════════════════
     #  Run
