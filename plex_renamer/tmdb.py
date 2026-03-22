@@ -256,9 +256,9 @@ class TMDBClient:
         lock = threading.Lock()
 
         def _search(index: int, query: str, year: str | None) -> None:
-            res = self.search_movie(query, year)
+            res = self.search_with_fallback(query, self.search_movie, year=year)
             if not res and year:
-                res = self.search_movie(query)
+                res = self.search_with_fallback(query, self.search_movie)
             results[index] = res
             with lock:
                 completed[0] += 1
@@ -274,6 +274,39 @@ class TMDBClient:
                 future.result()
 
         return [r if r is not None else [] for r in results]
+
+    # ─── Fallback search ─────────────────────────────────────────────
+
+    def search_with_fallback(
+        self,
+        query: str,
+        search_fn: Callable,
+        min_words: int = 1,
+        **kwargs,
+    ) -> list[dict]:
+        """
+        Search TMDB with progressive query trimming.
+
+        If the full query returns no results, trims one word at a time
+        from the end and retries.  Handles filenames with trailing junk
+        that doesn't match any known release-noise pattern.
+
+        Args:
+            query: The full search query string.
+            search_fn: Bound method like self.search_tv or self.search_movie.
+            min_words: Stop trimming when the query has fewer words than this.
+            **kwargs: Extra arguments passed to search_fn (e.g. year=).
+
+        Returns the first non-empty result list, or [].
+        """
+        words = query.split()
+        # Try full query first, then progressively shorter
+        for n in range(len(words), min_words - 1, -1):
+            attempt = " ".join(words[:n])
+            results = search_fn(attempt, **kwargs)
+            if results:
+                return results
+        return []
 
     # ─── Images ───────────────────────────────────────────────────────
 

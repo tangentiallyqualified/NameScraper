@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 from .constants import VIDEO_EXTENSIONS, MediaType
 from .parsing import (
+    _EXTRAS_FOLDER_PATTERN,
     build_movie_name,
     build_show_folder_name,
     build_tv_name,
@@ -42,6 +43,8 @@ class PreviewItem:
     episodes: list[int]         # Empty for movies
     status: str                 # "OK", "SKIP: ...", "CONFLICT: ..."
     media_type: str = MediaType.TV
+    media_id: int | None = None      # TMDB ID — for grouping in batch mode
+    media_name: str | None = None    # Display name — for grouping in batch mode
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
@@ -67,6 +70,7 @@ class SeasonCompleteness:
     expected: int
     matched: int
     missing: list[tuple[int, str]]  # [(ep_num, title), ...]
+    matched_episodes: list[tuple[int, str]] = field(default_factory=list)  # [(ep_num, title), ...]
 
     @property
     def is_complete(self) -> bool:
@@ -224,6 +228,28 @@ class TVScanner:
     ) -> list[PreviewItem]:
         items: list[PreviewItem] = []
 
+        # Pre-fetch Season 0 data for extras matching (needed for nested extras)
+        s0_titles: dict = {}
+        s0_posters: dict = {}
+        s0_episodes: dict = {}
+        s0_tmdb_title_lookup: dict = {}
+        if 0 in tmdb_seasons:
+            s0_titles = tmdb_seasons[0]["titles"]
+            s0_posters = tmdb_seasons[0]["posters"]
+            s0_episodes = tmdb_seasons[0].get("episodes", {})
+        else:
+            s0_data = self.tmdb.get_season(self.show_info["id"], 0)
+            s0_titles = s0_data["titles"]
+            s0_posters = s0_data["posters"]
+            s0_episodes = s0_data.get("episodes", {})
+        if s0_titles:
+            self._store_tmdb_data(0, s0_titles, s0_posters, s0_episodes)
+            for ep_num, title in s0_titles.items():
+                normalized = re.sub(r"[^a-z0-9]+", "", title.lower())
+                s0_tmdb_title_lookup[normalized] = (ep_num, title)
+
+        specials_target = self.root / "Season 00"
+
         for season_dir, season_num in season_dirs:
             if season_num in tmdb_seasons:
                 titles = tmdb_seasons[season_num]["titles"]
@@ -244,46 +270,87 @@ class TVScanner:
                     normalized = re.sub(r"[^a-z0-9]+", "", title.lower())
                     tmdb_title_lookup[normalized] = (ep_num, title)
 
-            specials_target = self.root / "Season 00" if season_num == 0 else None
-
-            for f in sorted(season_dir.iterdir()):
-                if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
-                    continue
-
-                eps, raw_title, is_season_relative = extract_episode(f.name)
-
-                # Season 0 special handling
-                if season_num == 0:
-                    item = self._match_special(
-                        f, eps, raw_title, titles, tmdb_title_lookup, specials_target,
-                    )
-                    items.append(item)
-                    continue
-
-                # Normal season handling
-                if not eps:
-                    items.append(PreviewItem(
-                        original=f, new_name=None, target_dir=None,
-                        season=season_num, episodes=[],
-                        status="SKIP: could not parse episode number",
-                    ))
-                    continue
-
-                ep_titles = [
-                    titles.get(ep, raw_title or f"Episode {ep}")
-                    for ep in eps
-                ]
-
-                new_name = build_tv_name(
-                    self.show_info["name"], self.show_info["year"],
-                    season_num, eps, ep_titles, f.suffix,
+            # Detect if this is an extras/featurettes folder (vs actual Season 00)
+            is_extras_folder = (
+                season_num == 0
+                and season_dir.name.lower().strip() not in (
+                    "specials", "special", "season 00", "season 0",
+                    "season00", "season0",
                 )
+            )
 
-                items.append(PreviewItem(
-                    original=f, new_name=new_name, target_dir=None,
-                    season=season_num, episodes=eps, status="OK",
-                ))
+            for entry in sorted(season_dir.iterdir()):
+                # Process video files
+                if entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS:
+                    f = entry
+                    eps, raw_title, is_season_relative = extract_episode(f.name)
 
+                    # Season 0 special handling
+                    if season_num == 0:
+                        item = self._match_special(
+                            f, eps, raw_title, titles, tmdb_title_lookup,
+                            specials_target, is_extras_folder,
+                        )
+                        items.append(item)
+                        continue
+
+                    # Normal season handling
+                    if not eps:
+                        items.append(PreviewItem(
+                            original=f, new_name=None, target_dir=None,
+                            season=season_num, episodes=[],
+                            status="SKIP: could not parse episode number",
+                        ))
+                        continue
+
+                    ep_titles = [
+                        titles.get(ep, raw_title or f"Episode {ep}")
+                        for ep in eps
+                    ]
+
+                    new_name = build_tv_name(
+                        self.show_info["name"], self.show_info["year"],
+                        season_num, eps, ep_titles, f.suffix,
+                    )
+
+                    items.append(PreviewItem(
+                        original=f, new_name=new_name, target_dir=None,
+                        season=season_num, episodes=eps, status="OK",
+                    ))
+
+                # Scan nested extras folders (e.g. Season 02/Featurettes/)
+                elif (entry.is_dir()
+                      and season_num != 0  # don't recurse inside Season 00 itself
+                      and _EXTRAS_FOLDER_PATTERN.match(entry.name.strip())):
+                    items.extend(self._scan_nested_extras(
+                        entry, s0_titles, s0_tmdb_title_lookup, specials_target,
+                    ))
+
+        return items
+
+    def _scan_nested_extras(
+        self,
+        extras_dir: Path,
+        s0_titles: dict,
+        s0_tmdb_title_lookup: dict,
+        specials_target: Path,
+    ) -> list[PreviewItem]:
+        """
+        Scan a nested extras folder (e.g. Season 02/Featurettes/) and
+        match its files against TMDB Season 0 specials.
+
+        Unmatched files go to Unmatched/<extras_folder_name>/.
+        """
+        items: list[PreviewItem] = []
+        for f in sorted(extras_dir.iterdir()):
+            if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
+                continue
+            eps, raw_title, _ = extract_episode(f.name)
+            item = self._match_special(
+                f, eps, raw_title, s0_titles, s0_tmdb_title_lookup,
+                specials_target, is_extras_folder=True,
+            )
+            items.append(item)
         return items
 
     def _match_special(
@@ -294,31 +361,51 @@ class TVScanner:
         titles: dict,
         tmdb_title_lookup: dict,
         specials_target: Path,
+        is_extras_folder: bool = False,
     ) -> PreviewItem:
-        """Try to match a specials file to a TMDB Season 0 episode."""
+        """
+        Try to match a specials/extras file to a TMDB Season 0 episode.
+
+        Matching priority:
+          1. Episode number from S##E## pattern (season-relative only)
+          2. Fuzzy title match using raw_title from extract_episode
+          3. Fuzzy title match using the full cleaned filename stem
+             (handles files like "Gag Reel.mkv" or "Making of the Pilot.mkv"
+             where extract_episode returns no title)
+
+        Unmatched files from extras folders (Featurettes, Extras, etc.)
+        are routed to Unmatched/<original_folder_name>/ instead of Season 00.
+        """
         matched_ep = None
         matched_title = None
 
-        # Try by episode number
-        if eps:
+        # Try by episode number (only if from S##E## pattern, not bare numbers
+        # which could be "Season 3 - Bloopers" where 3 is the season not episode)
+        if eps and raw_title:
+            # If extract_episode found a number, check if it's a valid S0 episode
             for ep_num in eps:
                 if ep_num in titles:
                     matched_ep = ep_num
                     matched_title = titles[ep_num]
                     break
 
-        # Try fuzzy title match
+        # Try fuzzy title match using raw_title from extract_episode
         if not matched_ep and raw_title:
-            normalized_raw = re.sub(r"[^a-z0-9]+", "", raw_title.lower())
-            if normalized_raw in tmdb_title_lookup:
-                matched_ep, matched_title = tmdb_title_lookup[normalized_raw]
-            else:
-                for norm_key, (ep_n, orig_t) in tmdb_title_lookup.items():
-                    if (normalized_raw and norm_key and
-                            (normalized_raw in norm_key or norm_key in normalized_raw)):
-                        matched_ep = ep_n
-                        matched_title = orig_t
-                        break
+            matched_ep, matched_title = self._fuzzy_match_special(
+                raw_title, tmdb_title_lookup)
+
+        # Try fuzzy title match using the full cleaned filename stem
+        # This catches files where extract_episode returns no title
+        # (e.g. "Gag Reel.mkv", "Making of the Pilot.mkv")
+        if not matched_ep:
+            stem = f.stem
+            # Strip common prefixes like "Season 3 - " that aren't part of the title
+            cleaned_stem = re.sub(
+                r"^(?:Season|S)\s*\d+\s*[-._]\s*", "", stem, flags=re.IGNORECASE,
+            ).strip()
+            if cleaned_stem:
+                matched_ep, matched_title = self._fuzzy_match_special(
+                    cleaned_stem, tmdb_title_lookup)
 
         if matched_ep is not None:
             new_name = build_tv_name(
@@ -330,11 +417,48 @@ class TVScanner:
                 season=0, episodes=[matched_ep], status="OK",
             )
 
-        # No match — keep original name, move to Season 00
-        return PreviewItem(
-            original=f, new_name=f.name, target_dir=specials_target,
-            season=0, episodes=eps, status="OK",
-        )
+        # No match — route depends on folder type
+        if is_extras_folder:
+            unmatched_target = (
+                self.root / "Unmatched" / f.parent.name
+            )
+            return PreviewItem(
+                original=f, new_name=f.name, target_dir=unmatched_target,
+                season=0, episodes=eps,
+                status="UNMATCHED: no TMDB special found — moving to Unmatched",
+            )
+        else:
+            # Actual Season 00/Specials folder — keep in Season 00
+            return PreviewItem(
+                original=f, new_name=f.name, target_dir=specials_target,
+                season=0, episodes=eps, status="OK",
+            )
+
+    @staticmethod
+    def _fuzzy_match_special(
+        text: str,
+        tmdb_title_lookup: dict,
+    ) -> tuple[int | None, str | None]:
+        """
+        Try to fuzzy-match a text string against TMDB Season 0 titles.
+
+        Returns (episode_number, title) or (None, None).
+        """
+        normalized = re.sub(r"[^a-z0-9]+", "", text.lower())
+        if not normalized:
+            return None, None
+
+        # Exact normalized match
+        if normalized in tmdb_title_lookup:
+            ep_num, title = tmdb_title_lookup[normalized]
+            return ep_num, title
+
+        # Substring match (either direction)
+        for norm_key, (ep_n, orig_t) in tmdb_title_lookup.items():
+            if norm_key and (normalized in norm_key or norm_key in normalized):
+                return ep_n, orig_t
+
+        return None, None
 
     def _build_consolidated_preview(
         self,
@@ -452,11 +576,17 @@ class TVScanner:
                 title = sdata["titles"].get(ep_num, f"Episode {ep_num}")
                 missing_details.append((ep_num, title))
 
+            matched_details = []
+            for ep_num in sorted(matched_valid):
+                title = sdata["titles"].get(ep_num, f"Episode {ep_num}")
+                matched_details.append((ep_num, title))
+
             seasons[sn] = SeasonCompleteness(
                 season=sn,
                 expected=len(expected_eps),
                 matched=len(matched_valid),
                 missing=missing_details,
+                matched_episodes=matched_details,
             )
 
         # Aggregate totals (exclude specials / season 0)
@@ -498,23 +628,26 @@ def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
 
 
 def _build_movie_preview_item(
-    f: Path, chosen: dict,
+    f: Path, chosen: dict, root_folder: Path,
 ) -> PreviewItem:
     """
     Shared helper: build a PreviewItem from a chosen TMDB movie match.
 
-    If the file is already inside a folder matching the target name,
-    target_dir is set to the current parent (no move needed) to avoid
-    creating a nested duplicate folder.
+    Target folder is always ``root_folder / Title (Year)``, so all movies
+    end up as direct children of the batch root regardless of where the
+    source file lives in the folder hierarchy.
+
+    If the file is already in the correct location, no move is flagged.
     """
     new_name = build_movie_name(chosen["title"], chosen["year"], f.suffix)
     folder_name = build_movie_name(chosen["title"], chosen["year"], "")
 
-    # Check if parent folder already matches the target folder name
-    if f.parent.name == folder_name:
+    target_dir = root_folder / folder_name
+
+    # If the file is already exactly where it should be, use its parent
+    # so is_move() returns False and no unnecessary move is attempted
+    if f.parent == target_dir:
         target_dir = f.parent
-    else:
-        target_dir = f.parent / folder_name
 
     return PreviewItem(
         original=f, new_name=new_name, target_dir=target_dir,
@@ -718,14 +851,14 @@ class MovieScanner:
 
             if confidence < AUTO_ACCEPT_THRESHOLD:
                 # Low confidence — flag for user review instead of auto-accepting
-                item = _build_movie_preview_item(f, chosen)
+                item = _build_movie_preview_item(f, chosen, self.root)
                 item.status = (
                     f"REVIEW: best match \"{chosen['title']}\" "
                     f"(confidence {confidence:.0%}) — click to verify"
                 )
                 items.append(item)
             else:
-                items.append(_build_movie_preview_item(f, chosen))
+                items.append(_build_movie_preview_item(f, chosen, self.root))
 
         return items
 
@@ -737,9 +870,11 @@ class MovieScanner:
         """Handle single-file scan with confirmation dialog."""
         search_query, year_hint, _raw_name = _prepare_movie_query(f.stem)
 
-        results = self.tmdb.search_movie(search_query, year_hint)
+        results = self.tmdb.search_with_fallback(
+            search_query, self.tmdb.search_movie, year=year_hint)
         if not results:
-            results = self.tmdb.search_movie(search_query)
+            results = self.tmdb.search_with_fallback(
+                search_query, self.tmdb.search_movie)
         self._search_cache[f] = results
 
         if pick_movie_callback:
@@ -759,7 +894,7 @@ class MovieScanner:
             )]
 
         self.movie_info[f] = chosen
-        return [_build_movie_preview_item(f, chosen)]
+        return [_build_movie_preview_item(f, chosen, self.root)]
 
     def rematch_file(
         self, item: PreviewItem, chosen: dict,
@@ -771,7 +906,7 @@ class MovieScanner:
         resolves a REVIEW item from the preview.
         """
         self.movie_info[item.original] = chosen
-        return _build_movie_preview_item(item.original, chosen)
+        return _build_movie_preview_item(item.original, chosen, self.root)
 
     def get_search_results(self, f: Path) -> list[dict]:
         """Return cached TMDB search results for a file."""
@@ -968,7 +1103,10 @@ def execute_rename(
         if i >= len(items):
             continue
         item = items[i]
-        if item.new_name is None or item.status != "OK":
+        # Process OK items and UNMATCHED items (which get moved to Unmatched/)
+        if item.new_name is None:
+            continue
+        if item.status != "OK" and "UNMATCHED" not in item.status:
             continue
 
         src = item.original
@@ -1005,6 +1143,9 @@ def execute_rename(
             result.errors.append(f"{src.name}: {e}")
 
     # Normalize season folder names (TV only)
+    # Skip directories inside the Unmatched/ folder — they preserve their
+    # original names intentionally and shouldn't be treated as seasons.
+    unmatched_dir = root_folder / "Unmatched"
     all_dirs = source_dirs.copy()
     for _, dst, td in renames:
         all_dirs.add(td)
@@ -1012,6 +1153,12 @@ def execute_rename(
     for season_dir in all_dirs:
         if not season_dir.exists() or season_dir == root_folder:
             continue
+        # Don't normalize anything under Unmatched/
+        try:
+            season_dir.relative_to(unmatched_dir)
+            continue  # inside Unmatched — skip
+        except ValueError:
+            pass  # not inside Unmatched — proceed
         season_num = get_season(season_dir)
         if season_num is None:
             continue
@@ -1116,14 +1263,31 @@ def execute_undo() -> tuple[bool, list[str]]:
         except (OSError, shutil.Error) as e:
             errors.append(f"{new_path.name}: {e}")
 
-    # Remove created directories if empty
+    # Remove created directories if empty, then clean up empty parents
+    # (handles Unmatched/Featurettes → Unmatched/ cascade)
+    cleaned_dirs: set[str] = set()
     for dir_path_str in last.get("created_dirs", []):
         dir_path = Path(dir_path_str)
         try:
             if dir_path.exists() and not list(dir_path.iterdir()):
                 dir_path.rmdir()
+                cleaned_dirs.add(dir_path_str)
         except OSError:
             pass
+
+    # Walk up from each cleaned dir and remove empty parents
+    # (stop before leaving the show's root directory)
+    for dir_path_str in list(cleaned_dirs):
+        parent = Path(dir_path_str).parent
+        while parent.exists() and parent != parent.parent:
+            try:
+                if not list(parent.iterdir()):
+                    parent.rmdir()
+                    parent = parent.parent
+                else:
+                    break
+            except OSError:
+                break
 
     log.pop()
     save_log(log)
