@@ -177,9 +177,10 @@ def display_preview(app) -> None:
         is_multi = len(item.episodes) > 1
         is_special = item.season == 0
         is_movie = item.media_type == MediaType.MOVIE
+        is_other = item.media_type == MediaType.OTHER
         has_review = "REVIEW" in item.status
         has_unmatched = "UNMATCHED" in item.status
-        has_badges = is_multi or is_special or is_movie or has_review or has_unmatched
+        has_badges = is_multi or is_special or is_movie or is_other or has_review or has_unmatched
         tag = f"item_{item_idx}"
 
         # Text and colors
@@ -235,6 +236,8 @@ def display_preview(app) -> None:
             bar_color = c["badge_multi_bd"]
         elif is_movie:
             bar_color = c["badge_movie_bd"]
+        elif is_other:
+            bar_color = c["badge_other_bd"]
 
         check_x = x_left + bar_w + pad_x
         has_thumb = item_idx in preview_thumb_images
@@ -256,6 +259,9 @@ def display_preview(app) -> None:
             if is_movie:
                 badges_to_draw.append((" MOVIE ", c["badge_movie_bg"],
                                         c["badge_movie_fg"], c["badge_movie_bd"]))
+            if is_other:
+                badges_to_draw.append((" OTHER ", c["badge_other_bg"],
+                                        c["badge_other_fg"], c["badge_other_bd"]))
             if is_multi:
                 badges_to_draw.append((f" {len(item.episodes)}-PART ",
                                         c["badge_multi_bg"], c["badge_multi_fg"],

@@ -51,6 +51,9 @@ COLORS = {
     "badge_review_bg":  "#2a2210",
     "badge_review_fg":  "#d4a843",
     "badge_review_bd":  "#4a3a10",
+    "badge_other_bg":   "#1e1e1e",
+    "badge_other_fg":   "#888888",
+    "badge_other_bd":   "#3a3a3a",
 }
 
 

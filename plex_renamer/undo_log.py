@@ -11,7 +11,7 @@ import os
 import shutil
 import tempfile
 
-from .constants import LOG_DIR, LOG_FILE
+from .constants import LOG_DIR, LOG_FILE, ensure_log_dir
 
 
 def load_log() -> list[dict]:
@@ -30,6 +30,7 @@ def save_log(entries: list[dict]) -> None:
     Write the log atomically — write to a temp file first, then rename.
     This prevents a half-written log if the process is interrupted.
     """
+    ensure_log_dir()
     tmp_fd, tmp_path = tempfile.mkstemp(dir=LOG_DIR, suffix=".json")
     try:
         with os.fdopen(tmp_fd, "w") as f:

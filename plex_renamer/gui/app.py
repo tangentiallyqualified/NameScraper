@@ -33,7 +33,10 @@ from ..engine import (
     execute_undo,
 )
 from ..keys import get_api_key, save_api_key
-from ..parsing import build_show_folder_name, clean_folder_name, extract_year
+from ..parsing import (
+    build_show_folder_name, clean_folder_name, extract_year,
+    is_already_complete,
+)
 from ..styles import COLORS, get_dpi_scale, setup_styles
 from ..tmdb import TMDBClient
 from ..undo_log import load_log
@@ -601,11 +604,7 @@ class PlexRenamerApp:
         preview_canvas.display_preview(self)
 
         ok_items = [it for it in self.preview_items if it.status == "OK"]
-        if ok_items and all(
-            it.new_name == it.original.name
-            and (it.target_dir is None or it.target_dir == it.original.parent)
-            for it in ok_items
-        ):
+        if is_already_complete(self.preview_items):
             result_views.show_already_renamed_movies(self, ok_items)
             return
 
@@ -650,12 +649,7 @@ class PlexRenamerApp:
             preview_canvas.display_preview(self)
             preview_canvas.display_completeness(self)
 
-            ok_items = [it for it in self.preview_items if it.status == "OK"]
-            if ok_items and all(
-                it.new_name == it.original.name
-                and (it.target_dir is None or it.target_dir == it.original.parent)
-                for it in ok_items
-            ):
+            if is_already_complete(self.preview_items):
                 result_views.show_already_renamed(self, self._completeness)
                 return
 
@@ -724,7 +718,7 @@ class PlexRenamerApp:
                 if it not in already_done
             ]
 
-            if already_done and not needs_action:
+            if is_already_complete(self.preview_items) and not needs_action:
                 preview_canvas.display_preview(self)
                 result_views.show_already_renamed_movies(self, already_done)
                 return
