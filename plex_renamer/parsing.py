@@ -24,22 +24,56 @@ def clean_folder_name(name: str) -> str:
         Dragon.Ball.Super.1080p.Blu-Ray.10-Bit.Dual-Audio.TrueHD.x265-iAHD
 
     Strategy:
-      1. Replace dots/underscores with spaces
-      2. Remove bracketed tags [group] and (tags)
-      3. Strip trailing release group after the last hyphen
-      4. Walk tokens left-to-right; stop at the first release-noise token
-      5. Everything before that noise token is the title
-      6. If a 4-digit year is found, preserve it in parentheses
+      1. Protect dotted acronyms (e.g. S.H.I.E.L.D.) from being split
+      2. Replace dots/underscores with spaces
+      3. Remove bracketed tags [group] and (tags)
+      4. Strip trailing release group after the last hyphen
+      5. Walk tokens left-to-right; stop at the first release-noise token
+         or a "Season" indicator
+      6. Everything before that noise token is the title
+      7. If a 4-digit year is found, preserve it in parentheses
     """
-    s = name.replace(".", " ").replace("_", " ")
+    # Protect dotted acronyms: sequences of single letters separated by
+    # dots, e.g. "S.H.I.E.L.D." → placeholder, restored after dot-replace.
+    # Matches 2+ single-letter.dot groups, optionally ending with a trailing dot.
+    acronyms: list[tuple[str, str]] = []
+
+    def _protect_acronym(m: re.Match) -> str:
+        original = m.group(0)
+        # Reconstruct with dots intact as a placeholder token.
+        # Strip trailing dot from the acronym itself (not meaningful),
+        # but if the original ended with a dot that was separating it
+        # from the next content, we add a trailing space to preserve
+        # that separation after dot-to-space replacement.
+        clean = original.rstrip(".")
+        placeholder = f"\x00ACRONYM{len(acronyms)}\x00"
+        has_trailing_sep = original.endswith(".") and original != clean
+        acronyms.append((placeholder, clean, has_trailing_sep))
+        return placeholder + (" " if has_trailing_sep else "")
+
+    s = re.sub(
+        r"(?<![A-Za-z])(?:[A-Za-z]\.){2,}(?:[A-Za-z](?=\.|[^A-Za-z]|$)\.?)?",
+        _protect_acronym,
+        name,
+    )
+
+    s = s.replace(".", " ").replace("_", " ")
     s = re.sub(r"\[.*?\]", "", s)
     s = re.sub(r"\(.*?\)", "", s)
     s = TRAILING_GROUP.sub("", s)
 
+    # Restore acronyms
+    for placeholder, original, _ in acronyms:
+        s = s.replace(placeholder, original)
+
     tokens = s.split()
     title_tokens = []
     for token in tokens:
+        # Stop at release noise
         if RELEASE_NOISE.search(f" {token} "):
+            break
+        # Stop at "Season" followed by digits (not part of title)
+        if re.match(r"(?i)^(?:Season|Seasons?)$", token):
             break
         title_tokens.append(token)
 
@@ -312,3 +346,14 @@ def build_movie_name(title: str, year: str, ext: str) -> str:
     year_part = f" ({year})" if year else ""
     raw = f"{title}{year_part}{ext}"
     return sanitize_filename(raw)
+
+
+def build_show_folder_name(show: str, year: str) -> str:
+    """
+    Build a Plex-compatible TV show root folder name.
+
+    Example:
+        Marvel's Agents of S.H.I.E.L.D. (2013)
+    """
+    year_part = f" ({year})" if year else ""
+    return sanitize_filename(f"{show}{year_part}")

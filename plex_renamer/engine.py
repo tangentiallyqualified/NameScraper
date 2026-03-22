@@ -11,12 +11,14 @@ from __future__ import annotations
 import re
 import shutil
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from dataclasses import dataclass, field
 
 from .constants import VIDEO_EXTENSIONS, MediaType
 from .parsing import (
     build_movie_name,
+    build_show_folder_name,
     build_tv_name,
     clean_folder_name,
     extract_episode,
@@ -55,6 +57,7 @@ class RenameResult:
     renamed_count: int = 0
     errors: list[str] = field(default_factory=list)
     log_entry: dict = field(default_factory=dict)
+    new_root: Path | None = None  # Set if the root show folder was renamed
 
 
 @dataclass
@@ -480,16 +483,18 @@ class TVScanner:
 
 # ─── Movie scanning ──────────────────────────────────────────────────────────
 
-def _prepare_movie_query(stem: str) -> tuple[str, str | None]:
+def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
     """
     Shared helper: clean a filename stem into a TMDB search query and year hint.
 
-    Eliminates the duplicated logic that was in both scan() and _scan_single().
+    Returns:
+        (search_query, year_hint, raw_name) — raw_name is the cleaned folder
+        name used for scoring, returned so callers don't need to re-clean.
     """
     raw_name = clean_folder_name(stem)
     search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", raw_name).strip()
     year_hint = extract_year(stem)
-    return search_query, year_hint
+    return search_query, year_hint, raw_name
 
 
 def _build_movie_preview_item(
@@ -547,6 +552,11 @@ class MovieScanner:
         self.movie_info: dict[Path, dict] = {}
         # Cached TMDB search results per file for re-matching
         self._search_cache: dict[Path, list[dict]] = {}
+
+    @property
+    def explicit_files(self) -> list[Path] | None:
+        """The explicit file list passed at construction, or None for folder mode."""
+        return self._explicit_files
 
     def _get_video_files(self) -> list[Path]:
         """Return the files to process — explicit list or folder scan."""
@@ -625,8 +635,8 @@ class MovieScanner:
 
     def scan(
         self,
-        pick_movie_callback: callable | None = None,
-        progress_callback: callable | None = None,
+        pick_movie_callback: Callable | None = None,
+        progress_callback: Callable | None = None,
     ) -> list[PreviewItem]:
         """
         Scan files and build preview items with automatic TMDB matching.
@@ -675,20 +685,22 @@ class MovieScanner:
             )
 
         # Phase 2: Build search queries (shared helper eliminates duplication)
-        queries = [_prepare_movie_query(f.stem) for f in video_files]
+        prepared = [_prepare_movie_query(f.stem) for f in video_files]
 
         # Phase 3: Parallel TMDB search
         def _progress(done, total):
             if progress_callback:
                 progress_callback(done, total, "Searching TMDB...")
 
+        # search_movies_batch expects (query, year) tuples
+        search_queries = [(q, y) for q, y, _ in prepared]
         all_results = self.tmdb.search_movies_batch(
-            queries, progress_callback=_progress,
+            search_queries, progress_callback=_progress,
         )
 
         # Phase 4: Build preview items from results
-        for f, (search_query, year_hint), results in zip(
-            video_files, queries, all_results,
+        for f, (search_query, year_hint, raw_name), results in zip(
+            video_files, prepared, all_results,
         ):
             self._search_cache[f] = results
 
@@ -701,7 +713,6 @@ class MovieScanner:
                 ))
                 continue
 
-            raw_name = clean_folder_name(f.stem)
             chosen, confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[f] = chosen
 
@@ -721,10 +732,10 @@ class MovieScanner:
     def _scan_single(
         self,
         f: Path,
-        pick_movie_callback: callable | None,
+        pick_movie_callback: Callable | None,
     ) -> list[PreviewItem]:
         """Handle single-file scan with confirmation dialog."""
-        search_query, year_hint = _prepare_movie_query(f.stem)
+        search_query, year_hint, _raw_name = _prepare_movie_query(f.stem)
 
         results = self.tmdb.search_movie(search_query, year_hint)
         if not results:
@@ -925,12 +936,20 @@ def execute_rename(
     checked_indices: set[int],
     show_name: str,
     root_folder: Path,
+    show_folder_name: str | None = None,
 ) -> RenameResult:
     """
     Perform the actual file renames/moves for checked items.
 
     Supports cross-folder moves, creates target directories as needed,
-    normalizes season folder names, and cleans up empty source dirs.
+    normalizes season folder names, optionally renames the root show
+    folder to match Plex conventions, and cleans up empty source dirs.
+
+    Args:
+        show_folder_name: If provided and the root folder's current name
+            doesn't match, rename it.  The new root path is stored in
+            result.new_root so the caller can update its state.
+
     Returns a RenameResult with the log entry for undo support.
     """
     result = RenameResult()
@@ -1019,6 +1038,20 @@ def execute_rename(
                     result.log_entry["removed_dirs"].append(str(src_dir))
         except OSError:
             pass
+
+    # Rename root show folder to match Plex/TMDB naming (TV only)
+    if show_folder_name and root_folder.exists():
+        if root_folder.name != show_folder_name:
+            new_root = root_folder.parent / show_folder_name
+            if not new_root.exists():
+                try:
+                    root_folder.rename(new_root)
+                    result.log_entry["renamed_dirs"].append({
+                        "old": str(root_folder), "new": str(new_root),
+                    })
+                    result.new_root = new_root
+                except OSError:
+                    pass  # Not fatal — files are already renamed
 
     # Persist log
     log = load_log()
