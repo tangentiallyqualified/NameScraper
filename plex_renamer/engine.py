@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 
 from .constants import VIDEO_EXTENSIONS, MediaType
 from .parsing import (
-    _EXTRAS_FOLDER_PATTERN,
+    EXTRAS_FOLDER_PATTERN,
+    is_extras_folder,
     build_movie_name,
     build_show_folder_name,
     build_tv_name,
@@ -25,7 +26,10 @@ from .parsing import (
     extract_episode,
     extract_year,
     get_season,
+    is_already_complete,
     looks_like_tv_episode,
+    normalize_for_match,
+    normalize_for_specials,
 )
 from .tmdb import TMDBClient
 from .undo_log import load_log, save_log
@@ -161,6 +165,14 @@ class TVScanner:
         self._season_dirs = None
         self._tmdb_seasons = None
 
+    @property
+    def _media_fields(self) -> dict:
+        """Common fields for PreviewItem construction — media_id and media_name."""
+        return {
+            "media_id": self.show_info["id"],
+            "media_name": self.show_info["name"],
+        }
+
     def scan(self) -> tuple[list[PreviewItem], bool]:
         """
         Scan the folder and build preview items.
@@ -245,7 +257,7 @@ class TVScanner:
         if s0_titles:
             self._store_tmdb_data(0, s0_titles, s0_posters, s0_episodes)
             for ep_num, title in s0_titles.items():
-                normalized = re.sub(r"[^a-z0-9]+", "", title.lower())
+                normalized = normalize_for_specials(title)
                 s0_tmdb_title_lookup[normalized] = (ep_num, title)
 
         specials_target = self.root / "Season 00"
@@ -267,11 +279,11 @@ class TVScanner:
             tmdb_title_lookup = {}
             if season_num == 0 and titles:
                 for ep_num, title in titles.items():
-                    normalized = re.sub(r"[^a-z0-9]+", "", title.lower())
+                    normalized = normalize_for_specials(title)
                     tmdb_title_lookup[normalized] = (ep_num, title)
 
             # Detect if this is an extras/featurettes folder (vs actual Season 00)
-            is_extras_folder = (
+            extras_folder = (
                 season_num == 0
                 and season_dir.name.lower().strip() not in (
                     "specials", "special", "season 00", "season 0",
@@ -289,7 +301,7 @@ class TVScanner:
                     if season_num == 0:
                         item = self._match_special(
                             f, eps, raw_title, titles, tmdb_title_lookup,
-                            specials_target, is_extras_folder,
+                            specials_target, extras_folder,
                         )
                         items.append(item)
                         continue
@@ -300,6 +312,7 @@ class TVScanner:
                             original=f, new_name=None, target_dir=None,
                             season=season_num, episodes=[],
                             status="SKIP: could not parse episode number",
+                            **self._media_fields,
                         ))
                         continue
 
@@ -316,12 +329,13 @@ class TVScanner:
                     items.append(PreviewItem(
                         original=f, new_name=new_name, target_dir=None,
                         season=season_num, episodes=eps, status="OK",
+                        **self._media_fields,
                     ))
 
                 # Scan nested extras folders (e.g. Season 02/Featurettes/)
                 elif (entry.is_dir()
                       and season_num != 0  # don't recurse inside Season 00 itself
-                      and _EXTRAS_FOLDER_PATTERN.match(entry.name.strip())):
+                      and is_extras_folder(entry.name)):
                     items.extend(self._scan_nested_extras(
                         entry, s0_titles, s0_tmdb_title_lookup, specials_target,
                     ))
@@ -348,7 +362,7 @@ class TVScanner:
             eps, raw_title, _ = extract_episode(f.name)
             item = self._match_special(
                 f, eps, raw_title, s0_titles, s0_tmdb_title_lookup,
-                specials_target, is_extras_folder=True,
+                specials_target, from_extras_folder=True,
             )
             items.append(item)
         return items
@@ -361,7 +375,7 @@ class TVScanner:
         titles: dict,
         tmdb_title_lookup: dict,
         specials_target: Path,
-        is_extras_folder: bool = False,
+        from_extras_folder: bool = False,
     ) -> PreviewItem:
         """
         Try to match a specials/extras file to a TMDB Season 0 episode.
@@ -415,10 +429,11 @@ class TVScanner:
             return PreviewItem(
                 original=f, new_name=new_name, target_dir=specials_target,
                 season=0, episodes=[matched_ep], status="OK",
+                **self._media_fields,
             )
 
         # No match — route depends on folder type
-        if is_extras_folder:
+        if from_extras_folder:
             unmatched_target = (
                 self.root / "Unmatched" / f.parent.name
             )
@@ -426,12 +441,14 @@ class TVScanner:
                 original=f, new_name=f.name, target_dir=unmatched_target,
                 season=0, episodes=eps,
                 status="UNMATCHED: no TMDB special found — moving to Unmatched",
+                **self._media_fields,
             )
         else:
             # Actual Season 00/Specials folder — keep in Season 00
             return PreviewItem(
                 original=f, new_name=f.name, target_dir=specials_target,
                 season=0, episodes=eps, status="OK",
+                **self._media_fields,
             )
 
     @staticmethod
@@ -444,7 +461,7 @@ class TVScanner:
 
         Returns (episode_number, title) or (None, None).
         """
-        normalized = re.sub(r"[^a-z0-9]+", "", text.lower())
+        normalized = normalize_for_specials(text)
         if not normalized:
             return None, None
 
@@ -491,6 +508,7 @@ class TVScanner:
                     original=f, new_name=None, target_dir=None,
                     season=0, episodes=eps,
                     status="SKIP: no matching TMDB episode (extra file?)",
+                    **self._media_fields,
                 ))
                 continue
 
@@ -514,6 +532,7 @@ class TVScanner:
             items.append(PreviewItem(
                 original=f, new_name=new_name, target_dir=target_dir,
                 season=target_season, episodes=file_eps, status="OK",
+                **self._media_fields,
             ))
 
         return items
@@ -619,10 +638,11 @@ def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
 
     Returns:
         (search_query, year_hint, raw_name) — raw_name is the cleaned folder
-        name used for scoring, returned so callers don't need to re-clean.
+        name with year (for scoring), search_query is the bare title without
+        year (for TMDB search).
     """
     raw_name = clean_folder_name(stem)
-    search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", raw_name).strip()
+    search_query = clean_folder_name(stem, include_year=False)
     year_hint = extract_year(stem)
     return search_query, year_hint, raw_name
 
@@ -759,7 +779,7 @@ class MovieScanner:
                     original=f, new_name=None, target_dir=None,
                     season=None, episodes=[],
                     status="SKIP: looks like a TV episode (sequential batch)",
-                    media_type=MediaType.MOVIE,
+                    media_type=MediaType.OTHER,
                 ))
             else:
                 remaining.append(f)
@@ -795,7 +815,7 @@ class MovieScanner:
                     original=f, new_name=None, target_dir=None,
                     season=None, episodes=[],
                     status="SKIP: looks like a TV episode",
-                    media_type=MediaType.MOVIE,
+                    media_type=MediaType.OTHER,
                 ))
             else:
                 video_files.append(f)
@@ -926,21 +946,6 @@ class MovieScanner:
         if scored:
             return scored[0]
         return results[0], 0.0
-
-
-def normalize_for_match(text: str) -> str:
-    """
-    Normalize a title for fuzzy comparison.
-
-    Strips year suffixes, punctuation, articles, and extra whitespace.
-    Returns lowercase with single spaces.
-    """
-    t = re.sub(r"\s*\(\d{4}\)\s*$", "", text)  # strip trailing (YYYY)
-    t = re.sub(r"[^\w\s]", " ", t)  # punctuation → spaces
-    t = t.lower().strip()
-    # Remove leading articles for matching ("the matrix" == "matrix")
-    t = re.sub(r"^(?:the|a|an)\s+", "", t)
-    return re.sub(r"\s+", " ", t)
 
 
 def title_similarity(a: str, b: str) -> float:
@@ -1115,8 +1120,8 @@ def execute_rename(
         dst = target_dir / item.new_name
 
         if dst.exists() and src != dst:
-            result.errors.append(f"Target already exists: {dst}")
-            return result
+            result.errors.append(f"Target already exists, skipped: {dst.name}")
+            continue
 
         renames.append((src, dst, target_dir))
 
@@ -1222,14 +1227,14 @@ def execute_undo() -> tuple[bool, list[str]]:
     errors: list[str] = []
 
     # Revert folder renames
-    dir_rename_map: dict[str, str] = {}
+    dir_rename_map: dict[Path, Path] = {}  # new_dir → old_dir
     for entry in reversed(last.get("renamed_dirs", [])):
         new_dir = Path(entry["new"])
         old_dir = Path(entry["old"])
         try:
             if new_dir.exists():
                 new_dir.rename(old_dir)
-                dir_rename_map[str(new_dir)] = str(old_dir)
+                dir_rename_map[new_dir] = old_dir
         except OSError as e:
             errors.append(f"Could not revert folder {new_dir.name}: {e}")
 
@@ -1245,11 +1250,19 @@ def execute_undo() -> tuple[bool, list[str]]:
         new_path = Path(entry["new"])
         old_path = Path(entry["old"])
 
+        # Rewrite paths using proper Path operations — if a parent dir
+        # was renamed, update paths to reflect the reverted name
         for renamed_new, renamed_old in dir_rename_map.items():
-            if str(new_path).startswith(renamed_new):
-                new_path = Path(str(new_path).replace(renamed_new, renamed_old, 1))
-            if str(old_path).startswith(renamed_new):
-                old_path = Path(str(old_path).replace(renamed_new, renamed_old, 1))
+            try:
+                rel = new_path.relative_to(renamed_new)
+                new_path = renamed_old / rel
+            except ValueError:
+                pass
+            try:
+                rel = old_path.relative_to(renamed_new)
+                old_path = renamed_old / rel
+            except ValueError:
+                pass
 
         try:
             old_path.parent.mkdir(parents=True, exist_ok=True)

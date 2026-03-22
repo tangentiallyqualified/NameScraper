@@ -8,13 +8,19 @@ Performance features:
   - requests.Session for HTTP keep-alive (connection pooling)
   - In-memory caching for season data and show details to eliminate
     redundant API calls within a session
-  - Parallel batch searching for movies via ThreadPoolExecutor
+  - Parallel batch searching for movies and TV via ThreadPoolExecutor
+  - Token-bucket rate limiter (~35 req/s, below TMDB's 40/s limit)
+  - Retry with exponential backoff for transient errors (429, 5xx)
+  - LRU-bounded image cache to prevent unbounded memory growth
 """
 
 from __future__ import annotations
 
 import io
+import logging
 import threading
+import time
+from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -26,10 +32,108 @@ from PIL import Image
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
 
+log = logging.getLogger(__name__)
+
+
+# ─── Error types ─────────────────────────────────────────────────────────────
+
+class TMDBError(Exception):
+    """Base class for TMDB client errors."""
+
+
+class TMDBNetworkError(TMDBError):
+    """Network or connection failure — transient, may be retried."""
+
+
+class TMDBRateLimitError(TMDBError):
+    """API rate limit hit (HTTP 429)."""
+
+
+class TMDBAPIError(TMDBError):
+    """Non-retryable API error (4xx other than 429)."""
+
+    def __init__(self, status_code: int, message: str = ""):
+        self.status_code = status_code
+        super().__init__(f"TMDB API error {status_code}: {message}")
+
+
+# ─── Rate limiter ────────────────────────────────────────────────────────────
+
+class _TokenBucket:
+    """
+    Simple token-bucket rate limiter.
+
+    Allows up to *rate* requests per second with a burst capacity
+    equal to *rate*.  Thread-safe.
+    """
+
+    def __init__(self, rate: float = 35.0):
+        self._rate = rate
+        self._tokens = rate
+        self._max_tokens = rate
+        self._last_refill = time.monotonic()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        """Block until a token is available."""
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last_refill
+                self._tokens = min(
+                    self._max_tokens,
+                    self._tokens + elapsed * self._rate,
+                )
+                self._last_refill = now
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return
+            # Sleep briefly and retry
+            time.sleep(0.02)
+
+
+# ─── LRU image cache ────────────────────────────────────────────────────────
+
+class _LRUImageCache:
+    """
+    Bounded LRU cache for PIL Images.
+
+    Evicts the least-recently-used entry when *max_size* is exceeded.
+    Thread-safe.
+    """
+
+    def __init__(self, max_size: int = 200):
+        self._max_size = max_size
+        self._cache: OrderedDict[tuple, Image.Image] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: tuple) -> Image.Image | None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                return self._cache[key]
+        return None
+
+    def put(self, key: tuple, value: Image.Image) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            else:
+                if len(self._cache) >= self._max_size:
+                    self._cache.popitem(last=False)
+            self._cache[key] = value
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+
+# ─── Client ──────────────────────────────────────────────────────────────────
 
 class TMDBClient:
     """
-    TMDB client with connection pooling and response caching.
+    TMDB client with connection pooling, response caching, rate limiting,
+    and retry logic.
 
     Uses a requests.Session for HTTP keep-alive, which dramatically
     reduces latency when making many sequential API calls (avoids
@@ -40,32 +144,97 @@ class TMDBClient:
     network again.
     """
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, rate_limit: float = 35.0,
+                 max_retries: int = 2, image_cache_size: int = 200):
         self.api_key = api_key
         self._session = requests.Session()
+        self._rate_limiter = _TokenBucket(rate_limit)
+        self._max_retries = max_retries
+
         # In-memory caches keyed by (show_id,) or (show_id, season_num)
         self._show_cache: dict[int, dict] = {}
         self._season_cache: dict[tuple[int, int], dict] = {}
         self._season_map_cache: dict[int, tuple[dict, int]] = {}
         self._movie_cache: dict[int, dict] = {}
-        # Image cache keyed by (image_path, target_width)
-        self._image_cache: dict[tuple[str, int], Image.Image] = {}
+
+        # LRU-bounded image cache keyed by (image_path, target_width)
+        self._image_cache = _LRUImageCache(max_size=image_cache_size)
 
     # ─── Helpers ──────────────────────────────────────────────────────
 
     def _get(self, path: str, params: dict | None = None) -> dict | None:
-        """Make a GET request to the TMDB API. Returns JSON or None."""
+        """
+        Make a GET request to the TMDB API with rate limiting and retry.
+
+        Returns JSON dict on success, None if the resource was not found
+        (404).  Raises TMDBError subclasses for other failures so callers
+        can distinguish transient vs permanent errors.
+        """
         url = f"{API_BASE}{path}"
         all_params = {"api_key": self.api_key}
         if params:
             all_params.update(params)
-        try:
-            r = self._session.get(url, params=all_params, timeout=10)
+
+        last_exc: Exception | None = None
+
+        for attempt in range(1 + self._max_retries):
+            self._rate_limiter.acquire()
+
+            try:
+                r = self._session.get(url, params=all_params, timeout=10)
+            except requests.RequestException as e:
+                last_exc = TMDBNetworkError(str(e))
+                if attempt < self._max_retries:
+                    time.sleep(1.0 * (2 ** attempt))
+                    continue
+                raise last_exc from e
+
             if r.ok:
                 return r.json()
-        except requests.RequestException:
-            pass
+
+            if r.status_code == 404:
+                return None
+
+            if r.status_code == 429:
+                # Rate limited — wait and retry
+                retry_after = float(r.headers.get("Retry-After", 1.5))
+                log.warning("TMDB rate limit hit, waiting %.1fs", retry_after)
+                last_exc = TMDBRateLimitError(
+                    f"Rate limited (attempt {attempt + 1})")
+                time.sleep(retry_after)
+                continue
+
+            if r.status_code >= 500:
+                # Server error — retry with backoff
+                last_exc = TMDBNetworkError(
+                    f"Server error {r.status_code} (attempt {attempt + 1})")
+                if attempt < self._max_retries:
+                    time.sleep(1.0 * (2 ** attempt))
+                    continue
+                raise last_exc
+
+            # 4xx (other than 404/429) — not retryable
+            raise TMDBAPIError(r.status_code, r.text[:200])
+
+        # Exhausted retries
+        if last_exc:
+            raise last_exc
         return None
+
+    def _get_safe(self, path: str, params: dict | None = None) -> dict | None:
+        """
+        Like _get() but catches TMDBError and returns None.
+
+        Use this for non-critical paths (images, supplementary data)
+        where a failure shouldn't crash the operation.  For critical
+        paths (search, season fetch), prefer _get() and handle errors
+        explicitly.
+        """
+        try:
+            return self._get(path, params)
+        except TMDBError as e:
+            log.warning("TMDB request failed for %s: %s", path, e)
+            return None
 
     # ─── TV Series ────────────────────────────────────────────────────
 
@@ -76,7 +245,7 @@ class TMDBClient:
         Returns a list of dicts with keys:
             id, name, year, poster_path, overview
         """
-        data = self._get("/search/tv", {"query": query})
+        data = self._get_safe("/search/tv", {"query": query})
         if not data:
             return []
 
@@ -97,7 +266,7 @@ class TMDBClient:
         """Fetch full show details (seasons list, etc.). Cached."""
         if show_id in self._show_cache:
             return self._show_cache[show_id]
-        data = self._get(f"/tv/{show_id}")
+        data = self._get_safe(f"/tv/{show_id}")
         if data:
             self._show_cache[show_id] = data
         return data
@@ -117,7 +286,7 @@ class TMDBClient:
         if cache_key in self._season_cache:
             return self._season_cache[cache_key]
 
-        data = self._get(f"/tv/{show_id}/season/{season_num}")
+        data = self._get_safe(f"/tv/{show_id}/season/{season_num}")
         if not data:
             result = {"titles": {}, "posters": {}, "episodes": {},
                       "season_poster_path": None}
@@ -204,7 +373,7 @@ class TMDBClient:
         if year:
             params["year"] = year
 
-        data = self._get("/search/movie", params)
+        data = self._get_safe("/search/movie", params)
         if not data:
             return []
 
@@ -225,7 +394,7 @@ class TMDBClient:
         """Fetch full movie details. Cached."""
         if movie_id in self._movie_cache:
             return self._movie_cache[movie_id]
-        data = self._get(f"/movie/{movie_id}")
+        data = self._get_safe(f"/movie/{movie_id}")
         if data:
             self._movie_cache[movie_id] = data
         return data
@@ -241,7 +410,7 @@ class TMDBClient:
 
         Args:
             queries: List of (search_query, year_hint_or_None) tuples.
-            max_workers: Thread pool size (TMDB allows ~40 req/s).
+            max_workers: Thread pool size (rate limiter handles throughput).
             progress_callback: Called with (completed_count, total) after
                 each search finishes.  Runs from worker threads — must be
                 thread-safe (e.g. just updating a counter).
@@ -259,6 +428,48 @@ class TMDBClient:
             res = self.search_with_fallback(query, self.search_movie, year=year)
             if not res and year:
                 res = self.search_with_fallback(query, self.search_movie)
+            results[index] = res
+            with lock:
+                completed[0] += 1
+                count = completed[0]
+            if progress_callback:
+                progress_callback(count, total)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = []
+            for i, (query, year) in enumerate(queries):
+                futures.append(pool.submit(_search, i, query, year))
+            for future in as_completed(futures):
+                future.result()
+
+        return [r if r is not None else [] for r in results]
+
+    def search_tv_batch(
+        self,
+        queries: list[tuple[str, str | None]],
+        max_workers: int = 8,
+        progress_callback: Callable | None = None,
+    ) -> list[list[dict]]:
+        """
+        Search TMDB for multiple TV shows in parallel.
+
+        Args:
+            queries: List of (search_query, year_hint_or_None) tuples.
+            max_workers: Thread pool size (rate limiter handles throughput).
+            progress_callback: Called with (completed_count, total) after
+                each search finishes.  Thread-safe.
+
+        Returns:
+            A list of result lists, one per query, in the same order as
+            the input queries.
+        """
+        total = len(queries)
+        results: list[list[dict] | None] = [None] * total
+        completed = [0]
+        lock = threading.Lock()
+
+        def _search(index: int, query: str, year: str | None) -> None:
+            res = self.search_with_fallback(query, self.search_tv)
             results[index] = res
             with lock:
                 completed[0] += 1
@@ -316,7 +527,7 @@ class TMDBClient:
         target_width: int = 300,
     ) -> Image.Image | None:
         """
-        Download and scale an image from TMDB. Cached by (path, width).
+        Download and scale an image from TMDB. Cached with LRU eviction.
 
         Args:
             image_path: The TMDB image path (e.g. "/abc123.jpg").
@@ -328,17 +539,20 @@ class TMDBClient:
         if not image_path:
             return None
         cache_key = (image_path, target_width)
-        if cache_key in self._image_cache:
-            return self._image_cache[cache_key]
+        cached = self._image_cache.get(cache_key)
+        if cached is not None:
+            return cached
         try:
+            self._rate_limiter.acquire()
             r = self._session.get(IMAGE_BASE_URL + image_path, timeout=10)
             img = Image.open(io.BytesIO(r.content))
             scale = target_width / img.width
             new_h = int(img.height * scale)
             img = img.resize((target_width, new_h), Image.LANCZOS)
-            self._image_cache[cache_key] = img
+            self._image_cache.put(cache_key, img)
             return img
-        except Exception:
+        except (requests.RequestException, OSError, ValueError) as e:
+            log.debug("Failed to fetch image %s: %s", image_path, e)
             return None
 
     def fetch_poster(
@@ -372,11 +586,13 @@ class TMDBClient:
                 if img:
                     return img
 
-        # Fall back to show/movie poster — use cache for TV
+        # Fall back to show/movie poster — use cache for both TV and movies
         if media_type == "tv" and media_id in self._show_cache:
             data = self._show_cache[media_id]
+        elif media_type == "movie" and media_id in self._movie_cache:
+            data = self._movie_cache[media_id]
         else:
-            data = self._get(f"/{media_type}/{media_id}")
+            data = self._get_safe(f"/{media_type}/{media_id}")
         if data and data.get("poster_path"):
             return self.fetch_image(data["poster_path"], target_width)
 

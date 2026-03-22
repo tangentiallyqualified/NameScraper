@@ -13,8 +13,12 @@ VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v
 # ─── Logging / persistence paths ─────────────────────────────────────────────
 
 LOG_DIR = Path.home() / ".plex_renamer"
-LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "rename_log.json"
+
+
+def ensure_log_dir() -> None:
+    """Create the log directory if it doesn't exist. Called lazily on first use."""
+    LOG_DIR.mkdir(exist_ok=True)
 
 # ─── Filename sanitization ────────────────────────────────────────────────────
 
@@ -63,3 +67,4 @@ class MediaType(StrEnum):
     """Media type constants — StrEnum for type safety and string compatibility."""
     TV = "tv"
     MOVIE = "movie"
+    OTHER = "other"

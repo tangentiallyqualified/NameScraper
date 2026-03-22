@@ -16,12 +16,17 @@ from .constants import (
 
 # ─── Folder / filename cleaning ──────────────────────────────────────────────
 
-def clean_folder_name(name: str) -> str:
+def clean_folder_name(name: str, *, include_year: bool = True) -> str:
     """
     Extract a human-readable title from a release-group style folder name.
 
     Example input:
         Dragon.Ball.Super.1080p.Blu-Ray.10-Bit.Dual-Audio.TrueHD.x265-iAHD
+
+    Args:
+        include_year: If True (default), appends "(YYYY)" to the title
+            when a year is found.  Set to False when the caller needs
+            only the bare title (e.g. for TMDB search queries).
 
     Strategy:
       1. Protect dotted acronyms (e.g. S.H.I.E.L.D.) from being split
@@ -31,7 +36,8 @@ def clean_folder_name(name: str) -> str:
       5. Walk tokens left-to-right; stop at the first release-noise token
          or a "Season" indicator
       6. Everything before that noise token is the title
-      7. If a 4-digit year is found, preserve it in parentheses
+      7. If a 4-digit year is found and include_year is True, preserve it
+         in parentheses
     """
     # Protect dotted acronyms: sequences of single letters separated by
     # dots, e.g. "S.H.I.E.L.D." → placeholder, restored after dot-replace.
@@ -81,11 +87,12 @@ def clean_folder_name(name: str) -> str:
     if len(title) < 2:
         title = re.sub(r"\s+", " ", s).strip()
 
-    # Preserve a year from the original name as "(YYYY)"
+    # Preserve a year from the original name as "(YYYY)" if requested
     year = extract_year(name)
     if year:
         title = re.sub(r"\s*\(?\b" + year + r"\b\)?\s*", " ", title).strip()
-        title = f"{title} ({year})"
+        if include_year:
+            title = f"{title} ({year})"
 
     return re.sub(r"\s+", " ", title).strip()
 
@@ -119,14 +126,14 @@ def sanitize_filename(name: str) -> str:
 
 def extract_year(text: str) -> str | None:
     """
-    Extract a plausible release year (1920-2030) from a string.
+    Extract a plausible release year (1920-2099) from a string.
 
     Returns the year as a string, or None if not found.
     """
     m = re.search(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
     if m:
         yr = int(m.group(1))
-        if 1920 <= yr <= 2030:
+        if 1920 <= yr <= 2099:
             return m.group(1)
     return None
 
@@ -163,7 +170,7 @@ _TV_FOLDER_PATTERNS = re.compile(
 
 # Folder names that indicate supplemental/extras content — not standalone movies.
 # These are extras folders typically found inside a TV series directory.
-_EXTRAS_FOLDER_PATTERN = re.compile(
+EXTRAS_FOLDER_PATTERN = re.compile(
     r"^(?:"
     r"specials?|extras?|bonus|featurettes?"
     r"|behind[\s._\-]*the[\s._\-]*scenes"
@@ -173,6 +180,11 @@ _EXTRAS_FOLDER_PATTERN = re.compile(
     r")$",
     re.IGNORECASE,
 )
+
+
+def is_extras_folder(name: str) -> bool:
+    """Check if a folder name indicates supplemental/extras content."""
+    return bool(EXTRAS_FOLDER_PATTERN.match(name.strip()))
 
 # Filename patterns that indicate TV content: "Season 3 - ...", "Season3 ..."
 _FILENAME_SEASON_PATTERN = re.compile(
@@ -212,7 +224,7 @@ def looks_like_tv_episode(filepath: Path) -> bool:
         return True
 
     # Check parent folder — "Featurettes", "Extras", "Bonus", etc.
-    if _EXTRAS_FOLDER_PATTERN.match(parent.strip()):
+    if is_extras_folder(parent):
         return True
 
     return False
@@ -386,3 +398,56 @@ def build_show_folder_name(show: str, year: str) -> str:
     """
     year_part = f" ({year})" if year else ""
     return sanitize_filename(f"{show}{year_part}")
+
+
+# ─── Fuzzy matching ─────────────────────────────────────────────────────────
+
+def normalize_for_match(text: str) -> str:
+    """
+    Normalize a title for fuzzy comparison.
+
+    Strips year suffixes, punctuation, articles, and extra whitespace.
+    Returns lowercase with single spaces.  Used by both movie/TV scoring
+    and specials fuzzy matching for consistency.
+    """
+    t = re.sub(r"\s*\(\d{4}\)\s*$", "", text)  # strip trailing (YYYY)
+    t = re.sub(r"[^\w\s]", " ", t)  # punctuation → spaces
+    t = t.lower().strip()
+    # Remove leading articles for matching ("the matrix" == "matrix")
+    t = re.sub(r"^(?:the|a|an)\s+", "", t)
+    return re.sub(r"\s+", " ", t)
+
+
+def normalize_for_specials(text: str) -> str:
+    """
+    Normalize text for specials/extras fuzzy matching.
+
+    Strips everything except lowercase alphanumerics. Delegates to
+    normalize_for_match first to get article stripping etc., then
+    removes remaining whitespace for substring matching.
+    """
+    t = normalize_for_match(text)
+    return re.sub(r"[^a-z0-9]", "", t)
+
+
+# ─── Completeness check ────────────────────────────────────────────────────
+
+def is_already_complete(items) -> bool:
+    """
+    Check if all OK items are already properly named (no rename needed).
+
+    Args:
+        items: list of PreviewItem (or any object with .status, .new_name,
+               .original, .target_dir attributes).
+
+    Returns True if every OK item already has its correct name in its
+    correct location.
+    """
+    ok_items = [it for it in items if it.status == "OK"]
+    if not ok_items:
+        return False
+    return all(
+        it.new_name == it.original.name
+        and (it.target_dir is None or it.target_dir == it.original.parent)
+        for it in ok_items
+    )

@@ -195,6 +195,9 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
                     thumb_refs.append(photo)  # prevent GC
                     season_thumb_images[season_key] = photo
 
+    # Pre-build index map for O(1) lookups (avoids O(n) .index() per item)
+    _item_index_map: dict[int, int] = {id(item): i for i, item in enumerate(renamed_items)}
+
     for season_key in sorted(by_season.keys(), key=lambda k: k if k is not None else -1):
         items = by_season[season_key]
         is_collapsed = season_key in app._result_collapsed_seasons
@@ -234,7 +237,7 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
 
         for item in items:
             tag = f"result_item_{len(result_card_positions)}"
-            item_index = renamed_items.index(item)
+            item_index = _item_index_map[id(item)]
             is_unmatched = "UNMATCHED" in item.status
 
             # Thumbnail shifts text to the right in batch movie mode

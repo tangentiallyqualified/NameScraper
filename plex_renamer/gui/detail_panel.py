@@ -286,7 +286,7 @@ def _show_tv_detail(app, item: PreviewItem) -> None:
 def _show_movie_detail(app, item: PreviewItem) -> None:
     """Populate detail panel with movie metadata."""
     c = app.c
-    tmdb = app._ensure_tmdb()
+    tmdb = app.tmdb
 
     movie_data = (app.movie_scanner.movie_info.get(item.original)
                   if app.movie_scanner else None)
@@ -347,7 +347,7 @@ def _show_movie_detail(app, item: PreviewItem) -> None:
 
 def _load_detail_image(app, item: PreviewItem) -> None:
     """Load the appropriate image for the detail panel."""
-    tmdb = app._ensure_tmdb()
+    tmdb = app.tmdb
     if not tmdb or not app.media_info:
         app.detail_image.configure(image="")
         app._detail_img_ref = None
