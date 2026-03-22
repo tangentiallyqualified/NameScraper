@@ -57,6 +57,41 @@ class RenameResult:
     log_entry: dict = field(default_factory=dict)
 
 
+@dataclass
+class SeasonCompleteness:
+    """Completeness info for a single season."""
+    season: int
+    expected: int
+    matched: int
+    missing: list[tuple[int, str]]  # [(ep_num, title), ...]
+
+    @property
+    def is_complete(self) -> bool:
+        return self.expected > 0 and self.matched >= self.expected
+
+    @property
+    def pct(self) -> float:
+        return (self.matched / self.expected * 100) if self.expected else 0.0
+
+
+@dataclass
+class CompletenessReport:
+    """Full completeness report for a TV series."""
+    seasons: dict[int, SeasonCompleteness]       # keyed by season num (>0)
+    specials: SeasonCompleteness | None           # season 0, or None
+    total_expected: int
+    total_matched: int
+    total_missing: list[tuple[int, int, str]]     # [(season, ep_num, title), ...]
+
+    @property
+    def is_complete(self) -> bool:
+        return self.total_expected > 0 and self.total_matched >= self.total_expected
+
+    @property
+    def pct(self) -> float:
+        return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
+
+
 # ─── TV scanning ─────────────────────────────────────────────────────────────
 
 class TVScanner:
@@ -370,6 +405,68 @@ class TVScanner:
                 all_files.append((f, abs_num, raw_title, eps, is_sr))
         all_files.sort(key=lambda x: x[1])
         return all_files
+
+    def get_completeness(
+        self, items: list[PreviewItem],
+    ) -> CompletenessReport:
+        """
+        Compute completeness of matched episodes vs TMDB expectations.
+
+        Compares the episode numbers found in *items* against the full
+        TMDB season map.  Season 0 (specials) is tallied separately.
+
+        Must be called after scan() so that episode_titles is populated.
+        """
+        tmdb_seasons = self._get_tmdb_seasons()
+
+        # Collect matched episode numbers per season from preview items
+        matched_by_season: dict[int, set[int]] = defaultdict(set)
+        for item in items:
+            if item.season is not None and item.episodes:
+                for ep in item.episodes:
+                    matched_by_season[item.season].add(ep)
+
+        seasons: dict[int, SeasonCompleteness] = {}
+
+        for sn, sdata in sorted(tmdb_seasons.items()):
+            expected_eps = set(sdata["titles"].keys())
+            matched_eps = matched_by_season.get(sn, set())
+            # Only count episodes that TMDB knows about as matched
+            matched_valid = matched_eps & expected_eps
+            missing_eps = expected_eps - matched_valid
+
+            missing_details = []
+            for ep_num in sorted(missing_eps):
+                title = sdata["titles"].get(ep_num, f"Episode {ep_num}")
+                missing_details.append((ep_num, title))
+
+            seasons[sn] = SeasonCompleteness(
+                season=sn,
+                expected=len(expected_eps),
+                matched=len(matched_valid),
+                missing=missing_details,
+            )
+
+        # Aggregate totals (exclude specials / season 0)
+        total_expected = sum(
+            sc.expected for sn, sc in seasons.items() if sn > 0)
+        total_matched = sum(
+            sc.matched for sn, sc in seasons.items() if sn > 0)
+        total_missing = []
+        for sn, sc in sorted(seasons.items()):
+            if sn > 0:
+                for ep_num, title in sc.missing:
+                    total_missing.append((sn, ep_num, title))
+
+        specials = seasons.get(0)
+
+        return CompletenessReport(
+            seasons={sn: sc for sn, sc in seasons.items() if sn > 0},
+            specials=specials,
+            total_expected=total_expected,
+            total_matched=total_matched,
+            total_missing=total_missing,
+        )
 
 
 # ─── Movie scanning ──────────────────────────────────────────────────────────
