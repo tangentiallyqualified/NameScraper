@@ -3,6 +3,7 @@ Shared constants and configuration for Plex Renamer.
 """
 
 import re
+from enum import StrEnum
 from pathlib import Path
 
 # ─── File types ───────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ TRAILING_GROUP = re.compile(r"-[A-Za-z0-9]{2,10}$")
 
 # ─── Media type enum ─────────────────────────────────────────────────────────
 
-class MediaType:
-    """Simple namespace for media type constants."""
+class MediaType(StrEnum):
+    """Media type constants — StrEnum for type safety and string compatibility."""
     TV = "tv"
     MOVIE = "movie"

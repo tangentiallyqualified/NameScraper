@@ -161,13 +161,34 @@ _TV_FOLDER_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Folder names that indicate supplemental/extras content — not standalone movies.
+# These are extras folders typically found inside a TV series directory.
+_EXTRAS_FOLDER_PATTERN = re.compile(
+    r"^(?:"
+    r"specials?|extras?|bonus|featurettes?"
+    r"|behind[\s._\-]*the[\s._\-]*scenes"
+    r"|deleted[\s._\-]*scenes|shorts?"
+    r"|special[\s._\-]*features?"
+    r"|OVAs?|OADs?|ONAs?"
+    r")$",
+    re.IGNORECASE,
+)
+
+# Filename patterns that indicate TV content: "Season 3 - ...", "Season3 ..."
+_FILENAME_SEASON_PATTERN = re.compile(
+    r"(?:^|[\s._\-])(?:Season|Staffel|Saison|Temporada|Stagione)"
+    r"[\s._\-]*\d+",
+    re.IGNORECASE,
+)
+
 
 def looks_like_tv_episode(filepath: Path) -> bool:
     """
     Quick heuristic check for whether a file is likely a TV episode.
 
     Checks the filename for S##E## patterns, episode markers, anime/fansub
-    naming conventions, and the parent folder name for season indicators.
+    naming conventions, "Season N" in the filename, and the parent folder
+    name for season indicators or extras/featurettes folders.
     Uses only strong signals to avoid false-positiving on movies with
     numbers in the title.
     """
@@ -181,9 +202,17 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     if _FANSUB_EPISODE_PATTERN.search(name):
         return True
 
+    # "Season 3 - Bloopers" etc. in the filename itself
+    if _FILENAME_SEASON_PATTERN.search(name):
+        return True
+
     # Check parent folder — "Season 01", "S02", "Staffel 3", etc.
     parent = filepath.parent.name
     if _TV_FOLDER_PATTERNS.search(parent):
+        return True
+
+    # Check parent folder — "Featurettes", "Extras", "Bonus", etc.
+    if _EXTRAS_FOLDER_PATTERN.match(parent.strip()):
         return True
 
     return False
