@@ -16,6 +16,9 @@ Built with Python and tkinter. Designed to handle everything from a single movie
 
 Point the app at a TV show folder and it handles the rest.
 
+<img width="3504" height="1842" alt="tvseries1" src="https://github.com/user-attachments/assets/6357b2d4-68e5-4058-a1b2-39edd12c234b" />
+
+
 **Automatic TMDB Matching**
 - Cleans release-group folder names to extract the show title — strips resolution tags, codec info, source labels, release group names, and other noise while preserving dotted acronyms like `S.H.I.E.L.D.`
 - Searches TMDB with progressive query trimming (if the full cleaned name returns no results, trims one word at a time from the end)
@@ -51,12 +54,17 @@ Point the app at a TV show folder and it handles the rest.
 - Rename button changes to green "Complete" style when the series is fully matched
 
 **Plex-Formatted Output**
+
+<img width="3522" height="1872" alt="tvseries2" src="https://github.com/user-attachments/assets/a1f5c3de-b5d5-45c8-9476-0573911bb8c1" />
+
 - Renames files to: `Show Name (Year) - S01E01 - Episode Title.ext`
 - Multi-episode files: `Show Name (Year) - S01E01-E02 - Title 1-Title 2.ext`
 - Normalizes season folder names to `Season 01` format
 - Renames the root show folder to match Plex/TMDB naming
 - Sanitizes filenames for cross-platform compatibility (strips illegal characters, replaces colons)
 
+<img width="3510" height="1866" alt="tvseries3" src="https://github.com/user-attachments/assets/27291f01-8aca-443e-8d1e-34baa673d901" />
+  
 ---
 
 ### Movies (Single File)
@@ -74,6 +82,10 @@ Select a single movie file for quick matching.
 ### Movies (Batch Folder)
 
 Point the app at a folder containing multiple movie files for bulk processing.
+
+<img width="3534" height="1905" alt="batchmovie1" src="https://github.com/user-attachments/assets/9defe4d5-a43a-4ac5-8543-c0ade6000c54" />
+
+<img width="3513" height="1821" alt="batchmovie2" src="https://github.com/user-attachments/assets/7e49de99-01bd-44bc-9d28-fd27c59fd9da" />
 
 **Smart Filtering**
 - Automatically identifies and skips TV episodes mixed into movie folders using multiple heuristic signals:
