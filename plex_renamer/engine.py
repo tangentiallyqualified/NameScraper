@@ -399,6 +399,8 @@ class BatchTVOrchestrator:
                     s.duplicate_of = primary.display_name
                     s.checked = False
 
+        states.sort(key=_sort_key)
+
         self.states = states
         return states
 
@@ -477,7 +479,10 @@ class BatchTVOrchestrator:
         Runs sequentially because each show's scan does multiple TMDB API
         calls (one per season) and the rate limiter handles throughput.
         """
-        to_scan = [s for s in self.states if not s.scanned and s.show_id is not None]
+        to_scan = [
+            s for s in self.states
+            if not s.scanned and not s.queued and s.show_id is not None
+        ]
         total = len(to_scan)
 
         for i, state in enumerate(to_scan):
@@ -695,25 +700,34 @@ class TVScanner:
     ) -> list[PreviewItem]:
         items: list[PreviewItem] = []
 
-        # Pre-fetch Season 0 data for extras matching (needed for nested extras)
         s0_titles: dict = {}
         s0_posters: dict = {}
         s0_episodes: dict = {}
         s0_tmdb_title_lookup: dict = {}
-        if 0 in tmdb_seasons:
-            s0_titles = tmdb_seasons[0]["titles"]
-            s0_posters = tmdb_seasons[0]["posters"]
-            s0_episodes = tmdb_seasons[0].get("episodes", {})
-        else:
-            s0_data = self.tmdb.get_season(self.show_info["id"], 0)
-            s0_titles = s0_data["titles"]
-            s0_posters = s0_data["posters"]
-            s0_episodes = s0_data.get("episodes", {})
-        if s0_titles:
-            self._store_tmdb_data(0, s0_titles, s0_posters, s0_episodes)
-            for ep_num, title in s0_titles.items():
-                normalized = normalize_for_specials(title)
-                s0_tmdb_title_lookup[normalized] = (ep_num, title)
+        s0_loaded = False
+
+        def ensure_specials_data() -> None:
+            nonlocal s0_titles, s0_posters, s0_episodes, s0_tmdb_title_lookup, s0_loaded
+            if s0_loaded:
+                return
+            s0_loaded = True
+
+            if 0 in tmdb_seasons:
+                s0_titles = tmdb_seasons[0]["titles"]
+                s0_posters = tmdb_seasons[0]["posters"]
+                s0_episodes = tmdb_seasons[0].get("episodes", {})
+            else:
+                s0_data = self.tmdb.get_season(self.show_info["id"], 0)
+                s0_titles = s0_data["titles"]
+                s0_posters = s0_data["posters"]
+                s0_episodes = s0_data.get("episodes", {})
+
+            if s0_titles:
+                self._store_tmdb_data(0, s0_titles, s0_posters, s0_episodes)
+                s0_tmdb_title_lookup = {
+                    normalize_for_specials(title): (ep_num, title)
+                    for ep_num, title in s0_titles.items()
+                }
 
         specials_target = self.root / "Season 00"
 
@@ -736,6 +750,11 @@ class TVScanner:
                 for ep_num, title in titles.items():
                     normalized = normalize_for_specials(title)
                     tmdb_title_lookup[normalized] = (ep_num, title)
+                ensure_specials_data()
+                titles = s0_titles
+                posters = s0_posters
+                episodes = s0_episodes
+                tmdb_title_lookup = s0_tmdb_title_lookup
 
             # Detect if this is an extras/featurettes folder (vs actual Season 00)
             extras_folder = (
@@ -798,13 +817,17 @@ class TVScanner:
                         for ep in eps
                     ]
 
+                    target_dir = season_dir
+                    if season_dir == self.root:
+                        target_dir = self.root / f"Season {season_num:02d}"
+
                     new_name = build_tv_name(
                         self.show_info["name"], self.show_info["year"],
                         season_num, eps, ep_titles, f.suffix,
                     )
 
                     items.append(PreviewItem(
-                        original=f, new_name=new_name, target_dir=None,
+                        original=f, new_name=new_name, target_dir=target_dir,
                         season=season_num, episodes=eps, status="OK",
                         **self._media_fields,
                     ))
@@ -813,6 +836,7 @@ class TVScanner:
                 elif (entry.is_dir()
                       and season_num != 0  # don't recurse inside Season 00 itself
                       and is_extras_folder(entry.name)):
+                    ensure_specials_data()
                     items.extend(self._scan_nested_extras(
                         entry, s0_titles, s0_tmdb_title_lookup, specials_target,
                     ))
@@ -1536,12 +1560,13 @@ def score_results(
 # ─── Shared utilities ─────────────────────────────────────────────────────────
 
 def check_duplicates(items: list[PreviewItem]) -> None:
-    """Flag items that would collide on the same target filename."""
-    seen: dict[str, str] = {}
+    """Flag items that would collide on the same target path."""
+    seen: dict[tuple[str, str], str] = {}
     for item in items:
         if item.new_name is None:
             continue
-        key = item.new_name.lower()
+        target_dir = item.target_dir or item.original.parent
+        key = (str(target_dir).lower(), item.new_name.lower())
         if key in seen:
             item.status = f"CONFLICT: same target as {seen[key]}"
         else:

@@ -238,6 +238,8 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
 
     style.configure("TSeparator", background=c["border"])
 
+    tree_row_h = max(88, int(84 * dpi_scale))
+
     # Treeview (used by queue panel — row height accommodates poster thumbnails)
     style.configure("Treeview",
                      background=c["bg_card"],
@@ -245,7 +247,7 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
                      fieldbackground=c["bg_card"],
                      borderwidth=0,
                      font=("Helvetica", 10),
-                     rowheight=int(96 * dpi_scale))
+                     rowheight=tree_row_h)
     style.configure("Treeview.Heading",
                      background=c["bg_mid"],
                      foreground=c["text_dim"],

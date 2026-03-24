@@ -15,6 +15,198 @@ from ..undo_log import load_log
 from .helpers import draw_action_buttons, make_button_click_handler
 
 
+def _get_result_movie_thumbnails(
+    app,
+    renamed_items: list[PreviewItem],
+    thumb_w: int,
+    thumb_h: int,
+) -> tuple[dict[int, object], list[object]]:
+    """Build or reuse movie result thumbnails across result redraws."""
+    signature = []
+    for item in renamed_items:
+        movie_data = (app.movie_scanner.movie_info.get(item.original)
+                      if app.movie_scanner else None)
+        poster_path = movie_data.get("poster_path") if movie_data else None
+        signature.append((str(item.original), poster_path, thumb_w, thumb_h))
+
+    cache_signature = tuple(signature)
+    if getattr(app, "_result_movie_thumb_signature", None) == cache_signature:
+        return (
+            getattr(app, "_result_movie_thumb_images", {}),
+            getattr(app, "_result_movie_thumb_refs", []),
+        )
+
+    from PIL import ImageTk
+    from .helpers import create_placeholder_poster
+
+    placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
+    placeholder_photo = ImageTk.PhotoImage(placeholder_img)
+    thumb_refs: list[object] = [placeholder_photo]
+    thumb_images: dict[int, object] = {}
+
+    tmdb = app._ensure_tmdb()
+    for idx, item in enumerate(renamed_items):
+        movie_data = (app.movie_scanner.movie_info.get(item.original)
+                      if app.movie_scanner else None)
+        if movie_data and movie_data.get("poster_path") and tmdb:
+            img = tmdb.fetch_image(movie_data["poster_path"],
+                                   target_width=thumb_w)
+            if img:
+                img = img.resize((thumb_w, thumb_h))
+                photo = ImageTk.PhotoImage(img)
+                thumb_refs.append(photo)
+                thumb_images[idx] = photo
+                continue
+        thumb_images[idx] = placeholder_photo
+
+    app._result_movie_thumb_signature = cache_signature
+    app._result_movie_thumb_images = thumb_images
+    app._result_movie_thumb_refs = thumb_refs
+    return thumb_images, thumb_refs
+
+
+def _get_result_season_thumbnails(
+    app,
+    season_keys: list[int | None],
+    poster_w: int,
+    poster_h: int,
+) -> tuple[dict[int, object], list[object]]:
+    """Build or reuse season thumbnails for TV result headers."""
+    if app.media_type != MediaType.TV or not app.tv_scanner:
+        return {}, []
+
+    cache_signature = (
+        app.tv_scanner.show_info["id"],
+        tuple(season_key for season_key in season_keys if season_key is not None),
+        poster_w,
+        poster_h,
+    )
+    if getattr(app, "_result_season_thumb_signature", None) == cache_signature:
+        return (
+            getattr(app, "_result_season_thumb_images", {}),
+            getattr(app, "_result_season_thumb_refs", []),
+        )
+
+    from PIL import ImageTk
+
+    tmdb = app._ensure_tmdb()
+    if not tmdb:
+        return {}, []
+
+    thumb_refs: list[object] = []
+    season_thumb_images: dict[int, object] = {}
+    for season_key in season_keys:
+        if season_key is None:
+            continue
+        img = tmdb.fetch_poster(
+            app.tv_scanner.show_info["id"], "tv",
+            season=season_key, target_width=poster_w)
+        if img:
+            img = img.resize((poster_w, poster_h))
+            photo = ImageTk.PhotoImage(img)
+            thumb_refs.append(photo)
+            season_thumb_images[season_key] = photo
+
+    app._result_season_thumb_signature = cache_signature
+    app._result_season_thumb_images = season_thumb_images
+    app._result_season_thumb_refs = thumb_refs
+    return season_thumb_images, thumb_refs
+
+
+def _render_result_card(
+    cv,
+    item: PreviewItem,
+    y: int,
+    x_left: int,
+    x_right: int,
+    s: float,
+    *,
+    root_folder: Path | None = None,
+    thumb_image=None,
+    thumb_w: int = 0,
+    thumb_h: int = 0,
+    thumb_margin: int = 0,
+    min_card_h: int | None = None,
+    tag: str | None = None,
+) -> int:
+    """Draw one result card and return its rendered height."""
+    c = COLORS
+    pad = int(10 * s)
+    bar_w = int(3 * s)
+    tags = (tag,) if tag else ()
+    is_unmatched = "UNMATCHED" in item.status
+
+    bar_color = c["accent"] if is_unmatched else c["success"]
+    check_color = c["accent"] if is_unmatched else c["success"]
+    arrow_color = c["accent"] if is_unmatched else c["success"]
+    check_char = "⚠" if is_unmatched else "✓"
+
+    has_thumb = thumb_image is not None
+    thumb_space = (thumb_w + thumb_margin) if has_thumb else 0
+    text_x = x_left + bar_w + pad + int(22 * s) + thumb_space
+    max_text_w = x_right - text_x - pad
+
+    id1 = cv.create_text(
+        text_x, y + pad,
+        text=item.original.name, fill=c["text_muted"],
+        font=("Helvetica", 9), anchor="nw",
+        width=max_text_w, tags=tags)
+
+    new_text = item.new_name or item.original.name
+    if item.is_move() and item.target_dir:
+        if is_unmatched and root_folder is not None:
+            try:
+                rel = item.target_dir.relative_to(root_folder)
+                new_text = f"[{rel}]  {new_text}"
+            except ValueError:
+                new_text = f"[{item.target_dir.name}]  {new_text}"
+        else:
+            new_text = f"[{item.target_dir.name}]  {new_text}"
+
+    bbox1 = cv.bbox(id1)
+    line1_bottom = (bbox1[3] if bbox1 else y + pad + int(14 * s))
+
+    id2 = cv.create_text(
+        text_x, line1_bottom + int(2 * s),
+        text=f"→  {new_text}", fill=arrow_color,
+        font=("Helvetica", 10), anchor="nw",
+        width=max_text_w, tags=tags)
+
+    bbox2 = cv.bbox(id2)
+    content_bottom = (bbox2[3] if bbox2 else line1_bottom + int(16 * s))
+    actual_h = content_bottom - y + pad
+    if min_card_h is not None:
+        actual_h = max(actual_h, min_card_h)
+    if has_thumb:
+        actual_h = max(actual_h, thumb_h + pad * 2)
+
+    bg_id = cv.create_rectangle(
+        x_left, y, x_right, y + actual_h,
+        fill=c["bg_card"], outline=c["border"],
+        tags=("result_card",) + tags)
+    cv.tag_lower(bg_id)
+
+    bar_id = cv.create_rectangle(
+        x_left, y, x_left + bar_w, y + actual_h,
+        fill=bar_color, outline="", tags=tags)
+    cv.tag_raise(bar_id, bg_id)
+
+    cv.create_text(
+        x_left + bar_w + pad, y + actual_h // 2,
+        text=check_char, fill=check_color,
+        font=("Helvetica", 12, "bold"), anchor="w", tags=tags)
+
+    if has_thumb:
+        thumb_x = x_left + bar_w + pad + int(22 * s)
+        thumb_y = y + (actual_h - thumb_h) // 2
+        cv.create_image(
+            thumb_x, thumb_y,
+            image=thumb_image,
+            anchor="nw", tags=tags)
+
+    return actual_h
+
+
 def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewItem]) -> None:
     """
     Replace the preview canvas with a success/result summary.
@@ -136,7 +328,6 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
     result_card_positions: list[tuple[int, int, int]] = []  # (y_start, y_end, item_index)
     _result_selected_index: list[int | None] = [None]  # mutable for closure
 
-    # Batch movie mode: pre-fetch poster thumbnails for result cards
     is_batch_movie = (
         app.media_type == MediaType.MOVIE
         and len(renamed_items) > 1
@@ -144,56 +335,20 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
     thumb_h = int(54 * s)  # thumbnail height — drives card min height
     thumb_w = int(36 * s)  # ~2:3 aspect ratio
     thumb_margin = int(8 * s)
-    thumb_refs: list = []  # keep PhotoImage references alive
     thumb_images: dict[int, object] = {}  # item_index → PhotoImage
 
     if is_batch_movie:
-        from PIL import ImageTk
-        from .helpers import create_placeholder_poster
-        placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
-        placeholder_photo = ImageTk.PhotoImage(placeholder_img)
-        thumb_refs.append(placeholder_photo)
-
-        tmdb = app._ensure_tmdb()
-        for idx, item in enumerate(renamed_items):
-            movie_data = (app.movie_scanner.movie_info.get(item.original)
-                          if app.movie_scanner else None)
-            if movie_data and movie_data.get("poster_path") and tmdb:
-                img = tmdb.fetch_image(movie_data["poster_path"],
-                                       target_width=thumb_w)
-                if img:
-                    img = img.resize((thumb_w, thumb_h))
-                    photo = ImageTk.PhotoImage(img)
-                    thumb_refs.append(photo)
-                    thumb_images[idx] = photo
-                    continue
-            # No poster — use placeholder
-            thumb_images[idx] = placeholder_photo
+        thumb_images, movie_thumb_refs = _get_result_movie_thumbnails(
+            app, renamed_items, thumb_w, thumb_h)
         card_h = max(card_h, thumb_h + pad * 2)
+    else:
+        movie_thumb_refs = []
 
-    # Store thumbnail refs on app to prevent garbage collection
-    app._result_thumb_refs = thumb_refs
-
-    # TV mode: pre-fetch season poster thumbnails for result headers
-    is_tv_mode = app.media_type == MediaType.TV
-    season_thumb_images: dict[int, object] = {}
-    if is_tv_mode and app.tv_scanner:
-        from PIL import ImageTk as _ImageTk
-        tmdb = app._ensure_tmdb()
-        if tmdb:
-            season_poster_h = int(32 * s)  # match header height
-            season_poster_w = int(22 * s)
-            for season_key in by_season:
-                if season_key is None:
-                    continue
-                img = tmdb.fetch_poster(
-                    app.tv_scanner.show_info["id"], "tv",
-                    season=season_key, target_width=season_poster_w)
-                if img:
-                    img = img.resize((season_poster_w, season_poster_h))
-                    photo = _ImageTk.PhotoImage(img)
-                    thumb_refs.append(photo)  # prevent GC
-                    season_thumb_images[season_key] = photo
+    season_poster_h = int(32 * s)
+    season_poster_w = int(22 * s)
+    season_thumb_images, season_thumb_refs = _get_result_season_thumbnails(
+        app, list(by_season.keys()), season_poster_w, season_poster_h)
+    app._result_thumb_refs = movie_thumb_refs + season_thumb_refs
 
     # Pre-build index map for O(1) lookups (avoids O(n) .index() per item)
     _item_index_map: dict[int, int] = {id(item): i for i, item in enumerate(renamed_items)}
@@ -238,75 +393,16 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
         for item in items:
             tag = f"result_item_{len(result_card_positions)}"
             item_index = _item_index_map[id(item)]
-            is_unmatched = "UNMATCHED" in item.status
-
-            # Thumbnail shifts text to the right in batch movie mode
-            has_thumb = item_index in thumb_images
-            thumb_space = (thumb_w + thumb_margin) if has_thumb else 0
-            text_x = x_left + bar_w + pad + int(22 * s) + thumb_space
-            max_text_w = x_right - text_x - pad
-
-            # Colors depend on matched vs unmatched
-            bar_color = c["accent"] if is_unmatched else c["success"]
-            check_color = c["accent"] if is_unmatched else c["success"]
-            arrow_color = c["accent"] if is_unmatched else c["success"]
-            check_char = "⚠" if is_unmatched else "\u2713"
-
-            id1 = cv.create_text(
-                text_x, y + pad,
-                text=item.original.name, fill=c["text_muted"],
-                font=("Helvetica", 9), anchor="nw",
-                width=max_text_w, tags=(tag,))
-
-            new_text = item.new_name or item.original.name
-            if item.is_move() and item.target_dir:
-                # Show the full relative path for unmatched
-                if is_unmatched and item.target_dir:
-                    try:
-                        rel = item.target_dir.relative_to(self_root)
-                        new_text = f"[{rel}]  {new_text}"
-                    except ValueError:
-                        new_text = f"[{item.target_dir.name}]  {new_text}"
-                else:
-                    new_text = f"[{item.target_dir.name}]  {new_text}"
-
-            bbox1 = cv.bbox(id1)
-            line1_bottom = (bbox1[3] if bbox1 else y + pad + int(14 * s))
-
-            id2 = cv.create_text(
-                text_x, line1_bottom + int(2 * s),
-                text=f"\u2192  {new_text}", fill=arrow_color,
-                font=("Helvetica", 10), anchor="nw",
-                width=max_text_w, tags=(tag,))
-
-            bbox2 = cv.bbox(id2)
-            content_bottom = (bbox2[3] if bbox2 else line1_bottom + int(16 * s))
-            actual_h = max(card_h, content_bottom - y + pad)
-
-            bg_id = cv.create_rectangle(
-                x_left, y, x_right, y + actual_h,
-                fill=c["bg_card"], outline=c["border"],
-                tags=("result_card", tag))
-            cv.tag_lower(bg_id)
-
-            bar_id = cv.create_rectangle(
-                x_left, y, x_left + bar_w, y + actual_h,
-                fill=bar_color, outline="", tags=(tag,))
-            cv.tag_raise(bar_id, bg_id)
-
-            cv.create_text(
-                x_left + bar_w + pad, y + actual_h // 2,
-                text=check_char, fill=check_color,
-                font=("Helvetica", 12, "bold"), anchor="w", tags=(tag,))
-
-            # Poster thumbnail (batch movie mode)
-            if has_thumb:
-                thumb_x = x_left + bar_w + pad + int(22 * s)
-                thumb_y = y + (actual_h - thumb_h) // 2  # vertically centered
-                cv.create_image(
-                    thumb_x, thumb_y,
-                    image=thumb_images[item_index],
-                    anchor="nw", tags=(tag,))
+            actual_h = _render_result_card(
+                cv, item, y, x_left, x_right, s,
+                root_folder=self_root,
+                thumb_image=thumb_images.get(item_index),
+                thumb_w=thumb_w,
+                thumb_h=thumb_h,
+                thumb_margin=thumb_margin,
+                min_card_h=card_h,
+                tag=tag,
+            )
 
             result_card_positions.append((y, y + actual_h, item_index))
             y += actual_h + int(2 * s)
@@ -505,53 +601,10 @@ def show_batch_rename_result(
 
         # ── Per-file rename list ──────────────────────────────────
         for item in renamed_items:
-            is_unmatched = "UNMATCHED" in item.status
-            bar_color = c["accent"] if is_unmatched else c["success"]
-            arrow_color = c["accent"] if is_unmatched else c["success"]
-            check_char = "⚠" if is_unmatched else "✓"
-            check_color = c["accent"] if is_unmatched else c["success"]
-
-            text_x = x_left + bar_w + pad + int(22 * s)
-            max_text_w = x_right - text_x - pad
-
-            id1 = cv.create_text(
-                text_x, y + pad,
-                text=item.original.name, fill=c["text_muted"],
-                font=("Helvetica", 9), anchor="nw",
-                width=max_text_w)
-
-            new_text = item.new_name or item.original.name
-            if item.is_move() and item.target_dir:
-                new_text = f"[{item.target_dir.name}]  {new_text}"
-
-            bbox1 = cv.bbox(id1)
-            line1_bottom = (bbox1[3] if bbox1 else y + pad + int(14 * s))
-
-            id2 = cv.create_text(
-                text_x, line1_bottom + int(2 * s),
-                text=f"→  {new_text}", fill=arrow_color,
-                font=("Helvetica", 10), anchor="nw",
-                width=max_text_w)
-
-            bbox2 = cv.bbox(id2)
-            content_bottom = (bbox2[3] if bbox2 else line1_bottom + int(16 * s))
-            card_h = max(int(44 * s), content_bottom - y + pad)
-
-            bg_id = cv.create_rectangle(
-                x_left, y, x_right, y + card_h,
-                fill=c["bg_card"], outline=c["border"])
-            cv.tag_lower(bg_id)
-
-            bar_id = cv.create_rectangle(
-                x_left, y, x_left + bar_w, y + card_h,
-                fill=bar_color, outline="")
-            cv.tag_raise(bar_id, bg_id)
-
-            cv.create_text(
-                x_left + bar_w + pad, y + card_h // 2,
-                text=check_char, fill=check_color,
-                font=("Helvetica", 12, "bold"), anchor="w")
-
+            card_h = _render_result_card(
+                cv, item, y, x_left, x_right, s,
+                min_card_h=int(44 * s),
+            )
             y += card_h + int(2 * s)
 
         y += int(10 * s)

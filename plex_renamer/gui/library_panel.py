@@ -13,6 +13,7 @@ from __future__ import annotations
 import tkinter as tk
 from dataclasses import dataclass
 
+from ..constants import MediaType
 from ..engine import AUTO_ACCEPT_THRESHOLD, ScanState, score_results
 from ..parsing import clean_folder_name, extract_year
 from ..styles import COLORS
@@ -108,6 +109,44 @@ def _confidence_text(state: ScanState) -> str:
     if state.confidence >= AUTO_ACCEPT_THRESHOLD:
         return f"Match: {pct}%"
     return f"Needs review ({pct}%)"
+
+
+def _library_thumb_key(state: ScanState, thumb_w: int, thumb_h: int) -> tuple:
+    """Stable cache key for a library thumbnail."""
+    return (
+        state.show_id,
+        state.media_info.get("poster_path"),
+        str(state.folder),
+        thumb_w,
+        thumb_h,
+    )
+
+
+def _set_show_selected_visual(app, index: int, selected: bool) -> None:
+    """Update card highlight for a single show without redrawing the full roster."""
+    cv = app.library_canvas
+    c = COLORS
+    tag = f"lib_item_{index}"
+    fill = c["bg_card_selected"] if selected else c["bg_card"]
+    outline = c["accent"] if selected else c["border"]
+    for item_id in cv.find_withtag(tag):
+        if cv.type(item_id) == "rectangle" and "lib_card" in cv.gettags(item_id):
+            cv.itemconfigure(item_id, fill=fill, outline=outline)
+
+
+def _update_show_check_visual(app, index: int) -> None:
+    """Update the master checkbox glyph for one show card."""
+    if index >= len(app.batch_states):
+        return
+    state = app.batch_states[index]
+    cv = app.library_canvas
+    c = COLORS
+    tag = f"lib_item_{index}"
+    check_char = "☑" if state.checked else "☐"
+    check_color = c["accent"] if state.checked else c["border_light"]
+    for item_id in cv.find_withtag(tag):
+        if "lib_check" in cv.gettags(item_id):
+            cv.itemconfigure(item_id, text=check_char, fill=check_color)
 
 
 # ─── Main rendering ──────────────────────────────────────────────────────────
@@ -355,8 +394,10 @@ def _draw_show_card(
         tags=("lib_check", tag))
 
     # Poster thumbnail
-    thumb_key = f"_lib_thumb_{index}"
-    photo = getattr(app, thumb_key, None)
+    photo = app._library_thumb_cache.get(
+        _library_thumb_key(state, m.thumb_w, m.thumb_h),
+        app._library_placeholder,
+    )
     if photo:
         thumb_y = y + (row_h - m.thumb_h) // 2
         cv.create_image(
@@ -476,12 +517,18 @@ def select_show(app, index: int) -> None:
         return
 
     # No need to save state — properties write directly to active_scan
+    previous_index = app._library_selected_index
     app._library_selected_index = index
     state = app.batch_states[index]
     app.active_scan = state
 
-    # Update library panel highlighting
-    display_library(app)
+    # Update library panel highlighting without redrawing the full roster
+    if app._library_card_positions:
+        if previous_index is not None and previous_index != index:
+            _set_show_selected_visual(app, previous_index, False)
+        _set_show_selected_visual(app, index, True)
+    else:
+        display_library(app)
 
     # Scroll selected card into view
     _scroll_to_show(app, index)
@@ -516,16 +563,24 @@ def _load_show_preview(app, state: ScanState) -> None:
     """Load a show's data into the preview and detail panels."""
     from . import preview_canvas, detail_panel
 
+    # Batch TV callbacks can finish after the user has switched to Movies.
+    # Preserve TV session state, but do not redraw the shared pane unless
+    # the TV tab currently owns it.
+    if app._active_content_mode != MediaType.TV:
+        return
+
     # If background scan is in progress for this show, show placeholder
     if state.scanning:
         cv, _, _ = app._clear_canvas()
         c = COLORS
+        s = app.dpi_scale
         cv.create_text(
-            20, 50, text=f"Scanning {state.display_name}...",
-            fill=c["text_muted"], font=("Helvetica", 13), anchor="w")
+            int(20 * s), int(44 * s), text=f"Scanning {state.display_name}...",
+            fill=c["text_muted"], font=("Helvetica", 13), anchor="nw")
         cv.create_text(
-            20, 78, text="Episode data will appear when the scan completes",
-            fill=c["text_muted"], font=("Helvetica", 10), anchor="w")
+            int(20 * s), int(78 * s),
+            text="Episode data will appear when the scan completes",
+            fill=c["text_muted"], font=("Helvetica", 10), anchor="nw")
         cv.configure(scrollregion=(0, 0, 600, 120))
         app.media_label_var.set(state.display_name)
         detail_panel.reset_detail(app)
@@ -602,16 +657,24 @@ def toggle_show_check(app, index: int) -> None:
 
     # If this show's episodes are currently displayed, toggle all episode checkboxes
     if app.active_scan is state and state.check_vars:
+        from . import preview_canvas
+
+        key_values: dict[str, bool] = {}
         for key, var in state.check_vars.items():
             try:
-                idx = int(key)
-                item = state.preview_items[idx]
+                item_index = int(key)
+                item = state.preview_items[item_index]
                 if item.status == "OK" or "UNMATCHED" in item.status:
-                    var.set(state.checked)
+                    key_values[key] = state.checked
             except (ValueError, IndexError):
                 pass
+        preview_canvas._apply_bulk_check_values(
+            app, key_values, redraw_preview=True)
 
-    display_library(app)
+    if app._library_card_positions:
+        _update_show_check_visual(app, index)
+    else:
+        display_library(app)
     update_library_totals(app)
 
 
@@ -643,8 +706,8 @@ def load_library_thumbnails(app) -> None:
     """
     Fetch poster thumbnails for all shows in batch_states.
 
-    Stores them as app._lib_thumb_N attributes so they survive
-    garbage collection and can be referenced by display_library.
+    Caches them by stable media identity so reordering or rematching
+    doesn't force index-based thumbnail churn.
     """
     tmdb = app._ensure_tmdb()
     if not tmdb:
@@ -652,23 +715,43 @@ def load_library_thumbnails(app) -> None:
 
     from PIL import ImageTk
     from .helpers import create_placeholder_poster
+    from .queue_panel import _poster_dims, seed_poster_cache
 
     s = app.dpi_scale
     thumb_w = int(36 * s)
     thumb_h = int(54 * s)
+    queue_w, _ = _poster_dims(app)
+
+    signature = tuple(
+        _library_thumb_key(state, thumb_w, thumb_h)
+        for state in app.batch_states
+    )
+    if signature == app._library_thumb_signature:
+        return
 
     placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
     placeholder_photo = ImageTk.PhotoImage(placeholder_img)
-    app._lib_placeholder = placeholder_photo  # prevent GC
+    app._library_placeholder = placeholder_photo  # prevent GC
 
-    for index, state in enumerate(app.batch_states):
-        attr_name = f"_lib_thumb_{index}"
+    cache: dict[tuple, object] = dict(app._library_thumb_cache)
+
+    for state in app.batch_states:
+        key = _library_thumb_key(state, thumb_w, thumb_h)
+        if key in cache:
+            continue
         poster_path = state.media_info.get("poster_path")
         if poster_path:
-            img = tmdb.fetch_image(poster_path, target_width=thumb_w)
+            img = tmdb.fetch_image(
+                poster_path, target_width=max(thumb_w, queue_w))
             if img:
+                seed_poster_cache(app, MediaType.TV, state.show_id, img)
                 img = img.resize((thumb_w, thumb_h))
                 photo = ImageTk.PhotoImage(img)
-                setattr(app, attr_name, photo)
+                cache[key] = photo
                 continue
-        setattr(app, attr_name, placeholder_photo)
+        cache[key] = placeholder_photo
+
+    app._library_thumb_cache = {
+        key: cache[key] for key in signature if key in cache
+    }
+    app._library_thumb_signature = signature
