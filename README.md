@@ -2,7 +2,7 @@
 
 A desktop application that automatically renames and reorganizes media files into [Plex-compatible naming conventions](https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/) using [TMDB](https://www.themoviedb.org/) as the source of truth.
 
-Built with Python and tkinter. Designed to handle everything from a single movie file to an entire TV series with hundreds of episodes.
+Built with Python and tkinter. Designed around a unified three-panel workflow that handles single-show TV scans, batch TV library scans, and movie folder scans from the same core preview/detail UI.
 
 ![Python](https://img.shields.io/badge/python-3.12+-blue)
 ![TMDB](https://img.shields.io/badge/metadata-TMDB-01d277)
@@ -15,6 +15,8 @@ Built with Python and tkinter. Designed to handle everything from a single movie
 ### TV Series (Single Show)
 
 Point the app at a TV show folder and it handles the rest.
+
+Single-show TV uses the same left-library/preview/detail layout as batch TV, treating one show as a roster of one instead of maintaining a separate UI mode.
 
 <img width="3504" height="1842" alt="tvseries1" src="https://github.com/user-attachments/assets/6357b2d4-68e5-4058-a1b2-39edd12c234b" />
 
@@ -67,21 +69,11 @@ Point the app at a TV show folder and it handles the rest.
   
 ---
 
-### Movies (Single File)
+### Movies (Folder Scan)
 
-Select a single movie file for quick matching.
+Point the app at a movie folder for bulk processing through the same shared three-panel layout used elsewhere in the app.
 
-- Cleans the filename to extract a search query and year hint
-- Searches TMDB with year-aware matching and progressive fallback
-- Shows a confirmation dialog with search results
-- Renames and moves the file into a Plex-compatible folder structure: `Movies/Title (Year)/Title (Year).ext`
-- Detects when the file is already properly named and skips unnecessary work
-
----
-
-### Movies (Batch Folder)
-
-Point the app at a folder containing multiple movie files for bulk processing.
+Movie scans now use the unified roster flow as well: the left panel shows the current movie scan as a roster entry, the center panel shows the proposed file operations, and the right panel shows metadata for the selected item.
 
 <img width="3534" height="1905" alt="batchmovie1" src="https://github.com/user-attachments/assets/9defe4d5-a43a-4ac5-8543-c0ade6000c54" />
 
@@ -97,7 +89,7 @@ Point the app at a folder containing multiple movie files for bulk processing.
 - Skipped files are tagged as `OTHER` (not `MOVIE`) so they're visually distinct in the preview
 
 **Parallel TMDB Search**
-- Searches all movie files concurrently using a thread pool (default 8 workers)
+- Searches movie files concurrently using a thread pool (default 8 workers)
 - Rate-limited to stay within TMDB's API limits
 - Progress bar shows search completion in real-time
 
@@ -122,6 +114,12 @@ Point the app at a folder containing multiple movie files for bulk processing.
 
 ### Preview & Interaction
 
+**Unified Three-Panel Workflow**
+- The left panel is always the media roster for the active TV or Movie session
+- Single-show TV is represented as a one-item roster entry
+- Movie folder scans are represented as a one-item roster entry for the active folder scan
+- Batch TV keeps grouped roster headers such as `matched`, `needs review`, `duplicates`, and `queued`
+
 **Card-Based Preview**
 - Every file gets a preview card showing the original filename and the proposed new name with target folder
 - Cards are color-coded by status: green for ready, amber for needs review, red for conflicts, muted for skipped
@@ -135,8 +133,9 @@ Point the app at a folder containing multiple movie files for bulk processing.
 - Selected/total tally display
 
 **Poster Thumbnails**
-- Batch movie mode shows TMDB poster thumbnails on each preview card
+- Movie preview mode shows TMDB poster thumbnails on preview cards when multiple movie files are present
 - Placeholder poster for files without a TMDB poster
+- The left roster panel caches poster thumbnails for both TV and Movie sessions
 - Season poster thumbnails in result view headers
 
 **Detail Panel**
@@ -253,7 +252,7 @@ Point the app at a folder containing multiple movie files for bulk processing.
 ## Architecture
 
 ```
-plex_renamer_refactored/
+plex_renamer/
 ├── __main__.py          # Entry point
 ├── constants.py         # Shared constants, regex patterns, MediaType enum
 ├── parsing.py           # Pure filename parsing, name building, normalization
@@ -277,5 +276,5 @@ The backend (`parsing.py`, `tmdb.py`, `engine.py`) has zero GUI dependencies and
 
 ## Roadmap
 
-- **Batch TV Series**: Point at a Plex TV library and process all shows at once with parallel TMDB lookups and per-show grouping
+- **Queue-First Rename Workflow**: Continue expanding the queue/history flow so more rename operations run through the persistent job pipeline by default
 - **Full Library Automation**: Scan an entire Plex library (movies + TV) and automatically reformat everything with minimal manual intervention
