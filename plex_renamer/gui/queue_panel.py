@@ -1,17 +1,19 @@
 """
-Queue and History panels — built as separate top-level tabs.
+Queue and History panels — separate top-level tabs.
 
-build_queue_tab:  Pending/running jobs with Start/Stop, Up/Down/Remove.
-build_history_tab: Completed/failed/reverted jobs with Revert/Clear.
+Poster thumbnails are loaded asynchronously in a background thread
+to avoid blocking the tkinter main loop with network I/O.  Rows are
+inserted immediately with no image; once the poster is fetched, the
+treeview item is updated via ``app.root.after()``.
 
-Both use Treeview with poster thumbnails in tree column #0.
-Action bars and detail panels are packed BEFORE the treeview so
-they always remain visible (treeview expands to fill remaining space).
+Layout uses bottom-first packing so the action bar and detail panel
+stay visible regardless of treeview height.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, ttk
@@ -62,42 +64,88 @@ def _mtype(mt: str) -> str:
     return {"tv": "TV", "movie": "Movie"}.get(mt, mt.title())
 
 
-# ─── Poster cache ────────────────────────────────────────────────────────────
+# ─── Async poster loader ────────────────────────────────────────────────────
 
-def _poster(app, job: RenameJob):
+def _get_poster_cache(app) -> dict:
+    """Return the shared poster PhotoImage cache, creating if needed."""
     cache = getattr(app, "_qp_cache", None)
     if cache is None:
         cache = {}
         app._qp_cache = cache
-    key = (job.media_type, job.tmdb_id)
-    if key in cache:
-        return cache[key]
-    tmdb = app._ensure_tmdb()
-    if not tmdb:
-        return None
+    return cache
+
+
+def _load_posters_async(app, tree: ttk.Treeview, jobs: list[RenameJob],
+                        item_ids: list[str]) -> None:
+    """Fetch poster thumbnails in a background thread, update tree items.
+
+    *item_ids* are the Treeview iid strings returned by ``tree.insert()``,
+    corresponding 1:1 with *jobs*.  Posters that are already cached are
+    applied immediately (no thread needed for those).
+    """
+    cache = _get_poster_cache(app)
+
+    # Separate cached vs uncached
+    to_fetch: list[tuple[int, RenameJob]] = []
+    for idx, job in enumerate(jobs):
+        key = (job.media_type, job.tmdb_id)
+        if key in cache:
+            # Already cached — apply immediately (we're on main thread here)
+            try:
+                tree.item(item_ids[idx], image=cache[key])
+            except tk.TclError:
+                pass  # item may have been deleted by a concurrent refresh
+        else:
+            to_fetch.append((idx, job))
+
+    if not to_fetch:
+        return
+
+    def _worker():
+        tmdb = app._ensure_tmdb()
+        if not tmdb:
+            return
+        from PIL import ImageTk
+
+        for idx, job in to_fetch:
+            key = (job.media_type, job.tmdb_id)
+            if key in cache:
+                # Another thread may have fetched it
+                photo = cache[key]
+            else:
+                try:
+                    img = tmdb.fetch_poster(
+                        job.tmdb_id, job.media_type,
+                        target_width=_POSTER_W * 2)
+                    if img:
+                        img = img.resize((_POSTER_W, _POSTER_H))
+                        photo = ImageTk.PhotoImage(img)
+                        cache[key] = photo
+                    else:
+                        continue
+                except Exception:
+                    continue
+
+            # Schedule UI update on main thread
+            iid = item_ids[idx]
+            app.root.after(0, lambda t=tree, i=iid, p=photo: _apply_poster(t, i, p))
+
+    threading.Thread(target=_worker, daemon=True, name="PosterLoader").start()
+
+
+def _apply_poster(tree: ttk.Treeview, iid: str, photo) -> None:
+    """Apply a poster image to a treeview item (main thread)."""
     try:
-        img = tmdb.fetch_poster(job.tmdb_id, job.media_type,
-                                target_width=_POSTER_W * 2)
-        if img:
-            from PIL import ImageTk
-            img = img.resize((_POSTER_W, _POSTER_H))
-            photo = ImageTk.PhotoImage(img)
-            cache[key] = photo
-            return photo
-    except Exception:
+        if tree.exists(iid):
+            tree.item(iid, image=photo)
+    except tk.TclError:
         pass
-    return None
 
 
 # ─── Treeview factory ────────────────────────────────────────────────────────
 
 def _make_tree(parent: ttk.Frame, columns: tuple) -> ttk.Treeview:
-    """Create treeview with poster column + data columns + scrollbar.
-
-    Returns the Treeview.  The enclosing frame is packed with
-    fill=both expand=True so it takes remaining space AFTER any
-    widgets that were packed before it in *parent*.
-    """
+    """Create treeview with poster column + data columns + scrollbar."""
     frame = ttk.Frame(parent)
     frame.pack(fill="both", expand=True, padx=4, pady=(4, 0))
 
@@ -120,7 +168,6 @@ def _make_tree(parent: ttk.Frame, columns: tuple) -> ttk.Treeview:
 
 
 def _configure_columns(tree, cols_cfg):
-    """Configure headings and columns from a list of (id, heading, width, anchor)."""
     for col_id, heading, width, anchor in cols_cfg:
         tree.heading(col_id, text=heading, anchor=anchor)
         tree.column(col_id, width=width, minwidth=int(width * 0.6),
@@ -196,7 +243,7 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
 
     ttk.Separator(parent, orient="horizontal").pack(fill="x", side="top")
 
-    # ── Detail panel (bottom, packed first so it stays visible) ───
+    # ── Detail panel (bottom — packed first to stay visible) ──────
     det_fr = ttk.Frame(parent, style="Mid.TFrame")
     det_fr.pack(fill="x", side="bottom", padx=8, pady=(0, 6))
     det_lbl = ttk.Label(
@@ -205,9 +252,14 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         font=("Helvetica", 10), wraplength=900, justify="left")
     det_lbl.pack(fill="x", padx=12, pady=8)
 
-    # ── Action bar (above detail, packed second from bottom) ──────
+    # ── Action bar (above detail — packed second from bottom) ─────
     bar = ttk.Frame(parent)
     bar.pack(fill="x", side="bottom", padx=8, pady=(4, 0))
+
+    ttk.Button(bar, text="Select All", style="Small.TButton",
+               command=lambda: _select_all_queue()).pack(side="left", padx=(0, 4))
+    ttk.Button(bar, text="Select None", style="Small.TButton",
+               command=lambda: tree.selection_set()).pack(side="left", padx=(0, 12))
 
     btn_up = ttk.Button(bar, text="▲ Up", style="Small.TButton",
                         state="disabled", command=lambda: _move(-1))
@@ -237,6 +289,11 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
 
     # ── Selection ─────────────────────────────────────────────────
 
+    def _select_all_queue():
+        children = tree.get_children()
+        if children:
+            tree.selection_set(children)
+
     def _on_sel(_e):
         sel = tree.selection()
         n = len(sel)
@@ -248,12 +305,10 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
             btn_down.configure(state="disabled")
             return
         jobs = _sel_jobs(store, tree, job_ids)
-        btn_rm.configure(state="normal" if any(
-            j.status == JobStatus.PENDING for _, j in jobs) else "disabled")
-        btn_up.configure(state="normal" if any(
-            j.status == JobStatus.PENDING for _, j in jobs) else "disabled")
-        btn_down.configure(state="normal" if any(
-            j.status == JobStatus.PENDING for _, j in jobs) else "disabled")
+        has_p = any(j.status == JobStatus.PENDING for _, j in jobs)
+        btn_rm.configure(state="normal" if has_p else "disabled")
+        btn_up.configure(state="normal" if has_p else "disabled")
+        btn_down.configure(state="normal" if has_p else "disabled")
         if n > 1:
             info_lbl.configure(text=f"{n} jobs selected")
             det_lbl.configure(text=f"{n} jobs selected")
@@ -273,11 +328,17 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         nonlocal job_ids
         tree.delete(*tree.get_children())
         job_ids = []
+
+        # Insert rows immediately with NO poster (non-blocking)
+        jobs_list: list[RenameJob] = []
+        item_iids: list[str] = []
         for job in store.get_queue():
             tag = f"st_{job.status}"
-            p = _poster(app, job)
-            kw = {"image": p} if p else {}
-            tree.insert("", "end", **kw, values=(
+            # Check cache for instant poster (no network call)
+            cache = _get_poster_cache(app)
+            cached = cache.get((job.media_type, job.tmdb_id))
+            kw = {"image": cached} if cached else {}
+            iid = tree.insert("", "end", **kw, values=(
                 _STATUS_LABELS.get(job.status, job.status),
                 job.media_name,
                 _mtype(job.media_type),
@@ -286,6 +347,12 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
                 _fmt(job.created_at),
             ), tags=(tag,))
             job_ids.append(job.job_id)
+            jobs_list.append(job)
+            item_iids.append(iid)
+
+        # Fetch uncached posters in background
+        if jobs_list:
+            _load_posters_async(app, tree, jobs_list, item_iids)
 
         counts = store.count_by_status()
         pend = counts.get(JobStatus.PENDING, 0)
@@ -381,7 +448,7 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
     store = app.job_store
     job_ids: list[str] = []
 
-    # ── Detail (bottom, packed first) ─────────────────────────────
+    # ── Detail (bottom — packed first) ────────────────────────────
     det_fr = ttk.Frame(parent, style="Mid.TFrame")
     det_fr.pack(fill="x", side="bottom", padx=8, pady=(0, 6))
     det_lbl = ttk.Label(
@@ -393,6 +460,11 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
     # ── Action bar ────────────────────────────────────────────────
     bar = ttk.Frame(parent)
     bar.pack(fill="x", side="bottom", padx=8, pady=(4, 0))
+
+    ttk.Button(bar, text="Select All", style="Small.TButton",
+               command=lambda: _select_all_hist()).pack(side="left", padx=(0, 4))
+    ttk.Button(bar, text="Select None", style="Small.TButton",
+               command=lambda: tree.selection_set()).pack(side="left", padx=(0, 12))
 
     btn_revert = ttk.Button(bar, text="↩  Revert Selected",
                             style="Small.TButton", state="disabled",
@@ -419,6 +491,11 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
     ])
 
     # ── Selection ─────────────────────────────────────────────────
+
+    def _select_all_hist():
+        children = tree.get_children()
+        if children:
+            tree.selection_set(children)
 
     def _on_sel(_e):
         sel = tree.selection()
@@ -451,11 +528,15 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         nonlocal job_ids
         tree.delete(*tree.get_children())
         job_ids = []
+
+        jobs_list: list[RenameJob] = []
+        item_iids: list[str] = []
         for job in store.get_history():
             tag = f"st_{job.status}"
-            p = _poster(app, job)
-            kw = {"image": p} if p else {}
-            tree.insert("", "end", **kw, values=(
+            cache = _get_poster_cache(app)
+            cached = cache.get((job.media_type, job.tmdb_id))
+            kw = {"image": cached} if cached else {}
+            iid = tree.insert("", "end", **kw, values=(
                 _STATUS_LABELS.get(job.status, job.status),
                 job.media_name,
                 _mtype(job.media_type),
@@ -464,6 +545,11 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
                 _fmt(job.updated_at),
             ), tags=(tag,))
             job_ids.append(job.job_id)
+            jobs_list.append(job)
+            item_iids.append(iid)
+
+        if jobs_list:
+            _load_posters_async(app, tree, jobs_list, item_iids)
 
         counts = store.count_by_status()
         hist_n = sum(counts.get(s, 0) for s in (

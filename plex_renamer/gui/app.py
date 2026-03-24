@@ -777,6 +777,40 @@ class PlexRenamerApp:
         self._selected_index = None
         return cv, max(600, cv.winfo_width()), self.dpi_scale
 
+    def _show_scan_overlay(self, message: str = "Scanning...",
+                           sub: str = "") -> None:
+        """Show a prominent scanning indicator on the preview canvas."""
+        c = self.c
+        cv = self.preview_canvas
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        w = max(600, cv.winfo_width())
+        h = max(400, cv.winfo_height())
+
+        # Centered message
+        cv.create_text(
+            w // 2, h // 2 - 30, text=message,
+            fill=c["accent"], font=("Helvetica", 16, "bold"),
+            anchor="center")
+        if sub:
+            cv.create_text(
+                w // 2, h // 2 + 10, text=sub,
+                fill=c["text_dim"], font=("Helvetica", 11),
+                anchor="center")
+
+        # Animated dots (simple text that gets updated)
+        self._scan_overlay_id = cv.create_text(
+            w // 2, h // 2 + 40, text="",
+            fill=c["text_muted"], font=("Helvetica", 10),
+            anchor="center", tags=("scan_progress",))
+        cv.configure(scrollregion=(0, 0, w, h))
+
+    def _update_scan_overlay(self, text: str) -> None:
+        """Update the scanning overlay progress text."""
+        cv = self.preview_canvas
+        for cid in cv.find_withtag("scan_progress"):
+            cv.itemconfigure(cid, text=text)
+
     def _set_scan_buttons_enabled(self, enabled: bool):
         state = "normal" if enabled else "disabled"
         for btn in (self.btn_select_folder, self.btn_select_movie_folder,
@@ -822,8 +856,11 @@ class PlexRenamerApp:
                 self._search_tv(tmdb, search_query, folder_name)
         else:
             self._exit_batch_mode()
-            # Switch to TV tab where preview/detail panels live
-            self._main_notebook.select(0)
+            # Movie scan uses the same preview canvas which lives in the
+            # TV tab.  Switch to it silently only if needed for display,
+            # but keep the notebook on the current visual tab so the user
+            # doesn't see a jarring switch.  The scan results will be
+            # visible when the user navigates to the TV Series tab.
             self._setup_movie_scan(tmdb)
 
     def pick_files(self):
@@ -844,8 +881,6 @@ class PlexRenamerApp:
         # Ensure media_type is movie (pick_files is movie-only)
         self.media_type = MediaType.MOVIE
         self._exit_batch_mode()
-        # Switch to TV tab where preview/detail panels live
-        self._main_notebook.select(0)
         self._setup_movie_scan(tmdb, files=file_paths)
 
     def _search_tv(self, tmdb: TMDBClient, query: str, raw_name: str):
@@ -934,8 +969,11 @@ class PlexRenamerApp:
         self.status_var.set("Discovering shows...")
         self.root.update_idletasks()
 
-        # Clear preview + detail panels
+        # Clear preview + detail panels and show scanning overlay
         self._clear_canvas()
+        self._show_scan_overlay(
+            "Scanning TV Library",
+            f"Discovering shows in {self.folder.name}...")
         detail_panel.reset_detail(self)
         preview_canvas.clear_completeness(self)
 
@@ -950,6 +988,7 @@ class PlexRenamerApp:
             self.root.after(0, lambda: (
                 self.status_var.set(f"Matching shows... {done}/{total}"),
                 self.progress_var.set(done / total * 100 if total else 0),
+                self._update_scan_overlay(f"Matching shows on TMDB... {done}/{total}"),
             ))
 
         def _discover_worker():
@@ -1008,8 +1047,14 @@ class PlexRenamerApp:
         error_holder: list[Exception | None] = [None]
 
         def _progress(done, total):
-            self.root.after(0, lambda d=done, t=total: (
-                self.status_var.set(f"Scanning episodes... {d}/{t}"),
+            # Show which show is being scanned
+            current_name = ""
+            if done <= len(self.batch_states):
+                to_scan = [s for s in self.batch_states if not s.scanned and s.show_id is not None]
+                if done > 0 and done <= len(to_scan):
+                    current_name = to_scan[done - 1].display_name
+            self.root.after(0, lambda d=done, t=total, n=current_name: (
+                self.status_var.set(f"Scanning episodes... {d}/{t}" + (f" — {n}" if n else "")),
                 self.progress_var.set(d / t * 100 if t else 0),
             ))
 
