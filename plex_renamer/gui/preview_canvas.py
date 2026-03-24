@@ -23,6 +23,127 @@ def _is_actionable(item) -> bool:
     return item.status == "OK" or "UNMATCHED" in item.status
 
 
+def _preview_signature(app) -> tuple:
+    """Stable signature for the current preview item set."""
+    return tuple(
+        (
+            str(item.original),
+            item.season,
+            tuple(item.episodes),
+            item.media_type,
+        )
+        for item in app.preview_items
+    )
+
+
+def _sync_check_vars(app, preserve_values: bool) -> None:
+    """Reuse checkbox vars across redraws unless the preview item set changed."""
+    existing = app.check_vars
+    if not preserve_values:
+        existing.clear()
+
+    valid_keys = {str(i) for i in range(len(app.preview_items))}
+    stale_keys = [key for key in existing if key not in valid_keys]
+    for key in stale_keys:
+        del existing[key]
+
+    for i, item in enumerate(app.preview_items):
+        key = str(i)
+        default = item.status == "OK" or "UNMATCHED" in item.status
+        if key in existing:
+            continue
+        var = tk.BooleanVar(value=default)
+        var.trace_add("write", lambda *_: _on_check_changed(app))
+        existing[key] = var
+
+
+def _get_preview_thumbnails(app, thumb_w: int, thumb_h: int) -> dict[int, object]:
+    """Build or reuse thumbnail images for batch-movie preview cards."""
+    signature = []
+    for item in app.preview_items:
+        movie_data = (app.movie_scanner.movie_info.get(item.original)
+                      if app.movie_scanner else None)
+        poster_path = movie_data.get("poster_path") if movie_data else None
+        signature.append((str(item.original), poster_path, thumb_w, thumb_h))
+
+    thumb_signature = tuple(signature)
+    if thumb_signature == app._preview_thumb_signature:
+        return app._preview_thumb_images
+
+    from PIL import ImageTk
+    from .helpers import create_placeholder_poster
+    from .queue_panel import _poster_dims, seed_poster_cache
+
+    placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
+    placeholder_photo = ImageTk.PhotoImage(placeholder_img)
+    thumb_refs: list[object] = [placeholder_photo]
+    thumb_images: dict[int, object] = {}
+
+    tmdb = app._ensure_tmdb()
+    queue_w, _ = _poster_dims(app)
+    for idx, item in enumerate(app.preview_items):
+        movie_data = (app.movie_scanner.movie_info.get(item.original)
+                      if app.movie_scanner else None)
+        if movie_data and movie_data.get("poster_path") and tmdb:
+            img = tmdb.fetch_image(movie_data["poster_path"],
+                                   target_width=max(thumb_w, queue_w))
+            if img:
+                seed_poster_cache(app, MediaType.MOVIE, movie_data.get("id"), img)
+                img = img.resize((thumb_w, thumb_h))
+                photo = ImageTk.PhotoImage(img)
+                thumb_refs.append(photo)
+                thumb_images[idx] = photo
+                continue
+        thumb_images[idx] = placeholder_photo
+
+    app._preview_thumb_signature = thumb_signature
+    app._preview_thumb_refs = thumb_refs
+    app._preview_thumb_images = thumb_images
+    return thumb_images
+
+
+def _cancel_pending_completeness_refresh(app) -> None:
+    """Cancel any scheduled completeness refresh before issuing a new one."""
+    if app._completeness_after_id:
+        app.root.after_cancel(app._completeness_after_id)
+        app._completeness_after_id = None
+
+
+def _refresh_completeness_now(app) -> None:
+    """Recompute completeness immediately using the current checkbox state."""
+    _cancel_pending_completeness_refresh(app)
+    _refresh_completeness(app)
+
+
+def _apply_bulk_check_values(
+    app,
+    key_values: dict[str, bool],
+    *,
+    redraw_preview: bool,
+) -> bool:
+    """Apply many checkbox updates while suppressing per-var callbacks."""
+    changed = False
+    app._suspend_check_change_callbacks += 1
+    try:
+        for key, new_value in key_values.items():
+            var = app.check_vars.get(key)
+            if var is None or var.get() == new_value:
+                continue
+            var.set(new_value)
+            changed = True
+    finally:
+        app._suspend_check_change_callbacks -= 1
+
+    if not changed:
+        return False
+
+    update_tally(app)
+    _refresh_completeness_now(app)
+    if redraw_preview:
+        display_preview(app)
+    return True
+
+
 # ─── Preview rendering ───────────────────────────────────────────────────────
 
 def display_preview(app) -> None:
@@ -35,25 +156,32 @@ def display_preview(app) -> None:
     c = COLORS
     cv = app.preview_canvas
 
-    # Preserve selections across redraws
-    saved_checks = {k: v.get() for k, v in app.check_vars.items()}
+    preview_signature = _preview_signature(app)
+    preserve_view = preview_signature == app._preview_state_signature
+    scroll_y = cv.yview()[0] if preserve_view else 0.0
 
     cv.delete("all")
-    cv.yview_moveto(0)
     app._card_positions = []
     app._season_header_positions = []
     app._display_order = []
 
     if not app.preview_items:
+        empty_x = int(20 * app.dpi_scale)
+        line1_y = int(42 * app.dpi_scale)
+        line2_y = int(78 * app.dpi_scale)
         cv.create_text(
-            20, 50, text="No files to preview",
-            fill=c["text_muted"], font=("Helvetica", 13), anchor="w")
+            empty_x, line1_y, text="No files to preview",
+            fill=c["text_muted"], font=("Helvetica", 13), anchor="nw")
         cv.create_text(
-            20, 78, text="Select a media folder to begin",
-            fill=c["text_muted"], font=("Helvetica", 10), anchor="w")
+            empty_x, line2_y, text="Select a media folder to begin",
+            fill=c["text_muted"], font=("Helvetica", 10), anchor="nw")
         cv.configure(scrollregion=(0, 0, 100, 120))
         app.check_vars.clear()
         app._selected_index = None
+        app._preview_state_signature = None
+        app._preview_thumb_signature = None
+        app._preview_thumb_images = {}
+        app._preview_thumb_refs = []
         return
 
     # Sort order
@@ -83,14 +211,7 @@ def display_preview(app) -> None:
 
     app._display_order = sorted(range(len(app.preview_items)), key=_sort_key)
 
-    # Create BooleanVars
-    app.check_vars.clear()
-    for i, item in enumerate(app.preview_items):
-        key = str(i)
-        default = item.status == "OK" or "UNMATCHED" in item.status
-        var = tk.BooleanVar(value=saved_checks.get(key, default))
-        var.trace_add("write", lambda *_: _on_check_changed(app))
-        app.check_vars[key] = var
+    _sync_check_vars(app, preserve_values=preserve_view)
 
     # Font metrics
     font_orig = app._font_orig
@@ -140,33 +261,14 @@ def display_preview(app) -> None:
     thumb_h = int(54 * s)
     thumb_w = int(36 * s)
     thumb_margin = int(8 * s)
-    preview_thumb_refs: list = []
     preview_thumb_images: dict[int, object] = {}
 
     if is_batch_movie:
-        from PIL import ImageTk
-        from .helpers import create_placeholder_poster
-        placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
-        placeholder_photo = ImageTk.PhotoImage(placeholder_img)
-        preview_thumb_refs.append(placeholder_photo)
-
-        tmdb = app._ensure_tmdb()
-        for idx, item in enumerate(app.preview_items):
-            movie_data = (app.movie_scanner.movie_info.get(item.original)
-                          if app.movie_scanner else None)
-            if movie_data and movie_data.get("poster_path") and tmdb:
-                img = tmdb.fetch_image(movie_data["poster_path"],
-                                       target_width=thumb_w)
-                if img:
-                    img = img.resize((thumb_w, thumb_h))
-                    photo = ImageTk.PhotoImage(img)
-                    preview_thumb_refs.append(photo)
-                    preview_thumb_images[idx] = photo
-                    continue
-            # No poster — use placeholder
-            preview_thumb_images[idx] = placeholder_photo
-
-    app._preview_thumb_refs = preview_thumb_refs
+        preview_thumb_images = _get_preview_thumbnails(app, thumb_w, thumb_h)
+    else:
+        app._preview_thumb_signature = None
+        app._preview_thumb_images = {}
+        app._preview_thumb_refs = []
 
     y = margin_y
     last_season_drawn: int | None = None
@@ -370,8 +472,10 @@ def display_preview(app) -> None:
     content_h = y + 10
     visible_h = cv.winfo_height()
     cv.configure(scrollregion=(0, 0, canvas_w, max(content_h, visible_h)))
+    cv.yview_moveto(scroll_y)
     cv.bind("<Button-1>", lambda e: on_canvas_click(app, e))
     app._canvas_in_preview_mode = True
+    app._preview_state_signature = preview_signature
 
     # Status summary
     count_ok = sum(1 for it in app.preview_items if it.status == "OK")
@@ -545,22 +649,14 @@ def toggle_season_check(app, season_num: int) -> None:
         for i in season_indices
     )
     new_val = not all_checked
-    for i in season_indices:
-        key = str(i)
-        if key in app.check_vars:
-            app.check_vars[key].set(new_val)
-
-    if app._completeness_after_id:
-        app.root.after_cancel(app._completeness_after_id)
-        app._completeness_after_id = None
-    if app.tv_scanner and app.preview_items:
-        checked = get_checked_indices(app)
-        app._completeness = app.tv_scanner.get_completeness(
-            app.preview_items, checked_indices=checked)
-
-    update_tally(app)
-    display_preview(app)
-    display_completeness(app)
+    changed = _apply_bulk_check_values(
+        app,
+        {str(i): new_val for i in season_indices},
+        redraw_preview=True,
+    )
+    if not changed:
+        update_tally(app)
+        display_preview(app)
 
 
 def toggle_check(app, item_idx: int) -> None:
@@ -807,15 +903,19 @@ def select_all(app) -> None:
         app.check_vars[k].get() for k in selectable if k in app.check_vars
     )
     new_val = not all_checked
-    for k in selectable:
-        if k in app.check_vars:
-            app.check_vars[k].set(new_val)
-    update_tally(app)
-    display_preview(app)
+    changed = _apply_bulk_check_values(
+        app,
+        {k: new_val for k in selectable if k in app.check_vars},
+        redraw_preview=True,
+    )
+    if not changed:
+        update_tally(app)
+        display_preview(app)
 
 
 def select_by_status(app, statuses: set[str]) -> None:
     """Check items whose status matches one of *statuses*, uncheck others."""
+    key_values: dict[str, bool] = {}
     for i, item in enumerate(app.preview_items):
         key = str(i)
         var = app.check_vars.get(key)
@@ -824,20 +924,25 @@ def select_by_status(app, statuses: set[str]) -> None:
         if not _is_actionable(item):
             continue
         should_check = any(s in item.status for s in statuses)
-        var.set(should_check)
-    update_tally(app)
-    display_preview(app)
+        key_values[key] = should_check
+    changed = _apply_bulk_check_values(app, key_values, redraw_preview=True)
+    if not changed:
+        update_tally(app)
+        display_preview(app)
 
 
 def select_none(app) -> None:
     """Uncheck all actionable checkboxes."""
+    key_values: dict[str, bool] = {}
     for i, item in enumerate(app.preview_items):
         key = str(i)
         var = app.check_vars.get(key)
         if var is not None and _is_actionable(item):
-            var.set(False)
-    update_tally(app)
-    display_preview(app)
+            key_values[key] = False
+    changed = _apply_bulk_check_values(app, key_values, redraw_preview=True)
+    if not changed:
+        update_tally(app)
+        display_preview(app)
 
 
 def update_tally(app) -> None:
@@ -865,9 +970,10 @@ def _on_check_changed(app) -> None:
     """Called when any checkbox changes."""
     if not app.preview_items or not app.check_vars:
         return  # Guard against stale callbacks during rebuild
+    if getattr(app, "_suspend_check_change_callbacks", 0) > 0:
+        return
     update_tally(app)
-    if app._completeness_after_id:
-        app.root.after_cancel(app._completeness_after_id)
+    _cancel_pending_completeness_refresh(app)
     app._completeness_after_id = app.root.after(50, lambda: _refresh_completeness(app))
 
 

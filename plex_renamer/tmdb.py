@@ -238,14 +238,18 @@ class TMDBClient:
 
     # ─── TV Series ────────────────────────────────────────────────────
 
-    def search_tv(self, query: str) -> list[dict]:
+    def search_tv(self, query: str, year: str | None = None) -> list[dict]:
         """
         Search TMDB for TV series matching *query*.
 
         Returns a list of dicts with keys:
             id, name, year, poster_path, overview
         """
-        data = self._get_safe("/search/tv", {"query": query})
+        params: dict[str, Any] = {"query": query}
+        if year:
+            params["first_air_date_year"] = year
+
+        data = self._get_safe("/search/tv", params)
         if not data:
             return []
 
@@ -470,7 +474,9 @@ class TMDBClient:
         lock = threading.Lock()
 
         def _search(index: int, query: str, year: str | None) -> None:
-            res = self.search_with_fallback(query, self.search_tv)
+            res = self.search_with_fallback(query, self.search_tv, year=year)
+            if not res and year:
+                res = self.search_with_fallback(query, self.search_tv)
             results[index] = res
             with lock:
                 completed[0] += 1

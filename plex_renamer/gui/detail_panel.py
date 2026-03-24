@@ -64,6 +64,9 @@ def display_poster(app, tmdb: TMDBClient, media_id: int, media_type: str) -> Non
     if not app.poster_row.winfo_ismapped():
         app.poster_row.pack(fill="x", pady=(0, 6), before=app._separator_after_poster)
     if img:
+        from .queue_panel import seed_poster_cache
+
+        seed_poster_cache(app, media_type, media_id, img)
         app.root.update_idletasks()
         img = scale_poster(img, app.detail_inner)
         photo = ImageTk.PhotoImage(img)

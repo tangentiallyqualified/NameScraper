@@ -49,8 +49,34 @@ _STATUS_COLORS = {
 }
 _KIND_LABELS = {"rename": "Rename", "subtitle": "Subtitles", "metadata": "Metadata"}
 
-_POSTER_W = 60
-_POSTER_H = 90
+_POSTER_W = 54
+_POSTER_H = 81
+
+
+def _poster_dims(app) -> tuple[int, int]:
+    """Poster dimensions scaled for the current DPI setting."""
+    scale = getattr(app, "dpi_scale", None)
+    if scale is None:
+        try:
+            scale = float(app.tk.call("tk", "scaling"))
+        except Exception:
+            scale = 1.0
+    return int(_POSTER_W * scale), int(_POSTER_H * scale)
+
+
+def seed_poster_cache(app, media_type: str, tmdb_id: int | None, image) -> None:
+    """Store a queue/history poster image so later tab loads skip TMDB fetches."""
+    if not tmdb_id or image is None:
+        return
+    cache = _get_poster_cache(app)
+    key = (media_type, tmdb_id)
+    if key in cache:
+        return
+
+    from PIL import ImageTk
+
+    poster_w, poster_h = _poster_dims(app)
+    cache[key] = ImageTk.PhotoImage(image.resize((poster_w, poster_h)))
 
 
 def _fmt(iso: str) -> str:
@@ -106,6 +132,7 @@ def _load_posters_async(app, tree: ttk.Treeview, jobs: list[RenameJob],
         if not tmdb:
             return
         from PIL import ImageTk
+        poster_w, poster_h = _poster_dims(app)
 
         for idx, job in to_fetch:
             key = (job.media_type, job.tmdb_id)
@@ -116,9 +143,9 @@ def _load_posters_async(app, tree: ttk.Treeview, jobs: list[RenameJob],
                 try:
                     img = tmdb.fetch_poster(
                         job.tmdb_id, job.media_type,
-                        target_width=_POSTER_W * 2)
+                        target_width=poster_w * 2)
                     if img:
-                        img = img.resize((_POSTER_W, _POSTER_H))
+                        img = img.resize((poster_w, poster_h))
                         photo = ImageTk.PhotoImage(img)
                         cache[key] = photo
                     else:
@@ -149,11 +176,13 @@ def _make_tree(parent: ttk.Frame, columns: tuple) -> ttk.Treeview:
     frame = ttk.Frame(parent)
     frame.pack(fill="both", expand=True, padx=4, pady=(4, 0))
 
+    poster_w, _ = _poster_dims(parent.winfo_toplevel())
+
     tree = ttk.Treeview(
         frame, columns=columns, show="tree headings",
         selectmode="extended")
     tree.heading("#0", text="", anchor="w")
-    tree.column("#0", width=_POSTER_W + 16, minwidth=_POSTER_W + 8,
+    tree.column("#0", width=poster_w + 12, minwidth=poster_w + 8,
                 stretch=False)
 
     scroll = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
