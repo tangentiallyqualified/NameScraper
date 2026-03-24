@@ -1,0 +1,477 @@
+"""
+Job queue executor — processes jobs from the queue.
+
+Runs in a background thread, picks pending jobs sequentially, executes
+them, stores undo data, propagates path changes to dependent jobs,
+and reports progress via callbacks.
+
+Architecture notes for future extensibility:
+  - The executor processes one job at a time within its worker thread.
+  - Different job kinds (rename, subtitle download, etc.) are dispatched
+    via _EXECUTORS, a registry mapping JobKind → executor function.
+  - For future slow tasks (e.g. subtitle download), the executor can be
+    extended to run multiple worker threads with a shared job queue,
+    or to spawn a second QueueExecutor instance dedicated to slow tasks.
+    The current sequential design is deliberate for rename jobs: TMDB
+    rate limits and filesystem operations don't benefit from parallelism,
+    and sequential execution simplifies undo + path propagation.
+
+Also provides ``revert_job()`` for per-job undo without a stack constraint.
+"""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import threading
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from .constants import JobKind, JobStatus
+from .job_store import JobStore, RenameJob, RenameOp
+from .engine import RenameResult
+from .parsing import get_season
+
+_log = logging.getLogger(__name__)
+
+
+# ─── Pre-execution validation ────────────────────────────────────────────────
+
+def _validate_sources(job: RenameJob) -> list[str]:
+    """
+    Pre-execution validation: check that source files exist.
+
+    Returns a list of warning messages for missing sources.
+    Files that have been moved/deleted between queue submission and
+    execution are caught here rather than failing mid-rename.
+    """
+    library_root = Path(job.library_root)
+    root_folder = library_root / job.source_folder
+    missing: list[str] = []
+
+    if not root_folder.exists():
+        missing.append(
+            f"Source folder no longer exists: {job.source_folder}")
+        return missing  # No point checking individual files
+
+    for op in job.rename_ops:
+        if not op.selected:
+            continue
+        if op.status != "OK" and "UNMATCHED" not in op.status:
+            continue
+        if not op.new_name:
+            continue
+
+        src = library_root / op.original_relative
+        if not src.exists():
+            missing.append(f"Source not found: {src.name}")
+
+    return missing
+
+
+# ─── Job kind executor registry ──────────────────────────────────────────────
+
+def _execute_rename(job: RenameJob) -> RenameResult:
+    """
+    Execute a rename job's file operations.
+
+    Performs renames, directory normalization, and cleanup — but does NOT
+    write to the legacy undo log.  The caller (the QueueExecutor) persists
+    undo data via the JobStore and propagates path changes.
+    """
+    result = RenameResult()
+    result.log_entry = {
+        "show": job.media_name,
+        "job_id": job.job_id,
+        "renames": [],
+        "created_dirs": [],
+        "removed_dirs": [],
+        "renamed_dirs": [],
+    }
+
+    library_root = Path(job.library_root)
+    root_folder = library_root / job.source_folder
+
+    renames: list[tuple[Path, Path, Path]] = []
+    source_dirs: set[Path] = set()
+
+    for op in job.rename_ops:
+        if not op.selected:
+            continue
+        if op.status != "OK" and "UNMATCHED" not in op.status:
+            continue
+        if not op.new_name:
+            continue
+
+        src = library_root / op.original_relative
+        target_dir = library_root / op.target_dir_relative
+        dst = target_dir / op.new_name
+
+        if not src.exists():
+            result.errors.append(f"Source not found: {src.name}")
+            continue
+        if dst.exists() and src != dst:
+            result.errors.append(f"Target already exists, skipped: {dst.name}")
+            continue
+
+        source_dirs.add(src.parent)
+        renames.append((src, dst, target_dir))
+
+    if not renames:
+        return result
+
+    for src, dst, target_dir in renames:
+        try:
+            if not target_dir.exists():
+                target_dir.mkdir(parents=True, exist_ok=True)
+                if str(target_dir) not in result.log_entry["created_dirs"]:
+                    result.log_entry["created_dirs"].append(str(target_dir))
+
+            if src.parent != target_dir:
+                shutil.move(str(src), str(dst))
+            else:
+                src.rename(dst)
+
+            result.log_entry["renames"].append({
+                "old": str(src), "new": str(dst),
+            })
+            result.renamed_count += 1
+        except (OSError, shutil.Error) as e:
+            result.errors.append(f"{src.name}: {e}")
+
+    # Normalize season folder names (TV only)
+    unmatched_dir = root_folder / "Unmatched"
+    all_dirs = source_dirs.copy()
+    for _, dst, td in renames:
+        all_dirs.add(td)
+
+    for season_dir in all_dirs:
+        if not season_dir.exists() or season_dir == root_folder:
+            continue
+        try:
+            season_dir.relative_to(unmatched_dir)
+            continue
+        except ValueError:
+            pass
+        season_num = get_season(season_dir)
+        if season_num is None:
+            continue
+        proper_name = f"Season {season_num:02d}"
+        if season_dir.name == proper_name:
+            continue
+        proper_path = season_dir.parent / proper_name
+        if proper_path.exists():
+            continue
+        try:
+            season_dir.rename(proper_path)
+            result.log_entry["renamed_dirs"].append({
+                "old": str(season_dir), "new": str(proper_path),
+            })
+        except OSError as e:
+            _log.warning("Could not normalize season dir %s: %s",
+                         season_dir.name, e)
+
+    # Clean up empty source directories
+    for src_dir in source_dirs:
+        try:
+            if src_dir != root_folder and src_dir.exists():
+                if not list(src_dir.iterdir()):
+                    src_dir.rmdir()
+                    result.log_entry["removed_dirs"].append(str(src_dir))
+        except OSError as e:
+            _log.warning("Could not remove empty dir %s: %s",
+                         src_dir.name, e)
+
+    # Rename root show folder
+    if job.show_folder_rename and root_folder.exists():
+        if root_folder.name != job.show_folder_rename:
+            new_root = root_folder.parent / job.show_folder_rename
+            if not new_root.exists():
+                try:
+                    root_folder.rename(new_root)
+                    result.log_entry["renamed_dirs"].append({
+                        "old": str(root_folder), "new": str(new_root),
+                    })
+                    result.new_root = new_root
+                except OSError as e:
+                    _log.warning(
+                        "Could not rename show folder %s → %s: %s",
+                        root_folder.name, job.show_folder_rename, e)
+
+    return result
+
+
+# Registry: add new job kinds here.
+_EXECUTORS: dict[str, Callable[[RenameJob], RenameResult]] = {
+    JobKind.RENAME: _execute_rename,
+}
+
+
+# ─── Per-job revert ──────────────────────────────────────────────────────────
+
+def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
+    """
+    Revert a single completed job using its stored undo data.
+
+    Returns (success, errors).
+    """
+    if not job.undo_data:
+        return False, ["No undo data stored for this job."]
+
+    undo = job.undo_data
+    errors: list[str] = []
+
+    # Revert folder renames (in reverse order)
+    dir_rename_map: dict[Path, Path] = {}
+    for entry in reversed(undo.get("renamed_dirs", [])):
+        new_dir = Path(entry["new"])
+        old_dir = Path(entry["old"])
+        try:
+            if new_dir.exists():
+                new_dir.rename(old_dir)
+                dir_rename_map[new_dir] = old_dir
+        except OSError as e:
+            errors.append(f"Could not revert folder {new_dir.name}: {e}")
+
+    # Recreate removed directories
+    for dir_path_str in undo.get("removed_dirs", []):
+        try:
+            Path(dir_path_str).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            errors.append(
+                f"Could not recreate folder {Path(dir_path_str).name}: {e}")
+
+    # Move files back
+    for entry in reversed(undo.get("renames", [])):
+        new_path = Path(entry["new"])
+        old_path = Path(entry["old"])
+
+        for renamed_new, renamed_old in dir_rename_map.items():
+            try:
+                rel = new_path.relative_to(renamed_new)
+                new_path = renamed_old / rel
+            except ValueError:
+                pass
+            try:
+                rel = old_path.relative_to(renamed_new)
+                old_path = renamed_old / rel
+            except ValueError:
+                pass
+
+        try:
+            old_path.parent.mkdir(parents=True, exist_ok=True)
+            if new_path.exists():
+                if new_path.parent != old_path.parent:
+                    shutil.move(str(new_path), str(old_path))
+                else:
+                    new_path.rename(old_path)
+            else:
+                errors.append(f"File not found: {new_path.name}")
+        except (OSError, shutil.Error) as e:
+            errors.append(f"{new_path.name}: {e}")
+
+    # Remove created directories if empty
+    cleaned_dirs: set[str] = set()
+    for dir_path_str in undo.get("created_dirs", []):
+        dir_path = Path(dir_path_str)
+        try:
+            if dir_path.exists() and not list(dir_path.iterdir()):
+                dir_path.rmdir()
+                cleaned_dirs.add(dir_path_str)
+        except OSError:
+            pass
+
+    for dir_path_str in list(cleaned_dirs):
+        parent = Path(dir_path_str).parent
+        while parent.exists() and parent != parent.parent:
+            try:
+                if not list(parent.iterdir()):
+                    parent.rmdir()
+                    parent = parent.parent
+                else:
+                    break
+            except OSError:
+                break
+
+    return len(errors) == 0, errors
+
+
+# ─── Queue executor ──────────────────────────────────────────────────────────
+
+class QueueExecutor:
+    """
+    Background worker that processes pending jobs from the queue.
+
+    After each successful job with directory renames, calls
+    ``store.propagate_path_changes()`` to update pending jobs.
+
+    Listener management:
+      - ``add_listener()`` registers callback sets.
+      - ``clear_listeners()`` removes all registered listeners.
+      - Callers should clear before re-registering to avoid duplicate
+        callbacks when start/stop is toggled repeatedly.
+    """
+
+    def __init__(self, store: JobStore):
+        self.store = store
+        self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
+        self._running = False
+
+        # Listener-based callbacks (additive — callers must clear to avoid dups)
+        self._listeners: list[dict[str, Callable | None]] = []
+
+    def add_listener(
+        self,
+        on_started: Callable[[RenameJob], None] | None = None,
+        on_completed: Callable[[RenameJob, RenameResult], None] | None = None,
+        on_failed: Callable[[RenameJob, str], None] | None = None,
+        on_finished: Callable[[], None] | None = None,
+    ) -> int:
+        """Register a callback listener.  Returns listener index."""
+        self._listeners.append({
+            "started": on_started,
+            "completed": on_completed,
+            "failed": on_failed,
+            "finished": on_finished,
+        })
+        return len(self._listeners) - 1
+
+    def clear_listeners(self) -> None:
+        self._listeners.clear()
+
+    def _notify(self, event: str, *args: Any) -> None:
+        """Fire all registered callbacks for the given event."""
+        for listener in self._listeners:
+            cb = listener.get(event)
+            if cb is not None:
+                try:
+                    if event == "finished":
+                        cb()
+                    else:
+                        cb(*args)
+                except Exception:
+                    _log.exception("Listener callback error for %s", event)
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._stop_event.clear()
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._worker, daemon=True, name="QueueExecutor")
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    def _worker(self) -> None:
+        _log.info("Queue executor started")
+        try:
+            while not self._stop_event.is_set():
+                job = self.store.get_next_pending()
+                if job is None:
+                    break
+                self._execute_one(job)
+        except Exception as e:
+            _log.exception("Queue executor crashed: %s", e)
+        finally:
+            self._running = False
+            self._notify("finished")
+            _log.info("Queue executor stopped")
+
+    def _execute_one(self, job: RenameJob) -> None:
+        _log.info("Executing job %s: %s", job.job_id[:8], job.media_name)
+
+        # ── Pre-execution validation ──────────────────────────────
+        # Check that source paths still exist before transitioning
+        # to RUNNING.  Catches files moved/deleted externally between
+        # queue submission and execution.
+        missing = _validate_sources(job)
+        if missing:
+            all_missing = all(
+                not (Path(job.library_root) / op.original_relative).exists()
+                for op in job.rename_ops
+                if op.selected and op.new_name
+                and (op.status == "OK" or "UNMATCHED" in op.status)
+            )
+            if all_missing:
+                # Every source file is gone — fail immediately
+                error_msg = (
+                    f"All source files missing ({len(missing)}). "
+                    f"Files may have been moved or deleted externally."
+                )
+                _log.error("Job %s: %s", job.job_id[:8], error_msg)
+                self.store.update_status(
+                    job.job_id, JobStatus.FAILED, error_message=error_msg)
+                job.status = JobStatus.FAILED
+                job.error_message = error_msg
+                self._notify("failed", job, error_msg)
+                return
+            else:
+                # Partial — log warnings but proceed (executor handles
+                # per-file "source not found" gracefully)
+                for msg in missing:
+                    _log.warning("Job %s pre-check: %s",
+                                 job.job_id[:8], msg)
+
+        # ── Execute ───────────────────────────────────────────────
+        self.store.update_status(job.job_id, JobStatus.RUNNING)
+        job.status = JobStatus.RUNNING
+        self._notify("started", job)
+
+        try:
+            executor_fn = _EXECUTORS.get(job.job_kind)
+            if executor_fn is None:
+                raise ValueError(f"Unknown job kind: {job.job_kind}")
+
+            result = executor_fn(job)
+
+            if result.errors and result.renamed_count == 0:
+                error_msg = "; ".join(result.errors[:5])
+                self.store.update_status(
+                    job.job_id, JobStatus.FAILED, error_message=error_msg)
+                job.status = JobStatus.FAILED
+                job.error_message = error_msg
+                self._notify("failed", job, error_msg)
+            else:
+                self.store.set_undo_data(job.job_id, result.log_entry)
+                job.undo_data = result.log_entry
+
+                if result.errors:
+                    error_msg = "; ".join(result.errors[:5])
+                    self.store.update_status(
+                        job.job_id, JobStatus.COMPLETED,
+                        error_message=error_msg)
+                    job.error_message = error_msg
+                else:
+                    self.store.update_status(
+                        job.job_id, JobStatus.COMPLETED)
+
+                job.status = JobStatus.COMPLETED
+
+                # Path propagation
+                renamed_dirs = result.log_entry.get("renamed_dirs", [])
+                if renamed_dirs:
+                    propagated = self.store.propagate_path_changes(
+                        job.job_id, renamed_dirs)
+                    if propagated:
+                        _log.info(
+                            "Updated %d pending job(s) after path changes "
+                            "from %s", propagated, job.media_name)
+
+                self._notify("completed", job, result)
+
+        except Exception as e:
+            _log.exception("Job %s failed: %s", job.job_id[:8], e)
+            error_msg = str(e)
+            self.store.update_status(
+                job.job_id, JobStatus.FAILED, error_message=error_msg)
+            job.status = JobStatus.FAILED
+            job.error_message = error_msg
+            self._notify("failed", job, error_msg)

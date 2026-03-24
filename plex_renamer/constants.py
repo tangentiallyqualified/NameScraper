@@ -14,11 +14,29 @@ VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v
 
 LOG_DIR = Path.home() / ".plex_renamer"
 LOG_FILE = LOG_DIR / "rename_log.json"
+DB_FILE = LOG_DIR / "job_queue.db"
 
 
 def ensure_log_dir() -> None:
     """Create the log directory if it doesn't exist. Called lazily on first use."""
     LOG_DIR.mkdir(exist_ok=True)
+
+
+# ─── Job queue constants ─────────────────────────────────────────────────────
+
+class JobStatus(StrEnum):
+    """Status values for job queue entries."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    REVERTED = "reverted"
+
+
+class JobKind(StrEnum):
+    """Job type discriminator — extensible for future task types."""
+    RENAME = "rename"
 
 # ─── Filename sanitization ────────────────────────────────────────────────────
 

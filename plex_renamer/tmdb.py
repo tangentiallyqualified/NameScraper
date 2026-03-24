@@ -311,10 +311,11 @@ class TMDBClient:
                 "vote_count": ep.get("vote_count", 0),
                 "runtime": ep.get("runtime"),
                 "still_path": posters[num],
-                "directors": [c["name"] for c in crew
-                              if c.get("job") == "Director"],
-                "writers": [c["name"] for c in crew
-                            if c.get("job") in ("Writer", "Teleplay", "Story")],
+                "directors": [c.get("name", "") for c in crew
+                              if c.get("job") == "Director" and c.get("name")],
+                "writers": [c.get("name", "") for c in crew
+                            if c.get("job") in ("Writer", "Teleplay", "Story")
+                            and c.get("name")],
                 "guest_stars": [
                     {"name": g.get("name", ""), "character": g.get("character", "")}
                     for g in guest_stars[:5]  # Top 5 guests

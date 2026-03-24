@@ -263,13 +263,21 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         return [int(m.group(1))], m.group(2).strip(), False
 
     # Pattern 3: Episode number preceded by space/separator
+    # Negative lookbehind rejects codec tags: x264, x265, h264, h265
     m = re.search(
-        r"(?<!\d)(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        r"(?<![xXhH\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
         name, re.IGNORECASE,
     )
     if m:
         num = int(m.group(1))
         if num not in (480, 720, 1080, 2160) and not (1900 <= num <= 2099):
+            # Double-check: reject if the digit sequence was part of a codec tag
+            # by examining the characters immediately before the match
+            start = m.start()
+            if start > 0:
+                prefix = name[max(0, start - 1):start]
+                if prefix.lower() in ("x", "h"):
+                    return [], None, False
             title = m.group(2).strip() if m.group(2) else None
             return [num], title, False
 

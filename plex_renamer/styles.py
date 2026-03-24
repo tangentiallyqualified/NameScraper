@@ -185,7 +185,10 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
                      background=c["error_dim"], foreground=c["error"],
                      padding=(10, 5), borderwidth=1)
     style.map("Danger.TButton",
-               background=[("active", c["error"])])
+               background=[("active", c["error"]),
+                           ("disabled", c["bg_mid"])],
+               foreground=[("active", c["bg_dark"]),
+                           ("disabled", c["text_muted"])])
 
     # Entry / Combobox
     style.configure("TEntry", padding=(8, 6), font=("Helvetica", 11))
@@ -234,6 +237,37 @@ def setup_styles(root: tk.Tk, dpi_scale: float) -> dict[str, ImageTk.PhotoImage]
                background=[("active", c["border_light"])])
 
     style.configure("TSeparator", background=c["border"])
+
+    # Treeview (used by queue panel — row height accommodates poster thumbnails)
+    style.configure("Treeview",
+                     background=c["bg_card"],
+                     foreground=c["text"],
+                     fieldbackground=c["bg_card"],
+                     borderwidth=0,
+                     font=("Helvetica", 10),
+                     rowheight=int(96 * dpi_scale))
+    style.configure("Treeview.Heading",
+                     background=c["bg_mid"],
+                     foreground=c["text_dim"],
+                     borderwidth=1,
+                     font=("Helvetica", 10, "bold"))
+    style.map("Treeview",
+               background=[("selected", c["accent_dim"])],
+               foreground=[("selected", c["text"])])
+    style.map("Treeview.Heading",
+               background=[("active", c["border_light"])])
+
+    # Notebook (tabs for queue/history)
+    style.configure("TNotebook", background=c["bg_dark"], borderwidth=0)
+    style.configure("TNotebook.Tab",
+                     background=c["bg_card"],
+                     foreground=c["text_dim"],
+                     padding=(16, 8),
+                     font=("Helvetica", 10))
+    style.map("TNotebook.Tab",
+               background=[("selected", c["bg_mid"]),
+                           ("active", c["border_light"])],
+               foreground=[("selected", c["text"])])
 
     # Progressbar
     style.configure("Accent.Horizontal.TProgressbar",

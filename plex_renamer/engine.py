@@ -8,6 +8,7 @@ has no tkinter dependency, making it testable and reusable.
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 from collections import defaultdict
@@ -101,6 +102,460 @@ class CompletenessReport:
     @property
     def pct(self) -> float:
         return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
+
+
+@dataclass
+class ScanState:
+    """
+    Per-show scan state — decouples show-level data from the GUI.
+
+    In single-show mode, one ScanState is created and assigned to
+    app.active_scan.  In batch TV mode, each detected show gets
+    its own ScanState stored in app.batch_states.
+
+    GUI-side fields (check_vars, selected_index, etc.) use ``Any``
+    type hints because they hold tkinter objects that the engine
+    module deliberately doesn't import.
+    """
+    folder: Path
+    media_info: dict                                    # TMDB show/movie dict
+    scanner: TVScanner | None = None
+    preview_items: list[PreviewItem] = field(default_factory=list)
+    completeness: CompletenessReport | None = None
+
+    # Match metadata
+    confidence: float = 0.0
+    alternate_matches: list[dict] = field(default_factory=list)
+    search_results: list[dict] = field(default_factory=list)
+
+    # GUI-side state (populated by preview_canvas, not by engine)
+    check_vars: dict = field(default_factory=dict)
+    selected_index: int | None = None
+    card_positions: list[tuple[int, int, int]] = field(default_factory=list)
+    season_header_positions: list[tuple[int, int, int]] = field(default_factory=list)
+    display_order: list[int] = field(default_factory=list)
+    collapsed_seasons: set[int] = field(default_factory=set)
+
+    # Flags
+    scanned: bool = False                               # True after Phase 2 scan
+    scanning: bool = False                              # True while Phase 2 scan is in progress
+    checked: bool = True                                # Master show-level checkbox
+    duplicate_of: str | None = None                     # Display name of the primary match (if this is a dup)
+    queued: bool = False                                # True after added to job queue
+
+    @property
+    def show_id(self) -> int | None:
+        return self.media_info.get("id")
+
+    @property
+    def display_name(self) -> str:
+        name = (self.media_info.get("name")
+                or self.media_info.get("title")
+                or self.folder.name)
+        year = self.media_info.get("year", "")
+        return f"{name} ({year})" if year else name
+
+    @property
+    def needs_review(self) -> bool:
+        return self.confidence < AUTO_ACCEPT_THRESHOLD
+
+    @property
+    def file_count(self) -> int:
+        return len(self.preview_items)
+
+    @property
+    def total_expected(self) -> int:
+        if self.completeness:
+            return self.completeness.total_expected
+        return 0
+
+    @property
+    def total_matched(self) -> int:
+        if self.completeness:
+            return self.completeness.total_matched
+        return 0
+
+    @property
+    def match_pct(self) -> float:
+        if self.completeness:
+            return self.completeness.pct
+        return 0.0
+
+    @property
+    def all_skipped(self) -> bool:
+        """True if scanned but every file was SKIP (nothing actionable)."""
+        if not self.scanned or not self.preview_items:
+            return False
+        return not any(
+            it.status == "OK" or "UNMATCHED" in it.status
+            for it in self.preview_items
+        )
+
+    def reset_gui_state(self) -> None:
+        """Clear GUI-side state (e.g. when switching shows)."""
+        self.check_vars.clear()
+        self.selected_index = None
+        self.card_positions.clear()
+        self.season_header_positions.clear()
+        self.display_order.clear()
+        self.collapsed_seasons.clear()
+
+    def reset_scan(self) -> None:
+        """Clear scan data to force a rescan."""
+        self.scanner = None
+        self.preview_items.clear()
+        self.completeness = None
+        self.scanned = False
+        self.reset_gui_state()
+
+
+def get_checked_indices_from_state(state: ScanState) -> set[int]:
+    """
+    Return indices of checked, actionable items from a ScanState.
+
+    Centralises the checked-item collection logic used by both
+    single-show and batch rename paths.
+    """
+    return {
+        i for i, item in enumerate(state.preview_items)
+        if state.check_vars.get(str(i)) is not None
+        and state.check_vars[str(i)].get()
+        and (item.status == "OK" or "UNMATCHED" in item.status)
+        and item.new_name
+    }
+
+
+_log = logging.getLogger(__name__)
+
+
+# ─── Batch TV orchestration ─────────────────────────────────────────────────
+
+class BatchTVOrchestrator:
+    """
+    Discovers TV show folders in a library root, matches each to TMDB,
+    and creates ScanState instances for the GUI.
+
+    Two-phase workflow:
+      Phase 1 (match): Scan filesystem, identify show folders, parallel
+          TMDB search. Fast — no season data fetched yet.
+      Phase 2 (scan): For each matched show, run TVScanner to build
+          episode previews. Can be triggered per-show or in bulk.
+    """
+
+    def __init__(self, tmdb: TMDBClient, library_root: Path):
+        self.tmdb = tmdb
+        self.root = library_root
+        self.states: list[ScanState] = []
+
+    def discover_shows(
+        self,
+        progress_callback: Callable | None = None,
+    ) -> list[ScanState]:
+        """
+        Phase 1: Find show folders and match to TMDB.
+
+        Each direct child directory of library_root that looks like a
+        TV show folder (contains season subdirs or video files) is
+        treated as a candidate.  Uses search_tv_batch for parallel
+        TMDB lookups.
+
+        Returns ScanState instances with media_info populated but
+        scanner/preview_items empty (Phase 2 hasn't run yet).
+        """
+        # Discover candidate show folders
+        candidates: list[tuple[Path, str, str | None]] = []
+        for d in sorted(self.root.iterdir()):
+            if not d.is_dir():
+                continue
+            # Skip hidden folders and common non-show directories
+            if d.name.startswith(".") or d.name.lower() in (
+                "extras", "featurettes", "@eadir", "#recycle",
+                ".debris", "lost+found",
+            ):
+                continue
+            # Skip folders that look like season folders — these are
+            # stray season dirs at the library root, not show folders.
+            if get_season(d) is not None:
+                continue
+            # Must contain video files or season subdirectories.
+            # Skip folders that look like movie folders: no season
+            # subdirs, 1-2 video files, no TV episode filename patterns.
+            has_season_subdir = False
+            video_files: list[Path] = []
+            for child in d.iterdir():
+                if child.is_dir() and get_season(child) is not None:
+                    has_season_subdir = True
+                    break
+                if child.is_file() and child.suffix.lower() in VIDEO_EXTENSIONS:
+                    video_files.append(child)
+
+            if not has_season_subdir and not video_files:
+                continue  # empty folder
+
+            if not has_season_subdir and len(video_files) <= 2:
+                # No season structure and very few files — likely a movie
+                # unless one of the files has a TV episode pattern.
+                has_tv_pattern = any(
+                    looks_like_tv_episode(f) for f in video_files
+                )
+                if not has_tv_pattern:
+                    _log.info(
+                        "Skipping likely movie folder: %s (%d video file(s))",
+                        d.name, len(video_files),
+                    )
+                    continue
+
+            cleaned = clean_folder_name(d.name, include_year=False)
+            year_hint = extract_year(d.name)
+            candidates.append((d, cleaned, year_hint))
+
+        if not candidates:
+            return []
+
+        _log.info("Discovered %d candidate show folders", len(candidates))
+
+        # Parallel TMDB search
+        queries = [(name, year) for _, name, year in candidates]
+        all_results = self.tmdb.search_tv_batch(
+            queries,
+            progress_callback=progress_callback,
+        )
+
+        # Build ScanState for each candidate
+        states: list[ScanState] = []
+        for (folder, cleaned_name, year_hint), results in zip(candidates, all_results):
+            if not results:
+                # No TMDB results — create state with folder name as placeholder
+                state = ScanState(
+                    folder=folder,
+                    media_info={
+                        "id": None, "name": folder.name,
+                        "year": year_hint or "", "poster_path": None,
+                        "overview": "",
+                    },
+                    confidence=0.0,
+                    search_results=results,
+                    alternate_matches=[],
+                    checked=False,      # No match — don't auto-check
+                )
+                states.append(state)
+                continue
+
+            # Score results
+            raw_name = clean_folder_name(folder.name)
+            scored = score_results(results, raw_name, year_hint, title_key="name")
+
+            best, best_score = scored[0]
+            alternates = [r for r, s in scored[1:4] if s > 0.3]  # Top 3 alternates above threshold
+
+            # Only auto-check shows with confident matches
+            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD
+
+            state = ScanState(
+                folder=folder,
+                media_info=best,
+                confidence=best_score,
+                search_results=results,
+                alternate_matches=alternates,
+                checked=auto_check,
+            )
+            states.append(state)
+
+        # Sort by match quality group, then alphabetically within each group.
+        # Groups: 0 = confident match, 1 = needs review, 2 = no match, 3 = duplicate
+        def _sort_key(s: ScanState) -> tuple:
+            if s.duplicate_of is not None:
+                group = 3
+            elif s.show_id is None:
+                group = 2
+            elif s.needs_review:
+                group = 1
+            else:
+                group = 0
+            return (group, s.display_name.lower())
+
+        states.sort(key=_sort_key)
+
+        # ── Flag duplicate TMDB matches ───────────────────────────
+        # When multiple folders match the same TMDB show, keep the
+        # highest-confidence one as the primary and mark the rest as
+        # duplicates (unchecked, visually tagged).
+        seen_ids: dict[int, ScanState] = {}  # TMDB ID → best ScanState
+        for s in states:
+            sid = s.show_id
+            if sid is None:
+                continue
+            if sid not in seen_ids:
+                seen_ids[sid] = s
+            else:
+                primary = seen_ids[sid]
+                # The one with lower confidence becomes the duplicate
+                if s.confidence > primary.confidence:
+                    # This one is better — demote the old primary
+                    primary.duplicate_of = s.display_name
+                    primary.checked = False
+                    seen_ids[sid] = s
+                else:
+                    s.duplicate_of = primary.display_name
+                    s.checked = False
+
+        self.states = states
+        return states
+
+    def scan_show(
+        self,
+        state: ScanState,
+        progress_callback: Callable | None = None,
+    ) -> None:
+        """
+        Phase 2: Run TVScanner for a single show and populate its ScanState.
+
+        Creates the TVScanner, runs scan(), computes completeness,
+        and stores everything in the ScanState.  Skips if already scanned.
+        """
+        if state.scanned or state.scanning:
+            return
+        if state.show_id is None:
+            _log.warning("Cannot scan %s — no TMDB match", state.folder.name)
+            return
+
+        state.scanning = True
+        _log.info("Scanning episodes for: %s", state.display_name)
+
+        try:
+            scanner = TVScanner(self.tmdb, state.media_info, state.folder)
+            items, has_mismatch = scanner.scan()
+
+            _log.info("Folder '%s' produced %d items (mismatch=%s), seasons: %s",
+                      state.folder.name, len(items), has_mismatch,
+                      sorted({it.season for it in items if it.season is not None}))
+
+            # For batch mode, auto-fix mismatches without prompting
+            if has_mismatch:
+                _log.info("Season mismatch detected for %s, using consolidated scan",
+                           state.display_name)
+                items = scanner.scan_consolidated()
+
+            check_duplicates(items)
+
+            # Compute initial completeness (all OK items checked)
+            initial_checked = {i for i, it in enumerate(items) if it.status == "OK"}
+            completeness = scanner.get_completeness(items, checked_indices=initial_checked)
+
+            # Assign results atomically
+            state.scanner = scanner
+            state.preview_items = items
+            state.completeness = completeness
+            state.scanned = True
+
+            # Auto-uncheck shows where every file was skipped —
+            # nothing actionable means nothing to rename.
+            has_actionable = any(
+                it.status == "OK" or "UNMATCHED" in it.status
+                for it in items
+            )
+            if not has_actionable:
+                state.checked = False
+        finally:
+            state.scanning = False
+
+        # Summary log
+        by_season: dict[int | None, int] = defaultdict(int)
+        for it in items:
+            by_season[it.season] += 1
+        _log.info("Scan complete for '%s': %d total items, seasons: %s",
+                  state.display_name, len(items),
+                  dict(sorted(by_season.items())))
+
+    def scan_all(
+        self,
+        progress_callback: Callable | None = None,
+    ) -> None:
+        """
+        Phase 2 bulk: Scan all shows that have a TMDB match.
+
+        Runs sequentially because each show's scan does multiple TMDB API
+        calls (one per season) and the rate limiter handles throughput.
+        """
+        to_scan = [s for s in self.states if not s.scanned and s.show_id is not None]
+        total = len(to_scan)
+
+        for i, state in enumerate(to_scan):
+            try:
+                self.scan_show(state)
+            except Exception as e:
+                _log.error("Failed to scan %s: %s", state.display_name, e)
+            if progress_callback:
+                progress_callback(i + 1, total)
+
+    def rematch_show(self, state: ScanState, new_match: dict) -> None:
+        """Swap a show's TMDB match and invalidate its scan data."""
+        state.media_info = new_match
+        # Rescore confidence against the original search results
+        raw_name = clean_folder_name(state.folder.name)
+        year_hint = extract_year(state.folder.name)
+        scored = score_results(
+            [new_match], raw_name, year_hint, title_key="name")
+        state.confidence = scored[0][1] if scored else 0.0
+        state.reset_scan()
+
+    @staticmethod
+    def is_tv_library(folder: Path) -> bool:
+        """
+        Heuristic check: does this folder look like a TV library root
+        (contains show subdirectories) rather than a single show folder?
+
+        Returns True if at least 2 child directories look like show
+        folders — meaning they themselves contain season subdirectories
+        or multiple video files (or TV-patterned filenames), AND they
+        don't look like season folders themselves.
+
+        Single-file folders without TV episode patterns are treated as
+        movie folders and don't count toward the threshold.
+        """
+        show_like_children = 0
+        try:
+            for d in folder.iterdir():
+                if not d.is_dir() or d.name.startswith("."):
+                    continue
+                # Skip if this child IS a season folder — season folders
+                # are part of a single show, not separate shows.
+                if get_season(d) is not None:
+                    continue
+                # Skip known non-show directories
+                if d.name.lower() in (
+                    "extras", "featurettes", "@eadir", "#recycle",
+                    ".debris", "lost+found",
+                ):
+                    continue
+                # Check if this child looks like a show folder
+                has_season_subdir = False
+                video_files: list[Path] = []
+                for child in d.iterdir():
+                    if child.is_dir() and get_season(child) is not None:
+                        has_season_subdir = True
+                        break
+                    if child.is_file() and child.suffix.lower() in VIDEO_EXTENSIONS:
+                        video_files.append(child)
+
+                if has_season_subdir:
+                    # Has season subdirs — definitely a TV show folder
+                    show_like_children += 1
+                elif len(video_files) > 2:
+                    # Many video files without season dirs — likely a TV show
+                    show_like_children += 1
+                elif video_files and any(
+                    looks_like_tv_episode(f) for f in video_files
+                ):
+                    # Few files but at least one has TV episode patterns
+                    show_like_children += 1
+                # else: 1-2 video files with no TV patterns → likely a movie, skip
+
+                if show_like_children >= 2:
+                    return True
+        except OSError:
+            pass
+        return False
 
 
 # ─── TV scanning ─────────────────────────────────────────────────────────────
@@ -312,6 +767,28 @@ class TVScanner:
                             original=f, new_name=None, target_dir=None,
                             season=season_num, episodes=[],
                             status="SKIP: could not parse episode number",
+                            **self._media_fields,
+                        ))
+                        continue
+
+                    # Validate episode numbers against TMDB season data.
+                    # If the highest extracted ep number far exceeds the known
+                    # episode count for this season, it's likely a mis-parse
+                    # (e.g. codec tag x264 → episode 264).
+                    max_ep = max(eps)
+                    season_ep_count = len(titles)
+                    if (season_ep_count > 0
+                            and max_ep > season_ep_count * 1.5
+                            and max_ep > season_ep_count + 10
+                            and not is_season_relative):
+                        items.append(PreviewItem(
+                            original=f, new_name=None, target_dir=None,
+                            season=season_num, episodes=eps,
+                            status=(
+                                f"REVIEW: parsed episode {max_ep} but "
+                                f"season only has {season_ep_count} episodes "
+                                f"— likely a mis-parsed filename"
+                            ),
                             **self._media_fields,
                         ))
                         continue
@@ -1077,6 +1554,7 @@ def execute_rename(
     show_name: str,
     root_folder: Path,
     show_folder_name: str | None = None,
+    persist_log: bool = True,
 ) -> RenameResult:
     """
     Perform the actual file renames/moves for checked items.
@@ -1089,6 +1567,9 @@ def execute_rename(
         show_folder_name: If provided and the root folder's current name
             doesn't match, rename it.  The new root path is stored in
             result.new_root so the caller can update its state.
+        persist_log: If True (default), write the undo entry to the
+            legacy JSON log.  Set to False when the job queue executor
+            handles persistence via JobStore instead.
 
     Returns a RenameResult with the log entry for undo support.
     """
@@ -1205,10 +1686,11 @@ def execute_rename(
                 except OSError:
                     pass  # Not fatal — files are already renamed
 
-    # Persist log
-    log = load_log()
-    log.append(result.log_entry)
-    save_log(log)
+    # Persist log (legacy JSON — skipped when job queue handles persistence)
+    if persist_log:
+        log = load_log()
+        log.append(result.log_entry)
+        save_log(log)
 
     return result
 
@@ -1306,3 +1788,114 @@ def execute_undo() -> tuple[bool, list[str]]:
     save_log(log)
 
     return len(errors) == 0, errors
+
+
+# ─── Job queue bridge ────────────────────────────────────────────────────────
+
+def _build_rename_ops(
+    items: list[PreviewItem],
+    checked_indices: set[int],
+    library_root: Path,
+) -> list:
+    """
+    Shared helper: convert PreviewItems → RenameOp list.
+
+    Skips items that are already properly named (same name, same
+    directory) since queuing those would be a no-op.
+    """
+    from .job_store import RenameOp
+
+    ops = []
+    for i, item in enumerate(items):
+        if item.new_name is None:
+            continue
+        if item.status != "OK" and "UNMATCHED" not in item.status:
+            continue
+
+        # Skip files that are already properly named in the right location
+        target_dir = item.target_dir or item.original.parent
+        if (item.new_name == item.original.name
+                and target_dir == item.original.parent):
+            continue
+
+        try:
+            original_rel = str(item.original.relative_to(library_root))
+        except ValueError:
+            original_rel = str(item.original)
+
+        try:
+            target_rel = str(target_dir.relative_to(library_root))
+        except ValueError:
+            target_rel = str(target_dir)
+
+        ops.append(RenameOp(
+            original_relative=original_rel,
+            new_name=item.new_name,
+            target_dir_relative=target_rel,
+            status=item.status,
+            season=item.season,
+            episodes=list(item.episodes),
+            selected=(i in checked_indices),
+        ))
+    return ops
+
+
+def build_rename_job_from_state(
+    state: ScanState,
+    library_root: Path,
+    show_folder_rename: str | None = None,
+) -> 'RenameJob':
+    """
+    Create a RenameJob from a ScanState (TV batch mode).
+
+    Snapshots the checked PreviewItems as RenameOp instances with
+    paths relative to library_root.
+    """
+    from .job_store import RenameJob
+
+    checked_indices = get_checked_indices_from_state(state)
+    ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
+
+    return RenameJob(
+        media_type=MediaType.TV,
+        tmdb_id=state.show_id or 0,
+        media_name=state.display_name,
+        library_root=str(library_root),
+        source_folder=str(state.folder.relative_to(library_root)),
+        rename_ops=ops,
+        show_folder_rename=show_folder_rename,
+    )
+
+
+def build_rename_job_from_items(
+    items: list[PreviewItem],
+    checked_indices: set[int],
+    media_type: str,
+    tmdb_id: int,
+    media_name: str,
+    library_root: Path,
+    source_folder: Path,
+    show_folder_rename: str | None = None,
+) -> 'RenameJob':
+    """
+    Create a RenameJob from raw PreviewItems (single-show TV or movie mode).
+    """
+    from .job_store import RenameJob
+
+    ops = _build_rename_ops(items, checked_indices, library_root)
+
+    try:
+        source_rel = str(source_folder.relative_to(library_root))
+    except ValueError:
+        source_rel = str(source_folder)
+
+    return RenameJob(
+        media_type=media_type,
+        tmdb_id=tmdb_id,
+        media_name=media_name,
+        library_root=str(library_root),
+        source_folder=source_rel,
+        rename_ops=ops,
+        show_folder_rename=show_folder_rename,
+    )
+

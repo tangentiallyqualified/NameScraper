@@ -9,7 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from ..constants import MediaType
-from ..engine import CompletenessReport, PreviewItem, RenameResult
+from ..engine import CompletenessReport, PreviewItem, RenameResult, ScanState
 from ..styles import COLORS
 from ..undo_log import load_log
 from .helpers import draw_action_buttons, make_button_click_handler
@@ -376,6 +376,222 @@ def show_rename_result(app, result: RenameResult, renamed_items: list[PreviewIte
         app.detail_header.configure(text="RENAME COMPLETE")
         app.detail_ep_title.configure(text="Click a file to view details")
         app.detail_overview.configure(text="")
+
+
+def show_batch_rename_result(
+    app,
+    results: list[tuple[ScanState, RenameResult, list[PreviewItem]]],
+) -> None:
+    """
+    Show aggregate results across all shows after a batch rename.
+
+    Grouped by show with collapsible sections.  Each section shows
+    the show name, file counts, and the per-file rename list.
+    """
+    c = COLORS
+    cv, canvas_w, s = app._clear_canvas()
+    margin_x = int(16 * s)
+    x_left = margin_x
+    x_right = canvas_w - margin_x
+    y = int(20 * s)
+
+    total_renamed = sum(r.renamed_count for _, r, _ in results)
+    total_errors = sum(len(r.errors) for _, r, _ in results)
+    show_count = len(results)
+
+    # ── Completion badge ──────────────────────────────────────────
+    if total_errors:
+        badge_text = "⚠  Batch Partially Complete"
+        badge_fg = c["accent"]
+    else:
+        badge_text = "✓  Batch Rename Complete"
+        badge_fg = c["success"]
+
+    cv.create_text(
+        canvas_w // 2, y, text=badge_text, fill=badge_fg,
+        font=("Helvetica", 18, "bold"), anchor="n")
+    y += int(36 * s)
+
+    # ── Aggregate stats ───────────────────────────────────────────
+    stats_parts = [
+        f"{total_renamed} files renamed",
+        f"{show_count} shows",
+    ]
+    if total_errors:
+        stats_parts.append(f"{total_errors} errors")
+
+    cv.create_text(
+        canvas_w // 2, y,
+        text="  ·  ".join(stats_parts), fill=c["text_dim"],
+        font=("Helvetica", 11), anchor="n")
+    y += int(28 * s)
+
+    # ── Action buttons ────────────────────────────────────────────
+    btn_y_top, btn_y_bot, regions = draw_action_buttons(
+        cv, y, canvas_w, s, show_undo=True, show_scan=True)
+    y = btn_y_bot + int(20 * s)
+
+    # ── Per-show sections ─────────────────────────────────────────
+    pad = int(10 * s)
+    bar_w = int(3 * s)
+    show_header_positions: list[tuple[int, int, int]] = []  # (y_start, y_end, show_idx)
+    batch_collapsed: set[int] = getattr(app, '_batch_result_collapsed', set())
+    app._batch_result_collapsed = batch_collapsed
+
+    for show_idx, (state, result, renamed_items) in enumerate(results):
+        is_collapsed = show_idx in batch_collapsed
+        has_errors = len(result.errors) > 0
+
+        # ── Show header bar ───────────────────────────────────────
+        arrow = "▸" if is_collapsed else "▾"
+        hdr_h = int(36 * s)
+        hdr_y = y
+
+        # Header background
+        hdr_bg = c["bg_mid"]
+        cv.create_rectangle(
+            x_left, y, x_right, y + hdr_h,
+            fill=hdr_bg, outline=c["border"])
+
+        # Status icon + show name
+        if has_errors:
+            icon = "⚠"
+            icon_fg = c["accent"]
+        else:
+            icon = "✓"
+            icon_fg = c["success"]
+
+        cv.create_text(
+            x_left + pad, y + hdr_h // 2,
+            text=icon, fill=icon_fg,
+            font=("Helvetica", 12, "bold"), anchor="w")
+
+        hdr_text = f"{arrow}  {state.display_name}  —  {result.renamed_count} files"
+        if has_errors:
+            hdr_text += f", {len(result.errors)} errors"
+
+        cv.create_text(
+            x_left + pad + int(20 * s), y + hdr_h // 2,
+            text=hdr_text, fill=c["text"],
+            font=("Helvetica", 10, "bold"), anchor="w")
+
+        show_header_positions.append((hdr_y, hdr_y + hdr_h, show_idx))
+        y += hdr_h + int(2 * s)
+
+        if is_collapsed:
+            y += int(4 * s)
+            continue
+
+        # ── Errors for this show ──────────────────────────────────
+        if has_errors:
+            for err in result.errors[:5]:
+                cv.create_text(
+                    x_left + pad + int(20 * s), y,
+                    text=f"⚠  {err}", fill=c["error"],
+                    font=("Helvetica", 9), anchor="nw",
+                    width=x_right - x_left - pad * 2 - int(20 * s))
+                y += int(16 * s)
+
+        # ── Folder changes ────────────────────────────────────────
+        dir_renames = result.log_entry.get("renamed_dirs", [])
+        for d in dir_renames:
+            old_name = Path(d["old"]).name
+            new_name = Path(d["new"]).name
+            cv.create_text(
+                x_left + pad + int(20 * s), y,
+                text=f"📁  {old_name}  →  {new_name}",
+                fill=c["move"], font=("Helvetica", 9), anchor="nw")
+            y += int(16 * s)
+
+        # ── Per-file rename list ──────────────────────────────────
+        for item in renamed_items:
+            is_unmatched = "UNMATCHED" in item.status
+            bar_color = c["accent"] if is_unmatched else c["success"]
+            arrow_color = c["accent"] if is_unmatched else c["success"]
+            check_char = "⚠" if is_unmatched else "✓"
+            check_color = c["accent"] if is_unmatched else c["success"]
+
+            text_x = x_left + bar_w + pad + int(22 * s)
+            max_text_w = x_right - text_x - pad
+
+            id1 = cv.create_text(
+                text_x, y + pad,
+                text=item.original.name, fill=c["text_muted"],
+                font=("Helvetica", 9), anchor="nw",
+                width=max_text_w)
+
+            new_text = item.new_name or item.original.name
+            if item.is_move() and item.target_dir:
+                new_text = f"[{item.target_dir.name}]  {new_text}"
+
+            bbox1 = cv.bbox(id1)
+            line1_bottom = (bbox1[3] if bbox1 else y + pad + int(14 * s))
+
+            id2 = cv.create_text(
+                text_x, line1_bottom + int(2 * s),
+                text=f"→  {new_text}", fill=arrow_color,
+                font=("Helvetica", 10), anchor="nw",
+                width=max_text_w)
+
+            bbox2 = cv.bbox(id2)
+            content_bottom = (bbox2[3] if bbox2 else line1_bottom + int(16 * s))
+            card_h = max(int(44 * s), content_bottom - y + pad)
+
+            bg_id = cv.create_rectangle(
+                x_left, y, x_right, y + card_h,
+                fill=c["bg_card"], outline=c["border"])
+            cv.tag_lower(bg_id)
+
+            bar_id = cv.create_rectangle(
+                x_left, y, x_left + bar_w, y + card_h,
+                fill=bar_color, outline="")
+            cv.tag_raise(bar_id, bg_id)
+
+            cv.create_text(
+                x_left + bar_w + pad, y + card_h // 2,
+                text=check_char, fill=check_color,
+                font=("Helvetica", 12, "bold"), anchor="w")
+
+            y += card_h + int(2 * s)
+
+        y += int(10 * s)
+
+    # ── Scroll region + click handler ─────────────────────────────
+    y += int(10 * s)
+    cv.configure(scrollregion=(0, 0, canvas_w, y))
+
+    def _on_extra_click(cx, cy_click):
+        for sy_top, sy_bot, sidx in show_header_positions:
+            if sy_top <= cy_click <= sy_bot:
+                if sidx in batch_collapsed:
+                    batch_collapsed.discard(sidx)
+                else:
+                    batch_collapsed.add(sidx)
+                show_batch_rename_result(app, results)
+                return
+
+    make_button_click_handler(
+        cv, btn_y_top, btn_y_bot, regions,
+        undo_callback=app.undo, scan_callback=app.run_preview,
+        extra_handler=_on_extra_click)
+
+    # ── Status bar ────────────────────────────────────────────────
+    if total_errors:
+        app.status_var.set(
+            f"⚠  Batch: {total_renamed} renamed, {total_errors} errors "
+            f"across {show_count} shows")
+    else:
+        app.status_var.set(
+            f"✓  Batch complete — {total_renamed} files renamed "
+            f"across {show_count} shows")
+
+    # ── Detail panel ──────────────────────────────────────────────
+    from .detail_panel import reset_detail
+    reset_detail(app)
+    app.detail_header.configure(text="BATCH RENAME COMPLETE")
+    app.detail_ep_title.configure(
+        text=f"{total_renamed} files renamed\nacross {show_count} shows")
+    app.detail_overview.configure(text="")
 
 
 def show_already_renamed(app, report: CompletenessReport | None) -> None:

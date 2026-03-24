@@ -104,19 +104,31 @@ def display_preview(app) -> None:
     canvas_w = max(600, cv.winfo_width())
     s = app.dpi_scale
     margin_x = int(4 * s)
-    margin_y = int(2 * s)
-    pad_x = int(14 * s)
-    pad_y = int(10 * s)
-    bar_w = int(4 * s)
-    check_w = int(28 * s)
-    badge_h = badge_text_h + int(8 * s)
-    badge_px = int(6 * s)
-    gap = int(6 * s)
+    margin_y = int(1 * s)
+    bar_w = int(3 * s)
+    badge_px = int(4 * s)
+    gap = int(3 * s)
 
-    font_orig_t = ("Helvetica", 11)
-    font_new_t = ("Helvetica", 10)
-    font_badge_t = ("Helvetica", 8, "bold")
-    font_check_t = ("Helvetica", 14)
+    # Use compact layout in batch TV mode (many episodes visible)
+    is_compact = is_tv_mode and app.batch_mode
+    if is_compact:
+        pad_x = int(6 * s)
+        pad_y = int(3 * s)
+        check_w = int(20 * s)
+        font_orig_t = ("Helvetica", 9)
+        font_new_t = ("Helvetica", 8)
+        font_badge_t = ("Helvetica", 7, "bold")
+        font_check_t = ("Helvetica", 12)
+    else:
+        pad_x = int(10 * s)
+        pad_y = int(5 * s)
+        check_w = int(24 * s)
+        font_orig_t = ("Helvetica", 11)
+        font_new_t = ("Helvetica", 10)
+        font_badge_t = ("Helvetica", 8, "bold")
+        font_check_t = ("Helvetica", 14)
+
+    badge_h = badge_text_h + int(4 * s) if not is_compact else badge_text_h + int(2 * s)
     font_header_t = ("Helvetica", 10, "bold")
     font_header_sub_t = ("Helvetica", 9)
 
@@ -307,7 +319,7 @@ def display_preview(app) -> None:
 
         # Compute actual card height
         content_bottom = text_y + line2_actual_h + pad_y
-        row_h = max(int(44 * s), content_bottom - y)
+        row_h = max(int(32 * s), content_bottom - y)
         if has_thumb:
             row_h = max(row_h, thumb_h + pad_y * 2)
 
@@ -751,12 +763,20 @@ def _clear_season_details(app) -> None:
 
 
 def _update_rename_button_style(app) -> None:
-    """Set rename button to green 'Complete' style when series is fully matched."""
+    """Set button to green 'Complete' style when series is fully matched."""
     report = app._completeness
-    if report and report.is_complete:
-        app.btn_rename.configure(style="Complete.TButton", text="✓ Rename Files")
+    # Determine the correct base text based on mode
+    if app.batch_mode:
+        base_text = "Add All to Queue"
+        complete_text = "✓ Add All to Queue"
     else:
-        app.btn_rename.configure(style="Accent.TButton", text="Rename Files")
+        base_text = "Add to Queue"
+        complete_text = "✓ Add to Queue"
+
+    if report and report.is_complete:
+        app.btn_rename.configure(style="Complete.TButton", text=complete_text)
+    else:
+        app.btn_rename.configure(style="Accent.TButton", text=base_text)
 
 
 # ─── Search / selection ──────────────────────────────────────────────────────
@@ -791,6 +811,33 @@ def select_all(app) -> None:
         if k in app.check_vars:
             app.check_vars[k].set(new_val)
     update_tally(app)
+    display_preview(app)
+
+
+def select_by_status(app, statuses: set[str]) -> None:
+    """Check items whose status matches one of *statuses*, uncheck others."""
+    for i, item in enumerate(app.preview_items):
+        key = str(i)
+        var = app.check_vars.get(key)
+        if var is None:
+            continue
+        if not _is_actionable(item):
+            continue
+        should_check = any(s in item.status for s in statuses)
+        var.set(should_check)
+    update_tally(app)
+    display_preview(app)
+
+
+def select_none(app) -> None:
+    """Uncheck all actionable checkboxes."""
+    for i, item in enumerate(app.preview_items):
+        key = str(i)
+        var = app.check_vars.get(key)
+        if var is not None and _is_actionable(item):
+            var.set(False)
+    update_tally(app)
+    display_preview(app)
 
 
 def update_tally(app) -> None:
@@ -832,3 +879,8 @@ def _refresh_completeness(app) -> None:
         app._completeness = app.tv_scanner.get_completeness(
             app.preview_items, checked_indices=checked)
         display_completeness(app)
+
+        # In batch mode, refresh the library totals bar
+        if app.batch_mode and app.active_scan is not None:
+            from . import library_panel
+            library_panel.update_library_totals(app)
