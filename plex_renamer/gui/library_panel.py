@@ -1,9 +1,9 @@
 """
-Library panel — renders the left-side show roster for batch TV mode.
+Library panel — renders the left-side media roster.
 
-Each show gets a card with poster thumbnail, title, match confidence,
-episode counts, and status indicators.  Clicking a show populates the
-middle preview panel with that show's episode data.
+Each entry gets a card with poster thumbnail, title, match confidence,
+file counts, and status indicators. Clicking a card populates the
+middle preview panel with that entry's current preview data.
 
 All functions take the app instance to access library_canvas and state.
 """
@@ -13,6 +13,7 @@ from __future__ import annotations
 import tkinter as tk
 from dataclasses import dataclass
 
+from ..constants import MediaType
 from ..engine import AUTO_ACCEPT_THRESHOLD, ScanState, score_results
 from ..parsing import clean_folder_name, extract_year
 from ..styles import COLORS
@@ -110,10 +111,58 @@ def _confidence_text(state: ScanState) -> str:
     return f"Needs review ({pct}%)"
 
 
+def _library_thumb_key(state: ScanState, thumb_w: int, thumb_h: int) -> tuple:
+    """Stable cache key for a library thumbnail."""
+    return (
+        state.show_id,
+        state.media_info.get("poster_path"),
+        str(state.folder),
+        thumb_w,
+        thumb_h,
+    )
+
+
+def _library_media_type(state: ScanState) -> str:
+    """Infer the media type for a roster entry thumbnail."""
+    media_type = state.media_info.get("_media_type")
+    if media_type:
+        return media_type
+    if state.media_info.get("name"):
+        return MediaType.TV
+    return MediaType.MOVIE
+
+
+def _set_show_selected_visual(app, index: int, selected: bool) -> None:
+    """Update card highlight for a single show without redrawing the full roster."""
+    cv = app.library_canvas
+    c = COLORS
+    tag = f"lib_item_{index}"
+    fill = c["bg_card_selected"] if selected else c["bg_card"]
+    outline = c["accent"] if selected else c["border"]
+    for item_id in cv.find_withtag(tag):
+        if cv.type(item_id) == "rectangle" and "lib_card" in cv.gettags(item_id):
+            cv.itemconfigure(item_id, fill=fill, outline=outline)
+
+
+def _update_show_check_visual(app, index: int) -> None:
+    """Update the master checkbox glyph for one show card."""
+    if index >= len(app.library_states):
+        return
+    state = app.library_states[index]
+    cv = app.library_canvas
+    c = COLORS
+    tag = f"lib_item_{index}"
+    check_char = "☑" if state.checked else "☐"
+    check_color = c["accent"] if state.checked else c["border_light"]
+    for item_id in cv.find_withtag(tag):
+        if "lib_check" in cv.gettags(item_id):
+            cv.itemconfigure(item_id, text=check_char, fill=check_color)
+
+
 # ─── Main rendering ──────────────────────────────────────────────────────────
 
 def display_library(app) -> None:
-    """Render the library roster from app.batch_states onto library_canvas."""
+    """Render the current media roster from app.library_states onto library_canvas."""
     c = COLORS
     cv = app.library_canvas
 
@@ -121,12 +170,20 @@ def display_library(app) -> None:
     app._library_card_positions = []
     app._library_alt_positions = []
 
-    if not app.batch_states:
+    if not app.library_states:
+        empty_title = "No media selected"
+        empty_hint = "Select a TV folder, movie folder, or movie file(s)"
+        if app.media_type == MediaType.TV:
+            empty_title = "No TV shows loaded"
+            empty_hint = "Select a TV folder to build a roster"
+        elif app.media_type == MediaType.MOVIE:
+            empty_title = "No movies loaded"
+            empty_hint = "Select a movie folder or movie file(s)"
         cv.create_text(
-            20, 40, text="No shows found",
+            20, 40, text=empty_title,
             fill=c["text_muted"], font=("Helvetica", 11), anchor="w")
         cv.create_text(
-            20, 62, text="Select a TV library folder",
+            20, 62, text=empty_hint,
             fill=c["text_muted"], font=("Helvetica", 9), anchor="w")
         cv.configure(scrollregion=(0, 0, 240, 100))
         return
@@ -135,22 +192,27 @@ def display_library(app) -> None:
     m = LibraryMetrics.from_scale(app.dpi_scale)
     s = app.dpi_scale
 
-    # Build display order: queued items sink to the bottom,
-    # otherwise preserve the engine sort (quality groups → alpha).
-    display_indices = list(range(len(app.batch_states)))
+    # Build display order by result group, preserving original order within
+    # each group so the scanner's ordering still reads naturally.
+    display_indices = list(range(len(app.library_states)))
 
     # Respect "hide already properly named" setting
     hide_named = getattr(app, 'settings_hide_named', None)
     if hide_named and hide_named.get():
         display_indices = [
             i for i in display_indices
-            if not app.batch_states[i].all_skipped
+            if not app.library_states[i].all_skipped
         ]
 
-    display_indices.sort(key=lambda i: (
-        1 if app.batch_states[i].queued else 0,
-        i,  # preserve existing order within each group
-    ))
+    display_indices.sort(key=lambda i: (_group_sort_key(app.library_states[i]), i))
+
+    draw_group_headers = (
+        len(display_indices) > 1
+        and (
+            app.batch_mode
+            or getattr(app, "_active_library_mode", None) == MediaType.MOVIE
+        )
+    )
 
     # Track which quality group headings we've drawn
     _drawn_headers: set[str] = set()
@@ -158,11 +220,11 @@ def display_library(app) -> None:
     y = m.margin_y
 
     for index in display_indices:
-        state = app.batch_states[index]
+        state = app.library_states[index]
 
         # Group header
         header = _group_header_for(state)
-        if header and header not in _drawn_headers:
+        if draw_group_headers and header and header not in _drawn_headers:
             _drawn_headers.add(header)
             header_h = int(22 * s)
             cv.create_text(
@@ -200,6 +262,19 @@ def _group_header_for(state: ScanState) -> str | None:
     if state.needs_review:
         return "needs review"
     return "matched"
+
+
+def _group_sort_key(state: ScanState) -> int:
+    """Sort groups in the order they should appear in the library roster."""
+    header = _group_header_for(state)
+    order = {
+        "matched": 0,
+        "needs review": 1,
+        "no match": 2,
+        "duplicates": 3,
+        "queued": 4,
+    }
+    return order.get(header or "matched", 99)
 
 
 def _draw_show_card(
@@ -355,8 +430,10 @@ def _draw_show_card(
         tags=("lib_check", tag))
 
     # Poster thumbnail
-    thumb_key = f"_lib_thumb_{index}"
-    photo = getattr(app, thumb_key, None)
+    photo = app._library_thumb_cache.get(
+        _library_thumb_key(state, m.thumb_w, m.thumb_h),
+        app._library_placeholder,
+    )
     if photo:
         thumb_y = y + (row_h - m.thumb_h) // 2
         cv.create_image(
@@ -444,9 +521,9 @@ def _on_library_click_impl(app, event) -> None:
 
 def _apply_alternate_match(app, show_idx: int, alt_idx: int) -> None:
     """Apply an alternate TMDB match for a show."""
-    if show_idx >= len(app.batch_states):
+    if show_idx >= len(app.library_states):
         return
-    state = app.batch_states[show_idx]
+    state = app.library_states[show_idx]
     if alt_idx >= len(state.alternate_matches):
         return
 
@@ -472,16 +549,22 @@ def _apply_alternate_match(app, show_idx: int, alt_idx: int) -> None:
 
 def select_show(app, index: int) -> None:
     """Select a show and populate the middle panel with its episode preview."""
-    if index >= len(app.batch_states):
+    if index >= len(app.library_states):
         return
 
     # No need to save state — properties write directly to active_scan
+    previous_index = app._library_selected_index
     app._library_selected_index = index
-    state = app.batch_states[index]
+    state = app.library_states[index]
     app.active_scan = state
 
-    # Update library panel highlighting
-    display_library(app)
+    # Update library panel highlighting without redrawing the full roster
+    if app._library_card_positions:
+        if previous_index is not None and previous_index != index:
+            _set_show_selected_visual(app, previous_index, False)
+        _set_show_selected_visual(app, index, True)
+    else:
+        display_library(app)
 
     # Scroll selected card into view
     _scroll_to_show(app, index)
@@ -513,19 +596,34 @@ def _scroll_to_show(app, index: int) -> None:
 
 
 def _load_show_preview(app, state: ScanState) -> None:
-    """Load a show's data into the preview and detail panels."""
+    """Load a roster entry's data into the preview and detail panels."""
     from . import preview_canvas, detail_panel
+
+    if app.media_type == MediaType.MOVIE:
+        if app._active_content_mode != MediaType.MOVIE:
+            return
+        app._show_movie_library_state(state)
+        update_library_totals(app)
+        return
+
+    # Batch TV callbacks can finish after the user has switched to Movies.
+    # Preserve TV session state, but do not redraw the shared pane unless
+    # the TV tab currently owns it.
+    if app._active_content_mode != MediaType.TV:
+        return
 
     # If background scan is in progress for this show, show placeholder
     if state.scanning:
         cv, _, _ = app._clear_canvas()
         c = COLORS
+        s = app.dpi_scale
         cv.create_text(
-            20, 50, text=f"Scanning {state.display_name}...",
-            fill=c["text_muted"], font=("Helvetica", 13), anchor="w")
+            int(20 * s), int(44 * s), text=f"Scanning {state.display_name}...",
+            fill=c["text_muted"], font=("Helvetica", 13), anchor="nw")
         cv.create_text(
-            20, 78, text="Episode data will appear when the scan completes",
-            fill=c["text_muted"], font=("Helvetica", 10), anchor="w")
+            int(20 * s), int(78 * s),
+            text="Episode data will appear when the scan completes",
+            fill=c["text_muted"], font=("Helvetica", 10), anchor="nw")
         cv.configure(scrollregion=(0, 0, 600, 120))
         app.media_label_var.set(state.display_name)
         detail_panel.reset_detail(app)
@@ -585,10 +683,10 @@ def _load_show_preview(app, state: ScanState) -> None:
 
 def toggle_show_check(app, index: int) -> None:
     """Toggle a show's master checkbox. Duplicates and all-skipped shows cannot be checked."""
-    if index >= len(app.batch_states):
+    if index >= len(app.library_states):
         return
 
-    state = app.batch_states[index]
+    state = app.library_states[index]
 
     # Duplicates, all-skipped, and queued shows can't be toggled
     if state.duplicate_of is not None:
@@ -602,29 +700,46 @@ def toggle_show_check(app, index: int) -> None:
 
     # If this show's episodes are currently displayed, toggle all episode checkboxes
     if app.active_scan is state and state.check_vars:
+        from . import preview_canvas
+
+        key_values: dict[str, bool] = {}
         for key, var in state.check_vars.items():
             try:
-                idx = int(key)
-                item = state.preview_items[idx]
+                item_index = int(key)
+                item = state.preview_items[item_index]
                 if item.status == "OK" or "UNMATCHED" in item.status:
-                    var.set(state.checked)
+                    key_values[key] = state.checked
             except (ValueError, IndexError):
                 pass
+        preview_canvas._apply_bulk_check_values(
+            app, key_values, redraw_preview=True)
+    elif state.check_vars:
+        for key, var in state.check_vars.items():
+            try:
+                item_index = int(key)
+                item = state.preview_items[item_index]
+            except (ValueError, IndexError):
+                continue
+            if item.status == "OK" or "UNMATCHED" in item.status:
+                var.set(state.checked)
 
-    display_library(app)
+    if app._library_card_positions:
+        _update_show_check_visual(app, index)
+    else:
+        display_library(app)
     update_library_totals(app)
 
 
 def update_library_totals(app) -> None:
     """Update the totals bar at the bottom of the library panel."""
-    if not hasattr(app, 'library_totals_var') or not app.batch_states:
+    if not hasattr(app, 'library_totals_var') or not app.library_states:
         return
 
-    checked_shows = sum(1 for s in app.batch_states if s.checked and not s.queued)
-    total_shows = len(app.batch_states)
-    total_files = sum(s.file_count for s in app.batch_states if s.checked and not s.queued)
-    needs_review = sum(1 for s in app.batch_states if s.needs_review and not s.queued)
-    queued_shows = sum(1 for s in app.batch_states if s.queued)
+    checked_shows = sum(1 for s in app.library_states if s.checked and not s.queued)
+    total_shows = len(app.library_states)
+    total_files = sum(s.file_count for s in app.library_states if s.checked and not s.queued)
+    needs_review = sum(1 for s in app.library_states if s.needs_review and not s.queued)
+    queued_shows = sum(1 for s in app.library_states if s.queued)
 
     parts = [f"{checked_shows}/{total_shows} shows"]
     if total_files:
@@ -641,10 +756,10 @@ def update_library_totals(app) -> None:
 
 def load_library_thumbnails(app) -> None:
     """
-    Fetch poster thumbnails for all shows in batch_states.
+    Fetch poster thumbnails for all roster entries.
 
-    Stores them as app._lib_thumb_N attributes so they survive
-    garbage collection and can be referenced by display_library.
+    Caches them by stable media identity so reordering or rematching
+    doesn't force index-based thumbnail churn.
     """
     tmdb = app._ensure_tmdb()
     if not tmdb:
@@ -652,23 +767,43 @@ def load_library_thumbnails(app) -> None:
 
     from PIL import ImageTk
     from .helpers import create_placeholder_poster
+    from .queue_panel import _poster_dims, seed_poster_cache
 
     s = app.dpi_scale
     thumb_w = int(36 * s)
     thumb_h = int(54 * s)
+    queue_w, _ = _poster_dims(app)
+
+    signature = tuple(
+        _library_thumb_key(state, thumb_w, thumb_h)
+        for state in app.library_states
+    )
+    if signature == app._library_thumb_signature:
+        return
 
     placeholder_img = create_placeholder_poster(thumb_w, thumb_h)
     placeholder_photo = ImageTk.PhotoImage(placeholder_img)
-    app._lib_placeholder = placeholder_photo  # prevent GC
+    app._library_placeholder = placeholder_photo  # prevent GC
 
-    for index, state in enumerate(app.batch_states):
-        attr_name = f"_lib_thumb_{index}"
+    cache: dict[tuple, object] = dict(app._library_thumb_cache)
+
+    for state in app.library_states:
+        key = _library_thumb_key(state, thumb_w, thumb_h)
+        if key in cache:
+            continue
         poster_path = state.media_info.get("poster_path")
         if poster_path:
-            img = tmdb.fetch_image(poster_path, target_width=thumb_w)
+            img = tmdb.fetch_image(
+                poster_path, target_width=max(thumb_w, queue_w))
             if img:
+                seed_poster_cache(app, _library_media_type(state), state.show_id, img)
                 img = img.resize((thumb_w, thumb_h))
                 photo = ImageTk.PhotoImage(img)
-                setattr(app, attr_name, photo)
+                cache[key] = photo
                 continue
-        setattr(app, attr_name, placeholder_photo)
+        cache[key] = placeholder_photo
+
+    app._library_thumb_cache = {
+        key: cache[key] for key in signature if key in cache
+    }
+    app._library_thumb_signature = signature

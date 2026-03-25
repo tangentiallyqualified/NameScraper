@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+
+plex_renamer/test_library.zip

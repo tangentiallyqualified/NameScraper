@@ -17,7 +17,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageTk
 
-from ..constants import MediaType, VIDEO_EXTENSIONS
+from ..constants import MediaType
 from ..engine import (
     BatchTVOrchestrator,
     CompletenessReport,
@@ -95,12 +95,21 @@ class PlexRenamerApp:
         self.media_info: dict | None = None
         self.tmdb: TMDBClient | None = None
         self.movie_scanner: MovieScanner | None = None
+        self._active_content_mode: str = MediaType.TV
+        self._tv_root_folder: Path | None = None
+        self._movie_folder_state: Path | None = None
+        self._movie_media_info_state: dict | None = None
+        self._movie_label_text: str = "No media selected"
+        self._movie_preview_items_state: list[PreviewItem] = []
+        self._movie_check_vars_state: dict[str, tk.BooleanVar] = {}
+        self._movie_selected_index_state: int | None = None
+        self._movie_scanner_state: MovieScanner | None = None
 
-        # ScanState-backed attributes — when active_scan is set, these
-        # properties delegate to it transparently.  preview_canvas,
-        # detail_panel, and result_views read/write via these properties
-        # without knowing about the ScanState layer.
-        # Fallback values for when active_scan is None (movie modes):
+        # ScanState-backed attributes — TV flows delegate through
+        # active_scan transparently. preview_canvas, detail_panel,
+        # and result_views read/write via these properties without
+        # needing to know whether the current session is TV or movie.
+        # Movie flows keep their working state in these fallback fields.
         self._preview_items: list[PreviewItem] = []
         self._tv_scanner: TVScanner | None = None
         self._check_vars: dict[str, tk.BooleanVar] = {}
@@ -121,6 +130,18 @@ class PlexRenamerApp:
         self._result_collapsed_seasons: set[int] = set()
         self._last_rename_result: RenameResult | None = None
         self._last_renamed_items: list[PreviewItem] | None = None
+        self._preview_state_signature = None
+        self._preview_thumb_signature = None
+        self._preview_thumb_images: dict[int, object] = {}
+        self._preview_thumb_refs: list[object] = []
+        self._suspend_check_change_callbacks = 0
+        self._library_thumb_cache: dict[tuple, object] = {}
+        self._library_thumb_signature = None
+        self._library_placeholder = None
+        self._content_owner: str | None = None
+        self._active_library_mode: str | None = None
+        self._movie_library_states: list[ScanState] = []
+        self._tv_batch_mode_state: bool = False
 
         # ── Batch TV state ─────────────────────────────────────────
         self.batch_mode: bool = False
@@ -172,127 +193,104 @@ class PlexRenamerApp:
     # ══════════════════════════════════════════════════════════════════
     #  ScanState-backed properties
     # ══════════════════════════════════════════════════════════════════
-    # These delegate to active_scan when it's set (batch TV and
-    # single-show TV modes), otherwise fall back to the instance-level
-    # attributes (movie modes).  All external code reads/writes through
-    # these without knowing about ScanState.
+    # These delegate to active_scan for TV sessions and otherwise fall
+    # back to the instance-level movie state. All external code reads
+    # and writes through these without knowing about the session model.
+
+    def _get_scan_state_attr(self, scan_attr: str, fallback_attr: str):
+        """Read state from the active ScanState or the app fallback storage."""
+        scan = self.active_scan if self._active_content_mode == MediaType.TV else None
+        if scan is not None:
+            return getattr(scan, scan_attr)
+        return getattr(self, fallback_attr)
+
+    def _set_scan_state_attr(self, scan_attr: str, fallback_attr: str, value) -> None:
+        """Write state to the active ScanState or the app fallback storage."""
+        scan = self.active_scan if self._active_content_mode == MediaType.TV else None
+        if scan is not None:
+            setattr(scan, scan_attr, value)
+        else:
+            setattr(self, fallback_attr, value)
 
     @property
     def preview_items(self):
-        s = self.active_scan
-        return s.preview_items if s else self._preview_items
+        return self._get_scan_state_attr("preview_items", "_preview_items")
 
     @preview_items.setter
     def preview_items(self, value):
-        s = self.active_scan
-        if s:
-            s.preview_items = value
-        else:
-            self._preview_items = value
+        self._set_scan_state_attr("preview_items", "_preview_items", value)
+
+    @property
+    def library_states(self) -> list[ScanState]:
+        if self._active_library_mode == MediaType.MOVIE:
+            return self._movie_library_states
+        return self.batch_states
 
     @property
     def tv_scanner(self):
-        s = self.active_scan
-        return s.scanner if s else self._tv_scanner
+        return self._get_scan_state_attr("scanner", "_tv_scanner")
 
     @tv_scanner.setter
     def tv_scanner(self, value):
-        s = self.active_scan
-        if s:
-            s.scanner = value
-        else:
-            self._tv_scanner = value
+        self._set_scan_state_attr("scanner", "_tv_scanner", value)
 
     @property
     def check_vars(self):
-        s = self.active_scan
-        return s.check_vars if s else self._check_vars
+        return self._get_scan_state_attr("check_vars", "_check_vars")
 
     @check_vars.setter
     def check_vars(self, value):
-        s = self.active_scan
-        if s:
-            s.check_vars = value
-        else:
-            self._check_vars = value
+        self._set_scan_state_attr("check_vars", "_check_vars", value)
 
     @property
     def _selected_index(self):
-        s = self.active_scan
-        return s.selected_index if s else self.__selected_index
+        return self._get_scan_state_attr("selected_index", "_PlexRenamerApp__selected_index")
 
     @_selected_index.setter
     def _selected_index(self, value):
-        s = self.active_scan
-        if s:
-            s.selected_index = value
-        else:
-            self.__selected_index = value
+        self._set_scan_state_attr("selected_index", "_PlexRenamerApp__selected_index", value)
 
     @property
     def _card_positions(self):
-        s = self.active_scan
-        return s.card_positions if s else self.__card_positions
+        return self._get_scan_state_attr("card_positions", "_PlexRenamerApp__card_positions")
 
     @_card_positions.setter
     def _card_positions(self, value):
-        s = self.active_scan
-        if s:
-            s.card_positions = value
-        else:
-            self.__card_positions = value
+        self._set_scan_state_attr("card_positions", "_PlexRenamerApp__card_positions", value)
 
     @property
     def _season_header_positions(self):
-        s = self.active_scan
-        return s.season_header_positions if s else self.__season_header_positions
+        return self._get_scan_state_attr(
+            "season_header_positions", "_PlexRenamerApp__season_header_positions")
 
     @_season_header_positions.setter
     def _season_header_positions(self, value):
-        s = self.active_scan
-        if s:
-            s.season_header_positions = value
-        else:
-            self.__season_header_positions = value
+        self._set_scan_state_attr(
+            "season_header_positions", "_PlexRenamerApp__season_header_positions", value)
 
     @property
     def _display_order(self):
-        s = self.active_scan
-        return s.display_order if s else self.__display_order
+        return self._get_scan_state_attr("display_order", "_PlexRenamerApp__display_order")
 
     @_display_order.setter
     def _display_order(self, value):
-        s = self.active_scan
-        if s:
-            s.display_order = value
-        else:
-            self.__display_order = value
+        self._set_scan_state_attr("display_order", "_PlexRenamerApp__display_order", value)
 
     @property
     def _completeness(self):
-        s = self.active_scan
-        return s.completeness if s else self.__completeness
+        return self._get_scan_state_attr("completeness", "_PlexRenamerApp__completeness")
 
     @_completeness.setter
     def _completeness(self, value):
-        s = self.active_scan
-        if s:
-            s.completeness = value
-        else:
-            self.__completeness = value
+        self._set_scan_state_attr("completeness", "_PlexRenamerApp__completeness", value)
 
     @property
     def _collapsed_seasons(self):
-        s = self.active_scan
-        return s.collapsed_seasons if s else self.__collapsed_seasons
+        return self._get_scan_state_attr("collapsed_seasons", "_PlexRenamerApp__collapsed_seasons")
 
     @_collapsed_seasons.setter
     def _collapsed_seasons(self, value):
-        s = self.active_scan
-        if s:
-            s.collapsed_seasons = value
-        else:
-            self.__collapsed_seasons = value
+        self._set_scan_state_attr("collapsed_seasons", "_PlexRenamerApp__collapsed_seasons", value)
 
     # ══════════════════════════════════════════════════════════════════
     #  Layout
@@ -358,14 +356,11 @@ class PlexRenamerApp:
         def _on_main_tab_change(event):
             tab_id = self._main_notebook.select()
             idx = self._main_notebook.index(tab_id)
-            if idx == 0:  # TV Series tab (also hosts movie preview)
-                if not self.movie_scanner:
-                    self.media_type = MediaType.TV
+            if idx == 0:  # TV Series
+                self._restore_tv_tab_content()
                 self._queue_visible = False
             elif idx == 1:  # Movies
-                if self.media_type != MediaType.MOVIE:
-                    self.media_type = MediaType.MOVIE
-                    self._exit_batch_mode()
+                self._restore_movie_tab_content()
                 self._queue_visible = False
             elif idx == 2:  # Queue
                 self._queue_visible = True
@@ -465,9 +460,11 @@ class PlexRenamerApp:
         )
         self.btn_rename.pack(side="left")
 
+        self._tv_content_host = ttk.Frame(self._tv_tab)
+        self._tv_content_host.pack(fill="both", expand=True, padx=20)
+
         # ── TV content — three-panel grid ─────────────────────────────
-        self._content_frame = ttk.Frame(self._tv_tab)
-        self._content_frame.pack(fill="both", expand=True, padx=20)
+        self._content_frame = ttk.Frame(self._main_notebook)
         # col 0: library panel (batch TV only), col 1: preview, col 2: detail
         self._content_frame.columnconfigure(0, weight=0, minsize=0)
         self._content_frame.columnconfigure(1, weight=3, minsize=350)
@@ -496,7 +493,7 @@ class PlexRenamerApp:
             if abs(event.width - self._last_library_width) < 10:
                 return
             self._last_library_width = event.width
-            if self.batch_mode and self.batch_states:
+            if self.library_states:
                 self.root.after(100, lambda: library_panel.display_library(self))
         self.library_canvas.bind("<Configure>", _on_library_resize)
 
@@ -677,28 +674,29 @@ class PlexRenamerApp:
         movie_action_bar.pack(fill="x", padx=20, pady=(10, 6))
 
         movie_btn_frame = ttk.Frame(movie_action_bar)
-        movie_btn_frame.pack(side="left")
+        movie_btn_frame.pack(side="right")
 
         self.btn_select_movie_folder = ttk.Button(
-            movie_btn_frame, text="Select Folder",
+            movie_action_bar, text="Select Folder",
             command=self.pick_folder,
         )
-        self.btn_select_movie_folder.pack(side="left", padx=(0, 4))
-        self.btn_select_movie_files = ttk.Button(
-            movie_btn_frame, text="Select File(s)",
-            command=self.pick_files,
+        self.btn_select_movie_folder.pack(side="left")
+
+        self.btn_movie_rename = ttk.Button(
+            movie_btn_frame, text="Add to Queue", command=self._add_to_queue,
+            style="Accent.TButton",
         )
-        self.btn_select_movie_files.pack(side="left")
+        self.btn_movie_rename.pack(side="left")
 
         movie_info_label = ttk.Label(
-            movie_action_bar, text="Select a folder or file(s) to scan for movies",
+            movie_action_bar, text="Select a folder to scan for movies",
             foreground=c["text_dim"])
-        movie_info_label.pack(side="left", padx=16)
+        movie_info_label.pack(side="left", fill="x", expand=True, padx=16)
 
-        # Movie tab content area (placeholder — reuses the main preview
-        # panel which is always in the TV tab.  When Movie tab is active
-        # and a scan is running, pick_folder/pick_files detect media_type
-        # and route to the correct scanner.  The preview canvas is shared.)
+        self._movie_content_host = ttk.Frame(self._movie_tab)
+        self._movie_content_host.pack(fill="both", expand=True, padx=20)
+
+        self._mount_media_content(self._tv_content_host)
 
         # ── Status bar ────────────────────────────────────────────────
         self._status_bar = ttk.Frame(self.root, style="Mid.TFrame")
@@ -719,11 +717,12 @@ class PlexRenamerApp:
     #  Panel visibility
     # ══════════════════════════════════════════════════════════════════
 
-    def _show_library_panel(self):
-        """Show the library panel (batch TV mode) and adjust grid weights."""
+    def _show_library_panel(self, *, show_scan_all: bool = False):
+        """Show the library roster panel and adjust grid weights."""
         self._content_frame.columnconfigure(0, weight=1, minsize=220)
         self._content_frame.columnconfigure(1, weight=3, minsize=350)
         self._library_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        self._last_library_width = 0
 
         # Set up mousewheel routing for library canvas
         self.library_canvas.bind(
@@ -731,19 +730,354 @@ class PlexRenamerApp:
         self.library_canvas.bind(
             "<Leave>", lambda e: setattr(self, '_scroll_target', self.preview_canvas))
 
-        # Show batch-mode buttons
-        self.btn_scan_all.pack(side="left", padx=(8, 0))
-
-        # Update button text
-        self.btn_rename.configure(text="Add All to Queue")
+        if show_scan_all:
+            self.btn_scan_all.pack(side="left", padx=(8, 0))
+            self.btn_rename.configure(text="Add All to Queue")
+        else:
+            self.btn_scan_all.pack_forget()
+            self.btn_rename.configure(text="Add to Queue")
 
     def _hide_library_panel(self):
-        """Hide the library panel (single-show / movie mode)."""
+        """Hide the library panel."""
         self._library_frame.grid_forget()
         self._content_frame.columnconfigure(0, weight=0, minsize=0)
         self._content_frame.columnconfigure(1, weight=3, minsize=350)
         self.btn_scan_all.pack_forget()
         self.btn_rename.configure(text="Add to Queue")
+
+    def _reset_library_roster(self) -> None:
+        """Clear the shared library roster state before loading new media."""
+        self.active_scan = None
+        self._library_selected_index = None
+        self._library_card_positions = []
+        self._library_alt_positions = []
+        self._active_library_mode = None
+        self._movie_library_states = []
+
+    def _build_movie_library_info(self, item: PreviewItem | None = None) -> dict:
+        """Build roster metadata for a movie entry or the overall movie batch."""
+        info = {
+            "id": 0,
+            "title": self._movie_label_text or "Movies",
+            "_media_type": MediaType.MOVIE,
+        }
+        if item is not None:
+            info["title"] = item.new_name or item.original.stem
+            if self.movie_scanner:
+                movie_data = self.movie_scanner.movie_info.get(item.original)
+                if movie_data:
+                    info.update(movie_data)
+            info.setdefault("folder_name", item.original.parent.name)
+            return info
+
+        if self.movie_scanner and self._movie_preview_items_state:
+            for movie_item in self._movie_preview_items_state:
+                movie_data = self.movie_scanner.movie_info.get(movie_item.original)
+                if movie_data and movie_data.get("poster_path"):
+                    info.update(movie_data)
+                    return info
+        if self._movie_folder_state:
+            info.setdefault("folder_name", self._movie_folder_state.name)
+        elif self.folder:
+            info.setdefault("folder_name", self.folder.name)
+        return info
+
+    @staticmethod
+    def _movie_item_is_actionable(item: PreviewItem) -> bool:
+        return item.status == "OK" or "UNMATCHED" in item.status
+
+    def _movie_item_default_checked(self, item: PreviewItem) -> bool:
+        if not self._movie_item_is_actionable(item):
+            return False
+        return not (
+            item.new_name == item.original.name
+            and (item.target_dir is None or item.target_dir == item.original.parent)
+        )
+
+    def _collect_movie_batch_state(self) -> tuple[list[PreviewItem], dict[str, tk.BooleanVar]]:
+        """Flatten per-movie roster state back into the movie batch session state."""
+        items: list[PreviewItem] = []
+        check_vars: dict[str, tk.BooleanVar] = {}
+        for idx, state in enumerate(self._movie_library_states):
+            if not state.preview_items:
+                continue
+            items.append(state.preview_items[0])
+            var = state.check_vars.get("0")
+            if var is not None:
+                check_vars[str(idx)] = var
+        return items, check_vars
+
+    def _sync_movie_library_state(
+        self,
+        *,
+        scanned: bool | None = None,
+        scanning: bool | None = None,
+    ) -> None:
+        """Mirror the movie batch session into per-movie roster entries."""
+        if self._active_library_mode != MediaType.MOVIE:
+            return
+
+        root_folder = self._movie_folder_state or self.folder
+        previous_states = {
+            state.preview_items[0].original: state
+            for state in self._movie_library_states
+            if state.preview_items
+        }
+
+        valid_keys = {str(i) for i in range(len(self._movie_preview_items_state))}
+        self._movie_check_vars_state = {
+            key: var for key, var in self._movie_check_vars_state.items()
+            if key in valid_keys
+        }
+
+        movie_states: list[ScanState] = []
+        for idx, item in enumerate(self._movie_preview_items_state):
+            key = str(idx)
+            var = self._movie_check_vars_state.get(key)
+            if var is None:
+                var = tk.BooleanVar(value=self._movie_item_default_checked(item))
+                var.trace_add("write", lambda *_: preview_canvas._on_check_changed(self))
+                self._movie_check_vars_state[key] = var
+
+            previous_state = previous_states.get(item.original)
+            state = ScanState(
+                folder=root_folder or item.original.parent,
+                media_info=self._build_movie_library_info(item),
+            )
+            state.preview_items = [item]
+            state.check_vars = {"0": var}
+            state.selected_index = 0 if self._library_selected_index == idx else None
+            state.confidence = 0.0 if "REVIEW" in item.status else 1.0
+            state.scanned = scanned if scanned is not None else bool(self._movie_preview_items_state)
+            state.scanning = scanning if scanning is not None else False
+            state.checked = bool(var.get()) if self._movie_item_is_actionable(item) else False
+            if item.status.startswith("CONFLICT:"):
+                state.duplicate_of = item.status.removeprefix("CONFLICT:").strip()
+                state.checked = False
+            else:
+                state.duplicate_of = None
+            if previous_state is not None:
+                state.queued = previous_state.queued
+            movie_states.append(state)
+
+        if not movie_states and scanning:
+            placeholder = ScanState(
+                folder=root_folder or Path("."),
+                media_info=self._build_movie_library_info(),
+            )
+            placeholder.scanned = False
+            placeholder.scanning = True
+            placeholder.checked = False
+            movie_states.append(placeholder)
+
+        self._movie_library_states = movie_states
+        if self._library_selected_index is not None and self._library_selected_index >= len(movie_states):
+            self._library_selected_index = 0 if movie_states else None
+
+    def _show_movie_library_state(self, state: ScanState) -> None:
+        """Render the current movie roster entry in the shared preview/detail pane."""
+        self.media_type = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE
+        self.folder = self._movie_folder_state or state.folder
+        self.media_info = state.media_info
+        self.media_label_var.set(self._movie_label_text)
+        self.poster_label.configure(image="", text="")
+        self._poster_ref = None
+        self.show_info_label.configure(text="")
+        self.poster_row.pack_forget()
+        preview_canvas.clear_completeness(self)
+
+        if state.scanning:
+            cv, _, _ = self._clear_canvas()
+            c = COLORS
+            s = self.dpi_scale
+            cv.create_text(
+                int(20 * s), int(44 * s), text=f"Scanning {state.display_name}...",
+                fill=c["text_muted"], font=("Helvetica", 13), anchor="nw")
+            cv.create_text(
+                int(20 * s), int(78 * s),
+                text="Movie matches will appear when the scan completes",
+                fill=c["text_muted"], font=("Helvetica", 10), anchor="nw")
+            cv.configure(scrollregion=(0, 0, 600, 120))
+            detail_panel.reset_detail(self)
+            return
+
+        self._preview_items = list(state.preview_items)
+        self._check_vars = dict(state.check_vars)
+        self.__selected_index = state.selected_index
+        state.selected_index = 0 if state.preview_items else None
+        self._movie_selected_index_state = state.selected_index
+
+        if not self.preview_items:
+            self._clear_canvas()
+            detail_panel.reset_detail(self)
+            return
+
+        preview_canvas.display_preview(self)
+        if self._selected_index is not None and self._selected_index < len(self.preview_items):
+            preview_canvas.select_card(self, self._selected_index)
+            return
+
+        for idx, item in enumerate(self.preview_items):
+            if item.status == "OK" or "UNMATCHED" in item.status:
+                preview_canvas.select_card(self, idx)
+                return
+        detail_panel.reset_detail(self)
+
+    def _mount_media_content(self, target_host):
+        """Place the shared preview/detail content under the active media tab."""
+        if getattr(self, "_content_mount_host", None) is target_host:
+            return
+        self._content_frame.pack_forget()
+        self._content_frame.pack(in_=target_host, fill="both", expand=True)
+        self._content_mount_host = target_host
+
+    def _unmount_media_content(self):
+        """Hide the shared preview/detail content when the active tab does not own it."""
+        self._content_frame.pack_forget()
+        self._content_mount_host = None
+
+    def _save_movie_session_state(self):
+        """Persist the current movie-mode fallback state before TV mode mutates it."""
+        if self._active_content_mode == MediaType.MOVIE:
+            self._movie_folder_state = self._movie_folder_state or self.folder
+            if not self._movie_label_text:
+                self._movie_label_text = self.media_label_var.get()
+        if self._movie_library_states:
+            self._movie_preview_items_state, self._movie_check_vars_state = self._collect_movie_batch_state()
+            if (self._library_selected_index is not None
+                    and self._library_selected_index < len(self._movie_library_states)):
+                self._movie_selected_index_state = self._movie_library_states[
+                    self._library_selected_index].selected_index
+            else:
+                self._movie_selected_index_state = None
+        else:
+            self._movie_preview_items_state = list(self._preview_items)
+            self._movie_check_vars_state = dict(self._check_vars)
+            self._movie_selected_index_state = self.__selected_index
+        self._movie_scanner_state = self.movie_scanner
+
+    def _restore_tv_tab_content(self):
+        """Rebind the shared pane to the stored TV session."""
+        self.media_type = MediaType.TV
+        self._active_content_mode = MediaType.TV
+        self._active_library_mode = MediaType.TV
+        self.batch_mode = self._tv_batch_mode_state
+        if not self.batch_states:
+            self.active_scan = None
+        self._sync_queued_library_states()
+        self._mount_media_content(self._tv_content_host)
+
+        if self.batch_mode:
+            self._show_library_panel(show_scan_all=True)
+            self.root.update_idletasks()
+            library_panel.load_library_thumbnails(self)
+            library_panel.display_library(self)
+            if (self._library_selected_index is not None
+                    and self._library_selected_index < len(self.library_states)):
+                library_panel.select_show(self, self._library_selected_index)
+            else:
+                self._clear_canvas()
+                detail_panel.reset_detail(self)
+                if self._tv_root_folder:
+                    self.folder = self._tv_root_folder
+                    self.media_label_var.set(f"TV Library — {self._tv_root_folder.name}")
+            return
+
+        if self.library_states:
+            self._show_library_panel(show_scan_all=False)
+            self.root.update_idletasks()
+            library_panel.load_library_thumbnails(self)
+            library_panel.display_library(self)
+            index = self._library_selected_index or 0
+            if index < len(self.library_states):
+                library_panel.select_show(self, index)
+                return
+        else:
+            self._hide_library_panel()
+
+        if not self.active_scan:
+            self._clear_canvas()
+            detail_panel.reset_detail(self)
+            if self._tv_root_folder:
+                self.folder = self._tv_root_folder
+            return
+
+        self.folder = self.active_scan.folder
+        self.media_info = self.active_scan.media_info
+        self.media_label_var.set(self.active_scan.display_name)
+
+        tmdb = self.tmdb
+        if tmdb and self.active_scan.show_id:
+            detail_panel.display_poster(self, tmdb, self.active_scan.show_id, "tv")
+            detail_panel.populate_show_info(self, tmdb, self.active_scan.show_id)
+        else:
+            detail_panel.reset_detail(self)
+
+        preview_canvas.display_preview(self)
+        if self._completeness:
+            preview_canvas.display_completeness(self)
+        if self._selected_index is not None and self._selected_index < len(self.preview_items):
+            preview_canvas.select_card(self, self._selected_index)
+
+    def _restore_movie_tab_content(self):
+        """Rebind the shared pane to the stored movie session."""
+        self.media_type = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE
+        self._active_library_mode = MediaType.MOVIE
+        self.batch_mode = False
+        self._mount_media_content(self._movie_content_host)
+        if self._resize_after_id:
+            self.root.after_cancel(self._resize_after_id)
+            self._resize_after_id = None
+        self._last_canvas_width = 0
+        self.root.update_idletasks()
+
+        self._preview_items = list(self._movie_preview_items_state)
+        self._check_vars = dict(self._movie_check_vars_state)
+        self.__selected_index = self._movie_selected_index_state
+        self.movie_scanner = self._movie_scanner_state
+        self.folder = self._movie_folder_state
+        self.media_info = self._movie_media_info_state
+        self.media_label_var.set(self._movie_label_text)
+        self.poster_label.configure(image="", text="")
+        self._poster_ref = None
+        self.show_info_label.configure(text="")
+        self.poster_row.pack_forget()
+        preview_canvas.clear_completeness(self)
+
+        self._sync_movie_library_state()
+        self._sync_queued_library_states()
+
+        if self.library_states:
+            self._show_library_panel(show_scan_all=False)
+            self.root.update_idletasks()
+            library_panel.load_library_thumbnails(self)
+            library_panel.display_library(self)
+        else:
+            self._hide_library_panel()
+
+        if self.library_states:
+            index = self._library_selected_index or 0
+            if index < len(self.library_states):
+                self.root.after_idle(lambda: library_panel.select_show(self, index))
+                return
+
+        if not self.preview_items:
+            self._clear_canvas()
+            detail_panel.reset_detail(self)
+            return
+
+        def _render_movie_preview():
+            if self._active_content_mode != MediaType.MOVIE:
+                return
+            preview_canvas.display_preview(self)
+            if self._selected_index is not None and self._selected_index < len(self.preview_items):
+                preview_canvas.select_card(self, self._selected_index)
+            else:
+                detail_panel.reset_detail(self)
+
+        self.root.after_idle(_render_movie_preview)
 
     # ══════════════════════════════════════════════════════════════════
     #  TMDB Client
@@ -777,10 +1111,43 @@ class PlexRenamerApp:
         self._selected_index = None
         return cv, max(600, cv.winfo_width()), self.dpi_scale
 
+    def _show_scan_overlay(self, message: str = "Scanning...",
+                           sub: str = "") -> None:
+        """Show a prominent scanning indicator on the preview canvas."""
+        c = self.c
+        cv = self.preview_canvas
+        cv.delete("all")
+        self._canvas_in_preview_mode = False
+        w = max(600, cv.winfo_width())
+        h = max(400, cv.winfo_height())
+
+        # Centered message
+        cv.create_text(
+            w // 2, h // 2 - 30, text=message,
+            fill=c["accent"], font=("Helvetica", 16, "bold"),
+            anchor="center")
+        if sub:
+            cv.create_text(
+                w // 2, h // 2 + 10, text=sub,
+                fill=c["text_dim"], font=("Helvetica", 11),
+                anchor="center")
+
+        # Animated dots (simple text that gets updated)
+        self._scan_overlay_id = cv.create_text(
+            w // 2, h // 2 + 40, text="",
+            fill=c["text_muted"], font=("Helvetica", 10),
+            anchor="center", tags=("scan_progress",))
+        cv.configure(scrollregion=(0, 0, w, h))
+
+    def _update_scan_overlay(self, text: str) -> None:
+        """Update the scanning overlay progress text."""
+        cv = self.preview_canvas
+        for cid in cv.find_withtag("scan_progress"):
+            cv.itemconfigure(cid, text=text)
+
     def _set_scan_buttons_enabled(self, enabled: bool):
         state = "normal" if enabled else "disabled"
-        for btn in (self.btn_select_folder, self.btn_select_movie_folder,
-                    self.btn_select_movie_files):
+        for btn in (self.btn_select_folder, self.btn_select_movie_folder):
             try:
                 btn.configure(state=state)
             except Exception:
@@ -814,39 +1181,15 @@ class PlexRenamerApp:
             if BatchTVOrchestrator.is_tv_library(self.folder):
                 self._start_batch_tv(tmdb)
             else:
-                # Single show mode — hide library panel if it was showing
-                self._exit_batch_mode()
+                self.batch_mode = False
+                self.batch_orchestrator = None
                 folder_name = self.folder.name
                 cleaned = clean_folder_name(folder_name)
                 search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", cleaned).strip()
                 self._search_tv(tmdb, search_query, folder_name)
         else:
-            self._exit_batch_mode()
-            # Switch to TV tab where preview/detail panels live
-            self._main_notebook.select(0)
+            self.media_type = MediaType.MOVIE
             self._setup_movie_scan(tmdb)
-
-    def pick_files(self):
-        ext_list = " ".join(f"*{e}" for e in sorted(VIDEO_EXTENSIONS))
-        files = filedialog.askopenfilenames(
-            title="Select Movie File(s)",
-            filetypes=[("Video files", ext_list), ("All files", "*.*")],
-        )
-        if not files:
-            return
-        file_paths = [Path(f) for f in files]
-        self.folder = file_paths[0].parent
-        self.status_var.set(f"Selected: {len(file_paths)} file(s) in {self.folder}")
-
-        tmdb = self._ensure_tmdb()
-        if not tmdb:
-            return
-        # Ensure media_type is movie (pick_files is movie-only)
-        self.media_type = MediaType.MOVIE
-        self._exit_batch_mode()
-        # Switch to TV tab where preview/detail panels live
-        self._main_notebook.select(0)
-        self._setup_movie_scan(tmdb, files=file_paths)
 
     def _search_tv(self, tmdb: TMDBClient, query: str, raw_name: str):
         results = tmdb.search_with_fallback(query, tmdb.search_tv)
@@ -883,7 +1226,17 @@ class PlexRenamerApp:
     def _accept_tv_show(self, tmdb: TMDBClient, chosen: dict):
         # Create a ScanState for single-show mode so the property
         # accessors route through it — same code path as batch mode.
+        self._save_movie_session_state()
+        self._tv_batch_mode_state = False
+        self.batch_mode = False
+        self.batch_orchestrator = None
+        self._reset_library_roster()
         scanner = TVScanner(tmdb, chosen, self.folder)
+        self._content_owner = MediaType.TV
+        self._active_content_mode = MediaType.TV
+        self._active_library_mode = MediaType.TV
+        self._tv_root_folder = self.folder
+        self._mount_media_content(self._tv_content_host)
         self.active_scan = ScanState(
             folder=self.folder,
             media_info=chosen,
@@ -891,10 +1244,16 @@ class PlexRenamerApp:
             confidence=1.0,
             scanned=False,
         )
+        self.batch_states = [self.active_scan]
+        self._library_selected_index = 0
         self.media_info = chosen
-        self.movie_scanner = None
         self._selected_index = None
         preview_canvas.clear_completeness(self)
+        self._show_library_panel(show_scan_all=False)
+        self.root.update_idletasks()
+        library_panel.load_library_thumbnails(self)
+        library_panel.display_library(self)
+        self._last_canvas_width = self.preview_canvas.winfo_width()
 
         # Clear any previous detail content (e.g. from movie mode)
         detail_panel.reset_detail(self)
@@ -907,6 +1266,8 @@ class PlexRenamerApp:
         self.status_var.set("Scanning files...")
         self.root.update_idletasks()
         self.run_preview()
+        library_panel.load_library_thumbnails(self)
+        library_panel.display_library(self)
 
     # ══════════════════════════════════════════════════════════════════
     #  Batch TV mode
@@ -914,28 +1275,34 @@ class PlexRenamerApp:
 
     def _start_batch_tv(self, tmdb: TMDBClient):
         """Enter batch TV mode: discover shows, match on TMDB, show library panel."""
+        self._save_movie_session_state()
+        self._tv_batch_mode_state = True
         self.batch_mode = True
-        self.batch_states = []
-        self.active_scan = None
+        self._content_owner = MediaType.TV
+        self._active_content_mode = MediaType.TV
+        self._tv_root_folder = self.folder
+        self._mount_media_content(self._tv_content_host)
+        self._reset_library_roster()
+        self._active_library_mode = MediaType.TV
         self.batch_orchestrator = BatchTVOrchestrator(tmdb, self.folder)
-        self._library_selected_index = None
-        self._library_card_positions = []
-        self._library_alt_positions = []
+        self.batch_states = []
 
         self.media_info = None
         self.tv_scanner = None
-        self.movie_scanner = None
         self.preview_items = []
         self.check_vars = {}
         self._selected_index = None
 
-        self._show_library_panel()
+        self._show_library_panel(show_scan_all=True)
         self.media_label_var.set(f"TV Library — {self.folder.name}")
         self.status_var.set("Discovering shows...")
         self.root.update_idletasks()
 
-        # Clear preview + detail panels
+        # Clear preview + detail panels and show scanning overlay
         self._clear_canvas()
+        self._show_scan_overlay(
+            "Scanning TV Library",
+            f"Discovering shows in {self.folder.name}...")
         detail_panel.reset_detail(self)
         preview_canvas.clear_completeness(self)
 
@@ -950,6 +1317,7 @@ class PlexRenamerApp:
             self.root.after(0, lambda: (
                 self.status_var.set(f"Matching shows... {done}/{total}"),
                 self.progress_var.set(done / total * 100 if total else 0),
+                self._update_scan_overlay(f"Matching shows on TMDB... {done}/{total}"),
             ))
 
         def _discover_worker():
@@ -1008,8 +1376,17 @@ class PlexRenamerApp:
         error_holder: list[Exception | None] = [None]
 
         def _progress(done, total):
-            self.root.after(0, lambda d=done, t=total: (
-                self.status_var.set(f"Scanning episodes... {d}/{t}"),
+            # Show which show is being scanned
+            current_name = ""
+            if done <= len(self.batch_states):
+                to_scan = [
+                    s for s in self.batch_states
+                    if not s.scanned and not s.queued and s.show_id is not None
+                ]
+                if done > 0 and done <= len(to_scan):
+                    current_name = to_scan[done - 1].display_name
+            self.root.after(0, lambda d=done, t=total, n=current_name: (
+                self.status_var.set(f"Scanning episodes... {d}/{t}" + (f" — {n}" if n else "")),
                 self.progress_var.set(d / t * 100 if t else 0),
             ))
 
@@ -1048,13 +1425,12 @@ class PlexRenamerApp:
         """Exit batch mode and return to single-show layout."""
         if not self.batch_mode:
             return
+        self._tv_batch_mode_state = False
         self.batch_mode = False
+        self._content_owner = None
+        self._reset_library_roster()
         self.batch_states = []
-        self.active_scan = None
         self.batch_orchestrator = None
-        self._library_selected_index = None
-        self._library_card_positions = []
-        self._library_alt_positions = []
         self._hide_library_panel()
 
         # Clear stale preview/detail content from the batch session
@@ -1072,8 +1448,10 @@ class PlexRenamerApp:
         if not self.batch_mode or not self.batch_orchestrator:
             return
 
-        unscanned = [s for s in self.batch_states
-                     if not s.scanned and s.show_id is not None]
+        unscanned = [
+            s for s in self.batch_states
+            if not s.scanned and not s.queued and s.show_id is not None
+        ]
         if not unscanned:
             messagebox.showinfo("Nothing to scan",
                                 "All shows are already scanned.")
@@ -1119,10 +1497,29 @@ class PlexRenamerApp:
 
         threading.Thread(target=_scan_worker, daemon=True).start()
 
-    def _setup_movie_scan(self, tmdb: TMDBClient, files: list[Path] | None = None):
-        self.media_info = {"_type": "movie_batch"}
-        self.movie_scanner = MovieScanner(tmdb, self.folder, files=files)
+    def _setup_movie_scan(self, tmdb: TMDBClient):
+        self.media_type = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE
+        self._content_owner = MediaType.MOVIE
+        self.batch_mode = False
+        self.batch_orchestrator = None
+        self._reset_library_roster()
+        self._active_library_mode = MediaType.MOVIE
+        self._movie_folder_state = self.folder
+        self._movie_preview_items_state = []
+        self._movie_check_vars_state = {}
+        self._movie_selected_index_state = None
+        self._movie_library_states = []
+        if self._main_notebook.index(self._main_notebook.select()) != 1:
+            self._main_notebook.select(self._movie_tab)
+        self._mount_media_content(self._movie_content_host)
+        self.media_info = {"_type": "movie_batch", "_media_type": MediaType.MOVIE}
+        self._movie_media_info_state = self.media_info
+        self.movie_scanner = MovieScanner(tmdb, self.folder)
+        self._movie_scanner_state = self.movie_scanner
         self.tv_scanner = None
+        self.preview_items = []
+        self.check_vars = {}
         self._selected_index = None
         preview_canvas.clear_completeness(self)
 
@@ -1132,34 +1529,16 @@ class PlexRenamerApp:
         self.poster_row.pack_forget()
         detail_panel.reset_detail(self)
 
-        if files and len(files) == 1:
-            self.media_label_var.set(f"Movie — {files[0].name}")
-        elif files:
-            self.media_label_var.set(f"Movies — {len(files)} files selected")
-        else:
-            self.media_label_var.set(f"Movies — {self.folder.name}")
-
-        if files and len(files) == 1:
-            self._run_single_movie_scan(files[0])
-        else:
-            self.run_preview()
-
-    def _run_single_movie_scan(self, file_path: Path):
-        self.status_var.set("Searching TMDB...")
+        self.media_label_var.set(f"Movies — {self.folder.name}")
+        self._movie_label_text = self.media_label_var.get()
+        self.active_scan = None
+        self._library_selected_index = None
+        self._sync_movie_library_state(scanned=False, scanning=True)
+        self._show_library_panel(show_scan_all=False)
         self.root.update_idletasks()
-
-        self.preview_items = self.movie_scanner.scan(pick_movie_callback=None)
-        check_duplicates(self.preview_items)
-        preview_canvas.display_preview(self)
-
-        ok_items = [it for it in self.preview_items if it.status == "OK"]
-        if is_already_complete(self.preview_items):
-            result_views.show_already_renamed_movies(self, ok_items)
-            return
-
-        if len(ok_items) == 1:
-            idx = self.preview_items.index(ok_items[0])
-            preview_canvas.select_card(self, idx)
+        library_panel.display_library(self)
+        self._save_movie_session_state()
+        self.run_preview()
 
     # ══════════════════════════════════════════════════════════════════
     #  Preview scanning
@@ -1204,6 +1583,12 @@ class PlexRenamerApp:
             self._completeness = self.tv_scanner.get_completeness(
                 self.preview_items, checked_indices=initial_checked)
 
+            if self.library_states:
+                library_panel.load_library_thumbnails(self)
+                library_panel.display_library(self)
+                self.root.update_idletasks()
+                self._last_canvas_width = self.preview_canvas.winfo_width()
+
             preview_canvas.display_preview(self)
             preview_canvas.display_completeness(self)
 
@@ -1223,6 +1608,9 @@ class PlexRenamerApp:
                         self.movie_scanner = MovieScanner(tmdb, self.folder)
                 else:
                     self.movie_scanner = MovieScanner(tmdb, self.folder)
+            self._movie_scanner_state = self.movie_scanner
+            self._sync_movie_library_state(scanned=False, scanning=True)
+            library_panel.display_library(self)
             self._run_movie_scan_async()
 
     def _run_movie_scan_async(self):
@@ -1262,39 +1650,92 @@ class PlexRenamerApp:
                 self.status_var.set("Scan failed.")
                 return
 
-            self.preview_items = result_holder[0] or []
-            check_duplicates(self.preview_items)
+            movie_items = result_holder[0] or []
+            check_duplicates(movie_items)
+            movie_preview_items = [
+                item for item in movie_items if item.media_type == MediaType.MOVIE
+            ]
+            skipped_count = len(movie_items) - len(movie_preview_items)
 
-            ok_items = [it for it in self.preview_items if it.status == "OK"]
+            if not movie_preview_items:
+                self._movie_preview_items_state = []
+                self._movie_check_vars_state = {}
+                self._library_selected_index = None
+                self._movie_selected_index_state = None
+                self._sync_movie_library_state(scanned=True, scanning=False)
+                library_panel.display_library(self)
+                self._clear_canvas()
+                detail_panel.reset_detail(self)
+                self.status_var.set(
+                    "No movie files found"
+                    + (f"  ·  skipped {skipped_count} non-movie file(s)"
+                       if skipped_count else "")
+                )
+                return
+
+            ok_items = [it for it in movie_preview_items if it.status == "OK"]
             already_done = [
                 it for it in ok_items
                 if it.new_name == it.original.name
                 and (it.target_dir is None or it.target_dir == it.original.parent)
             ]
             needs_action = [
-                it for it in self.preview_items
+                it for it in movie_preview_items
                 if it not in already_done
             ]
 
-            if is_already_complete(self.preview_items) and not needs_action:
+            if is_already_complete(movie_preview_items) and not needs_action:
+                self._movie_preview_items_state = list(movie_preview_items)
+                self._sync_movie_library_state(scanned=True, scanning=False)
+                library_panel.load_library_thumbnails(self)
+                library_panel.display_library(self)
+                self._preview_items = list(movie_preview_items)
+                self._check_vars = {}
+                self.__selected_index = None
                 preview_canvas.display_preview(self)
                 result_views.show_already_renamed_movies(self, already_done)
                 return
 
             if already_done and needs_action:
-                self.preview_items = needs_action
-                check_duplicates(self.preview_items)
-                preview_canvas.display_preview(self)
+                movie_preview_items = needs_action
+                check_duplicates(movie_preview_items)
                 self.status_var.set(
                     f"Preview: {len(needs_action)} file(s) to review  ·  "
-                    f"{len(already_done)} already properly named")
-            else:
-                preview_canvas.display_preview(self)
+                    f"{len(already_done)} already properly named"
+                    + (f"  ·  skipped {skipped_count} non-movie file(s)"
+                       if skipped_count else "")
+                )
+            elif skipped_count:
+                self.status_var.set(
+                    f"Preview: {len(movie_preview_items)} movie file(s)  ·  "
+                    f"skipped {skipped_count} non-movie file(s)"
+                )
 
-            ok_remaining = [it for it in self.preview_items if it.status == "OK"]
-            if ok_remaining:
-                idx = self.preview_items.index(ok_remaining[0])
-                preview_canvas.select_card(self, idx)
+            self._movie_preview_items_state = list(movie_preview_items)
+            self._movie_check_vars_state = {
+                key: var for key, var in self._movie_check_vars_state.items()
+                if key in {str(i) for i in range(len(movie_preview_items))}
+            }
+            self._library_selected_index = 0 if movie_preview_items else None
+            self._movie_selected_index_state = 0 if movie_preview_items else None
+            self._sync_movie_library_state(scanned=True, scanning=False)
+            library_panel.load_library_thumbnails(self)
+            library_panel.display_library(self)
+
+            if self.library_states:
+                preferred_index = next(
+                    (
+                        idx for idx, state in enumerate(self.library_states)
+                        if state.preview_items
+                        and self._movie_item_is_actionable(state.preview_items[0])
+                    ),
+                    0,
+                )
+                self._library_selected_index = preferred_index
+                library_panel.select_show(self, preferred_index)
+            else:
+                self._clear_canvas()
+                detail_panel.reset_detail(self)
 
         threading.Thread(target=_scan_worker, daemon=True).start()
 
@@ -1303,7 +1744,7 @@ class PlexRenamerApp:
     # ══════════════════════════════════════════════════════════════════
 
     def _rematch_selected_movie(self):
-        if self._selected_index is None:
+        if self._selected_index is None or self._library_selected_index is None:
             return
         item = self.preview_items[self._selected_index]
         if item.media_type != MediaType.MOVIE or not self.movie_scanner:
@@ -1325,17 +1766,17 @@ class PlexRenamerApp:
             return
 
         new_item = self.movie_scanner.rematch_file(item, chosen)
-        self.preview_items[self._selected_index] = new_item
-        check_duplicates(self.preview_items)
+        self._movie_preview_items_state[self._library_selected_index] = new_item
+        check_duplicates(self._movie_preview_items_state)
 
-        # Force the rematched item to be checked — it's now a valid OK match.
-        # Set it in check_vars before display_preview so saved_checks picks it up.
-        key = str(self._selected_index)
-        if key in self.check_vars:
-            self.check_vars[key].set(True)
+        key = str(self._library_selected_index)
+        if key in self._movie_check_vars_state:
+            self._movie_check_vars_state[key].set(True)
 
-        preview_canvas.display_preview(self)
-        preview_canvas.select_card(self, self._selected_index)
+        self._sync_movie_library_state(scanned=True, scanning=False)
+        library_panel.load_library_thumbnails(self)
+        library_panel.display_library(self)
+        library_panel.select_show(self, self._library_selected_index)
 
     # ══════════════════════════════════════════════════════════════════
     #  Add to Queue / Legacy Rename / Undo
@@ -1350,6 +1791,10 @@ class PlexRenamerApp:
 
     def _add_single_to_queue(self):
         """Add the current single-show or movie to the job queue."""
+        if self.media_type == MediaType.MOVIE and self.library_states:
+            self._add_movie_batch_to_queue()
+            return
+
         if not self.preview_items or not self.check_vars:
             messagebox.showwarning(
                 "Preview First", "Scan and review files before queueing.")
@@ -1414,11 +1859,75 @@ class PlexRenamerApp:
         # Mark the active scan as queued (if applicable)
         if self.active_scan:
             self.active_scan.queued = True
-            if self.batch_mode:
+            if self.library_states:
                 library_panel.display_library(self)
 
         self.status_var.set(
             f"Added '{media_name}' to queue ({len(checked)} files)")
+        self._update_queue_badge()
+
+    def _add_movie_batch_to_queue(self):
+        """Add selected movie rows as individual jobs in movie batch mode."""
+        if not self.library_states:
+            messagebox.showwarning(
+                "Preview First", "Scan and review files before queueing.")
+            return
+
+        library_root = self._movie_folder_state or self.folder
+        if library_root is None:
+            messagebox.showwarning("Not Ready", "Select a movie folder first.")
+            return
+
+        added = 0
+        skipped_dup = 0
+        skipped_queued = 0
+
+        for state in self.library_states:
+            if not state.preview_items or not state.scanned or state.scanning:
+                continue
+            if state.queued:
+                skipped_queued += 1
+                continue
+
+            item = state.preview_items[0]
+            var = state.check_vars.get("0")
+            is_checked = bool(var.get()) if var is not None else state.checked
+            if not is_checked or not self._movie_item_is_actionable(item) or not item.new_name:
+                continue
+            if (
+                item.new_name == item.original.name
+                and (item.target_dir is None or item.target_dir == item.original.parent)
+            ):
+                continue
+
+            job = build_rename_job_from_items(
+                items=[item],
+                checked_indices={0},
+                media_type=MediaType.MOVIE,
+                tmdb_id=state.show_id or 0,
+                media_name=state.display_name,
+                library_root=library_root,
+                source_folder=item.original.parent,
+            )
+
+            try:
+                self.job_store.add_job(job)
+                state.queued = True
+                added += 1
+            except DuplicateJobError:
+                skipped_dup += 1
+
+        if added:
+            library_panel.display_library(self)
+
+        if not added and not skipped_dup and not skipped_queued:
+            messagebox.showinfo("Nothing to do", "No movies selected.")
+        else:
+            self.status_var.set(
+                f"Added {added} movie job(s) to queue"
+                + (f" ({skipped_dup + skipped_queued} already queued)"
+                   if (skipped_dup + skipped_queued) else "")
+            )
         self._update_queue_badge()
 
     def _add_batch_to_queue(self):
@@ -1792,7 +2301,7 @@ class PlexRenamerApp:
 
     def _on_settings_changed(self):
         """Refresh displays when settings change."""
-        if self.batch_mode and self.batch_states:
+        if self.library_states:
             library_panel.display_library(self)
 
     def _restore_queued_states(self):
@@ -1814,6 +2323,23 @@ class PlexRenamerApp:
                     and state.show_id in queued_ids
                     and state.duplicate_of is None):
                 state.queued = True
+
+    def _sync_queued_library_states(self) -> None:
+        """Refresh queued flags for TV and movie rosters from the job store."""
+        queued_keys = {
+            (job.media_type, job.tmdb_id)
+            for job in self.job_store.get_queue()
+            if job.tmdb_id
+        }
+
+        for state in self.batch_states:
+            if state.duplicate_of is not None:
+                state.queued = False
+                continue
+            state.queued = (MediaType.TV, state.show_id or 0) in queued_keys
+
+        for state in self._movie_library_states:
+            state.queued = (MediaType.MOVIE, state.show_id or 0) in queued_keys
 
     def _update_queue_badge(self):
         """Update Queue and History tab titles with count badges."""
