@@ -631,6 +631,64 @@ class TMDBClient:
             "movie_cache": dict(self._movie_cache),
         }
 
+    @staticmethod
+    def _normalize_episode_map_keys(mapping: dict | None) -> dict[int, Any]:
+        """Convert JSON-restored episode maps back to integer-keyed dictionaries."""
+        if not mapping:
+            return {}
+
+        normalized: dict[int, Any] = {}
+        for key, value in mapping.items():
+            try:
+                normalized[int(key)] = value
+            except (TypeError, ValueError):
+                continue
+        return normalized
+
+    @classmethod
+    def _normalize_season_map_snapshot(cls, season_map: dict | None) -> dict[int, dict[str, Any]]:
+        """Convert JSON-restored season maps back to the runtime integer-keyed shape."""
+        if not season_map:
+            return {}
+
+        normalized: dict[int, dict[str, Any]] = {}
+        for season_key, season_data in season_map.items():
+            try:
+                season_num = int(season_key)
+            except (TypeError, ValueError):
+                continue
+
+            payload = season_data or {}
+            normalized[season_num] = {
+                "titles": cls._normalize_episode_map_keys(payload.get("titles", {})),
+                "posters": cls._normalize_episode_map_keys(payload.get("posters", {})),
+                "episodes": cls._normalize_episode_map_keys(payload.get("episodes", {})),
+                "count": int(payload.get("count", 0)),
+            }
+            if "season_poster_path" in payload:
+                normalized[season_num]["season_poster_path"] = payload.get("season_poster_path")
+
+        return normalized
+
+    @classmethod
+    def _normalize_season_snapshot(cls, season_data: dict | None) -> dict[str, Any]:
+        """Convert a cached season payload restored from JSON back to runtime shape."""
+        if not season_data:
+            return {
+                "titles": {},
+                "posters": {},
+                "episodes": {},
+            }
+
+        normalized = {
+            "titles": cls._normalize_episode_map_keys(season_data.get("titles", {})),
+            "posters": cls._normalize_episode_map_keys(season_data.get("posters", {})),
+            "episodes": cls._normalize_episode_map_keys(season_data.get("episodes", {})),
+        }
+        if "season_poster_path" in season_data:
+            normalized["season_poster_path"] = season_data.get("season_poster_path")
+        return normalized
+
     def import_cache_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
         """Hydrate the in-memory metadata caches from a persisted snapshot."""
         if not snapshot:
@@ -643,11 +701,13 @@ class TMDBClient:
 
         for cache_key, data in snapshot.get("season_cache", {}).items():
             show_id_str, season_num_str = str(cache_key).split(":", 1)
-            self._season_cache[(int(show_id_str), int(season_num_str))] = data
+            self._season_cache[(int(show_id_str), int(season_num_str))] = (
+                self._normalize_season_snapshot(data)
+            )
 
         for show_id, data in snapshot.get("season_map_cache", {}).items():
             self._season_map_cache[int(show_id)] = (
-                data.get("seasons", {}),
+                self._normalize_season_map_snapshot(data.get("seasons", {})),
                 int(data.get("total_episodes", 0)),
             )
 

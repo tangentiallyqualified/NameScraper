@@ -2,3 +2,5 @@ __pycache__/
 *.py[cod]
 
 plex_renamer/test_library.zip
+docs/gui3-pyside6-migration-plan.md
+docs/local/

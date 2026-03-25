@@ -659,7 +659,11 @@ class TVScanner:
         """Fetch TMDB season map. Cached after first call (also cached in TMDBClient)."""
         if self._tmdb_seasons is not None:
             return self._tmdb_seasons
-        self._tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        raw_tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
+        self._tmdb_seasons = {
+            int(season_num): season_data
+            for season_num, season_data in raw_tmdb_seasons.items()
+        }
         return self._tmdb_seasons
 
     def invalidate_cache(self) -> None:
@@ -1470,6 +1474,14 @@ class MovieScanner:
         """
         self.movie_info[item.original] = chosen
         return _build_movie_preview_item(item.original, chosen, self.root)
+
+    def set_movie_info(self, f: Path, info: dict) -> None:
+        """Hydrate cached movie metadata for a file during session restore."""
+        self.movie_info[f] = dict(info)
+
+    def set_search_results(self, f: Path, results: list[dict]) -> None:
+        """Hydrate cached TMDB search results for a file during session restore."""
+        self._search_cache[f] = list(results)
 
     def get_search_results(self, f: Path) -> list[dict]:
         """Return cached TMDB search results for a file."""

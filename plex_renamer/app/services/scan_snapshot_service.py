@@ -41,23 +41,35 @@ class ScanSnapshotService:
         states: list[ScanState],
     ) -> SnapshotEnvelope:
         """Persist a batch or single-session scan snapshot."""
-        payload = self._load_all()
+        payload = self._load_payload()
+        snapshots = payload["snapshots"]
         envelope = SnapshotEnvelope(
             snapshot_id=snapshot_id,
             media_type=media_type,
             library_root=str(library_root),
             states=[self._serialize_state(state) for state in states],
         )
-        if snapshot_id in payload:
-            envelope.created_at = payload[snapshot_id].get("created_at", envelope.created_at)
-        payload[snapshot_id] = asdict(envelope)
-        self._save_all(payload)
+        if snapshot_id in snapshots:
+            envelope.created_at = snapshots[snapshot_id].get("created_at", envelope.created_at)
+        snapshots[snapshot_id] = asdict(envelope)
+        self._save_payload(payload)
         return envelope
+
+    def set_active_snapshot_id(self, snapshot_id: str | None) -> None:
+        """Record which snapshot should be restored first on startup."""
+        payload = self._load_payload()
+        payload["active_snapshot_id"] = snapshot_id
+        self._save_payload(payload)
+
+    def get_active_snapshot_id(self) -> str | None:
+        """Return the snapshot id marked as the preferred restore target."""
+        payload = self._load_payload()
+        return payload.get("active_snapshot_id")
 
     def load_snapshot(self, snapshot_id: str) -> SnapshotEnvelope | None:
         """Load a stored snapshot envelope by id."""
-        payload = self._load_all()
-        record = payload.get(snapshot_id)
+        payload = self._load_payload()
+        record = payload["snapshots"].get(snapshot_id)
         if record is None:
             return None
         return SnapshotEnvelope(**record)
@@ -72,27 +84,35 @@ class ScanSnapshotService:
 
     def list_snapshots(self) -> list[SnapshotEnvelope]:
         """Return all stored snapshots in update order."""
-        payload = self._load_all()
-        envelopes = [SnapshotEnvelope(**record) for record in payload.values()]
+        payload = self._load_payload()
+        envelopes = [SnapshotEnvelope(**record) for record in payload["snapshots"].values()]
         envelopes.sort(key=lambda item: item.updated_at, reverse=True)
         return envelopes
 
     def delete_snapshot(self, snapshot_id: str) -> bool:
         """Delete a persisted snapshot if it exists."""
-        payload = self._load_all()
-        if snapshot_id not in payload:
+        payload = self._load_payload()
+        if snapshot_id not in payload["snapshots"]:
             return False
-        del payload[snapshot_id]
-        self._save_all(payload)
+        del payload["snapshots"][snapshot_id]
+        if payload.get("active_snapshot_id") == snapshot_id:
+            payload["active_snapshot_id"] = None
+        self._save_payload(payload)
         return True
 
-    def _load_all(self) -> dict[str, dict[str, Any]]:
+    def _load_payload(self) -> dict[str, Any]:
         ensure_log_dir()
         if not self._snapshot_file.exists():
-            return {}
-        return json.loads(self._snapshot_file.read_text(encoding="utf-8"))
+            return {"active_snapshot_id": None, "snapshots": {}}
+        raw = json.loads(self._snapshot_file.read_text(encoding="utf-8"))
+        if "snapshots" in raw:
+            return {
+                "active_snapshot_id": raw.get("active_snapshot_id"),
+                "snapshots": raw.get("snapshots", {}),
+            }
+        return {"active_snapshot_id": None, "snapshots": raw}
 
-    def _save_all(self, payload: dict[str, dict[str, Any]]) -> None:
+    def _save_payload(self, payload: dict[str, Any]) -> None:
         ensure_log_dir()
         self._snapshot_file.write_text(
             json.dumps(payload, indent=2, sort_keys=True),
@@ -116,16 +136,26 @@ class ScanSnapshotService:
         }
 
     def _deserialize_state(self, payload: dict[str, Any]) -> ScanState:
+        preview_items = [
+            self._deserialize_item(item)
+            for item in payload.get("preview_items", [])
+        ]
+        completeness = self._deserialize_completeness(payload.get("completeness"))
+        scanning = bool(payload.get("scanning", False))
+        scanned = bool(payload.get("scanned", False))
+        if not scanned and not scanning and (preview_items or completeness is not None):
+            scanned = True
+
         state = ScanState(
             folder=Path(payload["folder"]),
             media_info=payload["media_info"],
-            preview_items=[self._deserialize_item(item) for item in payload.get("preview_items", [])],
-            completeness=self._deserialize_completeness(payload.get("completeness")),
+            preview_items=preview_items,
+            completeness=completeness,
             confidence=payload.get("confidence", 0.0),
             alternate_matches=list(payload.get("alternate_matches", [])),
             search_results=list(payload.get("search_results", [])),
-            scanned=bool(payload.get("scanned", False)),
-            scanning=bool(payload.get("scanning", False)),
+            scanned=scanned,
+            scanning=scanning,
             checked=bool(payload.get("checked", True)),
             duplicate_of=payload.get("duplicate_of"),
             queued=bool(payload.get("queued", False)),

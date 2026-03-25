@@ -642,6 +642,9 @@ def _load_show_preview(app, state: ScanState) -> None:
                 traceback.print_exc()
                 app.status_var.set(f"Scan failed for {state.display_name}: {e}")
                 return
+            display_library(app)
+            if hasattr(app, "_request_persistence"):
+                app._request_persistence("tv", "cache")
             app.status_var.set(f"Loaded: {state.display_name}")
 
     # active_scan is already set by select_show() — the app's property
