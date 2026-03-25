@@ -17,7 +17,13 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageTk
 
-from ..app.services import CommandGatingService
+from ..app.models import ScanLifecycle, ScanProgress
+from ..app.services import (
+    CommandGatingService,
+    PersistentCacheService,
+    RefreshPolicyService,
+    ScanSnapshotService,
+)
 from ..constants import MediaType
 from ..engine import (
     BatchTVOrchestrator,
@@ -56,6 +62,13 @@ from .helpers import (
     setup_detail_mousewheel,
     show_progress,
 )
+
+
+TMDB_CACHE_NAMESPACE = "tmdb"
+TMDB_CACHE_SNAPSHOT_KEY = "client_snapshot"
+SNAPSHOT_TV_SINGLE = "tv_single"
+SNAPSHOT_TV_BATCH = "tv_batch"
+SNAPSHOT_MOVIE_BATCH = "movie_batch"
 
 
 class PlexRenamerApp:
@@ -157,6 +170,10 @@ class PlexRenamerApp:
         self.job_store: JobStore = JobStore()
         self.queue_executor: QueueExecutor = QueueExecutor(self.job_store)
         self.command_gating = CommandGatingService()
+        self.cache_service = PersistentCacheService()
+        self.refresh_policy = RefreshPolicyService()
+        self.snapshot_service = ScanSnapshotService()
+        self.scan_progress = ScanProgress()
 
         # Register an app-level listener for badge updates.
         # NOTE: The queue_panel's _start_executor() calls
@@ -191,6 +208,7 @@ class PlexRenamerApp:
 
         # Initialize tab badges from database (persisted queue/history)
         self._update_queue_badge()
+        self._restore_last_session_snapshot()
 
     # ══════════════════════════════════════════════════════════════════
     #  ScanState-backed properties
@@ -1082,19 +1100,213 @@ class PlexRenamerApp:
         self.root.after_idle(_render_movie_preview)
 
     # ══════════════════════════════════════════════════════════════════
+    #  Phase 1 state services
+    # ══════════════════════════════════════════════════════════════════
+
+    def _set_scan_progress(
+        self,
+        lifecycle: ScanLifecycle,
+        *,
+        phase: str = "",
+        done: int = 0,
+        total: int = 0,
+        current_item: str | None = None,
+        message: str | None = None,
+        overlay_text: str | None = None,
+    ) -> None:
+        """Update the structured scan progress model and mirror it to tkinter state."""
+        if message is None:
+            if total:
+                message = f"{phase} {done}/{total}"
+                if current_item:
+                    message += f" — {current_item}"
+            else:
+                message = phase or lifecycle.value.replace("_", " ").title()
+
+        self.scan_progress = ScanProgress(
+            lifecycle=lifecycle,
+            phase=phase,
+            done=done,
+            total=total,
+            current_item=current_item,
+            message=message,
+        )
+        self.status_var.set(message)
+        self.progress_var.set(self.scan_progress.percent)
+        if overlay_text is not None:
+            self._update_scan_overlay(overlay_text)
+
+    def _reset_scan_progress(self, message: str = "Ready — select a folder to begin") -> None:
+        """Reset the scan progress model to idle."""
+        self.scan_progress = ScanProgress(
+            lifecycle=ScanLifecycle.IDLE,
+            message=message,
+        )
+        self.status_var.set(message)
+        self.progress_var.set(0)
+
+    def _persist_tmdb_cache_snapshot(self) -> None:
+        """Persist the current TMDB in-memory cache snapshot to local storage."""
+        if not self.tmdb:
+            return
+        snapshot = self.tmdb.export_cache_snapshot()
+        self.cache_service.put(
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+            snapshot,
+            expires_at=self.refresh_policy.build_expiry(
+                refreshed_at=None,
+                media_type=MediaType.TV,
+            ),
+            metadata={"kind": "tmdb_cache_snapshot"},
+        )
+
+    def _persist_snapshot(self, snapshot_id: str, media_type: str, library_root: Path, states: list[ScanState]) -> None:
+        """Persist a serializable scan snapshot or delete it when empty."""
+        if not states:
+            self.snapshot_service.delete_snapshot(snapshot_id)
+            return
+        self.snapshot_service.save_snapshot(
+            snapshot_id,
+            media_type=media_type,
+            library_root=library_root,
+            states=states,
+        )
+
+    def _persist_tv_snapshot(self) -> None:
+        """Persist the current TV session state."""
+        if self.batch_mode and self.batch_states:
+            root = self._tv_root_folder or self.folder or self.batch_states[0].folder
+            self._persist_snapshot(SNAPSHOT_TV_BATCH, MediaType.TV, root, self.batch_states)
+            self.snapshot_service.delete_snapshot(SNAPSHOT_TV_SINGLE)
+            return
+
+        if self.active_scan is not None:
+            root = self.active_scan.folder.parent
+            self._persist_snapshot(SNAPSHOT_TV_SINGLE, MediaType.TV, root, [self.active_scan])
+            self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
+            return
+
+        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_SINGLE)
+        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
+
+    def _persist_movie_snapshot(self) -> None:
+        """Persist the current movie session state."""
+        if self._active_content_mode == MediaType.MOVIE:
+            self._save_movie_session_state()
+            self._sync_movie_library_state()
+
+        states = list(self._movie_library_states)
+        root = self._movie_folder_state or self.folder
+        if root is None or not states:
+            self.snapshot_service.delete_snapshot(SNAPSHOT_MOVIE_BATCH)
+            return
+        self._persist_snapshot(SNAPSHOT_MOVIE_BATCH, MediaType.MOVIE, root, states)
+
+    def _restore_last_session_snapshot(self) -> None:
+        """Restore the most recent persisted scan snapshot into the current UI shell."""
+        snapshots = self.snapshot_service.list_snapshots()
+        if not snapshots:
+            return
+
+        latest = snapshots[0]
+        restored = self.snapshot_service.restore_states(latest.snapshot_id)
+        if restored is None:
+            return
+
+        _media_type, library_root, states = restored
+        if latest.snapshot_id == SNAPSHOT_TV_BATCH and states:
+            tmdb = self._ensure_tmdb(warn=False)
+            self.folder = library_root
+            self._tv_root_folder = library_root
+            self._tv_batch_mode_state = True
+            self.batch_mode = True
+            self.batch_states = states
+            self.batch_orchestrator = None
+            if tmdb is not None:
+                self.batch_orchestrator = BatchTVOrchestrator(tmdb, library_root)
+                self.batch_orchestrator.states = self.batch_states
+            self.active_scan = None
+            self._library_selected_index = 0
+            self.media_label_var.set(f"TV Library — {library_root.name}")
+            self.status_var.set(f"Restored TV library session — {len(states)} shows")
+            self._main_notebook.select(self._tv_tab)
+            self.root.after_idle(self._restore_tv_tab_content)
+            return
+
+        if latest.snapshot_id == SNAPSHOT_TV_SINGLE and states:
+            tmdb = self._ensure_tmdb(warn=False)
+            self._tv_batch_mode_state = False
+            self.batch_mode = False
+            self.active_scan = states[0]
+            if tmdb is not None and self.active_scan.show_id and self.active_scan.scanner is None:
+                self.active_scan.scanner = TVScanner(
+                    tmdb,
+                    self.active_scan.media_info,
+                    self.active_scan.folder,
+                )
+            self.batch_states = [self.active_scan]
+            self.folder = self.active_scan.folder
+            self._tv_root_folder = self.active_scan.folder
+            self.media_info = self.active_scan.media_info
+            self._library_selected_index = 0
+            self.media_label_var.set(self.active_scan.display_name)
+            self.status_var.set(f"Restored show session — {self.active_scan.display_name}")
+            self._main_notebook.select(self._tv_tab)
+            self.root.after_idle(self._restore_tv_tab_content)
+            return
+
+        if latest.snapshot_id == SNAPSHOT_MOVIE_BATCH and states:
+            tmdb = self._ensure_tmdb(warn=False)
+            self._movie_folder_state = library_root
+            self.folder = library_root
+            self._movie_label_text = f"Movies — {library_root.name}"
+            self._movie_preview_items_state = [
+                state.preview_items[0]
+                for state in states
+                if state.preview_items
+            ]
+            self._movie_check_vars_state = {}
+            self._movie_selected_index_state = 0 if self._movie_preview_items_state else None
+            self._movie_library_states = states
+            self.media_info = {"_type": "movie_batch", "_media_type": MediaType.MOVIE}
+            self._movie_media_info_state = self.media_info
+            self._movie_scanner_state = MovieScanner(tmdb, library_root) if tmdb is not None else None
+            self._library_selected_index = 0 if self._movie_preview_items_state else None
+            self.status_var.set(f"Restored movie session — {len(self._movie_preview_items_state)} items")
+            self._main_notebook.select(self._movie_tab)
+            self.root.after_idle(self._restore_movie_tab_content)
+
+    # ══════════════════════════════════════════════════════════════════
     #  TMDB Client
     # ══════════════════════════════════════════════════════════════════
 
-    def _ensure_tmdb(self) -> TMDBClient | None:
+    def _ensure_tmdb(self, *, warn: bool = True) -> TMDBClient | None:
         """Get or create the shared TMDB client."""
         if self.tmdb is not None:
             return self.tmdb
         api_key = get_api_key("TMDB")
         if not api_key:
-            messagebox.showwarning(
-                "No Key", "Set your TMDB API key first via 'API Keys'.")
+            if warn:
+                messagebox.showwarning(
+                    "No Key", "Set your TMDB API key first via 'API Keys'.")
             return None
         self.tmdb = TMDBClient(api_key)
+        cached_snapshot = self.cache_service.get(
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+        )
+        if cached_snapshot.is_hit and cached_snapshot.value:
+            try:
+                self.tmdb.import_cache_snapshot(
+                    cached_snapshot.value,
+                    clear_existing=True,
+                )
+            except Exception:
+                self.cache_service.invalidate(
+                    TMDB_CACHE_NAMESPACE,
+                    TMDB_CACHE_SNAPSHOT_KEY,
+                )
         return self.tmdb
 
     # ══════════════════════════════════════════════════════════════════
@@ -1265,7 +1477,11 @@ class PlexRenamerApp:
         year = chosen.get("year", "")
         self.media_label_var.set(
             f"{chosen['name']}" + (f" ({year})" if year else ""))
-        self.status_var.set("Scanning files...")
+        self._set_scan_progress(
+            ScanLifecycle.SCANNING,
+            phase="Scanning TV files...",
+            message="Scanning TV files...",
+        )
         self.root.update_idletasks()
         self.run_preview()
         library_panel.load_library_thumbnails(self)
@@ -1297,7 +1513,11 @@ class PlexRenamerApp:
 
         self._show_library_panel(show_scan_all=True)
         self.media_label_var.set(f"TV Library — {self.folder.name}")
-        self.status_var.set("Discovering shows...")
+        self._set_scan_progress(
+            ScanLifecycle.DISCOVERING,
+            phase="Discovering shows...",
+            message="Discovering shows...",
+        )
         self.root.update_idletasks()
 
         # Clear preview + detail panels and show scanning overlay
@@ -1317,9 +1537,14 @@ class PlexRenamerApp:
 
         def _progress(done, total):
             self.root.after(0, lambda: (
-                self.status_var.set(f"Matching shows... {done}/{total}"),
-                self.progress_var.set(done / total * 100 if total else 0),
-                self._update_scan_overlay(f"Matching shows on TMDB... {done}/{total}"),
+                self._set_scan_progress(
+                    ScanLifecycle.MATCHING,
+                    phase="Matching shows...",
+                    done=done,
+                    total=total,
+                    message=f"Matching shows... {done}/{total}",
+                    overlay_text=f"Matching shows on TMDB... {done}/{total}",
+                ),
             ))
 
         def _discover_worker():
@@ -1338,21 +1563,36 @@ class PlexRenamerApp:
                 messagebox.showerror(
                     "Discovery Error",
                     f"Error during show discovery:\n{error_holder[0]}")
-                self.status_var.set("Discovery failed.")
+                self._set_scan_progress(
+                    ScanLifecycle.FAILED,
+                    phase="Discovery failed.",
+                    message="Discovery failed.",
+                )
                 return
 
             self.batch_states = result_holder[0] or []
             if not self.batch_states:
                 self._set_scan_buttons_enabled(True)
-                self.status_var.set("No TV shows found in this folder.")
+                self._set_scan_progress(
+                    ScanLifecycle.WARNING,
+                    phase="No TV shows found in this folder.",
+                    message="No TV shows found in this folder.",
+                )
                 library_panel.display_library(self)
                 return
 
             needs_review = sum(1 for s in self.batch_states if s.needs_review)
-            self.status_var.set(
-                f"Found {len(self.batch_states)} shows"
-                + (f" — {needs_review} need review" if needs_review else "")
-                + " — scanning episodes...")
+            self._set_scan_progress(
+                ScanLifecycle.READY,
+                phase="Discovery complete",
+                message=(
+                    f"Found {len(self.batch_states)} shows"
+                    + (f" — {needs_review} need review" if needs_review else "")
+                    + " — scanning episodes..."
+                ),
+            )
+            self._persist_tv_snapshot()
+            self._persist_tmdb_cache_snapshot()
 
             # Restore queued state from database (persists across restarts)
             self._restore_queued_states()
@@ -1388,8 +1628,14 @@ class PlexRenamerApp:
                 if done > 0 and done <= len(to_scan):
                     current_name = to_scan[done - 1].display_name
             self.root.after(0, lambda d=done, t=total, n=current_name: (
-                self.status_var.set(f"Scanning episodes... {d}/{t}" + (f" — {n}" if n else "")),
-                self.progress_var.set(d / t * 100 if t else 0),
+                self._set_scan_progress(
+                    ScanLifecycle.SCANNING,
+                    phase="Scanning episodes...",
+                    done=d,
+                    total=t,
+                    current_item=n or None,
+                    message=f"Scanning episodes... {d}/{t}" + (f" — {n}" if n else ""),
+                ),
             ))
 
         def _scan_worker():
@@ -1410,8 +1656,13 @@ class PlexRenamerApp:
 
             scanned = sum(1 for s in self.batch_states if s.scanned)
             total_files = sum(s.file_count for s in self.batch_states if s.scanned)
-            self.status_var.set(
-                f"Scanned {scanned} shows — {total_files} total files")
+            self._set_scan_progress(
+                ScanLifecycle.READY,
+                phase="Batch scan complete",
+                message=f"Scanned {scanned} shows — {total_files} total files",
+            )
+            self._persist_tv_snapshot()
+            self._persist_tmdb_cache_snapshot()
 
             # Refresh library panel with updated scan status
             library_panel.display_library(self)
@@ -1443,12 +1694,22 @@ class PlexRenamerApp:
         self.tv_scanner = None
         self.media_info = None
         self.media_label_var.set("No media selected")
-        self.status_var.set("Ready — select a folder to begin")
+        self._reset_scan_progress()
+        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
 
     def _scan_all_shows(self):
         """Rescan all shows (Phase 2) in batch mode."""
-        if not self.batch_mode or not self.batch_orchestrator:
+        if not self.batch_mode:
             return
+        if self.batch_orchestrator is None:
+            tmdb = self._ensure_tmdb()
+            if not tmdb:
+                return
+            root = self._tv_root_folder or self.folder
+            if root is None:
+                return
+            self.batch_orchestrator = BatchTVOrchestrator(tmdb, root)
+            self.batch_orchestrator.states = self.batch_states
 
         unscanned = [
             s for s in self.batch_states
@@ -1465,8 +1726,13 @@ class PlexRenamerApp:
 
         def _progress(done, total):
             self.root.after(0, lambda: (
-                self.status_var.set(f"Scanning shows... {done}/{total}"),
-                self.progress_var.set(done / total * 100 if total else 0),
+                self._set_scan_progress(
+                    ScanLifecycle.SCANNING,
+                    phase="Scanning shows...",
+                    done=done,
+                    total=total,
+                    message=f"Scanning shows... {done}/{total}",
+                ),
             ))
 
         def _scan_worker():
@@ -1487,8 +1753,13 @@ class PlexRenamerApp:
 
             scanned = sum(1 for s in self.batch_states if s.scanned)
             total_files = sum(s.file_count for s in self.batch_states if s.scanned)
-            self.status_var.set(
-                f"Scanned {scanned} shows — {total_files} total files")
+            self._set_scan_progress(
+                ScanLifecycle.READY,
+                phase="Batch scan complete",
+                message=f"Scanned {scanned} shows — {total_files} total files",
+            )
+            self._persist_tv_snapshot()
+            self._persist_tmdb_cache_snapshot()
 
             library_panel.display_library(self)
 
@@ -1565,7 +1836,13 @@ class PlexRenamerApp:
         self._selected_index = None
 
         if self.media_type == MediaType.TV and self.tv_scanner:
-            self.status_var.set("Scanning TV files...")
+            if self.active_scan is not None:
+                self.active_scan.scanning = True
+            self._set_scan_progress(
+                ScanLifecycle.SCANNING,
+                phase="Scanning TV files...",
+                message="Scanning TV files...",
+            )
             self.root.update_idletasks()
 
             items, has_mismatch = self.tv_scanner.scan()
@@ -1577,6 +1854,9 @@ class PlexRenamerApp:
 
             self.preview_items = items
             check_duplicates(self.preview_items)
+            if self.active_scan is not None:
+                self.active_scan.scanning = False
+                self.active_scan.scanned = True
 
             initial_checked = {
                 i for i, it in enumerate(self.preview_items)
@@ -1593,6 +1873,13 @@ class PlexRenamerApp:
 
             preview_canvas.display_preview(self)
             preview_canvas.display_completeness(self)
+            self._set_scan_progress(
+                ScanLifecycle.READY,
+                phase="TV scan complete",
+                message=f"Preview ready — {len(self.preview_items)} file(s)",
+            )
+            self._persist_tv_snapshot()
+            self._persist_tmdb_cache_snapshot()
 
             if is_already_complete(self.preview_items):
                 result_views.show_already_renamed(self, self._completeness)
@@ -1617,7 +1904,11 @@ class PlexRenamerApp:
 
     def _run_movie_scan_async(self):
         scanner = self.movie_scanner
-        self.status_var.set("Scanning files...")
+        self._set_scan_progress(
+            ScanLifecycle.SCANNING,
+            phase="Scanning files...",
+            message="Scanning files...",
+        )
         show_progress(self.progress_bar, self.progress_var, True)
         self._set_scan_buttons_enabled(False)
         self.root.update_idletasks()
@@ -1626,10 +1917,14 @@ class PlexRenamerApp:
         error_holder: list[Exception | None] = [None]
 
         def _progress(done, total, phase):
-            pct = (done / total * 100) if total else 0
             self.root.after(0, lambda: (
-                self.status_var.set(f"{phase} {done}/{total}"),
-                self.progress_var.set(pct),
+                self._set_scan_progress(
+                    ScanLifecycle.SCANNING,
+                    phase=phase,
+                    done=done,
+                    total=total,
+                    message=f"{phase} {done}/{total}",
+                ),
             ))
 
         def _scan_worker():
@@ -1649,7 +1944,11 @@ class PlexRenamerApp:
             if error_holder[0]:
                 messagebox.showerror(
                     "Scan Error", f"Error during scan:\n{error_holder[0]}")
-                self.status_var.set("Scan failed.")
+                self._set_scan_progress(
+                    ScanLifecycle.FAILED,
+                    phase="Scan failed.",
+                    message="Scan failed.",
+                )
                 return
 
             movie_items = result_holder[0] or []
@@ -1668,11 +1967,17 @@ class PlexRenamerApp:
                 library_panel.display_library(self)
                 self._clear_canvas()
                 detail_panel.reset_detail(self)
-                self.status_var.set(
-                    "No movie files found"
-                    + (f"  ·  skipped {skipped_count} non-movie file(s)"
-                       if skipped_count else "")
+                self._set_scan_progress(
+                    ScanLifecycle.WARNING,
+                    phase="Movie scan complete",
+                    message=(
+                        "No movie files found"
+                        + (f"  ·  skipped {skipped_count} non-movie file(s)"
+                           if skipped_count else "")
+                    ),
                 )
+                self.snapshot_service.delete_snapshot(SNAPSHOT_MOVIE_BATCH)
+                self._persist_tmdb_cache_snapshot()
                 return
 
             ok_items = [it for it in movie_preview_items if it.status == "OK"]
@@ -1695,22 +2000,43 @@ class PlexRenamerApp:
                 self._check_vars = {}
                 self.__selected_index = None
                 preview_canvas.display_preview(self)
+                self._set_scan_progress(
+                    ScanLifecycle.READY,
+                    phase="Movie scan complete",
+                    message=f"All {len(already_done)} movie file(s) are already properly named",
+                )
+                self._persist_movie_snapshot()
+                self._persist_tmdb_cache_snapshot()
                 result_views.show_already_renamed_movies(self, already_done)
                 return
 
             if already_done and needs_action:
                 movie_preview_items = needs_action
                 check_duplicates(movie_preview_items)
-                self.status_var.set(
-                    f"Preview: {len(needs_action)} file(s) to review  ·  "
-                    f"{len(already_done)} already properly named"
-                    + (f"  ·  skipped {skipped_count} non-movie file(s)"
-                       if skipped_count else "")
+                self._set_scan_progress(
+                    ScanLifecycle.READY,
+                    phase="Movie scan complete",
+                    message=(
+                        f"Preview: {len(needs_action)} file(s) to review  ·  "
+                        f"{len(already_done)} already properly named"
+                        + (f"  ·  skipped {skipped_count} non-movie file(s)"
+                           if skipped_count else "")
+                    ),
                 )
             elif skipped_count:
-                self.status_var.set(
-                    f"Preview: {len(movie_preview_items)} movie file(s)  ·  "
-                    f"skipped {skipped_count} non-movie file(s)"
+                self._set_scan_progress(
+                    ScanLifecycle.READY,
+                    phase="Movie scan complete",
+                    message=(
+                        f"Preview: {len(movie_preview_items)} movie file(s)  ·  "
+                        f"skipped {skipped_count} non-movie file(s)"
+                    ),
+                )
+            else:
+                self._set_scan_progress(
+                    ScanLifecycle.READY,
+                    phase="Movie scan complete",
+                    message=f"Preview ready — {len(movie_preview_items)} movie file(s)",
                 )
 
             self._movie_preview_items_state = list(movie_preview_items)
@@ -1738,6 +2064,9 @@ class PlexRenamerApp:
             else:
                 self._clear_canvas()
                 detail_panel.reset_detail(self)
+
+            self._persist_movie_snapshot()
+            self._persist_tmdb_cache_snapshot()
 
         threading.Thread(target=_scan_worker, daemon=True).start()
 
@@ -1779,6 +2108,8 @@ class PlexRenamerApp:
         library_panel.load_library_thumbnails(self)
         library_panel.display_library(self)
         library_panel.select_show(self, self._library_selected_index)
+        self._persist_movie_snapshot()
+        self._persist_tmdb_cache_snapshot()
 
     # ══════════════════════════════════════════════════════════════════
     #  Add to Queue / Legacy Rename / Undo
@@ -2352,6 +2683,9 @@ class PlexRenamerApp:
 
     def _on_close(self):
         """Clean shutdown: stop executor, close DB, destroy window."""
+        self._persist_tv_snapshot()
+        self._persist_movie_snapshot()
+        self._persist_tmdb_cache_snapshot()
         if self.queue_executor.is_running:
             self.queue_executor.stop()
         self.job_store.close()
