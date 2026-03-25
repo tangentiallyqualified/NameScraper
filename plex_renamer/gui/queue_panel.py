@@ -398,6 +398,7 @@ def build_queue_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         btn_rm.configure(state="disabled")
         btn_up.configure(state="disabled")
         btn_down.configure(state="disabled")
+        app._sync_queued_library_states()
         app._update_queue_badge()
 
     app._queue_tab_refresh = _refresh
@@ -586,6 +587,7 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
             JobStatus.CANCELLED, JobStatus.REVERTED))
         btn_clear.configure(state="normal" if hist_n else "disabled")
         btn_revert.configure(state="disabled")
+        app._sync_queued_library_states()
         app._update_queue_badge()
 
     app._history_tab_refresh = _refresh
@@ -639,12 +641,7 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
 # ─── Shared helper ───────────────────────────────────────────────────────────
 
 def _lib_refresh(app, removed):
-    if not app.batch_mode or not app.batch_states:
-        return
-    ids = {j.tmdb_id for _, j in removed}
-    for s in app.batch_states:
-        if s.queued and s.show_id in ids:
-            s.queued = False
+    app._sync_queued_library_states()
     try:
         from . import library_panel
         library_panel.display_library(app)

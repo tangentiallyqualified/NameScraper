@@ -715,6 +715,8 @@ def select_card(app, item_idx: int) -> None:
             cv.itemconfigure(tag_id, outline=c["accent"], fill=c["bg_card_selected"])
 
     app._selected_index = item_idx
+    if app.media_type == MediaType.MOVIE and app.active_scan is not None:
+        app.active_scan.selected_index = item_idx
 
     from .detail_panel import show_detail
     show_detail(app, item_idx)
@@ -973,6 +975,19 @@ def _on_check_changed(app) -> None:
     if getattr(app, "_suspend_check_change_callbacks", 0) > 0:
         return
     update_tally(app)
+    if app.media_type == MediaType.MOVIE and app.active_scan is not None:
+        from . import library_panel
+
+        app.active_scan.checked = any(
+            app.check_vars.get(str(i)) is not None
+            and app.check_vars[str(i)].get()
+            and _is_actionable(item)
+            for i, item in enumerate(app.preview_items)
+        )
+        app.active_scan.selected_index = app._selected_index
+        library_panel.display_library(app)
+        library_panel.update_library_totals(app)
+        return
     _cancel_pending_completeness_refresh(app)
     app._completeness_after_id = app.root.after(50, lambda: _refresh_completeness(app))
 

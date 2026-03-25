@@ -192,8 +192,8 @@ def display_library(app) -> None:
     m = LibraryMetrics.from_scale(app.dpi_scale)
     s = app.dpi_scale
 
-    # Build display order: queued items sink to the bottom,
-    # otherwise preserve the engine sort (quality groups → alpha).
+    # Build display order by result group, preserving original order within
+    # each group so the scanner's ordering still reads naturally.
     display_indices = list(range(len(app.library_states)))
 
     # Respect "hide already properly named" setting
@@ -204,12 +204,15 @@ def display_library(app) -> None:
             if not app.library_states[i].all_skipped
         ]
 
-    display_indices.sort(key=lambda i: (
-        1 if app.library_states[i].queued else 0,
-        i,  # preserve existing order within each group
-    ))
+    display_indices.sort(key=lambda i: (_group_sort_key(app.library_states[i]), i))
 
-    draw_group_headers = app.batch_mode and len(display_indices) > 1
+    draw_group_headers = (
+        len(display_indices) > 1
+        and (
+            app.batch_mode
+            or getattr(app, "_active_library_mode", None) == MediaType.MOVIE
+        )
+    )
 
     # Track which quality group headings we've drawn
     _drawn_headers: set[str] = set()
@@ -259,6 +262,19 @@ def _group_header_for(state: ScanState) -> str | None:
     if state.needs_review:
         return "needs review"
     return "matched"
+
+
+def _group_sort_key(state: ScanState) -> int:
+    """Sort groups in the order they should appear in the library roster."""
+    header = _group_header_for(state)
+    order = {
+        "matched": 0,
+        "needs review": 1,
+        "no match": 2,
+        "duplicates": 3,
+        "queued": 4,
+    }
+    return order.get(header or "matched", 99)
 
 
 def _draw_show_card(
@@ -697,6 +713,15 @@ def toggle_show_check(app, index: int) -> None:
                 pass
         preview_canvas._apply_bulk_check_values(
             app, key_values, redraw_preview=True)
+    elif state.check_vars:
+        for key, var in state.check_vars.items():
+            try:
+                item_index = int(key)
+                item = state.preview_items[item_index]
+            except (ValueError, IndexError):
+                continue
+            if item.status == "OK" or "UNMATCHED" in item.status:
+                var.set(state.checked)
 
     if app._library_card_positions:
         _update_show_check_visual(app, index)

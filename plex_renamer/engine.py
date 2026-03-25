@@ -186,10 +186,7 @@ class ScanState:
         """True if scanned but every file was SKIP (nothing actionable)."""
         if not self.scanned or not self.preview_items:
             return False
-        return not any(
-            it.status == "OK" or "UNMATCHED" in it.status
-            for it in self.preview_items
-        )
+        return all(it.status.startswith("SKIP") for it in self.preview_items)
 
     def reset_gui_state(self) -> None:
         """Clear GUI-side state (e.g. when switching shows)."""
