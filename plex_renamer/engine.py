@@ -58,6 +58,39 @@ class PreviewItem:
             and self.target_dir != self.original.parent
         )
 
+    @property
+    def is_conflict(self) -> bool:
+        """True when this item collides with another planned target."""
+        return self.status.startswith("CONFLICT")
+
+    @property
+    def is_skipped(self) -> bool:
+        """True when this item is intentionally non-actionable."""
+        return self.status.startswith("SKIP")
+
+    @property
+    def is_review(self) -> bool:
+        """True when this item needs manual attention before trust."""
+        return self.status.startswith("REVIEW")
+
+    @property
+    def is_unmatched(self) -> bool:
+        """True when this item is routed through the unmatched flow."""
+        return "UNMATCHED" in self.status
+
+    @property
+    def is_actionable(self) -> bool:
+        """True when this item can produce a concrete rename operation."""
+        if self.new_name is None:
+            return False
+        if self.status != "OK" and not self.is_unmatched:
+            return False
+        target_dir = self.target_dir or self.original.parent
+        return not (
+            self.new_name == self.original.name
+            and target_dir == self.original.parent
+        )
+
 
 @dataclass
 class RenameResult:
@@ -188,6 +221,19 @@ class ScanState:
             return False
         return all(it.status.startswith("SKIP") for it in self.preview_items)
 
+    @property
+    def actionable_indices(self) -> set[int]:
+        """Return indices of preview items that can produce rename ops."""
+        return {
+            index for index, item in enumerate(self.preview_items)
+            if item.is_actionable
+        }
+
+    @property
+    def actionable_file_count(self) -> int:
+        """Return the number of actionable files in the current preview."""
+        return len(self.actionable_indices)
+
     def reset_gui_state(self) -> None:
         """Clear GUI-side state (e.g. when switching shows)."""
         self.check_vars.clear()
@@ -217,8 +263,7 @@ def get_checked_indices_from_state(state: ScanState) -> set[int]:
         i for i, item in enumerate(state.preview_items)
         if state.check_vars.get(str(i)) is not None
         and state.check_vars[str(i)].get()
-        and (item.status == "OK" or "UNMATCHED" in item.status)
-        and item.new_name
+        and item.is_actionable
     }
 
 
@@ -1829,16 +1874,10 @@ def _build_rename_ops(
 
     ops = []
     for i, item in enumerate(items):
-        if item.new_name is None:
-            continue
-        if item.status != "OK" and "UNMATCHED" not in item.status:
+        if not item.is_actionable:
             continue
 
-        # Skip files that are already properly named in the right location
         target_dir = item.target_dir or item.original.parent
-        if (item.new_name == item.original.name
-                and target_dir == item.original.parent):
-            continue
 
         try:
             original_rel = str(item.original.relative_to(library_root))
@@ -1866,6 +1905,7 @@ def build_rename_job_from_state(
     state: ScanState,
     library_root: Path,
     show_folder_rename: str | None = None,
+    checked_indices: set[int] | None = None,
 ) -> 'RenameJob':
     """
     Create a RenameJob from a ScanState (TV batch mode).
@@ -1875,7 +1915,7 @@ def build_rename_job_from_state(
     """
     from .job_store import RenameJob
 
-    checked_indices = get_checked_indices_from_state(state)
+    checked_indices = checked_indices or get_checked_indices_from_state(state)
     ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
 
     return RenameJob(

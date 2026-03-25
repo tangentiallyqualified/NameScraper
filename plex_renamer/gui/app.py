@@ -17,6 +17,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageTk
 
+from ..app.services import CommandGatingService
 from ..constants import MediaType
 from ..engine import (
     BatchTVOrchestrator,
@@ -155,6 +156,7 @@ class PlexRenamerApp:
         # ── Job queue ─────────────────────────────────────────────
         self.job_store: JobStore = JobStore()
         self.queue_executor: QueueExecutor = QueueExecutor(self.job_store)
+        self.command_gating = CommandGatingService()
 
         # Register an app-level listener for badge updates.
         # NOTE: The queue_panel's _start_executor() calls
@@ -784,7 +786,7 @@ class PlexRenamerApp:
 
     @staticmethod
     def _movie_item_is_actionable(item: PreviewItem) -> bool:
-        return item.status == "OK" or "UNMATCHED" in item.status
+        return item.is_actionable
 
     def _movie_item_default_checked(self, item: PreviewItem) -> bool:
         if not self._movie_item_is_actionable(item):
@@ -1795,26 +1797,29 @@ class PlexRenamerApp:
             self._add_movie_batch_to_queue()
             return
 
-        if not self.preview_items or not self.check_vars:
-            messagebox.showwarning(
-                "Preview First", "Scan and review files before queueing.")
-            return
-
         checked = {
             i for i, item in enumerate(self.preview_items)
             if self.check_vars.get(str(i)) is not None
             and self.check_vars[str(i)].get()
-            and (item.status == "OK" or "UNMATCHED" in item.status)
-            and item.new_name
-            and not (  # skip already-properly-named files
-                item.new_name == item.original.name
-                and (item.target_dir is None or item.target_dir == item.original.parent)
-            )
+            and item.is_actionable
         }
 
-        if not checked:
-            messagebox.showinfo("Nothing to do", "No files selected.")
+        eligibility = self.command_gating.evaluate_preview_items(
+            self.preview_items,
+            selected_indices=checked,
+            is_scanning=bool(self.active_scan and self.active_scan.scanning),
+            is_queued=bool(self.active_scan and self.active_scan.queued),
+            needs_review=bool(self.active_scan and self.active_scan.needs_review),
+        )
+
+        if not eligibility.enabled:
+            if eligibility.command_state.value == "disabled_no_selection":
+                messagebox.showwarning("Preview First", eligibility.reason)
+            else:
+                messagebox.showinfo("Nothing to do", eligibility.reason)
             return
+
+        checked = set(eligibility.selected_indices)
 
         media_name = (
             self.media_info.get("name")
@@ -1883,22 +1888,17 @@ class PlexRenamerApp:
         skipped_queued = 0
 
         for state in self.library_states:
-            if not state.preview_items or not state.scanned or state.scanning:
+            eligibility = self.command_gating.evaluate_scan_state(state)
+            if not eligibility.enabled:
+                if eligibility.command_state.value == "disabled_already_queued":
+                    skipped_queued += 1
                 continue
-            if state.queued:
+
+            if not state.preview_items:
                 skipped_queued += 1
                 continue
 
             item = state.preview_items[0]
-            var = state.check_vars.get("0")
-            is_checked = bool(var.get()) if var is not None else state.checked
-            if not is_checked or not self._movie_item_is_actionable(item) or not item.new_name:
-                continue
-            if (
-                item.new_name == item.original.name
-                and (item.target_dir is None or item.target_dir == item.original.parent)
-            ):
-                continue
 
             job = build_rename_job_from_items(
                 items=[item],
@@ -1938,38 +1938,21 @@ class PlexRenamerApp:
         errors = []
 
         for state in self.batch_states:
-            if not state.checked or not state.scanned:
+            if not state.checked:
                 continue
+
+            eligibility = self.command_gating.evaluate_scan_state(state)
+            if not eligibility.enabled:
+                if eligibility.command_state.value == "disabled_already_queued":
+                    skipped_queued += 1
+                continue
+
+            checked = set(eligibility.selected_indices)
+            if not checked:
+                continue
+
             if state.queued:
                 skipped_queued += 1
-                continue
-
-            # For shows that were never displayed in the preview panel,
-            # check_vars is empty.  In that case, treat all OK/UNMATCHED
-            # items as selected (matching the default checkbox behavior).
-            if state.check_vars:
-                checked = get_checked_indices_from_state(state)
-                # Remove already-properly-named files
-                checked = {
-                    i for i in checked
-                    if not (
-                        state.preview_items[i].new_name == state.preview_items[i].original.name
-                        and (state.preview_items[i].target_dir is None
-                             or state.preview_items[i].target_dir == state.preview_items[i].original.parent)
-                    )
-                }
-            else:
-                checked = {
-                    i for i, item in enumerate(state.preview_items)
-                    if (item.status == "OK" or "UNMATCHED" in item.status)
-                    and item.new_name
-                    and not (
-                        item.new_name == item.original.name
-                        and (item.target_dir is None or item.target_dir == item.original.parent)
-                    )
-                }
-
-            if not checked:
                 continue
 
             show_folder = build_show_folder_name(
@@ -1981,13 +1964,8 @@ class PlexRenamerApp:
                 state=state,
                 library_root=self.folder,
                 show_folder_rename=show_folder,
+                checked_indices=checked,
             )
-            # Since check_vars may be empty, explicitly mark all actionable
-            # ops as selected when building from default state.
-            if not state.check_vars:
-                for op in job.rename_ops:
-                    if op.status == "OK" or "UNMATCHED" in op.status:
-                        op.selected = True
 
             try:
                 self.job_store.add_job(job)

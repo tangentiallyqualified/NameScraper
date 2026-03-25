@@ -612,3 +612,44 @@ class TMDBClient:
         self._season_map_cache.clear()
         self._movie_cache.clear()
         self._image_cache.clear()
+
+    def export_cache_snapshot(self) -> dict[str, dict]:
+        """Return a serializable snapshot of the in-memory metadata caches."""
+        return {
+            "show_cache": dict(self._show_cache),
+            "season_cache": {
+                f"{show_id}:{season_num}": data
+                for (show_id, season_num), data in self._season_cache.items()
+            },
+            "season_map_cache": {
+                str(show_id): {
+                    "seasons": season_map,
+                    "total_episodes": total_episodes,
+                }
+                for show_id, (season_map, total_episodes) in self._season_map_cache.items()
+            },
+            "movie_cache": dict(self._movie_cache),
+        }
+
+    def import_cache_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+        """Hydrate the in-memory metadata caches from a persisted snapshot."""
+        if not snapshot:
+            return
+        if clear_existing:
+            self.clear_cache()
+
+        for show_id, data in snapshot.get("show_cache", {}).items():
+            self._show_cache[int(show_id)] = data
+
+        for cache_key, data in snapshot.get("season_cache", {}).items():
+            show_id_str, season_num_str = str(cache_key).split(":", 1)
+            self._season_cache[(int(show_id_str), int(season_num_str))] = data
+
+        for show_id, data in snapshot.get("season_map_cache", {}).items():
+            self._season_map_cache[int(show_id)] = (
+                data.get("seasons", {}),
+                int(data.get("total_episodes", 0)),
+            )
+
+        for movie_id, data in snapshot.get("movie_cache", {}).items():
+            self._movie_cache[int(movie_id)] = data
