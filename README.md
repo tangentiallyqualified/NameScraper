@@ -10,6 +10,24 @@ Built with Python and tkinter. Designed around a unified three-panel workflow th
 
 ---
 
+## Current Status
+
+- The current shipping shell is still tkinter-based and remains the active app entry point.
+- Phase 1 of the GUI3 migration is effectively complete on `dev/GUI3`: the app now has a UI-neutral application layer for cache coordination, refresh policy, scan snapshots, structured progress, and command gating.
+- Session restore has been hardened for TV and movie workflows, including active-session tracking, restored movie-state hydration, TMDB cache rehydration, and debounced persistence writes.
+- Recent cleanup also fixed restored TV roster state, consolidated-scan cache typing issues, and first-render TV poster sizing after restore.
+- Phase 2 has not started yet. The next major step is extracting controllers and view models so the PySide6 shell can be built on top of the existing backend and application services.
+
+## Roadmap Goals
+
+- Extract Phase 2 application controllers and view models from the current tkinter orchestration layer.
+- Build the new PySide6 shell without rewriting stable backend modules such as `parsing.py`, `tmdb.py`, `engine.py`, `job_store.py`, and `job_executor.py`.
+- Preserve the current three-panel workflow while improving progress presentation, queue readiness visibility, and restore-state clarity.
+- Continue expanding the queue-first workflow so more rename operations run through the persistent job pipeline by default.
+- Keep the current app reliable during migration instead of treating the UI port as a backend rewrite.
+
+---
+
 ## Current Capabilities
 
 ### TV Series (Single Show)
@@ -17,8 +35,6 @@ Built with Python and tkinter. Designed around a unified three-panel workflow th
 Point the app at a TV show folder and it handles the rest.
 
 Single-show TV uses the same left-library/preview/detail layout as batch TV, treating one show as a roster of one instead of maintaining a separate UI mode.
-
-<img width="3504" height="1842" alt="tvseries1" src="https://github.com/user-attachments/assets/6357b2d4-68e5-4058-a1b2-39edd12c234b" />
 
 
 **Automatic TMDB Matching**
@@ -57,15 +73,11 @@ Single-show TV uses the same left-library/preview/detail layout as batch TV, tre
 
 **Plex-Formatted Output**
 
-<img width="3522" height="1872" alt="tvseries2" src="https://github.com/user-attachments/assets/a1f5c3de-b5d5-45c8-9476-0573911bb8c1" />
-
 - Renames files to: `Show Name (Year) - S01E01 - Episode Title.ext`
 - Multi-episode files: `Show Name (Year) - S01E01-E02 - Title 1-Title 2.ext`
 - Normalizes season folder names to `Season 01` format
 - Renames the root show folder to match Plex/TMDB naming
 - Sanitizes filenames for cross-platform compatibility (strips illegal characters, replaces colons)
-
-<img width="3510" height="1866" alt="tvseries3" src="https://github.com/user-attachments/assets/27291f01-8aca-443e-8d1e-34baa673d901" />
   
 ---
 
@@ -74,10 +86,6 @@ Single-show TV uses the same left-library/preview/detail layout as batch TV, tre
 Point the app at a movie folder for bulk processing through the same shared three-panel layout used elsewhere in the app.
 
 Movie scans now use the unified roster flow as well: the left panel shows the current movie scan as a roster entry, the center panel shows the proposed file operations, and the right panel shows metadata for the selected item.
-
-<img width="3534" height="1905" alt="batchmovie1" src="https://github.com/user-attachments/assets/9defe4d5-a43a-4ac5-8543-c0ade6000c54" />
-
-<img width="3513" height="1821" alt="batchmovie2" src="https://github.com/user-attachments/assets/7e49de99-01bd-44bc-9d28-fd27c59fd9da" />
 
 **Smart Filtering**
 - Automatically identifies and skips TV episodes mixed into movie folders using multiple heuristic signals:
@@ -243,7 +251,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 ### Security & Storage
 
-- API keys stored securely via the OS keyring (not in plaintext config files)
+- API keys are stored via the OS keyring when available, with a local app-data fallback when `keyring` is not installed
 - API key management dialog with masked input
 - Undo log written atomically to prevent corruption
 
@@ -258,7 +266,7 @@ plex_renamer/
 ├── parsing.py           # Pure filename parsing, name building, normalization
 ├── tmdb.py              # TMDB API client with rate limiting and caching
 ├── engine.py            # TVScanner, MovieScanner, rename execution, undo
-├── keys.py              # OS keyring API key storage
+├── keys.py              # API key storage with keyring-preferred fallback handling
 ├── undo_log.py          # Atomic JSON undo log
 ├── styles.py            # Dark theme, ttk styles, color palette
 └── gui/
@@ -274,7 +282,8 @@ The backend (`parsing.py`, `tmdb.py`, `engine.py`) has zero GUI dependencies and
 
 ---
 
-## Roadmap
+## Near-Term Focus
 
-- **Queue-First Rename Workflow**: Continue expanding the queue/history flow so more rename operations run through the persistent job pipeline by default
-- **Full Library Automation**: Scan an entire Plex library (movies + TV) and automatically reformat everything with minimal manual intervention
+- Finish the Phase 2 controller/view-model extraction work on `dev/GUI3`
+- Start the PySide6 shell once the current tkinter orchestration has been split cleanly from application state
+- Keep manual testing focused on restore behavior, queue transitions, and scan-state correctness while the shell migration is underway
