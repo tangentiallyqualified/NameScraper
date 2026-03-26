@@ -13,7 +13,7 @@ import re
 import shutil
 from collections import defaultdict
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from dataclasses import dataclass, field
 
 from .constants import VIDEO_EXTENSIONS, MediaType
@@ -190,6 +190,14 @@ class ScanState:
     confidence: float = 0.0
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
+    relative_folder: str = ""
+    parent_relative_folder: str | None = None
+    duplicate_of_relative_folder: str | None = None
+    discovery_reason: str = ""
+    has_direct_season_subdirs: bool = False
+    direct_episode_file_count: int = 0
+    direct_video_file_count: int = 0
+    discovered_via_symlink: bool = False
 
     # GUI-side state (populated by preview_canvas, not by engine)
     check_vars: dict = field(default_factory=dict)
@@ -314,10 +322,66 @@ class BatchTVOrchestrator:
           episode previews. Can be triggered per-show or in bulk.
     """
 
-    def __init__(self, tmdb: TMDBClient, library_root: Path):
+    def __init__(
+        self,
+        tmdb: TMDBClient,
+        library_root: Path,
+        discovery_service=None,
+    ):
         self.tmdb = tmdb
         self.root = library_root
         self.states: list[ScanState] = []
+        self.discovery_service = discovery_service
+
+    @staticmethod
+    def _normalized_relative_folder(relative_folder: str, fallback: Path) -> str:
+        text = relative_folder or fallback.as_posix()
+        return text.replace("\\", "/").casefold()
+
+    @classmethod
+    def _duplicate_priority(cls, state: ScanState) -> tuple[float, int, int, str]:
+        normalized_relative = cls._normalized_relative_folder(
+            state.relative_folder,
+            state.folder,
+        )
+        depth = len(PurePosixPath(normalized_relative).parts)
+        evidence_rank = 0 if state.has_direct_season_subdirs else 1
+        return (-state.confidence, depth, evidence_rank, normalized_relative)
+
+    def _apply_duplicate_labels(self) -> None:
+        """Mark lower-priority TMDB matches as duplicates deterministically."""
+        for state in self.states:
+            state.duplicate_of = None
+            state.duplicate_of_relative_folder = None
+
+        seen_ids: dict[int, ScanState] = {}
+        for state in self.states:
+            sid = state.show_id
+            if sid is None:
+                continue
+            primary = seen_ids.get(sid)
+            if primary is None:
+                seen_ids[sid] = state
+                continue
+
+            if self._duplicate_priority(state) < self._duplicate_priority(primary):
+                primary.duplicate_of = state.display_name
+                primary.duplicate_of_relative_folder = state.relative_folder or None
+                primary.checked = False
+                state.duplicate_of = None
+                state.duplicate_of_relative_folder = None
+                seen_ids[sid] = state
+            else:
+                state.duplicate_of = primary.display_name
+                state.duplicate_of_relative_folder = primary.relative_folder or None
+                state.checked = False
+
+    def _get_discovery_service(self):
+        if self.discovery_service is None:
+            from .app.services import TVLibraryDiscoveryService
+
+            self.discovery_service = TVLibraryDiscoveryService()
+        return self.discovery_service
 
     def discover_shows(
         self,
@@ -326,60 +390,21 @@ class BatchTVOrchestrator:
         """
         Phase 1: Find show folders and match to TMDB.
 
-        Each direct child directory of library_root that looks like a
-        TV show folder (contains season subdirs or video files) is
-        treated as a candidate.  Uses search_tv_batch for parallel
-        TMDB lookups.
+        Recursively discovers TV show folders below the library root,
+        descending through container folders but classifying show roots
+        only from direct-child evidence. Uses search_tv_batch for
+        parallel TMDB lookups.
 
         Returns ScanState instances with media_info populated but
         scanner/preview_items empty (Phase 2 hasn't run yet).
         """
-        # Discover candidate show folders
-        candidates: list[tuple[Path, str, str | None]] = []
-        for d in sorted(self.root.iterdir()):
-            if not d.is_dir():
-                continue
-            # Skip hidden folders and common non-show directories
-            if d.name.startswith(".") or d.name.lower() in (
-                "extras", "featurettes", "@eadir", "#recycle",
-                ".debris", "lost+found",
-            ):
-                continue
-            # Skip folders that look like season folders — these are
-            # stray season dirs at the library root, not show folders.
-            if get_season(d) is not None:
-                continue
-            # Must contain video files or season subdirectories.
-            # Skip folders that look like movie folders: no season
-            # subdirs, 1-2 video files, no TV episode filename patterns.
-            has_season_subdir = False
-            video_files: list[Path] = []
-            for child in d.iterdir():
-                if child.is_dir() and get_season(child) is not None:
-                    has_season_subdir = True
-                    break
-                if child.is_file() and child.suffix.lower() in VIDEO_EXTENSIONS:
-                    video_files.append(child)
-
-            if not has_season_subdir and not video_files:
-                continue  # empty folder
-
-            if not has_season_subdir and len(video_files) <= 2:
-                # No season structure and very few files — likely a movie
-                # unless one of the files has a TV episode pattern.
-                has_tv_pattern = any(
-                    looks_like_tv_episode(f) for f in video_files
-                )
-                if not has_tv_pattern:
-                    _log.info(
-                        "Skipping likely movie folder: %s (%d video file(s))",
-                        d.name, len(video_files),
-                    )
-                    continue
-
-            cleaned = clean_folder_name(d.name, include_year=False)
-            year_hint = extract_year(d.name)
-            candidates.append((d, cleaned, year_hint))
+        discovery_service = self._get_discovery_service()
+        discovered = discovery_service.discover_show_roots(self.root)
+        candidates: list[tuple[object, str, str | None]] = []
+        for candidate in discovered:
+            cleaned = clean_folder_name(candidate.folder.name, include_year=False)
+            year_hint = extract_year(candidate.folder.name)
+            candidates.append((candidate, cleaned, year_hint))
 
         if not candidates:
             return []
@@ -395,7 +420,8 @@ class BatchTVOrchestrator:
 
         # Build ScanState for each candidate
         states: list[ScanState] = []
-        for (folder, cleaned_name, year_hint), results in zip(candidates, all_results):
+        for (candidate, cleaned_name, year_hint), results in zip(candidates, all_results):
+            folder = candidate.folder
             if not results:
                 # No TMDB results — create state with folder name as placeholder
                 state = ScanState(
@@ -409,6 +435,13 @@ class BatchTVOrchestrator:
                     search_results=results,
                     alternate_matches=[],
                     checked=False,      # No match — don't auto-check
+                    relative_folder=candidate.relative_folder,
+                    parent_relative_folder=candidate.parent_relative_folder,
+                    discovery_reason=candidate.discovery_reason,
+                    has_direct_season_subdirs=candidate.has_direct_season_subdirs,
+                    direct_episode_file_count=candidate.direct_episode_file_count,
+                    direct_video_file_count=candidate.direct_video_file_count,
+                    discovered_via_symlink=candidate.discovered_via_symlink,
                 )
                 states.append(state)
                 continue
@@ -430,6 +463,13 @@ class BatchTVOrchestrator:
                 search_results=results,
                 alternate_matches=alternates,
                 checked=auto_check,
+                relative_folder=candidate.relative_folder,
+                parent_relative_folder=candidate.parent_relative_folder,
+                discovery_reason=candidate.discovery_reason,
+                has_direct_season_subdirs=candidate.has_direct_season_subdirs,
+                direct_episode_file_count=candidate.direct_episode_file_count,
+                direct_video_file_count=candidate.direct_video_file_count,
+                discovered_via_symlink=candidate.discovered_via_symlink,
             )
             states.append(state)
 
@@ -444,36 +484,17 @@ class BatchTVOrchestrator:
                 group = 1
             else:
                 group = 0
-            return (group, s.display_name.lower())
-
-        states.sort(key=_sort_key)
-
-        # ── Flag duplicate TMDB matches ───────────────────────────
-        # When multiple folders match the same TMDB show, keep the
-        # highest-confidence one as the primary and mark the rest as
-        # duplicates (unchecked, visually tagged).
-        seen_ids: dict[int, ScanState] = {}  # TMDB ID → best ScanState
-        for s in states:
-            sid = s.show_id
-            if sid is None:
-                continue
-            if sid not in seen_ids:
-                seen_ids[sid] = s
-            else:
-                primary = seen_ids[sid]
-                # The one with lower confidence becomes the duplicate
-                if s.confidence > primary.confidence:
-                    # This one is better — demote the old primary
-                    primary.duplicate_of = s.display_name
-                    primary.checked = False
-                    seen_ids[sid] = s
-                else:
-                    s.duplicate_of = primary.display_name
-                    s.checked = False
+            return (
+                group,
+                s.display_name.lower(),
+                self._normalized_relative_folder(s.relative_folder, s.folder),
+            )
 
         states.sort(key=_sort_key)
 
         self.states = states
+        self._apply_duplicate_labels()
+        self.states.sort(key=_sort_key)
         return states
 
     def scan_show(
@@ -575,6 +596,7 @@ class BatchTVOrchestrator:
             [new_match], raw_name, year_hint, title_key="name")
         state.confidence = scored[0][1] if scored else 0.0
         state.reset_scan()
+        self._apply_duplicate_labels()
 
     @staticmethod
     def is_tv_library(folder: Path) -> bool:

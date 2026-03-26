@@ -23,6 +23,7 @@ from ..app.services import (
     PersistentCacheService,
     RefreshPolicyService,
     ScanSnapshotService,
+    TVLibraryDiscoveryService,
 )
 from ..constants import JobStatus, MediaType
 from ..engine import (
@@ -171,6 +172,7 @@ class PlexRenamerApp:
         self.cache_service = PersistentCacheService()
         self.refresh_policy = RefreshPolicyService()
         self.snapshot_service = ScanSnapshotService()
+        self.tv_library_discovery = TVLibraryDiscoveryService()
         self.scan_progress = ScanProgress()
         self._persist_after_id = None
         self._pending_persist_kinds: set[str] = set()
@@ -1288,7 +1290,11 @@ class PlexRenamerApp:
             self.batch_states = states
             self.batch_orchestrator = None
             if tmdb is not None:
-                self.batch_orchestrator = BatchTVOrchestrator(tmdb, library_root)
+                self.batch_orchestrator = BatchTVOrchestrator(
+                    tmdb,
+                    library_root,
+                    discovery_service=self.tv_library_discovery,
+                )
                 self.batch_orchestrator.states = self.batch_states
             self.active_scan = None
             self._library_selected_index = 0
@@ -1353,7 +1359,11 @@ class PlexRenamerApp:
         root = self._tv_root_folder or self.folder
         if root is None:
             return None
-        self.batch_orchestrator = BatchTVOrchestrator(tmdb, root)
+        self.batch_orchestrator = BatchTVOrchestrator(
+            tmdb,
+            root,
+            discovery_service=self.tv_library_discovery,
+        )
         self.batch_orchestrator.states = self.batch_states
         return self.batch_orchestrator
 
@@ -1657,7 +1667,11 @@ class PlexRenamerApp:
         self._mount_media_content(self._tv_content_host)
         self._reset_library_roster()
         self._active_library_mode = MediaType.TV
-        self.batch_orchestrator = BatchTVOrchestrator(tmdb, self.folder)
+        self.batch_orchestrator = BatchTVOrchestrator(
+            tmdb,
+            self.folder,
+            discovery_service=self.tv_library_discovery,
+        )
         self.batch_states = []
 
         self.media_info = None

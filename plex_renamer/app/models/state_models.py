@@ -49,6 +49,16 @@ class QueueCommandState(StrEnum):
     DISABLED_NO_ACTION_NEEDED = "disabled_no_action_needed"
 
 
+class TVDirectoryRole(StrEnum):
+    """Directory classification used during nested batch-TV discovery."""
+
+    SHOW_ROOT = "show_root"
+    CONTAINER = "container"
+    SEASON_FOLDER = "season_folder"
+    IGNORED_SYSTEM = "ignored_system"
+    NON_TV_LEAF = "non_tv_leaf"
+
+
 @dataclass(slots=True)
 class ScanProgress:
     """Structured progress payload replacing free-form status strings."""
@@ -129,3 +139,43 @@ class QueueEligibility:
     @property
     def enabled(self) -> bool:
         return self.command_state == QueueCommandState.ENABLED
+
+
+@dataclass(slots=True)
+class TVDiscoveryCandidate:
+    """A discovered TV show root found during recursive library traversal."""
+
+    folder: Any
+    relative_folder: str
+    parent_relative_folder: str | None
+    depth: int
+    discovery_reason: str
+    has_direct_season_subdirs: bool = False
+    direct_episode_file_count: int = 0
+    direct_video_file_count: int = 0
+    discovered_via_symlink: bool = False
+
+
+class MovieDirectoryRole(StrEnum):
+    """Directory classification used during nested batch-movie discovery."""
+
+    MOVIE_ROOT = "movie_root"
+    CONTAINER = "container"
+    MULTI_MOVIE_FOLDER = "multi_movie_folder"
+    EXTRAS_FOLDER = "extras_folder"
+    IGNORED_SYSTEM = "ignored_system"
+    NON_MOVIE_LEAF = "non_movie_leaf"
+
+
+@dataclass(slots=True)
+class MovieDiscoveryCandidate:
+    """A discovered movie root or multi-movie folder found during recursive library traversal."""
+
+    folder: Any
+    relative_folder: str
+    parent_relative_folder: str | None
+    depth: int
+    discovery_reason: str
+    direct_video_file_count: int = 0
+    has_title_year_folder_name: bool = False
+    discovered_via_symlink: bool = False

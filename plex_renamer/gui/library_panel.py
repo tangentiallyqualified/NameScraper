@@ -394,9 +394,22 @@ def _draw_show_card(
         width=max_text_w, tags=("text", tag))
     text_y += int(14 * s)
 
+    relative_path = state.relative_folder.replace("\\", "/") if state.relative_folder else ""
+    if relative_path and relative_path != state.folder.name:
+        cv.create_text(
+            text_x, text_y,
+            text=f"Path: {relative_path}",
+            fill=c["text_muted"], font=m.font_sub, anchor="nw",
+            width=max_text_w, tags=("text", tag))
+        text_y += int(14 * s)
+
     # Status line with dot
     status_fg = _status_color(state)
     status_txt = _status_text(state)
+    if state.duplicate_of is not None and state.duplicate_of_relative_folder:
+        status_txt = (
+            f"{status_txt} · {state.duplicate_of_relative_folder.replace('\\', '/')}"
+        )
     dot_r = int(3 * s)
     cv.create_oval(
         text_x, text_y + int(4 * s),

@@ -287,6 +287,9 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         return False, ["No undo data stored for this job."]
 
     undo = job.undo_data
+    library_root = Path(job.library_root)
+    source_folder = Path(job.source_folder)
+    cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
 
     # Revert folder renames (in reverse order)
@@ -351,7 +354,11 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
 
     for dir_path_str in list(cleaned_dirs):
         parent = Path(dir_path_str).parent
-        while parent.exists() and parent != parent.parent:
+        while (
+            parent.exists()
+            and parent != parent.parent
+            and parent != cleanup_boundary
+        ):
             try:
                 if not list(parent.iterdir()):
                     parent.rmdir()
