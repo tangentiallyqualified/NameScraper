@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .constants import (
     RELEASE_NOISE, TRAILING_GROUP, UNSAFE_FILENAME_CHARS,
+    SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS,
 )
 
 
@@ -128,14 +129,32 @@ def extract_year(text: str) -> str | None:
     """
     Extract a plausible release year (1920-2099) from a string.
 
+    Prefers the *last* year that appears before the first release-noise token
+    (resolution, codec, source marker).  This correctly handles filenames where
+    the title itself starts with a number, e.g.:
+        2001.A.Space.Odyssey.1968.2160p  →  "1968"  (not "2001")
+        The.Matrix.1999.1080p            →  "1999"
+
+    Falls back to the first year found when no noise boundary is present.
+
     Returns the year as a string, or None if not found.
     """
-    m = re.search(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
-    if m:
-        yr = int(m.group(1))
-        if 1920 <= yr <= 2099:
-            return m.group(1)
-    return None
+    all_years = [
+        m for m in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
+        if 1920 <= int(m.group(1)) <= 2099
+    ]
+    if not all_years:
+        return None
+
+    # Prefer the last year that appears before the first release-noise token
+    noise_m = RELEASE_NOISE.search(text)
+    if noise_m:
+        before_noise = [m for m in all_years if m.start() < noise_m.start()]
+        if before_noise:
+            return before_noise[-1].group(1)
+
+    # Fallback: first year found
+    return all_years[0].group(1)
 
 
 # ─── TV episode detection (for filtering in movie mode) ──────────────────────
@@ -186,6 +205,17 @@ def is_extras_folder(name: str) -> bool:
     """Check if a folder name indicates supplemental/extras content."""
     return bool(EXTRAS_FOLDER_PATTERN.match(name.strip()))
 
+
+# Matches files that are release sample clips, not the main film.
+# Catches bare "Sample.mkv" and embedded "Movie.Title.Sample.mkv" patterns.
+_SAMPLE_FILE_RE = re.compile(r"(?i)(?:^|[\s.\-_])sample(?:[\s.\-_]|$)")
+
+
+def is_sample_file(filepath: Path) -> bool:
+    """Return True if the file is a release sample clip, not the main film."""
+    return bool(_SAMPLE_FILE_RE.search(filepath.stem))
+
+
 # Filename patterns that indicate TV content: "Season 3 - ...", "Season3 ..."
 _FILENAME_SEASON_PATTERN = re.compile(
     r"(?:^|[\s._\-])(?:Season|Staffel|Saison|Temporada|Stagione)"
@@ -228,6 +258,99 @@ def looks_like_tv_episode(filepath: Path) -> bool:
         return True
 
     return False
+
+
+# ─── Companion subtitle discovery ────────────────────────────────────────────
+
+# Matches a trailing language tag on a subtitle stem, e.g.:
+#   ".eng", ".en", ".en.forced", ".fr.sdh"
+# Intentionally strict (2-3 letter code only) to avoid false-positives on
+# release noise tokens like ".BluRay" or ".EXTENDED".
+_LANG_TAG_RE = re.compile(
+    r'(\.[a-z]{2,3}(?:\.(?:forced|sdh|cc|hi|default|full))*)$',
+    re.IGNORECASE,
+)
+
+
+def _extract_lang_tag(stem: str) -> str:
+    """Return the trailing language tag from a subtitle stem, or ""."""
+    m = _LANG_TAG_RE.search(stem)
+    return m.group(1) if m else ""
+
+
+def find_companion_subtitles(video_path: Path) -> list[tuple[Path, str]]:
+    """
+    Find subtitle files in the same directory that pair with a video file.
+
+    Returns a list of ``(subtitle_path, lang_tag)`` pairs.  ``lang_tag`` is
+    the string inserted between the new video stem and the subtitle extension
+    when building the renamed filename (e.g. ``.eng``, ``.en.forced``, ``""``).
+
+    Pairing strategy
+    ----------------
+    1. **Exact prefix** — subtitle stem starts with the video stem
+       (case-insensitive).  Handles the standard scene-release layout where
+       the subtitle file shares the release name::
+
+           The.Movie.2023.1080p.BluRay.mkv
+           The.Movie.2023.1080p.BluRay.eng.srt  →  tag ".eng"
+
+    2. **Fuzzy fallback** — if there is exactly one video file in the
+       directory and there are unclaimed subtitle files, pair them regardless
+       of stem.  This covers subtitles sourced from a different release::
+
+           The.Movie.2023.1080p.BluRay.mkv
+           Movie.ALTERNATE.RELEASE.eng.srt      →  tag ".eng" (extracted from stem)
+    """
+    parent = video_path.parent
+    video_stem = video_path.stem
+    video_stem_lower = video_stem.lower()
+
+    try:
+        all_entries = list(parent.iterdir())
+    except OSError:
+        return []
+
+    all_subs = [
+        f for f in all_entries
+        if f.is_file() and f.suffix.lower() in SUBTITLE_EXTENSIONS
+    ]
+    if not all_subs:
+        return []
+
+    paired: list[tuple[Path, str]] = []
+    unpaired: list[Path] = []
+
+    for sub in all_subs:
+        if sub.stem.lower().startswith(video_stem_lower):
+            raw_tag = sub.stem[len(video_stem):]
+            # Validate: accept empty (no language) or a recognised ISO 639
+            # language code suffix (.eng, .en, .en.forced, etc.).
+            # Non-standard values like ".UNKNOWN" or ".English" are not valid
+            # Plex language codes — strip them so Plex still recognises the
+            # subtitle as a language-less companion (MovieTitle.srt).
+            if not raw_tag or _LANG_TAG_RE.fullmatch(raw_tag):
+                tag = raw_tag
+            else:
+                # Try to salvage a valid code buried at the end of the tag
+                # (e.g. ".release.group.eng" → ".eng"), then fall back to "".
+                tag = _extract_lang_tag(raw_tag)
+            paired.append((sub, tag))
+        else:
+            unpaired.append(sub)
+
+    # Fuzzy fallback: pair unclaimed subtitles when this is the sole video file
+    if unpaired:
+        video_count = sum(
+            1 for f in all_entries
+            if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+        )
+        if video_count == 1:
+            for sub in unpaired:
+                tag = _extract_lang_tag(sub.stem)
+                paired.append((sub, tag))
+
+    return paired
 
 
 # ─── Episode extraction (TV-specific) ────────────────────────────────────────

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ...constants import MediaType, SCAN_SNAPSHOT_FILE, ensure_log_dir
-from ...engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
+from ...engine import CompanionFile, CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
 
 
 def _utc_now_iso() -> str:
@@ -174,6 +174,10 @@ class ScanSnapshotService:
             "media_type": item.media_type,
             "media_id": item.media_id,
             "media_name": item.media_name,
+            "companions": [
+                {"original": str(c.original), "new_name": c.new_name, "file_type": c.file_type}
+                for c in item.companions
+            ],
         }
 
     @staticmethod
@@ -188,6 +192,14 @@ class ScanSnapshotService:
             media_type=payload.get("media_type", MediaType.TV),
             media_id=payload.get("media_id"),
             media_name=payload.get("media_name"),
+            companions=[
+                CompanionFile(
+                    original=Path(c["original"]),
+                    new_name=c["new_name"],
+                    file_type=c["file_type"],
+                )
+                for c in payload.get("companions", [])
+            ],
         )
 
     @staticmethod

@@ -27,7 +27,9 @@ from .parsing import (
     extract_episode,
     extract_year,
     get_season,
+    find_companion_subtitles,
     is_already_complete,
+    is_sample_file,
     looks_like_tv_episode,
     normalize_for_match,
     normalize_for_specials,
@@ -36,6 +38,31 @@ from .tmdb import TMDBClient
 
 
 # ─── Data structures ─────────────────────────────────────────────────────────
+
+@dataclass
+class CompanionFile:
+    """
+    A non-video file renamed alongside its parent media file.
+
+    Carries a fully-computed rename plan so every consumer — the GUI,
+    the job builder, the snapshot service — can read it directly without
+    reconstructing names from intermediate data.
+
+    ``file_type`` is an open string enum.  Current values:
+      ``"subtitle"``  — SRT, ASS, SSA, VTT, SUP, etc.
+
+    Future values (not yet implemented):
+      ``"poster"``    — cover art (.jpg/.png) inside the movie folder
+      ``"nfo"``       — metadata sidecar files (.nfo)
+
+    Adding a new companion type requires only producing ``CompanionFile``
+    objects with the appropriate ``file_type``; no changes to ``PreviewItem``,
+    ``_build_rename_ops``, the job executor, or the snapshot service.
+    """
+    original: Path      # Absolute source path
+    new_name: str       # Target filename (already computed — no reconstruction needed)
+    file_type: str      # "subtitle" | "poster" | "nfo" | …
+
 
 @dataclass
 class PreviewItem:
@@ -49,6 +76,10 @@ class PreviewItem:
     media_type: str = MediaType.TV
     media_id: int | None = None      # TMDB ID — for grouping in batch mode
     media_name: str | None = None    # Display name — for grouping in batch mode
+    # Non-video files renamed alongside this item (subtitles, and future types).
+    # Each entry carries a fully-computed (original, new_name, file_type) plan.
+    # Persisted in scan snapshots so restored sessions retain pairing.
+    companions: list[CompanionFile] = field(default_factory=list)
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
@@ -871,11 +902,13 @@ class TVScanner:
                         season_num, eps, ep_titles, f.suffix,
                     )
 
-                    items.append(PreviewItem(
+                    item = PreviewItem(
                         original=f, new_name=new_name, target_dir=target_dir,
                         season=season_num, episodes=eps, status="OK",
                         **self._media_fields,
-                    ))
+                    )
+                    item.companions = _build_subtitle_companions(f, new_name)
+                    items.append(item)
 
                 # Scan nested extras folders (e.g. Season 02/Featurettes/)
                 elif (entry.is_dir()
@@ -1178,6 +1211,30 @@ class TVScanner:
 
 # ─── Movie scanning ──────────────────────────────────────────────────────────
 
+def _build_subtitle_companions(
+    video_path: Path,
+    video_new_name: str,
+) -> list[CompanionFile]:
+    """
+    Discover subtitle files paired with *video_path* and return fully-computed
+    ``CompanionFile`` objects ready for GUI display and job building.
+
+    The target filename is computed here so no downstream code needs to
+    reconstruct it.  Adding support for a new companion file type (posters,
+    NFOs, etc.) means writing a similar helper and appending its results to
+    ``PreviewItem.companions`` — nothing else changes.
+    """
+    video_stem = Path(video_new_name).stem
+    return [
+        CompanionFile(
+            original=sub_path,
+            new_name=video_stem + lang_tag + sub_path.suffix,
+            file_type="subtitle",
+        )
+        for sub_path, lang_tag in find_companion_subtitles(video_path)
+    ]
+
+
 def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
     """
     Shared helper: clean a filename stem into a TMDB search query and year hint.
@@ -1356,7 +1413,14 @@ class MovieScanner:
         video_files: list[Path] = []
 
         for f in all_video_files:
-            if looks_like_tv_episode(f):
+            if is_sample_file(f):
+                items.append(PreviewItem(
+                    original=f, new_name=None, target_dir=None,
+                    season=None, episodes=[],
+                    status="SKIP: release sample clip",
+                    media_type=MediaType.OTHER,
+                ))
+            elif looks_like_tv_episode(f):
                 items.append(PreviewItem(
                     original=f, new_name=None, target_dir=None,
                     season=None, episodes=[],
@@ -1415,16 +1479,15 @@ class MovieScanner:
             chosen, confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[f] = chosen
 
+            item = _build_movie_preview_item(f, chosen, self.root)
+            item.companions = _build_subtitle_companions(f, item.new_name)
             if confidence < AUTO_ACCEPT_THRESHOLD:
                 # Low confidence — flag for user review instead of auto-accepting
-                item = _build_movie_preview_item(f, chosen, self.root)
                 item.status = (
                     f"REVIEW: best match \"{chosen['title']}\" "
                     f"(confidence {confidence:.0%}) — click to verify"
                 )
-                items.append(item)
-            else:
-                items.append(_build_movie_preview_item(f, chosen, self.root))
+            items.append(item)
 
         return items
 
@@ -1460,7 +1523,9 @@ class MovieScanner:
             )]
 
         self.movie_info[f] = chosen
-        return [_build_movie_preview_item(f, chosen, self.root)]
+        item = _build_movie_preview_item(f, chosen, self.root)
+        item.companions = _build_subtitle_companions(f, item.new_name)
+        return [item]
 
     def rematch_file(
         self, item: PreviewItem, chosen: dict,
@@ -1794,6 +1859,7 @@ def _build_rename_ops(
         except ValueError:
             target_rel = str(target_dir)
 
+        is_selected = i in checked_indices
         ops.append(RenameOp(
             original_relative=original_rel,
             new_name=item.new_name,
@@ -1801,8 +1867,30 @@ def _build_rename_ops(
             status=item.status,
             season=item.season,
             episodes=list(item.episodes),
-            selected=(i in checked_indices),
+            selected=is_selected,
+            file_type="video",
         ))
+
+        # Companion ops (subtitles, future: posters, NFOs…) — each carries a
+        # fully-computed new_name, so no name reconstruction is needed here.
+        # Selection state mirrors the parent video op.
+        for companion in item.companions:
+            try:
+                companion_rel = str(companion.original.relative_to(library_root))
+            except ValueError:
+                companion_rel = str(companion.original)
+
+            ops.append(RenameOp(
+                original_relative=companion_rel,
+                new_name=companion.new_name,
+                target_dir_relative=target_rel,
+                status="OK",
+                season=item.season,
+                episodes=list(item.episodes),
+                selected=is_selected,
+                file_type=companion.file_type,
+            ))
+
     return ops
 
 

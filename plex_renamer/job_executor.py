@@ -28,7 +28,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .constants import JobKind, JobStatus
+from .constants import JobKind, JobStatus, MediaType
 from .job_store import JobStore, RenameJob, RenameOp
 from .engine import RenameResult
 from .parsing import get_season
@@ -70,6 +70,11 @@ def _validate_sources(job: RenameJob) -> list[str]:
     return missing
 
 
+# Subdirectory name used inside a renamed target folder for files that were
+# present in the source directory but not part of any rename operation.
+_UNMATCHED_FILES_DIR = "Unmatched Files"
+
+
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
 def _execute_rename(job: RenameJob) -> RenameResult:
@@ -95,6 +100,9 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     renames: list[tuple[Path, Path, Path]] = []
     source_dirs: set[Path] = set()
+    # Maps each source directory to the target directory its files were moved
+    # into.  Used after renames to relocate any leftover files.
+    source_to_target: dict[Path, Path] = {}
 
     for op in job.rename_ops:
         if not op.selected:
@@ -116,6 +124,7 @@ def _execute_rename(job: RenameJob) -> RenameResult:
             continue
 
         source_dirs.add(src.parent)
+        source_to_target[src.parent] = target_dir
         renames.append((src, dst, target_dir))
 
     if not renames:
@@ -172,15 +181,73 @@ def _execute_rename(job: RenameJob) -> RenameResult:
             _log.warning("Could not normalize season dir %s: %s",
                          season_dir.name, e)
 
-    # Clean up empty source directories
+    # Clean up source directories after renames.
+    #
+    # For movies, root_folder IS the release directory.  Once renamed files
+    # have been moved to the Plex-named target folder, anything remaining in
+    # the source directory (sample clips, NFOs, extra files the scanner
+    # skipped) is relocated into ``target_dir/Unmatched Files/`` rather than
+    # deleted.  This keeps the user's data intact and mirrors the handling
+    # for unmatched TV episodes.
+    #
+    # For TV, root_folder is the show directory and is never touched here
+    # (show_folder_rename handles it); season subdirectories follow the same
+    # "move leftovers" logic.
+    #
+    # Revert: leftover moves are appended to ``renames``, so revert_job
+    # restores them automatically alongside the primary media files — no
+    # special handling required.
     for src_dir in source_dirs:
         try:
-            if src_dir != root_folder and src_dir.exists():
-                if not list(src_dir.iterdir()):
-                    src_dir.rmdir()
-                    result.log_entry["removed_dirs"].append(str(src_dir))
+            if src_dir == root_folder and job.media_type != MediaType.MOVIE:
+                continue
+            if not src_dir.exists():
+                continue
+
+            remaining = list(src_dir.iterdir())
+
+            if not remaining:
+                src_dir.rmdir()
+                result.log_entry["removed_dirs"].append(str(src_dir))
+                continue
+
+            # Separate files from subdirectories.  Only files are relocated;
+            # subdirectories are left in place (safe default).
+            leftover_files = [f for f in remaining if f.is_file()]
+            if not leftover_files:
+                continue  # Only subdirs remain — leave the directory alone
+
+            target_dir = source_to_target.get(src_dir)
+            if target_dir is None:
+                continue  # No known target — leave it alone
+
+            unmatched_dir = target_dir / _UNMATCHED_FILES_DIR
+            moved_all = True
+
+            for leftover in leftover_files:
+                try:
+                    if not unmatched_dir.exists():
+                        unmatched_dir.mkdir(parents=True, exist_ok=True)
+                        result.log_entry["created_dirs"].append(
+                            str(unmatched_dir))
+                    dst = unmatched_dir / leftover.name
+                    shutil.move(str(leftover), str(dst))
+                    result.log_entry["renames"].append(
+                        {"old": str(leftover), "new": str(dst)})
+                    _log.info("Moved leftover to Unmatched Files: %s",
+                              leftover.name)
+                except (OSError, shutil.Error) as e:
+                    _log.warning("Could not move leftover %s: %s",
+                                 leftover.name, e)
+                    moved_all = False
+
+            # Remove source dir only when it is now completely empty
+            if moved_all and not list(src_dir.iterdir()):
+                src_dir.rmdir()
+                result.log_entry["removed_dirs"].append(str(src_dir))
+
         except OSError as e:
-            _log.warning("Could not remove empty dir %s: %s",
+            _log.warning("Could not clean up source dir %s: %s",
                          src_dir.name, e)
 
     # Rename root show folder

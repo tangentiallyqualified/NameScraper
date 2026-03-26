@@ -10,6 +10,9 @@ from pathlib import Path
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v"}
 
+# Subtitle/caption formats — renamed alongside their paired video file.
+SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"}
+
 # ─── Logging / persistence paths ─────────────────────────────────────────────
 
 LOG_DIR = Path.home() / ".plex_renamer"
@@ -38,6 +41,10 @@ class JobStatus(StrEnum):
 class JobKind(StrEnum):
     """Job type discriminator — extensible for future task types."""
     RENAME = "rename"
+    # Future: download subtitles from the OpenSubtitles API.
+    # This is a separate job kind (not an op within RENAME) because it
+    # involves network I/O, rate limiting, and credential management.
+    SUBTITLE_DOWNLOAD = "subtitle_download"
 
 # ─── Filename sanitization ────────────────────────────────────────────────────
 

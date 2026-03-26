@@ -48,12 +48,17 @@ class RenameOp:
     season: int | None = None
     episodes: list[int] = field(default_factory=list)
     selected: bool = True           # Was this file checked by the user?
+    # "video" for the main media file; "subtitle" for companion subtitle files
+    # renamed alongside it.  Extensible for future companion types (e.g. "nfo").
+    file_type: str = "video"
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> RenameOp:
+        d = dict(d)
+        d.setdefault("file_type", "video")  # Back-compat: old rows lack this field
         return cls(**d)
 
 
@@ -98,7 +103,19 @@ class RenameJob:
     job_kind: str = JobKind.RENAME
     data_source: str = "tmdb"
 
-    # Dependency (future use)
+    # Dependency linking
+    # ─────────────────
+    # For companion files that are renamed *alongside* their media file
+    # (subtitles, future: posters, NFOs), use RenameOp entries within this
+    # same job.  They execute and revert atomically — there is no scenario
+    # where a subtitle reverts without its video, or vice versa.
+    #
+    # ``depends_on`` is reserved for jobs that are *sequentially dependent*
+    # rather than atomic companions — specifically, a future
+    # ``JobKind.SUBTITLE_DOWNLOAD`` job that downloads a subtitle file from
+    # OpenSubtitles *after* a rename job has established the correct filename.
+    # That job sets ``depends_on = rename_job_id`` so the executor can resolve
+    # the final path and wait for the rename to complete first.
     depends_on: str | None = None   # job_id of prerequisite, or None
 
     @property
@@ -109,6 +126,22 @@ class RenameJob:
     @property
     def selected_count(self) -> int:
         return sum(1 for op in self.rename_ops if op.selected)
+
+    @property
+    def video_ops(self) -> list[RenameOp]:
+        """Ops for the primary media files (file_type == 'video')."""
+        return [op for op in self.rename_ops if op.file_type == "video"]
+
+    @property
+    def companion_ops(self) -> list[RenameOp]:
+        """
+        Ops for companion files renamed alongside the video (subtitles,
+        future: posters, NFOs).  Grouped by ``file_type`` in the GUI.
+
+        These are always part of the same job as their video op — reverting
+        this job reverts all companion ops atomically.
+        """
+        return [op for op in self.rename_ops if op.file_type != "video"]
 
     @property
     def source_path(self) -> Path:
