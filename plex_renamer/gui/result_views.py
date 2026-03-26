@@ -11,7 +11,6 @@ from pathlib import Path
 from ..constants import MediaType
 from ..engine import CompletenessReport, PreviewItem, RenameResult, ScanState
 from ..styles import COLORS
-from ..undo_log import load_log
 from .helpers import draw_action_buttons, make_button_click_handler
 
 
@@ -708,7 +707,7 @@ def show_already_renamed(app, report: CompletenessReport | None) -> None:
         y += int(30 * s)
 
     # Action buttons
-    has_undo = bool(load_log())
+    has_undo = app._has_revertible_job()
     btn_y_top, btn_y_bot, regions = draw_action_buttons(
         cv, y, canvas_w, s, show_undo=has_undo, show_scan=True)
     y = btn_y_bot + int(20 * s)
@@ -798,7 +797,7 @@ def show_already_renamed_movies(app, ok_items: list[PreviewItem]) -> None:
     y += int(30 * s)
 
     # Undo button
-    has_undo = bool(load_log())
+    has_undo = app._has_revertible_job()
     if has_undo:
         btn_y_top, btn_y_bot, regions = draw_action_buttons(
             cv, y, canvas_w, s, show_undo=True, show_scan=False)

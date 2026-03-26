@@ -24,7 +24,7 @@ from ..app.services import (
     RefreshPolicyService,
     ScanSnapshotService,
 )
-from ..constants import MediaType
+from ..constants import JobStatus, MediaType
 from ..engine import (
     BatchTVOrchestrator,
     CompletenessReport,
@@ -40,12 +40,11 @@ from ..engine import (
     score_results,
     check_duplicates,
     execute_rename,
-    execute_undo,
     build_rename_job_from_state,
     build_rename_job_from_items,
 )
 from ..job_store import JobStore, RenameJob, DuplicateJobError
-from ..job_executor import QueueExecutor
+from ..job_executor import QueueExecutor, revert_job
 from ..keys import get_api_key, save_api_key
 from ..parsing import (
     build_show_folder_name, clean_folder_name, extract_year,
@@ -53,7 +52,6 @@ from ..parsing import (
 )
 from ..styles import COLORS, get_dpi_scale, setup_styles
 from ..tmdb import TMDBClient
-from ..undo_log import load_log
 
 from . import detail_panel, dialogs, library_panel, preview_canvas, result_views
 from .helpers import (
@@ -203,10 +201,6 @@ class PlexRenamerApp:
         self._font_new = tkfont.Font(family="Helvetica", size=10)
         self._font_badge = tkfont.Font(family="Helvetica", size=8, weight="bold")
         self._font_check = tkfont.Font(family="Helvetica", size=14)
-
-        # Keyboard bindings
-        self.root.bind("<Control-z>", lambda e: self.undo())
-        self.root.bind("<F5>", lambda e: self.run_preview())
 
         # Initialize tab badges from database (persisted queue/history)
         self._update_queue_badge()
@@ -884,6 +878,8 @@ class PlexRenamerApp:
                 state.duplicate_of = None
             if previous_state is not None:
                 state.queued = previous_state.queued
+            if self.command_gating.is_plex_ready_state(state):
+                state.checked = False
             movie_states.append(state)
 
         if not movie_states and scanning:
@@ -1415,6 +1411,10 @@ class PlexRenamerApp:
                 messagebox.showerror(
                     "Scan Error",
                     f"Error during batch scan:\n{error_holder[0]}")
+
+            for state in self.batch_states:
+                if self.command_gating.is_plex_ready_state(state):
+                    state.checked = False
 
             scanned = sum(1 for s in self.batch_states if s.scanned)
             total_files = sum(s.file_count for s in self.batch_states if s.scanned)
@@ -2035,8 +2035,6 @@ class PlexRenamerApp:
                 return
 
             if already_done and needs_action:
-                movie_preview_items = needs_action
-                check_duplicates(movie_preview_items)
                 self._set_scan_progress(
                     ScanLifecycle.READY,
                     phase="Movie scan complete",
@@ -2288,25 +2286,27 @@ class PlexRenamerApp:
         added = 0
         skipped_dup = 0
         skipped_queued = 0
+        skipped_no_action = 0
+        blocked_details: list[str] = []
         errors = []
 
         for state in self.batch_states:
             if not state.checked:
                 continue
 
-            eligibility = self.command_gating.evaluate_scan_state(state)
+            eligibility = self.command_gating.evaluate_scan_state(
+                state,
+                allow_show_level_queue=True,
+            )
             if not eligibility.enabled:
                 if eligibility.command_state.value == "disabled_already_queued":
                     skipped_queued += 1
+                else:
+                    blocked_details.append(
+                        f"{state.display_name}: {eligibility.reason}")
                 continue
 
             checked = set(eligibility.selected_indices)
-            if not checked:
-                continue
-
-            if state.queued:
-                skipped_queued += 1
-                continue
 
             show_folder = build_show_folder_name(
                 state.media_info.get("name", ""),
@@ -2338,22 +2338,28 @@ class PlexRenamerApp:
                 "Queue Errors",
                 f"Added {added} jobs, {skipped_dup} already queued.\n\n"
                 f"Errors:\n" + "\n".join(errors[:5]))
-        elif skipped_dup or skipped_queued:
-            self.status_var.set(
-                f"Added {added} jobs to queue"
-                + (f" ({skipped_dup + skipped_queued} already queued)"
-                   if (skipped_dup + skipped_queued) else ""))
         else:
-            self.status_var.set(f"Added {added} jobs to queue")
+            status_parts = []
+            if skipped_dup or skipped_queued:
+                status_parts.append(f"{skipped_dup + skipped_queued} already queued")
+            if blocked_details:
+                status_parts.append(f"{len(blocked_details)} blocked")
+
+            message = f"Added {added} jobs to queue"
+            if status_parts:
+                message += f" ({', '.join(status_parts)})"
+            self.status_var.set(message)
+
+            if blocked_details:
+                messagebox.showinfo(
+                    "Some Shows Were Not Queued",
+                    "\n".join(blocked_details[:8]),
+                )
 
         self._update_queue_badge()
 
     def _execute_rename(self):
-        """Legacy direct rename — kept for backward compatibility.
-
-        Called from result_views action buttons and the legacy Undo flow.
-        Uses the old execute_rename path with JSON log persistence.
-        """
+        """Legacy direct rename — kept for backward compatibility."""
         if self.batch_mode:
             self._execute_batch_rename()
             return
@@ -2402,10 +2408,22 @@ class PlexRenamerApp:
                 self.media_info.get("year", ""),
             )
 
+        job = build_rename_job_from_items(
+            self.preview_items,
+            checked,
+            self.media_type,
+            self.media_info.get("id", 0) if self.media_info else 0,
+            media_name,
+            self.folder,
+            self.folder,
+            show_folder_rename=show_folder,
+        )
+
         result = execute_rename(
             self.preview_items, checked, media_name, self.folder,
             show_folder_name=show_folder,
         )
+        self._record_completed_rename_job(job, result)
 
         if result.new_root:
             self.folder = result.new_root
@@ -2467,11 +2485,19 @@ class PlexRenamerApp:
                 state.media_info.get("year", ""),
             )
 
+            job = build_rename_job_from_state(
+                state,
+                self.folder,
+                show_folder_rename=show_folder,
+                checked_indices=checked,
+            )
+
             result = execute_rename(
                 state.preview_items, checked,
                 state.display_name, state.folder,
                 show_folder_name=show_folder,
             )
+            self._record_completed_rename_job(job, result)
 
             if result.new_root:
                 state.folder = result.new_root
@@ -2488,31 +2514,57 @@ class PlexRenamerApp:
             self._batch_result_collapsed = set()
             result_views.show_batch_rename_result(self, all_results)
 
-    def undo(self):
-        log = load_log()
-        if not log:
-            messagebox.showinfo("Nothing to Undo", "No rename history found.")
+    def _record_completed_rename_job(self, job: RenameJob, result: RenameResult) -> None:
+        """Persist a direct rename as completed history for unified revert."""
+        if result.renamed_count == 0:
             return
 
-        last = log[-1]
+        job.status = JobStatus.COMPLETED
+        job.undo_data = result.log_entry
+        if result.errors:
+            job.error_message = "; ".join(result.errors[:5])
+        self.job_store.add_job(job)
+        self._refresh_history_tab()
+        self._update_queue_badge()
+
+    def _latest_revertible_job(self) -> RenameJob | None:
+        """Return the most recent completed job with stored undo data."""
+        return self.job_store.get_latest_completed_with_undo()
+
+    def _has_revertible_job(self) -> bool:
+        """True when an undo action can be offered."""
+        return self._latest_revertible_job() is not None
+
+    def undo(self):
+        job = self._latest_revertible_job()
+        if job is None or not job.undo_data:
+            messagebox.showinfo("Nothing to Undo", "No completed rename job found.")
+            return
+
+        undo = job.undo_data
         move_count = sum(
-            1 for e in last["renames"]
+            1 for e in undo.get("renames", [])
             if Path(e["old"]).parent != Path(e["new"]).parent
         )
 
-        desc = f"Undo {len(last['renames'])} renames for '{last['show']}'?"
+        desc = f"Undo {len(undo.get('renames', []))} renames for '{job.media_name}'?"
         if move_count:
             desc += f"\n\n{move_count} file(s) will be moved back."
-        if last.get("removed_dirs"):
-            dirs = [Path(d).name for d in last["removed_dirs"]]
+        if undo.get("removed_dirs"):
+            dirs = [Path(d).name for d in undo["removed_dirs"]]
             desc += f"\n\nThese folders will be recreated: {', '.join(dirs)}"
 
         if not messagebox.askyesno("Undo Rename", desc):
             return
 
-        success, errors = execute_undo()
+        success, errors = revert_job(job)
+        self.job_store.update_status(
+            job.job_id,
+            JobStatus.REVERTED,
+            error_message="; ".join(errors[:3]) if errors else None,
+        )
 
-        for entry in last.get("renamed_dirs", []):
+        for entry in undo.get("renamed_dirs", []):
             if Path(entry["new"]) == self.folder:
                 old_root = Path(entry["old"])
                 if old_root.exists():
@@ -2528,6 +2580,8 @@ class PlexRenamerApp:
             messagebox.showinfo("Undone", "Rename successfully undone.")
 
         self.status_var.set("Undo complete.")
+        self._refresh_history_tab()
+        self._update_queue_badge()
         detail_panel.reset_detail(self)
         if self.tv_scanner:
             self.tv_scanner.invalidate_cache()

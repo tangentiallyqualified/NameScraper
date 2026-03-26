@@ -5,11 +5,34 @@ from __future__ import annotations
 from collections import Counter
 
 from ...engine import PreviewItem, ScanState, get_checked_indices_from_state
+from ...parsing import build_show_folder_name
 from ..models import QueueCommandState, QueueEligibility
 
 
 class CommandGatingService:
     """Compute queue eligibility independently of any GUI toolkit."""
+
+    @staticmethod
+    def is_plex_ready_state(state: ScanState) -> bool:
+        """True when a scanned entry is already fully Plex-ready and non-queueable."""
+        if not state.scanned or not state.preview_items:
+            return False
+        if state.duplicate_of is not None or state.queued:
+            return False
+        if any(item.status != "OK" for item in state.preview_items):
+            return False
+        if any(item.is_actionable for item in state.preview_items):
+            return False
+
+        show_name = state.media_info.get("name")
+        if show_name:
+            expected_folder = build_show_folder_name(
+                show_name,
+                state.media_info.get("year", ""),
+            )
+            return state.folder.name == expected_folder
+
+        return True
 
     def evaluate_preview_items(
         self,
@@ -90,6 +113,7 @@ class CommandGatingService:
         state: ScanState,
         *,
         require_resolved_review: bool = False,
+        allow_show_level_queue: bool = False,
     ) -> QueueEligibility:
         """Return queue command state for a ScanState."""
         selected: set[int] = set()
@@ -107,6 +131,29 @@ class CommandGatingService:
                 reason="Scan and review files before queueing.",
             )
 
+        if (
+            allow_show_level_queue
+            and state.checked
+            and state.scanned
+            and not state.scanning
+            and not state.queued
+            and state.duplicate_of is None
+            and not self.is_plex_ready_state(state)
+            and state.show_id is not None
+            and not selected
+        ):
+            actionable = [
+                index for index, item in enumerate(state.preview_items)
+                if self.is_actionable_item(item)
+            ]
+            if not actionable:
+                return QueueEligibility(
+                    command_state=QueueCommandState.ENABLED,
+                    reason="Show is eligible for queueing.",
+                    eligible_file_count=0,
+                    eligible_job_count=1,
+                )
+
         return self.evaluate_preview_items(
             state.preview_items,
             selected_indices=selected,
@@ -121,6 +168,7 @@ class CommandGatingService:
         states: list[ScanState],
         *,
         require_resolved_review: bool = False,
+        allow_show_level_queue: bool = False,
     ) -> QueueEligibility:
         """Aggregate queue eligibility across multiple ScanState objects."""
         eligible_jobs = 0
@@ -131,6 +179,7 @@ class CommandGatingService:
             result = self.evaluate_scan_state(
                 state,
                 require_resolved_review=require_resolved_review,
+                allow_show_level_queue=allow_show_level_queue,
             )
             if result.enabled:
                 eligible_jobs += 1

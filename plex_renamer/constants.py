@@ -13,7 +13,6 @@ VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v
 # ─── Logging / persistence paths ─────────────────────────────────────────────
 
 LOG_DIR = Path.home() / ".plex_renamer"
-LOG_FILE = LOG_DIR / "rename_log.json"
 DB_FILE = LOG_DIR / "job_queue.db"
 CACHE_DB_FILE = LOG_DIR / "cache.db"
 SCAN_SNAPSHOT_FILE = LOG_DIR / "scan_snapshots.json"

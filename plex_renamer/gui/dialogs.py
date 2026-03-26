@@ -122,7 +122,6 @@ def pick_media_dialog(
 
         ttk.Button(search_row, text="Search", style="Small.TButton",
                    command=_do_search).pack(side="left")
-        search_entry.bind("<Return>", lambda e: _do_search())
 
     selected = [None]
 

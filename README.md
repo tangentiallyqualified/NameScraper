@@ -15,7 +15,7 @@ Built with Python and tkinter. Designed around a unified three-panel workflow th
 - The current shipping shell is still tkinter-based and remains the active app entry point.
 - Phase 1 of the GUI3 migration is effectively complete on `dev/GUI3`: the app now has a UI-neutral application layer for cache coordination, refresh policy, scan snapshots, structured progress, and command gating.
 - Session restore has been hardened for TV and movie workflows, including active-session tracking, restored movie-state hydration, TMDB cache rehydration, and debounced persistence writes.
-- Recent cleanup also fixed restored TV roster state, consolidated-scan cache typing issues, and first-render TV poster sizing after restore.
+- Recent cleanup also unified undo around the persistent job store, added a non-queueable `Plex Ready` roster state for already-correct media, and fixed restored TV roster state, consolidated-scan cache typing issues, and first-render TV poster sizing after restore.
 - Phase 2 has not started yet. The next major step is extracting controllers and view models so the PySide6 shell can be built on top of the existing backend and application services.
 
 ## Roadmap Goals
@@ -116,7 +116,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 **Batch Output**
 - Each movie is placed in its own `Title (Year)/` folder under the batch root
 - Files already in the correct location are detected and no unnecessary move is flagged
-- Files already properly named are filtered out of the preview with a count shown in the status bar
+- Files already properly named remain visible in the left roster under a `Plex Ready` group so they can still be previewed, but they are not selectable or queueable
 
 ---
 
@@ -126,7 +126,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 - The left panel is always the media roster for the active TV or Movie session
 - Single-show TV is represented as a one-item roster entry
 - Movie folder scans are represented as a one-item roster entry for the active folder scan
-- Batch TV keeps grouped roster headers such as `matched`, `needs review`, `duplicates`, and `queued`
+- Batch TV keeps grouped roster headers such as `matched`, `plex ready`, `needs review`, `duplicates`, and `queued`
 
 **Card-Based Preview**
 - Every file gets a preview card showing the original filename and the proposed new name with target folder
@@ -182,9 +182,8 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 ### Undo System
 
-- Full undo of the most recent rename batch via `Ctrl+Z` or the Undo button
-- Atomic JSON log stored at `~/.plex_renamer/rename_log.json`
-- Write-safe: uses temp file + rename to prevent corruption on crash
+- Full undo of the most recent completed rename job via the Undo button
+- Undo data is stored with completed jobs in the persistent SQLite job history
 - Reverts file renames, directory renames, and recreates removed directories
 - Properly handles cascading directory renames using `Path.relative_to()` for safe path rewriting
 - Cleans up directories created during the original rename if they're empty after undo
@@ -243,7 +242,6 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 - Debounced completeness recalculation on checkbox changes (50ms delay)
 - Debounced canvas redraw on window resize (100ms delay)
 - Mousewheel scrolling with enter/leave routing between preview and detail canvases
-- Keyboard shortcuts: `Ctrl+Z` for undo, `F5` for refresh
 - Progress bar in the status bar for async operations
 - Threaded scanning for batch movie mode (keeps UI responsive)
 
@@ -253,7 +251,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 - API keys are stored via the OS keyring when available, with a local app-data fallback when `keyring` is not installed
 - API key management dialog with masked input
-- Undo log written atomically to prevent corruption
+- Queue, history, cache, and snapshot state are persisted under the app data directory
 
 ---
 

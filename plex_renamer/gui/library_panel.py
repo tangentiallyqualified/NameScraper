@@ -17,6 +17,7 @@ from ..constants import MediaType
 from ..engine import AUTO_ACCEPT_THRESHOLD, ScanState, score_results
 from ..parsing import clean_folder_name, extract_year
 from ..styles import COLORS
+from ..app.services import CommandGatingService
 
 
 # ─── Layout metrics ──────────────────────────────────────────────────────────
@@ -63,10 +64,16 @@ class LibraryMetrics:
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+def _is_plex_ready_state(state: ScanState) -> bool:
+    """Return the app-layer Plex Ready classification for a roster entry."""
+    return CommandGatingService.is_plex_ready_state(state)
+
 def _status_color(state: ScanState) -> str:
     """Pick a status dot color based on state."""
     c = COLORS
     if state.queued:
+        return c["success"]
+    if _is_plex_ready_state(state):
         return c["success"]
     if state.duplicate_of:
         return c["text_muted"]
@@ -87,6 +94,8 @@ def _status_text(state: ScanState) -> str:
     """Build a short status string for a show card."""
     if state.queued:
         return "Queued"
+    if _is_plex_ready_state(state):
+        return "Plex Ready"
     if state.duplicate_of:
         return f"Duplicate of {state.duplicate_of}"
     if state.scanning:
@@ -201,7 +210,7 @@ def display_library(app) -> None:
     if hide_named and hide_named.get():
         display_indices = [
             i for i in display_indices
-            if not app.library_states[i].all_skipped
+            if not _is_plex_ready_state(app.library_states[i])
         ]
 
     display_indices.sort(key=lambda i: (_group_sort_key(app.library_states[i]), i))
@@ -255,6 +264,8 @@ def _group_header_for(state: ScanState) -> str | None:
     """Return a group header label for this state, or None."""
     if state.queued:
         return "queued"
+    if _is_plex_ready_state(state):
+        return "plex ready"
     if state.duplicate_of is not None:
         return "duplicates"
     if state.show_id is None:
@@ -269,10 +280,11 @@ def _group_sort_key(state: ScanState) -> int:
     header = _group_header_for(state)
     order = {
         "matched": 0,
-        "needs review": 1,
-        "no match": 2,
-        "duplicates": 3,
-        "queued": 4,
+        "plex ready": 1,
+        "needs review": 2,
+        "no match": 3,
+        "duplicates": 4,
+        "queued": 5,
     }
     return order.get(header or "matched", 99)
 
@@ -285,8 +297,9 @@ def _draw_show_card(
     s = app.dpi_scale
     is_selected = (app._library_selected_index == index)
     is_duplicate = state.duplicate_of is not None
+    is_plex_ready = _is_plex_ready_state(state)
     is_queued = state.queued
-    is_inactive = is_duplicate or state.all_skipped or is_queued
+    is_inactive = is_duplicate or is_plex_ready or state.all_skipped or is_queued
     tag = f"lib_item_{index}"
 
     x_left = m.margin_x
@@ -299,6 +312,8 @@ def _draw_show_card(
 
     # Accent bar color
     if is_queued:
+        bar_color = c["success"]
+    elif is_plex_ready:
         bar_color = c["success"]
     elif is_inactive:
         bar_color = c["text_muted"]
@@ -320,11 +335,15 @@ def _draw_show_card(
     # ── Text content ──────────────────────────────────────
     text_y = y + m.pad_y
 
-    # Badge above title (DUPLICATE or QUEUED)
+    # Badge above title (PLEX READY, DUPLICATE, or QUEUED)
     badge_label = None
     badge_fg_color = c["text_muted"]
     badge_outline = c["text_muted"]
-    if is_duplicate:
+    if is_plex_ready:
+        badge_label = " PLEX READY "
+        badge_fg_color = c["success"]
+        badge_outline = c["success"]
+    elif is_duplicate:
         badge_label = " DUPLICATE "
     elif is_queued:
         badge_label = " QUEUED "
@@ -418,7 +437,10 @@ def _draw_show_card(
 
     # Checkbox
     check_cy = y + row_h // 2
-    if state.checked:
+    if is_duplicate or is_plex_ready or state.all_skipped or is_queued:
+        check_char = "—"
+        check_color = c["text_muted"]
+    elif state.checked:
         check_char = "☑"
         check_color = c["accent"]
     else:
@@ -637,6 +659,8 @@ def _load_show_preview(app, state: ScanState) -> None:
             app.root.update_idletasks()
             try:
                 app.batch_orchestrator.scan_show(state)
+                if app.command_gating.is_plex_ready_state(state):
+                    state.checked = False
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -685,14 +709,16 @@ def _load_show_preview(app, state: ScanState) -> None:
 
 
 def toggle_show_check(app, index: int) -> None:
-    """Toggle a show's master checkbox. Duplicates and all-skipped shows cannot be checked."""
+    """Toggle a show's master checkbox. Plex-ready and inactive shows cannot be checked."""
     if index >= len(app.library_states):
         return
 
     state = app.library_states[index]
 
-    # Duplicates, all-skipped, and queued shows can't be toggled
+    # Duplicates, Plex-ready, all-skipped, and queued shows can't be toggled
     if state.duplicate_of is not None:
+        return
+    if _is_plex_ready_state(state):
         return
     if state.all_skipped:
         return
@@ -742,6 +768,7 @@ def update_library_totals(app) -> None:
     total_shows = len(app.library_states)
     total_files = sum(s.file_count for s in app.library_states if s.checked and not s.queued)
     needs_review = sum(1 for s in app.library_states if s.needs_review and not s.queued)
+    plex_ready = sum(1 for s in app.library_states if _is_plex_ready_state(s))
     queued_shows = sum(1 for s in app.library_states if s.queued)
 
     parts = [f"{checked_shows}/{total_shows} shows"]
@@ -749,6 +776,8 @@ def update_library_totals(app) -> None:
         parts.append(f"{total_files} files")
     if needs_review:
         parts.append(f"{needs_review} needs review")
+    if plex_ready:
+        parts.append(f"{plex_ready} Plex Ready")
     if queued_shows:
         parts.append(f"{queued_shows} queued")
 

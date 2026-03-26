@@ -570,6 +570,18 @@ class JobStore:
             ).fetchall()
             return [self._row_to_job(r) for r in rows]
 
+    def get_latest_completed_with_undo(self) -> RenameJob | None:
+        """Return the most recently completed job that can still be reverted."""
+        with self._lock:
+            conn = self._get_conn()
+            row = conn.execute(
+                "SELECT * FROM jobs "
+                "WHERE status = ? AND undo_data IS NOT NULL "
+                "ORDER BY updated_at DESC LIMIT 1",
+                (JobStatus.COMPLETED,),
+            ).fetchone()
+            return self._row_to_job(row) if row else None
+
     def get_all(self) -> list[RenameJob]:
         with self._lock:
             conn = self._get_conn()

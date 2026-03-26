@@ -33,7 +33,6 @@ from .parsing import (
     normalize_for_specials,
 )
 from .tmdb import TMDBClient
-from .undo_log import load_log, save_log
 
 
 # ─── Data structures ─────────────────────────────────────────────────────────
@@ -1633,7 +1632,6 @@ def execute_rename(
     show_name: str,
     root_folder: Path,
     show_folder_name: str | None = None,
-    persist_log: bool = True,
 ) -> RenameResult:
     """
     Perform the actual file renames/moves for checked items.
@@ -1646,10 +1644,6 @@ def execute_rename(
         show_folder_name: If provided and the root folder's current name
             doesn't match, rename it.  The new root path is stored in
             result.new_root so the caller can update its state.
-        persist_log: If True (default), write the undo entry to the
-            legacy JSON log.  Set to False when the job queue executor
-            handles persistence via JobStore instead.
-
     Returns a RenameResult with the log entry for undo support.
     """
     result = RenameResult()
@@ -1765,108 +1759,7 @@ def execute_rename(
                 except OSError:
                     pass  # Not fatal — files are already renamed
 
-    # Persist log (legacy JSON — skipped when job queue handles persistence)
-    if persist_log:
-        log = load_log()
-        log.append(result.log_entry)
-        save_log(log)
-
     return result
-
-
-def execute_undo() -> tuple[bool, list[str]]:
-    """
-    Undo the most recent rename batch.
-
-    Returns (success, errors).
-    """
-    log = load_log()
-    if not log:
-        return False, ["No rename history found."]
-
-    last = log[-1]
-    errors: list[str] = []
-
-    # Revert folder renames
-    dir_rename_map: dict[Path, Path] = {}  # new_dir → old_dir
-    for entry in reversed(last.get("renamed_dirs", [])):
-        new_dir = Path(entry["new"])
-        old_dir = Path(entry["old"])
-        try:
-            if new_dir.exists():
-                new_dir.rename(old_dir)
-                dir_rename_map[new_dir] = old_dir
-        except OSError as e:
-            errors.append(f"Could not revert folder {new_dir.name}: {e}")
-
-    # Recreate removed directories
-    for dir_path_str in last.get("removed_dirs", []):
-        try:
-            Path(dir_path_str).mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            errors.append(f"Could not recreate folder {Path(dir_path_str).name}: {e}")
-
-    # Move files back
-    for entry in reversed(last["renames"]):
-        new_path = Path(entry["new"])
-        old_path = Path(entry["old"])
-
-        # Rewrite paths using proper Path operations — if a parent dir
-        # was renamed, update paths to reflect the reverted name
-        for renamed_new, renamed_old in dir_rename_map.items():
-            try:
-                rel = new_path.relative_to(renamed_new)
-                new_path = renamed_old / rel
-            except ValueError:
-                pass
-            try:
-                rel = old_path.relative_to(renamed_new)
-                old_path = renamed_old / rel
-            except ValueError:
-                pass
-
-        try:
-            old_path.parent.mkdir(parents=True, exist_ok=True)
-            if new_path.exists():
-                if new_path.parent != old_path.parent:
-                    shutil.move(str(new_path), str(old_path))
-                else:
-                    new_path.rename(old_path)
-            else:
-                errors.append(f"File not found: {new_path.name}")
-        except (OSError, shutil.Error) as e:
-            errors.append(f"{new_path.name}: {e}")
-
-    # Remove created directories if empty, then clean up empty parents
-    # (handles Unmatched/Featurettes → Unmatched/ cascade)
-    cleaned_dirs: set[str] = set()
-    for dir_path_str in last.get("created_dirs", []):
-        dir_path = Path(dir_path_str)
-        try:
-            if dir_path.exists() and not list(dir_path.iterdir()):
-                dir_path.rmdir()
-                cleaned_dirs.add(dir_path_str)
-        except OSError:
-            pass
-
-    # Walk up from each cleaned dir and remove empty parents
-    # (stop before leaving the show's root directory)
-    for dir_path_str in list(cleaned_dirs):
-        parent = Path(dir_path_str).parent
-        while parent.exists() and parent != parent.parent:
-            try:
-                if not list(parent.iterdir()):
-                    parent.rmdir()
-                    parent = parent.parent
-                else:
-                    break
-            except OSError:
-                break
-
-    log.pop()
-    save_log(log)
-
-    return len(errors) == 0, errors
 
 
 # ─── Job queue bridge ────────────────────────────────────────────────────────
