@@ -2229,14 +2229,16 @@ def boost_scores_with_alt_titles(
     best-matching alternative.  Returns the full list re-sorted by the
     (potentially boosted) scores.
 
-    Alternative titles are tried in priority order:
+    Matching priority (fallback chain):
 
-    1. Titles from the user's *preferred_country* (e.g. ``"FR"``)
-    2. English-region titles (``"US"`` / ``"GB"``)
-    3. All remaining titles
+    1. Primary title from the TMDB search result (already scored).
+    2. Alternative titles in the user's preferred language/country.
+    3. English alternative titles (US / GB) as a universal fallback.
+    4. All remaining alternative titles from other languages.
 
-    This ensures non-English libraries match against their own language
-    first, with English as a reliable fallback.
+    If no alternative title pushes the score above the auto-accept
+    threshold, the original (low) score is preserved and the item will
+    be flagged for manual review.
 
     This is a no-op when the top result already exceeds the threshold or
     when there are no results.
@@ -2246,7 +2248,18 @@ def boost_scores_with_alt_titles(
 
     best_score = scored[0][1]
     if best_score >= AUTO_ACCEPT_THRESHOLD:
+        _log.debug(
+            "Alt title boost skipped — top result already at %.2f "
+            "(threshold %.2f) for %r",
+            best_score, AUTO_ACCEPT_THRESHOLD, raw_name,
+        )
         return scored
+
+    _log.info(
+        "Alt title boost: top score %.2f < %.2f for %r — "
+        "checking alt titles (preferred_country=%s)",
+        best_score, AUTO_ACCEPT_THRESHOLD, raw_name, preferred_country,
+    )
 
     query_norm = normalize_for_match(raw_name)
     english_countries = {"US", "GB"}
@@ -2257,6 +2270,11 @@ def boost_scores_with_alt_titles(
         if i < _ALT_TITLE_CANDIDATES and result.get("id") is not None:
             raw_alts = tmdb.get_alternative_titles(
                 result["id"], media_type,
+            )
+            _log.debug(
+                "  [%s] id=%s %r: %d alt titles fetched",
+                media_type, result["id"],
+                result.get(title_key, "?"), len(raw_alts),
             )
 
             # Sort by priority: preferred country → English → rest
@@ -2273,6 +2291,7 @@ def boost_scores_with_alt_titles(
             ordered_alts = preferred + english + rest
 
             best_alt_score = original_score
+            best_alt_title = None
             for alt in ordered_alts:
                 alt_norm = normalize_for_match(alt)
                 t_score = title_similarity(query_norm, alt_norm)
@@ -2294,7 +2313,14 @@ def boost_scores_with_alt_titles(
 
                 if score > best_alt_score:
                     best_alt_score = score
+                    best_alt_title = alt
 
+            if best_alt_title:
+                _log.info(
+                    "  Boosted id=%s from %.2f → %.2f via alt title %r",
+                    result["id"], original_score, best_alt_score,
+                    best_alt_title,
+                )
             updated.append((result, best_alt_score))
         else:
             updated.append((result, original_score))
