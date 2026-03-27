@@ -220,15 +220,21 @@ class CommandGatingService:
 
     @staticmethod
     def is_actionable_item(item: PreviewItem) -> bool:
-        """True when an item can become a queued rename operation."""
+        """True when an item can become a queued rename operation.
+
+        Items with OK, UNMATCHED, or REVIEW status are actionable
+        (REVIEW items have a valid rename plan — the user confirms
+        the match by checking the item).  SKIP and CONFLICT items
+        are never actionable.
+        """
         if item.new_name is None:
             return False
-        if item.status != "OK" and "UNMATCHED" not in item.status:
-            return False
-        target_dir = item.target_dir or item.original.parent
-        if item.new_name == item.original.name and target_dir == item.original.parent:
-            return False
-        return True
+        if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
+            target_dir = item.target_dir or item.original.parent
+            if item.new_name == item.original.name and target_dir == item.original.parent:
+                return False
+            return True
+        return False
 
     @classmethod
     def _blocked_counts(cls, items: list[PreviewItem]) -> dict[str, int]:

@@ -945,7 +945,7 @@ class PlexRenamerApp:
             return
 
         for idx, item in enumerate(self.preview_items):
-            if item.status == "OK" or "UNMATCHED" in item.status:
+            if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
                 preview_canvas.select_card(self, idx)
                 return
         detail_panel.reset_detail(self)
@@ -2401,7 +2401,7 @@ class PlexRenamerApp:
             i for i, item in enumerate(self.preview_items)
             if self.check_vars.get(str(i)) is not None
             and self.check_vars[str(i)].get()
-            and (item.status == "OK" or "UNMATCHED" in item.status)
+            and (item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status)
             and item.new_name
         }
 

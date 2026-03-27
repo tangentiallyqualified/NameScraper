@@ -19,8 +19,8 @@ from ..styles import COLORS
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _is_actionable(item) -> bool:
-    """True if the item can be selected for rename (OK or UNMATCHED)."""
-    return item.status == "OK" or "UNMATCHED" in item.status
+    """True if the item can be selected for rename (OK, UNMATCHED, or REVIEW)."""
+    return item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status
 
 
 def _preview_signature(app) -> tuple:
@@ -663,7 +663,7 @@ def toggle_check(app, item_idx: int) -> None:
     """Toggle a single item's checkbox. Only actionable items can be toggled."""
     item = app.preview_items[item_idx]
     if not _is_actionable(item):
-        return  # SKIP/REVIEW/CONFLICT items can't be checked
+        return  # SKIP/CONFLICT items can't be checked
 
     key = str(item_idx)
     var = app.check_vars.get(key)

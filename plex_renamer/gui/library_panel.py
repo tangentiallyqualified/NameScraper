@@ -707,7 +707,7 @@ def _load_show_preview(app, state: ScanState) -> None:
     # Auto-select the first actionable episode to populate the detail panel
     if state.preview_items:
         for idx, item in enumerate(state.preview_items):
-            if item.status == "OK" or "UNMATCHED" in item.status:
+            if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
                 # Use display_order to find the first visible card
                 if app._display_order:
                     first_display = app._display_order[0]
@@ -749,7 +749,7 @@ def toggle_show_check(app, index: int) -> None:
             try:
                 item_index = int(key)
                 item = state.preview_items[item_index]
-                if item.status == "OK" or "UNMATCHED" in item.status:
+                if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
                     key_values[key] = state.checked
             except (ValueError, IndexError):
                 pass
@@ -762,7 +762,7 @@ def toggle_show_check(app, index: int) -> None:
                 item = state.preview_items[item_index]
             except (ValueError, IndexError):
                 continue
-            if item.status == "OK" or "UNMATCHED" in item.status:
+            if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
                 var.set(state.checked)
 
     if app._library_card_positions:
