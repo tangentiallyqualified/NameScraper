@@ -238,7 +238,15 @@ class EpisodeConfidenceTests(unittest.TestCase):
 # ── Flat folder → multi-season distribution ────────────────────────────────
 
 class _FakeTMDBForOVAScan:
-    """TMDB stub that returns season data for the 1993 JoJo OVA (2 seasons)."""
+    """TMDB stub that returns season data for the 1993 JoJo OVA (2 seasons).
+
+    Season 1 (1993-1994): 6 episodes — the later-numbered disk files (08-13)
+    Season 2 (2000):      7 episodes — the early-numbered disk files (01-07)
+
+    The episode titles mirror the filenames used in the tests so that
+    title-based matching can correctly assign files to seasons even though
+    the on-disk numbering order doesn't match the TMDB season order.
+    """
 
     SHOW_INFO = {
         "id": 29955,
@@ -246,16 +254,36 @@ class _FakeTMDBForOVAScan:
         "year": "1993",
     }
 
-    # Season 1: 6 episodes, Season 2: 7 episodes
+    # Season 1 titles correspond to files 08-13 (the 1993/1994 episodes)
+    _S1_TITLES = {
+        1: "Iggy the Fool and N'Doul the Geb",
+        2: "The Judgement D'Arby the Gambler",
+        3: "D'Arby the Player",
+        4: "The Warrior of the Void Vanilla Ice",
+        5: "DIO's World",
+        6: "DIO's World Farewell My Friends",
+    }
+
+    # Season 2 titles correspond to files 01-07 (the 2000 episodes)
+    _S2_TITLES = {
+        1: "The Evil Spirit",
+        2: "Hierophant Green",
+        3: "Silver Chariot and Strength",
+        4: "The Emperor and the Hanged Man",
+        5: "The Judgement",
+        6: "The Mist of Vengeance",
+        7: "Iggy the Fool and Geb's N'Doul",
+    }
+
     _SEASON_MAP = {
         1: {
-            "titles": {i: f"Episode {i}" for i in range(1, 7)},
+            "titles": _S1_TITLES,
             "posters": {i: None for i in range(1, 7)},
             "episodes": {},
             "count": 6,
         },
         2: {
-            "titles": {i: f"Episode {i}" for i in range(1, 8)},
+            "titles": _S2_TITLES,
             "posters": {i: None for i in range(1, 8)},
             "episodes": {},
             "count": 7,
@@ -273,13 +301,39 @@ class _FakeTMDBForOVAScan:
 
 class FlatFolderMultiSeasonTests(unittest.TestCase):
     """A flat folder with 13 bare-number files should be distributed across
-    TMDB's 2 seasons (6 + 7), not crammed into Season 01."""
+    TMDB's 2 seasons (6 + 7), not crammed into Season 01.
+
+    The on-disk numbering (01-13) does NOT match the TMDB season order:
+      files 01-07 carry (2000) titles → TMDB Season 2
+      files 08-13 carry (1993/1994) titles → TMDB Season 1
+
+    Title-based matching should assign each file to the correct season
+    regardless of the sequential numbering.
+    """
+
+    # Files 01-07: Season 2 episode titles (2000 OVA)
+    # Files 08-13: Season 1 episode titles (1993/1994 OVA)
+    _OVA_FILES = [
+        "01. The Evil Spirit (2000).mkv",
+        "02. Hierophant Green (2000).mkv",
+        "03. Silver Chariot and Strength (2000).mkv",
+        "04. The Emperor and the Hanged Man (2000).mkv",
+        "05. The Judgement (2000).mkv",
+        "06. The Mist of Vengeance (2000).mkv",
+        "07. Iggy the Fool and Geb's N'Doul (2000).mkv",
+        "08. Iggy the Fool and N'Doul the Geb (1993).mkv",
+        "09. The Judgement D'Arby the Gambler (1993).mkv",
+        "10. D'Arby the Player (1993).mkv",
+        "11. The Warrior of the Void Vanilla Ice (1993).mkv",
+        "12. DIO's World (1994).mkv",
+        "13. DIO's World Farewell My Friends (1994).mkv",
+    ]
 
     def test_flat_ova_distributes_across_seasons(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for i in range(1, 14):
-                (root / f"{i:02d}. Episode Title.mkv").write_text("x")
+            for name in self._OVA_FILES:
+                (root / name).write_text("x")
 
             from plex_renamer.engine import TVScanner
             tmdb = _FakeTMDBForOVAScan()
@@ -296,6 +350,54 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                              f"Expected 6 items in Season 1, got {len(season_1_items)}")
             self.assertEqual(len(season_2_items), 7,
                              f"Expected 7 items in Season 2, got {len(season_2_items)}")
+
+    def test_title_matching_assigns_correct_files_to_seasons(self):
+        """Verify that specific files end up in the correct season based on
+        their episode titles, not their sequential numbering."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in self._OVA_FILES:
+                (root / name).write_text("x")
+
+            from plex_renamer.engine import TVScanner
+            tmdb = _FakeTMDBForOVAScan()
+            scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
+            items, _ = scanner.scan()
+
+            # Build a map of original filename → assigned season
+            season_by_file = {it.original.name: it.season for it in items}
+
+            # Files 01-07 (2000 titles) should be in Season 2
+            for name in self._OVA_FILES[:7]:
+                with self.subTest(name=name):
+                    self.assertEqual(season_by_file[name], 2,
+                                     f"{name} should be Season 2")
+
+            # Files 08-13 (1993/1994 titles) should be in Season 1
+            for name in self._OVA_FILES[7:]:
+                with self.subTest(name=name):
+                    self.assertEqual(season_by_file[name], 1,
+                                     f"{name} should be Season 1")
+
+    def test_sequential_fallback_for_generic_filenames(self):
+        """When filenames have no recognizable titles (generic names),
+        title matching should fall back to sequential distribution."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i in range(1, 14):
+                (root / f"{i:02d}. Episode Title.mkv").write_text("x")
+
+            from plex_renamer.engine import TVScanner
+            tmdb = _FakeTMDBForOVAScan()
+            scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
+            items, _ = scanner.scan()
+
+            self.assertEqual(len(items), 13)
+            # Sequential: first 6 → S1, next 7 → S2
+            season_1_items = [it for it in items if it.season == 1]
+            season_2_items = [it for it in items if it.season == 2]
+            self.assertEqual(len(season_1_items), 6)
+            self.assertEqual(len(season_2_items), 7)
 
     def test_flat_single_season_not_affected(self):
         """A flat folder matching a single-season show should still work normally."""

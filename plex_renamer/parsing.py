@@ -372,7 +372,8 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             (guaranteed season-relative), False if it came from a bare number
             or dash-delimited pattern (likely absolute for anime).
     """
-    name = clean_name(Path(filename).stem)
+    raw_stem = Path(filename).stem
+    name = clean_name(raw_stem)
 
     # Pattern 1 (BEST): S##E## with optional multi-episode
     m = re.search(
@@ -390,6 +391,18 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     m = re.search(r"-\s*(\d{1,3})\s*-\s*(.*)", name)
     if m:
         return [int(m.group(1))], m.group(2).strip(), False
+
+    # Pattern 2.5: Bare-number OVA "01. Title Here (2000).mkv"
+    # Uses the raw stem (before clean_name) to detect the dot separator
+    # that distinguishes this from other number-prefixed filenames.
+    bare_m = re.match(r"(\d{1,3})\.\s+(.*)", raw_stem)
+    if bare_m:
+        num = int(bare_m.group(1))
+        if num not in (480, 720, 1080, 2160) and not (1900 <= num <= 2099):
+            title_text = bare_m.group(2).strip()
+            # Strip trailing parenthesized year
+            title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
+            return [num], title_text or None, False
 
     # Pattern 3: Episode number preceded by space/separator
     # Negative lookbehind rejects codec tags: x264, x265, h264, h265

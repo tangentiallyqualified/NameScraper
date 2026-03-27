@@ -1468,6 +1468,37 @@ class TVScanner:
             self._store_tmdb_data(sn, sdata["titles"], sdata["posters"],
                                   sdata.get("episodes", {}))
 
+        # Try title-based matching first — handles cases where file numbering
+        # doesn't match TMDB season order (e.g. JoJo 1993 OVA where files
+        # 01-07 are Season 2 and 08-13 are Season 1).
+        title_matches = self._try_title_based_matching(all_files, tmdb_seasons)
+        if title_matches is not None:
+            items: list[PreviewItem] = []
+            for i, (f, abs_num, raw_title, eps, is_sr) in enumerate(all_files):
+                match = title_matches[i]
+                if match is None:
+                    items.append(PreviewItem(
+                        original=f, new_name=None, target_dir=None,
+                        season=0, episodes=eps,
+                        status="SKIP: could not match episode title to TMDB",
+                        **self._media_fields,
+                    ))
+                    continue
+                sn, ep_num, title = match
+                target_dir = self.root / f"Season {sn:02d}"
+                new_name = build_tv_name(
+                    self.show_info["name"], self.show_info["year"],
+                    sn, [ep_num], [title], f.suffix,
+                )
+                items.append(PreviewItem(
+                    original=f, new_name=new_name, target_dir=target_dir,
+                    season=sn, episodes=[ep_num], status="OK",
+                    episode_confidence=0.7,
+                    **self._media_fields,
+                ))
+            return items
+
+        # Sequential fallback — distribute files across TMDB seasons in order
         items: list[PreviewItem] = []
         tmdb_idx = 0
 
@@ -1508,6 +1539,85 @@ class TVScanner:
             ))
 
         return items
+
+    def _try_title_based_matching(
+        self,
+        all_files: list[tuple[Path, int, str | None, list[int], bool]],
+        tmdb_seasons: dict,
+    ) -> list[tuple[int, int, str] | None] | None:
+        """Try to match files to TMDB episodes by title.
+
+        Builds a cross-season lookup of all TMDB episode titles and attempts
+        to fuzzy-match each file's embedded title.  Returns a list of
+        (season, episode_number, title) tuples parallel to *all_files*,
+        or ``None`` if fewer than half the files matched (triggering the
+        sequential fallback).
+        """
+        # Build cross-season title lookup: normalized → (season, ep, title)
+        title_lookup: dict[str, tuple[int, int, str]] = {}
+        for sn in sorted(tmdb_seasons.keys()):
+            if sn == 0:
+                continue
+            for ep_num, title in tmdb_seasons[sn]["titles"].items():
+                norm = normalize_for_specials(title)
+                if norm and norm not in title_lookup:
+                    title_lookup[norm] = (sn, ep_num, title)
+
+        if not title_lookup:
+            return None
+
+        matches: list[tuple[int, int, str] | None] = []
+        used: set[tuple[int, int]] = set()
+
+        for f, abs_num, raw_title, eps, is_sr in all_files:
+            match = self._match_file_title_to_tmdb(raw_title, title_lookup, used)
+            if match is not None:
+                used.add((match[0], match[1]))
+            matches.append(match)
+
+        matched_count = sum(1 for m in matches if m is not None)
+        if matched_count < len(all_files) * 0.5:
+            return None
+
+        return matches
+
+    @staticmethod
+    def _match_file_title_to_tmdb(
+        raw_title: str | None,
+        title_lookup: dict[str, tuple[int, int, str]],
+        used: set[tuple[int, int]],
+    ) -> tuple[int, int, str] | None:
+        """Match a file's title against the cross-season TMDB title lookup.
+
+        Uses exact normalized match first, then substring match as a
+        fallback (preferring longer keys for specificity).  Skips episodes
+        already claimed by an earlier file.
+        """
+        if not raw_title:
+            return None
+
+        norm = normalize_for_specials(raw_title)
+        if not norm:
+            return None
+
+        # Exact normalized match
+        if norm in title_lookup:
+            result = title_lookup[norm]
+            if (result[0], result[1]) not in used:
+                return result
+
+        # Substring match — prefer longer keys (more specific)
+        best: tuple[int, int, str] | None = None
+        best_len = 0
+        for key, value in title_lookup.items():
+            if (value[0], value[1]) in used:
+                continue
+            if key and (norm in key or key in norm):
+                if len(key) > best_len:
+                    best = value
+                    best_len = len(key)
+
+        return best
 
     def _collect_absolute_files(
         self, season_dirs: list[tuple[Path, int]],
