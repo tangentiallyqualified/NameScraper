@@ -796,6 +796,22 @@ class TVScanner:
         season_dirs = self._get_season_dirs()
         tmdb_seasons = self._get_tmdb_seasons()
 
+        # Flat folder (no season subdirs) mapped to a multi-season TMDB show:
+        # use consolidated/absolute preview to distribute files across seasons
+        # instead of cramming everything into Season 01.
+        is_flat_folder = (
+            len(season_dirs) == 1
+            and season_dirs[0][0] == self.root
+        )
+        non_special_tmdb_seasons = {
+            sn for sn in tmdb_seasons if sn != 0
+        }
+        if is_flat_folder and len(non_special_tmdb_seasons) > 1:
+            return (
+                self._build_consolidated_preview(season_dirs, tmdb_seasons),
+                False,
+            )
+
         mismatched, _, _ = self._detect_mismatch(season_dirs, tmdb_seasons)
 
         return (

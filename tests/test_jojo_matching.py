@@ -235,5 +235,101 @@ class EpisodeConfidenceTests(unittest.TestCase):
         self.assertEqual(item.episode_confidence, 0.3)
 
 
+# ── Flat folder → multi-season distribution ────────────────────────────────
+
+class _FakeTMDBForOVAScan:
+    """TMDB stub that returns season data for the 1993 JoJo OVA (2 seasons)."""
+
+    SHOW_INFO = {
+        "id": 29955,
+        "name": "JoJo's Bizarre Adventure",
+        "year": "1993",
+    }
+
+    # Season 1: 6 episodes, Season 2: 7 episodes
+    _SEASON_MAP = {
+        1: {
+            "titles": {i: f"Episode {i}" for i in range(1, 7)},
+            "posters": {i: None for i in range(1, 7)},
+            "episodes": {},
+            "count": 6,
+        },
+        2: {
+            "titles": {i: f"Episode {i}" for i in range(1, 8)},
+            "posters": {i: None for i in range(1, 8)},
+            "episodes": {},
+            "count": 7,
+        },
+    }
+
+    def get_season_map(self, show_id):
+        return self._SEASON_MAP, 13
+
+    def get_season(self, show_id, season_num):
+        if season_num in self._SEASON_MAP:
+            return self._SEASON_MAP[season_num]
+        return {"titles": {}, "posters": {}, "episodes": {}}
+
+
+class FlatFolderMultiSeasonTests(unittest.TestCase):
+    """A flat folder with 13 bare-number files should be distributed across
+    TMDB's 2 seasons (6 + 7), not crammed into Season 01."""
+
+    def test_flat_ova_distributes_across_seasons(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i in range(1, 14):
+                (root / f"{i:02d}. Episode Title.mkv").write_text("x")
+
+            from plex_renamer.engine import TVScanner
+            tmdb = _FakeTMDBForOVAScan()
+            scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
+            items, _ = scanner.scan()
+
+            # Should have 13 items total
+            self.assertEqual(len(items), 13)
+
+            season_1_items = [it for it in items if it.season == 1]
+            season_2_items = [it for it in items if it.season == 2]
+
+            self.assertEqual(len(season_1_items), 6,
+                             f"Expected 6 items in Season 1, got {len(season_1_items)}")
+            self.assertEqual(len(season_2_items), 7,
+                             f"Expected 7 items in Season 2, got {len(season_2_items)}")
+
+    def test_flat_single_season_not_affected(self):
+        """A flat folder matching a single-season show should still work normally."""
+        single_season_map = {
+            1: {
+                "titles": {i: f"Episode {i}" for i in range(1, 14)},
+                "posters": {i: None for i in range(1, 14)},
+                "episodes": {},
+                "count": 13,
+            },
+        }
+
+        class _FakeSingleSeason:
+            SHOW_INFO = {"id": 1, "name": "Test Show", "year": "2020"}
+            def get_season_map(self, show_id):
+                return single_season_map, 13
+            def get_season(self, show_id, season_num):
+                return single_season_map.get(season_num, {"titles": {}, "posters": {}, "episodes": {}})
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i in range(1, 14):
+                (root / f"{i:02d}. Episode Title.mkv").write_text("x")
+
+            from plex_renamer.engine import TVScanner
+            tmdb = _FakeSingleSeason()
+            scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
+            items, _ = scanner.scan()
+
+            self.assertEqual(len(items), 13)
+            # All should be Season 1
+            for item in items:
+                self.assertEqual(item.season, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
