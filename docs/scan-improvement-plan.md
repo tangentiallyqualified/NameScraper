@@ -739,11 +739,11 @@ Implemented in this order:
 
 Implement in this order:
 
-1. movie discovery result model
-2. movie discovery service
-3. BatchMovieOrchestrator
-4. `ScanState` movie metadata population
-5. movie TMDB ID duplicate detection
-6. roster display improvements
+1. ~~movie discovery result model~~
+2. ~~movie discovery service~~
+3. ~~BatchMovieOrchestrator~~
+4. ~~`ScanState` movie metadata population~~
+5. ~~movie TMDB ID duplicate detection~~
+6. roster display improvements (remaining — deferred to PySide6 roster)
 
 This keeps filesystem behavior, duplicate semantics, and undo safety stable before any presentation changes are made.

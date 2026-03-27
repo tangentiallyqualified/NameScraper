@@ -711,6 +711,304 @@ class BatchTVOrchestrator:
         return False
 
 
+# ─── Batch movie orchestration ───────────────────────────────────────────────
+
+class BatchMovieOrchestrator:
+    """
+    Discovers movie folders in a library root, matches each to TMDB,
+    and creates ScanState instances for the GUI.
+
+    Two-phase workflow:
+      Phase 1 (discover): Scan filesystem via MovieLibraryDiscoveryService,
+          identify movie_root and multi_movie_folder candidates, parallel
+          TMDB search.
+      Phase 2 (scan): For each matched movie, build PreviewItems with
+          rename plans.  Can be triggered per-movie or in bulk.
+    """
+
+    def __init__(
+        self,
+        tmdb: TMDBClient,
+        library_root: Path,
+        discovery_service=None,
+    ):
+        self.tmdb = tmdb
+        self.root = library_root
+        self.states: list[ScanState] = []
+        self.discovery_service = discovery_service
+
+    @staticmethod
+    def _normalized_relative_folder(relative_folder: str, fallback: Path) -> str:
+        text = relative_folder or fallback.as_posix()
+        return text.replace("\\", "/").casefold()
+
+    @classmethod
+    def _duplicate_priority(cls, state: ScanState) -> tuple[float, int, int, str]:
+        normalized_relative = cls._normalized_relative_folder(
+            state.relative_folder,
+            state.folder,
+        )
+        depth = len(PurePosixPath(normalized_relative).parts)
+        # "Title (Year)" folder name match beats loose files in a multi-movie folder
+        evidence_rank = 0 if state.discovery_reason == "title_year_folder" else 1
+        return (-state.confidence, depth, evidence_rank, normalized_relative)
+
+    def _apply_duplicate_labels(self) -> None:
+        """Mark lower-priority TMDB matches as duplicates deterministically."""
+        for state in self.states:
+            state.duplicate_of = None
+            state.duplicate_of_relative_folder = None
+
+        seen_ids: dict[int, ScanState] = {}
+        for state in self.states:
+            mid = state.show_id  # works for movies too — reads media_info["id"]
+            if mid is None:
+                continue
+            primary = seen_ids.get(mid)
+            if primary is None:
+                seen_ids[mid] = state
+                continue
+
+            if self._duplicate_priority(state) < self._duplicate_priority(primary):
+                primary.duplicate_of = state.display_name
+                primary.duplicate_of_relative_folder = state.relative_folder or None
+                primary.checked = False
+                state.duplicate_of = None
+                state.duplicate_of_relative_folder = None
+                seen_ids[mid] = state
+            else:
+                state.duplicate_of = primary.display_name
+                state.duplicate_of_relative_folder = primary.relative_folder or None
+                state.checked = False
+
+    def _get_discovery_service(self):
+        if self.discovery_service is None:
+            from .app.services import MovieLibraryDiscoveryService
+
+            self.discovery_service = MovieLibraryDiscoveryService()
+        return self.discovery_service
+
+    def discover_movies(
+        self,
+        progress_callback: Callable | None = None,
+    ) -> list[ScanState]:
+        """
+        Phase 1: Find movie folders and match to TMDB.
+
+        Recursively discovers movie folders below the library root using
+        the MovieLibraryDiscoveryService.  For movie_root candidates the
+        folder name is used for TMDB search; for multi_movie_folder
+        candidates each video file gets its own search query.
+
+        Returns ScanState instances with media_info populated but
+        preview_items empty (Phase 2 hasn't run yet).
+        """
+        from .app.models import MovieDirectoryRole
+
+        discovery_service = self._get_discovery_service()
+        discovered = discovery_service.discover_movie_roots(self.root)
+
+        # Build (candidate, search_query, year_hint, source_file_or_None) tuples.
+        # movie_root  → one entry per folder  (source_file=None)
+        # multi_movie → one entry per video file inside the folder
+        entries: list[tuple[object, str, str | None, Path | None]] = []
+        for candidate in discovered:
+            if candidate.discovery_reason == "multiple_direct_video_files":
+                # multi_movie_folder — enumerate individual video files
+                video_files = sorted(
+                    f for f in candidate.folder.iterdir()
+                    if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+                    and not looks_like_tv_episode(f) and not is_sample_file(f)
+                )
+                for vf in video_files:
+                    query, year, _raw = _prepare_movie_query(vf.stem)
+                    entries.append((candidate, query, year, vf))
+            else:
+                # movie_root — use folder name
+                cleaned = clean_folder_name(candidate.folder.name, include_year=False)
+                year_hint = extract_year(candidate.folder.name)
+                entries.append((candidate, cleaned, year_hint, None))
+
+        if not entries:
+            return []
+
+        _log.info("Discovered %d movie candidate entries", len(entries))
+
+        # Parallel TMDB search
+        queries = [(name, year) for _, name, year, _ in entries]
+        all_results = self.tmdb.search_movies_batch(
+            queries,
+            progress_callback=progress_callback,
+        )
+
+        # Build ScanState for each entry
+        states: list[ScanState] = []
+        for (candidate, search_query, year_hint, source_file), results in zip(
+            entries, all_results,
+        ):
+            folder = candidate.folder
+
+            if not results:
+                display = source_file.stem if source_file else folder.name
+                state = ScanState(
+                    folder=folder,
+                    media_info={
+                        "id": None, "title": display,
+                        "year": year_hint or "", "poster_path": None,
+                        "overview": "",
+                    },
+                    confidence=0.0,
+                    search_results=results,
+                    alternate_matches=[],
+                    checked=False,
+                    relative_folder=candidate.relative_folder,
+                    parent_relative_folder=candidate.parent_relative_folder,
+                    discovery_reason=candidate.discovery_reason,
+                    direct_video_file_count=candidate.direct_video_file_count,
+                    discovered_via_symlink=candidate.discovered_via_symlink,
+                )
+                states.append(state)
+                continue
+
+            # Score results — use folder name for movie_root, filename for multi
+            if source_file:
+                raw_name = clean_folder_name(source_file.stem)
+            else:
+                raw_name = clean_folder_name(folder.name)
+            scored = score_results(results, raw_name, year_hint, title_key="title")
+
+            best, best_score = scored[0]
+            alternates = [r for r, s in scored[1:4] if s > 0.3]
+            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD
+
+            state = ScanState(
+                folder=folder,
+                media_info=best,
+                confidence=best_score,
+                search_results=results,
+                alternate_matches=alternates,
+                checked=auto_check,
+                relative_folder=candidate.relative_folder,
+                parent_relative_folder=candidate.parent_relative_folder,
+                discovery_reason=candidate.discovery_reason,
+                direct_video_file_count=candidate.direct_video_file_count,
+                discovered_via_symlink=candidate.discovered_via_symlink,
+            )
+            states.append(state)
+
+        # Sort by match quality group, then alphabetically
+        def _sort_key(s: ScanState) -> tuple:
+            if s.duplicate_of is not None:
+                group = 3
+            elif s.show_id is None:
+                group = 2
+            elif s.needs_review:
+                group = 1
+            else:
+                group = 0
+            return (
+                group,
+                s.display_name.lower(),
+                self._normalized_relative_folder(s.relative_folder, s.folder),
+            )
+
+        states.sort(key=_sort_key)
+
+        self.states = states
+        self._apply_duplicate_labels()
+        self.states.sort(key=_sort_key)
+        return states
+
+    def scan_movie(
+        self,
+        state: ScanState,
+        progress_callback: Callable | None = None,
+    ) -> None:
+        """
+        Phase 2: Build preview items for a single movie ScanState.
+
+        Creates a MovieScanner, finds video files, and builds rename
+        previews.  Skips if already scanned.
+        """
+        if state.scanned or state.scanning:
+            return
+        if state.show_id is None:
+            _log.warning("Cannot scan %s — no TMDB match", state.folder.name)
+            return
+
+        state.scanning = True
+        _log.info("Scanning movie: %s", state.display_name)
+
+        try:
+            chosen = state.media_info
+            video_files = sorted(
+                f for f in state.folder.iterdir()
+                if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+                and not is_sample_file(f) and not looks_like_tv_episode(f)
+            )
+
+            items: list[PreviewItem] = []
+            for f in video_files:
+                item = _build_movie_preview_item(f, chosen, self.root)
+                item.companions = _build_subtitle_companions(f, item.new_name)
+                if state.confidence < AUTO_ACCEPT_THRESHOLD:
+                    item.status = (
+                        f"REVIEW: best match \"{chosen.get('title', '')}\" "
+                        f"(confidence {state.confidence:.0%}) — click to verify"
+                    )
+                items.append(item)
+
+            check_duplicates(items)
+
+            scanner = MovieScanner(self.tmdb, state.folder, files=video_files)
+            for f in video_files:
+                scanner.set_movie_info(f, chosen)
+                scanner.set_search_results(f, state.search_results)
+
+            state.scanner = scanner
+            state.preview_items = items
+            state.scanned = True
+
+            has_actionable = any(
+                it.status == "OK" or "UNMATCHED" in it.status
+                for it in items
+            )
+            if not has_actionable:
+                state.checked = False
+        finally:
+            state.scanning = False
+
+    def scan_all(
+        self,
+        progress_callback: Callable | None = None,
+    ) -> None:
+        """Phase 2 bulk: Scan all movies that have a TMDB match."""
+        to_scan = [
+            s for s in self.states
+            if not s.scanned and not s.queued and s.show_id is not None
+        ]
+        total = len(to_scan)
+
+        for i, state in enumerate(to_scan):
+            try:
+                self.scan_movie(state)
+            except Exception as e:
+                _log.error("Failed to scan %s: %s", state.display_name, e)
+            if progress_callback:
+                progress_callback(i + 1, total)
+
+    def rematch_movie(self, state: ScanState, new_match: dict) -> None:
+        """Swap a movie's TMDB match and invalidate its scan data."""
+        state.media_info = new_match
+        raw_name = clean_folder_name(state.folder.name)
+        year_hint = extract_year(state.folder.name)
+        scored = score_results(
+            [new_match], raw_name, year_hint, title_key="title")
+        state.confidence = scored[0][1] if scored else 0.0
+        state.reset_scan()
+        self._apply_duplicate_labels()
+
+
 # ─── TV scanning ─────────────────────────────────────────────────────────────
 
 class TVScanner:
