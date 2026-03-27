@@ -2065,20 +2065,25 @@ class MovieScanner:
         """Return cached TMDB search results for a file."""
         return self._search_cache.get(f, [])
 
-    @staticmethod
     def _best_match(
-        results: list[dict], raw_name: str, year_hint: str | None,
+        self, results: list[dict], raw_name: str, year_hint: str | None,
     ) -> tuple[dict, float]:
         """
         Pick the best TMDB result using title similarity + year matching.
 
         Returns (best_result, confidence) where confidence is 0.0–1.0.
-        Delegates scoring to the shared ``score_results`` function.
+        Delegates scoring to the shared ``score_results`` function,
+        then boosts low-confidence matches via alternative titles.
         """
         scored = score_results(results, raw_name, year_hint, title_key="title")
-        if scored:
-            return scored[0]
-        return results[0], 0.0
+        if not scored:
+            return results[0], 0.0
+        scored = boost_scores_with_alt_titles(
+            scored, raw_name, year_hint, self.tmdb,
+            title_key="title", media_type="movie",
+            preferred_country=_country_from_language(self.tmdb.language),
+        )
+        return scored[0]
 
 
 def title_similarity(a: str, b: str) -> float:
