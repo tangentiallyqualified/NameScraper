@@ -167,6 +167,9 @@ _TV_EPISODE_PATTERNS = [
     re.compile(r"\b\d{1,2}x\d{2,3}\b", re.IGNORECASE),
     # Explicit "Episode 5", "Ep05", "Ep.5", "E05" as standalone
     re.compile(r"\b(?:Episode|Ep)[\s._-]*\d{1,3}\b", re.IGNORECASE),
+    # Bare-number OVA/episode naming: "01. Title Here.mkv", "13. Final Episode.mkv"
+    # Common in OVA releases and anime collections numbered without S##E## tags.
+    re.compile(r"^\d{1,3}\.\s+\w"),
 ]
 
 # Anime/fansub pattern: [Group] Title - ## (tags)

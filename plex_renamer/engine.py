@@ -80,6 +80,9 @@ class PreviewItem:
     # Each entry carries a fully-computed (original, new_name, file_type) plan.
     # Persisted in scan snapshots so restored sessions retain pairing.
     companions: list[CompanionFile] = field(default_factory=list)
+    # Episode-level match confidence: 1.0 = strong S##E## match, 0.0 = positional
+    # guess from an unstructured filename.  Low values flag items for user review.
+    episode_confidence: float = 1.0
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
@@ -376,6 +379,43 @@ class BatchTVOrchestrator:
                 state.duplicate_of_relative_folder = primary.relative_folder or None
                 state.checked = False
 
+    def _episode_count_tiebreak(
+        self,
+        scored: list[tuple[dict, float]],
+        file_count: int,
+        threshold: float = 0.10,
+    ) -> tuple[dict, float]:
+        """Re-rank near-tied TMDB candidates by episode count proximity.
+
+        For each candidate within *threshold* of the top score, fetch
+        TMDB details to get ``number_of_episodes``.  The candidate whose
+        episode count is closest to *file_count* wins.  Falls back to
+        the original best if details aren't available.
+        """
+        top_score = scored[0][1]
+        contenders: list[tuple[dict, float, int]] = []
+
+        for result, score in scored:
+            if top_score - score > threshold:
+                break
+            show_id = result.get("id")
+            if show_id is None:
+                continue
+            details = self.tmdb.get_tv_details(show_id)
+            ep_count = (details or {}).get("number_of_episodes") or 0
+            contenders.append((result, score, ep_count))
+
+        if not contenders:
+            return scored[0]
+
+        # Pick the contender whose episode count is closest to file_count.
+        # On ties, prefer the one with the higher original score.
+        best = min(
+            contenders,
+            key=lambda c: (abs(c[2] - file_count), -c[1]),
+        )
+        return best[0], best[1]
+
     def _get_discovery_service(self):
         if self.discovery_service is None:
             from .app.services import TVLibraryDiscoveryService
@@ -451,6 +491,20 @@ class BatchTVOrchestrator:
             scored = score_results(results, raw_name, year_hint, title_key="name")
 
             best, best_score = scored[0]
+
+            # Episode count tiebreaker: when top candidates score within 0.10
+            # of each other, prefer the show whose total episode count is
+            # closest to the number of video files on disk.  This resolves
+            # ambiguity for franchises that share a name (e.g. JoJo 1993 OVA
+            # vs JoJo 2012 series when the folder has 13 files).
+            file_count = candidate.direct_video_file_count
+            if file_count > 0 and len(scored) >= 2:
+                runner_up, runner_up_score = scored[1]
+                if best_score - runner_up_score <= 0.10:
+                    best, best_score = self._episode_count_tiebreak(
+                        scored, file_count, threshold=0.10,
+                    )
+
             alternates = [r for r, s in scored[1:4] if s > 0.3]  # Top 3 alternates above threshold
 
             # Only auto-check shows with confident matches
@@ -927,6 +981,7 @@ class TVScanner:
                     item = PreviewItem(
                         original=f, new_name=new_name, target_dir=target_dir,
                         season=season_num, episodes=eps, status="OK",
+                        episode_confidence=1.0 if is_season_relative else 0.5,
                         **self._media_fields,
                     )
                     item.companions = _build_subtitle_companions(f, new_name)
@@ -1133,6 +1188,7 @@ class TVScanner:
             items.append(PreviewItem(
                 original=f, new_name=new_name, target_dir=target_dir,
                 season=target_season, episodes=file_eps, status="OK",
+                episode_confidence=0.5 if is_sr else 0.3,
                 **self._media_fields,
             ))
 

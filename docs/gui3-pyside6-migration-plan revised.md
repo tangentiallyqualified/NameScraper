@@ -224,9 +224,10 @@ plex_renamer/app/
         progress_models.py
     services/
         cache_service.py
-        scan_snapshot_service.py
         refresh_policy_service.py
         command_gating_service.py
+        tv_library_discovery_service.py
+        movie_library_discovery_service.py
 ```
 
 ### 3. UI shell layer
@@ -330,7 +331,7 @@ Move out of `engine.py` over time:
 
 1. UI-facing status semantics that depend on how states should be presented
 2. command gating rules for queueing
-3. persistence orchestration for snapshots and refresh states
+3. persistence orchestration for refresh states
 
 ### `tmdb.py`
 
@@ -490,6 +491,51 @@ Suggested presentation:
 3. Manual refresh action with cooldown messaging.
 4. Refresh reason text when data is being refreshed automatically.
 
+## Caching Architecture
+
+### Design Intent
+
+The caching layer exists to minimize redundant TMDB API calls and to persist job history for undo. It does not exist to restore the full GUI session state across restarts. The filesystem is always the source of truth for what media exists and how it is organized. TMDB is the source of truth for metadata. The cache is an optimization layer between the app and TMDB, not a persistence layer for UI state.
+
+### What Gets Cached
+
+1. **TMDB search results and metadata** — stored in `cache_service.py` (SQLite, `~/.plex_renamer/cache.db`). Keyed by namespace + query/ID. Used to avoid re-requesting data that has not expired.
+
+2. **Job history and undo data** — stored in `job_store.py` (SQLite, `~/.plex_renamer/job_queue.db`). Per-job undo data enables reverting completed jobs from previous sessions, provided the relevant files can still be located.
+
+3. **Poster images** — currently cached in-process by the TMDB client. Should be extended to persist poster files to disk so they survive app restarts without re-downloading.
+
+### What Does Not Get Cached
+
+1. **Scan state** — preview items, checked/unchecked flags, selected indices, completeness reports, duplicate labels. These are derived from the filesystem + TMDB data on each scan and should not persist across sessions.
+
+2. **GUI layout state** — panel sizes, scroll positions, collapsed sections. These are ephemeral.
+
+3. **Discovery results** — folder classification and traversal results. These depend on the current filesystem state and must be recomputed on each scan.
+
+### TTL Rules
+
+Governed by `refresh_policy_service.py`:
+
+1. **Released movies**: 30-day TTL. Unlikely to receive metadata updates.
+2. **Ended or cancelled TV shows**: 30-day TTL. Metadata is stable.
+3. **Returning, in-production, planned, or pilot TV shows**: 12-hour TTL. New episode data is potentially available weekly.
+4. **Unknown-status TV shows**: 7-day TTL. Conservative default.
+5. **Manual refresh cooldown**: 15 minutes. Prevents TMDB API abuse.
+
+### Startup and Rescan Flow
+
+The correct flow on startup or folder selection:
+
+1. Discovery service walks the filesystem to find media roots.
+2. For each discovered root, check `cache_service.py` for a cached TMDB match.
+3. If the cache entry is fresh (within TTL), use it without an API call.
+4. If the cache entry is stale or missing, query TMDB and store the result.
+5. Build all scan state (preview items, duplicates, completeness) from the fresh filesystem scan + TMDB data.
+6. Display results. No prior session state influences the outcome.
+
+This ensures that rescans are fast when TMDB data is cached but never show stale filesystem state.
+
 ## Migration Phases
 
 ## Phase 0: Guardrails and audit
@@ -527,13 +573,13 @@ Completed in the current working tree:
 2. Added structured state models for scan lifecycle, refresh state, queue command state, progress payloads, and queue eligibility.
 3. Added `cache_service.py` with persistent SQLite-backed cache storage, stale-state handling, and eviction bounded by both total size and item count.
 4. Added `refresh_policy_service.py` with TV-status-aware TTL rules, manual refresh cooldown rules, stale-background-refresh decisions, and changed-subdirectory rescan scope logic.
-5. Added `scan_snapshot_service.py` for serializing and restoring `ScanState`, `PreviewItem`, and completeness data.
+5. Added `scan_snapshot_service.py` for serializing and restoring `ScanState`, `PreviewItem`, and completeness data. **Note: this service is now slated for retirement in Cleanup 4. Full session state restore caused regressions and exceeds the intended caching scope.**
 6. Added `command_gating_service.py` so queue eligibility can be computed outside tkinter click handlers.
 7. Updated `engine.py` to expose reusable actionable-item semantics and to let queue job creation accept explicit checked indices.
 8. Updated `tmdb.py` with cache snapshot import/export hooks so persistence can be layered on without moving network responsibilities into the UI.
 9. Updated `gui/app.py` so current queue submission paths use the centralized command gating service instead of duplicating action-time checks.
 10. Wired the persistent cache service into TMDB client bootstrap so cached TMDB state can be restored across sessions.
-11. Wired scan snapshot persistence into startup, scan completion, rematch, and shutdown paths for TV single-show, TV batch, and movie sessions.
+11. Wired scan snapshot persistence into startup, scan completion, rematch, and shutdown paths for TV single-show, TV batch, and movie sessions. **Note: this wiring will be removed as part of Cleanup 4.**
 12. Wired the structured scan progress model into the current tkinter shell so discovery, scan, warning, failure, and ready states now flow through one app-level state object.
 13. Added a resilient API key fallback in `keys.py` so the app can start without the optional `keyring` package by falling back to local storage under the app data directory.
 14. Cleaned up Phase 1 persistence by tracking the active session snapshot explicitly, rehydrating restored movie metadata/search caches, debouncing repeated snapshot/cache writes via `_request_persistence` / `_flush_pending_persistence`, and consolidating duplicated batch TV scan orchestration in `gui/app.py`.
@@ -557,8 +603,10 @@ Deliverables produced:
 
 - `plex_renamer/app/services/cache_service.py`
 - `plex_renamer/app/services/refresh_policy_service.py`
-- `plex_renamer/app/services/scan_snapshot_service.py`
+- `plex_renamer/app/services/scan_snapshot_service.py` — slated for retirement in Cleanup 4
 - `plex_renamer/app/services/command_gating_service.py`
+- `plex_renamer/app/services/tv_library_discovery_service.py`
+- `plex_renamer/app/services/movie_library_discovery_service.py`
 
 Files modified:
 
@@ -632,17 +680,29 @@ Required actions:
 2. Replace the 9 direct `status_var.set()` calls with `_set_status_message(...)`.
 3. Keep `_set_scan_progress` for lifecycle transitions. Use `_set_status_message` for informational messages that do not represent a lifecycle change.
 
-#### Cleanup 4 — Move TV snapshot mutual-exclusion policy into `ScanSnapshotService` (Medium)
+#### Cleanup 4 — Retire `ScanSnapshotService` and full session state restore (High)
 
-`_persist_tv_snapshot` in `gui/app.py` encodes a business rule: when a TV batch session is active it deletes the single-show snapshot, and when a single-show session is active it deletes the batch snapshot. This mutual-exclusion policy is a domain rule about snapshot precedence, not a UI concern, but it currently lives in the tkinter class.
+`scan_snapshot_service.py` serializes the entire UI session state — all `ScanState` objects with preview items, checked/unchecked flags, completeness reports, duplicate labels, and discovery metadata — into `~/.plex_renamer/scan_snapshots.json` and restores it verbatim on startup. This has caused a verified regression: duplicate TV shows are doubled on machines that restore snapshots created on a different machine or against a different library state.
 
-Phase 2's `media_controller.py` will need to reimplement this logic. Since `ScanSnapshotService` has no knowledge of this policy there is a risk it gets reimplemented differently or inconsistently.
+The root problem is architectural: full session state restore substitutes cached GUI state for a fresh filesystem scan. The intended caching scope is narrower:
+
+1. **Job history with undo** — already handled correctly by `job_store.py` (SQLite).
+2. **TMDB result cache** — already handled correctly by `cache_service.py` (SQLite) with TTL governed by `refresh_policy_service.py`.
+3. **Poster image cache** — partially handled by in-process TMDB client image caching; should be extended to persist poster files to disk.
+4. **Manual refresh capability** — already handled by `refresh_policy_service.py` cooldown rules.
+
+The correct startup flow is: always re-scan the filesystem (discovery service), check the TMDB cache before making API calls, and re-derive all scan state (preview items, duplicates, completeness) from fresh filesystem + cached TMDB data. GUI state (checked items, selected index, display order) should not persist across sessions.
 
 Required actions:
 
-1. Add a `save_tv_snapshot(...)` method to `ScanSnapshotService` that accepts both batch states and a single-show state, applies the mutual-exclusion rule internally, and returns the saved envelope.
-2. Replace the `_persist_tv_snapshot` logic in `gui/app.py` with a call to the new service method.
-3. The snapshot ID constants (`SNAPSHOT_TV_BATCH`, `SNAPSHOT_TV_SINGLE`, `SNAPSHOT_MOVIE_BATCH`) should be defined in or imported from `ScanSnapshotService`, not duplicated in `gui/app.py`.
+1. Remove `_restore_last_session_snapshot()` and all snapshot persistence calls from `gui/app.py`.
+2. Remove `_persist_tv_snapshot`, `_persist_movie_snapshot`, `_request_persistence("tv")`, and related debounce logic from `gui/app.py`.
+3. Remove the `SNAPSHOT_TV_BATCH`, `SNAPSHOT_TV_SINGLE`, `SNAPSHOT_MOVIE_BATCH` constants from `gui/app.py`.
+4. Delete `plex_renamer/app/services/scan_snapshot_service.py`.
+5. Remove `ScanSnapshotService` from `plex_renamer/app/services/__init__.py`.
+6. Remove `SCAN_SNAPSHOT_FILE` from `plex_renamer/constants.py`.
+7. Confirm that `cache_service.py` is wired into the TMDB client's search and season data paths so that rescans hit the local cache before making API calls.
+8. Do not build a replacement session restore mechanism in PySide6. The TMDB cache makes rescans fast; the filesystem is the source of truth for scan state.
 
 #### Cleanup 5 — Remove dead guard in `_add_batch_to_queue` (Low-Medium)
 
@@ -775,9 +835,10 @@ Deliverables:
 1. TV roster panel.
 2. Movie roster panel.
 3. Preview list with grouping and status rendering.
-4. Unmatched grouping improvements.
-5. Review and duplicate action paths.
-6. Better progress representation during scan.
+4. Show/movie folder rename preview in the preview panel. The current tkinter preview only shows per-file renames. The PySide6 preview should show the planned root folder rename (e.g. "naruto.2002.1080p" → "Naruto (2002)") as a header or dedicated card above the file rename list. The data is already available via `build_show_folder_name()` in `parsing.py` — it just needs a display surface before queue time.
+5. Unmatched grouping improvements.
+6. Review and duplicate action paths.
+7. Better progress representation during scan.
 
 Exit criteria:
 
@@ -849,6 +910,12 @@ Exit criteria:
 | `plex_renamer/undo_log.py` | retire during Phase 1 cleanup |
 | `plex_renamer/tmdb.py` | keep network responsibilities, trim policy responsibilities |
 | `plex_renamer/engine.py` | keep scanners and rename planning, remove `execute_undo` during Phase 1 cleanup |
+| `plex_renamer/app/services/cache_service.py` | keep |
+| `plex_renamer/app/services/refresh_policy_service.py` | keep |
+| `plex_renamer/app/services/command_gating_service.py` | keep |
+| `plex_renamer/app/services/tv_library_discovery_service.py` | keep |
+| `plex_renamer/app/services/movie_library_discovery_service.py` | keep |
+| `plex_renamer/app/services/scan_snapshot_service.py` | retire during Phase 1 cleanup (Cleanup 4) |
 
 ## Risks
 
@@ -898,7 +965,7 @@ Proceed only if:
 
 1. GUI3 is clearer than the old UI in scan progress.
 2. GUI3 is clearer than the old UI in queue access control.
-3. GUI3 behaves safely under cache hits, stale refreshes, and restart restoration.
+3. GUI3 behaves safely under cache hits and stale refreshes. Rescans always re-walk the filesystem; no session state is restored from a prior run.
 
 ## Recommended Next Steps
 
@@ -925,6 +992,8 @@ Use this checklist before approving progress to each new phase:
 7. Have the Phase 1 cleanup items been completed before Phase 2 begins?
 8. Is there only one revert/undo path active at any given time?
 9. Is the session mode state space (`_active_content_mode` / `_active_library_mode`) fully documented before controller design begins?
+10. Is the filesystem always rescanned on startup and folder selection, with the TMDB cache used only as an API optimization — never as a substitute for the current filesystem state?
+11. Has `scan_snapshot_service.py` been retired, with no replacement session-restore mechanism introduced?
 
 ## Recommendation
 
@@ -934,4 +1003,4 @@ Do not proceed as a direct tkinter-to-PySide6 file-for-file port.
 
 That would preserve the wrong architecture and carry the current weak points forward under a different toolkit.
 
-Complete the Phase 1 cleanup pass before beginning Phase 2. The services introduced in Phase 1 are solid. The primary structural risk going into Phase 2 is that session restoration, mode routing, and status messaging contain controller logic that was left in the tkinter class rather than extracted to the application layer. Resolving that before building controllers will save significant rework.
+Complete the Phase 1 cleanup pass before beginning Phase 2. The services introduced in Phase 1 are solid, with the exception of `scan_snapshot_service.py` which exceeded the intended caching scope and must be retired. The primary structural risk going into Phase 2 is that mode routing and status messaging contain controller logic that was left in the tkinter class rather than extracted to the application layer. Resolving that before building controllers will save significant rework.
