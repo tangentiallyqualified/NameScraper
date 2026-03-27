@@ -23,6 +23,7 @@ from ..app.services import (
     PersistentCacheService,
     RefreshPolicyService,
     ScanSnapshotService,
+    SettingsService,
     TVLibraryDiscoveryService,
 )
 from ..constants import JobStatus, MediaType
@@ -173,6 +174,7 @@ class PlexRenamerApp:
         self.refresh_policy = RefreshPolicyService()
         self.snapshot_service = ScanSnapshotService()
         self.tv_library_discovery = TVLibraryDiscoveryService()
+        self.settings_service = SettingsService()
         self.scan_progress = ScanProgress()
         self._persist_after_id = None
         self._pending_persist_kinds: set[str] = set()
@@ -1456,7 +1458,10 @@ class PlexRenamerApp:
                 messagebox.showwarning(
                     "No Key", "Set your TMDB API key first via 'API Keys'.")
             return None
-        self.tmdb = TMDBClient(api_key)
+        self.tmdb = TMDBClient(
+            api_key,
+            language=self.settings_service.match_language,
+        )
         cached_snapshot = self.cache_service.get(
             TMDB_CACHE_NAMESPACE,
             TMDB_CACHE_SNAPSHOT_KEY,
@@ -2675,6 +2680,81 @@ class PlexRenamerApp:
             style="Card.TCheckbutton",
         )
         hide_named_check.pack(anchor="w", pady=(0, 16))
+
+        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=(0, 16))
+
+        # ── Match language ─────────────────────────────────────────
+        ttk.Label(
+            pad, text="MATCHING", style="DetailDim.TLabel",
+            font=("Helvetica", 9, "bold"), background=c["bg_mid"],
+        ).pack(anchor="w", pady=(0, 8))
+
+        lang_row = ttk.Frame(pad, style="Mid.TFrame")
+        lang_row.pack(fill="x", pady=4)
+
+        ttk.Label(
+            lang_row, text="Match language:",
+            background=c["bg_mid"], foreground=c["text_dim"],
+        ).pack(side="left")
+
+        # Language options: display name → TMDB language tag
+        self._language_options = {
+            "English (US)": "en-US",
+            "English (UK)": "en-GB",
+            "French": "fr-FR",
+            "German": "de-DE",
+            "Spanish (Spain)": "es-ES",
+            "Spanish (Latin America)": "es-MX",
+            "Italian": "it-IT",
+            "Portuguese (Brazil)": "pt-BR",
+            "Portuguese (Portugal)": "pt-PT",
+            "Japanese": "ja-JP",
+            "Korean": "ko-KR",
+            "Chinese (Simplified)": "zh-CN",
+            "Chinese (Traditional)": "zh-TW",
+            "Russian": "ru-RU",
+            "Dutch": "nl-NL",
+            "Swedish": "sv-SE",
+            "Danish": "da-DK",
+            "Norwegian": "no-NO",
+            "Finnish": "fi-FI",
+            "Polish": "pl-PL",
+            "Turkish": "tr-TR",
+            "Arabic": "ar-SA",
+            "Hindi": "hi-IN",
+            "Thai": "th-TH",
+        }
+        # Reverse lookup for initializing the dropdown
+        tag_to_display = {v: k for k, v in self._language_options.items()}
+        current_tag = self.settings_service.match_language
+        current_display = tag_to_display.get(current_tag, "English (US)")
+
+        self._match_lang_var = tk.StringVar(value=current_display)
+        lang_combo = ttk.Combobox(
+            lang_row, textvariable=self._match_lang_var,
+            values=list(self._language_options.keys()),
+            state="readonly", width=25,
+        )
+        lang_combo.pack(side="left", padx=(8, 8))
+
+        def _on_language_changed(*_args):
+            display = self._match_lang_var.get()
+            tag = self._language_options.get(display, "en-US")
+            self.settings_service.match_language = tag
+            # Force TMDB client to be recreated with the new language
+            self.tmdb = None
+
+        lang_combo.bind("<<ComboboxSelected>>", _on_language_changed)
+
+        ttk.Label(
+            pad, text="Sets the language for TMDB title matching and "
+            "alternative title priority.\n"
+            "Falls back to English if no match is found "
+            "in the selected language.",
+            background=c["bg_mid"], foreground=c["text_dim"],
+            font=("Helvetica", 8),
+            wraplength=500, justify="left",
+        ).pack(anchor="w", pady=(2, 16))
 
         ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=(0, 16))
 

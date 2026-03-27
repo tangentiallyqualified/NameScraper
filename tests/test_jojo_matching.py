@@ -120,6 +120,8 @@ class TVDiscoveryOVATests(unittest.TestCase):
 class _FakeTMDBWithEpisodeCounts:
     """TMDB stub that returns two JoJo series with different episode counts."""
 
+    language = "en-US"
+
     JOJO_2012 = {
         "id": 31911,
         "name": "JoJo's Bizarre Adventure",
@@ -151,6 +153,9 @@ class _FakeTMDBWithEpisodeCounts:
 
     def get_tv_details(self, show_id):
         return self.DETAILS.get(show_id)
+
+    def get_alternative_titles(self, media_id, media_type="tv"):
+        return []
 
 
 class EpisodeCountTiebreakerTests(unittest.TestCase):

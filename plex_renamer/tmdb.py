@@ -145,8 +145,10 @@ class TMDBClient:
     """
 
     def __init__(self, api_key: str, rate_limit: float = 35.0,
-                 max_retries: int = 2, image_cache_size: int = 200):
+                 max_retries: int = 2, image_cache_size: int = 200,
+                 language: str = "en-US"):
         self.api_key = api_key
+        self.language = language
         self._session = requests.Session()
         self._rate_limiter = _TokenBucket(rate_limit)
         self._max_retries = max_retries
@@ -156,6 +158,7 @@ class TMDBClient:
         self._season_cache: dict[tuple[int, int], dict] = {}
         self._season_map_cache: dict[int, tuple[dict, int]] = {}
         self._movie_cache: dict[int, dict] = {}
+        self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
 
         # LRU-bounded image cache keyed by (image_path, target_width)
         self._image_cache = _LRUImageCache(max_size=image_cache_size)
@@ -171,7 +174,7 @@ class TMDBClient:
         can distinguish transient vs permanent errors.
         """
         url = f"{API_BASE}{path}"
-        all_params = {"api_key": self.api_key}
+        all_params = {"api_key": self.api_key, "language": self.language}
         if params:
             all_params.update(params)
 
@@ -403,6 +406,42 @@ class TMDBClient:
         if data:
             self._movie_cache[movie_id] = data
         return data
+
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie",
+    ) -> list[tuple[str, str]]:
+        """
+        Fetch alternative/AKA titles for a movie or TV show. Cached.
+
+        Args:
+            media_id: TMDB ID.
+            media_type: ``"movie"`` or ``"tv"``.
+
+        Returns:
+            List of ``(title, country_code)`` tuples where *country_code*
+            is the ISO 3166-1 alpha-2 code (e.g. ``"US"``, ``"FR"``).
+        """
+        cache_key = (media_id, media_type)
+        if cache_key in self._alt_titles_cache:
+            return self._alt_titles_cache[cache_key]
+
+        data = self._get_safe(f"/{media_type}/{media_id}/alternative_titles")
+        if not data:
+            self._alt_titles_cache[cache_key] = []
+            return []
+
+        # Movie endpoint uses "titles", TV uses "results"
+        entries = data.get("titles") or data.get("results") or []
+        seen: set[str] = set()
+        titles: list[tuple[str, str]] = []
+        for e in entries:
+            t = e.get("title", "")
+            cc = e.get("iso_3166_1", "")
+            if t and t not in seen:
+                seen.add(t)
+                titles.append((t, cc))
+        self._alt_titles_cache[cache_key] = titles
+        return titles
 
     def search_movies_batch(
         self,

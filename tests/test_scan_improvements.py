@@ -11,6 +11,8 @@ from plex_renamer.job_store import RenameJob
 
 
 class _FakeTMDB:
+    language = "en-US"
+
     def search_tv_batch(self, queries, progress_callback=None):
         results = []
         total = len(queries)
@@ -29,6 +31,9 @@ class _FakeTMDB:
                 }
             ])
         return results
+
+    def get_alternative_titles(self, media_id, media_type="tv"):
+        return []
 
 
 class ScanImprovementTests(unittest.TestCase):

@@ -490,6 +490,11 @@ class BatchTVOrchestrator:
             # Score results
             raw_name = clean_folder_name(folder.name)
             scored = score_results(results, raw_name, year_hint, title_key="name")
+            scored = boost_scores_with_alt_titles(
+                scored, raw_name, year_hint, self.tmdb,
+                title_key="name", media_type="tv",
+                preferred_country=_country_from_language(self.tmdb.language),
+            )
 
             best, best_score = scored[0]
 
@@ -877,6 +882,11 @@ class BatchMovieOrchestrator:
             else:
                 raw_name = clean_folder_name(folder.name)
             scored = score_results(results, raw_name, year_hint, title_key="title")
+            scored = boost_scores_with_alt_titles(
+                scored, raw_name, year_hint, self.tmdb,
+                title_key="title", media_type="movie",
+                preferred_country=_country_from_language(self.tmdb.language),
+            )
 
             best, best_score = scored[0]
             alternates = [r for r, s in scored[1:4] if s > 0.3]
@@ -2176,6 +2186,121 @@ def score_results(
 
     scored.sort(key=lambda x: x[1], reverse=True)
     return scored
+
+
+# Number of top candidates to fetch alternative titles for
+_ALT_TITLE_CANDIDATES = 5
+
+
+def _country_from_language(language_tag: str) -> str | None:
+    """Extract the ISO 3166-1 country code from a TMDB language tag.
+
+    ``"fr-FR"`` → ``"FR"``, ``"en-US"`` → ``"US"``, ``"ja"`` → ``"JP"``.
+    Returns None for empty/unrecognised input.
+    """
+    if not language_tag:
+        return None
+    if "-" in language_tag:
+        return language_tag.split("-", 1)[1].upper()
+    # Bare language code — map common ones to their primary country
+    _LANG_TO_COUNTRY = {
+        "en": "US", "fr": "FR", "es": "ES", "de": "DE", "it": "IT",
+        "pt": "BR", "ja": "JP", "ko": "KR", "zh": "CN", "ru": "RU",
+        "nl": "NL", "sv": "SE", "da": "DK", "no": "NO", "fi": "FI",
+        "pl": "PL", "tr": "TR", "ar": "SA", "hi": "IN", "th": "TH",
+    }
+    return _LANG_TO_COUNTRY.get(language_tag.lower())
+
+
+def boost_scores_with_alt_titles(
+    scored: list[tuple[dict, float]],
+    raw_name: str,
+    year_hint: str | None,
+    tmdb: TMDBClient,
+    title_key: str = "title",
+    media_type: str = "movie",
+    preferred_country: str | None = None,
+) -> list[tuple[dict, float]]:
+    """
+    Re-score top candidates using TMDB alternative titles.
+
+    When the best match scores below the auto-accept threshold, fetches
+    alternative titles for the top candidates and re-scores each using the
+    best-matching alternative.  Returns the full list re-sorted by the
+    (potentially boosted) scores.
+
+    Alternative titles are tried in priority order:
+
+    1. Titles from the user's *preferred_country* (e.g. ``"FR"``)
+    2. English-region titles (``"US"`` / ``"GB"``)
+    3. All remaining titles
+
+    This ensures non-English libraries match against their own language
+    first, with English as a reliable fallback.
+
+    This is a no-op when the top result already exceeds the threshold or
+    when there are no results.
+    """
+    if not scored:
+        return scored
+
+    best_score = scored[0][1]
+    if best_score >= AUTO_ACCEPT_THRESHOLD:
+        return scored
+
+    query_norm = normalize_for_match(raw_name)
+    english_countries = {"US", "GB"}
+    updated: list[tuple[dict, float]] = []
+
+    for i, (result, original_score) in enumerate(scored):
+        # Only fetch alt titles for the top N candidates
+        if i < _ALT_TITLE_CANDIDATES and result.get("id") is not None:
+            raw_alts = tmdb.get_alternative_titles(
+                result["id"], media_type,
+            )
+
+            # Sort by priority: preferred country → English → rest
+            preferred: list[str] = []
+            english: list[str] = []
+            rest: list[str] = []
+            for title, cc in raw_alts:
+                if preferred_country and cc == preferred_country:
+                    preferred.append(title)
+                elif cc in english_countries:
+                    english.append(title)
+                else:
+                    rest.append(title)
+            ordered_alts = preferred + english + rest
+
+            best_alt_score = original_score
+            for alt in ordered_alts:
+                alt_norm = normalize_for_match(alt)
+                t_score = title_similarity(query_norm, alt_norm)
+
+                year_score = 0.0
+                if year_hint and result.get("year"):
+                    try:
+                        diff = abs(int(year_hint) - int(result["year"]))
+                        if diff == 0:
+                            year_score = 1.0
+                        elif diff == 1:
+                            year_score = 0.3
+                    except (ValueError, TypeError):
+                        pass
+
+                score = (t_score * 0.7) + (year_score * 0.3)
+                if query_norm == alt_norm:
+                    score = min(1.0, score + 0.15)
+
+                if score > best_alt_score:
+                    best_alt_score = score
+
+            updated.append((result, best_alt_score))
+        else:
+            updated.append((result, original_score))
+
+    updated.sort(key=lambda x: x[1], reverse=True)
+    return updated
 
 
 # ─── Shared utilities ─────────────────────────────────────────────────────────
