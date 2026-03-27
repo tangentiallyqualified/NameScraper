@@ -22,6 +22,7 @@ Also provides ``revert_job()`` for per-job undo without a stack constraint.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import threading
 from collections.abc import Callable
@@ -130,6 +131,11 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     if not renames:
         return result
 
+    # Track successful destination paths so the cleanup phase doesn't
+    # treat them as leftovers (important when source and target dirs
+    # resolve to the same NTFS directory with different casing).
+    successful_destinations: set[str] = set()
+
     for src, dst, target_dir in renames:
         try:
             if not target_dir.exists():
@@ -146,6 +152,7 @@ def _execute_rename(job: RenameJob) -> RenameResult:
                 "old": str(src), "new": str(dst),
             })
             result.renamed_count += 1
+            successful_destinations.add(os.path.normcase(str(dst)))
         except (OSError, shutil.Error) as e:
             result.errors.append(f"{src.name}: {e}")
 
@@ -213,7 +220,14 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
             # Separate files from subdirectories.  Only files are relocated;
             # subdirectories are left in place (safe default).
-            leftover_files = [f for f in remaining if f.is_file()]
+            # Exclude files that were just renamed — on NTFS a case-only
+            # folder difference means source and target dirs resolve to the
+            # same directory, so renamed files still appear in src_dir.
+            leftover_files = [
+                f for f in remaining
+                if f.is_file()
+                and os.path.normcase(str(f)) not in successful_destinations
+            ]
             if not leftover_files:
                 continue  # Only subdirs remain — leave the directory alone
 
@@ -250,11 +264,20 @@ def _execute_rename(job: RenameJob) -> RenameResult:
             _log.warning("Could not clean up source dir %s: %s",
                          src_dir.name, e)
 
-    # Rename root show folder
+    # Rename root show/movie folder to match TMDB naming
     if job.show_folder_rename and root_folder.exists():
         if root_folder.name != job.show_folder_rename:
             new_root = root_folder.parent / job.show_folder_rename
-            if not new_root.exists():
+            # On case-insensitive filesystems (NTFS), new_root.exists()
+            # returns True for case-only differences like "Goodfellas (1990)"
+            # vs "GoodFellas (1990)".  Allow the rename when the paths
+            # resolve to the same directory (case correction) but block it
+            # when new_root is a genuinely different existing directory.
+            same_dir = (
+                os.path.normcase(str(root_folder)) ==
+                os.path.normcase(str(new_root))
+            )
+            if same_dir or not new_root.exists():
                 try:
                     root_folder.rename(new_root)
                     result.log_entry["renamed_dirs"].append({

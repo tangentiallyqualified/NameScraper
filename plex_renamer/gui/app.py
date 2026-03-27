@@ -48,8 +48,8 @@ from ..job_store import JobStore, RenameJob, DuplicateJobError
 from ..job_executor import QueueExecutor, revert_job
 from ..keys import get_api_key, save_api_key
 from ..parsing import (
-    build_show_folder_name, clean_folder_name, extract_year,
-    is_already_complete,
+    build_movie_name, build_show_folder_name, clean_folder_name,
+    extract_year, is_already_complete,
 )
 from ..styles import COLORS, get_dpi_scale, setup_styles
 from ..tmdb import TMDBClient
@@ -2265,6 +2265,14 @@ class PlexRenamerApp:
 
             item = state.preview_items[0]
 
+            # Compute the expected Plex folder name from TMDB metadata
+            # so the job executor renames the folder to match.
+            movie_folder = build_movie_name(
+                state.media_info.get("title", ""),
+                state.media_info.get("year", ""),
+                "",
+            )
+
             job = build_rename_job_from_items(
                 items=[item],
                 checked_indices={0},
@@ -2273,6 +2281,7 @@ class PlexRenamerApp:
                 media_name=state.display_name,
                 library_root=library_root,
                 source_folder=item.original.parent,
+                show_folder_rename=movie_folder,
             )
 
             try:

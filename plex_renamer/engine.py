@@ -9,6 +9,7 @@ has no tkinter dependency, making it testable and reusable.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
 from collections import defaultdict
@@ -2202,11 +2203,15 @@ def execute_rename(
         except OSError:
             pass
 
-    # Rename root show folder to match Plex/TMDB naming (TV only)
+    # Rename root show/movie folder to match Plex/TMDB naming
     if show_folder_name and root_folder.exists():
         if root_folder.name != show_folder_name:
             new_root = root_folder.parent / show_folder_name
-            if not new_root.exists():
+            same_dir = (
+                os.path.normcase(str(root_folder)) ==
+                os.path.normcase(str(new_root))
+            )
+            if same_dir or not new_root.exists():
                 try:
                     root_folder.rename(new_root)
                     result.log_entry["renamed_dirs"].append({
@@ -2303,12 +2308,23 @@ def build_rename_job_from_state(
     checked_indices = checked_indices or get_checked_indices_from_state(state)
     ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
 
+    # Prefer the pre-computed relative_folder from discovery; fall back to
+    # computing it from the absolute paths (which can fail if the state was
+    # restored against a different library_root).
+    if state.relative_folder:
+        source_folder = state.relative_folder
+    else:
+        try:
+            source_folder = str(state.folder.relative_to(library_root))
+        except ValueError:
+            source_folder = state.folder.name
+
     return RenameJob(
         media_type=MediaType.TV,
         tmdb_id=state.show_id or 0,
         media_name=state.display_name,
         library_root=str(library_root),
-        source_folder=str(state.folder.relative_to(library_root)),
+        source_folder=source_folder,
         rename_ops=ops,
         show_folder_rename=show_folder_rename,
     )

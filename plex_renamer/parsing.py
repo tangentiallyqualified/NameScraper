@@ -135,7 +135,8 @@ def extract_year(text: str) -> str | None:
         2001.A.Space.Odyssey.1968.2160p  →  "1968"  (not "2001")
         The.Matrix.1999.1080p            →  "1999"
 
-    Falls back to the first year found when no noise boundary is present.
+    Falls back to the last year found when no noise boundary is present,
+    which correctly handles Plex-format names like "2001 A Space Odyssey (1968)".
 
     Returns the year as a string, or None if not found.
     """
@@ -153,8 +154,10 @@ def extract_year(text: str) -> str | None:
         if before_noise:
             return before_noise[-1].group(1)
 
-    # Fallback: first year found
-    return all_years[0].group(1)
+    # Fallback: last year found — for Plex-format names like
+    # "2001 A Space Odyssey (1968)" or "Blade Runner 2049 (2017)",
+    # the parenthesized release year at the end is the correct one.
+    return all_years[-1].group(1)
 
 
 # ─── TV episode detection (for filtering in movie mode) ──────────────────────
