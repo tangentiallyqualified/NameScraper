@@ -2787,6 +2787,73 @@ class PlexRenamerApp:
         ttk.Button(key_row, text="Save", style="Small.TButton",
                    command=_save_tmdb_key).pack(side="left")
 
+        ttk.Separator(pad, orient="horizontal").pack(fill="x", pady=(0, 16))
+
+        # ── Cache management ─────────────────────────────────────
+        ttk.Label(
+            pad, text="CACHE", style="DetailDim.TLabel",
+            font=("Helvetica", 9, "bold"), background=c["bg_mid"],
+        ).pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(
+            pad,
+            text="Clears all cached TMDB data, scan snapshots, and "
+            "session restore data.\nDoes not affect the job queue "
+            "or settings.",
+            background=c["bg_mid"], foreground=c["text_dim"],
+            font=("Helvetica", 8),
+            wraplength=500, justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        def _clear_all_caches():
+            from tkinter import messagebox
+            if not messagebox.askyesno(
+                "Clear Cache",
+                "This will delete all cached TMDB data and scan "
+                "snapshots. You will need to re-scan your libraries.\n\n"
+                "Continue?",
+                parent=self.root,
+            ):
+                return
+
+            # 1. Clear the persistent TMDB cache (cache.db)
+            try:
+                self.cache_service.invalidate_namespace("tmdb")
+            except Exception:
+                pass
+
+            # 2. Clear all scan snapshots (scan_snapshots.json)
+            try:
+                for snap in self.snapshot_service.list_snapshots():
+                    self.snapshot_service.delete_snapshot(snap.snapshot_id)
+            except Exception:
+                pass
+
+            # 3. Destroy the in-memory TMDB client (forces fresh creation)
+            self.tmdb = None
+
+            # 4. Clear in-app scan state
+            self.library_states.clear()
+            if hasattr(self, "batch_states"):
+                self.batch_states.clear()
+            if hasattr(self, "batch_orchestrator"):
+                self.batch_orchestrator = None
+            if hasattr(self, "movie_orchestrator"):
+                self.movie_orchestrator = None
+
+            messagebox.showinfo(
+                "Cache Cleared",
+                "All cached data has been cleared. Re-scan your "
+                "libraries to refresh.",
+                parent=self.root,
+            )
+            self.status_var.set("Cache cleared")
+
+        ttk.Button(
+            pad, text="Clear Cache", style="Small.TButton",
+            command=_clear_all_caches,
+        ).pack(anchor="w")
+
     def _on_settings_changed(self):
         """Refresh displays when settings change."""
         if self.library_states:

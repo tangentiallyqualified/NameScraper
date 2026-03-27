@@ -114,10 +114,17 @@ class PreviewItem:
 
     @property
     def is_actionable(self) -> bool:
-        """True when this item can produce a concrete rename operation."""
+        """True when this item can produce a concrete rename operation.
+
+        Items with OK, UNMATCHED, or REVIEW status are actionable
+        (REVIEW items have a valid rename plan computed from the
+        best-available TMDB match — the user confirms the match by
+        checking the item).  SKIP and CONFLICT items are never
+        actionable.
+        """
         if self.new_name is None:
             return False
-        if self.status != "OK" and not self.is_unmatched:
+        if self.status != "OK" and not self.is_unmatched and "REVIEW" not in self.status:
             return False
         target_dir = self.target_dir or self.original.parent
         return not (
@@ -605,10 +612,7 @@ class BatchTVOrchestrator:
 
             # Auto-uncheck shows where every file was skipped —
             # nothing actionable means nothing to rename.
-            has_actionable = any(
-                it.status == "OK" or "UNMATCHED" in it.status
-                for it in items
-            )
+            has_actionable = any(it.is_actionable for it in items)
             if not has_actionable:
                 state.checked = False
         finally:
@@ -980,10 +984,7 @@ class BatchMovieOrchestrator:
             state.preview_items = items
             state.scanned = True
 
-            has_actionable = any(
-                it.status == "OK" or "UNMATCHED" in it.status
-                for it in items
-            )
+            has_actionable = any(it.is_actionable for it in items)
             if not has_actionable:
                 state.checked = False
         finally:
