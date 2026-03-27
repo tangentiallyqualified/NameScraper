@@ -47,9 +47,18 @@ def _sync_check_vars(app, preserve_values: bool) -> None:
     for key in stale_keys:
         del existing[key]
 
+    # REVIEW items default to checked when the parent state was checked
+    # by the user in the library panel (the check IS the confirmation).
+    parent_checked = getattr(app.active_scan, "checked", False) if app.active_scan else False
+
     for i, item in enumerate(app.preview_items):
         key = str(i)
-        default = item.status == "OK" or "UNMATCHED" in item.status
+        if item.status == "OK" or "UNMATCHED" in item.status:
+            default = True
+        elif "REVIEW" in item.status:
+            default = parent_checked
+        else:
+            default = False
         if key in existing:
             continue
         var = tk.BooleanVar(value=default)

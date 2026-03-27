@@ -427,11 +427,17 @@ class TMDBClient:
 
         data = self._get_safe(f"/{media_type}/{media_id}/alternative_titles")
         if not data:
+            log.warning(
+                "Alt titles: no data returned for %s/%s", media_type, media_id)
             self._alt_titles_cache[cache_key] = []
             return []
 
         # Movie endpoint uses "titles", TV uses "results"
         entries = data.get("titles") or data.get("results") or []
+        log.debug(
+            "Alt titles for %s/%s: %d entries in response",
+            media_type, media_id, len(entries),
+        )
         seen: set[str] = set()
         titles: list[tuple[str, str]] = []
         for e in entries:
@@ -440,6 +446,11 @@ class TMDBClient:
             if t and t not in seen:
                 seen.add(t)
                 titles.append((t, cc))
+        log.info(
+            "Alt titles for %s/%s: %d unique titles — %s",
+            media_type, media_id, len(titles),
+            [(t, c) for t, c in titles[:5]],
+        )
         self._alt_titles_cache[cache_key] = titles
         return titles
 
