@@ -228,6 +228,43 @@ class ScanImprovementTests(unittest.TestCase):
                                     title_key="name")
         self.assertEqual(scored_2004[0][0]["year"], "2004")
 
+    def test_season_count_tiebreaker_overrides_wrong_year(self):
+        """When a folder says 2003 but has 4 season subdirs, the tiebreaker
+        must prefer the 4-season series over the miniseries, even though
+        the miniseries has a better year match."""
+        from plex_renamer.engine import score_results, BatchTVOrchestrator
+
+        results = [
+            {"name": "Battlestar Galactica", "year": "2003", "id": 1001},
+            {"name": "Battlestar Galactica", "year": "2004", "id": 1002},
+        ]
+
+        # Folder says 2003 → miniseries scores higher by year alone
+        scored = score_results(results, "Battlestar Galactica", "2003",
+                               title_key="name")
+        self.assertEqual(scored[0][0]["id"], 1001, "Year scoring should favour 2003")
+        self.assertLessEqual(scored[0][1] - scored[1][1], 0.10,
+                             "Scores must be close enough for tiebreaker")
+
+        # Now simulate the tiebreaker with 4 season subdirs on disk
+        class _FakeTMDB:
+            language = "en-US"
+            def get_tv_details(self, show_id):
+                if show_id == 1001:
+                    return {"number_of_seasons": 1, "number_of_episodes": 2}
+                if show_id == 1002:
+                    return {"number_of_seasons": 4, "number_of_episodes": 75}
+                return None
+
+        orch = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orch.tmdb = _FakeTMDB()
+
+        best, _ = orch._episode_count_tiebreak(
+            scored, file_count=4, threshold=0.10, compare_seasons=True,
+        )
+        self.assertEqual(best["id"], 1002,
+                         "4 season subdirs must pick the 4-season series")
+
 
 if __name__ == "__main__":
     unittest.main()

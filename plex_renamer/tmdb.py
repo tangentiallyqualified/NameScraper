@@ -527,6 +527,17 @@ class TMDBClient:
             res = self.search_with_fallback(query, self.search_tv, year=year)
             if not res and year:
                 res = self.search_with_fallback(query, self.search_tv)
+            elif res and year:
+                # The year filter is a hard filter in the TMDB API — it
+                # excludes shows that aired in adjacent years.  Merge in
+                # yearless results so that scoring can pick the best match
+                # when the folder has the wrong year (e.g. "BSG (2003)"
+                # for the 2004 series).
+                broader = self.search_with_fallback(query, self.search_tv)
+                seen_ids = {r["id"] for r in res}
+                for r in broader:
+                    if r["id"] not in seen_ids:
+                        res.append(r)
             results[index] = res
             with lock:
                 completed[0] += 1
