@@ -1,5 +1,10 @@
 """UI-neutral application-layer services and models for Plex Renamer."""
 
+from .controllers import (
+    BatchQueueResult,
+    MediaController,
+    QueueController,
+)
 from .models import (
     CacheEntry,
     CacheLookup,
@@ -16,11 +21,14 @@ from .services import (
 )
 
 __all__ = [
+    "BatchQueueResult",
     "CacheEntry",
     "CacheLookup",
     "CommandGatingService",
+    "MediaController",
     "PersistentCacheService",
     "QueueCommandState",
+    "QueueController",
     "QueueEligibility",
     "RefreshPolicyService",
     "RefreshState",
