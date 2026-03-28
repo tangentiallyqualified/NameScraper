@@ -188,5 +188,46 @@ class ScanImprovementTests(unittest.TestCase):
                              "Unmatched Files dir should not exist for root-level movies")
 
 
+    def test_score_results_prefers_exact_year_over_adjacent_year(self):
+        """When two TMDB results share an identical title, the one whose
+        year exactly matches the hint must outscore the ±1 neighbour —
+        the exact-title bonus must not clamp away the year signal."""
+        from plex_renamer.engine import score_results
+
+        results = [
+            {"name": "Battlestar Galactica", "year": "2003", "id": 71365},
+            {"name": "Battlestar Galactica", "year": "2004", "id": 73545},
+        ]
+
+        scored = score_results(results, "Battlestar Galactica", "2004",
+                               title_key="name")
+        best, best_score = scored[0]
+        runner, runner_score = scored[1]
+
+        self.assertEqual(best["year"], "2004",
+                         "Exact year match must rank first")
+        self.assertGreater(best_score, runner_score,
+                           "Exact year must score strictly higher, not tie")
+
+    def test_score_results_both_bsg_coexist_correctly(self):
+        """Two BSG folders with different years must each match correctly."""
+        from plex_renamer.engine import score_results
+
+        results = [
+            {"name": "Battlestar Galactica", "year": "2003", "id": 71365},
+            {"name": "Battlestar Galactica", "year": "2004", "id": 73545},
+        ]
+
+        # Folder says 2003 → should match the miniseries
+        scored_2003 = score_results(results, "Battlestar Galactica", "2003",
+                                    title_key="name")
+        self.assertEqual(scored_2003[0][0]["year"], "2003")
+
+        # Folder says 2004 → should match the main series
+        scored_2004 = score_results(results, "Battlestar Galactica", "2004",
+                                    title_key="name")
+        self.assertEqual(scored_2004[0][0]["year"], "2004")
+
+
 if __name__ == "__main__":
     unittest.main()

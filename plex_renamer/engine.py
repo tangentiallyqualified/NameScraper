@@ -387,19 +387,34 @@ class BatchTVOrchestrator:
                 state.duplicate_of_relative_folder = primary.relative_folder or None
                 state.checked = False
 
+    @staticmethod
+    def _count_season_subdirs(folder: Path) -> int:
+        """Count Season NN subdirectories to estimate episode volume."""
+        count = 0
+        try:
+            for child in folder.iterdir():
+                if child.is_dir() and get_season(child) is not None:
+                    count += 1
+        except OSError:
+            pass
+        return count
+
     def _episode_count_tiebreak(
         self,
         scored: list[tuple[dict, float]],
         file_count: int,
         threshold: float = 0.10,
+        compare_seasons: bool = False,
     ) -> tuple[dict, float]:
-        """Re-rank near-tied TMDB candidates by episode count proximity.
+        """Re-rank near-tied TMDB candidates by episode/season count proximity.
 
         For each candidate within *threshold* of the top score, fetch
-        TMDB details to get ``number_of_episodes``.  The candidate whose
-        episode count is closest to *file_count* wins.  Falls back to
-        the original best if details aren't available.
+        TMDB details to get ``number_of_episodes`` (or ``number_of_seasons``
+        when *compare_seasons* is True).  The candidate whose count is
+        closest to *file_count* wins.  Falls back to the original best
+        if details aren't available.
         """
+        detail_key = "number_of_seasons" if compare_seasons else "number_of_episodes"
         top_score = scored[0][1]
         contenders: list[tuple[dict, float, int]] = []
 
@@ -410,13 +425,13 @@ class BatchTVOrchestrator:
             if show_id is None:
                 continue
             details = self.tmdb.get_tv_details(show_id)
-            ep_count = (details or {}).get("number_of_episodes") or 0
-            contenders.append((result, score, ep_count))
+            count = (details or {}).get(detail_key) or 0
+            contenders.append((result, score, count))
 
         if not contenders:
             return scored[0]
 
-        # Pick the contender whose episode count is closest to file_count.
+        # Pick the contender whose count is closest to file_count.
         # On ties, prefer the one with the higher original score.
         best = min(
             contenders,
@@ -510,12 +525,22 @@ class BatchTVOrchestrator:
             # closest to the number of video files on disk.  This resolves
             # ambiguity for franchises that share a name (e.g. JoJo 1993 OVA
             # vs JoJo 2012 series when the folder has 13 files).
+            #
+            # When the folder has season subdirs but no direct video files
+            # (typical layout: Show/Season 01/eps...), count season subdirs
+            # and use that as a proxy — a folder with 4 season dirs is far
+            # more likely to be a 75-episode series than a 2-episode miniseries.
             file_count = candidate.direct_video_file_count
+            use_seasons = False
+            if file_count == 0 and candidate.has_direct_season_subdirs:
+                file_count = self._count_season_subdirs(candidate.folder)
+                use_seasons = True
             if file_count > 0 and len(scored) >= 2:
                 runner_up, runner_up_score = scored[1]
                 if best_score - runner_up_score <= 0.10:
                     best, best_score = self._episode_count_tiebreak(
                         scored, file_count, threshold=0.10,
+                        compare_seasons=use_seasons,
                     )
 
             alternates = [r for r, s in scored[1:4] if s > 0.3]  # Top 3 alternates above threshold
@@ -2148,7 +2173,7 @@ def score_results(
     Score a list of TMDB search results against a cleaned name.
 
     Shared by both TV and movie matching paths.  Each result gets a
-    confidence score between 0.0 and 1.0 based on:
+    confidence score based on:
       - Title similarity (normalized, case-insensitive) weighted at 70%
       - Year match weighted at 30%  (exact=1.0, ±1=0.8, ±2=0.5, ±3=0.2)
       - Exact normalized title match gets a +0.15 bonus
@@ -2191,7 +2216,7 @@ def score_results(
         score = (t_score * 0.7) + (year_score * 0.3)
 
         if query_norm == title_norm:
-            score = min(1.0, score + 0.15)
+            score += 0.15
 
         scored.append((r, score))
 
@@ -2320,7 +2345,7 @@ def boost_scores_with_alt_titles(
 
                 score = (t_score * 0.7) + (year_score * 0.3)
                 if query_norm == alt_norm:
-                    score = min(1.0, score + 0.15)
+                    score += 0.15
 
                 if score > best_alt_score:
                     best_alt_score = score
