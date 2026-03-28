@@ -186,18 +186,34 @@ class TVLibraryDiscoveryService:
                 direct_video_file_count=0,
                 discovered_via_symlink=directory.is_symlink(),
             )
-        if get_season(directory) is not None:
-            return _ClassifiedDirectory(
-                role=TVDirectoryRole.SEASON_FOLDER,
-                child_dirs=[],
-                discovery_reason="season_folder_name",
-                has_direct_season_subdirs=False,
-                direct_episode_file_count=0,
-                direct_video_file_count=0,
-                discovered_via_symlink=directory.is_symlink(),
+        season_num = get_season(directory)
+        if season_num is not None:
+            # Don't short-circuit — a folder whose name contains a season
+            # indicator (e.g. "[FLE} Solo Leveling - S01 (...)") might also
+            # contain episode files directly, making it a show root rather
+            # than a bare season folder.  Scan children first; if no episode
+            # content is found, fall back to SEASON_FOLDER.
+            child_entries = self._scan_children(directory)
+            has_direct_episodes = any(
+                child.is_file
+                and child.path.suffix.lower() in VIDEO_EXTENSIONS
+                and looks_like_tv_episode(child.path)
+                for child in child_entries
             )
-
-        child_entries = self._scan_children(directory)
+            if not has_direct_episodes:
+                return _ClassifiedDirectory(
+                    role=TVDirectoryRole.SEASON_FOLDER,
+                    child_dirs=[],
+                    discovery_reason="season_folder_name",
+                    has_direct_season_subdirs=False,
+                    direct_episode_file_count=0,
+                    direct_video_file_count=0,
+                    discovered_via_symlink=directory.is_symlink(),
+                )
+            # Fall through to content-based classification with
+            # child_entries already scanned.
+        else:
+            child_entries = self._scan_children(directory)
         child_dirs: list[Path] = []
         direct_video_files: list[Path] = []
         has_direct_season_subdirs = False

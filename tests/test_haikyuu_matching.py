@@ -215,21 +215,18 @@ class BatchModeRegressionTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_batch_library_discovers_show_roots(self):
-        """Quarantine/ should discover Haikyuu as a show root.
-
-        Note: Solo Leveling's folder has S01 in its name, so get_season()
-        classifies it as a season folder — a separate issue from the batch
-        regression being tested here.
-        """
+        """Quarantine/ should discover both Haikyuu and Solo Leveling."""
         service = TVLibraryDiscoveryService()
         candidates = service.discover_show_roots(self.quarantine)
 
-        self.assertGreaterEqual(len(candidates), 1,
-                                f"Expected >= 1 candidates, got {len(candidates)}: "
+        self.assertGreaterEqual(len(candidates), 2,
+                                f"Expected >= 2 candidates, got {len(candidates)}: "
                                 f"{[c.relative_folder for c in candidates]}")
         show_names = [c.folder.name for c in candidates]
         self.assertTrue(any("Haikyuu" in name for name in show_names),
                         f"Haikyuu not found in candidates: {show_names}")
+        self.assertTrue(any("Solo Leveling" in name for name in show_names),
+                        f"Solo Leveling not found in candidates: {show_names}")
 
     def test_batch_library_not_treated_as_single_show(self):
         """Quarantine/ must not be returned as the sole show root."""
