@@ -79,24 +79,36 @@ class TVLibraryDiscoveryService:
         #     Karasuno.../                  <- non-season (named season)
         # has 3 out of 4 as season dirs — a strong majority.
         root_classified = self._classify_directory(library_root)
-        if (
-            root_classified.role == TVDirectoryRole.SHOW_ROOT
-            and root_classified.has_direct_season_subdirs
-            and self._season_children_are_majority(library_root)
-        ):
-            return [
-                TVDiscoveryCandidate(
-                    folder=library_root,
-                    relative_folder=".",
-                    parent_relative_folder=None,
-                    depth=0,
-                    discovery_reason=root_classified.discovery_reason,
-                    has_direct_season_subdirs=root_classified.has_direct_season_subdirs,
-                    direct_episode_file_count=root_classified.direct_episode_file_count,
-                    direct_video_file_count=root_classified.direct_video_file_count,
-                    discovered_via_symlink=root_classified.discovered_via_symlink,
-                )
-            ]
+        if root_classified.role == TVDirectoryRole.SHOW_ROOT:
+            # The root itself looks like a show folder.  Return it as the
+            # sole candidate when either:
+            #   a) It has season subdirs AND the majority of children are
+            #      seasons (distinguishes a real show from a batch library
+            #      where a few folders happen to contain "S##").
+            #   b) It has direct episode files but NO season subdirs — a
+            #      flat show folder like "[FLE] Solo Leveling - S01 (…)/".
+            is_season_root = (
+                root_classified.has_direct_season_subdirs
+                and self._season_children_are_majority(library_root)
+            )
+            is_flat_episode_root = (
+                not root_classified.has_direct_season_subdirs
+                and root_classified.direct_episode_file_count > 0
+            )
+            if is_season_root or is_flat_episode_root:
+                return [
+                    TVDiscoveryCandidate(
+                        folder=library_root,
+                        relative_folder=".",
+                        parent_relative_folder=None,
+                        depth=0,
+                        discovery_reason=root_classified.discovery_reason,
+                        has_direct_season_subdirs=root_classified.has_direct_season_subdirs,
+                        direct_episode_file_count=root_classified.direct_episode_file_count,
+                        direct_video_file_count=root_classified.direct_video_file_count,
+                        discovered_via_symlink=root_classified.discovered_via_symlink,
+                    )
+                ]
 
         candidates: list[TVDiscoveryCandidate] = []
         visited_paths: set[str] = set()

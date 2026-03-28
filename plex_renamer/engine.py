@@ -416,7 +416,9 @@ class BatchTVOrchestrator:
         """
         detail_key = "number_of_seasons" if compare_seasons else "number_of_episodes"
         top_score = scored[0][1]
-        contenders: list[tuple[dict, float, int]] = []
+        contenders: list[tuple[dict, float, int, bool]] = []
+
+        _unaired_statuses = {"Planned", "In Production"}
 
         for result, score in scored:
             if top_score - score > threshold:
@@ -426,16 +428,23 @@ class BatchTVOrchestrator:
                 continue
             details = self.tmdb.get_tv_details(show_id)
             count = (details or {}).get(detail_key) or 0
-            contenders.append((result, score, count))
+            # Shows that haven't aired yet are unlikely to be correct
+            # matches — deprioritize them so they don't win tiebreaks
+            # against shows that have actually aired.
+            unaired = (
+                not (details or {}).get("first_air_date")
+                or (details or {}).get("status") in _unaired_statuses
+            )
+            contenders.append((result, score, count, unaired))
 
         if not contenders:
             return scored[0]
 
         # Pick the contender whose count is closest to file_count.
-        # On ties, prefer the one with the higher original score.
+        # Unaired/planned shows sort last; on ties prefer higher score.
         best = min(
             contenders,
-            key=lambda c: (abs(c[2] - file_count), -c[1]),
+            key=lambda c: (c[3], abs(c[2] - file_count), -c[1]),
         )
         return best[0], best[1]
 
@@ -1439,7 +1448,11 @@ class TVScanner:
                     ]
 
                     target_dir = season_dir
-                    if season_dir == self.root:
+                    if season_dir == self.root or get_season(season_dir) is None:
+                        # Flat show root or named-season folder (matched
+                        # via TMDB name, not a standard pattern like S03).
+                        # Target the canonical Season NN directory so files
+                        # are moved there and the old folder is cleaned up.
                         target_dir = self.root / f"Season {season_num:02d}"
 
                     new_name = build_tv_name(
