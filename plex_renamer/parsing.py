@@ -65,8 +65,14 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
     )
 
     s = s.replace(".", " ").replace("_", " ")
-    s = re.sub(r"\[.*?\]", "", s)
-    s = re.sub(r"\(.*?\)", "", s)
+    # Use [^\[\]]* instead of .*? to avoid spanning across mismatched
+    # brackets like [FLE} ... [Dual Audio] where the first [ has no
+    # matching ] — .*? would greedily consume everything up to the ]
+    # of the second tag, destroying the entire title.
+    s = re.sub(r"\[[^\[\]]*\]", "", s)
+    s = re.sub(r"\([^()]*\)", "", s)
+    # Strip mismatched brackets: [tag} or [tag followed by space/end
+    s = re.sub(r"\[[^\[\]]*[}\)]", "", s)
     s = TRAILING_GROUP.sub("", s)
 
     # Restore acronyms
@@ -84,7 +90,7 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
             break
         title_tokens.append(token)
 
-    title = " ".join(title_tokens).strip()
+    title = " ".join(title_tokens).strip().rstrip("-").strip()
     if len(title) < 2:
         title = re.sub(r"\s+", " ", s).strip()
 
