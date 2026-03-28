@@ -44,8 +44,9 @@ from ..engine import (
     build_rename_job_from_state,
     build_rename_job_from_items,
 )
+from ..app.controllers.queue_controller import QueueController, BatchQueueResult
 from ..job_store import JobStore, RenameJob, DuplicateJobError
-from ..job_executor import QueueExecutor, revert_job
+from ..job_executor import QueueExecutor
 from ..keys import get_api_key, save_api_key
 from ..parsing import (
     build_movie_name, build_show_folder_name, clean_folder_name,
@@ -197,7 +198,8 @@ class PlexRenamerApp:
 
         # ── Job queue ─────────────────────────────────────────────
         self.job_store: JobStore = JobStore()
-        self.queue_executor: QueueExecutor = QueueExecutor(self.job_store)
+        self.queue_ctrl = QueueController(self.job_store)
+        self.queue_executor: QueueExecutor = self.queue_ctrl.executor
         self.command_gating = CommandGatingService()
         self.cache_service = PersistentCacheService()
         self.refresh_policy = RefreshPolicyService()
@@ -2079,19 +2081,17 @@ class PlexRenamerApp:
         else:
             library_root = self.folder
 
-        job = build_rename_job_from_items(
-            items=self.preview_items,
-            checked_indices=checked,
-            media_type=self.media_type,
-            tmdb_id=tmdb_id,
-            media_name=media_name,
-            library_root=library_root,
-            source_folder=self.folder,
-            show_folder_rename=show_folder,
-        )
-
         try:
-            self.job_store.add_job(job)
+            self.queue_ctrl.add_single_job(
+                items=self.preview_items,
+                checked_indices=checked,
+                media_type=self.media_type,
+                tmdb_id=tmdb_id,
+                media_name=media_name,
+                library_root=library_root,
+                source_folder=self.folder,
+                show_folder_rename=show_folder,
+            )
         except DuplicateJobError as e:
             messagebox.showinfo(
                 "Already Queued",
@@ -2120,135 +2120,57 @@ class PlexRenamerApp:
             messagebox.showwarning("Not Ready", "Select a movie folder first.")
             return
 
-        added = 0
-        skipped_dup = 0
-        skipped_queued = 0
+        result = self.queue_ctrl.add_movie_batch(
+            states=self.library_states,
+            library_root=library_root,
+            command_gating=self.command_gating,
+        )
 
-        for state in self.library_states:
-            eligibility = self.command_gating.evaluate_scan_state(state)
-            if not eligibility.enabled:
-                if eligibility.command_state.value == "disabled_already_queued":
-                    skipped_queued += 1
-                continue
-
-            if not state.preview_items:
-                skipped_queued += 1
-                continue
-
-            item = state.preview_items[0]
-
-            # Compute the expected Plex folder name from TMDB metadata
-            # so the job executor renames the folder to match.
-            movie_folder = build_movie_name(
-                state.media_info.get("title", ""),
-                state.media_info.get("year", ""),
-                "",
-            )
-
-            job = build_rename_job_from_items(
-                items=[item],
-                checked_indices={0},
-                media_type=MediaType.MOVIE,
-                tmdb_id=state.show_id or 0,
-                media_name=state.display_name,
-                library_root=library_root,
-                source_folder=item.original.parent,
-                show_folder_rename=movie_folder,
-            )
-
-            try:
-                self.job_store.add_job(job)
-                state.queued = True
-                added += 1
-            except DuplicateJobError:
-                skipped_dup += 1
-
-        if added:
+        if result.added:
             library_panel.display_library(self)
 
-        if not added and not skipped_dup and not skipped_queued:
+        if not result.added and not result.total_skipped:
             messagebox.showinfo("Nothing to do", "No movies selected.")
         else:
             self._set_status_message(
-                f"Added {added} movie job(s) to queue"
-                + (f" ({skipped_dup + skipped_queued} already queued)"
-                   if (skipped_dup + skipped_queued) else "")
+                f"Added {result.added} movie job(s) to queue"
+                + (f" ({result.total_skipped} already queued)"
+                   if result.total_skipped else "")
             )
         self._update_queue_badge()
 
     def _add_batch_to_queue(self):
         """Add all checked shows from batch mode to the job queue."""
-        added = 0
-        skipped_dup = 0
-        skipped_queued = 0
-        skipped_no_action = 0
-        blocked_details: list[str] = []
-        errors = []
+        result = self.queue_ctrl.add_tv_batch(
+            states=self.batch_states,
+            library_root=self.folder,
+            command_gating=self.command_gating,
+        )
 
-        for state in self.batch_states:
-            if not state.checked:
-                continue
-
-            eligibility = self.command_gating.evaluate_scan_state(
-                state,
-                allow_show_level_queue=True,
-            )
-            if not eligibility.enabled:
-                if eligibility.command_state.value == "disabled_already_queued":
-                    skipped_queued += 1
-                else:
-                    blocked_details.append(
-                        f"{state.display_name}: {eligibility.reason}")
-                continue
-
-            checked = set(eligibility.selected_indices)
-
-            show_folder = build_show_folder_name(
-                state.media_info.get("name", ""),
-                state.media_info.get("year", ""),
-            )
-
-            job = build_rename_job_from_state(
-                state=state,
-                library_root=self.folder,
-                show_folder_rename=show_folder,
-                checked_indices=checked,
-            )
-
-            try:
-                self.job_store.add_job(job)
-                state.queued = True
-                added += 1
-            except DuplicateJobError:
-                skipped_dup += 1
-            except Exception as e:
-                errors.append(f"{state.display_name}: {e}")
-
-        # Refresh library panel to show queued states
-        if added:
+        if result.added:
             library_panel.display_library(self)
 
-        if errors:
+        if result.errors:
             messagebox.showwarning(
                 "Queue Errors",
-                f"Added {added} jobs, {skipped_dup} already queued.\n\n"
-                f"Errors:\n" + "\n".join(errors[:5]))
+                f"Added {result.added} jobs, {result.skipped_duplicate} already queued.\n\n"
+                f"Errors:\n" + "\n".join(result.errors[:5]))
         else:
             status_parts = []
-            if skipped_dup or skipped_queued:
-                status_parts.append(f"{skipped_dup + skipped_queued} already queued")
-            if blocked_details:
-                status_parts.append(f"{len(blocked_details)} blocked")
+            if result.total_skipped:
+                status_parts.append(f"{result.total_skipped} already queued")
+            if result.blocked:
+                status_parts.append(f"{len(result.blocked)} blocked")
 
-            message = f"Added {added} jobs to queue"
+            message = f"Added {result.added} jobs to queue"
             if status_parts:
                 message += f" ({', '.join(status_parts)})"
             self._set_status_message(message)
 
-            if blocked_details:
+            if result.blocked:
                 messagebox.showinfo(
                     "Some Shows Were Not Queued",
-                    "\n".join(blocked_details[:8]),
+                    "\n".join(result.blocked[:8]),
                 )
 
         self._update_queue_badge()
@@ -2452,12 +2374,7 @@ class PlexRenamerApp:
         if not messagebox.askyesno("Undo Rename", desc):
             return
 
-        success, errors = revert_job(job)
-        self.job_store.update_status(
-            job.job_id,
-            JobStatus.REVERTED,
-            error_message="; ".join(errors[:3]) if errors else None,
-        )
+        success, errors = self.queue_ctrl.revert_job(job.job_id)
 
         for entry in undo.get("renamed_dirs", []):
             if Path(entry["new"]) == self.folder:
@@ -2721,30 +2638,14 @@ class PlexRenamerApp:
             library_panel.display_library(self)
 
     def _restore_queued_states(self):
-        """
-        After batch discovery, mark shows as queued if they have
-        pending/running jobs in the database.  Fixes the issue where
-        restarting the program loses the queued visual indicator.
-
-        Skips duplicate entries — only the primary match for a given
-        TMDB ID should be marked as queued.
-        """
-        if not self.batch_states:
-            return
-        queued_ids = self.job_store.get_queued_tmdb_ids()
-        if not queued_ids:
-            return
-        for state in self.batch_states:
-            if (state.show_id
-                    and state.show_id in queued_ids
-                    and state.duplicate_of is None):
-                state.queued = True
+        """After batch discovery, mark shows as queued from the job store."""
+        self._sync_queued_library_states()
 
     def _sync_queued_library_states(self) -> None:
         """Refresh queued flags for TV and movie rosters from the job store."""
         queued_keys = {
             (job.media_type, job.tmdb_id)
-            for job in self.job_store.get_queue()
+            for job in self.queue_ctrl.get_queue()
             if job.tmdb_id
         }
 
@@ -2759,7 +2660,7 @@ class PlexRenamerApp:
 
     def _update_queue_badge(self):
         """Update Queue and History tab titles with count badges."""
-        counts = self.job_store.count_by_status()
+        counts = self.queue_ctrl.count_by_status()
         pending = counts.get('pending', 0)
         running = counts.get('running', 0)
         total = pending + running
@@ -2791,7 +2692,5 @@ class PlexRenamerApp:
     def _on_close(self):
         """Clean shutdown: stop executor, persist TMDB cache, close DB, destroy window."""
         self._persist_tmdb_cache_snapshot()
-        if self.queue_executor.is_running:
-            self.queue_executor.stop()
-        self.job_store.close()
+        self.queue_ctrl.close()
         self.root.destroy()

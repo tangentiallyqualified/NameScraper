@@ -260,7 +260,7 @@ class SessionSaveRestoreTests(unittest.TestCase):
         self.store.close()
         self._tmp.cleanup()
 
-    def test_save_restore_tv_session(self):
+    def test_save_restore_tv_from_tab_switch(self):
         state = ScanState(
             folder=self.tmp / "Show",
             media_info={"id": 1, "name": "Show"},
@@ -271,7 +271,7 @@ class SessionSaveRestoreTests(unittest.TestCase):
         self.ctrl._tv_root_folder = self.tmp / "tv"
         self.ctrl._library_selected_index = 0
 
-        snapshot = self.ctrl.save_tv_session()
+        snapshot = self.ctrl.snapshot_tv_for_tab_switch()
 
         # Clear state
         self.ctrl._batch_mode = False
@@ -285,7 +285,7 @@ class SessionSaveRestoreTests(unittest.TestCase):
             on_mode_changed=lambda cm, lm: events.append("mode"),
             on_library_changed=lambda s: events.append("library"),
         )
-        self.ctrl.restore_tv_session(snapshot)
+        self.ctrl.restore_tv_from_tab_switch(snapshot)
 
         self.assertTrue(self.ctrl.batch_mode)
         self.assertEqual(len(self.ctrl.batch_states), 1)
@@ -294,7 +294,7 @@ class SessionSaveRestoreTests(unittest.TestCase):
         self.assertIn("mode", events)
         self.assertIn("library", events)
 
-    def test_save_restore_movie_session(self):
+    def test_save_restore_movie_from_tab_switch(self):
         item = PreviewItem(
             original=self.tmp / "Movie.mkv",
             new_name="Movie (2021).mkv",
@@ -318,14 +318,14 @@ class SessionSaveRestoreTests(unittest.TestCase):
         self.ctrl._active_content_mode = MediaType.MOVIE
         self.ctrl._active_library_mode = MediaType.MOVIE
 
-        snapshot = self.ctrl.save_movie_session()
+        snapshot = self.ctrl.snapshot_movie_for_tab_switch()
 
         # Clear state
         self.ctrl._movie_library_states = []
         self.ctrl._movie_preview_items = []
         self.ctrl._active_content_mode = MediaType.TV
 
-        self.ctrl.restore_movie_session(snapshot)
+        self.ctrl.restore_movie_from_tab_switch(snapshot)
 
         self.assertEqual(len(self.ctrl.movie_library_states), 1)
         self.assertEqual(len(self.ctrl.movie_preview_items), 1)

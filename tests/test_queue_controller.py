@@ -233,6 +233,79 @@ class QueueControllerTests(unittest.TestCase):
         self.assertIsInstance(lid, int)
 
 
+class MovieBatchCheckboxTests(unittest.TestCase):
+    """Regression test: movie batch queueing must respect state.checked."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._tmp.name)
+        db_path = self.tmp / "test_queue.db"
+        self.store = JobStore(db_path=db_path)
+        self.ctrl = QueueController(self.store)
+
+    def tearDown(self):
+        self.ctrl.close()
+        self._tmp.cleanup()
+
+    def _make_movie_state(self, title, tmdb_id, checked=True):
+        lib_root = self.tmp / "library"
+        lib_root.mkdir(exist_ok=True)
+        item = PreviewItem(
+            original=lib_root / f"{title}.mkv",
+            new_name=f"{title} (2021).mkv",
+            target_dir=lib_root / f"{title} (2021)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=tmdb_id,
+            media_name=title,
+        )
+        state = ScanState(
+            folder=lib_root,
+            media_info={"id": tmdb_id, "title": title, "year": "2021"},
+            preview_items=[item],
+            scanned=True,
+            checked=checked,
+        )
+        return state
+
+    def test_unchecked_movies_are_not_queued(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        checked_state = self._make_movie_state("Dune", 100, checked=True)
+        unchecked_state = self._make_movie_state("Tenet", 200, checked=False)
+
+        lib_root = self.tmp / "library"
+        result = self.ctrl.add_movie_batch(
+            states=[checked_state, unchecked_state],
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 1)
+        self.assertTrue(checked_state.queued)
+        self.assertFalse(unchecked_state.queued)
+
+    def test_all_checked_movies_are_queued(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        states = [
+            self._make_movie_state("Dune", 300, checked=True),
+            self._make_movie_state("Tenet", 400, checked=True),
+        ]
+
+        lib_root = self.tmp / "library"
+        result = self.ctrl.add_movie_batch(
+            states=states,
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 2)
+        self.assertTrue(all(s.queued for s in states))
+
+
 class BatchQueueResultTests(unittest.TestCase):
     def test_total_skipped(self):
         r = BatchQueueResult(skipped_duplicate=2, skipped_queued=3)

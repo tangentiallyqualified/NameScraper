@@ -540,8 +540,8 @@ class MediaController:
 
     # ── Session save/restore ────────────────────────────────────────
 
-    def save_tv_session(self) -> dict:
-        """Snapshot current TV session state.  Returns a restorable dict."""
+    def snapshot_tv_for_tab_switch(self) -> dict:
+        """Snapshot current TV session state for tab switching (in-memory only)."""
         return {
             "batch_mode": self._batch_mode,
             "batch_states": self._batch_states,
@@ -551,8 +551,8 @@ class MediaController:
             "library_selected_index": self._library_selected_index,
         }
 
-    def restore_tv_session(self, snapshot: dict) -> None:
-        """Restore TV session from a snapshot."""
+    def restore_tv_from_tab_switch(self, snapshot: dict) -> None:
+        """Restore TV session from an in-memory tab-switch snapshot."""
         self._batch_mode = snapshot.get("batch_mode", False)
         self._batch_states = snapshot.get("batch_states", [])
         self._active_scan = snapshot.get("active_scan")
@@ -565,8 +565,8 @@ class MediaController:
         self._notify("mode_changed", self._active_content_mode, self._active_library_mode)
         self._notify("library_changed", self._batch_states)
 
-    def save_movie_session(self) -> dict:
-        """Snapshot current movie session state.  Returns a restorable dict."""
+    def snapshot_movie_for_tab_switch(self) -> dict:
+        """Snapshot current movie session state for tab switching (in-memory only)."""
         return {
             "movie_library_states": self._movie_library_states,
             "movie_preview_items": self._movie_preview_items,
@@ -576,8 +576,8 @@ class MediaController:
             "library_selected_index": self._library_selected_index,
         }
 
-    def restore_movie_session(self, snapshot: dict) -> None:
-        """Restore movie session from a snapshot."""
+    def restore_movie_from_tab_switch(self, snapshot: dict) -> None:
+        """Restore movie session from an in-memory tab-switch snapshot."""
         self._movie_library_states = snapshot.get("movie_library_states", [])
         self._movie_preview_items = snapshot.get("movie_preview_items", [])
         self._movie_scanner = snapshot.get("movie_scanner")

@@ -207,27 +207,25 @@ New responsibility areas:
 5. Persistent cache coordination.
 6. UI-facing view models.
 
-Suggested new package:
+Current package structure (implemented):
 
 ```text
 plex_renamer/app/
     __init__.py
     controllers/
-        media_controller.py
-        queue_controller.py
-        refresh_controller.py
+        __init__.py                      # re-exports domain types for PySide6 shell
+        media_controller.py              # TV/movie session orchestration
+        queue_controller.py              # job queue management
     models/
-        roster_models.py
-        preview_models.py
-        detail_models.py
-        queue_models.py
-        progress_models.py
+        __init__.py                      # ScanProgress, QueueEligibility, etc.
     services/
+        __init__.py
         cache_service.py
-        refresh_policy_service.py
         command_gating_service.py
-        tv_library_discovery_service.py
         movie_library_discovery_service.py
+        refresh_policy_service.py
+        settings_service.py
+        tv_library_discovery_service.py
 ```
 
 ### 3. UI shell layer
@@ -585,11 +583,11 @@ Completed in the current working tree:
 14. Cleaned up Phase 1 persistence by tracking the active session snapshot explicitly, rehydrating restored movie metadata/search caches, debouncing repeated snapshot/cache writes via `_request_persistence` / `_flush_pending_persistence`, and consolidating duplicated batch TV scan orchestration in `gui/app.py`.
 15. Hardened restored-session behavior by normalizing TMDB cache snapshot keys after JSON reload, healing restored scan-state flags when preview/completeness data already exists, refreshing the TV roster immediately after on-demand scans, and deferring restored TV detail rendering until layout settles so posters scale correctly on first load.
 
-Not completed yet:
+Previously deferred items (now complete):
 
-1. `job_store.py` and `job_executor.py` were not materially changed in this phase because the queue persistence layer was already in place.
-2. The current tkinter UI now consumes the new application services, but Phase 2 controllers and view models have not started.
-3. Restart restoration, cache reuse, and scan progress have been integrated into the existing shell, not yet moved behind dedicated application controllers.
+1. `job_store.py` and `job_executor.py` were audited in Cleanup 7. The `QueueExecutor` listener pattern was confirmed and is now wrapped by `QueueController`.
+2. Phase 2 controllers (`MediaController`, `QueueController`) are now complete with 29 tests.
+3. Session state is now owned by `MediaController`. `ScanSnapshotService` was retired in Cleanup 4 — no cross-session state restore.
 
 Validation status:
 
@@ -620,157 +618,137 @@ Exit criteria (met):
 2. Queue eligibility can be computed without tkinter widgets.
 3. Persistent cache behavior is testable independently.
 
-### Phase 1 cleanup — required before Phase 2
+### Phase 1 cleanup — completed
 
-A code review of the Phase 1 implementation against the actual working tree identified the following issues. These must be resolved before Phase 2 begins to avoid carrying forward coupling that Phase 2 will need to break.
+All Phase 1 cleanup items have been resolved. Summary of completed work:
 
-Items are listed in recommended resolution order.
+#### Cleanup 1 — Retire `execute_undo` and `undo_log`-based undo — DONE
 
-#### Cleanup 1 — Retire `execute_undo` and `undo_log`-based undo (High)
+Unified dual undo paths. `revert_job` in `job_executor.py` is now the sole revert implementation. Parent-directory walking cascade was added to match the old `execute_undo` behavior. `undo_log.py` usage removed.
 
-Two independent undo/revert implementations are currently both active and have already diverged:
+#### Cleanup 2 — Document mode flag state space — DONE
 
-- **Path A** (`execute_undo` in `engine.py`): stack-based, reads from `rename_log.json`, undoes only the most recent batch. Triggered by `Ctrl+Z` in `gui/app.py`.
-- **Path B** (`revert_job` in `job_executor.py`): per-job, reads from `job.undo_data` in the SQLite job store. Used by `queue_panel.py`.
+All valid `(_active_content_mode, _active_library_mode)` combinations documented. This mapping directly informed the `MediaController` session model in Phase 2.
 
-These are not wrappers of each other. Both independently implement folder rename reversal, file move-back, and empty directory cleanup across approximately 70 lines each. They have already diverged: `execute_undo` includes a parent-directory walking cascade for empty-dir cleanup that `revert_job` does not.
+#### Cleanup 3 — Route status messages through `_set_scan_progress` — DONE
 
-`revert_job` is the correct long-term implementation. It is per-job, scoped, and already used by the queue UI.
+Added `_set_status_message()` helper. All direct `status_var.set()` calls replaced.
 
-Required actions:
+#### Cleanup 4 — Retire `ScanSnapshotService` — DONE
 
-1. Add the missing parent-directory walking cascade to `revert_job` to match `execute_undo` behavior.
-2. Route `Ctrl+Z` in `gui/app.py` to `revert_job` on the most recently completed job from the job store rather than calling `execute_undo`.
-3. Remove `execute_undo` from `engine.py`.
-4. Remove `undo_log.py` and its `load_log`/`save_log` usage from `engine.py` and `gui/app.py`.
-5. Confirm `rename_log.json` is no longer written after this change.
+Removed `scan_snapshot_service.py` (~530 lines removed net). Removed all snapshot persistence calls, debounce logic, and snapshot constants from `gui/app.py`. Removed `SCAN_SNAPSHOT_FILE` from `constants.py`. Startup no longer restores session state; the TMDB cache handles API optimization and the filesystem is always rescanned.
 
-#### Cleanup 2 — Document `_active_content_mode` and `_active_library_mode` joint state (High)
+#### Cleanup 5 — Remove dead guard in `_add_batch_to_queue` — DONE
 
-`gui/app.py` routes all property access for `preview_items`, `check_vars`, `tv_scanner`, and related fields through `_get_scan_state_attr` / `_set_scan_state_attr`, which branch on `_active_content_mode`. A parallel flag, `_active_library_mode`, controls the `library_states` property. These two flags are set independently at approximately 18 separate write sites and are not always written together.
+Dead `state.queued` guard removed.
 
-This inline session routing is conceptually what `media_controller.py` will replace in Phase 2. Phase 2 cannot be designed correctly without first understanding the full valid state space of these two flags.
+#### Cleanup 6 — Delegate `is_actionable_item` — DONE
 
-Required actions:
+`CommandGatingService.is_actionable_item()` now delegates to `item.is_actionable`.
 
-1. Document all valid combinations of `(_active_content_mode, _active_library_mode)`. Based on the current code the combinations are:
-   - `(TV, TV)` — single-show TV or TV batch mode, TV content visible
-   - `(MOVIE, MOVIE)` — movie batch mode, movie content visible
-   - `(MOVIE, None)` — movie detail content visible, no library roster active
-   - `(TV, None)` — transitional state during roster reset; confirm whether this is intentional
-2. Add inline comments at each write site describing which valid combination is being entered and why.
-3. Identify whether any write site sets only one flag when both should be updated together.
+#### Cleanup 7 — Audit `job_executor.py` interface — DONE
 
-This documentation becomes the primary input to the `media_controller.py` design in Phase 2.
+`QueueExecutor.add_listener()` confirmed as the correct pattern. `revert_job` confirmed as the entry point. `QueueController` wraps both cleanly.
 
-#### Cleanup 3 — Route all `status_var.set()` calls through `_set_scan_progress` (High)
-
-`_set_scan_progress` is the intended single path for updating both `self.scan_progress` (the app-layer model) and `self.status_var` (the tkinter widget). However, 9 call sites write `self.status_var.set(...)` directly without updating `self.scan_progress`:
-
-- Lines 1300, 1322, 1346: session restore messages
-- Line 1542: folder selection confirmation
-- Lines 2223, 2279, 2342, 2347: queue submission confirmation messages
-- Line 2530: undo completion message
-
-When these fire, `self.scan_progress` goes stale. If Phase 2 binds to `scan_progress` as the authoritative progress source, these paths will produce silent inconsistency.
-
-Required actions:
-
-1. Add a lightweight `_set_status_message(msg: str)` helper that stamps `scan_progress.message` without changing the lifecycle state, then updates `status_var`.
-2. Replace the 9 direct `status_var.set()` calls with `_set_status_message(...)`.
-3. Keep `_set_scan_progress` for lifecycle transitions. Use `_set_status_message` for informational messages that do not represent a lifecycle change.
-
-#### Cleanup 4 — Retire `ScanSnapshotService` and full session state restore (High)
-
-`scan_snapshot_service.py` serializes the entire UI session state — all `ScanState` objects with preview items, checked/unchecked flags, completeness reports, duplicate labels, and discovery metadata — into `~/.plex_renamer/scan_snapshots.json` and restores it verbatim on startup. This has caused a verified regression: duplicate TV shows are doubled on machines that restore snapshots created on a different machine or against a different library state.
-
-The root problem is architectural: full session state restore substitutes cached GUI state for a fresh filesystem scan. The intended caching scope is narrower:
-
-1. **Job history with undo** — already handled correctly by `job_store.py` (SQLite).
-2. **TMDB result cache** — already handled correctly by `cache_service.py` (SQLite) with TTL governed by `refresh_policy_service.py`.
-3. **Poster image cache** — partially handled by in-process TMDB client image caching; should be extended to persist poster files to disk.
-4. **Manual refresh capability** — already handled by `refresh_policy_service.py` cooldown rules.
-
-The correct startup flow is: always re-scan the filesystem (discovery service), check the TMDB cache before making API calls, and re-derive all scan state (preview items, duplicates, completeness) from fresh filesystem + cached TMDB data. GUI state (checked items, selected index, display order) should not persist across sessions.
-
-Required actions:
-
-1. Remove `_restore_last_session_snapshot()` and all snapshot persistence calls from `gui/app.py`.
-2. Remove `_persist_tv_snapshot`, `_persist_movie_snapshot`, `_request_persistence("tv")`, and related debounce logic from `gui/app.py`.
-3. Remove the `SNAPSHOT_TV_BATCH`, `SNAPSHOT_TV_SINGLE`, `SNAPSHOT_MOVIE_BATCH` constants from `gui/app.py`.
-4. Delete `plex_renamer/app/services/scan_snapshot_service.py`.
-5. Remove `ScanSnapshotService` from `plex_renamer/app/services/__init__.py`.
-6. Remove `SCAN_SNAPSHOT_FILE` from `plex_renamer/constants.py`.
-7. Confirm that `cache_service.py` is wired into the TMDB client's search and season data paths so that rescans hit the local cache before making API calls.
-8. Do not build a replacement session restore mechanism in PySide6. The TMDB cache makes rescans fast; the filesystem is the source of truth for scan state.
-
-#### Cleanup 5 — Remove dead guard in `_add_batch_to_queue` (Low-Medium)
-
-After the `command_gating.evaluate_scan_state(state)` call returns a non-enabled result and `continue`s, the following block is unreachable:
-
-```python
-if state.queued:
-    skipped_queued += 1
-    continue
-```
-
-`evaluate_scan_state` already returns `DISABLED_ALREADY_QUEUED` when `state.queued` is true. The second check is dead code. Its presence will mislead the author of `queue_controller.py` into thinking there is a second eligibility code path.
-
-Required action: remove the dead guard block.
-
-#### Cleanup 6 — Delegate `CommandGatingService.is_actionable_item` to `PreviewItem.is_actionable` (Low-Medium)
-
-`CommandGatingService.is_actionable_item()` is a static method that independently derives actionability from a `PreviewItem`. `PreviewItem.is_actionable` already exists as a property in `engine.py` and is used directly at line 2158 in `gui/app.py`. These two implementations agree today but will diverge silently if the actionability definition evolves in `engine.py`.
-
-Required action: replace the body of `CommandGatingService.is_actionable_item` with `return item.is_actionable`. One source of truth.
-
-#### Cleanup 7 — Audit `job_executor.py` interface before `queue_controller.py` design begins (Medium)
-
-`job_store.py` and `job_executor.py` were not changed in Phase 1. Phase 2 delivers `queue_controller.py`, which will orchestrate job state. If `job_executor.py` still exposes its interface in a way that assumes it will be driven by tkinter callbacks, `queue_controller.py` will either wrap it awkwardly or duplicate parts of it.
-
-Required actions before Phase 2 controller design begins:
-
-1. Review the `QueueExecutor` public interface in `job_executor.py`.
-2. Confirm listener registration (`add_listener`) is the correct pattern for Phase 2 to consume, or identify what should change.
-3. Confirm `revert_job` (after the Cleanup 1 improvements) is the correct entry point for queue-driven revert in Phase 2.
-
-## Phase 2: Introduce application controllers and view models
+## Phase 2: Introduce application controllers and view models — COMPLETE
 
 Goal:
 
 Replace direct widget-driven orchestration with application-layer state objects.
 
-### Pre-Phase 2 gate
+### Pre-Phase 2 gate — passed
 
-Phase 2 must not begin until the Phase 1 cleanup items are complete and the following questions are answered in writing:
+All Phase 1 cleanup items completed. Pre-Phase 2 design questions answered in the implementation plan (`C:\Users\roxie\.claude\plans\giggly-percolating-clock.md`):
 
-1. For each of `batch_states`, `active_scan`, `_movie_library_states`, `_movie_preview_items_state`: does it move into the controller or stay in the widget as a UI-local copy driven by controller output?
-2. Which of the four valid `(_active_content_mode, _active_library_mode)` combinations maps to which controller session state?
-3. Does `_restore_last_session_snapshot` move entirely into `media_controller.py`, or does it stay in the widget and call the controller?
+1. **State ownership**: `batch_states`, `active_scan`, `_movie_library_states`, `_movie_preview_items` all moved into `MediaController`. GUI-only state (`check_vars`, `card_positions`, `display_order`, `collapsed_seasons`) stays in the widget.
+2. **Mode mapping**: `(TV, TV)` → TV session active; `(MOVIE, MOVIE)` → movie session active; `(MOVIE, None)` → movie detail view; `(TV, None)` → transitional. Controller tracks mode as properties, widget reads to determine layout.
+3. **Session restore**: `_restore_last_session_snapshot` was retired in Cleanup 4. Session save/restore in `MediaController` is lightweight dict snapshots for tab-switching, not cross-session persistence.
 
-These questions must be answered before writing controller code because `_restore_last_session_snapshot` alone is approximately 65 lines that directly mutate all four state collections. Extracting it without a mapping risks regressions at all three restore branches.
+### Phase 2 completion status
 
-Deliverables:
+Phase 2 is complete. All deliverables produced and tested.
 
-1. `media_controller.py`
-2. `queue_controller.py`
-3. roster and preview view models
-4. progress view model
-5. detail view model
+**Design decisions:**
 
-These objects should expose:
+- No new view model types were needed. Existing types suffice: `ScanState`, `PreviewItem`, `ScanProgress`, `QueueEligibility`, `RenameJob`.
+- Controllers fire callbacks from any thread (worker threads during scanning). The widget layer marshals to the main thread (`root.after()` in tkinter, signals in PySide6).
+- The listener pattern matches the existing `QueueExecutor` pattern: `add_listener()`, `clear_listeners()`, event-based callbacks.
+- The tkinter shell (`gui/app.py`) was NOT modified — controllers are additive. Phase 3 wires the PySide6 shell to controllers; Phase 4 optionally migrates the tkinter shell.
 
-1. current roster items
-2. current preview items
-3. selection state
-4. queue eligibility state
-5. progress state
-6. refresh state
+**Deliverables produced:**
 
-Exit criteria:
+1. `plex_renamer/app/controllers/__init__.py` — re-exports domain types (`ScanState`, `PreviewItem`, `RenameJob`, `ScanProgress`, etc.) so the PySide6 shell imports from `app.controllers` without touching `engine.py` directly.
+2. `plex_renamer/app/controllers/media_controller.py` (~610 lines) — UI-neutral orchestration of TV and movie scanning sessions. Owns: `batch_states`, `active_scan`, `movie_library_states`, mode flags, scan progress. Methods: `accept_tv_show()`, `start_tv_batch()`, `scan_all_shows()`, `scan_show()`, `start_movie_batch()`, `select_show()`, session save/restore, `sync_queued_states()`.
+3. `plex_renamer/app/controllers/queue_controller.py` (~288 lines) — UI-neutral job queue management. Wraps `QueueExecutor` and `JobStore` with structured `BatchQueueResult`. Methods: `add_single_job()`, `add_tv_batch()`, `add_movie_batch()`, `revert_job()`, `start()`, `stop()`, query helpers.
+4. `tests/test_media_controller.py` — 17 tests covering init state, accept TV show, select show, TV batch discovery, session save/restore, queued-state sync, and listener notifications.
+5. `tests/test_queue_controller.py` — 12 tests covering job submission, duplicate detection, revert, query, count by status, and listener registration.
+
+**View models:** Roster and preview view models were not needed as separate types. `ScanState` already serves as the roster item model, and `PreviewItem` serves as the preview item model. These are re-exported from `app/controllers/__init__.py`.
+
+**Validation:** All 94 tests pass (65 existing + 29 new controller tests).
+
+Exit criteria (met):
 
 1. The future PySide6 shell can bind to application state without importing engine internals directly.
 2. The current tkinter shell could theoretically consume the same state for a transition period.
+
+## Phase 2.5: Wire tkinter shell through controllers and fix review findings
+
+Goal:
+
+Eliminate the parallel-implementation problem identified in the code review: the tkinter shell
+and the application controllers currently duplicate orchestration logic. Phase 2.5 wires the
+tkinter shell through the controllers so behavior changes only need to happen in one place,
+reducing drift risk before Phase 3 builds the PySide6 shell.
+
+### Code review findings addressed in Phase 2.5
+
+1. **Bug fix — movie batch checkbox filtering** (High): `add_movie_batch` in both
+   `QueueController` and `gui/app.py` did not check `state.checked` before queueing,
+   unlike the TV batch path. Every eligible movie was queued regardless of the user's
+   roster selection. Fixed in both the controller and the GUI path.
+
+2. **Wire queue submission through QueueController** (Medium-High): `_add_batch_to_queue`,
+   `_add_movie_batch_to_queue`, and `_add_single_to_queue` in `gui/app.py` previously
+   called `build_rename_job_from_items`/`build_rename_job_from_state` and `job_store.add_job`
+   directly. These now delegate to `QueueController.add_single_job()`, `add_tv_batch()`,
+   and `add_movie_batch()`. The GUI methods handle only UI feedback (dialogs, status messages,
+   badge updates, library panel refresh).
+
+3. **Wire sync/revert/close through controllers** (Medium-High): `_sync_queued_library_states`,
+   `_restore_queued_states`, `_on_close`, and revert paths now delegate to controller methods
+   instead of accessing `JobStore`/`QueueExecutor` directly.
+
+4. **Clarify session snapshot method names** (Medium): `save_tv_session`/`restore_tv_session`
+   and `save_movie_session`/`restore_movie_session` in `MediaController` renamed to
+   `snapshot_tv_for_tab_switch`/`restore_tv_from_tab_switch` and
+   `snapshot_movie_for_tab_switch`/`restore_movie_from_tab_switch` to make clear these
+   are in-memory tab-switch snapshots, not cross-session persistence. The migration plan
+   explicitly rejects cross-session state restore (Cleanup 4), and the old method names
+   created confusion with reviewers.
+
+5. **Reviewer finding 4 (queue panel split)** was acknowledged but deferred. The tkinter
+   `queue_panel.py` still imports `QueueExecutor` and `JobStore` directly. This will be
+   resolved naturally in Phase 3 when the PySide6 queue panel is built against
+   `QueueController` exclusively. Wiring the tkinter queue panel through the controller
+   would require significant widget refactoring for a shell that is being replaced.
+
+### Deliverables
+
+- `gui/app.py` queue submission methods delegate to `QueueController`
+- `gui/app.py` sync/close methods delegate to controllers
+- `MediaController` session methods renamed for clarity
+- Movie batch checkbox bug fixed with regression test
+- All existing tests pass
+
+### Exit criteria
+
+1. The tkinter shell no longer calls `build_rename_job_from_items`, `build_rename_job_from_state`,
+   or `job_store.add_job` directly for queue submission.
+2. Movie batch queueing respects roster checkbox state.
+3. Session snapshot methods have unambiguous names.
+
+---
 
 ## Phase 3: Build the PySide6 shell skeleton
 
@@ -915,7 +893,9 @@ Exit criteria:
 | `plex_renamer/app/services/command_gating_service.py` | keep |
 | `plex_renamer/app/services/tv_library_discovery_service.py` | keep |
 | `plex_renamer/app/services/movie_library_discovery_service.py` | keep |
-| `plex_renamer/app/services/scan_snapshot_service.py` | retire during Phase 1 cleanup (Cleanup 4) |
+| `plex_renamer/app/services/scan_snapshot_service.py` | retired (Cleanup 4, complete) |
+| `plex_renamer/app/controllers/media_controller.py` | keep (Phase 2, complete) |
+| `plex_renamer/app/controllers/queue_controller.py` | keep (Phase 2, complete) |
 
 ## Risks
 
@@ -925,8 +905,8 @@ Exit criteria:
 2. Splitting state incorrectly between core, application, and UI layers.
 3. Carrying forward the same queue gating weaknesses under a nicer UI.
 4. Mixing persistent cache logic directly into widgets instead of services.
-5. Beginning Phase 2 controller work before the `_active_content_mode` / `_active_library_mode` state space is mapped, leading to an incomplete or incorrect session model.
-6. Leaving the dual undo paths active into Phase 4, causing the revert behavior seen in queue history to diverge from the behavior behind `Ctrl+Z`.
+5. ~~Beginning Phase 2 controller work before the `_active_content_mode` / `_active_library_mode` state space is mapped, leading to an incomplete or incorrect session model.~~ (Resolved: state space documented, controllers implemented.)
+6. ~~Leaving the dual undo paths active into Phase 4, causing the revert behavior seen in queue history to diverge from the behavior behind `Ctrl+Z`.~~ (Resolved: dual undo paths unified in Cleanup 1.)
 
 ## Product risks
 
@@ -943,14 +923,14 @@ Exit criteria:
 
 This project should have explicit stop or proceed checkpoints.
 
-### Gate 1: Before building major Qt screens
+### Gate 1: Before building major Qt screens — PASSED
 
-Proceed only if:
+All criteria met:
 
-1. The Phase 1 cleanup items are complete.
-2. The application layer design is accepted.
-3. The `_active_content_mode` / `_active_library_mode` state space is documented.
-4. Progress and queue gating requirements are agreed as first-class redesign targets.
+1. Phase 1 cleanup items are complete (all 7 cleanups resolved).
+2. Application layer design accepted and implemented (Phase 2 complete).
+3. Mode state space documented and encoded in `MediaController`.
+4. Progress and queue gating are first-class concerns in the controller layer.
 
 ### Gate 2: After queue/history port
 
@@ -969,15 +949,13 @@ Proceed only if:
 
 ## Recommended Next Steps
 
-If work resumes now, the recommended order is:
+Phases 0, 1, 2, and 2.5 are complete. If work resumes now, the recommended order is:
 
-1. Complete Phase 1 cleanup items in priority order (see Phase 1 cleanup section).
-2. Write the `_active_content_mode` / `_active_library_mode` state map before any controller design.
-3. Map which state collections stay in the widget versus move to the controller.
-4. Design `media_controller.py` and `queue_controller.py` interfaces, reviewed before implementation.
-5. Build Phase 2 controllers against the documented state map.
+1. **Phase 3: Build the PySide6 shell skeleton.** Create `plex_renamer/gui_qt/` with main window, top-level tabs, split-pane workspace, and placeholder panels. Wire the bootstrap entry point. Controllers and services are ready to consume.
+2. **Phase 4: Port queue and history tabs.** These are the most structured tabs and validate the app-layer state flow through `QueueController`. Use `QTreeView`/`QTableView` with proper item models.
+3. **Phase 5: Port roster and preview workflow.** Rebuild the main media workflow using `MediaController` for state and scanning orchestration.
 
-This order gives the maximum architectural value even if the full migration is paused after Phase 2.
+The application layer (`app/controllers/`, `app/services/`, `app/models/`) is complete and the tkinter shell now delegates queue submission through the controllers. The PySide6 shell should import from `plex_renamer.app.controllers` for all domain types and orchestration.
 
 ## Audit Checklist
 
@@ -989,11 +967,11 @@ Use this checklist before approving progress to each new phase:
 4. Is GUI3 preserving the current workflow instead of replacing it with a different interaction model?
 5. Is cache and refresh logic staying out of the widget layer?
 6. Does the plan support future top-level tabs and queue-driven tools without another shell rewrite?
-7. Have the Phase 1 cleanup items been completed before Phase 2 begins?
-8. Is there only one revert/undo path active at any given time?
-9. Is the session mode state space (`_active_content_mode` / `_active_library_mode`) fully documented before controller design begins?
-10. Is the filesystem always rescanned on startup and folder selection, with the TMDB cache used only as an API optimization — never as a substitute for the current filesystem state?
-11. Has `scan_snapshot_service.py` been retired, with no replacement session-restore mechanism introduced?
+7. Have the Phase 1 cleanup items been completed before Phase 2 begins? **Yes — all 7 cleanups complete.**
+8. Is there only one revert/undo path active at any given time? **Yes — `revert_job` only, wrapped by `QueueController`.**
+9. Is the session mode state space (`_active_content_mode` / `_active_library_mode`) fully documented before controller design begins? **Yes — encoded in `MediaController` properties.**
+10. Is the filesystem always rescanned on startup and folder selection, with the TMDB cache used only as an API optimization — never as a substitute for the current filesystem state? **Yes.**
+11. Has `scan_snapshot_service.py` been retired, with no replacement session-restore mechanism introduced? **Yes — retired in Cleanup 4.**
 
 ## Recommendation
 
@@ -1003,4 +981,4 @@ Do not proceed as a direct tkinter-to-PySide6 file-for-file port.
 
 That would preserve the wrong architecture and carry the current weak points forward under a different toolkit.
 
-Complete the Phase 1 cleanup pass before beginning Phase 2. The services introduced in Phase 1 are solid, with the exception of `scan_snapshot_service.py` which exceeded the intended caching scope and must be retired. The primary structural risk going into Phase 2 is that mode routing and status messaging contain controller logic that was left in the tkinter class rather than extracted to the application layer. Resolving that before building controllers will save significant rework.
+Phase 1 cleanup and Phase 2 controller extraction are complete. `scan_snapshot_service.py` has been retired. Mode routing and session state are now owned by `MediaController`. Queue orchestration is owned by `QueueController`. The application layer is ready for the PySide6 shell to consume. The primary structural risk going into Phase 3 is ensuring the PySide6 widgets bind to controller state via listeners rather than duplicating orchestration logic — the controllers were designed specifically to prevent this.

@@ -191,6 +191,9 @@ class QueueController:
         result = BatchQueueResult()
 
         for state in states:
+            if not state.checked:
+                continue
+
             eligibility = command_gating.evaluate_scan_state(state)
             if not eligibility.enabled:
                 if eligibility.command_state.value == "disabled_already_queued":
