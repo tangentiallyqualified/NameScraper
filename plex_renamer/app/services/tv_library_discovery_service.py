@@ -61,15 +61,28 @@ class TVLibraryDiscoveryService:
         a single show folder instead of a multi-show library.
         """
         # Check if the root itself is a show folder (has season subdirs).
-        # Only trigger when at least one child has a real season number (>= 1),
-        # not just a Specials/Season 0 folder — because folder names like
-        # "Movies" or "Extras" can match as season 0 but indicate a library
-        # container, not a show root.
+        # This handles the common case where the user selects a single show
+        # folder instead of a multi-show library.
+        #
+        # Guard: only treat the root as a show if the MAJORITY of its child
+        # directories are season folders.  A batch library like:
+        #   Quarantine/
+        #     S00/                          <- season 0
+        #     [FLE} Solo Leveling - S01/    <- get_season sees "S01"
+        #     [sam] Haikyuu!!/              <- show root
+        # has 2 season-like children out of 3 dirs but they belong to
+        # different shows.  A real single-show folder like:
+        #   Haikyuu!!/
+        #     Season 01/                    <- season 1
+        #     Second Season/                <- season 2
+        #     S04/                          <- season 4
+        #     Karasuno.../                  <- non-season (named season)
+        # has 3 out of 4 as season dirs — a strong majority.
         root_classified = self._classify_directory(library_root)
         if (
             root_classified.role == TVDirectoryRole.SHOW_ROOT
             and root_classified.has_direct_season_subdirs
-            and self._has_numbered_season_child(library_root)
+            and self._season_children_are_majority(library_root)
         ):
             return [
                 TVDiscoveryCandidate(
@@ -302,22 +315,40 @@ class TVLibraryDiscoveryService:
             return []
         return sorted(children, key=lambda child: child.name.casefold())
 
-    @staticmethod
-    def _has_numbered_season_child(directory: Path) -> bool:
-        """Return True if *directory* has at least one child whose season >= 1."""
-        try:
-            with os.scandir(directory) as iterator:
-                for entry in iterator:
-                    try:
-                        if entry.is_dir(follow_symlinks=True):
-                            sn = get_season(Path(entry.path))
-                            if sn is not None and sn >= 1:
-                                return True
-                    except OSError:
-                        continue
-        except OSError:
-            pass
-        return False
+    def _season_children_are_majority(self, directory: Path) -> bool:
+        """Return True if the majority of child directories are season folders.
+
+        This distinguishes a real show folder (where most children are
+        seasons like ``Season 01``, ``S04``, ``Second Season``) from a
+        batch library where a few show folders happen to contain ``S##``
+        in their names (e.g. ``[FLE} Solo Leveling - S01 ...``).
+
+        Only children with season number >= 1 are counted as season dirs.
+        Season 0 / Specials folders are excluded from both counts so they
+        don't skew the ratio either way.
+        """
+        children = self._scan_children(directory)
+        season_count = 0
+        non_season_count = 0
+        for child in children:
+            if not child.is_dir:
+                continue
+            if child.path.name.casefold() in self.ignored_system_names:
+                continue
+            if is_extras_folder(child.path.name):
+                continue
+            sn = get_season(child.path)
+            if sn is not None and sn == 0:
+                # Specials/S00 — don't count in either direction
+                continue
+            if sn is not None and sn >= 1:
+                season_count += 1
+            else:
+                non_season_count += 1
+        total = season_count + non_season_count
+        if total == 0:
+            return False
+        return season_count > total / 2
 
     @staticmethod
     def _canonical_path(directory: Path) -> str | None:

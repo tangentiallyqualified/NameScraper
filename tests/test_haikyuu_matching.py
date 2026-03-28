@@ -178,6 +178,71 @@ class HaikyuuLibraryDiscoveryTests(unittest.TestCase):
         self.assertTrue(candidates[0].has_direct_season_subdirs)
 
 
+# ── Batch mode regression: library must not be treated as single show ──
+
+
+class BatchModeRegressionTests(unittest.TestCase):
+    """A batch library whose children happen to contain S## in their names
+    must NOT be collapsed into a single show root."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.quarantine = Path(self._tmp.name) / "Quarantine"
+        self.quarantine.mkdir()
+
+        # S00 — specials folder (season 0)
+        s00 = self.quarantine / "S00"
+        s00.mkdir()
+        featurettes = s00 / "Featurettes"
+        featurettes.mkdir()
+        (featurettes / "behind_the_scenes.mkv").write_text("x")
+
+        # Solo Leveling — show folder with S01 in its name
+        solo = self.quarantine / "[FLE} Solo Leveling - S01 (BD 1080p HEVC x265 Opus) [Dual Audio]"
+        solo.mkdir()
+        (solo / "Solo Leveling - S01E01.mkv").write_text("x")
+        (solo / "Solo Leveling - S01E02.mkv").write_text("x")
+
+        # Haikyuu — show folder with season subdirs
+        haikyuu = self.quarantine / "[sam] Haikyuu!! [BD 1080p FLAC]"
+        haikyuu.mkdir()
+        (haikyuu / "Season 01").mkdir()
+        (haikyuu / "Season 01" / "ep01.mkv").write_text("x")
+        (haikyuu / "[sam] Haikyuu!! Second Season [BD 1080p FLAC]").mkdir()
+        (haikyuu / "[sam] Haikyuu!! Second Season [BD 1080p FLAC]" / "ep01.mkv").write_text("x")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_batch_library_discovers_show_roots(self):
+        """Quarantine/ should discover Haikyuu as a show root.
+
+        Note: Solo Leveling's folder has S01 in its name, so get_season()
+        classifies it as a season folder — a separate issue from the batch
+        regression being tested here.
+        """
+        service = TVLibraryDiscoveryService()
+        candidates = service.discover_show_roots(self.quarantine)
+
+        self.assertGreaterEqual(len(candidates), 1,
+                                f"Expected >= 1 candidates, got {len(candidates)}: "
+                                f"{[c.relative_folder for c in candidates]}")
+        show_names = [c.folder.name for c in candidates]
+        self.assertTrue(any("Haikyuu" in name for name in show_names),
+                        f"Haikyuu not found in candidates: {show_names}")
+
+    def test_batch_library_not_treated_as_single_show(self):
+        """Quarantine/ must not be returned as the sole show root."""
+        service = TVLibraryDiscoveryService()
+        candidates = service.discover_show_roots(self.quarantine)
+
+        # If the library itself was returned as a show, folder == quarantine
+        # and relative_folder == "."
+        if len(candidates) == 1:
+            self.assertNotEqual(candidates[0].relative_folder, ".",
+                                "Batch library was incorrectly treated as a single show root")
+
+
 # ── TVScanner TMDB season name matching ────────────────────────────────
 
 
