@@ -53,7 +53,38 @@ class TVLibraryDiscoveryService:
         }
 
     def discover_show_roots(self, library_root: Path) -> list[TVDiscoveryCandidate]:
-        """Return recursively discovered TV show roots below *library_root*."""
+        """Return recursively discovered TV show roots below *library_root*.
+
+        If the library_root itself looks like a show root (has direct season
+        subdirectories), it is returned as the sole candidate rather than
+        walking children.  This handles the common case where the user selects
+        a single show folder instead of a multi-show library.
+        """
+        # Check if the root itself is a show folder (has season subdirs).
+        # Only trigger when at least one child has a real season number (>= 1),
+        # not just a Specials/Season 0 folder — because folder names like
+        # "Movies" or "Extras" can match as season 0 but indicate a library
+        # container, not a show root.
+        root_classified = self._classify_directory(library_root)
+        if (
+            root_classified.role == TVDirectoryRole.SHOW_ROOT
+            and root_classified.has_direct_season_subdirs
+            and self._has_numbered_season_child(library_root)
+        ):
+            return [
+                TVDiscoveryCandidate(
+                    folder=library_root,
+                    relative_folder=".",
+                    parent_relative_folder=None,
+                    depth=0,
+                    discovery_reason=root_classified.discovery_reason,
+                    has_direct_season_subdirs=root_classified.has_direct_season_subdirs,
+                    direct_episode_file_count=root_classified.direct_episode_file_count,
+                    direct_video_file_count=root_classified.direct_video_file_count,
+                    discovered_via_symlink=root_classified.discovered_via_symlink,
+                )
+            ]
+
         candidates: list[TVDiscoveryCandidate] = []
         visited_paths: set[str] = set()
 
@@ -270,6 +301,23 @@ class TVLibraryDiscoveryService:
         except OSError:
             return []
         return sorted(children, key=lambda child: child.name.casefold())
+
+    @staticmethod
+    def _has_numbered_season_child(directory: Path) -> bool:
+        """Return True if *directory* has at least one child whose season >= 1."""
+        try:
+            with os.scandir(directory) as iterator:
+                for entry in iterator:
+                    try:
+                        if entry.is_dir(follow_symlinks=True):
+                            sn = get_season(Path(entry.path))
+                            if sn is not None and sn >= 1:
+                                return True
+                    except OSError:
+                        continue
+        except OSError:
+            pass
+        return False
 
     @staticmethod
     def _canonical_path(directory: Path) -> str | None:

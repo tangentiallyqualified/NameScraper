@@ -446,12 +446,22 @@ _SPECIALS_SUFFIX = re.compile(
 )
 
 
+_ORDINAL_WORDS: dict[str, int] = {
+    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+    "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
+    # Ordinal suffix forms: "1st", "2nd", "3rd", "4th", etc.
+}
+
+_ORDINAL_SUFFIX_RE = re.compile(r"(\d{1,2})(?:st|nd|rd|th)", re.IGNORECASE)
+
+
 def get_season(folder: Path) -> int | None:
     """
     Extract the season number from a folder name.
 
     Recognizes many common formats:
       - "Season 02", "S02", "Staffel 3", "Saison 3", etc.
+      - Ordinal season names: "Second Season", "3rd Season", etc.
       - Specials/extras folders → Season 0
       - Bare number folders: "02", "2"
 
@@ -465,8 +475,8 @@ def get_season(folder: Path) -> int | None:
     if _SPECIALS_SUFFIX.search(name):
         return 0
 
-    # "Season ##" anywhere
-    m = re.search(r"season\s*(\d+)", name, re.IGNORECASE)
+    # "Season ##" anywhere (1-2 digits only — avoids matching "Season 1080p")
+    m = re.search(r"season\s*(\d{1,2})(?!\d)", name, re.IGNORECASE)
     if m:
         return int(m.group(1))
 
@@ -474,6 +484,17 @@ def get_season(folder: Path) -> int | None:
     m = re.search(r"(?:^|[\s._\-])S(\d{1,2})(?:[\s._\-]|$)", name)
     if m:
         return int(m.group(1))
+
+    # Ordinal word + "Season": "Second Season", "Third Season", etc.
+    # Also handles "2nd Season", "3rd Season" suffix ordinals.
+    m = re.search(r"(\w+)\s+Season", name, re.IGNORECASE)
+    if m:
+        word = m.group(1).lower()
+        if word in _ORDINAL_WORDS:
+            return _ORDINAL_WORDS[word]
+        suffix_m = _ORDINAL_SUFFIX_RE.fullmatch(m.group(1))
+        if suffix_m:
+            return int(suffix_m.group(1))
 
     # International variants
     m = re.search(

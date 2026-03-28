@@ -1075,18 +1075,38 @@ class TVScanner:
         self._tmdb_seasons: dict | None = None
 
     def _get_season_dirs(self) -> list[tuple[Path, int]]:
-        """Find and sort season subdirectories. Cached after first call."""
+        """Find and sort season subdirectories. Cached after first call.
+
+        First pass uses ``get_season()`` for standard patterns (Season 01,
+        S02, ordinals).  Second pass matches remaining subdirectories against
+        TMDB season names so that named anime seasons (e.g. "Karasuno High
+        School vs. Shiratorizawa Academy") are correctly identified.
+        """
         if self._season_dirs is not None:
             return self._season_dirs
 
         # Compute season number once per directory, filter and sort
-        dirs_with_season = []
+        dirs_with_season: list[tuple[Path, int]] = []
+        unmatched_dirs: list[Path] = []
         for d in self.root.iterdir():
             if not d.is_dir():
                 continue
             sn = get_season(d)
             if sn is not None:
                 dirs_with_season.append((d, sn))
+            else:
+                unmatched_dirs.append(d)
+
+        # Second pass: match unrecognized subdirs against TMDB season names.
+        # Only attempt this when we already found at least one season dir
+        # (signals this really is a multi-season show root) and there are
+        # leftover dirs that might be named seasons.
+        if dirs_with_season and unmatched_dirs:
+            matched_via_tmdb = self._match_dirs_to_tmdb_seasons(
+                unmatched_dirs,
+                {sn for _, sn in dirs_with_season},
+            )
+            dirs_with_season.extend(matched_via_tmdb)
 
         dirs_with_season.sort(key=lambda x: x[1])
 
@@ -1095,6 +1115,104 @@ class TVScanner:
         else:
             self._season_dirs = dirs_with_season
         return self._season_dirs
+
+    def _match_dirs_to_tmdb_seasons(
+        self,
+        dirs: list[Path],
+        already_matched: set[int],
+    ) -> list[tuple[Path, int]]:
+        """Try to match directories against TMDB season names.
+
+        For shows like Haikyu!! where seasons have distinct names
+        (e.g. "Karasuno High School vs. Shiratorizawa Academy" = Season 3),
+        this allows folders named after the season to be correctly identified.
+        """
+        show_id = self.show_info.get("id")
+        if not show_id:
+            return []
+
+        show_data = self.tmdb.get_tv_details(show_id)
+        if not show_data:
+            return []
+
+        # Build a map of season_number → cleaned season name
+        tmdb_season_names: dict[int, str] = {}
+        for season_info in show_data.get("seasons", []):
+            sn = season_info.get("season_number", 0)
+            name = season_info.get("name", "")
+            if sn > 0 and name and sn not in already_matched:
+                tmdb_season_names[sn] = name
+
+        if not tmdb_season_names:
+            return []
+
+        # Show title prefix to strip from folder names for comparison
+        show_title = clean_folder_name(
+            self.show_info.get("name", ""), include_year=False,
+        ).lower()
+
+        results: list[tuple[Path, int]] = []
+        used_seasons: set[int] = set()
+
+        for d in dirs:
+            folder_cleaned = clean_folder_name(
+                d.name, include_year=False,
+            ).lower()
+
+            best_sn: int | None = None
+            best_score = 0.0
+
+            for sn, tmdb_name in tmdb_season_names.items():
+                if sn in used_seasons:
+                    continue
+                tmdb_cleaned = tmdb_name.lower()
+
+                # Strategy 1: folder name contains the TMDB season name
+                # or the TMDB season name contains the folder's cleaned text
+                if tmdb_cleaned in folder_cleaned or folder_cleaned in tmdb_cleaned:
+                    score = 1.0
+                else:
+                    # Strategy 2: strip the common show title prefix and
+                    # compare the remaining subtitle text
+                    folder_suffix = folder_cleaned
+                    tmdb_suffix = tmdb_cleaned
+                    if folder_suffix.startswith(show_title):
+                        folder_suffix = folder_suffix[len(show_title):].strip()
+                    if tmdb_suffix.startswith(show_title):
+                        tmdb_suffix = tmdb_suffix[len(show_title):].strip()
+
+                    if not folder_suffix or not tmdb_suffix:
+                        continue
+
+                    # Check for substantial overlap
+                    if tmdb_suffix in folder_suffix or folder_suffix in tmdb_suffix:
+                        score = 0.9
+                    else:
+                        # Token overlap — count shared meaningful words
+                        folder_tokens = set(folder_suffix.split())
+                        tmdb_tokens = set(tmdb_suffix.split())
+                        # Remove very short words (articles, noise)
+                        folder_tokens = {t for t in folder_tokens if len(t) > 2}
+                        tmdb_tokens = {t for t in tmdb_tokens if len(t) > 2}
+                        if not tmdb_tokens:
+                            continue
+                        overlap = len(folder_tokens & tmdb_tokens)
+                        score = overlap / max(len(tmdb_tokens), 1)
+
+                if score > best_score and score >= 0.5:
+                    best_score = score
+                    best_sn = sn
+
+            if best_sn is not None:
+                _log.info(
+                    "Matched folder '%s' to TMDB season %d via name similarity "
+                    "(score=%.2f)",
+                    d.name, best_sn, best_score,
+                )
+                results.append((d, best_sn))
+                used_seasons.add(best_sn)
+
+        return results
 
     def _get_tmdb_seasons(self) -> dict:
         """Fetch TMDB season map. Cached after first call (also cached in TMDBClient)."""
