@@ -18,7 +18,6 @@ SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"}
 LOG_DIR = Path.home() / ".plex_renamer"
 DB_FILE = LOG_DIR / "job_queue.db"
 CACHE_DB_FILE = LOG_DIR / "cache.db"
-SCAN_SNAPSHOT_FILE = LOG_DIR / "scan_snapshots.json"
 
 
 def ensure_log_dir() -> None:

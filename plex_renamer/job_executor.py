@@ -190,22 +190,31 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     # Clean up source directories after renames.
     #
-    # For movies, root_folder IS the release directory.  Once renamed files
-    # have been moved to the Plex-named target folder, anything remaining in
-    # the source directory (sample clips, NFOs, extra files the scanner
-    # skipped) is relocated into ``target_dir/Unmatched Files/`` rather than
-    # deleted.  This keeps the user's data intact and mirrors the handling
-    # for unmatched TV episodes.
+    # For movies with their own subdirectory (release folders like
+    # "Dune.2021.2160p.REMUX/"), root_folder IS the release directory.
+    # Once renamed files have been moved to the Plex-named target folder,
+    # anything remaining in the source directory (sample clips, NFOs,
+    # extra files the scanner skipped) is relocated into
+    # ``target_dir/Unmatched Files/`` rather than deleted.
+    #
+    # When a movie file lives directly in the library root (source_folder
+    # is "."), root_folder == library_root.  In that case the library root
+    # is NOT a release directory — it contains other movies and possibly
+    # non-movie content — so leftover cleanup must be skipped entirely.
     #
     # For TV, root_folder is the show directory and is never touched here
-    # (show_folder_rename handles it); season subdirectories follow the same
-    # "move leftovers" logic.
+    # (show_folder_rename handles it); season subdirectories follow the
+    # same "move leftovers" logic.
     #
     # Revert: leftover moves are appended to ``renames``, so revert_job
     # restores them automatically alongside the primary media files — no
     # special handling required.
     for src_dir in source_dirs:
         try:
+            # Never clean up the library root — it is shared across jobs
+            # and is not a release directory for any single item.
+            if os.path.normcase(str(src_dir)) == os.path.normcase(str(library_root)):
+                continue
             if src_dir == root_folder and job.media_type != MediaType.MOVIE:
                 continue
             if not src_dir.exists():
@@ -481,6 +490,23 @@ class QueueExecutor:
             self._running = False
             self._notify("finished")
             _log.info("Queue executor stopped")
+
+    def execute_single_job(self, job_id: str) -> bool:
+        """Execute a specific pending job by ID without starting the full queue.
+
+        Returns True if the job was found and executed (regardless of
+        success/failure), False if the job doesn't exist or isn't pending.
+
+        Fires the same listener callbacks as the background worker so the
+        UI stays in sync.  Safe to call from any thread, but callers must
+        ensure only one execution path is active at a time (do not call
+        while the background worker is running).
+        """
+        job = self.store.get_job(job_id)
+        if job is None or job.status != JobStatus.PENDING:
+            return False
+        self._execute_one(job)
+        return True
 
     def _execute_one(self, job: RenameJob) -> None:
         _log.info("Executing job %s: %s", job.job_id[:8], job.media_name)

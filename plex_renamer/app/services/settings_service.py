@@ -25,6 +25,10 @@ _DEFAULTS: dict[str, object] = {
     # ISO 639-1 language + ISO 3166-1 country code used for TMDB API requests
     # and alternative-title prioritisation.  "en-US" is the TMDB default.
     "match_language": "en-US",
+    # Hide shows/movies that are already properly named ("Plex Ready") from
+    # the library roster.  True by default so the user focuses on items that
+    # actually need action.
+    "hide_already_named": True,
 }
 
 
@@ -60,6 +64,15 @@ class SettingsService:
     @match_language.setter
     def match_language(self, value: str) -> None:
         self.set("match_language", value)
+
+    @property
+    def hide_already_named(self) -> bool:
+        """Whether to hide Plex-ready items from the library roster."""
+        return bool(self.get("hide_already_named"))
+
+    @hide_already_named.setter
+    def hide_already_named(self, value: bool) -> None:
+        self.set("hide_already_named", value)
 
     @property
     def match_country(self) -> str:

@@ -13,7 +13,6 @@ from .services import (
     CommandGatingService,
     PersistentCacheService,
     RefreshPolicyService,
-    ScanSnapshotService,
 )
 
 __all__ = [
@@ -27,5 +26,4 @@ __all__ = [
     "RefreshState",
     "ScanLifecycle",
     "ScanProgress",
-    "ScanSnapshotService",
 ]

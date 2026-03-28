@@ -30,7 +30,9 @@ class CommandGatingService:
                 show_name,
                 state.media_info.get("year", ""),
             )
-            return state.folder.name == expected_folder
+            # Case-insensitive compare for Windows (NTFS is case-preserving
+            # but case-insensitive).
+            return state.folder.name.lower() == expected_folder.lower()
 
         return True
 
@@ -220,21 +222,8 @@ class CommandGatingService:
 
     @staticmethod
     def is_actionable_item(item: PreviewItem) -> bool:
-        """True when an item can become a queued rename operation.
-
-        Items with OK, UNMATCHED, or REVIEW status are actionable
-        (REVIEW items have a valid rename plan — the user confirms
-        the match by checking the item).  SKIP and CONFLICT items
-        are never actionable.
-        """
-        if item.new_name is None:
-            return False
-        if item.status == "OK" or "UNMATCHED" in item.status or "REVIEW" in item.status:
-            target_dir = item.target_dir or item.original.parent
-            if item.new_name == item.original.name and target_dir == item.original.parent:
-                return False
-            return True
-        return False
+        """Delegate to the canonical ``PreviewItem.is_actionable`` property."""
+        return item.is_actionable
 
     @classmethod
     def _blocked_counts(cls, items: list[PreviewItem]) -> dict[str, int]:

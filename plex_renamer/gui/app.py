@@ -22,7 +22,6 @@ from ..app.services import (
     CommandGatingService,
     PersistentCacheService,
     RefreshPolicyService,
-    ScanSnapshotService,
     SettingsService,
     TVLibraryDiscoveryService,
 )
@@ -66,9 +65,6 @@ from .helpers import (
 
 TMDB_CACHE_NAMESPACE = "tmdb"
 TMDB_CACHE_SNAPSHOT_KEY = "client_snapshot"
-SNAPSHOT_TV_SINGLE = "tv_single"
-SNAPSHOT_TV_BATCH = "tv_batch"
-SNAPSHOT_MOVIE_BATCH = "movie_batch"
 
 
 class PlexRenamerApp:
@@ -109,6 +105,39 @@ class PlexRenamerApp:
         self.media_info: dict | None = None
         self.tmdb: TMDBClient | None = None
         self.movie_scanner: MovieScanner | None = None
+        # ── Session mode flags ─────────────────────────────────────
+        # These two flags jointly define the active session mode.
+        # They control which data stores are read/written by the
+        # property accessors (preview_items, check_vars, library_states,
+        # etc.) via _get_scan_state_attr / _set_scan_state_attr.
+        #
+        # Valid combinations:
+        #   (TV, TV)       — TV batch or single-show mode, TV roster visible
+        #   (MOVIE, MOVIE) — Movie batch mode, movie roster visible
+        #   (MOVIE, None)  — Movie detail content visible, no library roster
+        #   (TV, None)     — Transitional: roster reset during TV setup
+        #
+        # _active_content_mode routes preview/detail/scanner state:
+        #   TV    → reads/writes via active_scan (ScanState)
+        #   MOVIE → reads/writes via _movie_*_state fallback fields
+        #
+        # _active_library_mode routes the library_states property:
+        #   TV    → batch_states
+        #   MOVIE → _movie_library_states
+        #   None  → batch_states (default; roster hidden or not yet set)
+        #
+        # Both flags are set together at major mode transitions:
+        #   _accept_tv_show      → (TV, TV)
+        #   _start_batch_tv      → (TV, TV)
+        #   _setup_movie_scan    → (MOVIE, MOVIE)
+        #   _restore_tv_tab      → (TV, TV)
+        #   _restore_movie_tab   → (MOVIE, MOVIE)
+        #
+        # Only _active_library_mode is set alone:
+        #   _reset_library_roster → sets _active_library_mode = None
+        #
+        # Only _active_content_mode is set alone:
+        #   _show_movie_library_state → sets _active_content_mode = MOVIE
         self._active_content_mode: str = MediaType.TV
         self._tv_root_folder: Path | None = None
         self._movie_folder_state: Path | None = None
@@ -172,12 +201,9 @@ class PlexRenamerApp:
         self.command_gating = CommandGatingService()
         self.cache_service = PersistentCacheService()
         self.refresh_policy = RefreshPolicyService()
-        self.snapshot_service = ScanSnapshotService()
         self.tv_library_discovery = TVLibraryDiscoveryService()
         self.settings_service = SettingsService()
         self.scan_progress = ScanProgress()
-        self._persist_after_id = None
-        self._pending_persist_kinds: set[str] = set()
 
         # Register an app-level listener for badge updates.
         # NOTE: The queue_panel's _start_executor() calls
@@ -208,7 +234,6 @@ class PlexRenamerApp:
 
         # Initialize tab badges from database (persisted queue/history)
         self._update_queue_badge()
-        self._restore_last_session_snapshot()
 
     # ══════════════════════════════════════════════════════════════════
     #  ScanState-backed properties
@@ -396,7 +421,9 @@ class PlexRenamerApp:
         self._main_notebook.bind("<<NotebookTabChanged>>", _on_main_tab_change)
 
         # ── Settings state ────────────────────────────────────────────
-        self.settings_hide_named = tk.BooleanVar(value=False)
+        self.settings_hide_named = tk.BooleanVar(
+            value=self.settings_service.hide_already_named,
+        )
         self.settings_hide_named.trace_add("write", lambda *_: self._on_settings_changed())
 
         # ── TV Series action bar ──────────────────────────────────────
@@ -771,7 +798,7 @@ class PlexRenamerApp:
         self._library_selected_index = None
         self._library_card_positions = []
         self._library_alt_positions = []
-        self._active_library_mode = None
+        self._active_library_mode = None  # → (*, None): roster cleared
         self._movie_library_states = []
 
     def _build_movie_library_info(self, item: PreviewItem | None = None) -> dict:
@@ -903,7 +930,7 @@ class PlexRenamerApp:
     def _show_movie_library_state(self, state: ScanState) -> None:
         """Render the current movie roster entry in the shared preview/detail pane."""
         self.media_type = MediaType.MOVIE
-        self._active_content_mode = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE  # → (MOVIE, *): content only
         self.folder = self._movie_folder_state or state.folder
         self.media_info = state.media_info
         self.media_label_var.set(self._movie_label_text)
@@ -986,7 +1013,7 @@ class PlexRenamerApp:
     def _restore_tv_tab_content(self):
         """Rebind the shared pane to the stored TV session."""
         self.media_type = MediaType.TV
-        self._active_content_mode = MediaType.TV
+        self._active_content_mode = MediaType.TV    # → (TV, TV): restore TV session
         self._active_library_mode = MediaType.TV
         self.batch_mode = self._tv_batch_mode_state
         if not self.batch_states:
@@ -1056,7 +1083,7 @@ class PlexRenamerApp:
     def _restore_movie_tab_content(self):
         """Rebind the shared pane to the stored movie session."""
         self.media_type = MediaType.MOVIE
-        self._active_content_mode = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE  # → (MOVIE, MOVIE): restore movie session
         self._active_library_mode = MediaType.MOVIE
         self.batch_mode = False
         self._mount_media_content(self._movie_content_host)
@@ -1149,6 +1176,16 @@ class PlexRenamerApp:
         if overlay_text is not None:
             self._update_scan_overlay(overlay_text)
 
+    def _set_status_message(self, message: str) -> None:
+        """Update the status bar text without changing the scan lifecycle.
+
+        Use this for informational messages (restore confirmations, queue
+        submission results, undo outcomes) that should not alter the
+        lifecycle state tracked by scan_progress.
+        """
+        self.scan_progress.message = message
+        self.status_var.set(message)
+
     def _reset_scan_progress(self, message: str = "Ready — select a folder to begin") -> None:
         """Reset the scan progress model to idle."""
         self.scan_progress = ScanProgress(
@@ -1174,42 +1211,6 @@ class PlexRenamerApp:
             metadata={"kind": "tmdb_cache_snapshot"},
         )
 
-    def _active_snapshot_id_for_current_session(self) -> str | None:
-        """Return the snapshot id representing the session active at shutdown."""
-        if self._active_content_mode == MediaType.MOVIE and self._movie_library_states:
-            return SNAPSHOT_MOVIE_BATCH
-        if self.batch_mode and self.batch_states:
-            return SNAPSHOT_TV_BATCH
-        if self.active_scan is not None:
-            return SNAPSHOT_TV_SINGLE
-        return None
-
-    def _cancel_pending_persistence(self) -> None:
-        """Cancel any scheduled persistence flush."""
-        if self._persist_after_id is not None:
-            self.root.after_cancel(self._persist_after_id)
-            self._persist_after_id = None
-
-    def _request_persistence(self, *kinds: str) -> None:
-        """Debounce persistence writes so repeated UI events do not thrash disk."""
-        self._pending_persist_kinds.update(kinds)
-        self._cancel_pending_persistence()
-        self._persist_after_id = self.root.after(250, self._flush_pending_persistence)
-
-    def _flush_pending_persistence(self, *, force_kinds: set[str] | None = None) -> None:
-        """Flush queued persistence work immediately."""
-        kinds = set(force_kinds or self._pending_persist_kinds)
-        self._pending_persist_kinds.clear()
-        self._persist_after_id = None
-        if not kinds:
-            return
-        if "tv" in kinds:
-            self._persist_tv_snapshot()
-        if "movie" in kinds:
-            self._persist_movie_snapshot()
-        if "cache" in kinds:
-            self._persist_tmdb_cache_snapshot()
-
     def _hydrate_movie_scanner_from_states(self, scanner: MovieScanner, states: list[ScanState]) -> None:
         """Restore cached movie metadata and search results into a fresh MovieScanner."""
         for state in states:
@@ -1218,138 +1219,6 @@ class PlexRenamerApp:
             item = state.preview_items[0]
             scanner.set_movie_info(item.original, state.media_info)
             scanner.set_search_results(item.original, state.search_results)
-
-    def _persist_snapshot(self, snapshot_id: str, media_type: str, library_root: Path, states: list[ScanState]) -> None:
-        """Persist a serializable scan snapshot or delete it when empty."""
-        if not states:
-            self.snapshot_service.delete_snapshot(snapshot_id)
-            return
-        self.snapshot_service.save_snapshot(
-            snapshot_id,
-            media_type=media_type,
-            library_root=library_root,
-            states=states,
-        )
-
-    def _persist_tv_snapshot(self) -> None:
-        """Persist the current TV session state."""
-        if self.batch_mode and self.batch_states:
-            root = self._tv_root_folder or self.folder or self.batch_states[0].folder
-            self._persist_snapshot(SNAPSHOT_TV_BATCH, MediaType.TV, root, self.batch_states)
-            self.snapshot_service.delete_snapshot(SNAPSHOT_TV_SINGLE)
-            return
-
-        if self.active_scan is not None:
-            root = self.active_scan.folder.parent
-            self._persist_snapshot(SNAPSHOT_TV_SINGLE, MediaType.TV, root, [self.active_scan])
-            self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
-            return
-
-        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_SINGLE)
-        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
-
-    def _persist_movie_snapshot(self) -> None:
-        """Persist the current movie session state."""
-        if self._active_content_mode == MediaType.MOVIE:
-            self._save_movie_session_state()
-            self._sync_movie_library_state()
-
-        states = list(self._movie_library_states)
-        root = self._movie_folder_state or self.folder
-        if root is None or not states:
-            self.snapshot_service.delete_snapshot(SNAPSHOT_MOVIE_BATCH)
-            return
-        self._persist_snapshot(SNAPSHOT_MOVIE_BATCH, MediaType.MOVIE, root, states)
-
-    def _restore_last_session_snapshot(self) -> None:
-        """Restore the most recent persisted scan snapshot into the current UI shell."""
-        snapshot_id = self.snapshot_service.get_active_snapshot_id()
-        if snapshot_id is None:
-            snapshots = self.snapshot_service.list_snapshots()
-            if not snapshots:
-                return
-            snapshot_id = snapshots[0].snapshot_id
-
-        latest = self.snapshot_service.load_snapshot(snapshot_id)
-        if latest is None:
-            snapshots = self.snapshot_service.list_snapshots()
-            if not snapshots:
-                return
-            latest = snapshots[0]
-            snapshot_id = latest.snapshot_id
-
-        restored = self.snapshot_service.restore_states(snapshot_id)
-        if restored is None:
-            return
-
-        _media_type, library_root, states = restored
-        if latest.snapshot_id == SNAPSHOT_TV_BATCH and states:
-            tmdb = self._ensure_tmdb(warn=False)
-            self.folder = library_root
-            self._tv_root_folder = library_root
-            self._tv_batch_mode_state = True
-            self.batch_mode = True
-            self.batch_states = states
-            self.batch_orchestrator = None
-            if tmdb is not None:
-                self.batch_orchestrator = BatchTVOrchestrator(
-                    tmdb,
-                    library_root,
-                    discovery_service=self.tv_library_discovery,
-                )
-                self.batch_orchestrator.states = self.batch_states
-            self.active_scan = None
-            self._library_selected_index = 0
-            self.media_label_var.set(f"TV Library — {library_root.name}")
-            self.status_var.set(f"Restored TV library session — {len(states)} shows")
-            self._main_notebook.select(self._tv_tab)
-            self.root.after_idle(self._restore_tv_tab_content)
-            return
-
-        if latest.snapshot_id == SNAPSHOT_TV_SINGLE and states:
-            tmdb = self._ensure_tmdb(warn=False)
-            self._tv_batch_mode_state = False
-            self.batch_mode = False
-            self.active_scan = states[0]
-            if tmdb is not None and self.active_scan.show_id and self.active_scan.scanner is None:
-                self.active_scan.scanner = TVScanner(
-                    tmdb,
-                    self.active_scan.media_info,
-                    self.active_scan.folder,
-                )
-            self.batch_states = [self.active_scan]
-            self.folder = self.active_scan.folder
-            self._tv_root_folder = self.active_scan.folder
-            self.media_info = self.active_scan.media_info
-            self._library_selected_index = 0
-            self.media_label_var.set(self.active_scan.display_name)
-            self.status_var.set(f"Restored show session — {self.active_scan.display_name}")
-            self._main_notebook.select(self._tv_tab)
-            self.root.after_idle(self._restore_tv_tab_content)
-            return
-
-        if latest.snapshot_id == SNAPSHOT_MOVIE_BATCH and states:
-            tmdb = self._ensure_tmdb(warn=False)
-            self._movie_folder_state = library_root
-            self.folder = library_root
-            self._movie_label_text = f"Movies — {library_root.name}"
-            self._movie_preview_items_state = [
-                state.preview_items[0]
-                for state in states
-                if state.preview_items
-            ]
-            self._movie_check_vars_state = {}
-            self._movie_selected_index_state = 0 if self._movie_preview_items_state else None
-            self._movie_library_states = states
-            self.media_info = {"_type": "movie_batch", "_media_type": MediaType.MOVIE}
-            self._movie_media_info_state = self.media_info
-            self._movie_scanner_state = MovieScanner(tmdb, library_root) if tmdb is not None else None
-            if self._movie_scanner_state is not None:
-                self._hydrate_movie_scanner_from_states(self._movie_scanner_state, states)
-            self._library_selected_index = 0 if self._movie_preview_items_state else None
-            self.status_var.set(f"Restored movie session — {len(self._movie_preview_items_state)} items")
-            self._main_notebook.select(self._movie_tab)
-            self.root.after_idle(self._restore_movie_tab_content)
 
     def _ensure_batch_orchestrator(self) -> BatchTVOrchestrator | None:
         """Return the batch orchestrator for the current TV library session."""
@@ -1435,7 +1304,7 @@ class PlexRenamerApp:
                 phase="Batch scan complete",
                 message=f"Scanned {scanned} shows — {total_files} total files",
             )
-            self._request_persistence("tv", "cache")
+            self._persist_tmdb_cache_snapshot()
             library_panel.display_library(self)
 
             if (self._library_selected_index is not None
@@ -1554,7 +1423,7 @@ class PlexRenamerApp:
         if not folder:
             return
         self.folder = Path(folder)
-        self.status_var.set(f"Selected: {self.folder}")
+        self._set_status_message(f"Selected: {self.folder}")
 
         tmdb = self._ensure_tmdb()
         if not tmdb:
@@ -1617,7 +1486,7 @@ class PlexRenamerApp:
         self._reset_library_roster()
         scanner = TVScanner(tmdb, chosen, self.folder)
         self._content_owner = MediaType.TV
-        self._active_content_mode = MediaType.TV
+        self._active_content_mode = MediaType.TV    # → (TV, TV): single show accepted
         self._active_library_mode = MediaType.TV
         self._tv_root_folder = self.folder
         self._mount_media_content(self._tv_content_host)
@@ -1667,7 +1536,7 @@ class PlexRenamerApp:
         self._tv_batch_mode_state = True
         self.batch_mode = True
         self._content_owner = MediaType.TV
-        self._active_content_mode = MediaType.TV
+        self._active_content_mode = MediaType.TV    # → (TV, TV): batch TV started
         self._tv_root_folder = self.folder
         self._mount_media_content(self._tv_content_host)
         self._reset_library_roster()
@@ -1765,7 +1634,7 @@ class PlexRenamerApp:
                     + " — scanning episodes..."
                 ),
             )
-            self._request_persistence("tv", "cache")
+            self._persist_tmdb_cache_snapshot()
 
             # Restore queued state from database (persists across restarts)
             self._restore_queued_states()
@@ -1807,7 +1676,6 @@ class PlexRenamerApp:
         self.media_info = None
         self.media_label_var.set("No media selected")
         self._reset_scan_progress()
-        self.snapshot_service.delete_snapshot(SNAPSHOT_TV_BATCH)
 
     def _scan_all_shows(self):
         """Rescan all shows (Phase 2) in batch mode."""
@@ -1817,7 +1685,7 @@ class PlexRenamerApp:
 
     def _setup_movie_scan(self, tmdb: TMDBClient):
         self.media_type = MediaType.MOVIE
-        self._active_content_mode = MediaType.MOVIE
+        self._active_content_mode = MediaType.MOVIE  # → (MOVIE, MOVIE): movie scan started
         self._content_owner = MediaType.MOVIE
         self.batch_mode = False
         self.batch_orchestrator = None
@@ -1923,7 +1791,7 @@ class PlexRenamerApp:
                 phase="TV scan complete",
                 message=f"Preview ready — {len(self.preview_items)} file(s)",
             )
-            self._request_persistence("tv", "cache")
+            self._persist_tmdb_cache_snapshot()
 
             if is_already_complete(self.preview_items):
                 result_views.show_already_renamed(self, self._completeness)
@@ -2020,8 +1888,7 @@ class PlexRenamerApp:
                            if skipped_count else "")
                     ),
                 )
-                self.snapshot_service.delete_snapshot(SNAPSHOT_MOVIE_BATCH)
-                self._request_persistence("cache")
+                self._persist_tmdb_cache_snapshot()
                 return
 
             ok_items = [it for it in movie_preview_items if it.status == "OK"]
@@ -2049,7 +1916,7 @@ class PlexRenamerApp:
                     phase="Movie scan complete",
                     message=f"All {len(already_done)} movie file(s) are already properly named",
                 )
-                self._request_persistence("movie", "cache")
+                self._persist_tmdb_cache_snapshot()
                 result_views.show_already_renamed_movies(self, already_done)
                 return
 
@@ -2106,7 +1973,7 @@ class PlexRenamerApp:
                 self._clear_canvas()
                 detail_panel.reset_detail(self)
 
-            self._request_persistence("movie", "cache")
+            self._persist_tmdb_cache_snapshot()
 
         threading.Thread(target=_scan_worker, daemon=True).start()
 
@@ -2148,7 +2015,7 @@ class PlexRenamerApp:
         library_panel.load_library_thumbnails(self)
         library_panel.display_library(self)
         library_panel.select_show(self, self._library_selected_index)
-        self._request_persistence("movie", "cache")
+        self._persist_tmdb_cache_snapshot()
 
     # ══════════════════════════════════════════════════════════════════
     #  Add to Queue / Legacy Rename / Undo
@@ -2237,7 +2104,7 @@ class PlexRenamerApp:
             if self.library_states:
                 library_panel.display_library(self)
 
-        self.status_var.set(
+        self._set_status_message(
             f"Added '{media_name}' to queue ({len(checked)} files)")
         self._update_queue_badge()
 
@@ -2302,7 +2169,7 @@ class PlexRenamerApp:
         if not added and not skipped_dup and not skipped_queued:
             messagebox.showinfo("Nothing to do", "No movies selected.")
         else:
-            self.status_var.set(
+            self._set_status_message(
                 f"Added {added} movie job(s) to queue"
                 + (f" ({skipped_dup + skipped_queued} already queued)"
                    if (skipped_dup + skipped_queued) else "")
@@ -2376,7 +2243,7 @@ class PlexRenamerApp:
             message = f"Added {added} jobs to queue"
             if status_parts:
                 message += f" ({', '.join(status_parts)})"
-            self.status_var.set(message)
+            self._set_status_message(message)
 
             if blocked_details:
                 messagebox.showinfo(
@@ -2414,7 +2281,7 @@ class PlexRenamerApp:
         if move_count:
             msg += f"\n\n{move_count} file(s) will be moved to a different folder."
             msg += "\nEmpty source folders will be removed."
-        msg += "\n\nThis can be undone via 'Undo Last'."
+        msg += "\n\nThis can be reverted from the History tab."
 
         if not messagebox.askyesno("Confirm Rename", msg):
             return
@@ -2492,8 +2359,8 @@ class PlexRenamerApp:
             return
 
         msg = f"Rename {total_files} file(s) across {show_count} show(s)?"
-        msg += "\n\nEach show creates a separate undo entry."
-        msg += "\n\nThis can be undone via 'Undo Last' (one show at a time)."
+        msg += "\n\nEach show creates a separate history entry."
+        msg += "\n\nJobs can be reverted individually from the History tab."
         if not messagebox.askyesno("Confirm Batch Rename", msg):
             return
 
@@ -2607,7 +2474,7 @@ class PlexRenamerApp:
         else:
             messagebox.showinfo("Undone", "Rename successfully undone.")
 
-        self.status_var.set("Undo complete.")
+        self._set_status_message("Undo complete.")
         self._refresh_history_tab()
         self._update_queue_badge()
         detail_panel.reset_detail(self)
@@ -2822,17 +2689,10 @@ class PlexRenamerApp:
             except Exception:
                 pass
 
-            # 2. Clear all scan snapshots (scan_snapshots.json)
-            try:
-                for snap in self.snapshot_service.list_snapshots():
-                    self.snapshot_service.delete_snapshot(snap.snapshot_id)
-            except Exception:
-                pass
-
-            # 3. Destroy the in-memory TMDB client (forces fresh creation)
+            # 2. Destroy the in-memory TMDB client (forces fresh creation)
             self.tmdb = None
 
-            # 4. Clear in-app scan state
+            # 3. Clear in-app scan state
             self.library_states.clear()
             if hasattr(self, "batch_states"):
                 self.batch_states.clear()
@@ -2847,7 +2707,7 @@ class PlexRenamerApp:
                 "libraries to refresh.",
                 parent=self.root,
             )
-            self.status_var.set("Cache cleared")
+            self._set_status_message("Cache cleared")
 
         ttk.Button(
             pad, text="Clear Cache", style="Small.TButton",
@@ -2855,7 +2715,8 @@ class PlexRenamerApp:
         ).pack(anchor="w")
 
     def _on_settings_changed(self):
-        """Refresh displays when settings change."""
+        """Persist changed settings and refresh displays."""
+        self.settings_service.hide_already_named = self.settings_hide_named.get()
         if self.library_states:
             library_panel.display_library(self)
 
@@ -2928,12 +2789,8 @@ class PlexRenamerApp:
         self.root.mainloop()
 
     def _on_close(self):
-        """Clean shutdown: stop executor, close DB, destroy window."""
-        self._cancel_pending_persistence()
-        self.snapshot_service.set_active_snapshot_id(
-            self._active_snapshot_id_for_current_session()
-        )
-        self._flush_pending_persistence(force_kinds={"tv", "movie", "cache"})
+        """Clean shutdown: stop executor, persist TMDB cache, close DB, destroy window."""
+        self._persist_tmdb_cache_snapshot()
         if self.queue_executor.is_running:
             self.queue_executor.stop()
         self.job_store.close()

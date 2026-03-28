@@ -2150,7 +2150,7 @@ def score_results(
     Shared by both TV and movie matching paths.  Each result gets a
     confidence score between 0.0 and 1.0 based on:
       - Title similarity (normalized, case-insensitive) weighted at 70%
-      - Year match weighted at 30%  (exact = 1.0, ±1 year = 0.3)
+      - Year match weighted at 30%  (exact=1.0, ±1=0.8, ±2=0.5, ±3=0.2)
       - Exact normalized title match gets a +0.15 bonus
 
     Args:
@@ -2179,7 +2179,12 @@ def score_results(
                 if diff == 0:
                     year_score = 1.0
                 elif diff == 1:
-                    year_score = 0.3
+                    # Very common: premiere year vs first full season year
+                    year_score = 0.8
+                elif diff == 2:
+                    year_score = 0.5
+                elif diff == 3:
+                    year_score = 0.2
             except (ValueError, TypeError):
                 pass
 
