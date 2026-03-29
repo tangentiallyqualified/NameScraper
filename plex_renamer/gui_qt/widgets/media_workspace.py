@@ -441,7 +441,11 @@ class MediaWorkspace(QWidget):
                 self._preview_list.addItem(header)
                 if is_collapsed:
                     continue
-                for index in indices:
+                ordered_indices = sorted(
+                    indices,
+                    key=lambda index: _tv_preview_sort_key(state.preview_items[index], index),
+                )
+                for index in ordered_indices:
                     item = self._build_preview_row(state, index, state.preview_items[index])
                     self._preview_list.addItem(item)
                     self._attach_preview_widget(item, state, index, state.preview_items[index])
@@ -1371,6 +1375,25 @@ def _preview_target_text(preview: PreviewItem, *, compact: bool) -> str:
     if compact:
         return f"-> {rename}"
     return f"-> {rename}"
+
+
+def _tv_preview_sort_key(preview: PreviewItem, index: int) -> tuple[int, int, int, str, int]:
+    status = preview.status or ""
+    if status == "OK":
+        status_priority = 0
+    elif "UNMATCHED" in status or "REVIEW" in status:
+        status_priority = 1
+    else:
+        status_priority = 2
+
+    first_episode = preview.episodes[0] if preview.episodes else 9999
+    return (
+        status_priority,
+        first_episode,
+        preview.season if preview.season is not None else 9999,
+        preview.original.name.casefold(),
+        index,
+    )
 
 
 def _companion_summary(preview: PreviewItem) -> str:

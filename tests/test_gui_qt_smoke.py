@@ -537,6 +537,84 @@ class QtSmokeTests(unittest.TestCase):
 
             workspace.close()
 
+    def test_media_workspace_sorts_tv_preview_items_by_episode_number(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            state = ScanState(
+                folder=Path("C:/library/tv/Example Show"),
+                media_info={"id": 101, "name": "Example Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E03.mkv"),
+                        new_name="Example Show (2024) - S01E03 - Episode 3.mkv",
+                        target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                        season=1,
+                        episodes=[3],
+                        status="OK",
+                    ),
+                    PreviewItem(
+                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E01.mkv"),
+                        new_name="Example Show (2024) - S01E01 - Episode 1.mkv",
+                        target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    ),
+                    PreviewItem(
+                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E02.mkv"),
+                        new_name="Example Show (2024) - S01E02 - Episode 2.mkv",
+                        target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                        season=1,
+                        episodes=[2],
+                        status="OK",
+                    ),
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            preview_indices = []
+            for row in range(workspace._preview_list.count()):
+                item = workspace._preview_list.item(row)
+                index = item.data(Qt.ItemDataRole.UserRole)
+                if index is not None:
+                    preview_indices.append(index)
+
+            self.assertEqual(preview_indices, [1, 2, 0])
+
+            workspace.close()
+
 
 if __name__ == "__main__":
     unittest.main()
