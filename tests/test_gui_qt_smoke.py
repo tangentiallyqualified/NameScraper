@@ -389,6 +389,71 @@ class QtSmokeTests(unittest.TestCase):
 
             workspace.close()
 
+    def test_media_workspace_renders_inline_alternate_matches_for_review_items(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            review_state = ScanState(
+                folder=Path("C:/library/movies/Crash.Collectors.Edition"),
+                media_info={"id": 1, "title": "Crash", "year": "1996"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Crash.Collectors.Edition/Crash.Collectors.Edition.mkv"),
+                        new_name="Crash (1996).mkv",
+                        target_dir=Path("C:/library/movies/Crash (1996)"),
+                        season=None,
+                        episodes=[],
+                        status="REVIEW: verify",
+                        media_type="movie",
+                        media_id=1,
+                        media_name="Crash",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=0.42,
+                alternate_matches=[
+                    {"id": 2, "title": "Crash", "year": "2004"},
+                    {"id": 3, "title": "Crash Landing", "year": "1999"},
+                ],
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.movie_library_states = [review_state]
+
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
+            self.assertIsInstance(row_widget, _RosterRowWidget)
+            self.assertIsNotNone(row_widget._alternates_layout)
+            self.assertEqual(row_widget._alternates_layout.count(), 2)
+
+            workspace.close()
+
 
 if __name__ == "__main__":
     unittest.main()

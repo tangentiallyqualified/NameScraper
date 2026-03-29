@@ -715,10 +715,13 @@ class MediaWorkspace(QWidget):
 
     def _attach_roster_widget(self, item: QListWidgetItem, state: ScanState) -> None:
         compact = self._settings is not None and self._settings.view_mode == "compact"
-        widget = _RosterRowWidget(state, compact=compact, parent=self._roster_list)
+        widget = _RosterRowWidget(state, compact=compact, media_type=self._media_type, parent=self._roster_list)
         widget.clicked.connect(lambda item=item: self._set_current_item(self._roster_list, item))
         widget.check_toggled.connect(
             lambda checked, item=item: self._set_item_check_state(item, checked, preview=False)
+        )
+        widget.alternate_confirmed.connect(
+            lambda match, state=state: self._apply_alternate_match(state, match)
         )
         item.setSizeHint(widget.sizeHint())
         self._roster_list.setItemWidget(item, widget)
@@ -767,6 +770,27 @@ class MediaWorkspace(QWidget):
             widget = list_widget.itemWidget(item)
             if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget)):
                 widget.set_selected(item is current)
+
+    def _apply_alternate_match(self, state: ScanState, match: dict) -> None:
+        if self._media_ctrl is None:
+            return
+        try:
+            if self._media_type == "movie":
+                self._media_ctrl.rematch_movie_state(state, match)
+                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
+                self.refresh_from_controller()
+                return
+
+            tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
+            if tmdb is None:
+                self.status_message.emit("TMDB is unavailable.", 4000)
+                return
+            self._media_ctrl.rematch_tv_state(state, match)
+            self.refresh_from_controller()
+            self._media_ctrl.scan_show(state, tmdb)
+            self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
+        except Exception as exc:
+            QMessageBox.warning(self, "Fix Match Failed", str(exc))
 
     def _selected_preview(self) -> PreviewItem | None:
         state = self._selected_state()
@@ -866,12 +890,15 @@ class _ClickableRow(QFrame):
 
 class _RosterRowWidget(_ClickableRow):
     check_toggled = Signal(bool)
+    alternate_confirmed = Signal(object)
 
-    def __init__(self, state: ScanState, *, compact: bool, parent: QWidget | None = None) -> None:
+    def __init__(self, state: ScanState, *, compact: bool, media_type: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._state = state
         self._compact = compact
+        self._media_type = media_type
         self._selected = False
+        self._pending_alternate: dict | None = None
         self._poster = QLabel()
         self._poster.setFixedSize(32, 46) if compact else self._poster.setFixedSize(42, 60)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -922,6 +949,37 @@ class _RosterRowWidget(_ClickableRow):
         self._confidence.setValue(int(state.confidence * 100))
         body.addWidget(self._confidence)
 
+        self._alternates_layout = None
+        self._confirm_row = None
+        if state.needs_review and state.alternate_matches and not state.queued:
+            self._alternates_layout = QVBoxLayout()
+            self._alternates_layout.setSpacing(3)
+            alt_matches = state.alternate_matches[:2]
+            for alt in alt_matches:
+                alt_btn = QPushButton(_match_label(alt, media_type=self._media_type))
+                alt_btn.setProperty("cssClass", "secondary")
+                alt_btn.setStyleSheet("text-align: left; padding: 2px 6px; font-size: 11px;")
+                alt_btn.clicked.connect(lambda _checked=False, alt=alt: self._begin_alternate_confirm(alt))
+                self._alternates_layout.addWidget(alt_btn)
+            body.addLayout(self._alternates_layout)
+
+            self._confirm_row = QWidget()
+            confirm_layout = QHBoxLayout(self._confirm_row)
+            confirm_layout.setContentsMargins(0, 0, 0, 0)
+            confirm_layout.setSpacing(6)
+            self._confirm_label = QLabel("")
+            self._confirm_label.setWordWrap(True)
+            confirm_layout.addWidget(self._confirm_label, stretch=1)
+            self._confirm_accept = QPushButton("Accept")
+            self._confirm_accept.clicked.connect(self._confirm_alternate)
+            confirm_layout.addWidget(self._confirm_accept)
+            self._confirm_cancel = QPushButton("Cancel")
+            self._confirm_cancel.setProperty("cssClass", "secondary")
+            self._confirm_cancel.clicked.connect(self._cancel_alternate)
+            confirm_layout.addWidget(self._confirm_cancel)
+            self._confirm_row.hide()
+            body.addWidget(self._confirm_row)
+
         self._apply_style()
 
     def set_selected(self, selected: bool) -> None:
@@ -957,6 +1015,29 @@ class _RosterRowWidget(_ClickableRow):
         self._meta.setStyleSheet("color: #777777; font-size: 11px;")
         self._status.setStyleSheet(_status_pill_stylesheet(_state_status_tone(self._state)))
         self._confidence.setStyleSheet(_confidence_bar_stylesheet(_confidence_fill_color(self._state.confidence)))
+        if self._confirm_row is not None:
+            self._confirm_label.setStyleSheet("color: #777777; font-size: 11px;")
+
+    def _begin_alternate_confirm(self, match: dict) -> None:
+        self._pending_alternate = match
+        if self._confirm_row is None:
+            return
+        self._confirm_label.setText(f"Switch match to {_match_label(match, media_type=self._media_type)}?")
+        self._confirm_row.show()
+
+    def _confirm_alternate(self) -> None:
+        if self._pending_alternate is None:
+            return
+        pending = self._pending_alternate
+        self._pending_alternate = None
+        if self._confirm_row is not None:
+            self._confirm_row.hide()
+        self.alternate_confirmed.emit(pending)
+
+    def _cancel_alternate(self) -> None:
+        self._pending_alternate = None
+        if self._confirm_row is not None:
+            self._confirm_row.hide()
 
 
 class _PreviewRowWidget(_ClickableRow):
@@ -1176,6 +1257,15 @@ def _companion_summary(preview: PreviewItem) -> str:
     if len(preview.companions) > 2:
         extra = f" +{len(preview.companions) - 2} more"
     return f"Companions: {names}{extra}"
+
+
+def _match_label(match: dict, *, media_type: str) -> str:
+    if media_type == "movie":
+        title = match.get("title") or match.get("name") or "Unknown"
+    else:
+        title = match.get("name") or match.get("title") or "Unknown"
+    year = match.get("year") or ""
+    return f"{title} ({year})" if year else title
 
 
 def _state_status(state: ScanState) -> tuple[str, QColor]:
