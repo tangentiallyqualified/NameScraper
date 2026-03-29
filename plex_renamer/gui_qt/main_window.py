@@ -69,6 +69,24 @@ class _ControllerBridge(QObject):
         self.library_changed.emit()
 
 
+class _QueueBridge(QObject):
+    """Thread-safe bridge from QueueController callbacks to Qt signals."""
+
+    changed = Signal(object)
+
+    def on_job_started(self, _job) -> None:
+        self.changed.emit(None)
+
+    def on_job_completed(self, _job, _result) -> None:
+        self.changed.emit(None)
+
+    def on_job_failed(self, _job, _error) -> None:
+        self.changed.emit(None)
+
+    def on_queue_finished(self) -> None:
+        self.changed.emit(None)
+
+
 class MainWindow(QMainWindow):
     """Top-level window with menu bar, tab bar, and status bar."""
 
@@ -107,6 +125,15 @@ class MainWindow(QMainWindow):
         self._bridge.scan_complete.connect(self._on_scan_complete)
         self._bridge.library_changed.connect(self._on_library_changed)
 
+        self._queue_bridge = _QueueBridge(self)
+        self.queue_ctrl.add_listener(
+            on_job_started=self._queue_bridge.on_job_started,
+            on_job_completed=self._queue_bridge.on_job_completed,
+            on_job_failed=self._queue_bridge.on_job_failed,
+            on_queue_finished=self._queue_bridge.on_queue_finished,
+        )
+        self._queue_bridge.changed.connect(self._on_queue_changed)
+
         # ── Tab widget ───────────────────────────────────────────
         self._tabs = QTabWidget()
         self._tabs.setDocumentMode(True)
@@ -121,8 +148,15 @@ class MainWindow(QMainWindow):
             media_type="movie",
             settings_service=self.settings_service,
         )
-        self._queue_tab = QueueTab()
-        self._history_tab = HistoryTab()
+        self._queue_tab = QueueTab(
+            self.queue_ctrl,
+            tmdb_provider=self._ensure_tmdb,
+            navigate_to_media=self._switch_to_tab,
+        )
+        self._history_tab = HistoryTab(
+            self.queue_ctrl,
+            tmdb_provider=self._ensure_tmdb,
+        )
         self._settings_tab = SettingsTab(
             settings_service=self.settings_service,
         )
@@ -146,6 +180,7 @@ class MainWindow(QMainWindow):
 
         # ── Restore geometry ─────────────────────────────────────
         self._restore_window_state()
+        self._refresh_job_views()
 
     # ── TMDB client ──────────────────────────────────────────────
 
@@ -295,16 +330,31 @@ class MainWindow(QMainWindow):
     def _on_library_changed(self) -> None:
         _log.debug("Library changed — roster will be populated in Phase 5")
 
+    def _on_queue_changed(self, _unused=None) -> None:
+        self._refresh_job_views()
+
+    def _refresh_job_views(self) -> None:
+        self._queue_tab.refresh()
+        self._history_tab.refresh()
+        counts = self.queue_ctrl.count_by_status()
+        pending = counts.get("pending", 0) + counts.get("running", 0)
+        history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted"))
+        self._tabs.setTabText(_QUEUE, f"Queue ({pending})")
+        self._tabs.setTabText(_HISTORY, f"History ({history})")
+
     # ── Other actions ────────────────────────────────────────────
 
     def _open_folder(self, media_type: str) -> None:
         """Switch to the appropriate tab and trigger its folder picker."""
         if media_type == "tv":
-            self._tabs.setCurrentIndex(_TV)
+            self._switch_to_tab(_TV)
             self._tv_workspace.open_folder_dialog()
         else:
-            self._tabs.setCurrentIndex(_MOVIES)
+            self._switch_to_tab(_MOVIES)
             self._movie_workspace.open_folder_dialog()
+
+    def _switch_to_tab(self, index: int) -> None:
+        self._tabs.setCurrentIndex(index)
 
     def _rebuild_recent_menus(self) -> None:
         self._recent_tv_menu.clear()
@@ -377,5 +427,6 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self._save_window_state()
         self.media_ctrl.clear_listeners()
+        self.queue_ctrl.clear_listeners()
         self.queue_ctrl.close()
         super().closeEvent(event)

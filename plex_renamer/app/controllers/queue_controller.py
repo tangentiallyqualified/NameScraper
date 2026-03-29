@@ -268,6 +268,18 @@ class QueueController:
         """Execute a specific pending job immediately."""
         return self.executor.execute_single_job(job_id)
 
+    def move_jobs(self, job_ids: list[str], direction: int) -> None:
+        """Move pending jobs up or down in queue order."""
+        self.job_store.move_jobs(job_ids, direction)
+
+    def remove_jobs(self, job_ids: list[str]) -> int:
+        """Remove pending or cancelled jobs from the queue."""
+        return self.job_store.remove_jobs(job_ids)
+
+    def clear_history(self) -> int:
+        """Delete all terminal jobs from history."""
+        return self.job_store.clear_history()
+
     # ── Revert ──────────────────────────────────────────────────────
 
     def revert_job(self, job_id: str) -> tuple[bool, list[str]]:
@@ -294,6 +306,10 @@ class QueueController:
 
     def get_pending_jobs(self) -> list[RenameJob]:
         return self.job_store.get_pending()
+
+    def get_job(self, job_id: str) -> RenameJob | None:
+        """Return a job by ID, or None if it does not exist."""
+        return self.job_store.get_job(job_id)
 
     def get_queue(self) -> list[RenameJob]:
         """Pending + running jobs."""

@@ -120,6 +120,26 @@ QScrollArea {
     background-color: #0d0d0d;
 }
 
+QTableView {
+    background-color: #151515;
+    alternate-background-color: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    gridline-color: #2a2a2a;
+    selection-background-color: #1f1a0e;
+    selection-color: #e0e0e0;
+}
+
+QHeaderView::section {
+    background-color: #1c1c1c;
+    color: #777777;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid #2a2a2a;
+    border-right: 1px solid #2a2a2a;
+    font-weight: 600;
+}
+
 QScrollBar:vertical {
     background-color: #0d0d0d;
     width: 10px;
