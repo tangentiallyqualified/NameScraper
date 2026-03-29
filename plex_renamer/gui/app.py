@@ -25,7 +25,7 @@ from ..app.services import (
     SettingsService,
     TVLibraryDiscoveryService,
 )
-from ..constants import JobStatus, MediaType
+from ..constants import MediaType
 from ..engine import (
     BatchTVOrchestrator,
     CompletenessReport,
@@ -2333,20 +2333,13 @@ class PlexRenamerApp:
 
     def _record_completed_rename_job(self, job: RenameJob, result: RenameResult) -> None:
         """Persist a direct rename as completed history for unified revert."""
-        if result.renamed_count == 0:
-            return
-
-        job.status = JobStatus.COMPLETED
-        job.undo_data = result.log_entry
-        if result.errors:
-            job.error_message = "; ".join(result.errors[:5])
-        self.job_store.add_job(job)
+        self.queue_ctrl.record_completed_job(job, result)
         self._refresh_history_tab()
         self._update_queue_badge()
 
     def _latest_revertible_job(self) -> RenameJob | None:
         """Return the most recent completed job with stored undo data."""
-        return self.job_store.get_latest_completed_with_undo()
+        return self.queue_ctrl.get_latest_revertible_job()
 
     def _has_revertible_job(self) -> bool:
         """True when an undo action can be offered."""

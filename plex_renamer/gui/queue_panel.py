@@ -1,6 +1,14 @@
 """
 Queue and History panels — separate top-level tabs.
 
+NOTE — Accepted pre-Phase-3 debt (2026-03-28)
+This module still imports QueueExecutor and JobStore directly rather
+than routing through QueueController.  Wiring it through the controller
+would require significant widget refactoring for a shell that Phase 3
+replaces entirely.  The PySide6 queue/history tabs (Phase 4) will be
+built against QueueController exclusively.  Do not copy the direct
+import pattern into gui_qt code.
+
 Poster thumbnails are loaded asynchronously in a background thread
 to avoid blocking the tkinter main loop with network I/O.  Rows are
 inserted immediately with no image; once the poster is fetched, the

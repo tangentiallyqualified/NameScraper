@@ -2,12 +2,12 @@
 Entry point for Plex Renamer.
 
 Usage:
-    python -m plex_renamer
+    python -m plex_renamer          # tkinter shell (current default)
+    python -m plex_renamer --qt     # PySide6 shell (GUI3)
 """
 
 import logging
-
-from .gui import PlexRenamerApp
+import sys
 
 
 def main():
@@ -15,8 +15,14 @@ def main():
         level=logging.INFO,
         format="%(name)s %(levelname)s: %(message)s",
     )
-    app = PlexRenamerApp()
-    app.run()
+
+    if "--qt" in sys.argv:
+        from .gui_qt.app import run
+        run()
+    else:
+        from .gui import PlexRenamerApp
+        app = PlexRenamerApp()
+        app.run()
 
 
 if __name__ == "__main__":

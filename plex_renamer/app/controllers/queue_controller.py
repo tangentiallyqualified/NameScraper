@@ -231,6 +231,29 @@ class QueueController:
 
         return result
 
+    # ── Direct rename recording ────────────────────────────────────
+
+    def record_completed_job(self, job: RenameJob, result: RenameResult) -> None:
+        """Record an already-executed rename as a completed history entry.
+
+        Used by the legacy direct-rename path (execute immediately, then
+        record for undo).  The PySide6 shell will use queue→execute
+        instead, so this method exists to keep the tkinter shell routed
+        through the controller rather than accessing JobStore directly.
+        """
+        if result.renamed_count == 0:
+            return
+
+        job.status = JobStatus.COMPLETED
+        job.undo_data = result.log_entry
+        if result.errors:
+            job.error_message = "; ".join(result.errors[:5])
+        self.job_store.add_job(job)
+
+    def get_latest_revertible_job(self) -> RenameJob | None:
+        """Return the most recent completed job with stored undo data."""
+        return self.job_store.get_latest_completed_with_undo()
+
     # ── Execution ───────────────────────────────────────────────────
 
     def start(self) -> None:

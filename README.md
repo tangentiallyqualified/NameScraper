@@ -2,9 +2,9 @@
 
 A desktop application that automatically renames and reorganizes media files into [Plex-compatible naming conventions](https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/) using [TMDB](https://www.themoviedb.org/) as the source of truth.
 
-Built with Python and tkinter. Designed around a unified three-panel workflow that handles single-show TV scans, batch TV library scans, and movie folder scans from the same core preview/detail UI.
+Built with Python and tkinter. A PySide6 shell is under active development on `dev/GUI3`. Designed around a unified three-panel workflow that handles single-show TV scans, batch TV library scans, and movie folder scans from the same core preview/detail UI.
 
-![Python](https://img.shields.io/badge/python-3.12+-blue)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![TMDB](https://img.shields.io/badge/metadata-TMDB-01d277)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
@@ -12,19 +12,28 @@ Built with Python and tkinter. Designed around a unified three-panel workflow th
 
 ## Current Status
 
-- The current shipping shell is still tkinter-based and remains the active app entry point.
-- Phase 1 of the GUI3 migration is effectively complete on `dev/GUI3`: the app now has a UI-neutral application layer for cache coordination, refresh policy, scan snapshots, structured progress, and command gating.
-- Session restore has been hardened for TV and movie workflows, including active-session tracking, restored movie-state hydration, TMDB cache rehydration, and debounced persistence writes.
-- Recent cleanup also unified undo around the persistent job store, added a non-queueable `Plex Ready` roster state for already-correct media, and fixed restored TV roster state, consolidated-scan cache typing issues, and first-render TV poster sizing after restore.
-- Phase 2 has not started yet. The next major step is extracting controllers and view models so the PySide6 shell can be built on top of the existing backend and application services.
+The GUI3 migration is in progress on the `dev/GUI3` branch. The current shipping shell is still tkinter-based and remains the default entry point (`python -m plex_renamer`). The PySide6 shell can be launched with `python -m plex_renamer --qt`.
 
-## Roadmap Goals
+### Migration progress
 
-- Extract Phase 2 application controllers and view models from the current tkinter orchestration layer.
-- Build the new PySide6 shell without rewriting stable backend modules such as `parsing.py`, `tmdb.py`, `engine.py`, `job_store.py`, and `job_executor.py`.
-- Preserve the current three-panel workflow while improving progress presentation, queue readiness visibility, and restore-state clarity.
-- Continue expanding the queue-first workflow so more rename operations run through the persistent job pipeline by default.
-- Keep the current app reliable during migration instead of treating the UI port as a backend rewrite.
+| Phase | Status | Summary |
+|-------|--------|---------|
+| 0 — Guardrails | Complete | Migration plan, module audit, go/no-go |
+| 1 — Backend hardening | Complete | UI-neutral app layer, cache service, refresh policy, command gating, structured scan progress. `ScanSnapshotService` and `undo_log`-based undo retired. |
+| 2 — Controllers/view models | Complete | `MediaController` (session orchestration), `QueueController` (job queue management), 29 controller tests, 151 total tests passing. |
+| 2.5 — Wire tkinter through controllers | Complete | Queue submission, sync, revert, and history recording all route through controllers. Movie batch checkbox bug fixed. `queue_panel.py` bypass explicitly accepted as pre-replacement debt. |
+| 3 — PySide6 shell skeleton | **Next** | `gui_qt/` package created with bootstrap entry point and placeholder tabs. |
+
+### Caching architecture
+
+The TMDB cache (`cache_service.py`, SQLite-backed) minimizes redundant API calls across sessions. The filesystem is always the source of truth for media state — there is no cross-session scan state restore. Job history and undo data persist in `job_store.py`.
+
+## Roadmap
+
+- Build out the PySide6 shell in phases (queue/history first, then roster/preview, then detail panel).
+- Preserve the current three-panel workflow while improving progress presentation and queue readiness visibility.
+- Continue expanding the queue-first workflow so more rename operations run through the persistent job pipeline.
+- Keep the tkinter shell reliable during migration.
 
 ---
 
@@ -251,7 +260,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 - API keys are stored via the OS keyring when available, with a local app-data fallback when `keyring` is not installed
 - API key management dialog with masked input
-- Queue, history, cache, and snapshot state are persisted under the app data directory
+- Queue, history, and cache state are persisted under the app data directory
 
 ---
 
@@ -259,29 +268,46 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 ```
 plex_renamer/
-├── __main__.py          # Entry point
-├── constants.py         # Shared constants, regex patterns, MediaType enum
+├── __main__.py          # Entry point (--qt flag selects PySide6 shell)
+├── constants.py         # Shared constants, regex patterns, enums
 ├── parsing.py           # Pure filename parsing, name building, normalization
 ├── tmdb.py              # TMDB API client with rate limiting and caching
-├── engine.py            # TVScanner, MovieScanner, rename execution, undo
-├── keys.py              # API key storage with keyring-preferred fallback handling
-├── undo_log.py          # Atomic JSON undo log
+├── engine.py            # TVScanner, MovieScanner, rename execution
+├── job_store.py         # SQLite job queue and history persistence
+├── job_executor.py      # Background queue execution and revert
+├── keys.py              # API key storage with keyring-preferred fallback
 ├── styles.py            # Dark theme, ttk styles, color palette
-└── gui/
-    ├── app.py           # Main window, state management, orchestration
-    ├── preview_canvas.py # Card rendering, checkboxes, search, completeness
-    ├── detail_panel.py  # Right-side metadata panel
-    ├── result_views.py  # Post-rename result display
-    ├── dialogs.py       # Media picker, API key manager, mismatch prompt
-    └── helpers.py       # Platform init, scaling, mousewheel, canvas buttons
+├── app/                 # UI-neutral application layer
+│   ├── controllers/
+│   │   ├── media_controller.py   # TV/movie session orchestration
+│   │   └── queue_controller.py   # Job queue management
+│   ├── models/
+│   │   └── state_models.py       # ScanProgress, QueueEligibility, enums
+│   └── services/
+│       ├── cache_service.py              # SQLite TMDB result cache
+│       ├── command_gating_service.py     # Queue eligibility logic
+│       ├── refresh_policy_service.py     # TTL and cooldown rules
+│       ├── settings_service.py           # Typed settings persistence
+│       ├── tv_library_discovery_service.py
+│       └── movie_library_discovery_service.py
+├── gui/                 # Tkinter shell (current default)
+│   ├── app.py           # Main window, orchestration
+│   ├── preview_canvas.py
+│   ├── detail_panel.py
+│   ├── result_views.py
+│   ├── dialogs.py
+│   └── helpers.py
+└── gui_qt/              # PySide6 shell (Phase 3+)
+    ├── app.py           # Qt bootstrap entry point
+    └── main_window.py   # Tab-based main window skeleton
 ```
 
-The backend (`parsing.py`, `tmdb.py`, `engine.py`) has zero GUI dependencies and operates on plain data structures, making it testable and reusable independently of the frontend.
+The core domain layer (`parsing.py`, `tmdb.py`, `engine.py`, `job_store.py`, `job_executor.py`) has zero GUI dependencies. The application layer (`app/`) bridges core logic and the UI without importing any toolkit. Both GUI shells consume the same controllers and services.
 
 ---
 
 ## Near-Term Focus
 
-- Finish the Phase 2 controller/view-model extraction work on `dev/GUI3`
-- Start the PySide6 shell once the current tkinter orchestration has been split cleanly from application state
-- Keep manual testing focused on restore behavior, queue transitions, and scan-state correctness while the shell migration is underway
+- Build out the Phase 3 PySide6 shell: theme stylesheet, empty states with drag-and-drop, settings tab
+- Port queue and history tabs (Phase 4) to validate controller integration with Qt model/view
+- Keep manual testing focused on queue transitions and scan-state correctness while the shell migration is underway
