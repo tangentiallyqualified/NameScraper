@@ -54,6 +54,15 @@ class _FakeTMDB:
         ]
 
 
+class _FakeMovieScanner:
+    def __init__(self, chosen_by_path, search_results):
+        self.movie_info = chosen_by_path
+        self._search_results = search_results
+
+    def get_search_results(self, path):
+        return list(self._search_results.get(path, []))
+
+
 # ── Helper to build a controller with temp services ──────────────────
 
 def _make_controller(tmp: Path):
@@ -248,6 +257,71 @@ class TVBatchTests(unittest.TestCase):
             time.sleep(0.1)
 
         self.assertEqual(self.ctrl.batch_states, [])
+
+
+class MovieStateBuildTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._tmp.name)
+        self.ctrl, self.store = _make_controller(self.tmp)
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def test_build_movie_library_states_uses_scanner_metadata_and_skips_non_movies(self):
+        movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
+        skipped_file = self.tmp / "Show.S01E01.mkv"
+
+        movie_item = PreviewItem(
+            original=movie_file,
+            new_name="Dune Part Two (2024).mkv",
+            target_dir=self.tmp / "Dune Part Two (2024)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=693134,
+            media_name="Dune: Part Two",
+        )
+        skipped_item = PreviewItem(
+            original=skipped_file,
+            new_name=None,
+            target_dir=None,
+            season=None,
+            episodes=[],
+            status="SKIP: not a movie",
+            media_type=MediaType.OTHER,
+        )
+        scanner = _FakeMovieScanner(
+            chosen_by_path={
+                movie_file: {
+                    "id": 693134,
+                    "title": "Dune: Part Two",
+                    "year": "2024",
+                    "poster_path": "/poster.jpg",
+                    "overview": "Paul Atreides unites with the Fremen.",
+                }
+            },
+            search_results={
+                movie_file: [
+                    {"id": 693134, "title": "Dune: Part Two"},
+                    {"id": 1, "title": "Other Match"},
+                ]
+            },
+        )
+
+        self.ctrl._build_movie_library_states([movie_item, skipped_item], scanner)
+
+        self.assertEqual(len(self.ctrl.movie_library_states), 1)
+        state = self.ctrl.movie_library_states[0]
+        self.assertEqual(state.media_info["id"], 693134)
+        self.assertEqual(state.media_info["title"], "Dune: Part Two")
+        self.assertEqual(state.media_info["poster_path"], "/poster.jpg")
+        self.assertEqual(len(state.search_results), 2)
+        self.assertEqual(len(state.alternate_matches), 1)
+        self.assertIs(state.scanner, scanner)
+        self.assertTrue(state.checked)
 
 
 class SessionSaveRestoreTests(unittest.TestCase):

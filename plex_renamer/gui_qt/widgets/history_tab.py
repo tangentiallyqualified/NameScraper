@@ -55,6 +55,16 @@ class HistoryTab(QWidget):
         self._clear_btn.clicked.connect(self._clear_history)
         toolbar_layout.addWidget(self._clear_btn)
 
+        self._select_all_btn = QPushButton("Select All")
+        self._select_all_btn.setProperty("cssClass", "secondary")
+        self._select_all_btn.clicked.connect(self._select_all)
+        toolbar_layout.addWidget(self._select_all_btn)
+
+        self._clear_selection_btn = QPushButton("Clear Selection")
+        self._clear_selection_btn.setProperty("cssClass", "secondary")
+        self._clear_selection_btn.clicked.connect(self._clear_selection)
+        toolbar_layout.addWidget(self._clear_selection_btn)
+
         self._status = QLabel("No history yet")
         self._status.setProperty("cssClass", "text-dim")
         toolbar_layout.addWidget(self._status, stretch=1)
@@ -88,6 +98,8 @@ class HistoryTab(QWidget):
         self._model.set_jobs(jobs)
         self._status.setText(f"{len(jobs)} historical job(s)" if jobs else "No history yet")
         self._clear_btn.setEnabled(bool(jobs))
+        self._select_all_btn.setEnabled(bool(jobs))
+        self._clear_selection_btn.setEnabled(bool(jobs))
         self._on_selection_changed()
 
     def select_job(self, job_id: str) -> None:
@@ -144,3 +156,9 @@ class HistoryTab(QWidget):
             return
         self._queue_ctrl.clear_history()
         self.refresh()
+
+    def _select_all(self) -> None:
+        self._table.selectAll()
+
+    def _clear_selection(self) -> None:
+        self._table.clearSelection()

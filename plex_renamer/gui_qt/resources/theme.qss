@@ -161,6 +161,13 @@ QListWidget::item:selected {
     border-color: #e5a00d;
 }
 
+QLabel[cssClass="media-poster"] {
+    background-color: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 8px;
+}
+
 QScrollBar:vertical {
     background-color: #0d0d0d;
     width: 10px;

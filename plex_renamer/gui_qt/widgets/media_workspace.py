@@ -7,10 +7,12 @@ workspace with roster, preview, and selection/detail summaries.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PIL.ImageQt import ImageQt
+from PySide6.QtCore import QObject, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -29,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from ...engine import PreviewItem, ScanState
 from ...parsing import build_movie_name, build_show_folder_name
+from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
 from .scan_progress import ScanProgressWidget
 
@@ -39,6 +42,10 @@ if TYPE_CHECKING:
 _EMPTY = 0
 _SCANNING = 1
 _READY = 2
+
+
+class _RosterPosterBridge(QObject):
+    poster_ready = Signal(object, object)
 
 
 class MediaWorkspace(QWidget):
@@ -55,6 +62,7 @@ class MediaWorkspace(QWidget):
         media_type: str = "tv",
         media_controller=None,
         queue_controller=None,
+        tmdb_provider=None,
         settings_service: "SettingsService | None" = None,
         parent: QWidget | None = None,
     ) -> None:
@@ -62,9 +70,14 @@ class MediaWorkspace(QWidget):
         self._media_type = media_type
         self._media_ctrl = media_controller
         self._queue_ctrl = queue_controller
+        self._tmdb_provider = tmdb_provider
         self._settings = settings_service
         self._roster_syncing = False
         self._preview_syncing = False
+        self._roster_poster_cache: dict[tuple[str, int], QIcon] = {}
+        self._preview_group_state: dict[str, set[int]] = {}
+        self._poster_bridge = _RosterPosterBridge(self)
+        self._poster_bridge.poster_ready.connect(self._apply_roster_poster)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -111,6 +124,7 @@ class MediaWorkspace(QWidget):
         self._roster_hint.setProperty("cssClass", "caption")
         roster_layout.addWidget(self._roster_hint)
         self._roster_list = QListWidget()
+        self._roster_list.setIconSize(QSize(42, 60))
         self._roster_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._roster_list.itemChanged.connect(self._on_roster_item_changed)
         self._roster_list.currentItemChanged.connect(self._on_roster_current_item_changed)
@@ -121,9 +135,16 @@ class MediaWorkspace(QWidget):
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(12, 12, 12, 12)
         preview_layout.setSpacing(8)
+        preview_header = QHBoxLayout()
         self._preview_title = QLabel("Preview")
         self._preview_title.setProperty("cssClass", "heading")
-        preview_layout.addWidget(self._preview_title)
+        preview_header.addWidget(self._preview_title)
+        preview_header.addStretch()
+        self._queue_inline_btn = QPushButton("Add to Queue")
+        self._queue_inline_btn.setEnabled(False)
+        self._queue_inline_btn.clicked.connect(self._queue_checked)
+        preview_header.addWidget(self._queue_inline_btn)
+        preview_layout.addLayout(preview_header)
         self._folder_plan_label = QLabel("Select a roster item to see the planned folder rename.")
         self._folder_plan_label.setProperty("cssClass", "caption")
         self._folder_plan_label.setWordWrap(True)
@@ -136,27 +157,10 @@ class MediaWorkspace(QWidget):
         self._preview_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._preview_list.itemChanged.connect(self._on_preview_item_changed)
         self._preview_list.currentItemChanged.connect(self._on_preview_current_item_changed)
+        self._preview_list.itemClicked.connect(self._on_preview_item_clicked)
         preview_layout.addWidget(self._preview_list, stretch=1)
 
-        self._detail_panel = QFrame()
-        self._detail_panel.setProperty("cssClass", "panel")
-        detail_layout = QVBoxLayout(self._detail_panel)
-        detail_layout.setContentsMargins(12, 12, 12, 12)
-        detail_layout.setSpacing(8)
-        self._detail_title = QLabel("Selection")
-        self._detail_title.setProperty("cssClass", "heading")
-        detail_layout.addWidget(self._detail_title)
-        self._detail_summary = QLabel("Choose a roster item to inspect queue readiness and scan status.")
-        self._detail_summary.setWordWrap(True)
-        detail_layout.addWidget(self._detail_summary)
-        self._detail_meta = QLabel("")
-        self._detail_meta.setProperty("cssClass", "caption")
-        self._detail_meta.setWordWrap(True)
-        detail_layout.addWidget(self._detail_meta)
-        self._detail_queue_reason = QLabel("")
-        self._detail_queue_reason.setWordWrap(True)
-        detail_layout.addWidget(self._detail_queue_reason)
-        detail_layout.addStretch()
+        self._detail_panel = MediaDetailPanel(tmdb_provider=self._tmdb_provider)
 
         self._splitter.addWidget(self._roster_panel)
         self._splitter.addWidget(self._preview_panel)
@@ -251,7 +255,8 @@ class MediaWorkspace(QWidget):
         self._roster_list.clear()
         groups = [
             ("queued", "Queued"),
-            ("ready", "Ready"),
+            ("plex-ready", "Plex Ready"),
+            ("matched", "Matched"),
             ("review", "Needs Review"),
             ("unmatched", "Unmatched"),
             ("duplicate", "Duplicates"),
@@ -260,10 +265,7 @@ class MediaWorkspace(QWidget):
             indices = [index for index, state in enumerate(states) if _roster_group(state) == key]
             if not indices:
                 continue
-            header = QListWidgetItem(title)
-            header.setData(Qt.ItemDataRole.UserRole, None)
-            header.setFlags(Qt.ItemFlag.ItemIsEnabled)
-            header.setForeground(QColor("#777777"))
+            header = _make_section_header(title)
             self._roster_list.addItem(header)
 
             for index in indices:
@@ -281,18 +283,18 @@ class MediaWorkspace(QWidget):
                     Qt.CheckState.Checked if state.checked else Qt.CheckState.Unchecked
                 )
                 self._roster_list.addItem(item)
+                self._request_roster_poster(state, item)
         self._roster_syncing = False
 
         if not states:
             self._preview_list.clear()
             self._folder_plan_label.setText("Select a roster item to see the planned folder rename.")
             self._preview_summary.setText("Preview items will appear here once a scan is ready.")
-            self._detail_title.setText("Selection")
-            self._detail_summary.setText("Choose a roster item to inspect queue readiness and scan status.")
-            self._detail_meta.setText("")
-            self._detail_queue_reason.setText("")
+            self._detail_panel.clear()
             self._action_bar.update_summary(0, 0)
             self._action_bar.set_queue_enabled(False)
+            self._queue_inline_btn.setEnabled(False)
+            self._queue_inline_btn.setText("Add to Queue")
             return
 
         selected_index = self._media_ctrl.library_selected_index
@@ -379,37 +381,32 @@ class MediaWorkspace(QWidget):
             f"{len(state.preview_items)} preview item(s) · {_state_status(state)[0]}"
         )
 
-        groups = [
-            ("actionable", "Actionable"),
-            ("review", "Needs Review"),
-            ("unmatched", "Unmatched"),
-            ("blocked", "Blocked / Skipped"),
-        ]
-        for key, title in groups:
-            indices = [index for index, preview in enumerate(state.preview_items) if _preview_group(preview) == key]
-            if not indices:
-                continue
-            header = QListWidgetItem(title)
-            header.setFlags(Qt.ItemFlag.ItemIsEnabled)
-            header.setForeground(QColor("#777777"))
-            self._preview_list.addItem(header)
+        if self._media_type == "tv":
+            collapsed = self._preview_group_state.setdefault(_state_key(state), set())
+            season_groups: dict[int | None, list[int]] = {}
+            for index, preview in enumerate(state.preview_items):
+                season_groups.setdefault(preview.season, []).append(index)
 
-            for index in indices:
-                preview = state.preview_items[index]
-                row = QListWidgetItem(self._format_preview_text(preview))
-                row.setData(Qt.ItemDataRole.UserRole, index)
-                row.setToolTip(self._preview_tooltip(preview))
-                row.setForeground(_preview_color(preview))
-                flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-                if preview.is_actionable:
-                    flags |= Qt.ItemFlag.ItemIsUserCheckable
-                    row.setCheckState(
-                        Qt.CheckState.Checked
-                        if state.check_vars[str(index)].get()
-                        else Qt.CheckState.Unchecked
+            for season_num, indices in sorted(
+                season_groups.items(),
+                key=lambda entry: (entry[0] is None, entry[0] or 0),
+            ):
+                is_collapsed = season_num in collapsed
+                header = _make_section_header(
+                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num),
+                    selectable=True,
+                )
+                header.setData(Qt.ItemDataRole.UserRole + 1, season_num)
+                self._preview_list.addItem(header)
+                if is_collapsed:
+                    continue
+                for index in indices:
+                    self._preview_list.addItem(
+                        self._build_preview_row(state, index, state.preview_items[index])
                     )
-                row.setFlags(flags)
-                self._preview_list.addItem(row)
+        else:
+            for index, preview in enumerate(state.preview_items):
+                self._preview_list.addItem(self._build_preview_row(state, index, preview))
 
         if state.selected_index is not None:
             for row in range(self._preview_list.count()):
@@ -424,6 +421,38 @@ class MediaWorkspace(QWidget):
                     self._preview_list.setCurrentRow(row)
                     break
         self._preview_syncing = False
+
+    def _build_preview_row(self, state: ScanState, index: int, preview: PreviewItem) -> QListWidgetItem:
+        row = QListWidgetItem(self._format_preview_text(preview))
+        row.setData(Qt.ItemDataRole.UserRole, index)
+        row.setToolTip(self._preview_tooltip(preview))
+        row.setForeground(_preview_color(preview))
+        flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+        if preview.is_actionable:
+            flags |= Qt.ItemFlag.ItemIsUserCheckable
+            row.setCheckState(
+                Qt.CheckState.Checked
+                if state.check_vars[str(index)].get()
+                else Qt.CheckState.Unchecked
+            )
+        row.setFlags(flags)
+        return row
+
+    def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
+        if self._preview_syncing or self._media_type != "tv":
+            return
+        state = self._selected_state()
+        if state is None:
+            return
+        season_num = item.data(Qt.ItemDataRole.UserRole + 1)
+        if season_num is None or item.data(Qt.ItemDataRole.UserRole) is not None:
+            return
+        collapsed = self._preview_group_state.setdefault(_state_key(state), set())
+        if season_num in collapsed:
+            collapsed.remove(season_num)
+        else:
+            collapsed.add(season_num)
+        self._populate_preview(state)
 
     def _on_preview_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         if self._preview_syncing:
@@ -470,33 +499,16 @@ class MediaWorkspace(QWidget):
 
     def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
         if state is None:
-            self._detail_title.setText("Selection")
-            self._detail_summary.setText("Choose a roster item to inspect queue readiness and scan status.")
-            self._detail_meta.setText("")
-            self._detail_queue_reason.setText("")
+            self._detail_panel.clear()
             return
 
         eligibility = self._queue_eligibility([state])
-        self._detail_title.setText(state.display_name)
-        self._detail_summary.setText(
-            f"{_state_status(state)[0]} · {len(state.preview_items)} file(s)"
-            + (f" · {len(state.alternate_matches)} alternate match(es)" if state.alternate_matches else "")
+        self._detail_panel.set_selection(
+            state,
+            preview=preview,
+            queue_reason=eligibility.reason,
+            folder_plan=self._folder_plan_text(state),
         )
-        meta_lines = [
-            f"Folder: {state.folder.name}",
-            f"Confidence: {int(state.confidence * 100)}%",
-        ]
-        if state.duplicate_of:
-            meta_lines.append(f"Duplicate of: {state.duplicate_of}")
-        if state.discovery_reason:
-            meta_lines.append(f"Discovery: {state.discovery_reason}")
-        if preview is not None:
-            meta_lines.append(f"File: {preview.original.name}")
-            if preview.new_name:
-                meta_lines.append(f"Rename: {preview.new_name}")
-            meta_lines.append(f"Status: {preview.status}")
-        self._detail_meta.setText("\n".join(meta_lines))
-        self._detail_queue_reason.setText(f"Queue: {eligibility.reason}")
 
     def _check_all(self) -> None:
         for state in self._current_states():
@@ -560,12 +572,49 @@ class MediaWorkspace(QWidget):
         self._action_bar.update_summary(len(checked), len(states))
         if not checked:
             self._action_bar.set_queue_enabled(False)
+            self._queue_inline_btn.setEnabled(False)
+            self._queue_inline_btn.setText("Add to Queue")
             return
         eligibility = self._queue_eligibility(checked)
         self._action_bar.set_queue_enabled(eligibility.enabled)
+        self._queue_inline_btn.setEnabled(eligibility.enabled)
+        self._queue_inline_btn.setText(f"Add {len(checked)} to Queue")
         selected_state = self._selected_state()
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
+
+    def _request_roster_poster(self, state: ScanState, item: QListWidgetItem) -> None:
+        if state.show_id is None or self._tmdb_provider is None:
+            return
+        key = (self._media_type, state.show_id)
+        item.setData(Qt.ItemDataRole.UserRole + 2, key)
+        cached = self._roster_poster_cache.get(key)
+        if cached is not None:
+            item.setIcon(cached)
+            return
+
+        tmdb = self._tmdb_provider()
+        if tmdb is None:
+            return
+
+        def _worker() -> None:
+            image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=42)
+            if image is None:
+                return
+            pixmap = QPixmap.fromImage(ImageQt(image.convert("RGBA")))
+            self._poster_bridge.poster_ready.emit(key, pixmap)
+
+        threading.Thread(target=_worker, daemon=True, name="QtRosterPoster").start()
+
+    def _apply_roster_poster(self, key, pixmap: QPixmap) -> None:
+        if pixmap.isNull():
+            return
+        icon = QIcon(pixmap)
+        self._roster_poster_cache[key] = icon
+        for row in range(self._roster_list.count()):
+            item = self._roster_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole + 2) == key:
+                item.setIcon(icon)
 
     def _selected_preview(self) -> PreviewItem | None:
         state = self._selected_state()
@@ -668,17 +717,36 @@ def _roster_group(state: ScanState) -> str:
         return "unmatched"
     if state.needs_review:
         return "review"
-    return "ready"
+    if state.scanned:
+        return "plex-ready"
+    return "matched"
 
 
-def _preview_group(preview: PreviewItem) -> str:
-    if preview.is_conflict or preview.is_skipped:
-        return "blocked"
-    if preview.is_unmatched:
-        return "unmatched"
-    if preview.is_review:
-        return "review"
-    return "actionable"
+def _state_key(state: ScanState) -> str:
+    return f"{state.folder}:{state.show_id or 'unmatched'}"
+
+
+def _season_label(season_num: int | None) -> str:
+    if season_num is None:
+        return "Other Files"
+    return f"Season {season_num}"
+
+
+def _make_section_header(text: str, *, selectable: bool = False) -> QListWidgetItem:
+    header = QListWidgetItem(text.upper())
+    header.setData(Qt.ItemDataRole.UserRole, None)
+    flags = Qt.ItemFlag.ItemIsEnabled
+    if selectable:
+        flags |= Qt.ItemFlag.ItemIsSelectable
+    header.setFlags(flags)
+    header.setForeground(QColor("#f0b429"))
+    header.setBackground(QColor("#2a2110"))
+    font = QFont()
+    font.setBold(True)
+    font.setPointSize(10)
+    header.setFont(font)
+    header.setSizeHint(QSize(0, 34))
+    return header
 
 
 def _preview_color(preview: PreviewItem) -> QColor:

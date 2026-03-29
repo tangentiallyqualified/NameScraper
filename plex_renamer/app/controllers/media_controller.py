@@ -496,7 +496,7 @@ class MediaController:
                 return
 
             self._movie_preview_items = items
-            self._build_movie_library_states(items)
+            self._build_movie_library_states(items, scanner)
             self.sync_queued_states()
 
             if not items:
@@ -517,23 +517,36 @@ class MediaController:
 
         threading.Thread(target=_worker, daemon=True, name="MovieBatchScan").start()
 
-    def _build_movie_library_states(self, items: list[PreviewItem]) -> None:
+    def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:
         """Build per-movie ScanState entries from a flat list of PreviewItems."""
         states: list[ScanState] = []
         for item in items:
+            if item.media_type != MediaType.MOVIE:
+                continue
+
+            chosen = scanner.movie_info.get(item.original, {})
+            media_id = chosen.get("id", item.media_id)
             media_info = {
-                "id": item.media_id,
-                "title": item.media_name or item.original.stem,
-                "year": "",
+                "id": media_id,
+                "title": chosen.get("title") or item.media_name or item.original.stem,
+                "year": chosen.get("year", ""),
+                "poster_path": chosen.get("poster_path"),
+                "overview": chosen.get("overview", ""),
                 "_media_type": MediaType.MOVIE,
             }
+            confidence = 1.0 if media_id else 0.0
+            if item.status.startswith("REVIEW"):
+                confidence = 0.5 if media_id else 0.0
             state = ScanState(
                 folder=item.original.parent,
                 media_info=media_info,
                 preview_items=[item],
-                confidence=1.0,
+                confidence=confidence,
+                search_results=scanner.get_search_results(item.original),
+                alternate_matches=scanner.get_search_results(item.original)[1:4],
                 scanned=True,
                 checked=item.is_actionable,
+                scanner=scanner,
             )
             states.append(state)
         self._movie_library_states = states

@@ -58,6 +58,16 @@ class QueueTab(QWidget):
         self._execute_btn.clicked.connect(self._execute_selected)
         toolbar_layout.addWidget(self._execute_btn)
 
+        self._select_all_btn = QPushButton("Select All")
+        self._select_all_btn.setProperty("cssClass", "secondary")
+        self._select_all_btn.clicked.connect(self._select_all)
+        toolbar_layout.addWidget(self._select_all_btn)
+
+        self._clear_selection_btn = QPushButton("Clear Selection")
+        self._clear_selection_btn.setProperty("cssClass", "secondary")
+        self._clear_selection_btn.clicked.connect(self._clear_selection)
+        toolbar_layout.addWidget(self._clear_selection_btn)
+
         self._status = QLabel("Queue empty")
         self._status.setProperty("cssClass", "text-dim")
         toolbar_layout.addWidget(self._status, stretch=1)
@@ -131,6 +141,9 @@ class QueueTab(QWidget):
             parts.append(f"{pending} pending")
         self._status.setText(" · ".join(parts) if parts else "Queue empty")
         self._start_btn.setText("Stop Queue" if self._queue_ctrl.is_running else "Start Queue")
+        has_jobs = bool(jobs)
+        self._select_all_btn.setEnabled(has_jobs)
+        self._clear_selection_btn.setEnabled(has_jobs)
         self._on_selection_changed()
 
     def select_job(self, job_id: str) -> None:
@@ -207,3 +220,9 @@ class QueueTab(QWidget):
     def _switch_tab(self, index: int) -> None:
         if self._navigate_to_media is not None:
             self._navigate_to_media(index)
+
+    def _select_all(self) -> None:
+        self._table.selectAll()
+
+    def _clear_selection(self) -> None:
+        self._table.clearSelection()

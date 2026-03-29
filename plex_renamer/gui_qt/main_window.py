@@ -146,12 +146,14 @@ class MainWindow(QMainWindow):
             media_type="tv",
             media_controller=self.media_ctrl,
             queue_controller=self.queue_ctrl,
+            tmdb_provider=self._ensure_tmdb,
             settings_service=self.settings_service,
         )
         self._movie_workspace = MediaWorkspace(
             media_type="movie",
             media_controller=self.media_ctrl,
             queue_controller=self.queue_ctrl,
+            tmdb_provider=self._ensure_tmdb,
             settings_service=self.settings_service,
         )
         self._queue_tab = QueueTab(

@@ -2001,6 +2001,8 @@ def _build_movie_preview_item(
         original=f, new_name=new_name, target_dir=target_dir,
         season=None, episodes=[], status="OK",
         media_type=MediaType.MOVIE,
+        media_id=chosen.get("id"),
+        media_name=chosen.get("title"),
     )
 
 

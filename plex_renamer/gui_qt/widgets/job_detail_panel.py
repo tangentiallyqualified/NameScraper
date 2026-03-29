@@ -27,6 +27,7 @@ class JobDetailPanel(QFrame):
         super().__init__(parent)
         self._tmdb_provider = tmdb_provider
         self._current_job_id: str | None = None
+        self._poster_pixmap: QPixmap | None = None
         self._bridge = _PosterBridge(self)
         self._bridge.poster_ready.connect(self._apply_poster)
         self.setProperty("cssClass", "panel")
@@ -69,6 +70,7 @@ class JobDetailPanel(QFrame):
 
     def clear(self, text: str = "Select a job to see details") -> None:
         self._current_job_id = None
+        self._poster_pixmap = None
         self._poster.setPixmap(QPixmap())
         self._poster.setText("No Poster")
         self._title.setText(text)
@@ -83,6 +85,7 @@ class JobDetailPanel(QFrame):
             return
 
         self._current_job_id = job.job_id
+        self._poster_pixmap = None
         self._poster.setPixmap(QPixmap())
         self._poster.setText("Loading...")
         self._title.setText(job.media_name or "Unnamed Job")
@@ -138,8 +141,15 @@ class JobDetailPanel(QFrame):
         if job_id != self._current_job_id:
             return
         if pixmap is None or pixmap.isNull():
+            self._poster_pixmap = None
             self._poster.setPixmap(QPixmap())
             self._poster.setText("No Poster")
             return
+        self._poster_pixmap = pixmap
         self._poster.setText("")
-        self._poster.setPixmap(pixmap)
+        scaled = pixmap.scaled(
+            self._poster.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self._poster.setPixmap(scaled)

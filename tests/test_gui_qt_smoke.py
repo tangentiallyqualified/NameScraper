@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 
 from plex_renamer.app.controllers.queue_controller import BatchQueueResult
 from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.constants import JobStatus
 from plex_renamer.engine import PreviewItem, ScanState
 
 
@@ -45,6 +46,17 @@ class QtSmokeTests(unittest.TestCase):
                     tmdb_id=123,
                 )
             )
+            controller.job_store.add_job(
+                RenameJob(
+                    library_root=tmp,
+                    source_folder="Movie",
+                    media_type="movie",
+                    media_name="Example Movie",
+                    tmdb_id=456,
+                    status=JobStatus.COMPLETED,
+                    rename_ops=[],
+                )
+            )
 
             queue_tab = QueueTab(controller)
             history_tab = HistoryTab(controller)
@@ -52,7 +64,17 @@ class QtSmokeTests(unittest.TestCase):
             history_tab.refresh()
 
             self.assertEqual(queue_tab._model.rowCount(), 1)
-            self.assertEqual(history_tab._model.rowCount(), 0)
+            self.assertEqual(history_tab._model.rowCount(), 1)
+
+            queue_tab._select_all()
+            self.assertEqual(len(queue_tab._table.selectionModel().selectedRows()), 1)
+            queue_tab._clear_selection()
+            self.assertEqual(len(queue_tab._table.selectionModel().selectedRows()), 0)
+
+            history_tab._select_all()
+            self.assertEqual(len(history_tab._table.selectionModel().selectedRows()), 1)
+            history_tab._clear_selection()
+            self.assertEqual(len(history_tab._table.selectionModel().selectedRows()), 0)
 
             queue_tab.close()
             history_tab.close()
@@ -90,7 +112,7 @@ class QtSmokeTests(unittest.TestCase):
 
         media_ctrl = _FakeMediaController()
         queue_ctrl = _FakeQueueController()
-        state = ScanState(
+        ready_state = ScanState(
             folder=Path("C:/library/movies/Dune.Part.Two.2024"),
             media_info={"id": 11, "title": "Dune: Part Two", "year": "2024"},
             preview_items=[
@@ -110,7 +132,27 @@ class QtSmokeTests(unittest.TestCase):
             checked=True,
             confidence=1.0,
         )
-        media_ctrl.movie_library_states = [state]
+        matched_state = ScanState(
+            folder=Path("C:/library/movies/Arrival.2016"),
+            media_info={"id": 22, "title": "Arrival", "year": "2016"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                    new_name="Arrival (2016).mkv",
+                    target_dir=Path("C:/library/movies/Arrival (2016)"),
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type="movie",
+                    media_id=22,
+                    media_name="Arrival",
+                )
+            ],
+            scanned=False,
+            checked=False,
+            confidence=1.0,
+        )
+        media_ctrl.movie_library_states = [ready_state, matched_state]
 
         workspace = MediaWorkspace(
             media_type="movie",
@@ -119,8 +161,9 @@ class QtSmokeTests(unittest.TestCase):
         )
         workspace.show_ready()
 
-        self.assertEqual(workspace._roster_list.count(), 2)
-        self.assertEqual(workspace._roster_list.item(0).text(), "Ready")
+        self.assertEqual(workspace._roster_list.count(), 4)
+        self.assertEqual(workspace._roster_list.item(0).text(), "PLEX READY")
+        self.assertEqual(workspace._roster_list.item(2).text(), "MATCHED")
         self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
         self.assertIn("2024", workspace._folder_plan_label.text())
         self.assertGreater(workspace._preview_list.count(), 0)
