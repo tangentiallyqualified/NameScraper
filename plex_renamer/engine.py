@@ -1712,16 +1712,35 @@ class TVScanner:
         all_files: list[tuple[Path, int, str | None, list[int], bool]],
         tmdb_seasons: dict,
     ) -> list[tuple[int, int, str] | None] | None:
-        """Try to match files to TMDB episodes by title.
+        """Try to match files to TMDB episodes by title or absolute number.
 
-        Builds a cross-season lookup of all TMDB episode titles and attempts
-        to fuzzy-match each file's embedded title.  Returns a list of
-        (season, episode_number, title) tuples parallel to *all_files*,
-        or ``None`` if fewer than half the files matched (triggering the
-        sequential fallback).
+        Builds a cross-season lookup of all TMDB episode titles and an
+        episode-number lookup, then attempts to match each file using:
+
+        1. Absolute episode number embedded in the raw title (e.g.
+           ``"001 - The Day I Became a Shinigami"`` → episode 1).
+        2. Exact normalized title match.
+        3. Substring title match (with minimum length guard).
+
+        Returns a list of (season, episode_number, title) tuples parallel
+        to *all_files*, or ``None`` if fewer than half the files matched
+        (triggering the sequential fallback).
         """
         # Build cross-season title lookup: normalized → (season, ep, title)
         title_lookup: dict[str, tuple[int, int, str]] = {}
+        # Build episode-number lookup: absolute_num → (season, ep, title)
+        # Only safe when exactly one TMDB season has enough episodes to
+        # contain all files — the embedded number is then unambiguously
+        # absolute.  E.g. Bleach has 366 files and TMDB S01 has 366 eps,
+        # while S02 (TYBW) has only 40 — so numbers map to S01 only.
+        # With multiple qualifying seasons a leading "05" could mean
+        # S01E05 or S02E05 — too risky.
+        file_count = len(all_files)
+        qualifying_seasons = [
+            sn for sn, sdata in tmdb_seasons.items()
+            if sn != 0 and sdata["count"] >= file_count
+        ]
+        number_lookup: dict[int, tuple[int, int, str]] = {}
         for sn in sorted(tmdb_seasons.keys()):
             if sn == 0:
                 continue
@@ -1729,6 +1748,12 @@ class TVScanner:
                 norm = normalize_for_specials(title)
                 if norm and norm not in title_lookup:
                     title_lookup[norm] = (sn, ep_num, title)
+                if (
+                    len(qualifying_seasons) == 1
+                    and sn == qualifying_seasons[0]
+                    and ep_num not in number_lookup
+                ):
+                    number_lookup[ep_num] = (sn, ep_num, title)
 
         if not title_lookup:
             return None
@@ -1737,7 +1762,9 @@ class TVScanner:
         used: set[tuple[int, int]] = set()
 
         for f, abs_num, raw_title, eps, is_sr in all_files:
-            match = self._match_file_title_to_tmdb(raw_title, title_lookup, used)
+            match = self._match_file_title_to_tmdb(
+                raw_title, title_lookup, number_lookup, used,
+            )
             if match is not None:
                 used.add((match[0], match[1]))
             matches.append(match)
@@ -1748,22 +1775,41 @@ class TVScanner:
 
         return matches
 
-    @staticmethod
+    # Leading absolute number in a raw title: "001 - Title..."
+    _RE_LEADING_ABS_NUM = re.compile(r"^(\d{1,4})\s*[-–]\s*")
+
+    @classmethod
     def _match_file_title_to_tmdb(
+        cls,
         raw_title: str | None,
         title_lookup: dict[str, tuple[int, int, str]],
+        number_lookup: dict[int, tuple[int, int, str]],
         used: set[tuple[int, int]],
     ) -> tuple[int, int, str] | None:
         """Match a file's title against the cross-season TMDB title lookup.
 
-        Uses exact normalized match first, then substring match as a
-        fallback (preferring longer keys for specificity).  Skips episodes
-        already claimed by an earlier file.
+        Tries in order:
+        1. Absolute episode number (leading digits in raw_title).
+        2. Exact normalized title match (with leading number stripped).
+        3. Substring title match (with minimum length guard).
+
+        Skips episodes already claimed by an earlier file.
         """
         if not raw_title:
             return None
 
-        norm = normalize_for_specials(raw_title)
+        # Try absolute number match first (e.g. "001 - Title...")
+        cleaned_title = raw_title
+        abs_match = cls._RE_LEADING_ABS_NUM.match(raw_title)
+        if abs_match:
+            abs_ep = int(abs_match.group(1))
+            cleaned_title = raw_title[abs_match.end():]
+            if abs_ep in number_lookup:
+                result = number_lookup[abs_ep]
+                if (result[0], result[1]) not in used:
+                    return result
+
+        norm = normalize_for_specials(cleaned_title)
         if not norm:
             return None
 
@@ -1773,13 +1819,22 @@ class TVScanner:
             if (result[0], result[1]) not in used:
                 return result
 
-        # Substring match — prefer longer keys (more specific)
+        # Substring match — prefer longer keys (more specific).
+        # Guard: both the TMDB key and the file norm must be long enough
+        # to avoid false positives from very short TMDB titles (e.g. "A",
+        # "BLACK", "THE MASTER") matching as substrings of unrelated norms.
+        _MIN_SUBSTRING_LEN = 8
+        if len(norm) < _MIN_SUBSTRING_LEN:
+            return None
+
         best: tuple[int, int, str] | None = None
         best_len = 0
         for key, value in title_lookup.items():
+            if len(key) < _MIN_SUBSTRING_LEN:
+                continue
             if (value[0], value[1]) in used:
                 continue
-            if key and (norm in key or key in norm):
+            if norm in key or key in norm:
                 if len(key) > best_len:
                     best = value
                     best_len = len(key)
