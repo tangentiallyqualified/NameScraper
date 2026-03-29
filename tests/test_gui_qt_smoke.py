@@ -91,6 +91,31 @@ class QtSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(window._toast_manager.toast_count(), 3)
         window.close()
 
+    def test_main_window_tab_badges_show_counts_and_failure_pip(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        window._queue_tab.refresh = MagicMock()
+        window._history_tab.refresh = MagicMock()
+        window.queue_ctrl.count_by_status = MagicMock(
+            return_value={
+                "pending": 1,
+                "running": 0,
+                "failed": 1,
+                "completed": 1,
+                "cancelled": 0,
+                "reverted": 0,
+            }
+        )
+        window._refresh_job_views()
+
+        self.assertEqual(window._tabs.tabText(2), "Queue")
+        self.assertEqual(window._tabs.tabText(3), "History")
+        self.assertEqual(window._queue_badge.count_text(), "1")
+        self.assertTrue(window._queue_badge.failure_visible())
+        self.assertEqual(window._history_badge.count_text(), "2")
+        window.close()
+
     def test_history_tab_revert_uses_inline_confirmation_banner(self):
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.constants import JobStatus
@@ -164,14 +189,14 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(queue_tab._proxy.rowCount(), 1)
             self.assertEqual(history_tab._proxy.rowCount(), 1)
 
-            queue_tab._filter_combo.setCurrentText("Running Only")
+            queue_tab._filter_control.setCurrentText("Running")
             self.assertEqual(queue_tab._proxy.rowCount(), 0)
-            queue_tab._filter_combo.setCurrentText("Pending Only")
+            queue_tab._filter_control.setCurrentText("Pending")
             self.assertEqual(queue_tab._proxy.rowCount(), 1)
 
-            history_tab._filter_combo.setCurrentText("Failed Only")
+            history_tab._filter_control.setCurrentText("Failed")
             self.assertEqual(history_tab._proxy.rowCount(), 0)
-            history_tab._filter_combo.setCurrentText("Completed Only")
+            history_tab._filter_control.setCurrentText("Completed")
             self.assertEqual(history_tab._proxy.rowCount(), 1)
 
             queue_tab._select_all()

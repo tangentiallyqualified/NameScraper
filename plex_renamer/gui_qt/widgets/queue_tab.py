@@ -7,7 +7,6 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, QItemSelectionModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -23,11 +22,12 @@ from ...constants import JobStatus
 from ...job_store import RenameJob
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
+from .segmented_control import SegmentedControl
 
 _QUEUE_FILTERS: dict[str, set[str] | None] = {
-    "All Queue": None,
-    "Pending Only": {JobStatus.PENDING},
-    "Running Only": {JobStatus.RUNNING},
+    "All": None,
+    "Pending": {JobStatus.PENDING},
+    "Running": {JobStatus.RUNNING},
 }
 
 
@@ -77,10 +77,9 @@ class QueueTab(QWidget):
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         toolbar_layout.addWidget(self._clear_selection_btn)
 
-        self._filter_combo = QComboBox()
-        self._filter_combo.addItems(list(_QUEUE_FILTERS.keys()))
-        self._filter_combo.currentTextChanged.connect(self._apply_filter)
-        toolbar_layout.addWidget(self._filter_combo)
+        self._filter_control = SegmentedControl(_QUEUE_FILTERS.keys(), current_text="All")
+        self._filter_control.currentTextChanged.connect(self._apply_filter)
+        toolbar_layout.addWidget(self._filter_control)
 
         self._status = QLabel("Queue empty")
         self._status.setProperty("cssClass", "text-dim")

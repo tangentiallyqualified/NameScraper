@@ -112,6 +112,26 @@ QTabBar::tab:hover:!selected {
     border-bottom: 2px solid #3a3a3a;
 }
 
+QWidget[cssClass="tab-badge"] {
+    background-color: transparent;
+}
+
+QLabel[cssClass="tab-badge-count"] {
+    background-color: #252525;
+    color: #e0e0e0;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 10px;
+}
+
+QLabel[cssClass="tab-badge-pip"] {
+    background-color: #d44040;
+    border-radius: 4px;
+}
+
 
 /* ─── Scroll areas ───────────────────────────────────────────────── */
 
@@ -288,6 +308,53 @@ QPushButton[cssClass="danger"] {
 
 QPushButton[cssClass="danger"]:hover {
     background-color: #e05050;
+}
+
+QWidget[cssClass="segmented-control"] {
+    background-color: transparent;
+}
+
+QPushButton[cssClass="segment"] {
+    background-color: #1c1c1c;
+    color: #777777;
+    border: 1px solid #3a3a3a;
+    border-right: none;
+    border-radius: 0px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QPushButton[cssClass="segment"][segmentPosition="first"] {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+QPushButton[cssClass="segment"][segmentPosition="last"] {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-right: 1px solid #3a3a3a;
+}
+
+QPushButton[cssClass="segment"]:hover {
+    background-color: #242424;
+    color: #e0e0e0;
+}
+
+QPushButton[cssClass="segment"]:checked {
+    background-color: #1f1a0e;
+    color: #e5a00d;
+    border-color: #e5a00d;
+}
+
+QPushButton[cssClass="segment"]:checked[segmentPosition="last"] {
+    border-right: 1px solid #e5a00d;
+}
+
+QPushButton[cssClass="segment"]:disabled {
+    background-color: #151515;
+    color: #4a4a4a;
+    border-color: #2a2a2a;
 }
 
 

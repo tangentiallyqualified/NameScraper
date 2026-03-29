@@ -7,7 +7,6 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -23,13 +22,14 @@ from ...constants import JobStatus
 from ...job_store import RenameJob
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
+from .segmented_control import SegmentedControl
 
 _HISTORY_FILTERS: dict[str, set[str] | None] = {
-    "All History": None,
-    "Completed Only": {JobStatus.COMPLETED},
-    "Failed Only": {JobStatus.FAILED},
-    "Reverted Only": {JobStatus.REVERTED},
-    "Cancelled Only": {JobStatus.CANCELLED},
+    "All": None,
+    "Completed": {JobStatus.COMPLETED},
+    "Failed": {JobStatus.FAILED},
+    "Reverted": {JobStatus.REVERTED},
+    "Cancelled": {JobStatus.CANCELLED},
 }
 
 
@@ -79,10 +79,9 @@ class HistoryTab(QWidget):
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         toolbar_layout.addWidget(self._clear_selection_btn)
 
-        self._filter_combo = QComboBox()
-        self._filter_combo.addItems(list(_HISTORY_FILTERS.keys()))
-        self._filter_combo.currentTextChanged.connect(self._apply_filter)
-        toolbar_layout.addWidget(self._filter_combo)
+        self._filter_control = SegmentedControl(_HISTORY_FILTERS.keys(), current_text="All")
+        self._filter_control.currentTextChanged.connect(self._apply_filter)
+        toolbar_layout.addWidget(self._filter_control)
 
         self._status = QLabel("No history yet")
         self._status.setProperty("cssClass", "text-dim")

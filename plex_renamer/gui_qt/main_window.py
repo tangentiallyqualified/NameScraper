@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenuBar,
     QMessageBox,
+    QTabBar,
     QTabWidget,
 )
 
@@ -40,6 +41,7 @@ from .widgets.media_workspace import MediaWorkspace
 from .widgets.queue_tab import QueueTab
 from .widgets.history_tab import HistoryTab
 from .widgets.settings_tab import SettingsTab
+from .widgets.tab_badge import TabBadge
 from .widgets.toast_manager import ToastManager
 
 _log = logging.getLogger(__name__)
@@ -194,6 +196,10 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._queue_tab, "Queue")
         self._tabs.addTab(self._history_tab, "History")
         self._tabs.addTab(self._settings_tab, "Settings")
+        self._queue_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
+        self._history_badge = TabBadge(parent=self._tabs)
+        self._tabs.tabBar().setTabButton(_QUEUE, QTabBar.ButtonPosition.RightSide, self._queue_badge)
+        self._tabs.tabBar().setTabButton(_HISTORY, QTabBar.ButtonPosition.RightSide, self._history_badge)
 
         # ── Menu bar ─────────────────────────────────────────────
         self._build_menu_bar()
@@ -464,11 +470,11 @@ class MainWindow(QMainWindow):
         counts = self.queue_ctrl.count_by_status()
         pending = counts.get("pending", 0) + counts.get("running", 0)
         history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted"))
-        queue_label = f"Queue ({pending})"
-        if counts.get("failed", 0):
-            queue_label += " *"
-        self._tabs.setTabText(_QUEUE, queue_label)
-        self._tabs.setTabText(_HISTORY, f"History ({history})")
+        self._tabs.setTabText(_QUEUE, "Queue")
+        self._tabs.setTabText(_HISTORY, "History")
+        self._queue_badge.set_count(pending)
+        self._queue_badge.set_failure_visible(bool(counts.get("failed", 0)))
+        self._history_badge.set_count(history)
 
     def _on_job_started(self, _job: RenameJob) -> None:
         if not self._queue_run_started:
