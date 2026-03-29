@@ -15,12 +15,14 @@ from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QSplitter,
@@ -304,6 +306,7 @@ class MediaWorkspace(QWidget):
                     Qt.CheckState.Checked if state.checked else Qt.CheckState.Unchecked
                 )
                 self._roster_list.addItem(item)
+                self._attach_roster_widget(item, state)
                 self._request_roster_poster(state, item)
         self._roster_syncing = False
 
@@ -331,6 +334,7 @@ class MediaWorkspace(QWidget):
                 self._roster_list.setCurrentRow(row)
                 break
         self._update_action_bar()
+        self._sync_row_selection(self._roster_list)
 
     def _current_states(self) -> list[ScanState]:
         if self._media_ctrl is None:
@@ -360,6 +364,7 @@ class MediaWorkspace(QWidget):
             return
         if current is None:
             return
+        self._sync_row_selection(self._roster_list)
         row = current.data(Qt.ItemDataRole.UserRole)
         if row is None:
             return
@@ -380,6 +385,9 @@ class MediaWorkspace(QWidget):
             return
         state = states[row]
         state.checked = item.checkState() == Qt.CheckState.Checked
+        widget = self._roster_list.itemWidget(item)
+        if isinstance(widget, _RosterRowWidget):
+            widget.set_checked(state.checked)
         self._update_action_bar()
         if row == self._roster_list.currentRow():
             self._render_detail(state)
@@ -424,9 +432,7 @@ class MediaWorkspace(QWidget):
                 if is_collapsed:
                     continue
                 for index in indices:
-                    self._preview_list.addItem(
-                        self._build_preview_row(state, index, state.preview_items[index])
-                    )
+                    self._preview_list.addItem(self._build_preview_row(state, index, state.preview_items[index]))
         else:
             for index, preview in enumerate(state.preview_items):
                 self._preview_list.addItem(self._build_preview_row(state, index, preview))
@@ -444,6 +450,7 @@ class MediaWorkspace(QWidget):
                     self._preview_list.setCurrentRow(row)
                     break
         self._preview_syncing = False
+        self._sync_row_selection(self._preview_list)
 
     def _build_preview_row(self, state: ScanState, index: int, preview: PreviewItem) -> QListWidgetItem:
         row = QListWidgetItem(self._format_preview_text(preview))
@@ -459,6 +466,7 @@ class MediaWorkspace(QWidget):
                 else Qt.CheckState.Unchecked
             )
         row.setFlags(flags)
+        self._attach_preview_widget(row, state, index, preview)
         return row
 
     def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
@@ -489,6 +497,7 @@ class MediaWorkspace(QWidget):
             if index is not None and 0 <= index < len(state.preview_items):
                 state.selected_index = index
                 preview = state.preview_items[index]
+        self._sync_row_selection(self._preview_list)
         self._render_detail(state, preview)
 
     def _on_preview_item_changed(self, item: QListWidgetItem) -> None:
@@ -504,6 +513,9 @@ class MediaWorkspace(QWidget):
         if binding is None:
             return
         binding.set(item.checkState() == Qt.CheckState.Checked)
+        widget = self._preview_list.itemWidget(item)
+        if isinstance(widget, _PreviewRowWidget):
+            widget.set_checked(binding.get())
         state.checked = any(
             state.check_vars[str(i)].get()
             for i, preview in enumerate(state.preview_items)
@@ -516,6 +528,9 @@ class MediaWorkspace(QWidget):
                 Qt.CheckState.Checked if state.checked else Qt.CheckState.Unchecked
             )
             self._roster_syncing = False
+            roster_widget = self._roster_list.itemWidget(current_roster_item)
+            if isinstance(roster_widget, _RosterRowWidget):
+                roster_widget.set_checked(state.checked)
         preview = state.preview_items[index]
         self._render_detail(state, preview)
         self._update_action_bar()
@@ -667,6 +682,9 @@ class MediaWorkspace(QWidget):
         cached = self._roster_poster_cache.get(key)
         if cached is not None:
             item.setIcon(cached)
+            widget = self._roster_list.itemWidget(item)
+            if isinstance(widget, _RosterRowWidget):
+                widget.set_poster(cached.pixmap(self._roster_list.iconSize()))
             return
 
         tmdb = self._tmdb_provider()
@@ -691,6 +709,64 @@ class MediaWorkspace(QWidget):
             item = self._roster_list.item(row)
             if item.data(Qt.ItemDataRole.UserRole + 2) == key:
                 item.setIcon(icon)
+                widget = self._roster_list.itemWidget(item)
+                if isinstance(widget, _RosterRowWidget):
+                    widget.set_poster(pixmap)
+
+    def _attach_roster_widget(self, item: QListWidgetItem, state: ScanState) -> None:
+        compact = self._settings is not None and self._settings.view_mode == "compact"
+        widget = _RosterRowWidget(state, compact=compact, parent=self._roster_list)
+        widget.clicked.connect(lambda item=item: self._set_current_item(self._roster_list, item))
+        widget.check_toggled.connect(
+            lambda checked, item=item: self._set_item_check_state(item, checked, preview=False)
+        )
+        item.setSizeHint(widget.sizeHint())
+        self._roster_list.setItemWidget(item, widget)
+        key = item.data(Qt.ItemDataRole.UserRole + 2)
+        if key in self._roster_poster_cache:
+            widget.set_poster(self._roster_poster_cache[key].pixmap(self._roster_list.iconSize()))
+
+    def _attach_preview_widget(self, item: QListWidgetItem, state: ScanState, index: int, preview: PreviewItem) -> None:
+        compact = self._settings is not None and self._settings.view_mode == "compact"
+        show_confidence = self._settings is None or self._settings.show_confidence_bars
+        show_companions = self._settings is not None and self._settings.show_companion_files
+        widget = _PreviewRowWidget(
+            preview,
+            compact=compact,
+            show_confidence=show_confidence,
+            show_companions=show_companions,
+            checked=state.check_vars.get(str(index), _CheckBinding(False)).get(),
+            parent=self._preview_list,
+        )
+        widget.clicked.connect(lambda item=item: self._set_current_item(self._preview_list, item))
+        widget.check_toggled.connect(
+            lambda checked, item=item: self._set_item_check_state(item, checked, preview=True)
+        )
+        item.setSizeHint(widget.sizeHint())
+        self._preview_list.setItemWidget(item, widget)
+
+    def _set_current_item(self, list_widget: QListWidget, item: QListWidgetItem) -> None:
+        list_widget.setCurrentItem(item)
+
+    def _set_item_check_state(self, item: QListWidgetItem, checked: bool, *, preview: bool) -> None:
+        syncing_attr = "_preview_syncing" if preview else "_roster_syncing"
+        if getattr(self, syncing_attr):
+            return
+        setattr(self, syncing_attr, True)
+        item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        setattr(self, syncing_attr, False)
+        if preview:
+            self._on_preview_item_changed(item)
+        else:
+            self._on_roster_item_changed(item)
+
+    def _sync_row_selection(self, list_widget: QListWidget) -> None:
+        current = list_widget.currentItem()
+        for row in range(list_widget.count()):
+            item = list_widget.item(row)
+            widget = list_widget.itemWidget(item)
+            if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget)):
+                widget.set_selected(item is current)
 
     def _selected_preview(self) -> PreviewItem | None:
         state = self._selected_state()
@@ -778,6 +854,328 @@ class _CheckBinding:
 
     def set(self, value: bool) -> None:
         self._value = bool(value)
+
+
+class _ClickableRow(QFrame):
+    clicked = Signal()
+
+    def mousePressEvent(self, event) -> None:
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
+
+class _RosterRowWidget(_ClickableRow):
+    check_toggled = Signal(bool)
+
+    def __init__(self, state: ScanState, *, compact: bool, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._state = state
+        self._compact = compact
+        self._selected = False
+        self._poster = QLabel()
+        self._poster.setFixedSize(32, 46) if compact else self._poster.setFixedSize(42, 60)
+        self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._poster.setText("No Poster" if not compact else "")
+        self._poster.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+
+        self._check = QCheckBox()
+        self._check.setChecked(state.checked)
+        self._check.toggled.connect(self.check_toggled.emit)
+        layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
+
+        if not compact:
+            layout.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
+
+        body = QVBoxLayout()
+        body.setSpacing(4)
+        layout.addLayout(body, stretch=1)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+        self._title = QLabel(state.display_name)
+        self._title.setWordWrap(True)
+        self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        title_row.addWidget(self._title, stretch=1)
+
+        self._status = QLabel(_state_status(state)[0].upper())
+        self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        title_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignRight)
+        body.addLayout(title_row)
+
+        meta_parts = [f"{_file_count_for_state(state)} file(s)"]
+        if state.show_id is not None:
+            meta_parts.append(f"{int(state.confidence * 100)}% match")
+        self._meta = QLabel(" · ".join(meta_parts))
+        self._meta.setProperty("cssClass", "caption")
+        self._meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        body.addWidget(self._meta)
+
+        self._confidence = QProgressBar()
+        self._confidence.setTextVisible(False)
+        self._confidence.setFixedHeight(4)
+        self._confidence.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._confidence.setRange(0, 100)
+        self._confidence.setValue(int(state.confidence * 100))
+        body.addWidget(self._confidence)
+
+        self._apply_style()
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_style()
+
+    def set_checked(self, checked: bool) -> None:
+        blocked = self._check.blockSignals(True)
+        self._check.setChecked(checked)
+        self._check.blockSignals(blocked)
+
+    def set_poster(self, pixmap: QPixmap) -> None:
+        if self._compact or pixmap.isNull():
+            return
+        self._poster.setText("")
+        self._poster.setPixmap(
+            pixmap.scaled(
+                self._poster.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+
+    def _apply_style(self) -> None:
+        band = _confidence_band(self._state.confidence, state=self._state)
+        band_color = {"high": "#3ea463", "medium": "#e5a00d", "low": "#d44040", "muted": "#777777"}[band]
+        bg = "#1f1a0e" if self._selected else "#1c1c1c"
+        border = "#e5a00d" if self._selected else "#2a2a2a"
+        self.setStyleSheet(
+            f"background-color: {bg}; border: 1px solid {border}; border-left: 4px solid {band_color}; border-radius: 8px;"
+        )
+        self._title.setStyleSheet("font-weight: 600; color: #e0e0e0;")
+        self._meta.setStyleSheet("color: #777777; font-size: 11px;")
+        self._status.setStyleSheet(_status_pill_stylesheet(_state_status_tone(self._state)))
+        self._confidence.setStyleSheet(_confidence_bar_stylesheet(_confidence_fill_color(self._state.confidence)))
+
+
+class _PreviewRowWidget(_ClickableRow):
+    check_toggled = Signal(bool)
+
+    def __init__(
+        self,
+        preview: PreviewItem,
+        *,
+        compact: bool,
+        show_confidence: bool,
+        show_companions: bool,
+        checked: bool,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._preview = preview
+        self._selected = False
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+
+        self._check = QCheckBox()
+        self._check.setVisible(preview.is_actionable)
+        self._check.setChecked(checked if preview.is_actionable else False)
+        self._check.toggled.connect(self.check_toggled.emit)
+        layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
+
+        body = QVBoxLayout()
+        body.setSpacing(4)
+        layout.addLayout(body, stretch=1)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+        original = _preview_heading(preview, compact=compact)
+        self._original = QLabel(original)
+        self._original.setWordWrap(True)
+        self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        top_row.addWidget(self._original, stretch=1)
+
+        self._status = QLabel(_preview_status_label(preview))
+        self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
+        body.addLayout(top_row)
+
+        self._target = QLabel(_preview_target_text(preview, compact=compact))
+        self._target.setWordWrap(True)
+        self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        body.addWidget(self._target)
+
+        if show_companions and preview.companions:
+            self._companions = QLabel(_companion_summary(preview))
+            self._companions.setWordWrap(True)
+            self._companions.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            body.addWidget(self._companions)
+        else:
+            self._companions = None
+
+        self._confidence = None
+        if show_confidence:
+            self._confidence = QProgressBar()
+            self._confidence.setTextVisible(False)
+            self._confidence.setFixedHeight(4)
+            self._confidence.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            self._confidence.setRange(0, 100)
+            self._confidence.setValue(int(preview.episode_confidence * 100))
+            body.addWidget(self._confidence)
+
+        self._apply_style()
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_style()
+
+    def set_checked(self, checked: bool) -> None:
+        if not self._check.isVisible():
+            return
+        blocked = self._check.blockSignals(True)
+        self._check.setChecked(checked)
+        self._check.blockSignals(blocked)
+
+    def _apply_style(self) -> None:
+        bg = "#1f1a0e" if self._selected else "#1c1c1c"
+        border = "#e5a00d" if self._selected else "#2a2a2a"
+        band = _preview_band(self._preview)
+        self.setStyleSheet(
+            f"background-color: {bg}; border: 1px solid {border}; border-left: 3px solid {band}; border-radius: 8px;"
+        )
+        self._original.setStyleSheet("font-weight: 600; color: #e0e0e0;")
+        self._target.setStyleSheet("color: #e5a00d;")
+        self._status.setStyleSheet(_status_pill_stylesheet(_preview_status_tone(self._preview)))
+        if self._companions is not None:
+            self._companions.setStyleSheet("color: #777777; font-size: 11px;")
+        if self._confidence is not None:
+            self._confidence.setStyleSheet(_confidence_bar_stylesheet(_preview_band(self._preview)))
+
+
+def _file_count_for_state(state: ScanState) -> int:
+    if state.preview_items:
+        return len(state.preview_items)
+    if state.file_count:
+        return state.file_count
+    return 0
+
+
+def _confidence_band(score: float, *, state: ScanState | None = None) -> str:
+    if state is not None and (state.duplicate_of is not None or state.queued or state.scanning):
+        return "muted"
+    if score >= 0.85:
+        return "high"
+    if score >= 0.5:
+        return "medium"
+    return "low"
+
+
+def _confidence_fill_color(score: float) -> str:
+    return {
+        "high": "#3ea463",
+        "medium": "#e5a00d",
+        "low": "#d44040",
+        "muted": "#777777",
+    }[_confidence_band(score)]
+
+
+def _state_status_tone(state: ScanState) -> str:
+    if state.queued:
+        return "info"
+    if state.duplicate_of is not None:
+        return "muted"
+    if state.scanning:
+        return "accent"
+    if state.show_id is None:
+        return "error"
+    if state.needs_review:
+        return "accent"
+    if state.scanned and state.all_skipped:
+        return "muted"
+    if state.scanned:
+        return "success"
+    return "info"
+
+
+def _preview_status_label(preview: PreviewItem) -> str:
+    if preview.is_conflict:
+        return "CONFLICT"
+    if preview.is_unmatched:
+        return "UNMATCHED"
+    if preview.is_review:
+        return "NEEDS REVIEW"
+    if preview.is_skipped:
+        return "SKIP"
+    return "OK"
+
+
+def _preview_status_tone(preview: PreviewItem) -> str:
+    if preview.is_conflict or preview.is_unmatched:
+        return "error"
+    if preview.is_review:
+        return "accent"
+    if preview.is_skipped:
+        return "muted"
+    return "success"
+
+
+def _preview_band(preview: PreviewItem) -> str:
+    if preview.is_conflict or preview.is_unmatched:
+        return "#d44040"
+    if preview.is_skipped:
+        return "#777777"
+    return _confidence_fill_color(preview.episode_confidence)
+
+
+def _status_pill_stylesheet(tone: str) -> str:
+    palette = {
+        "success": ("#1a3328", "#3ea463"),
+        "accent": ("#2a2210", "#e5a00d"),
+        "error": ("#2d1414", "#d44040"),
+        "info": ("#142030", "#4a9eda"),
+        "muted": ("#1e1e1e", "#888888"),
+    }
+    bg, fg = palette[tone]
+    return (
+        f"background-color: {bg}; color: {fg}; border: 1px solid {fg}; "
+        "border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 600;"
+    )
+
+
+def _confidence_bar_stylesheet(color: str) -> str:
+    return (
+        "QProgressBar { background: #2a2a2a; border: 0; border-radius: 2px; }"
+        f"QProgressBar::chunk {{ background: {color}; border-radius: 2px; }}"
+    )
+
+
+def _preview_heading(preview: PreviewItem, *, compact: bool) -> str:
+    if compact:
+        if preview.season is not None and preview.episodes:
+            episode_text = ", ".join(f"E{ep:02d}" for ep in preview.episodes)
+            return f"S{preview.season:02d} {episode_text} · {preview.original.name}"
+        return preview.original.name
+    return preview.original.name
+
+
+def _preview_target_text(preview: PreviewItem, *, compact: bool) -> str:
+    rename = preview.new_name or "No rename target"
+    if compact:
+        return f"-> {rename}"
+    return f"-> {rename}"
+
+
+def _companion_summary(preview: PreviewItem) -> str:
+    if not preview.companions:
+        return ""
+    names = ", ".join(companion.original.name for companion in preview.companions[:2])
+    extra = ""
+    if len(preview.companions) > 2:
+        extra = f" +{len(preview.companions) - 2} more"
+    return f"Companions: {names}{extra}"
 
 
 def _state_status(state: ScanState) -> tuple[str, QColor]:
