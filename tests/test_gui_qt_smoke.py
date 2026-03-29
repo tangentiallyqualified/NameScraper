@@ -91,6 +91,40 @@ class QtSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(window._toast_manager.toast_count(), 3)
         window.close()
 
+    def test_history_tab_revert_uses_inline_confirmation_banner(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.constants import JobStatus
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp) / "jobs.sqlite3")
+            queue_ctrl = QueueController(store)
+            job = RenameJob(
+                library_root="C:/library",
+                source_folder="Show",
+                media_name="Example Show",
+                status=JobStatus.COMPLETED,
+                undo_data={"renames": [{"old": "a", "new": "b"}, {"old": "c", "new": "d"}]},
+            )
+            store.add_job(job)
+            queue_ctrl.revert_job = MagicMock(return_value=(True, []))
+
+            history_tab = HistoryTab(queue_ctrl)
+            history_tab.select_job(job.job_id)
+
+            history_tab._revert_selected()
+
+            self.assertFalse(history_tab._revert_banner.isHidden())
+            self.assertIn("move 2 files", history_tab._revert_banner_label.text())
+
+            history_tab._confirm_revert()
+
+            queue_ctrl.revert_job.assert_called_once_with(job.job_id)
+            self.assertTrue(history_tab._revert_banner.isHidden())
+            history_tab.close()
+            store.close()
+
     def test_queue_and_history_tabs_refresh(self):
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.gui_qt.widgets.history_tab import HistoryTab

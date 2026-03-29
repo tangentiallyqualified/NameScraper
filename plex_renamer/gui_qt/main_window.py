@@ -209,6 +209,7 @@ class MainWindow(QMainWindow):
         self._movie_workspace.queue_changed.connect(self._on_queue_changed)
         self._tv_workspace.status_message.connect(self.statusBar().showMessage)
         self._movie_workspace.status_message.connect(self.statusBar().showMessage)
+        self._history_tab.history_changed.connect(self._on_queue_changed)
         self._settings_tab.view_mode_changed.connect(self._apply_view_mode)
         self._settings_tab.companion_visibility_changed.connect(self._apply_companion_visibility)
         self._settings_tab.discovery_visibility_changed.connect(self._apply_discovery_visibility)
