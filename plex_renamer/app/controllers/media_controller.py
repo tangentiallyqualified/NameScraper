@@ -24,6 +24,7 @@ from ...engine import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
     MovieScanner,
+    pick_alternate_matches,
     PreviewItem,
     ScanState,
     ScanCancelledError,
@@ -678,11 +679,11 @@ class MediaController:
         raw_name = clean_folder_name(state.folder.name)
         year_hint = extract_year(state.folder.name)
         scored = score_results(state.search_results, raw_name, year_hint, title_key="name")
-        state.alternate_matches = [
-            result
-            for result, score in scored
-            if result.get("id") != state.media_info.get("id") and score > 0.3
-        ][:3]
+        state.alternate_matches = pick_alternate_matches(
+            scored,
+            selected_id=state.media_info.get("id"),
+            limit=3,
+        )
         state.checked = state.show_id is not None and not state.needs_review
         self._notify("library_changed", self.library_states)
 

@@ -947,6 +947,27 @@ Proceed only if:
 2. GUI3 is clearer than the old UI in queue access control.
 3. GUI3 behaves safely under cache hits and stale refreshes. Rescans always re-walk the filesystem; no session state is restored from a prior run.
 
+### March 29 2026 progress update
+
+The recent stabilization and parity pass moved Phase 7 materially forward, but did not yet clear the final retirement gate.
+
+Completed in this pass:
+
+1. Stabilized the Qt media workspace around selection churn, row-host rendering, preview/detail flicker, and transient popup windows during TV navigation.
+2. Tightened the left roster card layout, removed horizontal scroll pressure, and changed review cards so alternate suggestions swap cleanly into an accept/cancel confirmation state.
+3. Ensured TV batch discovery shows the ready workspace before automatic episode scanning continues, so reviewable TV matches are visible instead of being hidden behind the scanning screen.
+4. Restored TV suggestion parity with movies by keeping the top-ranked alternate matches for low-confidence TV results even when their scores fall below the old hard threshold.
+5. Hardened TV batch discovery for release-style show folders whose names contain tokens like `S01` while still containing real child season directories, fixing cases such as Akiba Maid War style folders.
+
+Validation completed for this pass:
+
+1. `tests/test_scan_improvements.py`
+2. `tests/test_media_controller.py`
+3. `tests/test_haikyuu_matching.py`
+4. `tests/test_jojo_matching.py`
+5. `tests/test_gui_qt_smoke.py`
+6. Result: `79 passed`
+
 ## Recommended Next Steps
 
 Phases 0, 1, 2, and 2.5 are complete. If work resumes now, the recommended order is:

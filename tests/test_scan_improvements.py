@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.engine import BatchTVOrchestrator
@@ -34,6 +35,9 @@ class _FakeTMDB:
 
     def get_alternative_titles(self, media_id, media_type="tv"):
         return []
+
+    def get_tv_details(self, show_id):
+        return {"number_of_seasons": 1, "number_of_episodes": 12}
 
 
 class ScanImprovementTests(unittest.TestCase):
@@ -93,6 +97,49 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(duplicate.duplicate_of, primary.display_name)
             self.assertEqual(duplicate.duplicate_of_relative_folder, primary.relative_folder)
             self.assertFalse(duplicate.checked)
+
+    def test_folder_named_with_s01_and_nested_season_dir_is_discovered_as_show(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "[CW] Akiba Maid War S01 [Dual Audio][BD 1080p][FLAC + AAC][AVC] - Akiba Meido Sensou S01"
+            (show / "season 1").mkdir(parents=True)
+            (show / "season 1" / "Akiba.Maid.War.S01E01.mkv").write_text("x")
+            (show / "extra").mkdir()
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].relative_folder, show.name)
+            self.assertTrue(candidates[0].has_direct_season_subdirs)
+
+    def test_tv_discovery_keeps_runner_up_suggestions_for_review_items(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "Man DOk Ngew (2016)"
+            (show / "Season 01").mkdir(parents=True)
+            (show / "Season 01" / "Man.DOk.Ngew.S01E01.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+            scored = [
+                ({"id": 1, "name": "Man Dok Ngew", "year": "2016"}, 0.28),
+                ({"id": 2, "name": "Marn Dok Ngeo", "year": "2016"}, 0.22),
+                ({"id": 3, "name": "Dok Ngew", "year": "2017"}, 0.18),
+            ]
+
+            with patch("plex_renamer.engine.score_results", return_value=scored), patch(
+                "plex_renamer.engine.boost_scores_with_alt_titles",
+                side_effect=lambda scored, *args, **kwargs: scored,
+            ):
+                states = orchestrator.discover_shows()
+
+            self.assertEqual(len(states), 1)
+            self.assertTrue(states[0].needs_review)
+            self.assertEqual([match["id"] for match in states[0].alternate_matches], [2, 3])
 
     def test_revert_cleanup_preserves_nested_container_boundary(self):
         with TemporaryDirectory() as tmp:

@@ -119,6 +119,40 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(window._history_badge.count_text(), "2")
         window.close()
 
+    def test_main_window_shows_tv_ready_workspace_before_bulk_scan(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        review_state = ScanState(
+            folder=Path("C:/library/tv/Andor.2022"),
+            media_info={"id": 10, "name": "Andor", "year": "2022"},
+            confidence=0.42,
+            alternate_matches=[
+                {"id": 11, "name": "Andor", "year": "2022"},
+            ],
+            scanned=False,
+            queued=False,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [review_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.READY,
+            phase="Discovery complete",
+            message="Found 1 show",
+        )
+        window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.is_showing_ready = MagicMock(return_value=False)
+        window.media_ctrl.scan_all_shows = MagicMock()
+
+        window._on_scan_complete()
+
+        window._tv_workspace.show_ready.assert_called_once_with()
+        window.media_ctrl.scan_all_shows.assert_called_once_with()
+        window.close()
+
     def test_history_tab_revert_uses_inline_confirmation_banner(self):
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.constants import JobStatus

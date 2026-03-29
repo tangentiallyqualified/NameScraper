@@ -207,6 +207,21 @@ Keep driving GUI3 forward, but do not retire tkinter until:
 3. undo/revert is accessible from the Qt shell
 4. runtime settings visibly affect the active UI
 
+## March 29 2026 Addendum
+
+This audit predates the latest stabilization pass. The following findings are now partially or fully resolved in the working tree on `dev/GUI3`:
+
+1. The Qt shell now shows the TV ready workspace before background batch episode scanning proceeds, which fixes the earlier problem where reviewable TV items could be hidden behind the scanning screen.
+2. TV inline alternate-match suggestions now follow the same practical behavior as movie review suggestions: the top runner-up matches are preserved even when the review case is low-confidence.
+3. TV batch discovery was hardened for release-style show roots containing `S01` in the folder name but real nested season directories underneath, fixing the Akiba Maid War style misclassification case.
+4. The left roster review-card interaction is now tighter and clearer: alternate buttons collapse into a dedicated accept/cancel confirmation row instead of competing for the same vertical space.
+
+What this changes in the assessment:
+
+1. The earlier statement that rematch/manual correction flows are materially behind tkinter is no longer accurate for the core Fix Match path.
+2. The remaining retirement blockers are now more concentrated around undo/revert access, queue/history polish, and broader operational trust rather than the basic TV review workflow itself.
+3. GUI3 is closer to the Phase 7 exit gate than this audit originally recorded, but tkinter remains the safer operational shell until the remaining recovery and polish gaps are closed.
+
 ## UI Design Document Assessment
 
 The UI design doc includes two kinds of features:

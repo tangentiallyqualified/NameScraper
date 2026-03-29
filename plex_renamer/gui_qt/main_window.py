@@ -424,6 +424,8 @@ class MainWindow(QMainWindow):
                 for state in self.media_ctrl.batch_states
             )
         ):
+            if not ws.is_showing_ready():
+                ws.show_ready()
             self.media_ctrl.scan_all_shows()
             return
 

@@ -212,7 +212,13 @@ class TVLibraryDiscoveryService:
                 and looks_like_tv_episode(child.path)
                 for child in child_entries
             )
-            if not has_direct_episodes:
+            has_non_extras_child_dirs = any(
+                child.is_dir
+                and child.path.name.casefold() not in self.ignored_system_names
+                and not is_extras_folder(child.path.name)
+                for child in child_entries
+            )
+            if not has_direct_episodes and not has_non_extras_child_dirs:
                 return _ClassifiedDirectory(
                     role=TVDirectoryRole.SEASON_FOLDER,
                     child_dirs=[],
@@ -234,7 +240,7 @@ class TVLibraryDiscoveryService:
             if child.is_dir:
                 if child.path.name.casefold() in self.ignored_system_names:
                     continue
-                if child.season_num is not None:
+                if self._counts_as_season_subdir(child):
                     has_direct_season_subdirs = True
                 else:
                     child_dirs.append(child.path)
@@ -301,6 +307,28 @@ class TVLibraryDiscoveryService:
             direct_video_file_count=len(direct_video_files),
             discovered_via_symlink=directory.is_symlink(),
         )
+
+    def _counts_as_season_subdir(self, child: _DirChild) -> bool:
+        if not child.is_dir or child.season_num is None:
+            return False
+
+        child_entries = self._scan_children(child.path)
+        has_direct_episodes = any(
+            grandchild.is_file
+            and grandchild.path.suffix.lower() in VIDEO_EXTENSIONS
+            and looks_like_tv_episode(grandchild.path)
+            for grandchild in child_entries
+        )
+        if has_direct_episodes:
+            return True
+
+        has_nested_non_extras_dirs = any(
+            grandchild.is_dir
+            and grandchild.path.name.casefold() not in self.ignored_system_names
+            and not is_extras_folder(grandchild.path.name)
+            for grandchild in child_entries
+        )
+        return not has_nested_non_extras_dirs
 
     @staticmethod
     def _scan_children(directory: Path) -> list[_DirChild]:

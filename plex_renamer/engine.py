@@ -557,7 +557,11 @@ class BatchTVOrchestrator:
                         compare_seasons=use_seasons,
                     )
 
-            alternates = [r for r, s in scored[1:4] if s > 0.3]  # Top 3 alternates above threshold
+            alternates = pick_alternate_matches(
+                scored,
+                selected_id=best.get("id"),
+                limit=3,
+            )
 
             # Only auto-check shows with confident matches
             auto_check = best_score >= AUTO_ACCEPT_THRESHOLD
@@ -2439,6 +2443,23 @@ def score_results(
 
     scored.sort(key=lambda x: x[1], reverse=True)
     return scored
+
+
+def pick_alternate_matches(
+    scored: list[tuple[dict, float]],
+    *,
+    selected_id: int | None,
+    limit: int = 3,
+) -> list[dict]:
+    """Return the highest-ranked alternate matches excluding the selected id."""
+    alternates: list[dict] = []
+    for result, _score in scored:
+        if result.get("id") == selected_id:
+            continue
+        alternates.append(result)
+        if len(alternates) >= limit:
+            break
+    return alternates
 
 
 # Number of top candidates to fetch alternative titles for

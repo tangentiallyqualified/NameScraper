@@ -371,6 +371,15 @@ This is intentionally the last phase because it should consume data produced by 
 
 The implementation is not complete until these cases pass.
 
+### March 29 2026 follow-up
+
+The original nested-discovery rollout exposed one more real-world edge case during Qt batch-TV dogfooding:
+
+1. A release-style show folder whose own name contains `S01` can be mistaken for a bare season folder even when it actually contains a child `Season 1` directory.
+2. This caused batch TV mode to skip valid show roots such as the Akiba Maid War pattern while direct single-folder scans still worked.
+3. Discovery has now been tightened so season-like child folders count as season evidence only when their contents actually behave like season folders.
+4. A matching regression test now covers this shape directly, alongside a TV review-suggestion test that preserves runner-up alternates for low-confidence matches.
+
 ### Discovery
 
 1. flat TV library with direct child shows

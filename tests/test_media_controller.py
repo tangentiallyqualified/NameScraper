@@ -480,6 +480,34 @@ class RematchStateTests(unittest.TestCase):
         self.assertIn(10, alternate_ids)
         self.assertNotIn(20, alternate_ids)
 
+    def test_rematch_tv_state_keeps_runner_up_suggestions_without_score_threshold(self):
+        state = ScanState(
+            folder=self.tmp / "Man.DOk.Ngew.2016",
+            media_info={"id": 10, "name": "Man Dok Ngew", "year": "2016"},
+            confidence=0.28,
+            scanned=True,
+            search_results=[
+                {"id": 10, "name": "Man Dok Ngew", "year": "2016"},
+                {"id": 20, "name": "Marn Dok Ngeo", "year": "2016"},
+                {"id": 30, "name": "Dok Ngew", "year": "2017"},
+            ],
+        )
+        self.ctrl._batch_states = [state]
+        self.ctrl._active_library_mode = MediaType.TV
+
+        with patch(
+            "plex_renamer.app.controllers.media_controller.score_results",
+            return_value=[
+                ({"id": 20, "name": "Marn Dok Ngeo", "year": "2016"}, 0.22),
+                ({"id": 10, "name": "Man Dok Ngew", "year": "2016"}, 0.21),
+                ({"id": 30, "name": "Dok Ngew", "year": "2017"}, 0.18),
+            ],
+        ):
+            self.ctrl.rematch_tv_state(state, {"id": 20, "name": "Marn Dok Ngeo", "year": "2016"})
+
+        self.assertEqual(state.media_info["id"], 20)
+        self.assertEqual([match["id"] for match in state.alternate_matches], [10, 30])
+
     def test_rematch_movie_state_rebuilds_preview(self):
         movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
         old_item = PreviewItem(

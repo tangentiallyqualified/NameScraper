@@ -133,6 +133,7 @@ class MediaWorkspace(QWidget):
         self._roster_list.setIconSize(QSize(42, 60))
         self._roster_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._roster_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._roster_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._roster_list.itemChanged.connect(self._on_roster_item_changed)
         self._roster_list.currentItemChanged.connect(self._on_roster_current_item_changed)
         roster_layout.addWidget(self._roster_list, stretch=1)
@@ -725,7 +726,8 @@ class MediaWorkspace(QWidget):
         widget.alternate_confirmed.connect(
             lambda match, state=state: self._apply_alternate_match(state, match)
         )
-        item.setSizeHint(widget.sizeHint())
+        widget.geometry_changed.connect(lambda item=item, widget=widget: self._sync_item_height(item, widget))
+        self._sync_item_height(item, widget)
         self._roster_list.setItemWidget(item, widget)
         key = item.data(Qt.ItemDataRole.UserRole + 2)
         if key in self._roster_poster_cache:
@@ -747,8 +749,11 @@ class MediaWorkspace(QWidget):
         widget.check_toggled.connect(
             lambda checked, item=item: self._set_item_check_state(item, checked, preview=True)
         )
-        item.setSizeHint(widget.sizeHint())
+        self._sync_item_height(item, widget)
         self._preview_list.setItemWidget(item, widget)
+
+    def _sync_item_height(self, item: QListWidgetItem, widget: QWidget) -> None:
+        item.setSizeHint(QSize(0, widget.sizeHint().height()))
 
     def _set_current_item(self, list_widget: QListWidget, item: QListWidgetItem) -> None:
         list_widget.setCurrentItem(item)
@@ -967,6 +972,7 @@ class _MiniProgressBar(QWidget):
 class _RosterRowWidget(_ClickableRow):
     check_toggled = Signal(bool)
     alternate_confirmed = Signal(object)
+    geometry_changed = Signal()
 
     def __init__(self, state: ScanState, *, compact: bool, media_type: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -977,14 +983,14 @@ class _RosterRowWidget(_ClickableRow):
         self._selected = False
         self._pending_alternate: dict | None = None
         self._poster = QLabel()
-        self._poster.setFixedSize(32, 46) if compact else self._poster.setFixedSize(42, 60)
+        self._poster.setFixedSize(30, 44) if compact else self._poster.setFixedSize(36, 52)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._poster.setText("No Poster" if not compact else "")
         self._poster.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(10)
+        layout.setContentsMargins(8, 7, 8, 7)
+        layout.setSpacing(8)
 
         self._check = _ToggleSwitch(state.checked)
         self._check.toggled.connect(self.check_toggled.emit)
@@ -998,13 +1004,15 @@ class _RosterRowWidget(_ClickableRow):
         layout.addLayout(body, stretch=1)
 
         title_row = QHBoxLayout()
-        title_row.setSpacing(8)
+        title_row.setSpacing(6)
         self._title = QLabel(state.display_name)
         self._title.setWordWrap(True)
+        self._title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         title_row.addWidget(self._title, stretch=1)
 
         self._status = QLabel(_state_status(state)[0].upper())
+        self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         title_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignRight)
         body.addLayout(title_row)
@@ -1014,6 +1022,8 @@ class _RosterRowWidget(_ClickableRow):
             meta_parts.append(f"{_percent_text(state.confidence)} match")
         self._meta = QLabel(" · ".join(meta_parts))
         self._meta.setProperty("cssClass", "caption")
+        self._meta.setWordWrap(True)
+        self._meta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         body.addWidget(self._meta)
 
@@ -1024,10 +1034,13 @@ class _RosterRowWidget(_ClickableRow):
         body.addWidget(self._confidence)
 
         self._alternates_layout = None
+        self._alternates_widget = None
         self._confirm_row = None
         if state.needs_review and state.alternate_matches and not state.queued:
+            self._alternates_widget = QWidget()
             self._alternates_layout = QVBoxLayout()
             self._alternates_layout.setSpacing(3)
+            self._alternates_layout.setContentsMargins(0, 0, 0, 0)
             alt_matches = state.alternate_matches[:2]
             for alt in alt_matches:
                 alt_btn = QPushButton(_match_label(alt, media_type=self._media_type))
@@ -1036,24 +1049,30 @@ class _RosterRowWidget(_ClickableRow):
                 alt_btn.setStyleSheet("text-align: left; padding: 2px 6px; font-size: 11px;")
                 alt_btn.clicked.connect(lambda _checked=False, alt=alt: self._begin_alternate_confirm(alt))
                 self._alternates_layout.addWidget(alt_btn)
-            body.addLayout(self._alternates_layout)
+            self._alternates_widget.setLayout(self._alternates_layout)
+            body.addWidget(self._alternates_widget)
 
             self._confirm_row = QWidget()
-            confirm_layout = QHBoxLayout(self._confirm_row)
+            confirm_layout = QVBoxLayout(self._confirm_row)
             confirm_layout.setContentsMargins(0, 0, 0, 0)
-            confirm_layout.setSpacing(6)
+            confirm_layout.setSpacing(4)
             self._confirm_label = QLabel("")
             self._confirm_label.setWordWrap(True)
-            confirm_layout.addWidget(self._confirm_label, stretch=1)
+            confirm_layout.addWidget(self._confirm_label)
+            confirm_actions = QHBoxLayout()
+            confirm_actions.setContentsMargins(0, 0, 0, 0)
+            confirm_actions.setSpacing(6)
             self._confirm_accept = QPushButton("Accept")
             self._confirm_accept.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self._confirm_accept.clicked.connect(self._confirm_alternate)
-            confirm_layout.addWidget(self._confirm_accept)
+            confirm_actions.addWidget(self._confirm_accept)
             self._confirm_cancel = QPushButton("Cancel")
             self._confirm_cancel.setProperty("cssClass", "secondary")
             self._confirm_cancel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self._confirm_cancel.clicked.connect(self._cancel_alternate)
-            confirm_layout.addWidget(self._confirm_cancel)
+            confirm_actions.addWidget(self._confirm_cancel)
+            confirm_actions.addStretch()
+            confirm_layout.addLayout(confirm_actions)
             self._confirm_row.hide()
             body.addWidget(self._confirm_row)
 
@@ -1102,7 +1121,10 @@ class _RosterRowWidget(_ClickableRow):
         if self._confirm_row is None:
             return
         self._confirm_label.setText(f"Switch match to {_match_label(match, media_type=self._media_type)}?")
+        if self._alternates_widget is not None:
+            self._alternates_widget.hide()
         self._confirm_row.show()
+        self.geometry_changed.emit()
 
     def _confirm_alternate(self) -> None:
         if self._pending_alternate is None:
@@ -1111,12 +1133,18 @@ class _RosterRowWidget(_ClickableRow):
         self._pending_alternate = None
         if self._confirm_row is not None:
             self._confirm_row.hide()
+        if self._alternates_widget is not None:
+            self._alternates_widget.show()
+        self.geometry_changed.emit()
         self.alternate_confirmed.emit(pending)
 
     def _cancel_alternate(self) -> None:
         self._pending_alternate = None
         if self._confirm_row is not None:
             self._confirm_row.hide()
+        if self._alternates_widget is not None:
+            self._alternates_widget.show()
+        self.geometry_changed.emit()
 
 
 class _PreviewRowWidget(_ClickableRow):
