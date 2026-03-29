@@ -140,6 +140,27 @@ QHeaderView::section {
     font-weight: 600;
 }
 
+QListWidget {
+    background-color: #151515;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    outline: none;
+    padding: 4px;
+}
+
+QListWidget::item {
+    background-color: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    margin: 4px 0px;
+    padding: 8px;
+}
+
+QListWidget::item:selected {
+    background-color: #1f1a0e;
+    border-color: #e5a00d;
+}
+
 QScrollBar:vertical {
     background-color: #0d0d0d;
     width: 10px;

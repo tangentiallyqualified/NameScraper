@@ -97,6 +97,8 @@ class MainWindow(QMainWindow):
 
         # ── TMDB client (lazily created) ─────────────────────────
         self._tmdb: TMDBClient | None = None
+        self._tv_snapshot: dict | None = None
+        self._movie_snapshot: dict | None = None
 
         # ── Services and controllers ─────────────────────────────
         self.settings_service = SettingsService()
@@ -142,10 +144,14 @@ class MainWindow(QMainWindow):
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
             media_type="tv",
+            media_controller=self.media_ctrl,
+            queue_controller=self.queue_ctrl,
             settings_service=self.settings_service,
         )
         self._movie_workspace = MediaWorkspace(
             media_type="movie",
+            media_controller=self.media_ctrl,
+            queue_controller=self.queue_ctrl,
             settings_service=self.settings_service,
         )
         self._queue_tab = QueueTab(
@@ -177,6 +183,10 @@ class MainWindow(QMainWindow):
         self._tabs.currentChanged.connect(self._on_tab_changed)
         self._tv_workspace.folder_selected.connect(self._on_tv_folder_selected)
         self._movie_workspace.folder_selected.connect(self._on_movie_folder_selected)
+        self._tv_workspace.queue_changed.connect(self._on_queue_changed)
+        self._movie_workspace.queue_changed.connect(self._on_queue_changed)
+        self._tv_workspace.status_message.connect(self.statusBar().showMessage)
+        self._movie_workspace.status_message.connect(self.statusBar().showMessage)
 
         # ── Restore geometry ─────────────────────────────────────
         self._restore_window_state()
@@ -323,15 +333,50 @@ class MainWindow(QMainWindow):
 
     def _on_scan_complete(self) -> None:
         ws = self._active_workspace()
+        if (
+            self.media_ctrl.active_content_mode == "tv"
+            and self.media_ctrl.batch_mode
+            and any(
+                not state.scanned and not state.queued and state.show_id is not None
+                for state in self.media_ctrl.batch_states
+            )
+        ):
+            self.media_ctrl.scan_all_shows()
+            return
+
         ws.scan_progress_widget.finish()
         ws.show_ready()
+        ws.refresh_from_controller()
         self.statusBar().showMessage("Scan complete", 3000)
 
     def _on_library_changed(self) -> None:
-        _log.debug("Library changed — roster will be populated in Phase 5")
+        ws = self._active_workspace()
+        ws.refresh_from_controller()
+
+        states = self.media_ctrl.library_states
+        needs_tv_bulk_scan = (
+            self.media_ctrl.active_content_mode == "tv"
+            and self.media_ctrl.batch_mode
+            and any(
+                not state.scanned and not state.queued and state.show_id is not None
+                for state in states
+            )
+        )
+
+        if self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states and not needs_tv_bulk_scan:
+            ws.scan_progress_widget.finish()
+            ws.show_ready()
+        elif self.media_ctrl.scan_progress.lifecycle in {
+            ScanLifecycle.WARNING,
+            ScanLifecycle.FAILED,
+            ScanLifecycle.CANCELLED,
+        } and not states:
+            ws.show_empty()
 
     def _on_queue_changed(self, _unused=None) -> None:
         self._refresh_job_views()
+        self._tv_workspace.refresh_from_controller()
+        self._movie_workspace.refresh_from_controller()
 
     def _refresh_job_views(self) -> None:
         self._queue_tab.refresh()
@@ -378,7 +423,22 @@ class MainWindow(QMainWindow):
         self._recent_movie_menu.setEnabled(bool(self.settings_service.recent_movie_folders))
 
     def _on_tab_changed(self, index: int) -> None:
+        self._capture_active_snapshot()
+
+        if index == _TV and self._tv_snapshot is not None:
+            self.media_ctrl.restore_tv_from_tab_switch(self._tv_snapshot)
+            self._tv_workspace.refresh_from_controller()
+        elif index == _MOVIES and self._movie_snapshot is not None:
+            self.media_ctrl.restore_movie_from_tab_switch(self._movie_snapshot)
+            self._movie_workspace.refresh_from_controller()
+
         _log.debug("Tab switched to %d", index)
+
+    def _capture_active_snapshot(self) -> None:
+        if self.media_ctrl.active_content_mode == "tv":
+            self._tv_snapshot = self.media_ctrl.snapshot_tv_for_tab_switch()
+        elif self.media_ctrl.active_content_mode == "movie":
+            self._movie_snapshot = self.media_ctrl.snapshot_movie_for_tab_switch()
 
     def _on_undo(self) -> None:
         job = self.queue_ctrl.get_latest_revertible_job()

@@ -1,13 +1,8 @@
 """Media workspace widget for TV Shows and Movies tabs.
 
 Manages the EMPTY -> SCANNING -> READY state machine via a
-QStackedWidget.  The READY state shows the 3-panel splitter layout
-with placeholder panels (roster, preview, detail) and a bottom
-action bar.
-
-State transitions are driven by the MainWindow in response to
-MediaController callbacks — the workspace does not call the
-controller directly.
+QStackedWidget. The READY state shows a controller-backed 3-panel
+workspace with roster, preview, and selection/detail summaries.
 """
 
 from __future__ import annotations
@@ -15,10 +10,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QSplitter,
@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...engine import PreviewItem, ScanState
+from ...parsing import build_movie_name, build_show_folder_name
 from .empty_state import EmptyStateWidget
 from .scan_progress import ScanProgressWidget
 
@@ -45,16 +47,24 @@ class MediaWorkspace(QWidget):
     # Emitted when a folder is selected — MainWindow handles the
     # controller call and state transitions.
     folder_selected = Signal(str)
+    queue_changed = Signal()
+    status_message = Signal(str, int)
 
     def __init__(
         self,
         media_type: str = "tv",
+        media_controller=None,
+        queue_controller=None,
         settings_service: "SettingsService | None" = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._media_type = media_type
+        self._media_ctrl = media_controller
+        self._queue_ctrl = queue_controller
         self._settings = settings_service
+        self._roster_syncing = False
+        self._preview_syncing = False
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -89,9 +99,64 @@ class MediaWorkspace(QWidget):
         # 3-panel splitter
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        self._roster_panel = _PlaceholderPanel("Roster")
-        self._preview_panel = _PlaceholderPanel("Preview")
-        self._detail_panel = _PlaceholderPanel("Detail")
+        self._roster_panel = QFrame()
+        self._roster_panel.setProperty("cssClass", "panel")
+        roster_layout = QVBoxLayout(self._roster_panel)
+        roster_layout.setContentsMargins(12, 12, 12, 12)
+        roster_layout.setSpacing(8)
+        self._roster_title = QLabel("Library")
+        self._roster_title.setProperty("cssClass", "heading")
+        roster_layout.addWidget(self._roster_title)
+        self._roster_hint = QLabel("Scanned items appear here.")
+        self._roster_hint.setProperty("cssClass", "caption")
+        roster_layout.addWidget(self._roster_hint)
+        self._roster_list = QListWidget()
+        self._roster_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._roster_list.itemChanged.connect(self._on_roster_item_changed)
+        self._roster_list.currentItemChanged.connect(self._on_roster_current_item_changed)
+        roster_layout.addWidget(self._roster_list, stretch=1)
+
+        self._preview_panel = QFrame()
+        self._preview_panel.setProperty("cssClass", "panel")
+        preview_layout = QVBoxLayout(self._preview_panel)
+        preview_layout.setContentsMargins(12, 12, 12, 12)
+        preview_layout.setSpacing(8)
+        self._preview_title = QLabel("Preview")
+        self._preview_title.setProperty("cssClass", "heading")
+        preview_layout.addWidget(self._preview_title)
+        self._folder_plan_label = QLabel("Select a roster item to see the planned folder rename.")
+        self._folder_plan_label.setProperty("cssClass", "caption")
+        self._folder_plan_label.setWordWrap(True)
+        preview_layout.addWidget(self._folder_plan_label)
+        self._preview_summary = QLabel("Preview items will appear here once a scan is ready.")
+        self._preview_summary.setProperty("cssClass", "text-dim")
+        self._preview_summary.setWordWrap(True)
+        preview_layout.addWidget(self._preview_summary)
+        self._preview_list = QListWidget()
+        self._preview_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._preview_list.itemChanged.connect(self._on_preview_item_changed)
+        self._preview_list.currentItemChanged.connect(self._on_preview_current_item_changed)
+        preview_layout.addWidget(self._preview_list, stretch=1)
+
+        self._detail_panel = QFrame()
+        self._detail_panel.setProperty("cssClass", "panel")
+        detail_layout = QVBoxLayout(self._detail_panel)
+        detail_layout.setContentsMargins(12, 12, 12, 12)
+        detail_layout.setSpacing(8)
+        self._detail_title = QLabel("Selection")
+        self._detail_title.setProperty("cssClass", "heading")
+        detail_layout.addWidget(self._detail_title)
+        self._detail_summary = QLabel("Choose a roster item to inspect queue readiness and scan status.")
+        self._detail_summary.setWordWrap(True)
+        detail_layout.addWidget(self._detail_summary)
+        self._detail_meta = QLabel("")
+        self._detail_meta.setProperty("cssClass", "caption")
+        self._detail_meta.setWordWrap(True)
+        detail_layout.addWidget(self._detail_meta)
+        self._detail_queue_reason = QLabel("")
+        self._detail_queue_reason.setWordWrap(True)
+        detail_layout.addWidget(self._detail_queue_reason)
+        detail_layout.addStretch()
 
         self._splitter.addWidget(self._roster_panel)
         self._splitter.addWidget(self._preview_panel)
@@ -105,6 +170,9 @@ class MediaWorkspace(QWidget):
 
         # Bottom action bar
         self._action_bar = _ActionBar(media_type=self._media_type)
+        self._action_bar.check_all_requested.connect(self._check_all)
+        self._action_bar.uncheck_all_requested.connect(self._uncheck_all)
+        self._action_bar.queue_requested.connect(self._queue_checked)
         ready_layout.addWidget(self._action_bar)
 
         self._stack.addWidget(ready_container)
@@ -145,6 +213,7 @@ class MediaWorkspace(QWidget):
         """Switch to the 3-panel ready state."""
         self._scan_progress.stop()
         self._stack.setCurrentIndex(_READY)
+        self.refresh_from_controller()
 
     @property
     def scan_progress_widget(self) -> ScanProgressWidget:
@@ -172,28 +241,475 @@ class MediaWorkspace(QWidget):
         if self._settings:
             self._settings.splitter_positions = list(self._splitter.sizes())
 
+    def refresh_from_controller(self) -> None:
+        """Rebuild the ready-state roster and preview from controller state."""
+        if self._media_ctrl is None:
+            return
 
-class _PlaceholderPanel(QFrame):
-    """Temporary placeholder for roster/preview/detail panels."""
+        states = self._current_states()
+        self._roster_syncing = True
+        self._roster_list.clear()
+        groups = [
+            ("queued", "Queued"),
+            ("ready", "Ready"),
+            ("review", "Needs Review"),
+            ("unmatched", "Unmatched"),
+            ("duplicate", "Duplicates"),
+        ]
+        for key, title in groups:
+            indices = [index for index, state in enumerate(states) if _roster_group(state) == key]
+            if not indices:
+                continue
+            header = QListWidgetItem(title)
+            header.setData(Qt.ItemDataRole.UserRole, None)
+            header.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            header.setForeground(QColor("#777777"))
+            self._roster_list.addItem(header)
 
-    def __init__(self, label: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setProperty("cssClass", "panel")
+            for index in indices:
+                state = states[index]
+                item = QListWidgetItem(self._format_roster_text(state))
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                item.setToolTip(self._state_tooltip(state))
+                item.setForeground(self._state_color(state))
+                item.setFlags(
+                    Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsUserCheckable
+                )
+                item.setCheckState(
+                    Qt.CheckState.Checked if state.checked else Qt.CheckState.Unchecked
+                )
+                self._roster_list.addItem(item)
+        self._roster_syncing = False
 
-        layout = QVBoxLayout(self)
-        lbl = QLabel(label)
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setProperty("cssClass", "text-muted")
-        layout.addWidget(lbl)
+        if not states:
+            self._preview_list.clear()
+            self._folder_plan_label.setText("Select a roster item to see the planned folder rename.")
+            self._preview_summary.setText("Preview items will appear here once a scan is ready.")
+            self._detail_title.setText("Selection")
+            self._detail_summary.setText("Choose a roster item to inspect queue readiness and scan status.")
+            self._detail_meta.setText("")
+            self._detail_queue_reason.setText("")
+            self._action_bar.update_summary(0, 0)
+            self._action_bar.set_queue_enabled(False)
+            return
 
-        hint = QLabel("Wired in Phase 5-6")
-        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hint.setProperty("cssClass", "caption")
-        layout.addWidget(hint)
+        selected_index = self._media_ctrl.library_selected_index
+        if selected_index is None or selected_index >= len(states):
+            selected_index = 0
+            self._media_ctrl.select_show(0)
+
+        for row in range(self._roster_list.count()):
+            item = self._roster_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == selected_index:
+                self._roster_list.setCurrentRow(row)
+                break
+        self._update_action_bar()
+
+    def _current_states(self) -> list[ScanState]:
+        if self._media_ctrl is None:
+            return []
+        if self._media_type == "movie":
+            return list(self._media_ctrl.movie_library_states)
+        return list(self._media_ctrl.batch_states)
+
+    def _selected_state(self) -> ScanState | None:
+        states = self._current_states()
+        item = self._roster_list.currentItem()
+        if item is None:
+            return None
+        index = item.data(Qt.ItemDataRole.UserRole)
+        if index is not None and 0 <= index < len(states):
+            return states[index]
+        return None
+
+    def _ensure_check_bindings(self, state: ScanState) -> None:
+        for index, item in enumerate(state.preview_items):
+            key = str(index)
+            if key not in state.check_vars:
+                state.check_vars[key] = _CheckBinding(item.is_actionable)
+
+    def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        if self._roster_syncing or self._media_ctrl is None:
+            return
+        if current is None:
+            return
+        row = current.data(Qt.ItemDataRole.UserRole)
+        if row is None:
+            return
+        state = self._media_ctrl.select_show(row)
+        if state is None:
+            return
+        self._ensure_check_bindings(state)
+        self._populate_preview(state)
+        self._render_detail(state)
+        self._update_action_bar()
+
+    def _on_roster_item_changed(self, item: QListWidgetItem) -> None:
+        if self._roster_syncing:
+            return
+        states = self._current_states()
+        row = item.data(Qt.ItemDataRole.UserRole)
+        if row is None or not (0 <= row < len(states)):
+            return
+        state = states[row]
+        state.checked = item.checkState() == Qt.CheckState.Checked
+        self._update_action_bar()
+        if row == self._roster_list.currentRow():
+            self._render_detail(state)
+
+    def _populate_preview(self, state: ScanState) -> None:
+        self._preview_syncing = True
+        self._preview_list.clear()
+        self._folder_plan_label.setText(self._folder_plan_text(state))
+
+        if not state.preview_items:
+            if state.scanning:
+                self._preview_summary.setText("Preview is still scanning for this item.")
+            elif not state.scanned and state.show_id is not None:
+                self._preview_summary.setText("Preview will appear once scanning completes.")
+            else:
+                self._preview_summary.setText("No preview items available for this selection.")
+            self._preview_syncing = False
+            return
+
+        self._ensure_check_bindings(state)
+        self._preview_summary.setText(
+            f"{len(state.preview_items)} preview item(s) · {_state_status(state)[0]}"
+        )
+
+        groups = [
+            ("actionable", "Actionable"),
+            ("review", "Needs Review"),
+            ("unmatched", "Unmatched"),
+            ("blocked", "Blocked / Skipped"),
+        ]
+        for key, title in groups:
+            indices = [index for index, preview in enumerate(state.preview_items) if _preview_group(preview) == key]
+            if not indices:
+                continue
+            header = QListWidgetItem(title)
+            header.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            header.setForeground(QColor("#777777"))
+            self._preview_list.addItem(header)
+
+            for index in indices:
+                preview = state.preview_items[index]
+                row = QListWidgetItem(self._format_preview_text(preview))
+                row.setData(Qt.ItemDataRole.UserRole, index)
+                row.setToolTip(self._preview_tooltip(preview))
+                row.setForeground(_preview_color(preview))
+                flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+                if preview.is_actionable:
+                    flags |= Qt.ItemFlag.ItemIsUserCheckable
+                    row.setCheckState(
+                        Qt.CheckState.Checked
+                        if state.check_vars[str(index)].get()
+                        else Qt.CheckState.Unchecked
+                    )
+                row.setFlags(flags)
+                self._preview_list.addItem(row)
+
+        if state.selected_index is not None:
+            for row in range(self._preview_list.count()):
+                item = self._preview_list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) == state.selected_index:
+                    self._preview_list.setCurrentRow(row)
+                    break
+        else:
+            for row in range(self._preview_list.count()):
+                item = self._preview_list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) is not None:
+                    self._preview_list.setCurrentRow(row)
+                    break
+        self._preview_syncing = False
+
+    def _on_preview_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        if self._preview_syncing:
+            return
+        state = self._selected_state()
+        if state is None:
+            return
+        preview = None
+        if current is not None:
+            index = current.data(Qt.ItemDataRole.UserRole)
+            if index is not None and 0 <= index < len(state.preview_items):
+                state.selected_index = index
+                preview = state.preview_items[index]
+        self._render_detail(state, preview)
+
+    def _on_preview_item_changed(self, item: QListWidgetItem) -> None:
+        if self._preview_syncing:
+            return
+        state = self._selected_state()
+        if state is None:
+            return
+        index = item.data(Qt.ItemDataRole.UserRole)
+        if index is None:
+            return
+        binding = state.check_vars.get(str(index))
+        if binding is None:
+            return
+        binding.set(item.checkState() == Qt.CheckState.Checked)
+        state.checked = any(
+            state.check_vars[str(i)].get()
+            for i, preview in enumerate(state.preview_items)
+            if preview.is_actionable
+        )
+        current_roster_item = self._roster_list.item(self._roster_list.currentRow())
+        if current_roster_item is not None and current_roster_item.data(Qt.ItemDataRole.UserRole) is not None:
+            self._roster_syncing = True
+            current_roster_item.setCheckState(
+                Qt.CheckState.Checked if state.checked else Qt.CheckState.Unchecked
+            )
+            self._roster_syncing = False
+        preview = state.preview_items[index]
+        self._render_detail(state, preview)
+        self._update_action_bar()
+
+    def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
+        if state is None:
+            self._detail_title.setText("Selection")
+            self._detail_summary.setText("Choose a roster item to inspect queue readiness and scan status.")
+            self._detail_meta.setText("")
+            self._detail_queue_reason.setText("")
+            return
+
+        eligibility = self._queue_eligibility([state])
+        self._detail_title.setText(state.display_name)
+        self._detail_summary.setText(
+            f"{_state_status(state)[0]} · {len(state.preview_items)} file(s)"
+            + (f" · {len(state.alternate_matches)} alternate match(es)" if state.alternate_matches else "")
+        )
+        meta_lines = [
+            f"Folder: {state.folder.name}",
+            f"Confidence: {int(state.confidence * 100)}%",
+        ]
+        if state.duplicate_of:
+            meta_lines.append(f"Duplicate of: {state.duplicate_of}")
+        if state.discovery_reason:
+            meta_lines.append(f"Discovery: {state.discovery_reason}")
+        if preview is not None:
+            meta_lines.append(f"File: {preview.original.name}")
+            if preview.new_name:
+                meta_lines.append(f"Rename: {preview.new_name}")
+            meta_lines.append(f"Status: {preview.status}")
+        self._detail_meta.setText("\n".join(meta_lines))
+        self._detail_queue_reason.setText(f"Queue: {eligibility.reason}")
+
+    def _check_all(self) -> None:
+        for state in self._current_states():
+            state.checked = True
+            self._ensure_check_bindings(state)
+            for index, preview in enumerate(state.preview_items):
+                if preview.is_actionable:
+                    state.check_vars[str(index)].set(True)
+        self.refresh_from_controller()
+
+    def _uncheck_all(self) -> None:
+        for state in self._current_states():
+            state.checked = False
+            for index in range(len(state.preview_items)):
+                binding = state.check_vars.get(str(index))
+                if binding is not None:
+                    binding.set(False)
+        self.refresh_from_controller()
+
+    def _queue_checked(self) -> None:
+        if self._media_ctrl is None or self._queue_ctrl is None:
+            return
+        states = [state for state in self._current_states() if state.checked]
+        if not states:
+            self.status_message.emit("Select at least one actionable item before queueing.", 4000)
+            return
+
+        try:
+            if self._media_type == "movie":
+                root = self._media_ctrl.movie_folder
+                if root is None:
+                    self.status_message.emit("No movie folder is loaded.", 4000)
+                    return
+                result = self._queue_ctrl.add_movie_batch(states, root, self._media_ctrl.command_gating)
+            else:
+                root = self._media_ctrl.tv_root_folder
+                if root is None:
+                    self.status_message.emit("No TV folder is loaded.", 4000)
+                    return
+                result = self._queue_ctrl.add_tv_batch(states, root, self._media_ctrl.command_gating)
+        except Exception as exc:
+            QMessageBox.warning(self, "Queue Failed", str(exc))
+            return
+
+        self._media_ctrl.sync_queued_states()
+        self.refresh_from_controller()
+        self.queue_changed.emit()
+        self.status_message.emit(_format_batch_result(result), 5000)
+
+    def _queue_eligibility(self, states: list[ScanState]):
+        if not states:
+            return self._media_ctrl.command_gating.summarize_scan_states([])
+        return self._media_ctrl.command_gating.summarize_scan_states(
+            states,
+            allow_show_level_queue=self._media_type == "tv",
+        )
+
+    def _update_action_bar(self) -> None:
+        states = self._current_states()
+        checked = [state for state in states if state.checked]
+        self._action_bar.update_summary(len(checked), len(states))
+        if not checked:
+            self._action_bar.set_queue_enabled(False)
+            return
+        eligibility = self._queue_eligibility(checked)
+        self._action_bar.set_queue_enabled(eligibility.enabled)
+        selected_state = self._selected_state()
+        if selected_state is not None:
+            self._render_detail(selected_state, self._selected_preview())
+
+    def _selected_preview(self) -> PreviewItem | None:
+        state = self._selected_state()
+        current = self._preview_list.currentItem()
+        if state is None or current is None:
+            return None
+        index = current.data(Qt.ItemDataRole.UserRole)
+        if index is None or not (0 <= index < len(state.preview_items)):
+            return None
+        return state.preview_items[index]
+
+    def _format_roster_text(self, state: ScanState) -> str:
+        status, _color = _state_status(state)
+        if self._media_type == "movie":
+            return f"{state.display_name}\n{status} · {len(state.preview_items)} file(s)"
+        return f"{state.display_name}\n{status} · {state.file_count} file(s)"
+
+    def _folder_plan_text(self, state: ScanState) -> str:
+        source = state.folder.name
+        if self._media_type == "movie":
+            target = build_movie_name(
+                state.media_info.get("title", state.display_name),
+                state.media_info.get("year", ""),
+                "",
+            )
+        else:
+            target = build_show_folder_name(
+                state.media_info.get("name", state.display_name),
+                state.media_info.get("year", ""),
+            )
+        return f"Folder rename plan: {source} -> {target}"
+
+    def _state_tooltip(self, state: ScanState) -> str:
+        lines = [state.display_name, _state_status(state)[0], f"Folder: {state.folder}"]
+        if state.duplicate_of:
+            lines.append(f"Duplicate of {state.duplicate_of}")
+        if state.discovery_reason:
+            lines.append(f"Discovery: {state.discovery_reason}")
+        return "\n".join(lines)
+
+    def _state_color(self, state: ScanState) -> QColor:
+        return _state_status(state)[1]
+
+    def _format_preview_text(self, preview: PreviewItem) -> str:
+        rename = preview.new_name or "No rename target"
+        extra = ""
+        if preview.season is not None and preview.episodes:
+            episode_text = ", ".join(f"E{ep:02d}" for ep in preview.episodes)
+            extra = f"S{preview.season:02d} {episode_text} · "
+        return f"{extra}{preview.original.name}\n-> {rename}"
+
+    def _preview_tooltip(self, preview: PreviewItem) -> str:
+        target_dir = preview.target_dir or preview.original.parent
+        return "\n".join(
+            [
+                preview.status,
+                f"Source: {preview.original}",
+                f"Target: {target_dir / (preview.new_name or preview.original.name)}",
+            ]
+        )
+
+
+class _CheckBinding:
+    """Small checkbox binding used to reuse engine/controller helpers in Qt."""
+
+    def __init__(self, value: bool) -> None:
+        self._value = bool(value)
+
+    def get(self) -> bool:
+        return self._value
+
+    def set(self, value: bool) -> None:
+        self._value = bool(value)
+
+
+def _state_status(state: ScanState) -> tuple[str, QColor]:
+    if state.queued:
+        return "Queued", QColor("#4a9eda")
+    if state.duplicate_of is not None:
+        return "Duplicate", QColor("#777777")
+    if state.scanning:
+        return "Scanning", QColor("#e5a00d")
+    if state.show_id is None:
+        return "Unmatched", QColor("#d44040")
+    if state.needs_review:
+        return "Needs Review", QColor("#e5a00d")
+    if state.scanned and state.all_skipped:
+        return "No Action Needed", QColor("#777777")
+    if state.scanned:
+        return "Ready", QColor("#3ea463")
+    return "Matched", QColor("#4a9eda")
+
+
+def _roster_group(state: ScanState) -> str:
+    if state.queued:
+        return "queued"
+    if state.duplicate_of is not None:
+        return "duplicate"
+    if state.show_id is None:
+        return "unmatched"
+    if state.needs_review:
+        return "review"
+    return "ready"
+
+
+def _preview_group(preview: PreviewItem) -> str:
+    if preview.is_conflict or preview.is_skipped:
+        return "blocked"
+    if preview.is_unmatched:
+        return "unmatched"
+    if preview.is_review:
+        return "review"
+    return "actionable"
+
+
+def _preview_color(preview: PreviewItem) -> QColor:
+    if preview.is_conflict or preview.is_unmatched:
+        return QColor("#d44040")
+    if preview.is_review:
+        return QColor("#e5a00d")
+    if preview.is_skipped:
+        return QColor("#777777")
+    return QColor("#e0e0e0")
+
+
+def _format_batch_result(result) -> str:
+    parts = []
+    if result.added:
+        parts.append(f"Queued {result.added} job(s)")
+    if result.total_skipped:
+        parts.append(f"Skipped {result.total_skipped}")
+    if result.blocked:
+        parts.append(f"Blocked {len(result.blocked)}")
+    if result.errors:
+        parts.append(f"Errors: {len(result.errors)}")
+    return " · ".join(parts) if parts else "No queueable items were selected."
 
 
 class _ActionBar(QFrame):
     """Bottom action bar for the ready state workspace."""
+
+    check_all_requested = Signal()
+    uncheck_all_requested = Signal()
+    queue_requested = Signal()
 
     def __init__(
         self,
@@ -205,7 +721,7 @@ class _ActionBar(QFrame):
         self.setStyleSheet(
             "background-color: #151515; border-top: 1px solid #2a2a2a;"
         )
-        self.setFixedHeight(48)
+        self.setFixedHeight(52)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
@@ -217,21 +733,26 @@ class _ActionBar(QFrame):
 
         self._check_all_btn = QPushButton("Check All")
         self._check_all_btn.setProperty("cssClass", "secondary")
+        self._check_all_btn.clicked.connect(self.check_all_requested.emit)
         layout.addWidget(self._check_all_btn)
 
         self._uncheck_all_btn = QPushButton("Uncheck All")
         self._uncheck_all_btn.setProperty("cssClass", "secondary")
+        self._uncheck_all_btn.clicked.connect(self.uncheck_all_requested.emit)
         layout.addWidget(self._uncheck_all_btn)
 
         self._queue_btn = QPushButton("Add to Queue")
+        self._queue_btn.clicked.connect(self.queue_requested.emit)
         layout.addWidget(self._queue_btn)
+        self._queue_btn.setEnabled(False)
 
     def update_summary(self, checked: int, total: int) -> None:
         noun = "items" if self._media_type == "movie" else "shows"
         self._summary_label.setText(f"{checked} of {total} {noun} checked")
         if checked:
             self._queue_btn.setText(f"Add {checked} to Queue")
-            self._queue_btn.setEnabled(True)
         else:
             self._queue_btn.setText("Add to Queue")
-            self._queue_btn.setEnabled(False)
+
+    def set_queue_enabled(self, enabled: bool) -> None:
+        self._queue_btn.setEnabled(enabled)
