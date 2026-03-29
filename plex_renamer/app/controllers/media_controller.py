@@ -26,8 +26,11 @@ from ...engine import (
     MovieScanner,
     PreviewItem,
     ScanState,
+    ScanCancelledError,
+    score_results,
     TVScanner,
 )
+from ...parsing import clean_folder_name, extract_year
 from ...job_store import JobStore
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
@@ -89,6 +92,8 @@ class MediaController:
 
         # ── Progress ────────────────────────────────────────────────
         self._scan_progress = ScanProgress(lifecycle=ScanLifecycle.IDLE)
+        self._scan_operation_lock = threading.Lock()
+        self._scan_cancel_event: threading.Event | None = None
 
         # ── Selection ───────────────────────────────────────────────
         self._library_selected_index: int | None = None
@@ -229,6 +234,29 @@ class MediaController:
         )
         self._notify("progress", self._scan_progress)
 
+    def _begin_scan_operation(self) -> threading.Event:
+        event = threading.Event()
+        with self._scan_operation_lock:
+            self._scan_cancel_event = event
+        return event
+
+    def _is_current_scan_operation(self, event: threading.Event) -> bool:
+        with self._scan_operation_lock:
+            return self._scan_cancel_event is event
+
+    def _finish_scan_operation(self, event: threading.Event) -> None:
+        with self._scan_operation_lock:
+            if self._scan_cancel_event is event:
+                self._scan_cancel_event = None
+
+    def cancel_scan(self) -> bool:
+        with self._scan_operation_lock:
+            event = self._scan_cancel_event
+        if event is None:
+            return False
+        event.set()
+        return True
+
     # ── TV session methods ──────────────────────────────────────────
 
     def accept_tv_show(
@@ -300,8 +328,11 @@ class MediaController:
         self._notify("mode_changed", self._active_content_mode, self._active_library_mode)
 
         orchestrator = self._batch_orchestrator
+        cancel_event = self._begin_scan_operation()
 
         def _progress(done: int, total: int) -> None:
+            if cancel_event.is_set():
+                raise ScanCancelledError("Scan cancelled")
             self._set_progress(
                 ScanLifecycle.MATCHING,
                 phase="Matching shows...",
@@ -312,14 +343,37 @@ class MediaController:
 
         def _worker() -> None:
             try:
-                states = orchestrator.discover_shows(progress_callback=_progress)
+                states = orchestrator.discover_shows(
+                    progress_callback=_progress,
+                    cancel_event=cancel_event,
+                )
+            except ScanCancelledError:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
+                self._batch_states = []
+                self._active_scan = None
+                self._library_selected_index = None
+                self._set_progress(
+                    ScanLifecycle.CANCELLED,
+                    phase="TV discovery cancelled",
+                    message="TV discovery cancelled.",
+                )
+                self._notify("library_changed", self._batch_states)
+                self._finish_scan_operation(cancel_event)
+                return
             except Exception as e:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
                 _log.exception("TV batch discovery failed: %s", e)
                 self._set_progress(
                     ScanLifecycle.FAILED,
                     phase="Discovery failed.",
                     message=f"Discovery failed: {e}",
                 )
+                self._finish_scan_operation(cancel_event)
+                return
+
+            if not self._is_current_scan_operation(cancel_event):
                 return
 
             self._batch_states = states or []
@@ -330,6 +384,7 @@ class MediaController:
                     message="No TV shows found in this folder.",
                 )
                 self._notify("library_changed", self._batch_states)
+                self._finish_scan_operation(cancel_event)
                 return
 
             self.sync_queued_states()
@@ -346,6 +401,7 @@ class MediaController:
             )
             self._notify("library_changed", self._batch_states)
             self._notify("scan_complete", None)
+            self._finish_scan_operation(cancel_event)
 
         threading.Thread(target=_worker, daemon=True, name="TVBatchDiscovery").start()
 
@@ -371,8 +427,11 @@ class MediaController:
             phase="Scanning episodes...",
             message="Scanning episodes...",
         )
+        cancel_event = self._begin_scan_operation()
 
         def _progress(done: int, total: int) -> None:
+            if cancel_event.is_set():
+                raise ScanCancelledError("Scan cancelled")
             current_name = ""
             to_scan = [
                 s for s in self._batch_states
@@ -392,9 +451,36 @@ class MediaController:
 
         def _worker() -> None:
             try:
-                orchestrator.scan_all(progress_callback=_progress)
+                orchestrator.scan_all(
+                    progress_callback=_progress,
+                    cancel_event=cancel_event,
+                )
+            except ScanCancelledError:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
+                for state in self._batch_states:
+                    if self._command_gating.is_plex_ready_state(state):
+                        state.checked = False
+
+                scanned = sum(1 for s in self._batch_states if s.scanned)
+                total_files = sum(s.file_count for s in self._batch_states if s.scanned)
+                self._set_progress(
+                    ScanLifecycle.CANCELLED,
+                    phase="Batch scan cancelled",
+                    message=f"Cancelled after scanning {scanned} show(s) — {total_files} total files",
+                )
+                self._notify("library_changed", self._batch_states)
+                self._finish_scan_operation(cancel_event)
+                return
             except Exception as e:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
                 _log.exception("Batch scan failed: %s", e)
+                self._finish_scan_operation(cancel_event)
+                return
+
+            if not self._is_current_scan_operation(cancel_event):
+                return
 
             # Mark Plex-ready shows as unchecked
             for state in self._batch_states:
@@ -409,6 +495,7 @@ class MediaController:
                 message=f"Scanned {scanned} shows — {total_files} total files",
             )
             self._notify("library_changed", self._batch_states)
+            self._finish_scan_operation(cancel_event)
 
         threading.Thread(target=_worker, daemon=True, name="TVBatchScan").start()
 
@@ -426,6 +513,7 @@ class MediaController:
         def _worker() -> None:
             try:
                 state.scanning = True
+                self._notify("library_changed", self.library_states)
                 items, _need_review = state.scanner.scan()
                 state.preview_items = items
                 state.scanned = True
@@ -439,6 +527,7 @@ class MediaController:
                 phase="TV scan complete",
                 message=f"Preview ready — {len(state.preview_items)} file(s)",
             )
+            self._notify("library_changed", self.library_states)
             self._notify("scan_complete", state)
 
         threading.Thread(target=_worker, daemon=True, name="TVShowScan").start()
@@ -482,17 +571,38 @@ class MediaController:
         self._notify("mode_changed", self._active_content_mode, self._active_library_mode)
 
         scanner = self._movie_scanner
+        cancel_event = self._begin_scan_operation()
 
         def _worker() -> None:
             try:
-                items = scanner.scan()
+                items = scanner.scan(cancel_event=cancel_event)
+            except ScanCancelledError:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
+                self._movie_preview_items = []
+                self._movie_library_states = []
+                self._library_selected_index = None
+                self._set_progress(
+                    ScanLifecycle.CANCELLED,
+                    phase="Movie scan cancelled",
+                    message="Movie scan cancelled.",
+                )
+                self._notify("library_changed", self._movie_library_states)
+                self._finish_scan_operation(cancel_event)
+                return
             except Exception as e:
+                if not self._is_current_scan_operation(cancel_event):
+                    return
                 _log.exception("Movie batch scan failed: %s", e)
                 self._set_progress(
                     ScanLifecycle.FAILED,
                     phase="Scan failed.",
                     message=f"Movie scan failed: {e}",
                 )
+                self._finish_scan_operation(cancel_event)
+                return
+
+            if not self._is_current_scan_operation(cancel_event):
                 return
 
             self._movie_preview_items = items
@@ -514,6 +624,7 @@ class MediaController:
 
             self._notify("library_changed", self._movie_library_states)
             self._notify("scan_complete", None)
+            self._finish_scan_operation(cancel_event)
 
         threading.Thread(target=_worker, daemon=True, name="MovieBatchScan").start()
 
@@ -550,6 +661,74 @@ class MediaController:
             )
             states.append(state)
         self._movie_library_states = states
+
+    def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
+        """Apply a new TMDB match to a TV scan state and clear stale scan data."""
+        orchestrator = self._batch_orchestrator
+        if orchestrator is not None:
+            orchestrator.rematch_show(state, new_match)
+        else:
+            state.media_info = new_match
+            raw_name = clean_folder_name(state.folder.name)
+            year_hint = extract_year(state.folder.name)
+            scored = score_results([new_match], raw_name, year_hint, title_key="name")
+            state.confidence = scored[0][1] if scored else 0.0
+            state.reset_scan()
+
+        raw_name = clean_folder_name(state.folder.name)
+        year_hint = extract_year(state.folder.name)
+        scored = score_results(state.search_results, raw_name, year_hint, title_key="name")
+        state.alternate_matches = [
+            result
+            for result, score in scored
+            if result.get("id") != state.media_info.get("id") and score > 0.3
+        ][:3]
+        state.checked = state.show_id is not None and not state.needs_review
+        self._notify("library_changed", self.library_states)
+
+    def rematch_movie_state(self, state: ScanState, new_match: dict) -> None:
+        """Apply a new TMDB match to a movie scan state and rebuild its preview."""
+        preview = state.preview_items[0] if state.preview_items else None
+        scanner = state.scanner or self._movie_scanner
+        if (
+            preview is None
+            or scanner is None
+            or not hasattr(scanner, "rematch_file")
+            or not hasattr(scanner, "get_search_results")
+        ):
+            raise ValueError("Movie rematch requires an existing preview item and scanner")
+
+        new_item = scanner.rematch_file(preview, new_match)
+        raw_name = clean_folder_name(preview.original.stem)
+        year_hint = extract_year(preview.original.stem)
+        scored = score_results(scanner.get_search_results(preview.original), raw_name, year_hint, title_key="title")
+
+        state.media_info = {
+            "id": new_match.get("id"),
+            "title": new_match.get("title") or preview.media_name or preview.original.stem,
+            "year": new_match.get("year", ""),
+            "poster_path": new_match.get("poster_path"),
+            "overview": new_match.get("overview", ""),
+            "_media_type": MediaType.MOVIE,
+        }
+        state.preview_items = [new_item]
+        state.search_results = scanner.get_search_results(preview.original)
+        state.alternate_matches = [
+            result
+            for result, score in scored
+            if result.get("id") != state.media_info.get("id") and score > 0.3
+        ][:3]
+        state.confidence = scored[0][1] if scored and scored[0][0].get("id") == state.media_info.get("id") else 1.0
+        state.scanned = True
+        state.checked = new_item.is_actionable
+        state.selected_index = 0 if state.preview_items else None
+
+        for index, item in enumerate(self._movie_preview_items):
+            if item.original == preview.original:
+                self._movie_preview_items[index] = new_item
+                break
+
+        self._notify("library_changed", self.library_states)
 
     # ── Session save/restore ────────────────────────────────────────
 

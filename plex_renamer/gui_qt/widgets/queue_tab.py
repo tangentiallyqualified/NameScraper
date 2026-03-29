@@ -7,6 +7,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, QItemSelectionModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -20,8 +21,14 @@ from PySide6.QtWidgets import (
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
-from ..models import JobTableModel
+from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
+
+_QUEUE_FILTERS: dict[str, set[str] | None] = {
+    "All Queue": None,
+    "Pending Only": {JobStatus.PENDING},
+    "Running Only": {JobStatus.RUNNING},
+}
 
 
 class QueueTab(QWidget):
@@ -39,6 +46,8 @@ class QueueTab(QWidget):
         self._tmdb_provider = tmdb_provider
         self._navigate_to_media = navigate_to_media
         self._model = JobTableModel(history=False, parent=self)
+        self._proxy = JobStatusFilterProxyModel(self)
+        self._proxy.setSourceModel(self._model)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -68,6 +77,11 @@ class QueueTab(QWidget):
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         toolbar_layout.addWidget(self._clear_selection_btn)
 
+        self._filter_combo = QComboBox()
+        self._filter_combo.addItems(list(_QUEUE_FILTERS.keys()))
+        self._filter_combo.currentTextChanged.connect(self._apply_filter)
+        toolbar_layout.addWidget(self._filter_combo)
+
         self._status = QLabel("Queue empty")
         self._status.setProperty("cssClass", "text-dim")
         toolbar_layout.addWidget(self._status, stretch=1)
@@ -79,7 +93,7 @@ class QueueTab(QWidget):
         root.addWidget(toolbar)
 
         self._table = QTableView()
-        self._table.setModel(self._model)
+        self._table.setModel(self._proxy)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -132,6 +146,7 @@ class QueueTab(QWidget):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_queue()
         self._model.set_jobs(jobs)
+        shown = self._proxy.rowCount()
         pending = sum(1 for job in jobs if job.status == JobStatus.PENDING)
         running = sum(1 for job in jobs if job.status == JobStatus.RUNNING)
         parts = []
@@ -139,6 +154,8 @@ class QueueTab(QWidget):
             parts.append(f"{running} running")
         if pending:
             parts.append(f"{pending} pending")
+        if jobs and shown != len(jobs):
+            parts.append(f"showing {shown}/{len(jobs)}")
         self._status.setText(" · ".join(parts) if parts else "Queue empty")
         self._start_btn.setText("Stop Queue" if self._queue_ctrl.is_running else "Start Queue")
         has_jobs = bool(jobs)
@@ -150,14 +167,31 @@ class QueueTab(QWidget):
         for row, job in enumerate(self._model.jobs()):
             if job.job_id != job_id:
                 continue
-            index = self._model.index(row, 0)
-            self._table.selectRow(row)
-            self._table.scrollTo(index)
+            source_index = self._model.index(row, 0)
+            proxy_index = self._proxy.mapFromSource(source_index)
+            if not proxy_index.isValid():
+                continue
+            self._table.selectRow(proxy_index.row())
+            self._table.scrollTo(proxy_index)
             return
 
     def _selected_jobs(self) -> list[RenameJob]:
         rows = sorted({index.row() for index in self._table.selectionModel().selectedRows()})
-        return [job for row in rows if (job := self._model.job_at(row)) is not None]
+        jobs: list[RenameJob] = []
+        for row in rows:
+            proxy_index = self._proxy.index(row, 0)
+            source_index = self._proxy.mapToSource(proxy_index)
+            if not source_index.isValid():
+                continue
+            job = self._model.job_at(source_index.row())
+            if job is not None:
+                jobs.append(job)
+        return jobs
+
+    def _apply_filter(self, label: str) -> None:
+        self._proxy.set_allowed_statuses(_QUEUE_FILTERS.get(label))
+        self._clear_selection()
+        self.refresh()
 
     def _on_selection_changed(self, *_args) -> None:
         jobs = self._selected_jobs()

@@ -5,6 +5,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from plex_renamer.app.controllers.media_controller import MediaController
 from plex_renamer.app.models import ScanLifecycle, ScanProgress
@@ -13,7 +14,7 @@ from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.constants import MediaType
-from plex_renamer.engine import PreviewItem, ScanState
+from plex_renamer.engine import PreviewItem, ScanCancelledError, ScanState
 from plex_renamer.job_store import JobStore, RenameJob
 
 
@@ -61,6 +62,70 @@ class _FakeMovieScanner:
 
     def get_search_results(self, path):
         return list(self._search_results.get(path, []))
+
+
+class _SlowTMDB(_FakeTMDB):
+    def search_tv_batch(self, queries, progress_callback=None):
+        results = []
+        total = len(queries)
+        for index, (name, year) in enumerate(queries, start=1):
+            time.sleep(0.05)
+            if progress_callback:
+                progress_callback(index, total)
+            results.append([
+                {
+                    "id": index,
+                    "name": name,
+                    "year": year or "2020",
+                    "poster_path": None,
+                    "overview": "",
+                    "number_of_seasons": 1,
+                    "number_of_episodes": 12,
+                }
+            ])
+        return results
+
+
+class _CancelableBatchOrchestrator:
+    def __init__(self, states):
+        self.states = states
+
+    def scan_all(self, progress_callback=None, cancel_event=None):
+        total = len(self.states)
+        self.states[0].scanned = True
+        self.states[0].preview_items = [
+            PreviewItem(
+                original=self.states[0].folder / "Episode.mkv",
+                new_name="Episode.mkv",
+                target_dir=self.states[0].folder,
+                season=1,
+                episodes=[1],
+                status="OK",
+            )
+        ]
+        if progress_callback:
+            progress_callback(1, total)
+        while cancel_event is not None and not cancel_event.is_set():
+            time.sleep(0.01)
+        raise ScanCancelledError("Scan cancelled")
+
+
+class _SlowMovieBatchScanner:
+    def __init__(self, tmdb, root_folder, files=None):
+        self.tmdb = tmdb
+        self.root = root_folder
+        self._explicit_files = files
+        self.movie_info = {}
+
+    def scan(self, pick_movie_callback=None, progress_callback=None, cancel_event=None):
+        total = 5
+        for index in range(1, total + 1):
+            if cancel_event is not None and cancel_event.is_set():
+                raise ScanCancelledError("Scan cancelled")
+            if progress_callback:
+                progress_callback(index, total, "Searching TMDB...")
+            time.sleep(0.05)
+        return []
 
 
 # ── Helper to build a controller with temp services ──────────────────
@@ -258,6 +323,61 @@ class TVBatchTests(unittest.TestCase):
 
         self.assertEqual(self.ctrl.batch_states, [])
 
+    def test_cancel_tv_batch_sets_cancelled_progress(self):
+        root = self.tmp / "tv_root"
+        for name in ("Naruto", "Bleach", "One Piece"):
+            (root / name / "Season 01").mkdir(parents=True)
+            (root / name / "Season 01" / f"{name} - S01E01.mkv").write_text("x")
+
+        self.ctrl.start_tv_batch(root, _SlowTMDB())
+
+        for _ in range(50):
+            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.MATCHING:
+                break
+            time.sleep(0.02)
+
+        self.assertTrue(self.ctrl.cancel_scan())
+
+        for _ in range(50):
+            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
+                break
+            time.sleep(0.02)
+
+        self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
+        self.assertEqual(self.ctrl.batch_states, [])
+
+    def test_cancel_tv_bulk_scan_preserves_partial_results(self):
+        states = [
+            ScanState(folder=self.tmp / "ShowA", media_info={"id": 1, "name": "ShowA"}),
+            ScanState(folder=self.tmp / "ShowB", media_info={"id": 2, "name": "ShowB"}),
+        ]
+        for state in states:
+            state.folder.mkdir()
+
+        self.ctrl._batch_mode = True
+        self.ctrl._active_content_mode = MediaType.TV
+        self.ctrl._active_library_mode = MediaType.TV
+        self.ctrl._batch_states = states
+        self.ctrl._batch_orchestrator = _CancelableBatchOrchestrator(states)
+
+        self.ctrl.scan_all_shows()
+
+        for _ in range(50):
+            if self.ctrl.scan_progress.done >= 1:
+                break
+            time.sleep(0.02)
+
+        self.assertTrue(self.ctrl.cancel_scan())
+
+        for _ in range(50):
+            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
+                break
+            time.sleep(0.02)
+
+        self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
+        self.assertTrue(self.ctrl.batch_states[0].scanned)
+        self.assertFalse(self.ctrl.batch_states[1].scanned)
+
 
 class MovieStateBuildTests(unittest.TestCase):
     def setUp(self):
@@ -322,6 +442,147 @@ class MovieStateBuildTests(unittest.TestCase):
         self.assertEqual(len(state.alternate_matches), 1)
         self.assertIs(state.scanner, scanner)
         self.assertTrue(state.checked)
+
+
+class RematchStateTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._tmp.name)
+        self.ctrl, self.store = _make_controller(self.tmp)
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def test_rematch_tv_state_updates_match_and_alternates(self):
+        state = ScanState(
+            folder=self.tmp / "Andor.2022",
+            media_info={"id": 10, "name": "Andor", "year": "2022"},
+            confidence=0.4,
+            scanned=True,
+            search_results=[
+                {"id": 10, "name": "Andor", "year": "2022"},
+                {"id": 20, "name": "Andor", "year": "2022"},
+                {"id": 30, "name": "Random", "year": "1999"},
+            ],
+            alternate_matches=[
+                {"id": 20, "name": "Andor", "year": "2022"},
+            ],
+        )
+        self.ctrl._batch_states = [state]
+        self.ctrl._active_library_mode = MediaType.TV
+
+        self.ctrl.rematch_tv_state(state, {"id": 20, "name": "Andor", "year": "2022"})
+
+        self.assertEqual(state.media_info["id"], 20)
+        self.assertFalse(state.scanned)
+        alternate_ids = [match["id"] for match in state.alternate_matches]
+        self.assertIn(10, alternate_ids)
+        self.assertNotIn(20, alternate_ids)
+
+    def test_rematch_movie_state_rebuilds_preview(self):
+        movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
+        old_item = PreviewItem(
+            original=movie_file,
+            new_name="Old Match (2023).mkv",
+            target_dir=self.tmp / "Old Match (2023)",
+            season=None,
+            episodes=[],
+            status="REVIEW: verify",
+            media_type=MediaType.MOVIE,
+            media_id=1,
+            media_name="Old Match",
+        )
+
+        class _RematchScanner:
+            def __init__(self, target_root):
+                self._target_root = target_root
+                self.movie_info = {movie_file: {"id": 1, "title": "Old Match", "year": "2023"}}
+                self._results = {
+                    movie_file: [
+                        {"id": 99, "title": "Dune: Part Two", "year": "2024", "poster_path": "/poster.jpg", "overview": "Paul Atreides returns."},
+                        {"id": 1, "title": "Old Match", "year": "2023", "poster_path": None, "overview": ""},
+                    ]
+                }
+
+            def rematch_file(self, item, chosen):
+                self.movie_info[item.original] = chosen
+                return PreviewItem(
+                    original=item.original,
+                    new_name=f"{chosen['title']} ({chosen['year']}).mkv",
+                    target_dir=self._target_root / f"{chosen['title']} ({chosen['year']})",
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type=MediaType.MOVIE,
+                    media_id=chosen["id"],
+                    media_name=chosen["title"],
+                )
+
+            def get_search_results(self, path):
+                return list(self._results.get(path, []))
+
+        scanner = _RematchScanner(self.tmp)
+        state = ScanState(
+            folder=self.tmp,
+            media_info={"id": 1, "title": "Old Match", "year": "2023"},
+            preview_items=[old_item],
+            confidence=0.5,
+            scanned=True,
+            checked=False,
+            scanner=scanner,
+            search_results=scanner.get_search_results(movie_file),
+            alternate_matches=[scanner.get_search_results(movie_file)[0]],
+        )
+        self.ctrl._movie_library_states = [state]
+        self.ctrl._movie_preview_items = [old_item]
+        self.ctrl._active_library_mode = MediaType.MOVIE
+
+        self.ctrl.rematch_movie_state(
+            state,
+            {"id": 99, "title": "Dune: Part Two", "year": "2024", "poster_path": "/poster.jpg", "overview": "Paul Atreides returns."},
+        )
+
+        self.assertEqual(state.media_info["id"], 99)
+        self.assertEqual(state.preview_items[0].new_name, "Dune: Part Two (2024).mkv")
+        self.assertTrue(state.checked)
+        self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
+
+
+class MovieBatchCancellationTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._tmp.name)
+        self.ctrl, self.store = _make_controller(self.tmp)
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def test_cancel_movie_batch_sets_cancelled_progress(self):
+        root = self.tmp / "movies"
+        root.mkdir()
+
+        with patch(
+            "plex_renamer.app.controllers.media_controller.MovieScanner",
+            _SlowMovieBatchScanner,
+        ):
+            self.ctrl.start_movie_batch(root, _FakeTMDB())
+
+            for _ in range(50):
+                if self.ctrl.scan_progress.lifecycle == ScanLifecycle.SCANNING:
+                    break
+                time.sleep(0.02)
+
+            self.assertTrue(self.ctrl.cancel_scan())
+
+            for _ in range(50):
+                if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
+                    break
+                time.sleep(0.02)
+
+        self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
+        self.assertEqual(self.ctrl.movie_library_states, [])
 
 
 class SessionSaveRestoreTests(unittest.TestCase):

@@ -30,9 +30,11 @@ from PySide6.QtWidgets import (
 )
 
 from ...engine import PreviewItem, ScanState
+from ...parsing import clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
+from .match_picker_dialog import MatchPickerDialog
 from .scan_progress import ScanProgressWidget
 
 if TYPE_CHECKING:
@@ -140,6 +142,11 @@ class MediaWorkspace(QWidget):
         self._preview_title.setProperty("cssClass", "heading")
         preview_header.addWidget(self._preview_title)
         preview_header.addStretch()
+        self._fix_match_btn = QPushButton("Fix Match")
+        self._fix_match_btn.setProperty("cssClass", "secondary")
+        self._fix_match_btn.setEnabled(False)
+        self._fix_match_btn.clicked.connect(self._fix_match)
+        preview_header.addWidget(self._fix_match_btn)
         self._queue_inline_btn = QPushButton("Add to Queue")
         self._queue_inline_btn.setEnabled(False)
         self._queue_inline_btn.clicked.connect(self._queue_checked)
@@ -160,7 +167,10 @@ class MediaWorkspace(QWidget):
         self._preview_list.itemClicked.connect(self._on_preview_item_clicked)
         preview_layout.addWidget(self._preview_list, stretch=1)
 
-        self._detail_panel = MediaDetailPanel(tmdb_provider=self._tmdb_provider)
+        self._detail_panel = MediaDetailPanel(
+            tmdb_provider=self._tmdb_provider,
+            settings_service=self._settings,
+        )
 
         self._splitter.addWidget(self._roster_panel)
         self._splitter.addWidget(self._preview_panel)
@@ -227,6 +237,12 @@ class MediaWorkspace(QWidget):
     def splitter(self) -> QSplitter:
         return self._splitter
 
+    def apply_settings(self) -> None:
+        compact = self._settings is not None and self._settings.view_mode == "compact"
+        self._roster_list.setIconSize(QSize(32, 46) if compact else QSize(42, 60))
+        self.refresh_from_controller()
+        self._detail_panel.refresh_current()
+
     # ── Internals ────────────────────────────────────────────────
 
     def _on_folder_selected(self, path: str) -> None:
@@ -238,8 +254,13 @@ class MediaWorkspace(QWidget):
         self.show_scanning()
 
     def _on_cancel_scan(self) -> None:
-        # Will be wired to MediaController.cancel_scan in Phase 5
-        self.show_empty()
+        if self._media_ctrl is None:
+            self.show_empty()
+            return
+        if self._media_ctrl.cancel_scan():
+            self.status_message.emit("Cancelling scan...", 3000)
+            return
+        self.status_message.emit("No active scan to cancel.", 3000)
 
     def _on_splitter_moved(self) -> None:
         if self._settings:
@@ -293,6 +314,8 @@ class MediaWorkspace(QWidget):
             self._detail_panel.clear()
             self._action_bar.update_summary(0, 0)
             self._action_bar.set_queue_enabled(False)
+            self._fix_match_btn.setEnabled(False)
+            self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setText("Add to Queue")
             return
@@ -558,6 +581,58 @@ class MediaWorkspace(QWidget):
         self.queue_changed.emit()
         self.status_message.emit(_format_batch_result(result), 5000)
 
+    def _fix_match(self) -> None:
+        state = self._selected_state()
+        if state is None or self._media_ctrl is None or self._tmdb_provider is None:
+            return
+        if state.queued:
+            self.status_message.emit("Remove the item from the queue before changing its match.", 4000)
+            return
+
+        tmdb = self._tmdb_provider()
+        if tmdb is None:
+            self.status_message.emit("TMDB is unavailable.", 4000)
+            return
+
+        if self._media_type == "movie":
+            query_source = state.preview_items[0].original.stem if state.preview_items else state.folder.name
+            title_key = "title"
+            search_callback = tmdb.search_movie
+            dialog_title = f"Fix Match: {query_source}"
+        else:
+            query_source = state.folder.name
+            title_key = "name"
+            search_callback = tmdb.search_tv
+            dialog_title = f"Fix Match: {state.folder.name}"
+
+        query = clean_folder_name(query_source, include_year=False)
+        year_hint = extract_year(query_source)
+        chosen = MatchPickerDialog.pick(
+            title=dialog_title,
+            title_key=title_key,
+            initial_query=query,
+            initial_results=state.search_results,
+            search_callback=search_callback,
+            year_hint=year_hint,
+            parent=self,
+        )
+        if not chosen:
+            return
+
+        try:
+            if self._media_type == "movie":
+                self._media_ctrl.rematch_movie_state(state, chosen)
+                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
+                self.refresh_from_controller()
+                return
+
+            self._media_ctrl.rematch_tv_state(state, chosen)
+            self.refresh_from_controller()
+            self._media_ctrl.scan_show(state, tmdb)
+            self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
+        except Exception as exc:
+            QMessageBox.warning(self, "Fix Match Failed", str(exc))
+
     def _queue_eligibility(self, states: list[ScanState]):
         if not states:
             return self._media_ctrl.command_gating.summarize_scan_states([])
@@ -570,6 +645,8 @@ class MediaWorkspace(QWidget):
         states = self._current_states()
         checked = [state for state in states if state.checked]
         self._action_bar.update_summary(len(checked), len(states))
+        selected_state = self._selected_state()
+        self._fix_match_btn.setEnabled(bool(selected_state and not selected_state.queued and not selected_state.scanning))
         if not checked:
             self._action_bar.set_queue_enabled(False)
             self._queue_inline_btn.setEnabled(False)
@@ -579,7 +656,6 @@ class MediaWorkspace(QWidget):
         self._action_bar.set_queue_enabled(eligibility.enabled)
         self._queue_inline_btn.setEnabled(eligibility.enabled)
         self._queue_inline_btn.setText(f"Add {len(checked)} to Queue")
-        selected_state = self._selected_state()
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
 
@@ -628,8 +704,13 @@ class MediaWorkspace(QWidget):
 
     def _format_roster_text(self, state: ScanState) -> str:
         status, _color = _state_status(state)
+        compact = self._settings is not None and self._settings.view_mode == "compact"
         if self._media_type == "movie":
+            if compact:
+                return f"{state.display_name} · {status} · {len(state.preview_items)} file(s)"
             return f"{state.display_name}\n{status} · {len(state.preview_items)} file(s)"
+        if compact:
+            return f"{state.display_name} · {status} · {state.file_count} file(s)"
         return f"{state.display_name}\n{status} · {state.file_count} file(s)"
 
     def _folder_plan_text(self, state: ScanState) -> str:
@@ -661,20 +742,29 @@ class MediaWorkspace(QWidget):
     def _format_preview_text(self, preview: PreviewItem) -> str:
         rename = preview.new_name or "No rename target"
         extra = ""
+        compact = self._settings is not None and self._settings.view_mode == "compact"
         if preview.season is not None and preview.episodes:
             episode_text = ", ".join(f"E{ep:02d}" for ep in preview.episodes)
             extra = f"S{preview.season:02d} {episode_text} · "
-        return f"{extra}{preview.original.name}\n-> {rename}"
+        companion_suffix = ""
+        if self._settings is not None and self._settings.show_companion_files and preview.companions:
+            noun = "file" if len(preview.companions) == 1 else "files"
+            companion_suffix = f" · +{len(preview.companions)} companion {noun}"
+        if compact:
+            return f"{extra}{preview.original.name} -> {rename}{companion_suffix}"
+        return f"{extra}{preview.original.name}\n-> {rename}{companion_suffix}"
 
     def _preview_tooltip(self, preview: PreviewItem) -> str:
         target_dir = preview.target_dir or preview.original.parent
-        return "\n".join(
-            [
-                preview.status,
-                f"Source: {preview.original}",
-                f"Target: {target_dir / (preview.new_name or preview.original.name)}",
-            ]
-        )
+        lines = [
+            preview.status,
+            f"Source: {preview.original}",
+            f"Target: {target_dir / (preview.new_name or preview.original.name)}",
+        ]
+        if self._settings is not None and self._settings.show_companion_files and preview.companions:
+            companion_names = ", ".join(companion.original.name for companion in preview.companions)
+            lines.append(f"Companions: {companion_names}")
+        return "\n".join(lines)
 
 
 class _CheckBinding:

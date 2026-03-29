@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -62,6 +62,12 @@ _TAG_TO_DISPLAY = {v: k for k, v in _LANGUAGE_OPTIONS.items()}
 
 class SettingsTab(QScrollArea):
     """Scrollable settings panel with section cards."""
+
+    view_mode_changed = Signal(str)
+    companion_visibility_changed = Signal(bool)
+    discovery_visibility_changed = Signal(bool)
+    language_changed = Signal(str)
+    api_key_saved = Signal()
 
     def __init__(
         self,
@@ -269,22 +275,51 @@ class SettingsTab(QScrollArea):
 
     # ── Callbacks ────────────────────────────────────────────────
 
+    def sync_view_mode(self, mode: str) -> None:
+        self._view_mode_combo.blockSignals(True)
+        self._view_mode_combo.setCurrentIndex(1 if mode == "compact" else 0)
+        self._view_mode_combo.blockSignals(False)
+
+    def sync_companion_visibility(self, checked: bool) -> None:
+        self._companion_cb.blockSignals(True)
+        self._companion_cb.setChecked(checked)
+        self._companion_cb.blockSignals(False)
+
+    def sync_discovery_visibility(self, checked: bool) -> None:
+        self._discovery_cb.blockSignals(True)
+        self._discovery_cb.setChecked(checked)
+        self._discovery_cb.blockSignals(False)
+
+    def sync_language(self, tag: str) -> None:
+        display = _TAG_TO_DISPLAY.get(tag, "English (US)")
+        index = self._lang_combo.findText(display)
+        if index < 0:
+            index = 0
+        self._lang_combo.blockSignals(True)
+        self._lang_combo.setCurrentIndex(index)
+        self._lang_combo.blockSignals(False)
+
     def _on_view_mode(self, index: int) -> None:
+        mode = "compact" if index == 1 else "normal"
         if self._settings:
-            self._settings.view_mode = "compact" if index == 1 else "normal"
+            self._settings.view_mode = mode
+        self.view_mode_changed.emit(mode)
 
     def _on_companion(self, checked: bool) -> None:
         if self._settings:
             self._settings.show_companion_files = checked
+        self.companion_visibility_changed.emit(checked)
 
     def _on_discovery(self, checked: bool) -> None:
         if self._settings:
             self._settings.show_discovery_info = checked
+        self.discovery_visibility_changed.emit(checked)
 
     def _on_language(self, display: str) -> None:
         tag = _LANGUAGE_OPTIONS.get(display, "en-US")
         if self._settings:
             self._settings.match_language = tag
+        self.language_changed.emit(tag)
 
     def _on_threshold(self, value: int) -> None:
         fval = value / 100
@@ -307,6 +342,7 @@ class SettingsTab(QScrollArea):
             save_api_key("TMDB", key)
             self._key_status.setText("API key saved.")
             self._key_status.setStyleSheet("color: #3ea463;")
+            self.api_key_saved.emit()
         except Exception as e:
             self._key_status.setText(f"Save failed: {e}")
             self._key_status.setStyleSheet("color: #d44040;")

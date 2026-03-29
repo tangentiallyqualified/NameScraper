@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
@@ -458,6 +459,7 @@ class BatchTVOrchestrator:
     def discover_shows(
         self,
         progress_callback: Callable | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """
         Phase 1: Find show folders and match to TMDB.
@@ -474,6 +476,7 @@ class BatchTVOrchestrator:
         discovered = discovery_service.discover_show_roots(self.root)
         candidates: list[tuple[object, str, str | None]] = []
         for candidate in discovered:
+            _raise_if_cancelled(cancel_event)
             cleaned = clean_folder_name(candidate.folder.name, include_year=False)
             year_hint = extract_year(candidate.folder.name)
             candidates.append((candidate, cleaned, year_hint))
@@ -493,6 +496,7 @@ class BatchTVOrchestrator:
         # Build ScanState for each candidate
         states: list[ScanState] = []
         for (candidate, cleaned_name, year_hint), results in zip(candidates, all_results):
+            _raise_if_cancelled(cancel_event)
             folder = candidate.folder
             if not results:
                 # No TMDB results — create state with folder name as placeholder
@@ -542,6 +546,7 @@ class BatchTVOrchestrator:
             file_count = candidate.direct_video_file_count
             use_seasons = False
             if file_count == 0 and candidate.has_direct_season_subdirs:
+                _raise_if_cancelled(cancel_event)
                 file_count = self._count_season_subdirs(candidate.folder)
                 use_seasons = True
             if file_count > 0 and len(scored) >= 2:
@@ -602,6 +607,7 @@ class BatchTVOrchestrator:
         self,
         state: ScanState,
         progress_callback: Callable | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         """
         Phase 2: Run TVScanner for a single show and populate its ScanState.
@@ -615,12 +621,15 @@ class BatchTVOrchestrator:
             _log.warning("Cannot scan %s — no TMDB match", state.folder.name)
             return
 
+        _raise_if_cancelled(cancel_event)
+
         state.scanning = True
         _log.info("Scanning episodes for: %s", state.display_name)
 
         try:
             scanner = TVScanner(self.tmdb, state.media_info, state.folder)
             items, has_mismatch = scanner.scan()
+            _raise_if_cancelled(cancel_event)
 
             _log.info("Folder '%s' produced %d items (mismatch=%s), seasons: %s",
                       state.folder.name, len(items), has_mismatch,
@@ -631,6 +640,7 @@ class BatchTVOrchestrator:
                 _log.info("Season mismatch detected for %s, using consolidated scan",
                            state.display_name)
                 items = scanner.scan_consolidated()
+                _raise_if_cancelled(cancel_event)
 
             check_duplicates(items)
 
@@ -663,6 +673,7 @@ class BatchTVOrchestrator:
     def scan_all(
         self,
         progress_callback: Callable | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         """
         Phase 2 bulk: Scan all shows that have a TMDB match.
@@ -677,9 +688,12 @@ class BatchTVOrchestrator:
         total = len(to_scan)
 
         for i, state in enumerate(to_scan):
+            _raise_if_cancelled(cancel_event)
             try:
-                self.scan_show(state)
+                self.scan_show(state, cancel_event=cancel_event)
             except Exception as e:
+                if isinstance(e, ScanCancelledError):
+                    raise
                 _log.error("Failed to scan %s: %s", state.display_name, e)
             if progress_callback:
                 progress_callback(i + 1, total)
@@ -2120,6 +2134,7 @@ class MovieScanner:
         self,
         pick_movie_callback: Callable | None = None,
         progress_callback: Callable | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> list[PreviewItem]:
         """
         Scan files and build preview items with automatic TMDB matching.
@@ -2134,12 +2149,14 @@ class MovieScanner:
         immediate confirmation.
         """
         items: list[PreviewItem] = []
+        _raise_if_cancelled(cancel_event)
 
         # Phase 1: Collect and filter files
         all_video_files = self._get_video_files()
         video_files: list[Path] = []
 
         for f in all_video_files:
+            _raise_if_cancelled(cancel_event)
             if is_sample_file(f):
                 items.append(PreviewItem(
                     original=f, new_name=None, target_dir=None,
@@ -2164,6 +2181,7 @@ class MovieScanner:
         if len(video_files) >= 3:
             video_files, batch_skipped = self._filter_sequential_batches(video_files)
             items.extend(batch_skipped)
+        _raise_if_cancelled(cancel_event)
 
         if not video_files:
             return items
@@ -2179,6 +2197,7 @@ class MovieScanner:
 
         # Phase 3: Parallel TMDB search
         def _progress(done, total):
+            _raise_if_cancelled(cancel_event)
             if progress_callback:
                 progress_callback(done, total, "Searching TMDB...")
 
@@ -2192,6 +2211,7 @@ class MovieScanner:
         for f, (search_query, year_hint, raw_name), results in zip(
             video_files, prepared, all_results,
         ):
+            _raise_if_cancelled(cancel_event)
             self._search_cache[f] = results
 
             if not results:
@@ -2349,6 +2369,15 @@ AUTO_ACCEPT_THRESHOLD = 0.55
 
 # Sentinel value returned by the pick callback to cancel the entire scan.
 CANCEL_SCAN = object()
+
+
+class ScanCancelledError(RuntimeError):
+    """Raised when a long-running scan is cancelled by the user."""
+
+
+def _raise_if_cancelled(cancel_event: threading.Event | None) -> None:
+    if cancel_event is not None and cancel_event.is_set():
+        raise ScanCancelledError("Scan cancelled")
 
 
 def score_results(

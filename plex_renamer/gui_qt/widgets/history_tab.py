@@ -7,6 +7,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -20,8 +21,16 @@ from PySide6.QtWidgets import (
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
-from ..models import JobTableModel
+from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
+
+_HISTORY_FILTERS: dict[str, set[str] | None] = {
+    "All History": None,
+    "Completed Only": {JobStatus.COMPLETED},
+    "Failed Only": {JobStatus.FAILED},
+    "Reverted Only": {JobStatus.REVERTED},
+    "Cancelled Only": {JobStatus.CANCELLED},
+}
 
 
 class HistoryTab(QWidget):
@@ -36,6 +45,8 @@ class HistoryTab(QWidget):
         super().__init__(parent)
         self._queue_ctrl = queue_controller
         self._model = JobTableModel(history=True, parent=self)
+        self._proxy = JobStatusFilterProxyModel(self)
+        self._proxy.setSourceModel(self._model)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -65,6 +76,11 @@ class HistoryTab(QWidget):
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         toolbar_layout.addWidget(self._clear_selection_btn)
 
+        self._filter_combo = QComboBox()
+        self._filter_combo.addItems(list(_HISTORY_FILTERS.keys()))
+        self._filter_combo.currentTextChanged.connect(self._apply_filter)
+        toolbar_layout.addWidget(self._filter_combo)
+
         self._status = QLabel("No history yet")
         self._status.setProperty("cssClass", "text-dim")
         toolbar_layout.addWidget(self._status, stretch=1)
@@ -76,7 +92,7 @@ class HistoryTab(QWidget):
         root.addWidget(toolbar)
 
         self._table = QTableView()
-        self._table.setModel(self._model)
+        self._table.setModel(self._proxy)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -96,7 +112,11 @@ class HistoryTab(QWidget):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_history()
         self._model.set_jobs(jobs)
-        self._status.setText(f"{len(jobs)} historical job(s)" if jobs else "No history yet")
+        shown = self._proxy.rowCount()
+        status = f"{len(jobs)} historical job(s)" if jobs else "No history yet"
+        if jobs and shown != len(jobs):
+            status += f" · showing {shown}/{len(jobs)}"
+        self._status.setText(status)
         self._clear_btn.setEnabled(bool(jobs))
         self._select_all_btn.setEnabled(bool(jobs))
         self._clear_selection_btn.setEnabled(bool(jobs))
@@ -106,13 +126,31 @@ class HistoryTab(QWidget):
         for row, job in enumerate(self._model.jobs()):
             if job.job_id != job_id:
                 continue
-            self._table.selectRow(row)
-            self._table.scrollTo(self._model.index(row, 0))
+            source_index = self._model.index(row, 0)
+            proxy_index = self._proxy.mapFromSource(source_index)
+            if not proxy_index.isValid():
+                continue
+            self._table.selectRow(proxy_index.row())
+            self._table.scrollTo(proxy_index)
             return
 
     def _selected_jobs(self) -> list[RenameJob]:
         rows = sorted({index.row() for index in self._table.selectionModel().selectedRows()})
-        return [job for row in rows if (job := self._model.job_at(row)) is not None]
+        jobs: list[RenameJob] = []
+        for row in rows:
+            proxy_index = self._proxy.index(row, 0)
+            source_index = self._proxy.mapToSource(proxy_index)
+            if not source_index.isValid():
+                continue
+            job = self._model.job_at(source_index.row())
+            if job is not None:
+                jobs.append(job)
+        return jobs
+
+    def _apply_filter(self, label: str) -> None:
+        self._proxy.set_allowed_statuses(_HISTORY_FILTERS.get(label))
+        self._clear_selection()
+        self.refresh()
 
     def _on_selection_changed(self, *_args) -> None:
         jobs = self._selected_jobs()

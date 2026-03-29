@@ -19,6 +19,7 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QMainWindow,
     QMenuBar,
+    QMessageBox,
     QTabWidget,
 )
 
@@ -29,7 +30,9 @@ from ..app.services.refresh_policy_service import RefreshPolicyService
 from ..app.services.settings_service import SettingsService
 from ..app.controllers.queue_controller import QueueController
 from ..app.controllers.media_controller import MediaController
+from ..engine import RenameResult
 from ..job_store import JobStore
+from ..job_store import RenameJob
 from ..tmdb import TMDBClient
 from ..keys import get_api_key
 
@@ -37,6 +40,7 @@ from .widgets.media_workspace import MediaWorkspace
 from .widgets.queue_tab import QueueTab
 from .widgets.history_tab import HistoryTab
 from .widgets.settings_tab import SettingsTab
+from .widgets.toast_manager import ToastManager
 
 _log = logging.getLogger(__name__)
 
@@ -73,17 +77,25 @@ class _QueueBridge(QObject):
     """Thread-safe bridge from QueueController callbacks to Qt signals."""
 
     changed = Signal(object)
+    job_started = Signal(object)
+    job_completed = Signal(object, object)
+    job_failed = Signal(object, object)
+    queue_finished = Signal()
 
-    def on_job_started(self, _job) -> None:
+    def on_job_started(self, job) -> None:
+        self.job_started.emit(job)
         self.changed.emit(None)
 
-    def on_job_completed(self, _job, _result) -> None:
+    def on_job_completed(self, job, result) -> None:
+        self.job_completed.emit(job, result)
         self.changed.emit(None)
 
-    def on_job_failed(self, _job, _error) -> None:
+    def on_job_failed(self, job, error) -> None:
+        self.job_failed.emit(job, error)
         self.changed.emit(None)
 
     def on_queue_finished(self) -> None:
+        self.queue_finished.emit()
         self.changed.emit(None)
 
 
@@ -135,11 +147,19 @@ class MainWindow(QMainWindow):
             on_queue_finished=self._queue_bridge.on_queue_finished,
         )
         self._queue_bridge.changed.connect(self._on_queue_changed)
+        self._queue_bridge.job_started.connect(self._on_job_started)
+        self._queue_bridge.job_completed.connect(self._on_job_completed)
+        self._queue_bridge.job_failed.connect(self._on_job_failed)
+        self._queue_bridge.queue_finished.connect(self._on_queue_finished)
 
         # ── Tab widget ───────────────────────────────────────────
         self._tabs = QTabWidget()
         self._tabs.setDocumentMode(True)
         self.setCentralWidget(self._tabs)
+        self._toast_manager = ToastManager(self)
+        self._queue_run_started = False
+        self._queue_completed_count = 0
+        self._queue_failed_count = 0
 
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
@@ -189,10 +209,18 @@ class MainWindow(QMainWindow):
         self._movie_workspace.queue_changed.connect(self._on_queue_changed)
         self._tv_workspace.status_message.connect(self.statusBar().showMessage)
         self._movie_workspace.status_message.connect(self.statusBar().showMessage)
+        self._settings_tab.view_mode_changed.connect(self._apply_view_mode)
+        self._settings_tab.companion_visibility_changed.connect(self._apply_companion_visibility)
+        self._settings_tab.discovery_visibility_changed.connect(self._apply_discovery_visibility)
+        self._settings_tab.language_changed.connect(self._on_language_changed)
+        self._settings_tab.api_key_saved.connect(self._invalidate_tmdb)
 
         # ── Restore geometry ─────────────────────────────────────
         self._restore_window_state()
         self._refresh_job_views()
+        self._apply_view_mode(self.settings_service.view_mode)
+        self._apply_companion_visibility(self.settings_service.show_companion_files)
+        self._apply_discovery_visibility(self.settings_service.show_discovery_info)
 
     # ── TMDB client ──────────────────────────────────────────────
 
@@ -211,6 +239,42 @@ class MainWindow(QMainWindow):
             language=self.settings_service.match_language,
         )
         return self._tmdb
+
+    def _invalidate_tmdb(self) -> None:
+        self._tmdb = None
+
+    def _refresh_media_workspaces(self) -> None:
+        self._tv_workspace.apply_settings()
+        self._movie_workspace.apply_settings()
+
+    def _apply_view_mode(self, mode: str) -> None:
+        checked = mode == "compact"
+        self.settings_service.view_mode = mode
+        self._compact_action.blockSignals(True)
+        self._compact_action.setChecked(checked)
+        self._compact_action.blockSignals(False)
+        self._settings_tab.sync_view_mode(mode)
+        self._refresh_media_workspaces()
+
+    def _apply_companion_visibility(self, checked: bool) -> None:
+        self.settings_service.show_companion_files = checked
+        self._companion_action.blockSignals(True)
+        self._companion_action.setChecked(checked)
+        self._companion_action.blockSignals(False)
+        self._settings_tab.sync_companion_visibility(checked)
+        self._refresh_media_workspaces()
+
+    def _apply_discovery_visibility(self, checked: bool) -> None:
+        self.settings_service.show_discovery_info = checked
+        self._settings_tab.sync_discovery_visibility(checked)
+        self._refresh_media_workspaces()
+
+    def _on_language_changed(self, tag: str) -> None:
+        self.settings_service.match_language = tag
+        self._settings_tab.sync_language(tag)
+        self._invalidate_tmdb()
+        self._refresh_media_workspaces()
+        self.statusBar().showMessage(f"TMDB language updated to {tag}.", 3000)
 
     # ── Menu bar ─────────────────────────────────────────────────
 
@@ -335,6 +399,14 @@ class MainWindow(QMainWindow):
 
     def _on_scan_complete(self) -> None:
         ws = self._active_workspace()
+        if self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
+            ws.scan_progress_widget.stop()
+            if self.media_ctrl.library_states:
+                ws.show_ready()
+            else:
+                ws.show_empty()
+            self.statusBar().showMessage("Scan cancelled", 3000)
+            return
         if (
             self.media_ctrl.active_content_mode == "tv"
             and self.media_ctrl.batch_mode
@@ -368,10 +440,15 @@ class MainWindow(QMainWindow):
         if self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states and not needs_tv_bulk_scan:
             ws.scan_progress_widget.finish()
             ws.show_ready()
+        elif self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
+            ws.scan_progress_widget.stop()
+            if states:
+                ws.show_ready()
+            else:
+                ws.show_empty()
         elif self.media_ctrl.scan_progress.lifecycle in {
             ScanLifecycle.WARNING,
             ScanLifecycle.FAILED,
-            ScanLifecycle.CANCELLED,
         } and not states:
             ws.show_empty()
 
@@ -386,8 +463,60 @@ class MainWindow(QMainWindow):
         counts = self.queue_ctrl.count_by_status()
         pending = counts.get("pending", 0) + counts.get("running", 0)
         history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted"))
-        self._tabs.setTabText(_QUEUE, f"Queue ({pending})")
+        queue_label = f"Queue ({pending})"
+        if counts.get("failed", 0):
+            queue_label += " *"
+        self._tabs.setTabText(_QUEUE, queue_label)
         self._tabs.setTabText(_HISTORY, f"History ({history})")
+
+    def _on_job_started(self, _job: RenameJob) -> None:
+        if not self._queue_run_started:
+            self._queue_run_started = True
+            self._queue_completed_count = 0
+            self._queue_failed_count = 0
+
+    def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
+        self._queue_completed_count += 1
+        renamed = result.renamed_count
+        noun = "file" if renamed == 1 else "files"
+        self._toast_manager.show_toast(
+            title=f"Job completed: {job.media_name}",
+            message=f"{renamed} {noun} renamed.",
+            tone="success",
+            duration_ms=3000,
+        )
+
+    def _show_history_job(self, job_id: str) -> None:
+        self._switch_to_tab(_HISTORY)
+        self._history_tab.select_job(job_id)
+
+    def _on_job_failed(self, job: RenameJob, error: str) -> None:
+        self._queue_failed_count += 1
+        detail = error or job.error_message or "Unknown error"
+        self._toast_manager.show_toast(
+            title=f"Job failed: {job.media_name}",
+            message=detail,
+            tone="error",
+            duration_ms=0,
+            action_text="Show in History",
+            action_callback=lambda job_id=job.job_id: self._show_history_job(job_id),
+        )
+
+    def _on_queue_finished(self) -> None:
+        if not self._queue_run_started:
+            return
+        summary = f"{self._queue_completed_count} completed"
+        if self._queue_failed_count:
+            summary += f", {self._queue_failed_count} failed"
+        self._toast_manager.show_toast(
+            title="Queue finished",
+            message=summary,
+            tone="accent",
+            duration_ms=5000,
+        )
+        self._queue_run_started = False
+        self._queue_completed_count = 0
+        self._queue_failed_count = 0
 
     # ── Other actions ────────────────────────────────────────────
 
@@ -447,17 +576,38 @@ class MainWindow(QMainWindow):
         if job is None:
             self.statusBar().showMessage("Nothing to undo", 3000)
             return
-        # Full undo UI will be wired in Phase 4
-        self.statusBar().showMessage(
-            f"Undo not yet wired — would revert '{job.media_name}'", 3000
-        )
+
+        undo_data = job.undo_data or {}
+        rename_count = len(undo_data.get("renames", []))
+        desc = f"Undo {rename_count} rename(s) for '{job.media_name}'?"
+        removed_dirs = undo_data.get("removed_dirs") or []
+        if removed_dirs:
+            desc += "\n\nRemoved folders will also be restored where possible."
+
+        if QMessageBox.question(
+            self,
+            "Undo Last Rename",
+            desc,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        success, errors = self.queue_ctrl.revert_job(job.job_id)
+        self._on_queue_changed()
+        self._history_tab.select_job(job.job_id)
+        self._switch_to_tab(_HISTORY)
+
+        if errors:
+            QMessageBox.warning(self, "Partial Undo", "\n".join(errors[:8]))
+        elif success:
+            self.statusBar().showMessage(f"Reverted '{job.media_name}'", 4000)
+        else:
+            QMessageBox.warning(self, "Undo Failed", "Unable to revert the selected rename job.")
 
     def _on_compact_toggled(self, checked: bool) -> None:
-        mode = "compact" if checked else "normal"
-        self.settings_service.view_mode = mode
+        self._apply_view_mode("compact" if checked else "normal")
 
     def _on_companion_toggled(self, checked: bool) -> None:
-        self.settings_service.show_companion_files = checked
+        self._apply_companion_visibility(checked)
 
     def _on_about(self) -> None:
         from PySide6.QtWidgets import QMessageBox
@@ -483,6 +633,10 @@ class MainWindow(QMainWindow):
     def _save_window_state(self) -> None:
         g = self.geometry()
         self.settings_service.window_geometry = [g.x(), g.y(), g.width(), g.height()]
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._toast_manager._reposition()
 
     # ── Close ────────────────────────────────────────────────────
 

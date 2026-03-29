@@ -38,12 +38,18 @@ class MediaDetailPanel(QFrame):
     def __init__(
         self,
         tmdb_provider: Callable[[], object | None] | None = None,
+        settings_service=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._tmdb_provider = tmdb_provider
+        self._settings = settings_service
         self._current_token = ""
         self._poster_pixmap: QPixmap | None = None
+        self._current_state: ScanState | None = None
+        self._current_preview: PreviewItem | None = None
+        self._current_queue_reason = ""
+        self._current_folder_plan = ""
         self._bridge = _DetailBridge(self)
         self._bridge.metadata_ready.connect(self._apply_payload)
         self.setProperty("cssClass", "panel")
@@ -123,6 +129,10 @@ class MediaDetailPanel(QFrame):
 
     def clear(self, text: str = "Choose a roster item to inspect details.") -> None:
         self._current_token = ""
+        self._current_state = None
+        self._current_preview = None
+        self._current_queue_reason = ""
+        self._current_folder_plan = ""
         self._poster_pixmap = None
         self._poster.setPixmap(QPixmap())
         self._poster.setText("No Poster")
@@ -145,6 +155,10 @@ class MediaDetailPanel(QFrame):
             self.clear()
             return
 
+        self._current_state = state
+        self._current_preview = preview
+        self._current_queue_reason = queue_reason
+        self._current_folder_plan = folder_plan
         token = self._make_token(state, preview)
         self._current_token = token
         self._poster_pixmap = None
@@ -285,7 +299,7 @@ class MediaDetailPanel(QFrame):
             creators = [creator.get("name", "") for creator in details.get("created_by", []) if creator.get("name")]
             if creators:
                 extra_lines.append("Creators: " + ", ".join(creators[:3]))
-            if state.discovery_reason:
+            if self._settings is not None and self._settings.show_discovery_info and state.discovery_reason:
                 extra_lines.append(f"Discovery: {state.discovery_reason}")
 
         return (
@@ -297,6 +311,16 @@ class MediaDetailPanel(QFrame):
                 "extra": "\n".join(extra_lines),
             },
             pixmap,
+        )
+
+    def refresh_current(self) -> None:
+        if self._current_state is None:
+            return
+        self.set_selection(
+            self._current_state,
+            preview=self._current_preview,
+            queue_reason=self._current_queue_reason,
+            folder_plan=self._current_folder_plan,
         )
 
     def _apply_payload(self, payload: dict | None, pixmap: QPixmap | None, token: str) -> None:
