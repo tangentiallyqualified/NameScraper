@@ -10,9 +10,45 @@ import logging
 import sys
 from pathlib import Path
 
+from PySide6.QtCore import QEvent, QObject, Qt
+
 _log = logging.getLogger(__name__)
 
 _THEME_PATH = Path(__file__).parent / "resources" / "theme.qss"
+
+
+class _SuppressTransientHelpPopups(QObject):
+    def eventFilter(self, obj, event) -> bool:
+        from PySide6.QtWidgets import QDialog, QMenu, QWidget
+
+        if event.type() in {
+            QEvent.Type.ToolTip,
+            QEvent.Type.WhatsThis,
+            QEvent.Type.QueryWhatsThis,
+            QEvent.Type.StatusTip,
+        }:
+            return True
+        if event.type() == QEvent.Type.Show and isinstance(obj, QWidget):
+            if isinstance(obj, (QDialog, QMenu)):
+                return False
+            if obj.objectName() in {"toastManager", "toastCard"}:
+                return False
+            if not obj.isWindow():
+                return False
+            flags = obj.windowFlags()
+            transient_flags = (
+                Qt.WindowType.ToolTip
+                | Qt.WindowType.Popup
+                | Qt.WindowType.Tool
+                | Qt.WindowType.SplashScreen
+            )
+            if flags & transient_flags:
+                size = obj.size()
+                if size.width() <= 480 and size.height() <= 320:
+                    event.accept()
+                    obj.hide()
+                    return True
+        return False
 
 
 def run() -> None:
@@ -29,6 +65,9 @@ def run() -> None:
 
     app = QApplication(sys.argv)
     app.setApplicationName("Plex Renamer")
+    help_popup_filter = _SuppressTransientHelpPopups(app)
+    app.installEventFilter(help_popup_filter)
+    app._help_popup_filter = help_popup_filter
 
     # Load the global theme stylesheet
     if _THEME_PATH.exists():
