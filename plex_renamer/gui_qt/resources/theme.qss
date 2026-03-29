@@ -30,6 +30,16 @@ QMainWindow {
     background-color: #0d0d0d;
 }
 
+QStatusBar {
+    background-color: #151515;
+    color: #777777;
+    border-top: 1px solid #2a2a2a;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
 QWidget {
     background-color: transparent;
 }
@@ -85,6 +95,11 @@ QMenu::item:disabled {
 QTabWidget::pane {
     border: none;
     background-color: #0d0d0d;
+    top: -1px;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
 }
 
 QTabBar {
@@ -95,11 +110,12 @@ QTabBar {
 QTabBar::tab {
     background-color: transparent;
     color: #777777;
-    padding: 8px 20px;
+    padding: 12px 20px;
     border: none;
     border-bottom: 2px solid transparent;
     font-size: 13px;
     font-weight: 600;
+    min-height: 22px;
 }
 
 QTabBar::tab:selected {
@@ -179,6 +195,26 @@ QListWidget::item {
 QListWidget::item:selected {
     background-color: #1f1a0e;
     border-color: #e5a00d;
+}
+
+QListWidget[cssClass="row-host-list"] {
+    padding: 6px;
+}
+
+QListWidget[cssClass="row-host-list"]::item {
+    background-color: transparent;
+    border: none;
+    margin: 3px 0px;
+    padding: 0px;
+}
+
+QListWidget[cssClass="row-host-list"]::item:selected {
+    background-color: transparent;
+    border: none;
+}
+
+QListWidget[cssClass="row-host-list"]:focus {
+    outline: none;
 }
 
 QLabel[cssClass="media-poster"] {
@@ -282,6 +318,10 @@ QPushButton:pressed {
 QPushButton:disabled {
     background-color: #2a2a2a;
     color: #4a4a4a;
+}
+
+QPushButton:focus {
+    outline: none;
 }
 
 /* Secondary / outline button */
@@ -450,6 +490,10 @@ QSlider::sub-page:horizontal {
 
 QCheckBox {
     spacing: 8px;
+}
+
+QCheckBox:focus {
+    outline: none;
 }
 
 QCheckBox::indicator {

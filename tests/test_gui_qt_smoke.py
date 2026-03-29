@@ -7,6 +7,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+
 from plex_renamer.app.controllers.queue_controller import BatchQueueResult
 from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
@@ -163,8 +166,11 @@ class QtSmokeTests(unittest.TestCase):
                 RenameJob(
                     library_root=tmp,
                     source_folder="Show",
+                    media_type="tv",
                     media_name="Example Show",
                     tmdb_id=123,
+                    status=JobStatus.PENDING,
+                    rename_ops=[],
                 )
             )
             controller.job_store.add_job(
@@ -299,9 +305,10 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._roster_list.count(), 4)
-            self.assertEqual(workspace._roster_list.item(0).text(), "PLEX READY")
-            self.assertEqual(workspace._roster_list.item(2).text(), "MATCHED")
+            self.assertEqual(workspace._roster_list.count(), 3)
+            self.assertEqual(workspace._roster_list.item(0).text(), "MATCHED")
+            self.assertIsNone(workspace._roster_list.item(1).data(Qt.ItemDataRole.CheckStateRole))
+            self.assertIsNone(workspace._preview_list.item(0).data(Qt.ItemDataRole.CheckStateRole))
             self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
             self.assertIn("2024", workspace._folder_plan_label.text())
             self.assertGreater(workspace._preview_list.count(), 0)
@@ -375,19 +382,61 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            default_text = workspace._preview_list.item(0).text()
-            self.assertIn("\n->", default_text)
+            preview_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(0))
+            self.assertIsNotNone(preview_widget)
+            self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
 
             settings.view_mode = "compact"
             settings.show_companion_files = True
             workspace.apply_settings()
 
-            compact_text = workspace._preview_list.item(0).text()
-            self.assertNotIn("\n->", compact_text)
-            self.assertIn("companion", compact_text)
+            preview_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(0))
+            self.assertIsNotNone(preview_widget)
+            self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
+            self.assertIsNotNone(preview_widget._companions)
+            self.assertIn("Arrival.2016.en.srt", preview_widget._companions.text())
             self.assertEqual(workspace._roster_list.iconSize().width(), 32)
 
             workspace.close()
+
+    def test_match_picker_enter_runs_search_instead_of_accepting(self):
+        from plex_renamer.gui_qt.widgets.match_picker_dialog import MatchPickerDialog
+
+        search_calls: list[tuple[str, str | None]] = []
+
+        def _search(query: str, year_hint: str | None) -> list[dict]:
+            search_calls.append((query, year_hint))
+            return [
+                {
+                    "id": 99,
+                    "title": "Arrival",
+                    "year": "2016",
+                    "overview": "First contact.",
+                }
+            ]
+
+        dialog = MatchPickerDialog(
+            title="Fix Match",
+            title_key="title",
+            initial_query="Arrival",
+            initial_results=[{"id": 1, "title": "Old Result", "year": "2015"}],
+            search_callback=_search,
+            year_hint="2016",
+        )
+        dialog.show()
+        self._app.processEvents()
+
+        dialog._query.setFocus()
+        dialog._query.selectAll()
+        QTest.keyClicks(dialog._query, "Arrival")
+        QTest.keyClick(dialog._query, Qt.Key.Key_Return)
+        self._app.processEvents()
+
+        self.assertEqual(search_calls, [("Arrival", "2016")])
+        self.assertEqual(dialog.result(), 0)
+        self.assertTrue(dialog._ok_button.isEnabled())
+
+        dialog.close()
 
     def test_media_workspace_renders_inline_alternate_matches_for_review_items(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget

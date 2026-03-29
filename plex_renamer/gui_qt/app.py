@@ -37,6 +37,6 @@ def run() -> None:
         _log.warning("Theme file not found at %s", _THEME_PATH)
 
     window = MainWindow()
-    window.show()
+    window.showMaximized()
 
     sys.exit(app.exec())

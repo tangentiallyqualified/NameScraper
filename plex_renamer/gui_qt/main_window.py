@@ -108,6 +108,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Plex Renamer")
         self.setMinimumSize(960, 600)
+        self.statusBar().setSizeGripEnabled(False)
+        self.statusBar().hide()
 
         # ── TMDB client (lazily created) ─────────────────────────
         self._tmdb: TMDBClient | None = None
@@ -426,13 +428,12 @@ class MainWindow(QMainWindow):
             return
 
         ws.scan_progress_widget.finish()
-        ws.show_ready()
-        ws.refresh_from_controller()
+        if not ws.is_showing_ready():
+            ws.show_ready()
         self.statusBar().showMessage("Scan complete", 3000)
 
     def _on_library_changed(self) -> None:
         ws = self._active_workspace()
-        ws.refresh_from_controller()
 
         states = self.media_ctrl.library_states
         needs_tv_bulk_scan = (
@@ -458,6 +459,8 @@ class MainWindow(QMainWindow):
             ScanLifecycle.FAILED,
         } and not states:
             ws.show_empty()
+        elif ws.is_showing_ready():
+            ws.refresh_from_controller()
 
     def _on_queue_changed(self, _unused=None) -> None:
         self._refresh_job_views()
@@ -635,7 +638,7 @@ class MainWindow(QMainWindow):
         if geo and len(geo) == 4:
             self.setGeometry(*geo)
         else:
-            self.resize(1280, 800)
+            self.resize(1440, 900)
 
     def _save_window_state(self) -> None:
         g = self.geometry()

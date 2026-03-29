@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -60,10 +61,11 @@ class MatchPickerDialog(QDialog):
         search_row = QHBoxLayout()
         self._query = QLineEdit(initial_query)
         self._query.setPlaceholderText("Search TMDB")
-        self._query.returnPressed.connect(self._run_search)
         search_row.addWidget(self._query, stretch=1)
 
         self._search_button = QPushButton("Search")
+        self._search_button.setAutoDefault(False)
+        self._search_button.setDefault(False)
         self._search_button.clicked.connect(self._run_search)
         search_row.addWidget(self._search_button)
         layout.addLayout(search_row)
@@ -82,6 +84,8 @@ class MatchPickerDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setAutoDefault(False)
+        self._ok_button.setDefault(False)
         self._ok_button.setEnabled(False)
         layout.addWidget(buttons)
 
@@ -90,6 +94,13 @@ class MatchPickerDialog(QDialog):
     @property
     def selected_result(self) -> dict | None:
         return self._selected
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.focusWidget() is self._query:
+            self._run_search()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def _run_search(self) -> None:
         query = self._query.text().strip()

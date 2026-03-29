@@ -28,6 +28,10 @@ def _format_runtime(minutes: int | None) -> str:
     return f"{minutes}m"
 
 
+def _clamped_percent(score: float) -> int:
+    return max(0, min(100, int(round(score * 100))))
+
+
 class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
 
@@ -50,6 +54,8 @@ class MediaDetailPanel(QFrame):
         self._current_preview: PreviewItem | None = None
         self._current_queue_reason = ""
         self._current_folder_plan = ""
+        self._metadata_cache: dict[str, tuple[dict, QPixmap | None]] = {}
+        self._loading_tokens: set[str] = set()
         self._bridge = _DetailBridge(self)
         self._bridge.metadata_ready.connect(self._apply_payload)
         self.setProperty("cssClass", "panel")
@@ -159,25 +165,42 @@ class MediaDetailPanel(QFrame):
         self._current_preview = preview
         self._current_queue_reason = queue_reason
         self._current_folder_plan = folder_plan
-        token = self._make_token(state, preview)
+        token = self._make_token(state, preview, queue_reason, folder_plan)
         self._current_token = token
-        self._poster_pixmap = None
         self._title.setText(state.display_name)
-        self._subtitle.setText("Loading metadata...")
-        self._poster.setPixmap(QPixmap())
-        self._poster.setText("Loading...")
-        self._overview.setText("")
-        self._extra.setText("")
-        for key_label, value_label in self._meta_rows:
-            key_label.setText("")
-            value_label.setText("")
 
         tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
         if tmdb is None or not state.show_id:
+            self._poster_pixmap = None
+            self._overview.setText("")
+            self._extra.setText("")
             self._subtitle.setText(queue_reason or "TMDB metadata unavailable.")
+            self._poster.setPixmap(QPixmap())
             self._poster.setText("No Poster")
             self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
             return
+
+        preview_pending = state.scanning or (not state.scanned and preview is None and not state.preview_items)
+        if preview_pending:
+            self._poster_pixmap = None
+            self._overview.setText("")
+            self._extra.setText("")
+            self._subtitle.setText("Preview is still loading...")
+            self._poster.setPixmap(QPixmap())
+            self._poster.setText("No Poster")
+            self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
+            return
+
+        cached = self._metadata_cache.get(token)
+        if cached is not None:
+            self._apply_payload(cached[0], cached[1], token)
+            return
+
+        self._subtitle.setText(queue_reason or "Fetching metadata...")
+        self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
+        if token in self._loading_tokens:
+            return
+        self._loading_tokens.add(token)
 
         def _worker() -> None:
             payload = self._build_payload(tmdb, state, preview, queue_reason, folder_plan)
@@ -185,11 +208,17 @@ class MediaDetailPanel(QFrame):
 
         threading.Thread(target=_worker, daemon=True, name="QtMediaDetail").start()
 
-    def _make_token(self, state: ScanState, preview: PreviewItem | None) -> str:
+    def _make_token(
+        self,
+        state: ScanState,
+        preview: PreviewItem | None,
+        queue_reason: str,
+        folder_plan: str,
+    ) -> str:
         preview_part = ""
         if preview is not None:
             preview_part = f":{preview.original}"
-        return f"{state.show_id}:{state.folder}{preview_part}"
+        return f"{state.show_id}:{state.folder}{preview_part}:{queue_reason}:{folder_plan}"
 
     def _fallback_rows(
         self,
@@ -201,7 +230,7 @@ class MediaDetailPanel(QFrame):
         rows = [("Queue", queue_reason)] if queue_reason else []
         if folder_plan:
             rows.append(("Folder", folder_plan))
-        rows.append(("Confidence", f"{int(state.confidence * 100)}%"))
+        rows.append(("Confidence", f"{_clamped_percent(state.confidence)}%"))
         if preview is not None:
             rows.append(("File", preview.original.name))
             rows.append(("Status", preview.status))
@@ -263,7 +292,7 @@ class MediaDetailPanel(QFrame):
             if state.completeness is not None:
                 rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
 
-        rows.append(("Confidence", f"{int(state.confidence * 100)}%"))
+        rows.append(("Confidence", f"{_clamped_percent(state.confidence)}%"))
         if queue_reason:
             rows.append(("Queue", queue_reason))
         if folder_plan:
@@ -324,7 +353,11 @@ class MediaDetailPanel(QFrame):
         )
 
     def _apply_payload(self, payload: dict | None, pixmap: QPixmap | None, token: str) -> None:
-        if token != self._current_token or payload is None:
+        self._loading_tokens.discard(token)
+        if payload is None:
+            return
+        self._metadata_cache[token] = (payload, pixmap)
+        if token != self._current_token:
             return
         self._title.setText(payload.get("title", "Selection"))
         self._subtitle.setText(payload.get("subtitle", ""))
