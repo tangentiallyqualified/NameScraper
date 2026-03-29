@@ -76,6 +76,27 @@ def _validate_sources(job: RenameJob) -> list[str]:
 _UNMATCHED_FILES_DIR = "Unmatched Files"
 
 
+def _remap_target_into_final_root(
+    target_dir: Path,
+    root_folder: Path,
+    final_root: Path | None,
+) -> Path:
+    """Route root-relative targets into the final renamed show folder.
+
+    Queue execution previously moved files inside the source root and then
+    renamed the entire root folder at the end. When leftover source
+    directories remained, that pulled stale structure into the finished
+    Plex folder. Remapping root-relative targets avoids that coupling.
+    """
+    if final_root is None:
+        return target_dir
+    try:
+        relative = target_dir.relative_to(root_folder)
+    except ValueError:
+        return target_dir
+    return final_root / relative
+
+
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
 def _execute_rename(job: RenameJob) -> RenameResult:
@@ -98,6 +119,15 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     library_root = Path(job.library_root)
     root_folder = library_root / job.source_folder
+    final_root: Path | None = None
+    if job.show_folder_rename and root_folder.name != job.show_folder_rename:
+        candidate_root = root_folder.parent / job.show_folder_rename
+        same_dir = (
+            os.path.normcase(str(root_folder))
+            == os.path.normcase(str(candidate_root))
+        )
+        if not same_dir:
+            final_root = candidate_root
 
     renames: list[tuple[Path, Path, Path]] = []
     source_dirs: set[Path] = set()
@@ -115,6 +145,11 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
         src = library_root / op.original_relative
         target_dir = library_root / op.target_dir_relative
+        target_dir = _remap_target_into_final_root(
+            target_dir,
+            root_folder,
+            final_root,
+        )
         dst = target_dir / op.new_name
 
         if not src.exists():
@@ -273,8 +308,9 @@ def _execute_rename(job: RenameJob) -> RenameResult:
             _log.warning("Could not clean up source dir %s: %s",
                          src_dir.name, e)
 
-    # Rename root show/movie folder to match TMDB naming
-    if job.show_folder_rename and root_folder.exists():
+    # Rename root show/movie folder to match TMDB naming.
+    # Skip this when targets were already routed into the final root.
+    if final_root is None and job.show_folder_rename and root_folder.exists():
         if root_folder.name != job.show_folder_rename:
             new_root = root_folder.parent / job.show_folder_rename
             # On case-insensitive filesystems (NTFS), new_root.exists()

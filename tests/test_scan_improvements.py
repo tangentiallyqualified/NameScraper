@@ -176,6 +176,125 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue((library_root / "Documentaries").exists())
             self.assertFalse((library_root / "Documentaries" / "Generated").exists())
 
+    def test_queue_execute_keeps_final_tv_folder_clean_when_show_folder_is_renamed(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp) / "TV Root"
+            source_root = library_root / "Bleach"
+            season_one = source_root / "Disc 01"
+            season_two = source_root / "Disc 02"
+            season_one.mkdir(parents=True)
+            season_two.mkdir(parents=True)
+
+            episode_one = season_one / "Bleach - 001.mkv"
+            episode_two = season_two / "Bleach - 002.mkv"
+            leftover = season_two / "notes.txt"
+            episode_one.write_text("ep1")
+            episode_two.write_text("ep2")
+            leftover.write_text("keep")
+
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                media_type=MediaType.TV,
+                show_folder_rename="Bleach (2004)",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Bleach/Disc 02/Bleach - 002.mkv",
+                        new_name="Bleach (2004) - S01E02.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            final_root = library_root / "Bleach (2004)"
+            self.assertEqual(result.errors, [])
+            self.assertTrue((final_root / "Season 01" / "Bleach (2004) - S01E01.mkv").exists())
+            self.assertTrue((final_root / "Season 01" / "Bleach (2004) - S01E02.mkv").exists())
+            self.assertFalse((final_root / "Disc 01").exists())
+            self.assertFalse((final_root / "Disc 02").exists())
+            self.assertTrue(
+                (
+                    final_root
+                    / "Season 01"
+                    / "Unmatched Files"
+                    / "notes.txt"
+                ).exists()
+            )
+            self.assertNotIn(
+                {"old": str(source_root), "new": str(final_root)},
+                result.log_entry["renamed_dirs"],
+            )
+
+    def test_revert_job_succeeds_for_queue_execute_with_final_tv_folder(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp) / "TV Root"
+            source_root = library_root / "Bleach"
+            season_one = source_root / "Disc 01"
+            season_two = source_root / "Disc 02"
+            season_one.mkdir(parents=True)
+            season_two.mkdir(parents=True)
+
+            episode_one = season_one / "Bleach - 001.mkv"
+            episode_two = season_two / "Bleach - 002.mkv"
+            episode_one.write_text("ep1")
+            episode_two.write_text("ep2")
+
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                media_type=MediaType.TV,
+                show_folder_rename="Bleach (2004)",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Bleach/Disc 02/Bleach - 002.mkv",
+                        new_name="Bleach (2004) - S01E02.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+            job.status = "completed"
+            job.undo_data = result.log_entry
+
+            ok, errors = revert_job(job)
+
+            self.assertTrue(ok, errors)
+            self.assertEqual(errors, [])
+            self.assertTrue((source_root / "Disc 01" / "Bleach - 001.mkv").exists())
+            self.assertTrue((source_root / "Disc 02" / "Bleach - 002.mkv").exists())
+            self.assertFalse((library_root / "Bleach (2004)").exists())
+
 
     def test_movie_at_library_root_does_not_move_sibling_content(self):
         """Movies in the library root must not cause sibling dirs/files

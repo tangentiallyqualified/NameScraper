@@ -14,6 +14,31 @@ Built with Python and tkinter. A PySide6 shell is under active development on `d
 
 The GUI3 migration is in progress on the `dev/GUI3` branch. The current shipping shell is still tkinter-based and remains the default entry point (`python -m plex_renamer`). The PySide6 shell can be launched with `python -m plex_renamer --qt`.
 
+## Quick Start
+
+### Source install
+
+For the current `dev/GUI3` branch, create a virtual environment and install the Qt extra:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[qt]"
+```
+
+Then launch either shell:
+
+```powershell
+.\.venv\Scripts\python.exe -m plex_renamer
+.\.venv\Scripts\python.exe -m plex_renamer --qt
+```
+
+### First run
+
+- Open Settings and add a TMDB API key.
+- The Qt install path includes `keyring`, so an existing OS-stored TMDB key can be reused automatically.
+- If `keyring` is unavailable on a machine, the app falls back to local app-data storage for the key.
+
 ### Migration progress
 
 | Phase | Status | Summary |

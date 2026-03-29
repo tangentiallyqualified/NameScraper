@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+*.egg-info/
 
 plex_renamer/test_library.zip
 docs/test_library/
