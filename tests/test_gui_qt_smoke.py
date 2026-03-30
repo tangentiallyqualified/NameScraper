@@ -34,6 +34,35 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(window.centralWidget().__class__.__name__, "QTabWidget")
         window.close()
 
+    def test_transient_popup_filter_hides_tool_windows(self):
+        from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QWidget
+        from plex_renamer.gui_qt.app import _SuppressTransientPopups
+
+        popup_filter = _SuppressTransientPopups(self._app)
+        widget = QWidget()
+        widget.setWindowFlags(Qt.WindowType.Tool)
+        widget.setWindowOpacity(1.0)
+
+        popup_filter.eventFilter(widget, QEvent(QEvent.Type.Show))
+
+        self.assertEqual(widget.windowOpacity(), 0.0)
+        widget.close()
+
+    def test_transient_popup_filter_keeps_real_menus_visible(self):
+        from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QMenu
+        from plex_renamer.gui_qt.app import _SuppressTransientPopups
+
+        popup_filter = _SuppressTransientPopups(self._app)
+        menu = QMenu()
+        menu.setWindowOpacity(1.0)
+
+        popup_filter.eventFilter(menu, QEvent(QEvent.Type.Show))
+
+        self.assertEqual(menu.windowOpacity(), 1.0)
+        menu.close()
+
     def test_main_window_undo_reverts_latest_job_and_switches_to_history(self):
         from PySide6.QtWidgets import QMessageBox
         from plex_renamer.constants import JobStatus
@@ -663,11 +692,12 @@ class QtSmokeTests(unittest.TestCase):
             self.assertIsInstance(row_widget, _RosterRowWidget)
             self.assertIsNotNone(row_widget._alternates_layout)
             self.assertEqual(row_widget._alternates_layout.count(), 2)
+            self.assertFalse(row_widget._check.isWindow())
 
             workspace.close()
 
     def test_media_workspace_sorts_tv_preview_items_by_episode_number(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _PreviewRowWidget
 
         class _FakeMediaController:
             def __init__(self):
@@ -741,6 +771,17 @@ class QtSmokeTests(unittest.TestCase):
                     preview_indices.append(index)
 
             self.assertEqual(preview_indices, [1, 2, 0])
+
+            preview_row_widget = None
+            for row in range(workspace._preview_list.count()):
+                item = workspace._preview_list.item(row)
+                widget = workspace._preview_list.itemWidget(item)
+                if isinstance(widget, _PreviewRowWidget):
+                    preview_row_widget = widget
+                    break
+
+            self.assertIsNotNone(preview_row_widget)
+            self.assertFalse(preview_row_widget._check.isWindow())
 
             workspace.close()
 

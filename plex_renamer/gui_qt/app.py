@@ -7,6 +7,7 @@ Launch with:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -15,12 +16,34 @@ from PySide6.QtCore import QEvent, QObject, Qt
 _log = logging.getLogger(__name__)
 
 _THEME_PATH = Path(__file__).parent / "resources" / "theme.qss"
+_DEBUG_TRANSIENT_WINDOWS = os.environ.get(
+    "PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS", ""
+).strip().lower() not in {"", "0", "false", "no"}
 
 # Window flags that identify transient platform helper windows.
 _TRANSIENT_FLAGS = (
     Qt.WindowType.ToolTip
     | Qt.WindowType.SplashScreen
+    | Qt.WindowType.Tool
 )
+_DIAGNOSTIC_FLAGS = _TRANSIENT_FLAGS | Qt.WindowType.Popup
+
+
+def _window_flag_names(flags: Qt.WindowType) -> str:
+    names: list[str] = []
+    known_flags = (
+        (Qt.WindowType.ToolTip, "ToolTip"),
+        (Qt.WindowType.SplashScreen, "SplashScreen"),
+        (Qt.WindowType.Tool, "Tool"),
+        (Qt.WindowType.Popup, "Popup"),
+        (Qt.WindowType.Dialog, "Dialog"),
+        (Qt.WindowType.Sheet, "Sheet"),
+        (Qt.WindowType.Drawer, "Drawer"),
+    )
+    for flag, label in known_flags:
+        if flags & flag:
+            names.append(label)
+    return "|".join(names) if names else hex(int(flags))
 
 
 class _SuppressTransientPopups(QObject):
@@ -32,13 +55,14 @@ class _SuppressTransientPopups(QObject):
        events are consumed before Qt creates any window.  No flicker.
 
     2. **Transient-window suppression** — On Windows, Qt's platform
-       integration and style engine create short-lived native helper
-       windows (ToolTip-flagged, SplashScreen-flagged) during heavy
-       widget operations like QListWidget rebuilds and setStyleSheet
-       cascades.  These flash on screen for one or two compositor
-       frames.  An earlier version tried calling ``obj.hide()`` on
-       the Show event, but hide() itself triggers a second native
-       message and the show → hide sequence is visible as flicker.
+    integration and style engine create short-lived native helper
+    windows (typically ToolTip-, SplashScreen-, or Tool-flagged)
+    during heavy widget operations like QListWidget rebuilds and
+    setStyleSheet cascades.  These flash on screen for one or two
+    compositor frames.  An earlier version tried calling
+    ``obj.hide()`` on the Show event, but hide() itself triggers a
+    second native message and the show → hide sequence is visible
+    as flicker.
 
        The current approach sets the window opacity to 0 *before* the
        compositor can render the next frame (``setWindowOpacity`` maps
@@ -68,6 +92,16 @@ class _SuppressTransientPopups(QObject):
             if name in {"toastManager", "toastCard"}:
                 return False
             flags = obj.windowFlags()
+            if _DEBUG_TRANSIENT_WINDOWS and flags & _DIAGNOSTIC_FLAGS:
+                _log.debug(
+                    "Qt transient candidate: class=%s name=%r title=%r flags=%s size=%sx%s",
+                    obj.metaObject().className(),
+                    name,
+                    obj.windowTitle(),
+                    _window_flag_names(flags),
+                    obj.width(),
+                    obj.height(),
+                )
             if not (flags & _TRANSIENT_FLAGS):
                 return False
             # Make the window invisible synchronously.  setWindowOpacity(0)

@@ -1002,6 +1002,8 @@ This phase addresses findings from the comprehensive code review performed again
 
 **Files:** `plex_renamer/gui_qt/app.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/job_detail_panel.py`, `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
+**Follow-up (2026-03-29):** A residual tiny-window flicker remained during TV roster switching even after the broader transient-window suppression work. Debug logging on the Qt popup filter showed the flashing widget was our own `_ToggleSwitch` at `42x24`, not a separate platform helper window. The switches in roster and preview rows were being constructed without a parent, allowing them to exist briefly as top-level windows before layout attachment. The fix was to parent `_ToggleSwitch` at construction time in both row widgets and add smoke-test assertions that these controls are not windows. Logging bootstrap in `plex_renamer/__main__.py` was also updated so `PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS=1` raises startup logging to `DEBUG` automatically when diagnostics are needed.
+
 ### 8.2 — Eliminate full roster rebuilds on every queue event (High) ✅
 
 **Problem:** `MainWindow._on_queue_changed()` calls `refresh_from_controller()` on *both* media workspaces unconditionally.

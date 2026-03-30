@@ -1006,7 +1006,7 @@ class _RosterRowWidget(_ClickableRow):
         layout.setContentsMargins(8, 7, 8, 7)
         layout.setSpacing(8)
 
-        self._check = _ToggleSwitch(state.checked)
+        self._check = _ToggleSwitch(state.checked, self)
         self._check.toggled.connect(self.check_toggled.emit)
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
@@ -1183,7 +1183,7 @@ class _PreviewRowWidget(_ClickableRow):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(10)
 
-        self._check = _ToggleSwitch(checked if preview.is_actionable else False)
+        self._check = _ToggleSwitch(checked if preview.is_actionable else False, self)
         self._check.setVisible(preview.is_actionable)
         self._check.toggled.connect(self.check_toggled.emit)
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
