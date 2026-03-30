@@ -15,7 +15,7 @@ from plex_renamer.app.services import (
     MovieLibraryDiscoveryService,
     TVLibraryDiscoveryService,
 )
-from plex_renamer.engine import BatchTVOrchestrator
+from plex_renamer.engine import BatchTVOrchestrator, MovieScanner
 from plex_renamer.parsing import looks_like_tv_episode
 
 
@@ -52,6 +52,26 @@ class BareNumberPatternTests(unittest.TestCase):
                 self.assertFalse(
                     looks_like_tv_episode(Path(f"/tmp/Movies/{name}")),
                     f"False positive TV detection for movie: {name}",
+                )
+
+
+class TVCompanionVideoPatternTests(unittest.TestCase):
+    """NCOP/NCED-style extras should be treated as TV-related files."""
+
+    COMPANION_FILENAMES = [
+        "Show.Name.NCOP.mkv",
+        "Show.Name.NCED1.mkv",
+        "[Group] Show Name - NCOPv2 (BD 1080p).mkv",
+        "Show Name - Creditless Opening.mkv",
+        "Show Name - Clean Ending.mkv",
+    ]
+
+    def test_tv_companion_video_filenames_detected_as_tv(self):
+        for name in self.COMPANION_FILENAMES:
+            with self.subTest(name=name):
+                self.assertTrue(
+                    looks_like_tv_episode(Path(f"/tmp/Anime/{name}")),
+                    f"Expected TV companion detection for: {name}",
                 )
 
 
@@ -92,6 +112,83 @@ class MovieDiscoveryOVATests(unittest.TestCase):
             candidates = service.discover_movie_roots(root)
             self.assertEqual(len(candidates), 1)
             self.assertEqual(candidates[0].relative_folder, "Inception (2010)")
+
+    def test_show_folder_with_ncop_nced_files_excluded_from_movie_discovery(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "Frieren"
+            show.mkdir()
+            (show / "Frieren.S01E01.mkv").write_text("x")
+            (show / "Frieren.NCOP.mkv").write_text("x")
+            (show / "Frieren.NCED.mkv").write_text("x")
+
+            service = MovieLibraryDiscoveryService()
+            candidates = service.discover_movie_roots(root)
+
+            self.assertEqual(candidates, [])
+
+
+class _FakeMovieTMDB:
+    language = "en-US"
+
+    def __init__(self):
+        self.queries = []
+
+    def search_movies_batch(self, queries, progress_callback=None):
+        self.queries.extend(queries)
+        results = []
+        total = len(queries)
+        for index, (query, _year) in enumerate(queries, start=1):
+            if progress_callback:
+                progress_callback(index, total)
+            if "matrix" in query.lower():
+                results.append([
+                    {"id": 603, "title": "The Matrix", "year": "1999", "poster_path": None, "overview": ""},
+                ])
+            else:
+                results.append([])
+        return results
+
+    def search_movie(self, query, year=None):
+        self.queries.append((query, year))
+        if "matrix" in query.lower():
+            return [
+                {"id": 603, "title": "The Matrix", "year": "1999", "poster_path": None, "overview": ""},
+            ]
+        return []
+
+    def search_with_fallback(self, query, search_fn, **kwargs):
+        return search_fn(query, **kwargs)
+
+    def get_alternative_titles(self, media_id, media_type="movie"):
+        return []
+
+
+class MovieScannerCompanionVideoTests(unittest.TestCase):
+    """MovieScanner should skip TV companion videos instead of matching them as movies."""
+
+    def test_movie_scanner_skips_ncop_and_only_searches_real_movie_files(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            movie_file = root / "The.Matrix.1999.1080p.BluRay.mkv"
+            companion_file = root / "Series.Name.NCOP.mkv"
+            movie_file.write_text("x")
+            companion_file.write_text("x")
+
+            tmdb = _FakeMovieTMDB()
+            scanner = MovieScanner(tmdb, root)
+
+            items = scanner.scan()
+
+            self.assertEqual(tmdb.queries, [("The Matrix", "1999")])
+            by_name = {item.original.name: item for item in items}
+            self.assertIn(movie_file.name, by_name)
+            self.assertIn(companion_file.name, by_name)
+            self.assertEqual(
+                by_name[companion_file.name].status,
+                "SKIP: looks like a TV episode",
+            )
+            self.assertEqual(by_name[movie_file.name].media_type, "movie")
 
 
 class TVDiscoveryOVATests(unittest.TestCase):

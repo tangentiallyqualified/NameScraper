@@ -235,6 +235,15 @@ _FILENAME_SEASON_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Common anime companion-video markers that indicate OP/ED extras bundled
+# with a TV series release rather than standalone movie content.
+_TV_COMPANION_VIDEO_PATTERN = re.compile(
+    r"(?:^|[\s._\-\[(])(?:NCOP|NCED)(?:\d+)?(?:v\d+)?(?=$|[\s._\-\])])"
+    r"|\b(?:creditless|non[\s._\-]*credit(?:ed|less)?|clean)[\s._\-]*"
+    r"(?:opening|ending|op|ed)\b",
+    re.IGNORECASE,
+)
+
 
 def looks_like_tv_episode(filepath: Path) -> bool:
     """
@@ -258,6 +267,10 @@ def looks_like_tv_episode(filepath: Path) -> bool:
 
     # "Season 3 - Bloopers" etc. in the filename itself
     if _FILENAME_SEASON_PATTERN.search(name):
+        return True
+
+    # Anime OP/ED extras like NCOP/NCED and creditless opening/ending files.
+    if _TV_COMPANION_VIDEO_PATTERN.search(name):
         return True
 
     # Check parent folder — "Season 01", "S02", "Staffel 3", etc.
