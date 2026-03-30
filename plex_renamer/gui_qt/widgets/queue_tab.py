@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
     QPushButton,
+    QWidget,
 )
 
 from ...constants import JobStatus
@@ -52,6 +53,8 @@ class QueueTab(_JobListTab):
         self._execute_btn.clicked.connect(self._execute_selected)
         self._toolbar_layout.addWidget(self._execute_btn)
 
+        self._toolbar_layout.addSpacing(12)
+
         self._select_all_btn = QPushButton("Select All")
         self._select_all_btn.setProperty("cssClass", "secondary")
         self._select_all_btn.clicked.connect(self._select_all)
@@ -61,6 +64,18 @@ class QueueTab(_JobListTab):
         self._clear_selection_btn.setProperty("cssClass", "secondary")
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         self._toolbar_layout.addWidget(self._clear_selection_btn)
+
+        self._toolbar_layout.addSpacing(12)
+
+        self._tv_btn = QPushButton("TV Shows")
+        self._tv_btn.setProperty("cssClass", "secondary")
+        self._tv_btn.clicked.connect(lambda: self._switch_tab(0))
+        self._toolbar_layout.addWidget(self._tv_btn)
+
+        self._movie_btn = QPushButton("Movies")
+        self._movie_btn.setProperty("cssClass", "secondary")
+        self._movie_btn.clicked.connect(lambda: self._switch_tab(1))
+        self._toolbar_layout.addWidget(self._movie_btn)
 
         self._finish_toolbar(_QUEUE_FILTERS)
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
@@ -86,16 +101,6 @@ class QueueTab(_JobListTab):
         actions_layout.addWidget(self._move_down_btn)
 
         actions_layout.addStretch()
-
-        self._tv_btn = QPushButton("Go to TV Shows")
-        self._tv_btn.setProperty("cssClass", "secondary")
-        self._tv_btn.clicked.connect(lambda: self._switch_tab(0))
-        actions_layout.addWidget(self._tv_btn)
-
-        self._movie_btn = QPushButton("Go to Movies")
-        self._movie_btn.setProperty("cssClass", "secondary")
-        self._movie_btn.clicked.connect(lambda: self._switch_tab(1))
-        actions_layout.addWidget(self._movie_btn)
         self._insert_panel_before_detail(actions)
 
         self.refresh()

@@ -1167,13 +1167,13 @@ These bypass the theme and make restyling harder.
 
 These are UX refinements to address after the cleanup items above. They do not block tkinter retirement but should be prioritized for the Qt shell's post-parity improvement phase.
 
-1. **Disambiguate the two "Add to Queue" buttons.** The preview header and the bottom action bar both have queue buttons with ambiguous scope. The preview header button should be labeled "Queue This Show" (single-item) and the bottom bar "Queue N Checked" (batch). Currently both say "Add to Queue" / "Add N to Queue".
+1. **Disambiguate the two "Add to Queue" buttons.** Fixed. The preview header button now uses a single-item label and the bottom action bar uses a checked-items batch label.
 
-2. **Add keyboard shortcut for queueing.** The design doc specifies Ctrl+Q for "add selected to queue" and Ctrl+Shift+Q for "add all checked to queue", but neither is implemented. These are the most common actions and should have shortcuts.
+2. **Add keyboard shortcut for queueing.** Fixed. Ctrl+Q now queues the selected item in the active media workspace and Ctrl+Shift+Q queues all checked items in that workspace.
 
-3. **Restructure Queue Tab toolbar.** 8 buttons in a single row is cramped. Group primary actions (Start/Stop Queue, Run Selected) and selection actions (Select All, Clear) visually. Move the "Go to TV Shows" / "Go to Movies" navigation buttons from the bottom action area to a more discoverable location.
+3. **Restructure Queue Tab toolbar.** Fixed. Navigation moved into the top toolbar and the actions are grouped with spacing so the queue controls are less cramped.
 
-4. **Improve cancelled/failed scan feedback.** When a scan is cancelled with no results, the empty state appears with no explanation. Consider showing a brief message or toast explaining why the scan ended.
+4. **Improve cancelled/failed scan feedback.** Fixed. Empty-result cancelled and failed scans now surface a toast so the empty state does not appear unexplained.
 
 5. **Consider revert banner as overlay.** The history tab's revert confirmation banner pushes the table down. An overlay or toast-style confirmation would avoid layout shift.
 

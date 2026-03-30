@@ -162,9 +162,9 @@ class MediaWorkspace(QWidget):
         self._fix_match_btn.setEnabled(False)
         self._fix_match_btn.clicked.connect(self._fix_match)
         preview_header.addWidget(self._fix_match_btn)
-        self._queue_inline_btn = QPushButton("Add to Queue")
+        self._queue_inline_btn = QPushButton("Queue This Show")
         self._queue_inline_btn.setEnabled(False)
-        self._queue_inline_btn.clicked.connect(self._queue_checked)
+        self._queue_inline_btn.clicked.connect(self._queue_selected_state)
         preview_header.addWidget(self._queue_inline_btn)
         preview_layout.addLayout(preview_header)
         self._folder_plan_label = QLabel("Select a roster item to see the planned folder rename.")
@@ -266,6 +266,12 @@ class MediaWorkspace(QWidget):
         self.refresh_from_controller()
         self._detail_panel.refresh_current()
 
+    def queue_selected(self) -> None:
+        self._queue_selected_state()
+
+    def queue_checked(self) -> None:
+        self._queue_checked()
+
     # ── Internals ────────────────────────────────────────────────
 
     def _on_folder_selected(self, path: str) -> None:
@@ -295,6 +301,7 @@ class MediaWorkspace(QWidget):
             return
 
         states = self._current_states()
+        self._normalize_queue_selection(states)
         selected_state_key = _roster_selection_key(self._selected_state())
         self._roster_syncing = True
         self._roster_list.setUpdatesEnabled(False)
@@ -311,7 +318,7 @@ class MediaWorkspace(QWidget):
             self._action_bar.set_queue_enabled(False)
             self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
-            self._queue_inline_btn.setText("Add to Queue")
+            self._queue_inline_btn.setText("Queue This Show")
             return
 
         selected_index = self._media_ctrl.library_selected_index
@@ -482,7 +489,18 @@ class MediaWorkspace(QWidget):
         for index, item in enumerate(state.preview_items):
             key = str(index)
             if key not in state.check_vars:
-                state.check_vars[key] = _CheckBinding(item.is_actionable)
+                state.check_vars[key] = _CheckBinding(
+                    item.is_actionable and _is_state_queue_approvable(state, media_type=self._media_type)
+                )
+
+    def _normalize_queue_selection(self, states: list[ScanState]) -> None:
+        for state in states:
+            if _is_state_queue_approvable(state, media_type=self._media_type):
+                continue
+            state.checked = False
+            for binding in state.check_vars.values():
+                if hasattr(binding, "set"):
+                    binding.set(False)
 
     def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         if self._roster_syncing or self._media_ctrl is None:
@@ -592,7 +610,7 @@ class MediaWorkspace(QWidget):
         row = QListWidgetItem()
         row.setData(Qt.ItemDataRole.UserRole, index)
         flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-        if preview.is_actionable:
+        if preview.is_actionable and _is_state_queue_approvable(state, media_type=self._media_type):
             row.setData(_CHECKED_ROLE, state.check_vars[str(index)].get())
         row.setFlags(flags)
         return row
@@ -676,11 +694,10 @@ class MediaWorkspace(QWidget):
 
     def _check_all(self) -> None:
         for state in self._current_states():
-            state.checked = True
+            state.checked = _is_state_queue_approvable(state, media_type=self._media_type)
             self._ensure_check_bindings(state)
             for index, preview in enumerate(state.preview_items):
-                if preview.is_actionable:
-                    state.check_vars[str(index)].set(True)
+                state.check_vars[str(index)].set(bool(state.checked and preview.is_actionable))
         self.refresh_from_controller()
 
     def _uncheck_all(self) -> None:
@@ -692,12 +709,36 @@ class MediaWorkspace(QWidget):
                     binding.set(False)
         self.refresh_from_controller()
 
+    def _queue_selected_state(self) -> None:
+        state = self._selected_state()
+        if state is None:
+            self.status_message.emit("Select a show before queueing.", 4000)
+            return
+        if not _is_state_queue_approvable(state, media_type=self._media_type):
+            self.status_message.emit("This item is not approved for queueing.", 4000)
+            return
+        original_checked = state.checked
+        state.checked = True
+        try:
+            self._queue_states([state], empty_message="Select a show before queueing.")
+        finally:
+            if not state.queued:
+                state.checked = original_checked
+
     def _queue_checked(self) -> None:
+        states = [state for state in self._current_states() if state.checked]
+        self._queue_states(states, empty_message="Select at least one actionable item before queueing.")
+
+    def _queue_states(self, states: list[ScanState], *, empty_message: str) -> None:
         if self._media_ctrl is None or self._queue_ctrl is None:
             return
-        states = [state for state in self._current_states() if state.checked]
         if not states:
-            self.status_message.emit("Select at least one actionable item before queueing.", 4000)
+            self.status_message.emit(empty_message, 4000)
+            return
+
+        eligibility = self._queue_eligibility(states)
+        if not eligibility.enabled:
+            self.status_message.emit(eligibility.reason or "The selected items cannot be queued right now.", 4000)
             return
 
         try:
@@ -776,9 +817,10 @@ class MediaWorkspace(QWidget):
 
     def _queue_eligibility(self, states: list[ScanState]):
         if not states:
-            return self._media_ctrl.command_gating.summarize_scan_states([])
+            return self._media_ctrl.command_gating.summarize_scan_states([], require_resolved_review=True)
         return self._media_ctrl.command_gating.summarize_scan_states(
             states,
+            require_resolved_review=True,
             allow_show_level_queue=self._media_type == "tv",
         )
 
@@ -788,15 +830,16 @@ class MediaWorkspace(QWidget):
         self._action_bar.update_summary(len(checked), len(states))
         selected_state = self._selected_state()
         self._fix_match_btn.setEnabled(bool(selected_state and not selected_state.queued and not selected_state.scanning))
-        if not checked:
-            self._action_bar.set_queue_enabled(False)
+        self._queue_inline_btn.setText("Queue This Show")
+        if selected_state is None:
             self._queue_inline_btn.setEnabled(False)
-            self._queue_inline_btn.setText("Add to Queue")
-            return
-        eligibility = self._queue_eligibility(checked)
-        self._action_bar.set_queue_enabled(eligibility.enabled)
-        self._queue_inline_btn.setEnabled(eligibility.enabled)
-        self._queue_inline_btn.setText(f"Add {len(checked)} to Queue")
+        else:
+            self._queue_inline_btn.setEnabled(_is_state_queue_approvable(selected_state, media_type=self._media_type))
+        if checked:
+            eligibility = self._queue_eligibility(checked)
+            self._action_bar.set_queue_enabled(eligibility.enabled)
+        else:
+            self._action_bar.set_queue_enabled(False)
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
 
@@ -854,7 +897,13 @@ class MediaWorkspace(QWidget):
             self._roster_list.removeItemWidget(item)
             existing.deleteLater()
         compact = self._is_compact_mode()
-        widget = _RosterRowWidget(state, compact=compact, media_type=self._media_type, parent=self._roster_list)
+        widget = _RosterRowWidget(
+            state,
+            compact=compact,
+            media_type=self._media_type,
+            checkable=_is_state_queue_approvable(state, media_type=self._media_type),
+            parent=self._roster_list,
+        )
         widget.clicked.connect(lambda item=item: self._set_current_item(self._roster_list, item))
         widget.check_toggled.connect(
             lambda checked, item=item: self._set_item_check_state(item, checked, preview=False)
@@ -879,6 +928,7 @@ class MediaWorkspace(QWidget):
             show_confidence=show_confidence,
             show_companions=show_companions,
             checked=state.check_vars.get(str(index), _CheckBinding(False)).get(),
+            checkable=_is_state_queue_approvable(state, media_type=self._media_type),
             parent=self._preview_list,
         )
         widget.clicked.connect(lambda item=item: self._set_current_item(self._preview_list, item))
@@ -1060,7 +1110,15 @@ class _RosterRowWidget(_ClickableRow):
     alternate_confirmed = Signal(object)
     geometry_changed = Signal()
 
-    def __init__(self, state: ScanState, *, compact: bool, media_type: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        state: ScanState,
+        *,
+        compact: bool,
+        media_type: str,
+        checkable: bool,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("rosterRowCard")
         self.setProperty("cssClass", "roster-row-card")
@@ -1079,7 +1137,8 @@ class _RosterRowWidget(_ClickableRow):
         layout.setContentsMargins(8, 7, 8, 7)
         layout.setSpacing(8)
 
-        self._check = _ToggleSwitch(state.checked, self)
+        self._check = _ToggleSwitch(state.checked if checkable else False, self)
+        self._check.setVisible(checkable)
         self._check.toggled.connect(self.check_toggled.emit)
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
@@ -1242,6 +1301,7 @@ class _PreviewRowWidget(_ClickableRow):
         show_confidence: bool,
         show_companions: bool,
         checked: bool,
+        checkable: bool,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -1254,8 +1314,8 @@ class _PreviewRowWidget(_ClickableRow):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(10)
 
-        self._check = _ToggleSwitch(checked if preview.is_actionable else False, self)
-        self._check.setVisible(preview.is_actionable)
+        self._check = _ToggleSwitch(checked if preview.is_actionable and checkable else False, self)
+        self._check.setVisible(preview.is_actionable and checkable)
         self._check.toggled.connect(self.check_toggled.emit)
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
@@ -1506,6 +1566,18 @@ def _is_plex_ready_state(state: ScanState) -> bool:
     return CommandGatingService.is_plex_ready_state(state)
 
 
+def _is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
+    if state.queued or state.scanning:
+        return False
+    if state.duplicate_of is not None or state.show_id is None:
+        return False
+    if state.needs_review or _is_plex_ready_state(state):
+        return False
+    if media_type == "movie":
+        return any(item.is_actionable for item in state.preview_items)
+    return True
+
+
 def _state_key(state: ScanState) -> str:
     return f"{state.folder}:{state.show_id or 'unmatched'}"
 
@@ -1613,7 +1685,7 @@ class _ActionBar(QFrame):
         self._uncheck_all_btn.clicked.connect(self.uncheck_all_requested.emit)
         layout.addWidget(self._uncheck_all_btn)
 
-        self._queue_btn = QPushButton("Add to Queue")
+        self._queue_btn = QPushButton("Queue Checked")
         self._queue_btn.clicked.connect(self.queue_requested.emit)
         layout.addWidget(self._queue_btn)
         self._queue_btn.setEnabled(False)
@@ -1622,9 +1694,9 @@ class _ActionBar(QFrame):
         noun = "items" if self._media_type == "movie" else "shows"
         self._summary_label.setText(f"{checked} of {total} {noun} checked")
         if checked:
-            self._queue_btn.setText(f"Add {checked} to Queue")
+            self._queue_btn.setText(f"Queue {checked} Checked")
         else:
-            self._queue_btn.setText("Add to Queue")
+            self._queue_btn.setText("Queue Checked")
 
     def set_queue_enabled(self, enabled: bool) -> None:
         self._queue_btn.setEnabled(enabled)

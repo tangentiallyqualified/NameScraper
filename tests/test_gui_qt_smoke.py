@@ -245,6 +245,123 @@ class QtSmokeTests(unittest.TestCase):
         self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
+    def test_media_workspace_queue_buttons_use_distinct_labels(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def add_tv_batch(self, states, root, gating):
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=_FakeQueueController(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
+            self.assertEqual(workspace._action_bar._queue_btn.text(), "Queue 1 Checked")
+
+            workspace.close()
+
+    def test_main_window_queue_shortcuts_trigger_selected_and_checked_actions(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        def _find_action(window: MainWindow, shortcut: str):
+            for action in window.actions():
+                if action.shortcut().toString() == shortcut:
+                    return action
+            return None
+
+        window = MainWindow()
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        window.media_ctrl._batch_states = [state]
+        window.media_ctrl._tv_root_folder = Path("C:/library/tv")
+        window.media_ctrl.library_selected_index = 0
+        window._tv_workspace.show_ready()
+
+        queue_selected = _find_action(window, "Ctrl+Q")
+        queue_checked = _find_action(window, "Ctrl+Shift+Q")
+
+        self.assertIsNotNone(queue_selected)
+        self.assertIsNotNone(queue_checked)
+
+        queue_selected.trigger()
+        self._app.processEvents()
+        self.assertEqual(window._queue_badge.count_text(), "1")
+
+        window.queue_ctrl.remove_jobs([job.job_id for job in window.queue_ctrl.get_queue()])
+        window._on_queue_changed()
+        state.queued = False
+        state.checked = True
+        self._app.processEvents()
+
+        queue_checked.trigger()
+        self._app.processEvents()
+        self.assertEqual(window._queue_badge.count_text(), "1")
+
+        window.close()
+
+    def test_main_window_shows_toast_when_cancelled_scan_ends_empty(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        window.media_ctrl.scan_progress.lifecycle = ScanLifecycle.CANCELLED
+        window.media_ctrl._batch_states = []
+        window.media_ctrl._movie_library_states = []
+
+        window._on_scan_complete()
+        self._app.processEvents()
+
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "Scan cancelled")
+        self.assertIn("cancelled", toast._message_label.text().lower())
+
+        window.close()
+
     def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes(self):
         from plex_renamer.app.models import ScanLifecycle
         from plex_renamer.gui_qt.main_window import MainWindow
@@ -889,6 +1006,153 @@ class QtSmokeTests(unittest.TestCase):
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
             self.assertEqual(row_widget._status.text(), "MATCHED")
+
+            workspace.close()
+
+    def test_tv_workspace_blocks_review_duplicate_and_plex_ready_from_queue_selection(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        def _roster_widget_for_index(workspace: MediaWorkspace, index: int):
+            for row in range(workspace._roster_list.count()):
+                item = workspace._roster_list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) == index:
+                    return workspace._roster_list.itemWidget(item)
+            return None
+
+        def _episode(path_root: str, season: int, episode: int, *, status: str = "OK", new_name: str | None = None, target_dir: Path | None = None):
+            original = Path(f"{path_root}/Season 01/Example.Show.S01E0{episode}.mkv")
+            return PreviewItem(
+                original=original,
+                new_name=new_name if new_name is not None else f"Example Show (2024) - S01E0{episode} - Pilot.mkv",
+                target_dir=target_dir if target_dir is not None else Path(f"{path_root}/Season 01"),
+                season=season,
+                episodes=[episode],
+                status=status,
+            )
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            matched_state = ScanState(
+                folder=Path("C:/library/tv/Matched.Show.2024"),
+                media_info={"id": 101, "name": "Matched Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                        new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Matched.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            review_state = ScanState(
+                folder=Path("C:/library/tv/Review.Show.2024"),
+                media_info={"id": 102, "name": "Review Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="REVIEW",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=0.42,
+                alternate_matches=[{"id": 202, "name": "Review Show", "year": "2024"}],
+            )
+            duplicate_state = ScanState(
+                folder=Path("C:/library/tv/Duplicate.Show.2024"),
+                media_info={"id": 101, "name": "Matched Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"),
+                        new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Duplicate.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+                duplicate_of="Matched Show (2024)",
+            )
+            plex_ready_root = "C:/library/tv/Plex Ready Show (2024)"
+            plex_ready_state = ScanState(
+                folder=Path(plex_ready_root),
+                media_info={"id": 103, "name": "Plex Ready Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"{plex_ready_root}/Season 01/Plex Ready Show (2024) - S01E01 - Pilot.mkv"),
+                        new_name="Plex Ready Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"{plex_ready_root}/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [matched_state, review_state, duplicate_state, plex_ready_state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            matched_widget = _roster_widget_for_index(workspace, 0)
+            review_widget = _roster_widget_for_index(workspace, 1)
+            duplicate_widget = _roster_widget_for_index(workspace, 2)
+            plex_ready_widget = _roster_widget_for_index(workspace, 3)
+
+            self.assertIsInstance(matched_widget, _RosterRowWidget)
+            self.assertFalse(matched_widget._check.isHidden())
+            self.assertTrue(matched_state.checked)
+
+            self.assertIsInstance(review_widget, _RosterRowWidget)
+            self.assertFalse(review_state.checked)
+            self.assertTrue(review_widget._check.isHidden())
+
+            self.assertIsInstance(duplicate_widget, _RosterRowWidget)
+            self.assertFalse(duplicate_state.checked)
+            self.assertTrue(duplicate_widget._check.isHidden())
+
+            self.assertIsInstance(plex_ready_widget, _RosterRowWidget)
+            self.assertFalse(plex_ready_state.checked)
+            self.assertTrue(plex_ready_widget._check.isHidden())
 
             workspace.close()
 

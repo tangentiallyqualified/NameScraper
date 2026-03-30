@@ -178,6 +178,7 @@ class MainWindow(QMainWindow):
         self._job_poster_backfill_started = False
         self._tv_needs_queue_refresh = False
         self._movie_needs_queue_refresh = False
+        self._scan_feedback_token: tuple[str, str] | None = None
 
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
@@ -435,6 +436,16 @@ class MainWindow(QMainWindow):
             action.triggered.connect(lambda _=False, n=idx: self._tabs.setCurrentIndex(n))
             self.addAction(action)
 
+        queue_selected = QAction(self)
+        queue_selected.setShortcut(QKeySequence("Ctrl+Q"))
+        queue_selected.triggered.connect(self._queue_selected_from_shortcut)
+        self.addAction(queue_selected)
+
+        queue_checked = QAction(self)
+        queue_checked.setShortcut(QKeySequence("Ctrl+Shift+Q"))
+        queue_checked.triggered.connect(self._queue_checked_from_shortcut)
+        self.addAction(queue_checked)
+
     # ── Folder selection → controller scan ───────────────────────
 
     def _on_tv_folder_selected(self, path: str) -> None:
@@ -448,6 +459,7 @@ class MainWindow(QMainWindow):
         self._start_movie_scan(path)
 
     def _start_tv_scan(self, path: str) -> None:
+        self._scan_feedback_token = None
         tmdb = self._ensure_tmdb()
         if tmdb is None:
             self._tv_workspace.show_empty()
@@ -455,11 +467,30 @@ class MainWindow(QMainWindow):
         self.media_ctrl.start_tv_batch(Path(path), tmdb)
 
     def _start_movie_scan(self, path: str) -> None:
+        self._scan_feedback_token = None
         tmdb = self._ensure_tmdb()
         if tmdb is None:
             self._movie_workspace.show_empty()
             return
         self.media_ctrl.start_movie_batch(Path(path), tmdb)
+
+    def _active_media_workspace_for_shortcuts(self) -> MediaWorkspace | None:
+        current = self._tabs.currentIndex()
+        if current == _TV:
+            return self._tv_workspace
+        if current == _MOVIES:
+            return self._movie_workspace
+        return None
+
+    def _queue_selected_from_shortcut(self) -> None:
+        workspace = self._active_media_workspace_for_shortcuts()
+        if workspace is not None:
+            workspace.queue_selected()
+
+    def _queue_checked_from_shortcut(self) -> None:
+        workspace = self._active_media_workspace_for_shortcuts()
+        if workspace is not None:
+            workspace.queue_checked()
 
     # ── Controller callback handlers (main thread via bridge) ────
 
@@ -490,6 +521,11 @@ class MainWindow(QMainWindow):
                 ws.show_ready()
             else:
                 ws.show_empty()
+                self._show_scan_feedback(
+                    title="Scan cancelled",
+                    message="The scan was cancelled before any results were produced.",
+                    tone="accent",
+                )
             self.statusBar().showMessage("Scan cancelled", 3000)
             return
         if (
@@ -506,6 +542,7 @@ class MainWindow(QMainWindow):
         ws.scan_progress_widget.finish()
         if not ws.is_showing_ready():
             ws.show_ready()
+        self._scan_feedback_token = None
         self.statusBar().showMessage("Scan complete", 3000)
 
     def _on_library_changed(self) -> None:
@@ -535,8 +572,26 @@ class MainWindow(QMainWindow):
             ScanLifecycle.FAILED,
         } and not states:
             ws.show_empty()
+            message = self.media_ctrl.scan_progress.message or "The scan ended before any results were produced."
+            self._show_scan_feedback(
+                title="Scan did not finish cleanly",
+                message=message,
+                tone="error",
+            )
         elif ws.is_showing_ready():
             ws.refresh_from_controller()
+
+    def _show_scan_feedback(self, *, title: str, message: str, tone: str) -> None:
+        token = (title, message)
+        if self._scan_feedback_token == token:
+            return
+        self._scan_feedback_token = token
+        self._toast_manager.show_toast(
+            title=title,
+            message=message,
+            tone=tone,
+            duration_ms=4000,
+        )
 
     def _on_queue_changed(self, _unused=None) -> None:
         self._refresh_job_views()

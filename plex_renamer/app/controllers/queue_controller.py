@@ -145,7 +145,9 @@ class QueueController:
                 continue
 
             eligibility = command_gating.evaluate_scan_state(
-                state, allow_show_level_queue=True,
+                state,
+                require_resolved_review=True,
+                allow_show_level_queue=True,
             )
             if not eligibility.enabled:
                 if eligibility.command_state.value == "disabled_already_queued":
@@ -196,7 +198,7 @@ class QueueController:
             if not state.checked:
                 continue
 
-            eligibility = command_gating.evaluate_scan_state(state)
+            eligibility = command_gating.evaluate_scan_state(state, require_resolved_review=True)
             if not eligibility.enabled:
                 if eligibility.command_state.value == "disabled_already_queued":
                     result.skipped_queued += 1
