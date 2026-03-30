@@ -1026,9 +1026,12 @@ class _RosterRowWidget(_ClickableRow):
         title_row.addWidget(self._title, stretch=1)
 
         self._status = QLabel(_state_status(state)[0].upper())
-        self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+        self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        title_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignRight)
+        title_row.addWidget(
+            self._status,
+            alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
+        )
         body.addLayout(title_row)
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
