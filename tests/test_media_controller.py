@@ -443,6 +443,58 @@ class MovieStateBuildTests(unittest.TestCase):
         self.assertIs(state.scanner, scanner)
         self.assertTrue(state.checked)
 
+    def test_build_movie_library_states_marks_actionable_duplicate_under_ready_primary(self):
+        proper_dir = self.tmp / "Alien (1979)"
+        proper_dir.mkdir()
+        proper_file = proper_dir / "Alien (1979).mkv"
+
+        duplicate_dir = self.tmp / "Alien.Source"
+        duplicate_dir.mkdir()
+        duplicate_file = duplicate_dir / "Alien.1979.1080p.mkv"
+
+        proper_item = PreviewItem(
+            original=proper_file,
+            new_name="Alien (1979).mkv",
+            target_dir=proper_dir,
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=42,
+            media_name="Alien",
+        )
+        duplicate_item = PreviewItem(
+            original=duplicate_file,
+            new_name="Alien (1979).mkv",
+            target_dir=self.tmp / "Alien (1979)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=42,
+            media_name="Alien",
+        )
+        scanner = _FakeMovieScanner(
+            chosen_by_path={
+                proper_file: {"id": 42, "title": "Alien", "year": "1979", "poster_path": None, "overview": ""},
+                duplicate_file: {"id": 42, "title": "Alien", "year": "1979", "poster_path": None, "overview": ""},
+            },
+            search_results={proper_file: [{"id": 42, "title": "Alien"}], duplicate_file: [{"id": 42, "title": "Alien"}]},
+        )
+        self.ctrl._movie_folder = self.tmp
+
+        self.ctrl._build_movie_library_states([duplicate_item, proper_item], scanner)
+
+        by_folder = {state.folder.name: state for state in self.ctrl.movie_library_states}
+        proper_state = by_folder["Alien (1979)"]
+        duplicate_state = by_folder["Alien.Source"]
+
+        self.assertIsNone(proper_state.duplicate_of)
+        self.assertEqual(duplicate_state.duplicate_of, proper_state.display_name)
+        self.assertEqual(duplicate_state.duplicate_of_relative_folder, "Alien (1979)")
+        self.assertFalse(proper_state.checked)
+        self.assertFalse(duplicate_state.checked)
+
 
 class RematchStateTests(unittest.TestCase):
     def setUp(self):
@@ -747,6 +799,25 @@ class SyncQueuedStatesTests(unittest.TestCase):
             library_root=str(self.tmp),
             source_folder="Dup",
             media_type=MediaType.TV,
+            tmdb_id=100,
+        )
+        self.store.add_job(job)
+
+        self.ctrl.sync_queued_states()
+        self.assertFalse(state.queued)
+
+    def test_sync_marks_movie_duplicates_as_not_queued(self):
+        state = ScanState(
+            folder=self.tmp / "DupMovie",
+            media_info={"id": 100, "title": "Dup Movie", "_media_type": MediaType.MOVIE},
+            duplicate_of="Primary Movie",
+        )
+        self.ctrl._movie_library_states = [state]
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="DupMovie",
+            media_type=MediaType.MOVIE,
             tmdb_id=100,
         )
         self.store.add_job(job)

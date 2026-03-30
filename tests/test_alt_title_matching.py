@@ -608,6 +608,41 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
             f"got {state.confidence:.2f}",
         )
 
+    def test_multi_movie_folder_scan_uses_only_selected_source_file(self):
+        """A multi-movie dump folder should scan only the matched source file."""
+        from plex_renamer.app.services import MovieLibraryDiscoveryService
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dump = root / "Unsorted"
+            dump.mkdir()
+            matrix_file = dump / "The.Matrix.1999.1080p.BluRay.mkv"
+            dune_file = dump / "Dune.Part.One.2021.2160p.UHD.BluRay.mkv"
+            parasite_file = dump / "Parasite.2019.2160p.UHD.BluRay.mkv"
+            matrix_file.write_text("x")
+            dune_file.write_text("x")
+            parasite_file.write_text("x")
+
+            tmdb = _FakeTMDBForMovieOrchestrator()
+            orchestrator = BatchMovieOrchestrator(
+                tmdb,
+                root,
+                discovery_service=MovieLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_movies()
+            self.assertEqual(len(states), 3)
+
+            matrix_state = next(state for state in states if state.show_id == 603)
+            self.assertEqual(matrix_state.source_file, matrix_file)
+
+            orchestrator.scan_movie(matrix_state)
+
+            self.assertTrue(matrix_state.scanned)
+            self.assertEqual(matrix_state.scanner.explicit_files, [matrix_file])
+            self.assertEqual(len(matrix_state.preview_items), 1)
+            self.assertEqual(matrix_state.preview_items[0].original, matrix_file)
+
 
 # ── Language priority tests ──────────────────────────────────────────────────
 

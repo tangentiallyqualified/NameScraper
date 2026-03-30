@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ...constants import MediaType
@@ -661,7 +661,56 @@ class MediaController:
                 scanner=scanner,
             )
             states.append(state)
+        self._apply_movie_duplicate_labels(states)
         self._movie_library_states = states
+
+    def _apply_movie_duplicate_labels(self, states: list[ScanState]) -> None:
+        for state in states:
+            state.duplicate_of = None
+            state.duplicate_of_relative_folder = None
+
+        seen_ids: dict[int, ScanState] = {}
+        for state in states:
+            media_id = state.show_id
+            if media_id is None:
+                continue
+
+            primary = seen_ids.get(media_id)
+            if primary is None:
+                seen_ids[media_id] = state
+                continue
+
+            if self._movie_duplicate_priority(state) < self._movie_duplicate_priority(primary):
+                primary.duplicate_of = state.display_name
+                primary.duplicate_of_relative_folder = self._movie_state_relative_folder(state)
+                primary.checked = False
+                state.duplicate_of = None
+                state.duplicate_of_relative_folder = None
+                seen_ids[media_id] = state
+            else:
+                state.duplicate_of = primary.display_name
+                state.duplicate_of_relative_folder = self._movie_state_relative_folder(primary)
+                state.checked = False
+
+    def _movie_duplicate_priority(self, state: ScanState) -> tuple[int, float, int, str, str]:
+        item = state.preview_items[0] if state.preview_items else None
+        ready_rank = 0 if item is not None and not item.is_actionable else 1
+        relative_folder = self._movie_state_relative_folder(state)
+        depth = len(PurePosixPath(relative_folder.replace("\\", "/")).parts)
+        original_name = item.original.name.casefold() if item is not None else state.folder.name.casefold()
+        return (
+            ready_rank,
+            -state.confidence,
+            depth,
+            relative_folder.replace("\\", "/").casefold(),
+            original_name,
+        )
+
+    def _movie_state_relative_folder(self, state: ScanState) -> str:
+        try:
+            return state.folder.relative_to(self._movie_folder).as_posix() if self._movie_folder is not None else state.folder.as_posix()
+        except ValueError:
+            return state.folder.as_posix()
 
     def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
@@ -800,4 +849,7 @@ class MediaController:
             state.queued = (MediaType.TV, state.show_id or 0) in queued_keys
 
         for state in self._movie_library_states:
+            if state.duplicate_of is not None:
+                state.queued = False
+                continue
             state.queued = (MediaType.MOVIE, state.show_id or 0) in queued_keys

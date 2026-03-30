@@ -195,6 +195,7 @@ class ScanState:
     folder: Path
     media_info: dict                                    # TMDB show/movie dict
     scanner: TVScanner | None = None
+    source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
     completeness: CompletenessReport | None = None
 
@@ -805,15 +806,24 @@ class BatchMovieOrchestrator:
         return text.replace("\\", "/").casefold()
 
     @classmethod
+    def _is_ready_movie_candidate(cls, state: ScanState) -> bool:
+        return bool(
+            state.scanned
+            and state.preview_items
+            and not any(item.is_actionable for item in state.preview_items)
+        )
+
+    @classmethod
     def _duplicate_priority(cls, state: ScanState) -> tuple[float, int, int, str]:
         normalized_relative = cls._normalized_relative_folder(
             state.relative_folder,
             state.folder,
         )
         depth = len(PurePosixPath(normalized_relative).parts)
+        ready_rank = 0 if cls._is_ready_movie_candidate(state) else 1
         # "Title (Year)" folder name match beats loose files in a multi-movie folder
         evidence_rank = 0 if state.discovery_reason == "title_year_folder" else 1
-        return (-state.confidence, depth, evidence_rank, normalized_relative)
+        return (ready_rank, -state.confidence, depth, evidence_rank, normalized_relative)
 
     def _apply_duplicate_labels(self) -> None:
         """Mark lower-priority TMDB matches as duplicates deterministically."""
@@ -923,6 +933,7 @@ class BatchMovieOrchestrator:
                     search_results=results,
                     alternate_matches=[],
                     checked=False,
+                    source_file=source_file,
                     relative_folder=candidate.relative_folder,
                     parent_relative_folder=candidate.parent_relative_folder,
                     discovery_reason=candidate.discovery_reason,
@@ -955,6 +966,7 @@ class BatchMovieOrchestrator:
                 search_results=results,
                 alternate_matches=alternates,
                 checked=auto_check,
+                source_file=source_file,
                 relative_folder=candidate.relative_folder,
                 parent_relative_folder=candidate.parent_relative_folder,
                 discovery_reason=candidate.discovery_reason,
@@ -1008,11 +1020,14 @@ class BatchMovieOrchestrator:
 
         try:
             chosen = state.media_info
-            video_files = sorted(
-                f for f in state.folder.iterdir()
-                if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
-                and not is_sample_file(f) and not looks_like_tv_episode(f)
-            )
+            if state.source_file is not None:
+                video_files = [state.source_file] if state.source_file.exists() else []
+            else:
+                video_files = sorted(
+                    f for f in state.folder.iterdir()
+                    if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+                    and not is_sample_file(f) and not looks_like_tv_episode(f)
+                )
 
             items: list[PreviewItem] = []
             for f in video_files:
@@ -1042,6 +1057,8 @@ class BatchMovieOrchestrator:
         finally:
             state.scanning = False
 
+        self._apply_duplicate_labels()
+
     def scan_all(
         self,
         progress_callback: Callable | None = None,
@@ -1064,8 +1081,9 @@ class BatchMovieOrchestrator:
     def rematch_movie(self, state: ScanState, new_match: dict) -> None:
         """Swap a movie's TMDB match and invalidate its scan data."""
         state.media_info = new_match
-        raw_name = clean_folder_name(state.folder.name)
-        year_hint = extract_year(state.folder.name)
+        raw_source = state.source_file.stem if state.source_file is not None else state.folder.name
+        raw_name = clean_folder_name(raw_source)
+        year_hint = extract_year(raw_source)
         scored = score_results(
             [new_match], raw_name, year_hint, title_key="title")
         state.confidence = scored[0][1] if scored else 0.0
