@@ -12,6 +12,7 @@ workspace widget.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
@@ -52,6 +53,8 @@ _MOVIES = 1
 _QUEUE = 2
 _HISTORY = 3
 _SETTINGS = 4
+TMDB_CACHE_NAMESPACE = "tmdb"
+TMDB_CACHE_SNAPSHOT_KEY = "client_snapshot"
 
 
 class _ControllerBridge(QObject):
@@ -83,6 +86,7 @@ class _QueueBridge(QObject):
     job_completed = Signal(object, object)
     job_failed = Signal(object, object)
     queue_finished = Signal()
+    poster_backfill_finished = Signal(int)
 
     def on_job_started(self, job) -> None:
         self.job_started.emit(job)
@@ -99,6 +103,9 @@ class _QueueBridge(QObject):
     def on_queue_finished(self) -> None:
         self.queue_finished.emit()
         self.changed.emit(None)
+
+    def on_poster_backfill_finished(self, updated: int) -> None:
+        self.poster_backfill_finished.emit(updated)
 
 
 class MainWindow(QMainWindow):
@@ -155,6 +162,7 @@ class MainWindow(QMainWindow):
         self._queue_bridge.job_completed.connect(self._on_job_completed)
         self._queue_bridge.job_failed.connect(self._on_job_failed)
         self._queue_bridge.queue_finished.connect(self._on_queue_finished)
+        self._queue_bridge.poster_backfill_finished.connect(self._on_poster_backfill_finished)
 
         # ── Tab widget ───────────────────────────────────────────
         self._tabs = QTabWidget()
@@ -164,6 +172,7 @@ class MainWindow(QMainWindow):
         self._queue_run_started = False
         self._queue_completed_count = 0
         self._queue_failed_count = 0
+        self._job_poster_backfill_started = False
 
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
@@ -230,6 +239,7 @@ class MainWindow(QMainWindow):
         self._apply_view_mode(self.settings_service.view_mode)
         self._apply_companion_visibility(self.settings_service.show_companion_files)
         self._apply_discovery_visibility(self.settings_service.show_discovery_info)
+        QTimer.singleShot(0, self._start_job_poster_backfill)
 
     # ── TMDB client ──────────────────────────────────────────────
 
@@ -246,11 +256,66 @@ class MainWindow(QMainWindow):
         self._tmdb = TMDBClient(
             api_key,
             language=self.settings_service.match_language,
+            cache_service=self._cache_service,
         )
+        self._restore_tmdb_cache_snapshot()
         return self._tmdb
 
+    def _restore_tmdb_cache_snapshot(self) -> None:
+        if self._tmdb is None:
+            return
+        cached_snapshot = self._cache_service.get(
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+        )
+        if not cached_snapshot.is_hit or not cached_snapshot.value:
+            return
+        try:
+            self._tmdb.import_cache_snapshot(
+                cached_snapshot.value,
+                clear_existing=True,
+            )
+        except Exception:
+            self._cache_service.invalidate(
+                TMDB_CACHE_NAMESPACE,
+                TMDB_CACHE_SNAPSHOT_KEY,
+            )
+
+    def _persist_tmdb_cache_snapshot(self) -> None:
+        if self._tmdb is None:
+            return
+        snapshot = self._tmdb.export_cache_snapshot()
+        self._cache_service.put(
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+            snapshot,
+            metadata={"kind": "tmdb_cache_snapshot"},
+        )
+
     def _invalidate_tmdb(self) -> None:
+        self._persist_tmdb_cache_snapshot()
         self._tmdb = None
+
+    def _start_job_poster_backfill(self) -> None:
+        if self._job_poster_backfill_started:
+            return
+        if not get_api_key("TMDB"):
+            return
+        tmdb = self._ensure_tmdb()
+        if tmdb is None:
+            return
+        self._job_poster_backfill_started = True
+
+        def _worker() -> None:
+            updated = self.queue_ctrl.backfill_missing_job_poster_paths(tmdb)
+            self._queue_bridge.on_poster_backfill_finished(updated)
+
+        threading.Thread(target=_worker, daemon=True, name="QtJobPosterBackfill").start()
+
+    def _on_poster_backfill_finished(self, updated: int) -> None:
+        if updated <= 0:
+            return
+        self._refresh_job_views()
 
     def _refresh_media_workspaces(self) -> None:
         self._tv_workspace.apply_settings()
@@ -424,8 +489,6 @@ class MainWindow(QMainWindow):
                 for state in self.media_ctrl.batch_states
             )
         ):
-            if not ws.is_showing_ready():
-                ws.show_ready()
             self.media_ctrl.scan_all_shows()
             return
 
@@ -654,6 +717,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._save_window_state()
+        self._persist_tmdb_cache_snapshot()
         self.media_ctrl.clear_listeners()
         self.queue_ctrl.clear_listeners()
         self.queue_ctrl.close()

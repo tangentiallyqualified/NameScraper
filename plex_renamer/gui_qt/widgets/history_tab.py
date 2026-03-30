@@ -131,7 +131,10 @@ class HistoryTab(QWidget):
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
         root.addWidget(self._table, stretch=1)
 
-        self._detail = JobDetailPanel(tmdb_provider=tmdb_provider)
+        self._detail = JobDetailPanel(
+            tmdb_provider=tmdb_provider,
+            persist_poster_path=self._queue_ctrl.set_job_poster_path,
+        )
         root.addWidget(self._detail)
 
         self.refresh()

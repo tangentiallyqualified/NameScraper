@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from ...engine import PreviewItem, ScanState
 from ...parsing import clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
+from ...app.services.command_gating_service import CommandGatingService
 from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
 from .match_picker_dialog import MatchPickerDialog
@@ -1293,9 +1294,7 @@ def _state_status_tone(state: ScanState) -> str:
         return "error"
     if state.needs_review:
         return "accent"
-    if state.scanned and state.all_skipped:
-        return "muted"
-    if state.scanned:
+    if _is_plex_ready_state(state):
         return "success"
     return "info"
 
@@ -1426,12 +1425,8 @@ def _state_status(state: ScanState) -> tuple[str, QColor]:
         return "Unmatched", QColor("#d44040")
     if state.needs_review:
         return "Needs Review", QColor("#e5a00d")
-    if _is_movie_state(state):
-        return "Matched", QColor("#4a9eda")
-    if state.scanned and state.all_skipped:
-        return "No Action Needed", QColor("#777777")
-    if state.scanned:
-        return "Ready", QColor("#3ea463")
+    if _is_plex_ready_state(state):
+        return "Plex Ready", QColor("#3ea463")
     return "Matched", QColor("#4a9eda")
 
 
@@ -1444,11 +1439,13 @@ def _roster_group(state: ScanState) -> str:
         return "unmatched"
     if state.needs_review:
         return "review"
-    if _is_movie_state(state):
-        return "matched"
-    if state.scanned:
+    if _is_plex_ready_state(state):
         return "plex-ready"
     return "matched"
+
+
+def _is_plex_ready_state(state: ScanState) -> bool:
+    return CommandGatingService.is_plex_ready_state(state)
 
 
 def _state_key(state: ScanState) -> str:

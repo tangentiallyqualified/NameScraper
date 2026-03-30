@@ -2858,6 +2858,7 @@ def build_rename_job_from_state(
         media_type=MediaType.TV,
         tmdb_id=state.show_id or 0,
         media_name=state.display_name,
+        poster_path=state.media_info.get("poster_path"),
         library_root=str(library_root),
         source_folder=source_folder,
         rename_ops=ops,
@@ -2874,6 +2875,7 @@ def build_rename_job_from_items(
     library_root: Path,
     source_folder: Path,
     show_folder_rename: str | None = None,
+    poster_path: str | None = None,
 ) -> 'RenameJob':
     """
     Create a RenameJob from raw PreviewItems (single-show TV or movie mode).
@@ -2891,6 +2893,7 @@ def build_rename_job_from_items(
         media_type=media_type,
         tmdb_id=tmdb_id,
         media_name=media_name,
+        poster_path=poster_path,
         library_root=str(library_root),
         source_folder=source_rel,
         rename_ops=ops,

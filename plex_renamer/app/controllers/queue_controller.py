@@ -105,6 +105,7 @@ class QueueController:
         library_root: Path,
         source_folder: Path,
         show_folder_rename: str | None = None,
+        poster_path: str | None = None,
     ) -> RenameJob:
         """Build and enqueue a single rename job.
 
@@ -120,6 +121,7 @@ class QueueController:
             library_root=library_root,
             source_folder=source_folder,
             show_folder_rename=show_folder_rename,
+            poster_path=poster_path,
         )
         self.job_store.add_job(job)
         return job
@@ -220,6 +222,7 @@ class QueueController:
                 library_root=library_root,
                 source_folder=item.original.parent,
                 show_folder_rename=movie_folder,
+                poster_path=state.media_info.get("poster_path"),
             )
 
             try:
@@ -249,6 +252,10 @@ class QueueController:
         if result.errors:
             job.error_message = "; ".join(result.errors[:5])
         self.job_store.add_job(job)
+
+    def set_job_poster_path(self, job_id: str, poster_path: str | None) -> None:
+        """Persist a resolved poster path for an existing job."""
+        self.job_store.set_poster_path(job_id, poster_path)
 
     def get_latest_revertible_job(self) -> RenameJob | None:
         """Return the most recent completed job with stored undo data."""
@@ -321,6 +328,27 @@ class QueueController:
 
     def count_by_status(self) -> dict[str, int]:
         return self.job_store.count_by_status()
+
+    def backfill_missing_job_poster_paths(self, tmdb: Any) -> int:
+        """Resolve and persist missing poster paths for queued/history jobs using cached TMDB metadata only."""
+        cache: dict[tuple[str, int], str | None] = {}
+        updated = 0
+
+        for job in self.job_store.get_all():
+            if job.poster_path or not job.tmdb_id:
+                continue
+
+            key = (job.media_type, job.tmdb_id)
+            poster_path = cache.get(key)
+            if key not in cache:
+                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
+                cache[key] = poster_path
+
+            if poster_path:
+                self.job_store.set_poster_path(job.job_id, poster_path)
+                updated += 1
+
+        return updated
 
     def close(self) -> None:
         """Clean shutdown: stop executor and close the store."""

@@ -137,7 +137,10 @@ class QueueTab(QWidget):
         actions_layout.addWidget(self._movie_btn)
         root.addWidget(actions)
 
-        self._detail = JobDetailPanel(tmdb_provider=self._tmdb_provider)
+        self._detail = JobDetailPanel(
+            tmdb_provider=self._tmdb_provider,
+            persist_poster_path=self._queue_ctrl.set_job_poster_path,
+        )
         root.addWidget(self._detail)
 
         self.refresh()

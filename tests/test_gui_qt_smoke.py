@@ -119,7 +119,65 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(window._history_badge.count_text(), "2")
         window.close()
 
-    def test_main_window_shows_tv_ready_workspace_before_bulk_scan(self):
+    def test_job_detail_panel_uses_persisted_job_poster_path_before_tmdb_lookup(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        tmdb = MagicMock()
+        tmdb.fetch_image = MagicMock(return_value=None)
+        tmdb.fetch_poster = MagicMock(side_effect=AssertionError("fetch_poster should not be used when poster_path is persisted"))
+
+        panel = JobDetailPanel(tmdb_provider=lambda: tmdb)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            tmdb_id=123,
+            media_name="Example Show",
+            poster_path="/poster.jpg",
+        )
+
+        panel.set_job(job)
+        self._app.processEvents()
+        QTest.qWait(10)
+        self._app.processEvents()
+
+        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=96)
+        panel.close()
+
+    def test_job_detail_panel_backfills_poster_path_from_cached_tmdb_metadata(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        persisted: list[tuple[str, str | None]] = []
+        tmdb = MagicMock()
+        tmdb.get_cached_poster_path = MagicMock(return_value="/poster.jpg")
+        tmdb.fetch_image = MagicMock(return_value=None)
+        tmdb.fetch_poster = MagicMock(side_effect=AssertionError("fetch_poster should not be needed when cached metadata has poster_path"))
+
+        panel = JobDetailPanel(
+            tmdb_provider=lambda: tmdb,
+            persist_poster_path=lambda job_id, poster_path: persisted.append((job_id, poster_path)),
+        )
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            tmdb_id=123,
+            media_name="Example Show",
+            poster_path=None,
+        )
+
+        panel.set_job(job)
+        self._app.processEvents()
+        QTest.qWait(10)
+        self._app.processEvents()
+
+        tmdb.get_cached_poster_path.assert_called_once_with(123, media_type=job.media_type)
+        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=96)
+        self.assertEqual(job.poster_path, "/poster.jpg")
+        self.assertEqual(persisted, [(job.job_id, "/poster.jpg")])
+        panel.close()
+
+    def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes(self):
         from plex_renamer.app.models import ScanLifecycle
         from plex_renamer.gui_qt.main_window import MainWindow
 
@@ -144,13 +202,84 @@ class QtSmokeTests(unittest.TestCase):
             message="Found 1 show",
         )
         window._tv_workspace.show_ready = MagicMock()
-        window._tv_workspace.is_showing_ready = MagicMock(return_value=False)
         window.media_ctrl.scan_all_shows = MagicMock()
 
         window._on_scan_complete()
 
-        window._tv_workspace.show_ready.assert_called_once_with()
+        window._tv_workspace.show_ready.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
+        window.close()
+
+    def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
+            window = MainWindow()
+        snapshot = {"movie_cache": {"123": {"poster_path": "/poster.jpg"}}}
+        lookup = type("Lookup", (), {"is_hit": True, "value": snapshot})()
+        window._cache_service.get = MagicMock(return_value=lookup)
+
+        with patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"):
+            with patch("plex_renamer.gui_qt.main_window.TMDBClient") as client_cls:
+                client = MagicMock()
+                client.export_cache_snapshot.return_value = {}
+                client_cls.return_value = client
+
+                window._ensure_tmdb()
+
+        client.import_cache_snapshot.assert_called_once_with(snapshot, clear_existing=True)
+        window.close()
+
+    def test_main_window_persists_tmdb_snapshot_on_invalidate(self):
+        from plex_renamer.gui_qt.main_window import MainWindow, TMDB_CACHE_NAMESPACE, TMDB_CACHE_SNAPSHOT_KEY
+
+        window = MainWindow()
+        tmdb = MagicMock()
+        snapshot = {"movie_cache": {"123": {"poster_path": "/poster.jpg"}}}
+        tmdb.export_cache_snapshot.return_value = snapshot
+        window._tmdb = tmdb
+        window._cache_service.put = MagicMock()
+
+        window._invalidate_tmdb()
+
+        window._cache_service.put.assert_called_once_with(
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+            snapshot,
+            metadata={"kind": "tmdb_cache_snapshot"},
+        )
+        self.assertIsNone(window._tmdb)
+        window.close()
+
+    def test_main_window_starts_startup_job_poster_backfill(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot") as single_shot:
+            window = MainWindow()
+
+        single_shot.assert_called()
+        callback = single_shot.call_args.args[1]
+        self.assertEqual(callback.__name__, "_start_job_poster_backfill")
+        window.close()
+
+    def test_main_window_startup_job_poster_backfill_uses_queue_controller(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
+            window = MainWindow()
+        window.queue_ctrl.backfill_missing_job_poster_paths = MagicMock(return_value=2)
+        window._refresh_job_views = MagicMock()
+
+        with patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"):
+            tmdb = MagicMock()
+            window._ensure_tmdb = MagicMock(return_value=tmdb)
+
+            window._start_job_poster_backfill()
+            QTest.qWait(20)
+            self._app.processEvents()
+
+        window.queue_ctrl.backfill_missing_job_poster_paths.assert_called_once_with(tmdb)
+        window._refresh_job_views.assert_called_once()
         window.close()
 
     def test_history_tab_revert_uses_inline_confirmation_banner(self):
@@ -614,6 +743,93 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(preview_indices, [1, 2, 0])
 
             workspace.close()
+
+    def test_media_workspace_keeps_folder_rename_states_out_of_plex_ready(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            state = ScanState(
+                folder=Path("C:/library/tv/Example.Show.2024.Source"),
+                media_info={"id": 101, "name": "Example Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Example.Show.2024.Source/Season 01/Example Show (2024) - S01E01 - Pilot.mkv"),
+                        new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Example.Show.2024.Source/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertEqual(workspace._roster_list.item(0).text(), "MATCHED")
+            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
+            self.assertIsInstance(row_widget, _RosterRowWidget)
+            self.assertEqual(row_widget._status.text(), "MATCHED")
+
+            workspace.close()
+
+    def test_toast_manager_repositions_stacked_wrapped_toasts_without_clipping(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        window.resize(900, 700)
+        long_message = (
+            "This is a long toast message intended to wrap across multiple lines so "
+            "the stacked notification layout has to allocate the correct height."
+        )
+
+        window._toast_manager.show_toast(title="Queue Update", message=long_message, duration_ms=0)
+        window._toast_manager.show_toast(title="Queue Update", message=long_message, duration_ms=0)
+        self._app.processEvents()
+
+        manager = window._toast_manager
+        toast_geometries = []
+        for index in range(manager._layout.count()):
+            item = manager._layout.itemAt(index)
+            toast = item.widget() if item is not None else None
+            if toast is None:
+                continue
+            toast_geometries.append(toast.geometry())
+
+        self.assertEqual(len(toast_geometries), 2)
+        self.assertTrue(all(geometry.top() >= 0 for geometry in toast_geometries))
+        self.assertTrue(all(geometry.bottom() <= manager.height() for geometry in toast_geometries))
+
+        window.close()
 
 
 if __name__ == "__main__":

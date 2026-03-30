@@ -1,6 +1,7 @@
 """Tests for QueueController — UI-neutral job queue management."""
 from __future__ import annotations
 
+import sqlite3
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -63,6 +64,79 @@ class QueueControllerTests(unittest.TestCase):
         self.assertEqual(job.tmdb_id, 100)
         self.assertEqual(job.media_name, "Show")
         self.assertEqual(len(self.store.get_pending()), 1)
+
+    def test_add_single_job_persists_poster_path(self):
+        lib_root = self.tmp / "library"
+        lib_root.mkdir()
+        source = lib_root / "Show"
+        source.mkdir()
+
+        item = PreviewItem(
+            original=source / "ep01.mkv",
+            new_name="Show - S01E01.mkv",
+            target_dir=source / "Season 01",
+            season=1,
+            episodes=[1],
+            status="OK",
+            media_type=MediaType.TV,
+            media_id=100,
+            media_name="Show",
+        )
+
+        job = self.ctrl.add_single_job(
+            items=[item],
+            checked_indices={0},
+            media_type=MediaType.TV,
+            tmdb_id=100,
+            media_name="Show",
+            library_root=lib_root,
+            source_folder=source,
+            poster_path="/poster.jpg",
+        )
+
+        stored = self.store.get_job(job.job_id)
+        self.assertEqual(stored.poster_path, "/poster.jpg")
+
+    def test_job_store_migrates_existing_db_to_add_poster_path(self):
+        db_path = self.tmp / "legacy_jobs.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript(
+            """
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (1);
+            CREATE TABLE jobs (
+                job_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                media_type TEXT NOT NULL,
+                tmdb_id INTEGER NOT NULL,
+                media_name TEXT NOT NULL,
+                library_root TEXT NOT NULL,
+                source_folder TEXT NOT NULL,
+                show_folder_rename TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                error_message TEXT,
+                position INTEGER NOT NULL DEFAULT 0,
+                undo_data TEXT,
+                job_kind TEXT NOT NULL DEFAULT 'rename',
+                data_source TEXT NOT NULL DEFAULT 'tmdb',
+                depends_on TEXT,
+                rename_ops TEXT NOT NULL
+            );
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        migrated = JobStore(db_path=db_path)
+        try:
+            row = migrated._get_conn().execute("PRAGMA table_info(jobs)").fetchall()
+            columns = {entry[1] for entry in row}
+            version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            self.assertIn("poster_path", columns)
+            self.assertEqual(version, 2)
+        finally:
+            migrated.close()
 
     def test_add_single_job_duplicate_raises(self):
         lib_root = self.tmp / "library"
@@ -225,6 +299,53 @@ class QueueControllerTests(unittest.TestCase):
         counts = self.ctrl.count_by_status()
         self.assertEqual(counts.get(JobStatus.PENDING, 0), 2)
         self.assertEqual(counts.get(JobStatus.COMPLETED, 0), 1)
+
+    def test_set_job_poster_path_updates_existing_job(self):
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Show",
+            status=JobStatus.PENDING,
+        )
+        self.store.add_job(job)
+
+        self.ctrl.set_job_poster_path(job.job_id, "/poster.jpg")
+
+        updated = self.store.get_job(job.job_id)
+        self.assertEqual(updated.poster_path, "/poster.jpg")
+
+    def test_backfill_missing_job_poster_paths_uses_cached_metadata_only(self):
+        movie_job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Movie",
+            media_type=MediaType.MOVIE,
+            tmdb_id=101,
+            media_name="Movie",
+        )
+        tv_job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Show",
+            media_type=MediaType.TV,
+            tmdb_id=202,
+            media_name="Show",
+        )
+        self.store.add_job(movie_job)
+        self.store.add_job(tv_job)
+
+        class _FakeTMDB:
+            def __init__(self):
+                self.cached_calls = []
+
+            def get_cached_poster_path(self, tmdb_id, media_type="tv"):
+                self.cached_calls.append((media_type, tmdb_id))
+                if (media_type, tmdb_id) == (MediaType.MOVIE, 101):
+                    return "/movie-poster.jpg"
+                return None
+
+        updated = self.ctrl.backfill_missing_job_poster_paths(_FakeTMDB())
+
+        self.assertEqual(updated, 1)
+        self.assertEqual(self.store.get_job(movie_job.job_id).poster_path, "/movie-poster.jpg")
+        self.assertIsNone(self.store.get_job(tv_job.job_id).poster_path)
 
     # ── Listener ──────────────────────────────────────────────────────
 

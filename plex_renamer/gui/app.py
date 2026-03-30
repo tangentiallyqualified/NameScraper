@@ -1332,6 +1332,7 @@ class PlexRenamerApp:
         self.tmdb = TMDBClient(
             api_key,
             language=self.settings_service.match_language,
+            cache_service=self.cache_service,
         )
         cached_snapshot = self.cache_service.get(
             TMDB_CACHE_NAMESPACE,
@@ -2091,6 +2092,7 @@ class PlexRenamerApp:
                 library_root=library_root,
                 source_folder=self.folder,
                 show_folder_rename=show_folder,
+                poster_path=(self.media_info or {}).get("poster_path"),
             )
         except DuplicateJobError as e:
             messagebox.showinfo(
@@ -2234,6 +2236,7 @@ class PlexRenamerApp:
             self.folder,
             self.folder,
             show_folder_rename=show_folder,
+            poster_path=(self.media_info or {}).get("poster_path"),
         )
 
         result = execute_rename(

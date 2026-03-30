@@ -48,7 +48,7 @@ class _ToastCard(QFrame):
             f"background-color: #181818; border: 1px solid #2a2a2a; border-left: 4px solid {border};"
             "border-radius: 10px; }"
         )
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 10, 12, 10)
@@ -61,6 +61,7 @@ class _ToastCard(QFrame):
         title_label = QLabel(title)
         title_label.setProperty("cssClass", "heading")
         title_label.setWordWrap(True)
+        title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         header.addWidget(title_label, stretch=1)
 
         close_btn = QPushButton("x")
@@ -72,6 +73,7 @@ class _ToastCard(QFrame):
 
         message_label = QLabel(message)
         message_label.setWordWrap(True)
+        message_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         root.addWidget(message_label)
 
         if action_text and action_callback is not None:
@@ -172,6 +174,19 @@ class ToastManager(QWidget):
         if parent is None:
             return
         width = min(380, max(280, parent.width() // 3))
-        height = self.sizeHint().height()
+        height = 0
+        spacing = self._layout.spacing()
+        visible_toasts = 0
+        for index in range(self._layout.count()):
+            item = self._layout.itemAt(index)
+            toast = item.widget() if item is not None else None
+            if toast is None:
+                continue
+            toast.setFixedWidth(width)
+            toast.layout().activate()
+            height += toast.sizeHint().height()
+            visible_toasts += 1
+        if visible_toasts > 1:
+            height += spacing * (visible_toasts - 1)
         margin = 16
         self.setGeometry(parent.width() - width - margin, parent.height() - height - margin, width, height)

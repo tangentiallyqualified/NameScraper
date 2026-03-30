@@ -23,9 +23,15 @@ class _PosterBridge(QObject):
 class JobDetailPanel(QFrame):
     """Shows the selected job summary, status, paths, and optional poster."""
 
-    def __init__(self, tmdb_provider: Callable[[], object | None] | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        tmdb_provider: Callable[[], object | None] | None = None,
+        persist_poster_path: Callable[[str, str | None], None] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._tmdb_provider = tmdb_provider
+        self._persist_poster_path = persist_poster_path
         self._current_job_id: str | None = None
         self._poster_pixmap: QPixmap | None = None
         self._bridge = _PosterBridge(self)
@@ -118,7 +124,7 @@ class JobDetailPanel(QFrame):
         return " · ".join(parts)
 
     def _request_poster(self, job: RenameJob) -> None:
-        if not job.tmdb_id or self._tmdb_provider is None:
+        if self._tmdb_provider is None:
             self._poster.setText("No Poster")
             return
         tmdb = self._tmdb_provider()
@@ -127,7 +133,24 @@ class JobDetailPanel(QFrame):
             return
 
         def _worker() -> None:
-            image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=96)
+            image = None
+            poster_path = job.poster_path
+            if not poster_path and job.tmdb_id:
+                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
+                if poster_path:
+                    job.poster_path = poster_path
+                    if self._persist_poster_path is not None:
+                        self._persist_poster_path(job.job_id, poster_path)
+
+            if poster_path:
+                image = tmdb.fetch_image(poster_path, target_width=96)
+            elif job.tmdb_id:
+                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=96)
+                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
+                if poster_path:
+                    job.poster_path = poster_path
+                    if self._persist_poster_path is not None:
+                        self._persist_poster_path(job.job_id, poster_path)
             if image is None:
                 self._bridge.poster_ready.emit(None, job.job_id)
                 return

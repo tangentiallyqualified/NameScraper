@@ -82,6 +82,7 @@ class RenameJob:
     media_type: str = MediaType.TV
     tmdb_id: int = 0
     media_name: str = ""
+    poster_path: str | None = None
 
     # Paths
     library_root: str = ""          # Absolute path to the library root
@@ -164,7 +165,7 @@ class RenameJob:
 
 # ─── SQLite store ────────────────────────────────────────────────────────────
 
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -178,6 +179,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     media_type      TEXT NOT NULL,
     tmdb_id         INTEGER NOT NULL,
     media_name      TEXT NOT NULL,
+    poster_path     TEXT,
     library_root    TEXT NOT NULL,
     source_folder   TEXT NOT NULL,
     show_folder_rename TEXT,
@@ -265,7 +267,20 @@ class JobStore:
                 conn.execute(
                     "INSERT INTO schema_version (version) VALUES (?)",
                     (_SCHEMA_VERSION,))
+            elif int(row["version"]) < _SCHEMA_VERSION:
+                self._migrate_db(conn, int(row["version"]))
             conn.commit()
+
+    def _migrate_db(self, conn: sqlite3.Connection, current_version: int) -> None:
+        version = current_version
+        if version < 2:
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            if "poster_path" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN poster_path TEXT")
+            conn.execute("UPDATE schema_version SET version = ?", (2,))
+            version = 2
 
     # ── Write operations ──────────────────────────────────────────────
 
@@ -292,15 +307,15 @@ class JobStore:
                 conn.execute("""
                     INSERT INTO jobs (
                         job_id, created_at, updated_at, media_type, tmdb_id,
-                        media_name, library_root, source_folder,
+                        media_name, poster_path, library_root, source_folder,
                         show_folder_rename, status, error_message, position,
                         undo_data, job_kind, data_source, depends_on,
                         rename_ops
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job.job_id, job.created_at, job.updated_at,
                     job.media_type, job.tmdb_id,
-                    job.media_name, job.library_root, job.source_folder,
+                    job.media_name, job.poster_path, job.library_root, job.source_folder,
                     job.show_folder_rename, job.status, job.error_message,
                     job.position, undo_json, job.job_kind, job.data_source,
                     job.depends_on, ops_json,
@@ -349,6 +364,17 @@ class JobStore:
                 "UPDATE jobs SET undo_data = ?, updated_at = ? "
                 "WHERE job_id = ?",
                 (undo_json, now, job_id))
+            conn.commit()
+
+    def set_poster_path(self, job_id: str, poster_path: str | None) -> None:
+        """Persist a resolved TMDB poster path for an existing job."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE jobs SET poster_path = ?, updated_at = ? WHERE job_id = ?",
+                (poster_path, now, job_id),
+            )
             conn.commit()
 
     def remove_job(self, job_id: str) -> bool:
@@ -690,6 +716,7 @@ class JobStore:
             media_type=row["media_type"],
             tmdb_id=row["tmdb_id"],
             media_name=row["media_name"],
+            poster_path=row["poster_path"],
             library_root=row["library_root"],
             source_folder=row["source_folder"],
             show_folder_rename=row["show_folder_rename"],
