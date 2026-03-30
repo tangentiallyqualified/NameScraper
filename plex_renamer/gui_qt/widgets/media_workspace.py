@@ -8,10 +8,11 @@ workspace with roster, preview, and selection/detail summaries.
 from __future__ import annotations
 
 import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -34,6 +35,7 @@ from ...parsing import clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ...app.services.command_gating_service import CommandGatingService
 from ._formatting import clamped_percent, percent_text
+from ._image_utils import pil_to_raw, raw_to_pixmap
 from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
 from .match_picker_dialog import MatchPickerDialog
@@ -47,6 +49,10 @@ _EMPTY = 0
 _SCANNING = 1
 _READY = 2
 _CHECKED_ROLE = Qt.ItemDataRole.UserRole + 10
+_ROSTER_ENTRY_KEY_ROLE = Qt.ItemDataRole.UserRole + 11
+_ROSTER_ENTRY_KIND_ROLE = Qt.ItemDataRole.UserRole + 12
+_ROSTER_SIGNATURE_ROLE = Qt.ItemDataRole.UserRole + 13
+_MAX_ROSTER_POSTER_CACHE = 128
 
 
 class _RosterPosterBridge(QObject):
@@ -79,7 +85,7 @@ class MediaWorkspace(QWidget):
         self._settings = settings_service
         self._roster_syncing = False
         self._preview_syncing = False
-        self._roster_poster_cache: dict[tuple[str, int], QIcon] = {}
+        self._roster_poster_cache: OrderedDict[tuple[str, int], QIcon] = OrderedDict()
         self._poster_inflight: set[tuple[str, int]] = set()
         self._preview_group_state: dict[str, set[int]] = {}
         self._poster_bridge = _RosterPosterBridge(self)
@@ -284,41 +290,15 @@ class MediaWorkspace(QWidget):
             self._settings.splitter_positions = list(self._splitter.sizes())
 
     def refresh_from_controller(self) -> None:
-        """Rebuild the ready-state roster and preview from controller state."""
+        """Synchronize the ready-state roster and preview from controller state."""
         if self._media_ctrl is None:
             return
 
         states = self._current_states()
+        selected_state_key = _roster_selection_key(self._selected_state())
         self._roster_syncing = True
         self._roster_list.setUpdatesEnabled(False)
-        self._roster_list.clear()
-        groups = [
-            ("queued", "Queued"),
-            ("plex-ready", "Plex Ready"),
-            ("matched", "Matched"),
-            ("review", "Needs Review"),
-            ("unmatched", "Unmatched"),
-            ("duplicate", "Duplicates"),
-        ]
-        for key, title in groups:
-            indices = [index for index, state in enumerate(states) if _roster_group(state) == key]
-            if not indices:
-                continue
-            header = _make_section_header(title)
-            self._roster_list.addItem(header)
-
-            for index in indices:
-                state = states[index]
-                item = QListWidgetItem()
-                item.setData(Qt.ItemDataRole.UserRole, index)
-                item.setFlags(
-                    Qt.ItemFlag.ItemIsEnabled
-                    | Qt.ItemFlag.ItemIsSelectable
-                )
-                item.setData(_CHECKED_ROLE, state.checked)
-                self._roster_list.addItem(item)
-                self._attach_roster_widget(item, state)
-                self._request_roster_poster(state, item)
+        self._sync_roster_items(states)
         self._roster_syncing = False
         self._roster_list.setUpdatesEnabled(True)
 
@@ -335,17 +315,151 @@ class MediaWorkspace(QWidget):
             return
 
         selected_index = self._media_ctrl.library_selected_index
-        if selected_index is None or selected_index >= len(states):
-            selected_index = 0
-            self._media_ctrl.select_show(0)
+        if selected_state_key is not None:
+            matched_index = next(
+                (index for index, state in enumerate(states) if _roster_selection_key(state) == selected_state_key),
+                None,
+            )
+            if matched_index is not None:
+                selected_index = matched_index
 
-        for row in range(self._roster_list.count()):
-            item = self._roster_list.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == selected_index:
-                self._roster_list.setCurrentRow(row)
-                break
+        if selected_index is None or not (0 <= selected_index < len(states)):
+            selected_index = 0
+        selected_state = self._media_ctrl.select_show(selected_index)
+
+        selected_item = self._find_roster_item_by_index(selected_index)
+        if selected_item is not None:
+            self._roster_list.setCurrentItem(selected_item)
+
+        if selected_state is not None:
+            self._ensure_check_bindings(selected_state)
+            self._populate_preview(selected_state)
+            self._render_detail(selected_state, self._selected_preview())
         self._update_action_bar()
         self._sync_row_selection(self._roster_list)
+
+    def _sync_roster_items(self, states: list[ScanState]) -> None:
+        existing_items: dict[str, QListWidgetItem] = {}
+        for row in range(self._roster_list.count()):
+            item = self._roster_list.item(row)
+            key = item.data(_ROSTER_ENTRY_KEY_ROLE)
+            if isinstance(key, str):
+                existing_items[key] = item
+
+        desired_entries = list(self._desired_roster_entries(states))
+        for target_row, entry in enumerate(desired_entries):
+            key = entry["key"]
+            item = existing_items.pop(key, None)
+            if item is None:
+                item = QListWidgetItem()
+            self._place_roster_item(item, target_row)
+            if entry["kind"] == "header":
+                self._configure_roster_header(item, entry["group"], entry["title"])
+                continue
+            self._configure_roster_state_item(item, entry["index"], entry["state"])
+
+        for item in existing_items.values():
+            self._remove_roster_item(item)
+
+    def _desired_roster_entries(self, states: list[ScanState]):
+        groups = [
+            ("queued", "Queued"),
+            ("plex-ready", "Plex Ready"),
+            ("matched", "Matched"),
+            ("review", "Needs Review"),
+            ("unmatched", "Unmatched"),
+            ("duplicate", "Duplicates"),
+        ]
+        for group, title in groups:
+            indices = [index for index, state in enumerate(states) if _roster_group(state) == group]
+            if not indices:
+                continue
+            yield {
+                "kind": "header",
+                "key": f"header:{group}",
+                "group": group,
+                "title": title,
+            }
+            for index in indices:
+                state = states[index]
+                yield {
+                    "kind": "state",
+                    "key": _roster_item_key(state),
+                    "index": index,
+                    "state": state,
+                }
+
+    def _place_roster_item(self, item: QListWidgetItem, target_row: int) -> None:
+        current_row = self._roster_list.row(item)
+        if current_row == -1:
+            self._roster_list.insertItem(target_row, item)
+            return
+        if current_row == target_row:
+            return
+        widget = self._roster_list.itemWidget(item)
+        if widget is not None:
+            self._roster_list.removeItemWidget(item)
+            widget.deleteLater()
+            item.setData(_ROSTER_SIGNATURE_ROLE, None)
+        moved = self._roster_list.takeItem(current_row)
+        self._roster_list.insertItem(target_row, moved)
+
+    def _configure_roster_header(self, item: QListWidgetItem, group: str, title: str) -> None:
+        configured = _make_section_header(title)
+        item.setText(configured.text())
+        item.setFlags(configured.flags())
+        item.setForeground(configured.foreground())
+        item.setBackground(configured.background())
+        item.setFont(configured.font())
+        item.setSizeHint(configured.sizeHint())
+        item.setData(Qt.ItemDataRole.UserRole, None)
+        item.setData(_CHECKED_ROLE, None)
+        item.setData(_ROSTER_ENTRY_KIND_ROLE, "header")
+        item.setData(_ROSTER_ENTRY_KEY_ROLE, f"header:{group}")
+        item.setData(_ROSTER_SIGNATURE_ROLE, None)
+        widget = self._roster_list.itemWidget(item)
+        if widget is not None:
+            self._roster_list.removeItemWidget(item)
+            widget.deleteLater()
+
+    def _configure_roster_state_item(self, item: QListWidgetItem, index: int, state: ScanState) -> None:
+        signature = _roster_signature(state, compact=self._is_compact_mode(), media_type=self._media_type)
+        item.setData(Qt.ItemDataRole.UserRole, index)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        item.setData(_CHECKED_ROLE, state.checked)
+        item.setData(_ROSTER_ENTRY_KIND_ROLE, "state")
+        item.setData(_ROSTER_ENTRY_KEY_ROLE, _roster_item_key(state))
+
+        if item.data(_ROSTER_SIGNATURE_ROLE) != signature:
+            self._attach_roster_widget(item, state)
+            item.setData(_ROSTER_SIGNATURE_ROLE, signature)
+        else:
+            widget = self._roster_list.itemWidget(item)
+            if isinstance(widget, _RosterRowWidget):
+                widget.set_checked(state.checked)
+        self._request_roster_poster(state, item)
+
+    def _remove_roster_item(self, item: QListWidgetItem) -> None:
+        row = self._roster_list.row(item)
+        if row < 0:
+            return
+        widget = self._roster_list.itemWidget(item)
+        if widget is not None:
+            self._roster_list.removeItemWidget(item)
+            widget.deleteLater()
+        self._roster_list.takeItem(row)
+
+    def _find_roster_item_by_index(self, index: int) -> QListWidgetItem | None:
+        for row in range(self._roster_list.count()):
+            item = self._roster_list.item(row)
+            if item.data(_ROSTER_ENTRY_KIND_ROLE) != "state":
+                continue
+            if item.data(Qt.ItemDataRole.UserRole) == index:
+                return item
+        return None
+
+    def _is_compact_mode(self) -> bool:
+        return self._settings is not None and self._settings.view_mode == "compact"
 
     def _current_states(self) -> list[ScanState]:
         if self._media_ctrl is None:
@@ -693,6 +807,7 @@ class MediaWorkspace(QWidget):
         item.setData(Qt.ItemDataRole.UserRole + 2, key)
         cached = self._roster_poster_cache.get(key)
         if cached is not None:
+            self._roster_poster_cache.move_to_end(key)
             widget = self._roster_list.itemWidget(item)
             if isinstance(widget, _RosterRowWidget):
                 widget.set_poster(cached.pixmap(self._roster_list.iconSize()))
@@ -711,21 +826,21 @@ class MediaWorkspace(QWidget):
                 image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=42)
                 if image is None:
                     return
-                # Pass raw bytes through the signal — all Qt object
-                # creation (QImage, QPixmap) must happen on the main
-                # thread to avoid transient platform windows on Windows.
-                self._poster_bridge.poster_ready.emit(key, _pil_to_raw(image))
+                self._poster_bridge.poster_ready.emit(key, pil_to_raw(image))
             finally:
                 self._poster_inflight.discard(key)
 
         threading.Thread(target=_worker, daemon=True, name="QtRosterPoster").start()
 
     def _apply_roster_poster(self, key, raw_data) -> None:
-        pixmap = _raw_to_pixmap(raw_data)
+        pixmap = raw_to_pixmap(raw_data)
         if pixmap.isNull():
             return
         icon = QIcon(pixmap)
         self._roster_poster_cache[key] = icon
+        self._roster_poster_cache.move_to_end(key)
+        while len(self._roster_poster_cache) > _MAX_ROSTER_POSTER_CACHE:
+            self._roster_poster_cache.popitem(last=False)
         for row in range(self._roster_list.count()):
             item = self._roster_list.item(row)
             if item.data(Qt.ItemDataRole.UserRole + 2) == key:
@@ -734,7 +849,11 @@ class MediaWorkspace(QWidget):
                     widget.set_poster(pixmap)
 
     def _attach_roster_widget(self, item: QListWidgetItem, state: ScanState) -> None:
-        compact = self._settings is not None and self._settings.view_mode == "compact"
+        existing = self._roster_list.itemWidget(item)
+        if existing is not None:
+            self._roster_list.removeItemWidget(item)
+            existing.deleteLater()
+        compact = self._is_compact_mode()
         widget = _RosterRowWidget(state, compact=compact, media_type=self._media_type, parent=self._roster_list)
         widget.clicked.connect(lambda item=item: self._set_current_item(self._roster_list, item))
         widget.check_toggled.connect(
@@ -1391,6 +1510,38 @@ def _state_key(state: ScanState) -> str:
     return f"{state.folder}:{state.show_id or 'unmatched'}"
 
 
+def _roster_item_key(state: ScanState) -> str:
+    return f"state:{state.folder}"
+
+
+def _roster_selection_key(state: ScanState | None) -> str | None:
+    if state is None:
+        return None
+    return _roster_item_key(state)
+
+
+def _roster_signature(state: ScanState, *, compact: bool, media_type: str) -> tuple[object, ...]:
+    alt_signature = tuple(
+        (match.get("id"), match.get("name") or match.get("title"), match.get("year"))
+        for match in state.alternate_matches[:2]
+    )
+    return (
+        id(state),
+        state.display_name,
+        state.checked,
+        state.show_id,
+        state.queued,
+        state.scanning,
+        state.duplicate_of,
+        state.needs_review,
+        state.confidence,
+        state.file_count,
+        compact,
+        media_type,
+        alt_signature,
+    )
+
+
 def _season_label(season_num: int | None) -> str:
     if season_num is None:
         return "Other Files"
@@ -1427,21 +1578,6 @@ def _format_batch_result(result) -> str:
     return " · ".join(parts) if parts else "No queueable items were selected."
 
 
-def _pil_to_raw(pil_image) -> tuple[bytes, int, int]:
-    """Convert a PIL Image to (raw_bytes, width, height) for thread-safe
-    transfer.  All Qt object creation must happen on the main thread."""
-    rgba = pil_image.convert("RGBA")
-    return (rgba.tobytes("raw", "RGBA"), rgba.width, rgba.height)
-
-
-def _raw_to_pixmap(raw_data: tuple[bytes, int, int]) -> QPixmap:
-    """Convert (raw_bytes, width, height) back to a QPixmap.  Must be
-    called on the main thread."""
-    data, width, height = raw_data
-    qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
-    return QPixmap.fromImage(qimage)
-
-
 class _ActionBar(QFrame):
     """Bottom action bar for the ready state workspace."""
 
@@ -1456,9 +1592,7 @@ class _ActionBar(QFrame):
     ) -> None:
         super().__init__(parent)
         self._media_type = media_type
-        self.setStyleSheet(
-            "background-color: #151515; border-top: 1px solid #2a2a2a;"
-        )
+        self.setProperty("cssClass", "action-bar")
         self.setFixedHeight(52)
 
         layout = QHBoxLayout(self)

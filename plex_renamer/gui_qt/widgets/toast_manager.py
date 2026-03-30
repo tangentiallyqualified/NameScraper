@@ -21,6 +21,8 @@ _BORDER_COLORS = {
     "error": "#d44040",
     "accent": "#4a9eda",
 }
+_MAX_VISIBLE_TOASTS = 4
+_MAX_DIRECT_TOASTS = 3
 
 
 class _ToastCard(QFrame):
@@ -58,11 +60,11 @@ class _ToastCard(QFrame):
         header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(8)
 
-        title_label = QLabel(title)
-        title_label.setProperty("cssClass", "heading")
-        title_label.setWordWrap(True)
-        title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        header.addWidget(title_label, stretch=1)
+        self._title_label = QLabel(title)
+        self._title_label.setProperty("cssClass", "heading")
+        self._title_label.setWordWrap(True)
+        self._title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        header.addWidget(self._title_label, stretch=1)
 
         close_btn = QPushButton("x")
         close_btn.setProperty("cssClass", "secondary")
@@ -71,10 +73,10 @@ class _ToastCard(QFrame):
         header.addWidget(close_btn)
         root.addLayout(header)
 
-        message_label = QLabel(message)
-        message_label.setWordWrap(True)
-        message_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        root.addWidget(message_label)
+        self._message_label = QLabel(message)
+        self._message_label.setWordWrap(True)
+        self._message_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        root.addWidget(self._message_label)
 
         if action_text and action_callback is not None:
             action_btn = QPushButton(action_text)
@@ -119,6 +121,10 @@ class _ToastCard(QFrame):
             timer.stop()
         self.dismissed.emit(self)
 
+    def update_message(self, *, title: str, message: str) -> None:
+        self._title_label.setText(title)
+        self._message_label.setText(message)
+
 
 class ToastManager(QWidget):
     """Bottom-right stacked toast notification container."""
@@ -131,6 +137,8 @@ class ToastManager(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(8)
         self._layout.addStretch()
+        self._summary_toast: _ToastCard | None = None
+        self._overflow_count = 0
         self.hide()
 
     def show_toast(
@@ -143,6 +151,10 @@ class ToastManager(QWidget):
         action_text: str | None = None,
         action_callback: Callable[[], None] | None = None,
     ) -> None:
+        if self._direct_toast_count() >= _MAX_DIRECT_TOASTS:
+            self._overflow_count += 1
+            self._show_or_update_summary()
+            return
         toast = _ToastCard(
             title=title,
             message=message,
@@ -163,11 +175,44 @@ class ToastManager(QWidget):
 
     def _remove_toast(self, toast: _ToastCard) -> None:
         self._layout.removeWidget(toast)
+        if toast is self._summary_toast:
+            self._summary_toast = None
+            self._overflow_count = 0
         toast.deleteLater()
         if self.toast_count() == 0:
             self.hide()
         else:
             self._reposition()
+
+    def _direct_toast_count(self) -> int:
+        count = 0
+        for index in range(self._layout.count()):
+            item = self._layout.itemAt(index)
+            toast = item.widget() if item is not None else None
+            if toast is None or toast is self._summary_toast:
+                continue
+            count += 1
+        return count
+
+    def _show_or_update_summary(self) -> None:
+        title = "More notifications"
+        noun = "notification" if self._overflow_count == 1 else "notifications"
+        message = f"{self._overflow_count} more {noun} collapsed."
+        if self._summary_toast is None:
+            self._summary_toast = _ToastCard(
+                title=title,
+                message=message,
+                tone="accent",
+                duration_ms=0,
+                parent=self,
+            )
+            self._summary_toast.dismissed.connect(self._remove_toast)
+            self._layout.insertWidget(0, self._summary_toast)
+        else:
+            self._summary_toast.update_message(title=title, message=message)
+        self.show()
+        self.raise_()
+        self._reposition()
 
     def _reposition(self) -> None:
         parent = self.parentWidget()

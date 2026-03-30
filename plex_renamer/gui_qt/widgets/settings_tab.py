@@ -8,6 +8,7 @@ SettingsService.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Qt, Signal
@@ -21,7 +22,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSlider,
     QVBoxLayout,
     QWidget,
@@ -77,10 +77,14 @@ class SettingsTab(QScrollArea):
     def __init__(
         self,
         settings_service: "SettingsService | None" = None,
+        cache_service=None,
+        clear_tmdb_callback: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._settings = settings_service
+        self._cache_service = cache_service
+        self._clear_tmdb_callback = clear_tmdb_callback
         self._api_test_bridge = _ApiKeyTestBridge(self)
         self._api_test_bridge.result_ready.connect(self._show_test_result)
         self.setWidgetResizable(True)
@@ -100,6 +104,7 @@ class SettingsTab(QScrollArea):
 
         self._layout.addStretch()
         self.setWidget(content)
+        self._refresh_cache_stats()
 
     # ── Display ──────────────────────────────────────────────────
 
@@ -241,14 +246,15 @@ class SettingsTab(QScrollArea):
         row = QHBoxLayout()
         self._clear_cache_btn = QPushButton("Clear TMDB Cache")
         self._clear_cache_btn.setProperty("cssClass", "secondary")
-        self._clear_cache_btn.setEnabled(False)
-        self._clear_cache_btn.setToolTip("Cache actions are not available yet.")
+        self._clear_cache_btn.setEnabled(self._cache_service is not None)
+        self._clear_cache_btn.clicked.connect(self._on_clear_cache)
+        if self._cache_service is None:
+            self._clear_cache_btn.setToolTip("Cache actions are not available yet.")
         row.addWidget(self._clear_cache_btn)
 
         self._clear_all_btn = QPushButton("Clear All Data")
         self._clear_all_btn.setProperty("cssClass", "danger")
-        self._clear_all_btn.setEnabled(False)
-        self._clear_all_btn.setToolTip("Data-clearing actions are not available yet.")
+        self._clear_all_btn.hide()
         row.addWidget(self._clear_all_btn)
         row.addStretch()
         section.add_layout(row)
@@ -262,8 +268,9 @@ class SettingsTab(QScrollArea):
     # ── Advanced ─────────────────────────────────────────────────
 
     def _build_advanced_section(self) -> None:
-        group = QGroupBox("Advanced")
-        group_layout = QVBoxLayout(group)
+        self._advanced_group = QGroupBox("Advanced")
+        self._advanced_group.hide()
+        group_layout = QVBoxLayout(self._advanced_group)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Log level"))
@@ -278,7 +285,7 @@ class SettingsTab(QScrollArea):
         self._export_log_btn.setFixedWidth(200)
         group_layout.addWidget(self._export_log_btn)
 
-        self._layout.addWidget(group)
+        self._layout.addWidget(self._advanced_group)
 
     # ── Callbacks ────────────────────────────────────────────────
 
@@ -341,27 +348,22 @@ class SettingsTab(QScrollArea):
     def _on_save_key(self) -> None:
         key = self._api_key_input.text().strip()
         if not key:
-            self._key_status.setText("Please enter an API key.")
-            self._key_status.setStyleSheet("color: #d44040;")
+            self._set_key_status("Please enter an API key.", "error")
             return
         try:
             from ...keys import save_api_key
             save_api_key("TMDB", key)
-            self._key_status.setText("API key saved.")
-            self._key_status.setStyleSheet("color: #3ea463;")
+            self._set_key_status("API key saved.", "success")
             self.api_key_saved.emit()
         except Exception as e:
-            self._key_status.setText(f"Save failed: {e}")
-            self._key_status.setStyleSheet("color: #d44040;")
+            self._set_key_status(f"Save failed: {e}", "error")
 
     def _on_test_key(self) -> None:
         key = self._api_key_input.text().strip()
         if not key:
-            self._key_status.setText("Enter a key first.")
-            self._key_status.setStyleSheet("color: #d44040;")
+            self._set_key_status("Enter a key first.", "error")
             return
-        self._key_status.setText("Testing...")
-        self._key_status.setStyleSheet("color: #777777;")
+        self._set_key_status("Testing...", "muted")
         self._test_key_btn.setEnabled(False)
         bridge = self._api_test_bridge
 
@@ -389,11 +391,36 @@ class SettingsTab(QScrollArea):
     def _show_test_result(self, success: bool, detail: str) -> None:
         self._test_key_btn.setEnabled(True)
         if success:
-            self._key_status.setText("TMDB connection successful.")
-            self._key_status.setStyleSheet("color: #3ea463;")
+            self._set_key_status("TMDB connection successful.", "success")
         else:
-            self._key_status.setText(f"TMDB test failed: {detail}")
-            self._key_status.setStyleSheet("color: #d44040;")
+            self._set_key_status(f"TMDB test failed: {detail}", "error")
+
+    def _on_clear_cache(self) -> None:
+        if self._cache_service is None:
+            return
+        removed = self._cache_service.invalidate_namespace("tmdb")
+        if self._clear_tmdb_callback is not None:
+            self._clear_tmdb_callback()
+        noun = "entry" if removed == 1 else "entries"
+        self._cache_confirm.setProperty("tone", "success")
+        self._cache_confirm.setText(f"Cleared {removed} TMDB cache {noun}.")
+        _repolish(self._cache_confirm)
+        self._refresh_cache_stats()
+
+    def _refresh_cache_stats(self) -> None:
+        if self._cache_service is None:
+            self._cache_stats.setText("Cache actions are unavailable in this context.")
+            return
+        stats = self._cache_service.stats()
+        self._cache_stats.setText(
+            f"{stats['item_count']} entries · {_format_bytes(stats['total_size_bytes'])} used "
+            f"· cap {_format_bytes(stats['max_size_bytes'])} / {stats['max_items']} items"
+        )
+
+    def _set_key_status(self, text: str, tone: str) -> None:
+        self._key_status.setText(text)
+        self._key_status.setProperty("tone", tone)
+        _repolish(self._key_status)
 
 
 class _SectionCard(QFrame):
@@ -413,7 +440,8 @@ class _SectionCard(QFrame):
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background-color: #3a3a3a; max-height: 1px;")
+        sep.setProperty("cssClass", "separator")
+        sep.setFixedHeight(1)
         self._layout.addWidget(sep)
 
     def add_widget(self, widget: QWidget) -> None:
@@ -421,3 +449,20 @@ class _SectionCard(QFrame):
 
     def add_layout(self, layout) -> None:
         self._layout.addLayout(layout)
+
+
+def _format_bytes(size_bytes: int) -> str:
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _repolish(widget: QWidget) -> None:
+    style = widget.style()
+    if style is None:
+        return
+    style.unpolish(widget)
+    style.polish(widget)
+    widget.update()

@@ -7,11 +7,12 @@ from collections import OrderedDict
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
 from ._formatting import clamped_percent
+from ._image_utils import pil_to_raw, raw_to_pixmap
 
 
 def _format_rating(vote_average: float | None, vote_count: int = 0) -> str:
@@ -31,6 +32,15 @@ def _format_runtime(minutes: int | None) -> str:
 
 class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
+
+
+def _state_media_type(state: ScanState) -> str:
+    media_type = state.media_info.get("_media_type")
+    if media_type in {"movie", "tv"}:
+        return media_type
+    if any(item.media_type == "movie" for item in state.preview_items):
+        return "movie"
+    return "movie" if state.media_info.get("title") else "tv"
 
 
 class MediaDetailPanel(QFrame):
@@ -241,9 +251,10 @@ class MediaDetailPanel(QFrame):
         return rows
 
     def _build_payload(self, tmdb, state: ScanState, preview: PreviewItem | None, queue_reason: str, folder_plan: str):
+        media_type = _state_media_type(state)
         details = (
             tmdb.get_movie_details(state.show_id)
-            if state.media_info.get("title")
+            if media_type == "movie"
             else tmdb.get_tv_details(state.show_id)
         ) or {}
 
@@ -255,17 +266,11 @@ class MediaDetailPanel(QFrame):
 
         image = tmdb.fetch_poster(
             state.show_id,
-            media_type="movie" if state.media_info.get("title") else "tv",
+            media_type=media_type,
             season=season_num,
             target_width=280,
         )
-        # Pass raw image bytes — all Qt object creation (QImage, QPixmap)
-        # must happen on the main thread to avoid transient platform
-        # helper windows on Windows.
-        raw_image = None
-        if image is not None:
-            rgba = image.convert("RGBA")
-            raw_image = (rgba.tobytes("raw", "RGBA"), rgba.width, rgba.height)
+        raw_image = pil_to_raw(image) if image is not None else None
 
         subtitle_parts = []
         if state.media_info.get("year"):
@@ -278,7 +283,7 @@ class MediaDetailPanel(QFrame):
         rating = _format_rating(details.get("vote_average", 0), details.get("vote_count", 0))
         if rating:
             rows.append(("Rating", rating))
-        if state.media_info.get("title"):
+        if media_type == "movie":
             runtime = _format_runtime(details.get("runtime"))
             if runtime:
                 rows.append(("Runtime", runtime))
@@ -328,7 +333,7 @@ class MediaDetailPanel(QFrame):
             guest_names = [guest.get("name", "") for guest in episode_meta.get("guest_stars", []) if guest.get("name")]
             if guest_names:
                 extra_lines.append("Guests: " + ", ".join(guest_names[:4]))
-        elif state.media_info.get("title"):
+        elif media_type == "movie":
             companies = [company.get("name", "") for company in details.get("production_companies", []) if company.get("name")]
             if companies:
                 extra_lines.append("Companies: " + ", ".join(companies[:3]))
@@ -364,14 +369,10 @@ class MediaDetailPanel(QFrame):
         self._loading_tokens.discard(token)
         if payload is None:
             return
-        # Convert raw image bytes → QPixmap on the main thread.
-        # Cached entries already hold a QPixmap from a previous call.
         if isinstance(image_data, QPixmap):
             pixmap = image_data
         elif image_data is not None:
-            data, width, height = image_data
-            qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
-            pixmap = QPixmap.fromImage(qimage)
+            pixmap = raw_to_pixmap(image_data)
         else:
             pixmap = None
         self._metadata_cache[token] = (payload, pixmap)

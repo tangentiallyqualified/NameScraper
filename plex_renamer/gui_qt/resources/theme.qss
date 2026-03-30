@@ -274,6 +274,71 @@ QScrollBar::sub-page:horizontal {
     background: none;
 }
 
+QFrame[cssClass="separator"] {
+    background-color: #2a2a2a;
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}
+
+QFrame[cssClass="callout-banner"] {
+    background-color: #151515;
+    border: 1px solid #2a2a2a;
+    border-left: 4px solid #4a9eda;
+    border-radius: 6px;
+}
+
+QFrame[cssClass="action-bar"] {
+    background-color: #151515;
+    border-top: 1px solid #2a2a2a;
+}
+
+QLabel[cssClass="drop-zone-icon"] {
+    font-size: 48px;
+    color: #4a4a4a;
+}
+
+QLabel[cssClass="recent-folder-name"] {
+    color: #e0e0e0;
+    font-size: 13px;
+}
+
+QLabel[cssClass="recent-folder-path"] {
+    color: #777777;
+    font-size: 11px;
+}
+
+QLabel[tone="success"] {
+    color: #3ea463;
+}
+
+QLabel[tone="error"] {
+    color: #d44040;
+}
+
+QLabel[tone="muted"] {
+    color: #777777;
+}
+
+QLabel[cssClass="scan-phase-icon"] {
+    font-size: 12px;
+}
+
+QLabel[cssClass="scan-phase-icon"][phaseState="pending"],
+QLabel[cssClass="scan-phase-label"][phaseState="pending"] {
+    color: #4a4a4a;
+}
+
+QLabel[cssClass="scan-phase-icon"][phaseState="active"],
+QLabel[cssClass="scan-phase-label"][phaseState="active"] {
+    color: #e5a00d;
+}
+
+QLabel[cssClass="scan-phase-icon"][phaseState="done"],
+QLabel[cssClass="scan-phase-label"][phaseState="done"] {
+    color: #3ea463;
+}
+
 
 /* ─── Splitters ──────────────────────────────────────────────────── */
 

@@ -124,7 +124,7 @@ class _DropZone(QFrame):
 
         # Folder icon (text-based for now, icon set integration later)
         icon_label = QLabel("\U0001F4C2")  # open folder emoji as placeholder
-        icon_label.setStyleSheet("font-size: 48px; color: #4a4a4a;")
+        icon_label.setProperty("cssClass", "drop-zone-icon")
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon_label)
 
@@ -200,12 +200,11 @@ class _RecentFolderEntry(QWidget):
 
         p = Path(folder_path)
         name_label = QLabel(p.name)
-        name_label.setStyleSheet("color: #e0e0e0; font-size: 13px;")
+        name_label.setProperty("cssClass", "recent-folder-name")
         layout.addWidget(name_label)
 
         path_label = QLabel(str(p.parent))
-        path_label.setProperty("cssClass", "text-dim")
-        path_label.setStyleSheet("font-size: 11px; color: #777777;")
+        path_label.setProperty("cssClass", "recent-folder-path")
         layout.addWidget(path_label)
         layout.addStretch()
 

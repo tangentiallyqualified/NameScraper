@@ -241,7 +241,8 @@ class QtSmokeTests(unittest.TestCase):
         self.assertTrue(tab._test_key_btn.isEnabled())
         self.assertEqual(tab._key_status.text(), "TMDB connection successful.")
         self.assertEqual(tab._clear_cache_btn.text(), "Clear TMDB Cache")
-        self.assertEqual(tab._clear_all_btn.text(), "Clear All Data")
+        self.assertFalse(tab._clear_all_btn.isVisible())
+        self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
     def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes(self):
@@ -949,6 +950,154 @@ class QtSmokeTests(unittest.TestCase):
 
             workspace.close()
 
+    def test_media_workspace_reuses_unchanged_roster_widgets_on_refresh(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        def _make_state(name: str, tmdb_id: int) -> ScanState:
+            return ScanState(
+                folder=Path(f"C:/library/tv/{name}"),
+                media_info={"id": tmdb_id, "name": name, "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"C:/library/tv/{name}/Season 01/{name}.S01E01.mkv"),
+                        new_name=f"{name} (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"C:/library/tv/{name}/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+
+        def _widget_for_index(workspace: MediaWorkspace, index: int):
+            for row in range(workspace._roster_list.count()):
+                item = workspace._roster_list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) == index:
+                    return workspace._roster_list.itemWidget(item)
+            return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            first = _make_state("Example Show", 101)
+            second = _make_state("Another Show", 202)
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [first, second]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            original_widget = _widget_for_index(workspace, 0)
+            self.assertIsInstance(original_widget, _RosterRowWidget)
+
+            second.queued = True
+            workspace.refresh_from_controller()
+
+            refreshed_widget = _widget_for_index(workspace, 0)
+            self.assertIs(refreshed_widget, original_widget)
+
+            workspace.close()
+
+    def test_media_workspace_queues_tv_states_without_crashing_on_regroup(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def __init__(self):
+                self.called = False
+
+            def add_tv_batch(self, states, root, gating):
+                self.called = True
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        def _make_state(name: str, tmdb_id: int) -> ScanState:
+            return ScanState(
+                folder=Path(f"C:/library/tv/{name}"),
+                media_info={"id": tmdb_id, "name": name, "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"C:/library/tv/{name}/Season 01/{name}.S01E01.mkv"),
+                        new_name=f"{name} (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"C:/library/tv/{name}/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [
+                _make_state("Show.One.2024", 101),
+                _make_state("Show.Two.2024", 102),
+            ]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            workspace._queue_checked()
+            self._app.processEvents()
+
+            self.assertTrue(queue_ctrl.called)
+            self.assertEqual(workspace._roster_list.item(0).text(), "QUEUED")
+
+            workspace.close()
+
     def test_toast_manager_repositions_stacked_wrapped_toasts_without_clipping(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 
@@ -975,6 +1124,79 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(len(toast_geometries), 2)
         self.assertTrue(all(geometry.top() >= 0 for geometry in toast_geometries))
         self.assertTrue(all(geometry.bottom() <= manager.height() for geometry in toast_geometries))
+
+        window.close()
+
+    def test_toast_manager_caps_visible_toasts_with_summary_card(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        for index in range(6):
+            window._toast_manager.show_toast(
+                title=f"Toast {index}",
+                message="A queued notification",
+                duration_ms=0,
+            )
+        self._app.processEvents()
+
+        self.assertEqual(window._toast_manager.toast_count(), 4)
+        self.assertIsNotNone(window._toast_manager._summary_toast)
+        self.assertEqual(window._toast_manager._summary_toast._message_label.text(), "3 more notifications collapsed.")
+
+        window.close()
+
+    def test_queue_tab_remove_updates_badge_and_tv_requeue_state(self):
+        from PySide6.QtWidgets import QMessageBox
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        window.media_ctrl._batch_states = [state]
+        window.media_ctrl._tv_root_folder = Path("C:/library/tv")
+        window.media_ctrl.library_selected_index = 0
+
+        window._tv_workspace.show_ready()
+        window._tv_workspace._queue_checked()
+        self._app.processEvents()
+
+        self.assertEqual(window._queue_badge.count_text(), "1")
+        self.assertTrue(state.queued)
+
+        window._switch_to_tab(2)
+        self._app.processEvents()
+        window._queue_tab.select_job(window.queue_ctrl.get_queue()[0].job_id)
+
+        with patch(
+            "plex_renamer.gui_qt.widgets.queue_tab.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ):
+            window._queue_tab._remove_selected()
+        self._app.processEvents()
+
+        self.assertEqual(window._queue_badge.count_text(), "0")
+
+        window._switch_to_tab(0)
+        self._app.processEvents()
+
+        self.assertFalse(state.queued)
+        self.assertTrue(window._tv_workspace._queue_inline_btn.isEnabled())
 
         window.close()
 

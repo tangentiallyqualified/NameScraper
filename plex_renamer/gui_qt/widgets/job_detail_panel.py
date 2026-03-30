@@ -6,11 +6,12 @@ import threading
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QLabel, QHBoxLayout, QVBoxLayout, QWidget
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
+from ._image_utils import pil_to_raw, raw_to_pixmap
 
 
 class _PosterBridge(QObject):
@@ -153,11 +154,7 @@ class JobDetailPanel(QFrame):
             if image is None:
                 self._bridge.poster_ready.emit(None, job.job_id)
                 return
-            # Pass raw bytes — all Qt object creation must happen on the
-            # main thread to avoid transient platform windows on Windows.
-            rgba = image.convert("RGBA")
-            raw = (rgba.tobytes("raw", "RGBA"), rgba.width, rgba.height)
-            self._bridge.poster_ready.emit(raw, job.job_id)
+            self._bridge.poster_ready.emit(pil_to_raw(image), job.job_id)
 
         threading.Thread(target=_worker, daemon=True, name="QtJobPoster").start()
 
@@ -169,10 +166,7 @@ class JobDetailPanel(QFrame):
             self._poster.setPixmap(QPixmap())
             self._poster.setText("No Poster")
             return
-        # Convert raw bytes → QPixmap on the main thread.
-        data, width, height = image_data
-        qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
-        pixmap = QPixmap.fromImage(qimage)
+        pixmap = raw_to_pixmap(image_data)
         if pixmap.isNull():
             self._poster_pixmap = None
             self._poster.setPixmap(QPixmap())

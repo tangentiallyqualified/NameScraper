@@ -205,6 +205,8 @@ class MainWindow(QMainWindow):
         )
         self._settings_tab = SettingsTab(
             settings_service=self.settings_service,
+            cache_service=self._cache_service,
+            clear_tmdb_callback=self._drop_tmdb_client,
         )
 
         self._tabs.addTab(self._tv_workspace, "TV Shows")
@@ -229,6 +231,7 @@ class MainWindow(QMainWindow):
         self._movie_workspace.folder_selected.connect(self._on_movie_folder_selected)
         self._tv_workspace.queue_changed.connect(self._on_queue_changed)
         self._movie_workspace.queue_changed.connect(self._on_queue_changed)
+        self._queue_tab.queue_changed.connect(self._on_queue_changed)
         self._tv_workspace.status_message.connect(self.statusBar().showMessage)
         self._movie_workspace.status_message.connect(self.statusBar().showMessage)
         self._history_tab.history_changed.connect(self._on_queue_changed)
@@ -299,6 +302,9 @@ class MainWindow(QMainWindow):
 
     def _invalidate_tmdb(self) -> None:
         self._persist_tmdb_cache_snapshot()
+        self._tmdb = None
+
+    def _drop_tmdb_client(self) -> None:
         self._tmdb = None
 
     def _start_job_poster_backfill(self) -> None:

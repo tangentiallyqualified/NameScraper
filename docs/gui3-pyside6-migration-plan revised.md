@@ -1062,7 +1062,7 @@ Phases 0 through 8 are now effectively complete on `dev/GUI3`. The recommended w
 
 The following items were identified in a full code review on 2026-03-30. They are organized by priority relative to a tkinter retirement decision.
 
-#### 9.1 — MatchPickerDialog TMDB search blocks the UI thread (Bug — High)
+#### ~~9.1 — MatchPickerDialog TMDB search blocks the UI thread (Bug — High)~~ Fixed
 
 **Problem:** `MatchPickerDialog._run_search()` calls `self._search_callback(query, ...)` synchronously on the main thread. This performs an HTTP request to TMDB that freezes the UI for 1-5 seconds.
 
@@ -1070,7 +1070,7 @@ The following items were identified in a full code review on 2026-03-30. They ar
 
 **Files:** `plex_renamer/gui_qt/widgets/match_picker_dialog.py`
 
-#### 9.2 — Dead code cleanup (Cleanup — Medium)
+#### ~~9.2 — Dead code cleanup (Cleanup — Medium)~~ Fixed
 
 **Problem:** Eight functions/methods in `media_workspace.py` are defined but never called. They are leftovers from earlier rendering approaches that were replaced by custom row widgets.
 
@@ -1088,7 +1088,7 @@ Dead functions:
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 9.3 — Extract shared base class for QueueTab and HistoryTab (Refactor — Medium)
+#### ~~9.3 — Extract shared base class for QueueTab and HistoryTab (Refactor — Medium)~~ Fixed
 
 **Problem:** `QueueTab` and `HistoryTab` share ~70% identical code: `select_job()`, `_selected_jobs()`, `_apply_filter()`, `_select_all()`, `_clear_selection()`, toolbar layout structure, and table setup. This duplication makes it easy for fixes in one tab to be missed in the other.
 
@@ -1096,7 +1096,7 @@ Dead functions:
 
 **Files:** `plex_renamer/gui_qt/widgets/queue_tab.py`, `plex_renamer/gui_qt/widgets/history_tab.py`
 
-#### 9.4 — Consolidate PIL-to-QPixmap conversion utilities (Refactor — Medium)
+#### ~~9.4 — Consolidate PIL-to-QPixmap conversion utilities (Refactor — Medium)~~ Fixed
 
 **Problem:** The PIL → raw bytes → QPixmap conversion pipeline is implemented in three separate places:
 - `media_workspace.py` (`_pil_to_raw`, `_raw_to_pixmap`)
@@ -1107,7 +1107,7 @@ Dead functions:
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/job_detail_panel.py`
 
-#### 9.5 — Migrate remaining inline setStyleSheet calls to QSS (Polish — Medium)
+#### ~~9.5 — Migrate remaining inline setStyleSheet calls to QSS (Polish — Medium)~~ Fixed
 
 **Problem:** Phase 8.4 converted roster/preview row widgets to QSS properties, but inline `setStyleSheet()` calls remain in:
 - `settings_tab.py` — 8 calls for API key status colors
@@ -1122,7 +1122,7 @@ These bypass the theme and make restyling harder.
 
 **Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`, `plex_renamer/gui_qt/widgets/scan_progress.py`, `plex_renamer/gui_qt/widgets/empty_state.py`, `plex_renamer/gui_qt/widgets/history_tab.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
-#### 9.6 — Cap roster poster cache size (Optimization — Low)
+#### ~~9.6 — Cap roster poster cache size (Optimization — Low)~~ Fixed
 
 **Problem:** `MediaWorkspace._roster_poster_cache` is an unbounded `dict`. For large libraries, this can accumulate significant memory. The detail panel's metadata cache was already capped at 64 entries in Phase 8.5, but the roster poster cache was not.
 
@@ -1130,7 +1130,7 @@ These bypass the theme and make restyling harder.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 9.7 — Replace full roster rebuilds with incremental updates (Optimization — Low)
+#### ~~9.7 — Replace full roster rebuilds with incremental updates (Optimization — Low)~~ Fixed
 
 **Problem:** `refresh_from_controller()` clears the entire `QListWidget` and recreates all items on every queue state change. For libraries with many shows, this causes visible flicker and unnecessary widget churn.
 
@@ -1138,7 +1138,7 @@ These bypass the theme and make restyling harder.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 9.8 — Cap toast stack depth (Polish — Low)
+#### ~~9.8 — Cap toast stack depth (Polish — Low)~~ Fixed
 
 **Problem:** If many jobs fail quickly, error toasts (`duration_ms=0`) stack indefinitely with no limit. They persist until manually dismissed and can overflow the visible area.
 
@@ -1146,7 +1146,7 @@ These bypass the theme and make restyling harder.
 
 **Files:** `plex_renamer/gui_qt/widgets/toast_manager.py`
 
-#### 9.9 — Wire or hide non-functional settings sections (Polish — Low)
+#### ~~9.9 — Wire or hide non-functional settings sections (Polish — Low)~~ Fixed
 
 **Problem:** The Cache section's "Clear TMDB Cache" and "Clear All Data" buttons are permanently disabled. The Advanced section's log level combo and "Export Diagnostic Log" button have no connected signals. These look broken to users.
 
@@ -1154,7 +1154,7 @@ These bypass the theme and make restyling harder.
 
 **Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`
 
-#### 9.10 — Minor correctness issues (Cleanup — Low)
+#### ~~9.10 — Minor correctness issues (Cleanup — Low)~~ Fixed
 
 1. **Duplicate import:** `QMessageBox` is imported at the top of `main_window.py` (line 23) and again locally in `_on_about()` (line 710). Remove the local import.
 2. **Missing blank line:** `_DetailBridge` class definition in `media_detail_panel.py` (line 30) starts immediately after `_format_runtime()` with no PEP 8 blank line separator.

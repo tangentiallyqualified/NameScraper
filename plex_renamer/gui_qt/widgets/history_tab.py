@@ -4,25 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
-    QTableView,
-    QVBoxLayout,
-    QWidget,
 )
 
 from ...constants import JobStatus
-from ...job_store import RenameJob
-from ..models import JobStatusFilterProxyModel, JobTableModel
-from .job_detail_panel import JobDetailPanel
-from .segmented_control import SegmentedControl
+from ._job_list_tab import _JobListTab
 
 _HISTORY_FILTERS: dict[str, set[str] | None] = {
     "All": None,
@@ -33,7 +25,7 @@ _HISTORY_FILTERS: dict[str, set[str] | None] = {
 }
 
 
-class HistoryTab(QWidget):
+class HistoryTab(_JobListTab):
     """History tab backed by QueueController."""
 
     history_changed = Signal()
@@ -44,60 +36,37 @@ class HistoryTab(QWidget):
         tmdb_provider: Callable[[], object | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
-        self._queue_ctrl = queue_controller
-        self._model = JobTableModel(history=True, parent=self)
-        self._proxy = JobStatusFilterProxyModel(self)
-        self._proxy.setSourceModel(self._model)
+        super().__init__(
+            queue_controller=queue_controller,
+            history=True,
+            tmdb_provider=tmdb_provider,
+            parent=parent,
+        )
         self._pending_revert_job_ids: list[str] = []
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(8)
-
-        toolbar = QFrame()
-        toolbar.setProperty("cssClass", "panel")
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 12, 12, 12)
 
         self._revert_btn = QPushButton("Revert Selected")
         self._revert_btn.clicked.connect(self._revert_selected)
-        toolbar_layout.addWidget(self._revert_btn)
+        self._toolbar_layout.addWidget(self._revert_btn)
 
         self._clear_btn = QPushButton("Clear History")
         self._clear_btn.setProperty("cssClass", "danger")
         self._clear_btn.clicked.connect(self._clear_history)
-        toolbar_layout.addWidget(self._clear_btn)
+        self._toolbar_layout.addWidget(self._clear_btn)
 
         self._select_all_btn = QPushButton("Select All")
         self._select_all_btn.setProperty("cssClass", "secondary")
         self._select_all_btn.clicked.connect(self._select_all)
-        toolbar_layout.addWidget(self._select_all_btn)
+        self._toolbar_layout.addWidget(self._select_all_btn)
 
         self._clear_selection_btn = QPushButton("Clear Selection")
         self._clear_selection_btn.setProperty("cssClass", "secondary")
         self._clear_selection_btn.clicked.connect(self._clear_selection)
-        toolbar_layout.addWidget(self._clear_selection_btn)
+        self._toolbar_layout.addWidget(self._clear_selection_btn)
 
-        self._filter_control = SegmentedControl(_HISTORY_FILTERS.keys(), current_text="All")
-        self._filter_control.currentTextChanged.connect(self._apply_filter)
-        toolbar_layout.addWidget(self._filter_control)
-
-        self._status = QLabel("No history yet")
-        self._status.setProperty("cssClass", "text-dim")
-        toolbar_layout.addWidget(self._status, stretch=1)
-
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.setProperty("cssClass", "secondary")
-        refresh_btn.clicked.connect(self.refresh)
-        toolbar_layout.addWidget(refresh_btn)
-        root.addWidget(toolbar)
+        self._finish_toolbar(_HISTORY_FILTERS)
 
         self._revert_banner = QFrame()
-        self._revert_banner.setProperty("cssClass", "panel")
-        self._revert_banner.setStyleSheet(
-            "QFrame { border-left: 4px solid #4a9eda; }"
-        )
+        self._revert_banner.setProperty("cssClass", "callout-banner")
         self._revert_banner.hide()
         banner_layout = QHBoxLayout(self._revert_banner)
         banner_layout.setContentsMargins(12, 12, 12, 12)
@@ -116,26 +85,8 @@ class HistoryTab(QWidget):
         self._cancel_revert_btn.clicked.connect(self._cancel_revert)
         banner_layout.addWidget(self._cancel_revert_btn)
 
-        root.addWidget(self._revert_banner)
-
-        self._table = QTableView()
-        self._table.setModel(self._proxy)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.verticalHeader().setVisible(False)
-        self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        for column in (0, 2, 3, 4, 5):
-            self._table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self._insert_panel_before_detail(self._revert_banner)
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
-        root.addWidget(self._table, stretch=1)
-
-        self._detail = JobDetailPanel(
-            tmdb_provider=tmdb_provider,
-            persist_poster_path=self._queue_ctrl.set_job_poster_path,
-        )
-        root.addWidget(self._detail)
 
         self.refresh()
 
@@ -158,36 +109,6 @@ class HistoryTab(QWidget):
             if not self._pending_revert_job_ids:
                 self._cancel_revert()
         self._on_selection_changed()
-
-    def select_job(self, job_id: str) -> None:
-        for row, job in enumerate(self._model.jobs()):
-            if job.job_id != job_id:
-                continue
-            source_index = self._model.index(row, 0)
-            proxy_index = self._proxy.mapFromSource(source_index)
-            if not proxy_index.isValid():
-                continue
-            self._table.selectRow(proxy_index.row())
-            self._table.scrollTo(proxy_index)
-            return
-
-    def _selected_jobs(self) -> list[RenameJob]:
-        rows = sorted({index.row() for index in self._table.selectionModel().selectedRows()})
-        jobs: list[RenameJob] = []
-        for row in rows:
-            proxy_index = self._proxy.index(row, 0)
-            source_index = self._proxy.mapToSource(proxy_index)
-            if not source_index.isValid():
-                continue
-            job = self._model.job_at(source_index.row())
-            if job is not None:
-                jobs.append(job)
-        return jobs
-
-    def _apply_filter(self, label: str) -> None:
-        self._proxy.set_allowed_statuses(_HISTORY_FILTERS.get(label))
-        self._clear_selection()
-        self.refresh()
 
     def _on_selection_changed(self, *_args) -> None:
         jobs = self._selected_jobs()
@@ -260,9 +181,3 @@ class HistoryTab(QWidget):
         self._queue_ctrl.clear_history()
         self.refresh()
         self.history_changed.emit()
-
-    def _select_all(self) -> None:
-        self._table.selectAll()
-
-    def _clear_selection(self) -> None:
-        self._table.clearSelection()

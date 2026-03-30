@@ -4,25 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, QItemSelectionModel
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
-    QHeaderView,
-    QLabel,
     QMessageBox,
     QPushButton,
-    QTableView,
-    QVBoxLayout,
-    QWidget,
 )
 
 from ...constants import JobStatus
-from ...job_store import RenameJob
-from ..models import JobStatusFilterProxyModel, JobTableModel
-from .job_detail_panel import JobDetailPanel
-from .segmented_control import SegmentedControl
+from ._job_list_tab import _JobListTab
 
 _QUEUE_FILTERS: dict[str, set[str] | None] = {
     "All": None,
@@ -31,8 +22,10 @@ _QUEUE_FILTERS: dict[str, set[str] | None] = {
 }
 
 
-class QueueTab(QWidget):
+class QueueTab(_JobListTab):
     """Queue tab backed by QueueController."""
+
+    queue_changed = Signal()
 
     def __init__(
         self,
@@ -41,68 +34,36 @@ class QueueTab(QWidget):
         navigate_to_media: Callable[[int], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
-        self._queue_ctrl = queue_controller
+        super().__init__(
+            queue_controller=queue_controller,
+            history=False,
+            tmdb_provider=tmdb_provider,
+            parent=parent,
+        )
         self._tmdb_provider = tmdb_provider
         self._navigate_to_media = navigate_to_media
-        self._model = JobTableModel(history=False, parent=self)
-        self._proxy = JobStatusFilterProxyModel(self)
-        self._proxy.setSourceModel(self._model)
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(8)
-
-        toolbar = QFrame()
-        toolbar.setProperty("cssClass", "panel")
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 12, 12, 12)
 
         self._start_btn = QPushButton("Start Queue")
         self._start_btn.clicked.connect(self._toggle_queue)
-        toolbar_layout.addWidget(self._start_btn)
+        self._toolbar_layout.addWidget(self._start_btn)
 
         self._execute_btn = QPushButton("Run Selected")
         self._execute_btn.setProperty("cssClass", "secondary")
         self._execute_btn.clicked.connect(self._execute_selected)
-        toolbar_layout.addWidget(self._execute_btn)
+        self._toolbar_layout.addWidget(self._execute_btn)
 
         self._select_all_btn = QPushButton("Select All")
         self._select_all_btn.setProperty("cssClass", "secondary")
         self._select_all_btn.clicked.connect(self._select_all)
-        toolbar_layout.addWidget(self._select_all_btn)
+        self._toolbar_layout.addWidget(self._select_all_btn)
 
         self._clear_selection_btn = QPushButton("Clear Selection")
         self._clear_selection_btn.setProperty("cssClass", "secondary")
         self._clear_selection_btn.clicked.connect(self._clear_selection)
-        toolbar_layout.addWidget(self._clear_selection_btn)
+        self._toolbar_layout.addWidget(self._clear_selection_btn)
 
-        self._filter_control = SegmentedControl(_QUEUE_FILTERS.keys(), current_text="All")
-        self._filter_control.currentTextChanged.connect(self._apply_filter)
-        toolbar_layout.addWidget(self._filter_control)
-
-        self._status = QLabel("Queue empty")
-        self._status.setProperty("cssClass", "text-dim")
-        toolbar_layout.addWidget(self._status, stretch=1)
-
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.setProperty("cssClass", "secondary")
-        refresh_btn.clicked.connect(self.refresh)
-        toolbar_layout.addWidget(refresh_btn)
-        root.addWidget(toolbar)
-
-        self._table = QTableView()
-        self._table.setModel(self._proxy)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.verticalHeader().setVisible(False)
-        self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        for column in (0, 2, 3, 4, 5):
-            self._table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self._finish_toolbar(_QUEUE_FILTERS)
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
-        root.addWidget(self._table, stretch=1)
 
         actions = QFrame()
         actions.setProperty("cssClass", "panel")
@@ -135,13 +96,7 @@ class QueueTab(QWidget):
         self._movie_btn.setProperty("cssClass", "secondary")
         self._movie_btn.clicked.connect(lambda: self._switch_tab(1))
         actions_layout.addWidget(self._movie_btn)
-        root.addWidget(actions)
-
-        self._detail = JobDetailPanel(
-            tmdb_provider=self._tmdb_provider,
-            persist_poster_path=self._queue_ctrl.set_job_poster_path,
-        )
-        root.addWidget(self._detail)
+        self._insert_panel_before_detail(actions)
 
         self.refresh()
 
@@ -164,36 +119,6 @@ class QueueTab(QWidget):
         self._select_all_btn.setEnabled(has_jobs)
         self._clear_selection_btn.setEnabled(has_jobs)
         self._on_selection_changed()
-
-    def select_job(self, job_id: str) -> None:
-        for row, job in enumerate(self._model.jobs()):
-            if job.job_id != job_id:
-                continue
-            source_index = self._model.index(row, 0)
-            proxy_index = self._proxy.mapFromSource(source_index)
-            if not proxy_index.isValid():
-                continue
-            self._table.selectRow(proxy_index.row())
-            self._table.scrollTo(proxy_index)
-            return
-
-    def _selected_jobs(self) -> list[RenameJob]:
-        rows = sorted({index.row() for index in self._table.selectionModel().selectedRows()})
-        jobs: list[RenameJob] = []
-        for row in rows:
-            proxy_index = self._proxy.index(row, 0)
-            source_index = self._proxy.mapToSource(proxy_index)
-            if not source_index.isValid():
-                continue
-            job = self._model.job_at(source_index.row())
-            if job is not None:
-                jobs.append(job)
-        return jobs
-
-    def _apply_filter(self, label: str) -> None:
-        self._proxy.set_allowed_statuses(_QUEUE_FILTERS.get(label))
-        self._clear_selection()
-        self.refresh()
 
     def _on_selection_changed(self, *_args) -> None:
         jobs = self._selected_jobs()
@@ -220,6 +145,7 @@ class QueueTab(QWidget):
         else:
             self._queue_ctrl.start()
         self.refresh()
+        self.queue_changed.emit()
 
     def _execute_selected(self) -> None:
         jobs = self._selected_jobs()
@@ -228,6 +154,7 @@ class QueueTab(QWidget):
         if not self._queue_ctrl.execute_single(jobs[0].job_id):
             QMessageBox.warning(self, "Cannot Run Job", "The selected job could not be executed right now.")
         self.refresh()
+        self.queue_changed.emit()
 
     def _remove_selected(self) -> None:
         jobs = self._selected_jobs()
@@ -243,6 +170,7 @@ class QueueTab(QWidget):
             return
         self._queue_ctrl.remove_jobs([job.job_id for job in pending])
         self.refresh()
+        self.queue_changed.emit()
 
     def _move_selected(self, direction: int) -> None:
         pending_ids = [job.job_id for job in self._selected_jobs() if job.status == JobStatus.PENDING]
@@ -250,15 +178,10 @@ class QueueTab(QWidget):
             return
         self._queue_ctrl.move_jobs(pending_ids, direction)
         self.refresh()
+        self.queue_changed.emit()
         for job_id in pending_ids:
             self.select_job(job_id)
 
     def _switch_tab(self, index: int) -> None:
         if self._navigate_to_media is not None:
             self._navigate_to_media(index)
-
-    def _select_all(self) -> None:
-        self._table.selectAll()
-
-    def _clear_selection(self) -> None:
-        self._table.clearSelection()

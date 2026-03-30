@@ -110,27 +110,32 @@ class ScanProgressWidget(QWidget):
         # Separator
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background-color: #2a2a2a; max-height: 1px;")
+        sep.setProperty("cssClass", "separator")
+        sep.setFixedHeight(1)
         card_layout.addWidget(sep)
 
         # Phase checklist — keyed by ScanLifecycle enum values
         self._phase_rows: dict[ScanLifecycle, QLabel] = {}
+        self._phase_labels: dict[ScanLifecycle, QLabel] = {}
         for lc in _LIFECYCLE_CHECKLIST:
             row = QHBoxLayout()
             row.setSpacing(8)
             icon = QLabel("\u25CB")  # hollow circle (pending)
+            icon.setProperty("cssClass", "scan-phase-icon")
+            icon.setProperty("phaseState", "pending")
             icon.setFixedWidth(16)
             icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            icon.setStyleSheet("color: #4a4a4a; font-size: 12px;")
             row.addWidget(icon)
 
             label = QLabel(_LIFECYCLE_LABELS.get(lc, str(lc)))
-            label.setStyleSheet("color: #4a4a4a;")
+            label.setProperty("cssClass", "scan-phase-label")
+            label.setProperty("phaseState", "pending")
             row.addWidget(label)
             row.addStretch()
 
             card_layout.addLayout(row)
             self._phase_rows[lc] = icon
+            self._phase_labels[lc] = label
 
         # Cancel button
         card_layout.addSpacing(8)
@@ -223,18 +228,35 @@ class ScanProgressWidget(QWidget):
         self._elapsed_label.setText(f"Elapsed: {minutes}:{seconds:02d}")
 
     def _reset_checklist(self) -> None:
-        for icon in self._phase_rows.values():
+        for lifecycle, icon in self._phase_rows.items():
             icon.setText("\u25CB")
-            icon.setStyleSheet("color: #4a4a4a; font-size: 12px;")
+            self._set_phase_state(lifecycle, "pending")
 
     def _update_checklist(self) -> None:
         for lc, icon in self._phase_rows.items():
             if lc in self._completed_lifecycles:
                 icon.setText("\u2713")  # check mark
-                icon.setStyleSheet("color: #3ea463; font-size: 12px;")
+                self._set_phase_state(lc, "done")
             elif lc == self._current_lifecycle:
                 icon.setText("\u25CF")  # filled circle (active)
-                icon.setStyleSheet("color: #e5a00d; font-size: 12px;")
+                self._set_phase_state(lc, "active")
             else:
                 icon.setText("\u25CB")  # hollow circle (pending)
-                icon.setStyleSheet("color: #4a4a4a; font-size: 12px;")
+                self._set_phase_state(lc, "pending")
+
+    def _set_phase_state(self, lifecycle: ScanLifecycle, state: str) -> None:
+        icon = self._phase_rows[lifecycle]
+        icon.setProperty("phaseState", state)
+        label = self._phase_labels[lifecycle]
+        label.setProperty("phaseState", state)
+        _repolish(label)
+        _repolish(icon)
+
+
+def _repolish(widget: QWidget) -> None:
+    style = widget.style()
+    if style is None:
+        return
+    style.unpolish(widget)
+    style.polish(widget)
+    widget.update()
