@@ -979,13 +979,88 @@ Validation completed for this pass:
 8. Focused regressions for the latest cache/startup pass: `41 passed`
 9. Result across the earlier TV parity/discovery sweep: `79 passed`
 
+## Phase 8: Code review — performance, correctness, and polish
+
+Date: 2026-03-29
+
+This phase addresses findings from the comprehensive code review performed against the Phase 7 parity audit, the migration plan, and the UI design document. Issues are grouped by priority.
+
+### 8.1 — Fix flickering transparent popups (High) ✅
+
+**Root cause (multi-layered):**
+1. Background threads were creating `QPixmap` and `PIL.ImageQt.ImageQt` (a `QImage` subclass) off the main thread, which touches Qt's platform layer and spawns transient native windows on Windows.
+2. Qt's own platform integration creates short-lived ToolTip/SplashScreen-flagged helper windows during heavy widget operations (style cascades, QListWidget rebuilds) on the main thread.
+3. The original event filter used `obj.hide()` on Show events, but hide() itself triggers a native message and the show→hide sequence is visible as flicker.
+
+**Fix (applied):**
+- Eliminated all Qt object creation from background threads across three files. Worker threads now pass raw `(bytes, width, height)` tuples through signals; `QImage`/`QPixmap` conversion happens on the main thread only.
+- Restored the transient window event filter with a non-destructive strategy: `setWindowOpacity(0)` (synchronous on Windows via `SetLayeredWindowAttributes`) instead of hide/close/delete. This makes transient windows invisible before the compositor renders the next frame without disrupting Qt's internal lifecycle.
+- Added `QMainWindow` to the filter exclusion list to prevent false positives.
+- Removed unnecessary `setToolTip()` calls from recent-folder menu actions.
+- Fixed `QFont::setPixelSize: Pixel size <= 0` warnings from `font-size: 0px` in theme QSS.
+- Fixed `RuntimeError: Signal source has been deleted` crash in poster backfill thread.
+
+**Files:** `plex_renamer/gui_qt/app.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/job_detail_panel.py`, `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+### 8.2 — Eliminate full roster rebuilds on every queue event (High) ✅
+
+**Problem:** `MainWindow._on_queue_changed()` calls `refresh_from_controller()` on *both* media workspaces unconditionally.
+
+**Fix (applied):** Only the active visible workspace refreshes on queue events. The off-screen workspace sets a deferred refresh flag (`_tv_needs_queue_refresh` / `_movie_needs_queue_refresh`) which is consumed when the user switches tabs.
+
+**Files:** `plex_renamer/gui_qt/main_window.py`
+
+### 8.3 — Deduplicate poster thread spawning (High) ✅
+
+**Problem:** `_request_roster_poster()` spawns duplicate threads for the same poster when `refresh_from_controller()` is called repeatedly.
+
+**Fix (applied):** Added `_poster_inflight: set[tuple[str, int]]` to `MediaWorkspace`. Requests are skipped when the key is already in-flight; the key is discarded in a `finally` block in the worker thread.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+### 8.4 — Replace per-widget inline setStyleSheet with QSS properties (Medium)
+
+**Problem:** Every `_RosterRowWidget._apply_style()` and `_PreviewRowWidget._apply_style()` calls `setStyleSheet()` with hardcoded hex colors. Per-widget `setStyleSheet()` forces a full style recalculation cascade. With 50+ roster items and 200+ preview items, this is expensive on every rebuild.
+
+**Fix:** Use QSS dynamic properties (e.g. `self.setProperty("band", "high")`) and style via class selectors in `theme.qss`. Update via `self.style().unpolish(self); self.style().polish(self)` on property change.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+### 8.5 — Cap metadata detail cache growth (Medium)
+
+**Problem:** `MediaDetailPanel._metadata_cache` grows unbounded over a session. Each unique token stores a dict + QPixmap. No eviction policy exists.
+
+**Fix:** Add an LRU cap (e.g. 64 entries). Clear the cache on new scan start or folder change.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_detail_panel.py`
+
+### 8.6 — Fix thread-unsafe QTimer.singleShot in settings API test (Medium)
+
+**Problem:** `SettingsTab._on_test_key()` marshals results from a background thread via `QTimer.singleShot(0, lambda)`. If the widget is destroyed between thread completion and timer execution, this crashes.
+
+**Fix:** Use a proper `QObject` signal bridge, consistent with the pattern used everywhere else in the codebase.
+
+**Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`
+
+### 8.7 — Minor correctness and cleanup (Low)
+
+1. ~~**Duplicate call:** `_fix_match_btn.setEnabled(False)` called twice at `media_workspace.py:330-331`.~~ Fixed.
+2. **Dead branch:** `_preview_target_text()` returns the same string for both compact and non-compact modes (`media_workspace.py:1372-1376`).
+3. **Duplicate utility:** `_clamped_percent()` is defined identically in both `media_workspace.py` and `media_detail_panel.py`. Extract to a shared module.
+4. **Stale labels:** Cache section buttons in `settings_tab.py:235-244` still say "not yet wired" and "Phase 4". Either wire them or remove the placeholder text.
+5. **Muted confidence color:** `_confidence_fill_color(score)` does not accept a `ScanState`, so queued/scanning/duplicate items show score-based colors instead of muted gray.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/settings_tab.py`
+
 ## Recommended Next Steps
 
 Phases 0 through 6 are now effectively implemented on `dev/GUI3`. If work resumes now, the recommended order is:
 
-1. **Finish Phase 7 operational blockers.** Add real scan cancel, wire undo/revert from the Qt main shell, and ensure already-exposed settings visibly affect the active session.
-2. **Reduce remaining trust gaps in Qt queue/history.** Add the missing filter/badge polish and keep the queue/history surfaces aligned with the design doc.
-3. **Tighten refresh efficiency only after the shell is operationally complete.** Poster-fetch deduplication and roster refresh granularity still matter, but they are secondary to the remaining user-trust issues.
+1. ~~**Phase 8 high-priority fixes.**~~ ✅ Done — flickering popups fixed (thread-safe image transfer + opacity-zero filter), redundant roster rebuilds eliminated (deferred refresh), poster thread dedup added.
+2. **Finish Phase 7 operational blockers.** Add real scan cancel, wire undo/revert from the Qt main shell, and ensure already-exposed settings visibly affect the active session.
+3. **Phase 8 medium-priority fixes.** Replace per-widget inline stylesheets with QSS properties, cap the metadata cache, and fix the thread-unsafe settings test callback.
+4. **Reduce remaining trust gaps in Qt queue/history.** Add the missing filter/badge polish and keep the queue/history surfaces aligned with the design doc.
+5. **Phase 8 low-priority cleanup.** Dead branches, duplicate utilities, stale labels, and muted confidence color.
 
 The application layer (`app/controllers/`, `app/services/`, `app/models/`) is complete and the tkinter shell now delegates queue submission through the controllers. The PySide6 shell should import from `plex_renamer.app.controllers` for all domain types and orchestration.
 

@@ -10,9 +10,8 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING
 
-from PIL.ImageQt import ImageQt
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -80,6 +79,7 @@ class MediaWorkspace(QWidget):
         self._roster_syncing = False
         self._preview_syncing = False
         self._roster_poster_cache: dict[tuple[str, int], QIcon] = {}
+        self._poster_inflight: set[tuple[str, int]] = set()
         self._preview_group_state: dict[str, set[int]] = {}
         self._poster_bridge = _RosterPosterBridge(self)
         self._poster_bridge.poster_ready.connect(self._apply_roster_poster)
@@ -326,7 +326,6 @@ class MediaWorkspace(QWidget):
             self._detail_panel.clear()
             self._action_bar.update_summary(0, 0)
             self._action_bar.set_queue_enabled(False)
-            self._fix_match_btn.setEnabled(False)
             self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setText("Add to Queue")
@@ -696,20 +695,30 @@ class MediaWorkspace(QWidget):
                 widget.set_poster(cached.pixmap(self._roster_list.iconSize()))
             return
 
+        # Skip if a fetch for this key is already in flight.
+        if key in self._poster_inflight:
+            return
         tmdb = self._tmdb_provider()
         if tmdb is None:
             return
+        self._poster_inflight.add(key)
 
         def _worker() -> None:
-            image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=42)
-            if image is None:
-                return
-            pixmap = QPixmap.fromImage(ImageQt(image.convert("RGBA")))
-            self._poster_bridge.poster_ready.emit(key, pixmap)
+            try:
+                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=42)
+                if image is None:
+                    return
+                # Pass raw bytes through the signal — all Qt object
+                # creation (QImage, QPixmap) must happen on the main
+                # thread to avoid transient platform windows on Windows.
+                self._poster_bridge.poster_ready.emit(key, _pil_to_raw(image))
+            finally:
+                self._poster_inflight.discard(key)
 
         threading.Thread(target=_worker, daemon=True, name="QtRosterPoster").start()
 
-    def _apply_roster_poster(self, key, pixmap: QPixmap) -> None:
+    def _apply_roster_poster(self, key, raw_data) -> None:
+        pixmap = _raw_to_pixmap(raw_data)
         if pixmap.isNull():
             return
         icon = QIcon(pixmap)
@@ -1496,6 +1505,21 @@ def _format_batch_result(result) -> str:
     if result.errors:
         parts.append(f"Errors: {len(result.errors)}")
     return " · ".join(parts) if parts else "No queueable items were selected."
+
+
+def _pil_to_raw(pil_image) -> tuple[bytes, int, int]:
+    """Convert a PIL Image to (raw_bytes, width, height) for thread-safe
+    transfer.  All Qt object creation must happen on the main thread."""
+    rgba = pil_image.convert("RGBA")
+    return (rgba.tobytes("raw", "RGBA"), rgba.width, rgba.height)
+
+
+def _raw_to_pixmap(raw_data: tuple[bytes, int, int]) -> QPixmap:
+    """Convert (raw_bytes, width, height) back to a QPixmap.  Must be
+    called on the main thread."""
+    data, width, height = raw_data
+    qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
+    return QPixmap.fromImage(qimage)
 
 
 class _ActionBar(QFrame):

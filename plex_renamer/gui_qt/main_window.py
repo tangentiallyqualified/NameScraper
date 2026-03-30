@@ -105,7 +105,10 @@ class _QueueBridge(QObject):
         self.changed.emit(None)
 
     def on_poster_backfill_finished(self, updated: int) -> None:
-        self.poster_backfill_finished.emit(updated)
+        try:
+            self.poster_backfill_finished.emit(updated)
+        except RuntimeError:
+            pass  # Window closed before backfill thread finished
 
 
 class MainWindow(QMainWindow):
@@ -173,6 +176,8 @@ class MainWindow(QMainWindow):
         self._queue_completed_count = 0
         self._queue_failed_count = 0
         self._job_poster_backfill_started = False
+        self._tv_needs_queue_refresh = False
+        self._movie_needs_queue_refresh = False
 
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
@@ -529,8 +534,19 @@ class MainWindow(QMainWindow):
 
     def _on_queue_changed(self, _unused=None) -> None:
         self._refresh_job_views()
-        self._tv_workspace.refresh_from_controller()
-        self._movie_workspace.refresh_from_controller()
+        # Only refresh media workspaces that are in the READY state and
+        # currently visible.  Full roster rebuilds are expensive — avoid
+        # doing them on both workspaces for every queue event.  The
+        # non-visible workspace will refresh via _on_tab_changed when the
+        # user switches back to it.
+        active = self._tabs.currentIndex()
+        if active == _TV and self._tv_workspace.is_showing_ready():
+            self._tv_workspace.refresh_from_controller()
+        elif active == _MOVIES and self._movie_workspace.is_showing_ready():
+            self._movie_workspace.refresh_from_controller()
+        # Mark the other workspace as needing a refresh on next tab switch.
+        self._tv_needs_queue_refresh = active != _TV
+        self._movie_needs_queue_refresh = active != _MOVIES
 
     def _refresh_job_views(self) -> None:
         self._queue_tab.refresh()
@@ -611,8 +627,7 @@ class MainWindow(QMainWindow):
         self._recent_tv_menu.clear()
         for folder in self.settings_service.recent_tv_folders:
             p = Path(folder)
-            action = self._recent_tv_menu.addAction(p.name)
-            action.setToolTip(str(p))
+            action = self._recent_tv_menu.addAction(f"{p.name}  ({p})")
             action.triggered.connect(
                 lambda _=False, f=folder: self._tv_workspace.load_folder(f)
             )
@@ -621,8 +636,7 @@ class MainWindow(QMainWindow):
         self._recent_movie_menu.clear()
         for folder in self.settings_service.recent_movie_folders:
             p = Path(folder)
-            action = self._recent_movie_menu.addAction(p.name)
-            action.setToolTip(str(p))
+            action = self._recent_movie_menu.addAction(f"{p.name}  ({p})")
             action.triggered.connect(
                 lambda _=False, f=folder: self._movie_workspace.load_folder(f)
             )
@@ -631,12 +645,20 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         self._capture_active_snapshot()
 
-        if index == _TV and self._tv_snapshot is not None:
-            self.media_ctrl.restore_tv_from_tab_switch(self._tv_snapshot)
-            self._tv_workspace.refresh_from_controller()
-        elif index == _MOVIES and self._movie_snapshot is not None:
-            self.media_ctrl.restore_movie_from_tab_switch(self._movie_snapshot)
-            self._movie_workspace.refresh_from_controller()
+        if index == _TV:
+            if self._tv_snapshot is not None:
+                self.media_ctrl.restore_tv_from_tab_switch(self._tv_snapshot)
+                self._tv_workspace.refresh_from_controller()
+            elif self._tv_needs_queue_refresh and self._tv_workspace.is_showing_ready():
+                self._tv_workspace.refresh_from_controller()
+            self._tv_needs_queue_refresh = False
+        elif index == _MOVIES:
+            if self._movie_snapshot is not None:
+                self.media_ctrl.restore_movie_from_tab_switch(self._movie_snapshot)
+                self._movie_workspace.refresh_from_controller()
+            elif self._movie_needs_queue_refresh and self._movie_workspace.is_showing_ready():
+                self._movie_workspace.refresh_from_controller()
+            self._movie_needs_queue_refresh = False
 
         _log.debug("Tab switched to %d", index)
 

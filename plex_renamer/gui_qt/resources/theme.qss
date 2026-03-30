@@ -522,7 +522,7 @@ QProgressBar {
     border-radius: 3px;
     height: 6px;
     text-align: center;
-    font-size: 0px;  /* hide text — we show count separately */
+    font-size: 1px;  /* effectively hide text — 0px triggers Qt warnings */
 }
 
 QProgressBar::chunk {

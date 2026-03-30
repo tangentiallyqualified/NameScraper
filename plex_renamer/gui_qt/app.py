@@ -16,11 +16,38 @@ _log = logging.getLogger(__name__)
 
 _THEME_PATH = Path(__file__).parent / "resources" / "theme.qss"
 
+# Window flags that identify transient platform helper windows.
+_TRANSIENT_FLAGS = (
+    Qt.WindowType.ToolTip
+    | Qt.WindowType.SplashScreen
+)
 
-class _SuppressTransientHelpPopups(QObject):
+
+class _SuppressTransientPopups(QObject):
+    """Suppress unwanted transient windows in the Qt shell.
+
+    Two suppression strategies:
+
+    1. **Event-type suppression** — ToolTip, WhatsThis, and StatusTip
+       events are consumed before Qt creates any window.  No flicker.
+
+    2. **Transient-window suppression** — On Windows, Qt's platform
+       integration and style engine create short-lived native helper
+       windows (ToolTip-flagged, SplashScreen-flagged) during heavy
+       widget operations like QListWidget rebuilds and setStyleSheet
+       cascades.  These flash on screen for one or two compositor
+       frames.  An earlier version tried calling ``obj.hide()`` on
+       the Show event, but hide() itself triggers a second native
+       message and the show → hide sequence is visible as flicker.
+
+       The current approach sets the window opacity to 0 *before* the
+       compositor can render the next frame (``setWindowOpacity`` maps
+       to the synchronous Win32 ``SetLayeredWindowAttributes`` call),
+       then schedules the window for deletion.  The window is never
+       visible to the user.
+    """
+
     def eventFilter(self, obj, event) -> bool:
-        from PySide6.QtWidgets import QDialog, QMenu, QWidget
-
         if event.type() in {
             QEvent.Type.ToolTip,
             QEvent.Type.WhatsThis,
@@ -28,26 +55,28 @@ class _SuppressTransientHelpPopups(QObject):
             QEvent.Type.StatusTip,
         }:
             return True
-        if event.type() == QEvent.Type.Show and isinstance(obj, QWidget):
-            if isinstance(obj, (QDialog, QMenu)):
+
+        if event.type() == QEvent.Type.Show:
+            from PySide6.QtWidgets import QWidget
+            if not isinstance(obj, QWidget) or not obj.isWindow():
                 return False
-            if obj.objectName() in {"toastManager", "toastCard"}:
+            # Never suppress real dialogs, menus, or our own widgets.
+            from PySide6.QtWidgets import QDialog, QMenu, QMainWindow
+            if isinstance(obj, (QDialog, QMenu, QMainWindow)):
                 return False
-            if not obj.isWindow():
+            name = obj.objectName()
+            if name in {"toastManager", "toastCard"}:
                 return False
             flags = obj.windowFlags()
-            transient_flags = (
-                Qt.WindowType.ToolTip
-                | Qt.WindowType.Popup
-                | Qt.WindowType.Tool
-                | Qt.WindowType.SplashScreen
-            )
-            if flags & transient_flags:
-                size = obj.size()
-                if size.width() <= 480 and size.height() <= 320:
-                    event.accept()
-                    obj.hide()
-                    return True
+            if not (flags & _TRANSIENT_FLAGS):
+                return False
+            # Make the window invisible synchronously.  setWindowOpacity(0)
+            # maps to Win32 SetLayeredWindowAttributes — takes effect before
+            # the compositor can render the next frame.  Do NOT close() or
+            # deleteLater() — Qt's platform layer may still need the window.
+            obj.setWindowOpacity(0)
+            return False
+
         return False
 
 
@@ -65,9 +94,9 @@ def run() -> None:
 
     app = QApplication(sys.argv)
     app.setApplicationName("Plex Renamer")
-    help_popup_filter = _SuppressTransientHelpPopups(app)
-    app.installEventFilter(help_popup_filter)
-    app._help_popup_filter = help_popup_filter
+    popup_filter = _SuppressTransientPopups(app)
+    app.installEventFilter(popup_filter)
+    app._popup_filter = popup_filter
 
     # Load the global theme stylesheet
     if _THEME_PATH.exists():

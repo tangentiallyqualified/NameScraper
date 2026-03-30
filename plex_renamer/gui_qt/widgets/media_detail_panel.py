@@ -5,9 +5,8 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 
-from PIL.ImageQt import ImageQt
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
@@ -255,9 +254,13 @@ class MediaDetailPanel(QFrame):
             season=season_num,
             target_width=280,
         )
-        pixmap = None
+        # Pass raw image bytes — all Qt object creation (QImage, QPixmap)
+        # must happen on the main thread to avoid transient platform
+        # helper windows on Windows.
+        raw_image = None
         if image is not None:
-            pixmap = QPixmap.fromImage(ImageQt(image.convert("RGBA")))
+            rgba = image.convert("RGBA")
+            raw_image = (rgba.tobytes("raw", "RGBA"), rgba.width, rgba.height)
 
         subtitle_parts = []
         if state.media_info.get("year"):
@@ -339,7 +342,7 @@ class MediaDetailPanel(QFrame):
                 "overview": overview,
                 "extra": "\n".join(extra_lines),
             },
-            pixmap,
+            raw_image,
         )
 
     def refresh_current(self) -> None:
@@ -352,10 +355,20 @@ class MediaDetailPanel(QFrame):
             folder_plan=self._current_folder_plan,
         )
 
-    def _apply_payload(self, payload: dict | None, pixmap: QPixmap | None, token: str) -> None:
+    def _apply_payload(self, payload: dict | None, image_data, token: str) -> None:
         self._loading_tokens.discard(token)
         if payload is None:
             return
+        # Convert raw image bytes → QPixmap on the main thread.
+        # Cached entries already hold a QPixmap from a previous call.
+        if isinstance(image_data, QPixmap):
+            pixmap = image_data
+        elif image_data is not None:
+            data, width, height = image_data
+            qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
+            pixmap = QPixmap.fromImage(qimage)
+        else:
+            pixmap = None
         self._metadata_cache[token] = (payload, pixmap)
         if token != self._current_token:
             return
