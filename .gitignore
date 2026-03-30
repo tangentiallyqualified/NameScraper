@@ -11,5 +11,4 @@ __pycache__/
 
 plex_renamer/test_library.zip
 docs/test_library/
-docs/gui3-pyside6-migration-plan.md
 docs/local/

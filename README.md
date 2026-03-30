@@ -45,7 +45,7 @@ Then launch either shell:
 |-------|--------|---------|
 | 0 — Guardrails | Complete | Migration plan, module audit, go/no-go |
 | 1 — Backend hardening | Complete | UI-neutral app layer, cache service, refresh policy, command gating, structured scan progress. `ScanSnapshotService` and `undo_log`-based undo retired. |
-| 2 — Controllers/view models | Complete | `MediaController` (session orchestration), `QueueController` (job queue management), 29 controller tests, 151 total tests passing. |
+| 2 — Controllers/view models | Complete | `MediaController` (session orchestration) and `QueueController` (job queue management) are in place with dedicated controller test coverage. |
 | 2.5 — Wire tkinter through controllers | Complete | Queue submission, sync, revert, and history recording all route through controllers. Movie batch checkbox bug fixed. `queue_panel.py` bypass explicitly accepted as pre-replacement debt. |
 | 3 — PySide6 shell skeleton | Complete | `gui_qt/` shell, bootstrap, persistent window state, tab shell, and shared service wiring are in place. |
 | 4 — Queue and history tabs | Complete | Controller-backed queue/history tabs, inline revert confirmation, badges, and persistent job details are running in Qt. |

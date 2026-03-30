@@ -27,4 +27,6 @@ without adding one-off ignore rules each time.
 
 ## Current note
 
-The existing `docs/gui3-pyside6-migration-plan.md` file is individually ignored to avoid changing or moving it during the current audit phase. Future temporary documents should go in `docs/local/` instead.
+The canonical tracked GUI3 migration plan is `docs/gui3-pyside6-migration-plan revised.md`.
+
+If you need temporary migration notes, drafts, or audit scratch work, put them under `docs/local/` instead of creating parallel top-level plan files.
