@@ -7,9 +7,10 @@ SettingsService.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -60,6 +61,10 @@ _LANGUAGE_OPTIONS = {
 _TAG_TO_DISPLAY = {v: k for k, v in _LANGUAGE_OPTIONS.items()}
 
 
+class _ApiKeyTestBridge(QObject):
+    result_ready = Signal(bool, str)
+
+
 class SettingsTab(QScrollArea):
     """Scrollable settings panel with section cards."""
 
@@ -76,6 +81,8 @@ class SettingsTab(QScrollArea):
     ) -> None:
         super().__init__(parent)
         self._settings = settings_service
+        self._api_test_bridge = _ApiKeyTestBridge(self)
+        self._api_test_bridge.result_ready.connect(self._show_test_result)
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -232,16 +239,16 @@ class SettingsTab(QScrollArea):
 
         # Buttons
         row = QHBoxLayout()
-        self._clear_cache_btn = QPushButton("Clear TMDB Cache (not yet wired)")
+        self._clear_cache_btn = QPushButton("Clear TMDB Cache")
         self._clear_cache_btn.setProperty("cssClass", "secondary")
         self._clear_cache_btn.setEnabled(False)
-        self._clear_cache_btn.setToolTip("Will be wired to PersistentCacheService in Phase 4")
+        self._clear_cache_btn.setToolTip("Cache actions are not available yet.")
         row.addWidget(self._clear_cache_btn)
 
-        self._clear_all_btn = QPushButton("Clear All Data (not yet wired)")
+        self._clear_all_btn = QPushButton("Clear All Data")
         self._clear_all_btn.setProperty("cssClass", "danger")
         self._clear_all_btn.setEnabled(False)
-        self._clear_all_btn.setToolTip("Will be wired with confirmation dialog in Phase 4")
+        self._clear_all_btn.setToolTip("Data-clearing actions are not available yet.")
         row.addWidget(self._clear_all_btn)
         row.addStretch()
         section.add_layout(row)
@@ -356,8 +363,7 @@ class SettingsTab(QScrollArea):
         self._key_status.setText("Testing...")
         self._key_status.setStyleSheet("color: #777777;")
         self._test_key_btn.setEnabled(False)
-
-        import threading
+        bridge = self._api_test_bridge
 
         def _test_worker() -> None:
             try:
@@ -373,12 +379,10 @@ class SettingsTab(QScrollArea):
                 ok = False
                 code = str(e)
 
-            # Marshal result back to main thread via QTimer.singleShot
-            from PySide6.QtCore import QTimer
-            if ok:
-                QTimer.singleShot(0, lambda: self._show_test_result(True, ""))
-            else:
-                QTimer.singleShot(0, lambda: self._show_test_result(False, str(code)))
+            try:
+                bridge.result_ready.emit(ok, "" if ok else str(code))
+            except RuntimeError:
+                pass
 
         threading.Thread(target=_test_worker, daemon=True).start()
 

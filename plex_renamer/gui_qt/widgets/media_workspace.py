@@ -33,6 +33,7 @@ from ...engine import PreviewItem, ScanState
 from ...parsing import clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ...app.services.command_gating_service import CommandGatingService
+from ._formatting import clamped_percent, percent_text
 from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
 from .match_picker_dialog import MatchPickerDialog
@@ -226,12 +227,14 @@ class MediaWorkspace(QWidget):
     def show_empty(self) -> None:
         """Switch to the empty state."""
         self._scan_progress.stop()
+        self._detail_panel.clear_metadata_cache()
         self._stack.setCurrentIndex(_EMPTY)
         self._empty_state.refresh_recent_folders()
 
     def show_scanning(self) -> None:
         """Switch to the scanning state and start the timer."""
         self._scan_progress.start()
+        self._detail_panel.clear_metadata_cache()
         self._stack.setCurrentIndex(_SCANNING)
 
     def show_ready(self) -> None:
@@ -991,6 +994,7 @@ class _RosterRowWidget(_ClickableRow):
     def __init__(self, state: ScanState, *, compact: bool, media_type: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("rosterRowCard")
+        self.setProperty("cssClass", "roster-row-card")
         self._state = state
         self._compact = compact
         self._media_type = media_type
@@ -1020,12 +1024,14 @@ class _RosterRowWidget(_ClickableRow):
         title_row = QHBoxLayout()
         title_row.setSpacing(6)
         self._title = QLabel(state.display_name)
+        self._title.setProperty("cssClass", "row-title")
         self._title.setWordWrap(True)
         self._title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         title_row.addWidget(self._title, stretch=1)
 
         self._status = QLabel(_state_status(state)[0].upper())
+        self._status.setProperty("cssClass", "status-pill")
         self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         title_row.addWidget(
@@ -1036,7 +1042,7 @@ class _RosterRowWidget(_ClickableRow):
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
         if state.show_id is not None:
-            meta_parts.append(f"{_percent_text(state.confidence)} match")
+            meta_parts.append(f"{percent_text(state.confidence)} match")
         self._meta = QLabel(" · ".join(meta_parts))
         self._meta.setProperty("cssClass", "caption")
         self._meta.setWordWrap(True)
@@ -1045,8 +1051,8 @@ class _RosterRowWidget(_ClickableRow):
         body.addWidget(self._meta)
 
         self._confidence = _MiniProgressBar(
-            color=_confidence_fill_color(self._state.confidence),
-            value=_clamped_percent(state.confidence),
+            color=_confidence_fill_color(self._state.confidence, state=self._state),
+            value=clamped_percent(state.confidence),
         )
         body.addWidget(self._confidence)
 
@@ -1062,8 +1068,8 @@ class _RosterRowWidget(_ClickableRow):
             for alt in alt_matches:
                 alt_btn = QPushButton(_match_label(alt, media_type=self._media_type))
                 alt_btn.setProperty("cssClass", "secondary")
+                alt_btn.setProperty("sizeVariant", "compact")
                 alt_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                alt_btn.setStyleSheet("text-align: left; padding: 2px 6px; font-size: 11px;")
                 alt_btn.clicked.connect(lambda _checked=False, alt=alt: self._begin_alternate_confirm(alt))
                 self._alternates_layout.addWidget(alt_btn)
             self._alternates_widget.setLayout(self._alternates_layout)
@@ -1074,6 +1080,7 @@ class _RosterRowWidget(_ClickableRow):
             confirm_layout.setContentsMargins(0, 0, 0, 0)
             confirm_layout.setSpacing(4)
             self._confirm_label = QLabel("")
+            self._confirm_label.setProperty("cssClass", "caption")
             self._confirm_label.setWordWrap(True)
             confirm_layout.addWidget(self._confirm_label)
             confirm_actions = QHBoxLayout()
@@ -1117,21 +1124,12 @@ class _RosterRowWidget(_ClickableRow):
         )
 
     def _apply_style(self) -> None:
-        band = _confidence_band(self._state.confidence, state=self._state)
-        band_color = {"high": "#3ea463", "medium": "#e5a00d", "low": "#d44040", "muted": "#777777"}[band]
-        bg = "#1c1c1c"
-        border = "#e5a00d" if self._selected else "#2a2a2a"
-        self.setStyleSheet(
-            "QFrame#rosterRowCard {"
-            f"background-color: {bg}; border: 1px solid {border}; border-left: 4px solid {band_color}; border-radius: 8px;"
-            "}"
-        )
-        self._title.setStyleSheet("font-weight: 600; color: #e0e0e0;")
-        self._meta.setStyleSheet("color: #777777; font-size: 11px;")
-        self._status.setStyleSheet(_status_pill_stylesheet(_state_status_tone(self._state)))
-        self._confidence.setColor(_confidence_fill_color(self._state.confidence))
-        if self._confirm_row is not None:
-            self._confirm_label.setStyleSheet("color: #777777; font-size: 11px;")
+        self.setProperty("band", _confidence_band(self._state.confidence, state=self._state))
+        self.setProperty("selectionState", "selected" if self._selected else "normal")
+        self._status.setProperty("tone", _state_status_tone(self._state))
+        _repolish(self)
+        _repolish(self._status)
+        self._confidence.setColor(_confidence_fill_color(self._state.confidence, state=self._state))
 
     def _begin_alternate_confirm(self, match: dict) -> None:
         self._pending_alternate = match
@@ -1179,6 +1177,7 @@ class _PreviewRowWidget(_ClickableRow):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("previewRowCard")
+        self.setProperty("cssClass", "preview-row-card")
         self._preview = preview
         self._selected = False
 
@@ -1199,22 +1198,26 @@ class _PreviewRowWidget(_ClickableRow):
         top_row.setSpacing(8)
         original = _preview_heading(preview, compact=compact)
         self._original = QLabel(original)
+        self._original.setProperty("cssClass", "row-title")
         self._original.setWordWrap(True)
         self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._original, stretch=1)
 
         self._status = QLabel(_preview_status_label(preview))
+        self._status.setProperty("cssClass", "status-pill")
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
         body.addLayout(top_row)
 
-        self._target = QLabel(_preview_target_text(preview, compact=compact))
+        self._target = QLabel(_preview_target_text(preview))
+        self._target.setProperty("cssClass", "row-target")
         self._target.setWordWrap(True)
         self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         body.addWidget(self._target)
 
         if show_companions and preview.companions:
             self._companions = QLabel(_companion_summary(preview))
+            self._companions.setProperty("cssClass", "caption")
             self._companions.setWordWrap(True)
             self._companions.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             body.addWidget(self._companions)
@@ -1225,7 +1228,7 @@ class _PreviewRowWidget(_ClickableRow):
         if show_confidence:
             self._confidence = _MiniProgressBar(
                 color=_preview_band(self._preview),
-                value=_clamped_percent(preview.episode_confidence),
+                value=clamped_percent(preview.episode_confidence),
             )
             body.addWidget(self._confidence)
 
@@ -1243,19 +1246,11 @@ class _PreviewRowWidget(_ClickableRow):
         self._check.blockSignals(blocked)
 
     def _apply_style(self) -> None:
-        bg = "#1c1c1c"
-        border = "#e5a00d" if self._selected else "#2a2a2a"
-        band = _preview_band(self._preview)
-        self.setStyleSheet(
-            "QFrame#previewRowCard {"
-            f"background-color: {bg}; border: 1px solid {border}; border-left: 3px solid {band}; border-radius: 8px;"
-            "}"
-        )
-        self._original.setStyleSheet("font-weight: 600; color: #e0e0e0;")
-        self._target.setStyleSheet("color: #e5a00d;")
-        self._status.setStyleSheet(_status_pill_stylesheet(_preview_status_tone(self._preview)))
-        if self._companions is not None:
-            self._companions.setStyleSheet("color: #777777; font-size: 11px;")
+        self.setProperty("band", _preview_band_name(self._preview))
+        self.setProperty("selectionState", "selected" if self._selected else "normal")
+        self._status.setProperty("tone", _preview_status_tone(self._preview))
+        _repolish(self)
+        _repolish(self._status)
         if self._confidence is not None:
             self._confidence.setColor(_preview_band(self._preview))
 
@@ -1268,14 +1263,6 @@ def _file_count_for_state(state: ScanState) -> int:
     return 0
 
 
-def _clamped_percent(score: float) -> int:
-    return max(0, min(100, int(round(score * 100))))
-
-
-def _percent_text(score: float) -> str:
-    return f"{_clamped_percent(score)}%"
-
-
 def _confidence_band(score: float, *, state: ScanState | None = None) -> str:
     if state is not None and (state.duplicate_of is not None or state.queued or state.scanning):
         return "muted"
@@ -1286,13 +1273,13 @@ def _confidence_band(score: float, *, state: ScanState | None = None) -> str:
     return "low"
 
 
-def _confidence_fill_color(score: float) -> str:
+def _confidence_fill_color(score: float, *, state: ScanState | None = None) -> str:
     return {
         "high": "#3ea463",
         "medium": "#e5a00d",
         "low": "#d44040",
         "muted": "#777777",
-    }[_confidence_band(score)]
+    }[_confidence_band(score, state=state)]
 
 
 def _state_status_tone(state: ScanState) -> str:
@@ -1343,26 +1330,34 @@ def _preview_status_tone(preview: PreviewItem) -> str:
 
 
 def _preview_band(preview: PreviewItem) -> str:
+    return _band_color(_preview_band_name(preview))
+
+
+def _preview_band_name(preview: PreviewItem) -> str:
     if preview.is_conflict or preview.is_unmatched:
-        return "#d44040"
+        return "error"
     if preview.is_skipped:
-        return "#777777"
-    return _confidence_fill_color(preview.episode_confidence)
+        return "muted"
+    return _confidence_band(preview.episode_confidence)
 
 
-def _status_pill_stylesheet(tone: str) -> str:
-    palette = {
-        "success": ("#1a3328", "#3ea463"),
-        "accent": ("#2a2210", "#e5a00d"),
-        "error": ("#2d1414", "#d44040"),
-        "info": ("#142030", "#4a9eda"),
-        "muted": ("#1e1e1e", "#888888"),
-    }
-    bg, fg = palette[tone]
-    return (
-        f"background-color: {bg}; color: {fg}; border: 1px solid {fg}; "
-        "border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 600;"
-    )
+def _band_color(band: str) -> str:
+    return {
+        "high": "#3ea463",
+        "medium": "#e5a00d",
+        "low": "#d44040",
+        "muted": "#777777",
+        "error": "#d44040",
+    }[band]
+
+
+def _repolish(widget: QWidget) -> None:
+    style = widget.style()
+    if style is None:
+        return
+    style.unpolish(widget)
+    style.polish(widget)
+    widget.update()
 
 
 def _confidence_bar_stylesheet(color: str) -> str:
@@ -1381,10 +1376,8 @@ def _preview_heading(preview: PreviewItem, *, compact: bool) -> str:
     return preview.original.name
 
 
-def _preview_target_text(preview: PreviewItem, *, compact: bool) -> str:
+def _preview_target_text(preview: PreviewItem) -> str:
     rename = preview.new_name or "No rename target"
-    if compact:
-        return f"-> {rename}"
     return f"-> {rename}"
 
 

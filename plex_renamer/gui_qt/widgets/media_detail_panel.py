@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from collections import OrderedDict
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
@@ -10,6 +11,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
+from ._formatting import clamped_percent
 
 
 def _format_rating(vote_average: float, vote_count: int = 0) -> str:
@@ -25,18 +27,14 @@ def _format_runtime(minutes: int | None) -> str:
         hours, remain = divmod(minutes, 60)
         return f"{hours}h {remain}m" if remain else f"{hours}h"
     return f"{minutes}m"
-
-
-def _clamped_percent(score: float) -> int:
-    return max(0, min(100, int(round(score * 100))))
-
-
 class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
 
 
 class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
+
+    _MAX_METADATA_CACHE_ENTRIES = 64
 
     def __init__(
         self,
@@ -53,7 +51,7 @@ class MediaDetailPanel(QFrame):
         self._current_preview: PreviewItem | None = None
         self._current_queue_reason = ""
         self._current_folder_plan = ""
-        self._metadata_cache: dict[str, tuple[dict, QPixmap | None]] = {}
+        self._metadata_cache: OrderedDict[str, tuple[dict, QPixmap | None]] = OrderedDict()
         self._loading_tokens: set[str] = set()
         self._bridge = _DetailBridge(self)
         self._bridge.metadata_ready.connect(self._apply_payload)
@@ -149,6 +147,10 @@ class MediaDetailPanel(QFrame):
         self._overview.setText("")
         self._extra.setText("")
 
+    def clear_metadata_cache(self) -> None:
+        self._metadata_cache.clear()
+        self._loading_tokens.clear()
+
     def set_selection(
         self,
         state: ScanState | None,
@@ -192,6 +194,7 @@ class MediaDetailPanel(QFrame):
 
         cached = self._metadata_cache.get(token)
         if cached is not None:
+            self._metadata_cache.move_to_end(token)
             self._apply_payload(cached[0], cached[1], token)
             return
 
@@ -229,7 +232,7 @@ class MediaDetailPanel(QFrame):
         rows = [("Queue", queue_reason)] if queue_reason else []
         if folder_plan:
             rows.append(("Folder", folder_plan))
-        rows.append(("Confidence", f"{_clamped_percent(state.confidence)}%"))
+        rows.append(("Confidence", f"{clamped_percent(state.confidence)}%"))
         if preview is not None:
             rows.append(("File", preview.original.name))
             rows.append(("Status", preview.status))
@@ -295,7 +298,7 @@ class MediaDetailPanel(QFrame):
             if state.completeness is not None:
                 rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
 
-        rows.append(("Confidence", f"{_clamped_percent(state.confidence)}%"))
+        rows.append(("Confidence", f"{clamped_percent(state.confidence)}%"))
         if queue_reason:
             rows.append(("Queue", queue_reason))
         if folder_plan:
@@ -370,6 +373,9 @@ class MediaDetailPanel(QFrame):
         else:
             pixmap = None
         self._metadata_cache[token] = (payload, pixmap)
+        self._metadata_cache.move_to_end(token)
+        while len(self._metadata_cache) > self._MAX_METADATA_CACHE_ENTRIES:
+            self._metadata_cache.popitem(last=False)
         if token != self._current_token:
             return
         self._title.setText(payload.get("title", "Selection"))

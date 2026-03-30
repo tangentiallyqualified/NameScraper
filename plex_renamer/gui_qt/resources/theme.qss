@@ -340,6 +340,12 @@ QPushButton[cssClass="secondary"]:pressed {
     background-color: #1c1c1c;
 }
 
+QPushButton[cssClass="secondary"][sizeVariant="compact"] {
+    text-align: left;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
 /* Danger button */
 QPushButton[cssClass="danger"] {
     background-color: #d44040;
@@ -560,6 +566,52 @@ QLabel[cssClass="badge"] {
     font-weight: 600;
 }
 
+QLabel[cssClass="row-title"] {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+QLabel[cssClass="row-target"] {
+    color: #e5a00d;
+}
+
+QLabel[cssClass="status-pill"] {
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 1px 6px;
+}
+
+QLabel[cssClass="status-pill"][tone="success"] {
+    background-color: #1a3328;
+    color: #3ea463;
+    border: 1px solid #3ea463;
+}
+
+QLabel[cssClass="status-pill"][tone="accent"] {
+    background-color: #2a2210;
+    color: #e5a00d;
+    border: 1px solid #e5a00d;
+}
+
+QLabel[cssClass="status-pill"][tone="error"] {
+    background-color: #2d1414;
+    color: #d44040;
+    border: 1px solid #d44040;
+}
+
+QLabel[cssClass="status-pill"][tone="info"] {
+    background-color: #142030;
+    color: #4a9eda;
+    border: 1px solid #4a9eda;
+}
+
+QLabel[cssClass="status-pill"][tone="muted"] {
+    background-color: #1e1e1e;
+    color: #888888;
+    border: 1px solid #888888;
+}
+
 
 /* ─── Cards (Level 2 panels) ─────────────────────────────────────── */
 
@@ -567,6 +619,64 @@ QFrame[cssClass="card"] {
     background-color: #1c1c1c;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
+}
+
+QFrame[cssClass="roster-row-card"] {
+    background-color: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-left: 4px solid #4a9eda;
+    border-radius: 8px;
+}
+
+QFrame[cssClass="roster-row-card"][selectionState="selected"] {
+    border-color: #e5a00d;
+}
+
+QFrame[cssClass="roster-row-card"][band="high"] {
+    border-left-color: #3ea463;
+}
+
+QFrame[cssClass="roster-row-card"][band="medium"] {
+    border-left-color: #e5a00d;
+}
+
+QFrame[cssClass="roster-row-card"][band="low"] {
+    border-left-color: #d44040;
+}
+
+QFrame[cssClass="roster-row-card"][band="muted"] {
+    border-left-color: #777777;
+}
+
+QFrame[cssClass="preview-row-card"] {
+    background-color: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-left: 3px solid #4a9eda;
+    border-radius: 8px;
+}
+
+QFrame[cssClass="preview-row-card"][selectionState="selected"] {
+    border-color: #e5a00d;
+}
+
+QFrame[cssClass="preview-row-card"][band="high"] {
+    border-left-color: #3ea463;
+}
+
+QFrame[cssClass="preview-row-card"][band="medium"] {
+    border-left-color: #e5a00d;
+}
+
+QFrame[cssClass="preview-row-card"][band="low"] {
+    border-left-color: #d44040;
+}
+
+QFrame[cssClass="preview-row-card"][band="muted"] {
+    border-left-color: #777777;
+}
+
+QFrame[cssClass="preview-row-card"][band="error"] {
+    border-left-color: #d44040;
 }
 
 QFrame[cssClass="card"]:hover {

@@ -1020,39 +1020,39 @@ This phase addresses findings from the comprehensive code review performed again
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-### 8.4 — Replace per-widget inline setStyleSheet with QSS properties (Medium)
+### 8.4 — Replace per-widget inline setStyleSheet with QSS properties (Medium) ✅
 
 **Problem:** Every `_RosterRowWidget._apply_style()` and `_PreviewRowWidget._apply_style()` calls `setStyleSheet()` with hardcoded hex colors. Per-widget `setStyleSheet()` forces a full style recalculation cascade. With 50+ roster items and 200+ preview items, this is expensive on every rebuild.
 
-**Fix:** Use QSS dynamic properties (e.g. `self.setProperty("band", "high")`) and style via class selectors in `theme.qss`. Update via `self.style().unpolish(self); self.style().polish(self)` on property change.
+**Fix (applied):** Converted roster and preview row widgets to use QSS classes and dynamic properties instead of rebuilding inline per-widget stylesheets on every state change. Row cards now expose properties like `band`, `selectionState`, and pill `tone`, and the theme owns the actual colors/borders via selectors in `theme.qss`. Added smoke assertions that these widgets no longer carry local inline stylesheets.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
-### 8.5 — Cap metadata detail cache growth (Medium)
+### 8.5 — Cap metadata detail cache growth (Medium) ✅
 
 **Problem:** `MediaDetailPanel._metadata_cache` grows unbounded over a session. Each unique token stores a dict + QPixmap. No eviction policy exists.
 
-**Fix:** Add an LRU cap (e.g. 64 entries). Clear the cache on new scan start or folder change.
+**Fix (applied):** Replaced the unbounded metadata cache in `MediaDetailPanel` with a bounded LRU (`OrderedDict`) capped at 64 entries. Added an explicit `clear_metadata_cache()` hook and wired it into workspace transitions to empty/scanning states so new folder/scan sessions do not retain stale metadata indefinitely. Added a smoke test covering eviction and explicit clearing.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_detail_panel.py`
 
-### 8.6 — Fix thread-unsafe QTimer.singleShot in settings API test (Medium)
+### 8.6 — Fix thread-unsafe QTimer.singleShot in settings API test (Medium) ✅
 
 **Problem:** `SettingsTab._on_test_key()` marshals results from a background thread via `QTimer.singleShot(0, lambda)`. If the widget is destroyed between thread completion and timer execution, this crashes.
 
-**Fix:** Use a proper `QObject` signal bridge, consistent with the pattern used everywhere else in the codebase.
+**Fix (applied):** Replaced the background-thread `QTimer.singleShot()` callback in `SettingsTab._on_test_key()` with a dedicated `QObject` signal bridge owned by the widget. The worker thread now emits a result signal back to the UI thread and safely no-ops if the widget has already been destroyed. Added a smoke test that drives the async TMDB key test path and verifies the UI is updated via the bridge.
 
 **Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`
 
-### 8.7 — Minor correctness and cleanup (Low)
+### 8.7 — Minor correctness and cleanup (Low) ✅
 
 1. ~~**Duplicate call:** `_fix_match_btn.setEnabled(False)` called twice at `media_workspace.py:330-331`.~~ Fixed.
-2. **Dead branch:** `_preview_target_text()` returns the same string for both compact and non-compact modes (`media_workspace.py:1372-1376`).
-3. **Duplicate utility:** `_clamped_percent()` is defined identically in both `media_workspace.py` and `media_detail_panel.py`. Extract to a shared module.
-4. **Stale labels:** Cache section buttons in `settings_tab.py:235-244` still say "not yet wired" and "Phase 4". Either wire them or remove the placeholder text.
-5. **Muted confidence color:** `_confidence_fill_color(score)` does not accept a `ScanState`, so queued/scanning/duplicate items show score-based colors instead of muted gray.
+2. ~~**Dead branch:** `_preview_target_text()` returns the same string for both compact and non-compact modes (`media_workspace.py:1372-1376`).~~ Fixed.
+3. ~~**Duplicate utility:** `_clamped_percent()` is defined identically in both `media_workspace.py` and `media_detail_panel.py`. Extract to a shared module.~~ Fixed via shared Qt formatting helper.
+4. ~~**Stale labels:** Cache section buttons in `settings_tab.py:235-244` still say "not yet wired" and "Phase 4". Either wire them or remove the placeholder text.~~ Fixed.
+5. ~~**Muted confidence color:** `_confidence_fill_color(score)` does not accept a `ScanState`, so queued/scanning/duplicate items show score-based colors instead of muted gray.~~ Fixed.
 
-**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/settings_tab.py`
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/settings_tab.py`, `plex_renamer/gui_qt/widgets/_formatting.py`
 
 ## Recommended Next Steps
 
