@@ -12,7 +12,7 @@ Built with Python and tkinter. A PySide6 shell is under active development on `d
 
 ## Current Status
 
-The GUI3 migration is in progress on the `dev/GUI3` branch. The current shipping shell is still tkinter-based and remains the default entry point (`python -m plex_renamer`). The PySide6 shell can be launched with `python -m plex_renamer --qt`.
+The GUI3 migration is in progress on the `dev/GUI3` branch. The current shipping shell is still tkinter-based and remains the default entry point (`python -m plex_renamer`). The PySide6 shell can be launched with `python -m plex_renamer --qt` and is now suitable for active dogfooding across TV, movies, queue, history, and settings, but tkinter remains the safer operational shell until the remaining Phase 7 parity gaps are closed.
 
 ## Quick Start
 
@@ -47,18 +47,30 @@ Then launch either shell:
 | 1 — Backend hardening | Complete | UI-neutral app layer, cache service, refresh policy, command gating, structured scan progress. `ScanSnapshotService` and `undo_log`-based undo retired. |
 | 2 — Controllers/view models | Complete | `MediaController` (session orchestration), `QueueController` (job queue management), 29 controller tests, 151 total tests passing. |
 | 2.5 — Wire tkinter through controllers | Complete | Queue submission, sync, revert, and history recording all route through controllers. Movie batch checkbox bug fixed. `queue_panel.py` bypass explicitly accepted as pre-replacement debt. |
-| 3 — PySide6 shell skeleton | **Next** | `gui_qt/` package created with bootstrap entry point and placeholder tabs. |
+| 3 — PySide6 shell skeleton | Complete | `gui_qt/` shell, bootstrap, persistent window state, tab shell, and shared service wiring are in place. |
+| 4 — Queue and history tabs | Complete | Controller-backed queue/history tabs, inline revert confirmation, badges, and persistent job details are running in Qt. |
+| 5 — Roster and preview workflow | Complete | TV/movie roster, preview, review, batch discovery, readiness grouping, and ordering are working in the Qt shell. |
+| 6 — Detail panel and media workflows | Complete | Metadata/detail presentation, rematch flows, poster loading, and queue integration are active in Qt. |
+| 7 — Parity review | In Progress | Remaining blockers are real cancel support, Qt undo/revert access from the main shell, fully live runtime settings, and final queue/history polish. |
 
 ### Caching architecture
 
 The TMDB cache (`cache_service.py`, SQLite-backed) minimizes redundant API calls across sessions. The filesystem is always the source of truth for media state — there is no cross-session scan state restore. Job history and undo data persist in `job_store.py`.
 
+Current cache behavior on `dev/GUI3`:
+
+- TMDB metadata snapshots are restored into the shared client on startup and persisted on shutdown in both shells.
+- Poster images are cached persistently, including reuse of the original source image across multiple target widths.
+- Queue/history jobs persist `poster_path` directly in `job_store.py`, so reopening old jobs does not require a fresh TMDB metadata lookup when cached poster data is already known.
+- The Qt shell runs a one-shot startup backfill that fills in missing `poster_path` values for older jobs using cached TMDB metadata only.
+- TMDB HTTP pooling was expanded to reduce `urllib3` pool-exhaustion warnings without changing the existing request-rate limiter.
+
 ## Roadmap
 
-- Build out the PySide6 shell in phases (queue/history first, then roster/preview, then detail panel).
-- Preserve the current three-panel workflow while improving progress presentation and queue readiness visibility.
+- Finish the remaining Phase 7 retirement blockers: real cancel, main-shell undo/revert, and live application of exposed settings.
+- Preserve the current three-panel workflow while tightening progress presentation, queue readiness visibility, and queue/history polish.
 - Continue expanding the queue-first workflow so more rename operations run through the persistent job pipeline.
-- Keep the tkinter shell reliable during migration.
+- Keep the tkinter shell reliable until the Qt shell is the safer operational default.
 
 ---
 
@@ -228,6 +240,7 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 **Connection Management**
 - HTTP connection pooling via `requests.Session` (reuses TCP+TLS connections across requests)
+- Expanded connection pool sizing for both TMDB API and image hosts to reduce pool-exhaustion warnings during concurrent poster loads
 - Token-bucket rate limiter at 35 requests/second (below TMDB's 40/s limit), thread-safe
 - Automatic retry with exponential backoff for rate limits (429) and server errors (5xx) — 2 retries with 1s/3s delays
 - Typed exception hierarchy: `TMDBError` → `TMDBNetworkError`, `TMDBRateLimitError`, `TMDBAPIError`
@@ -235,7 +248,10 @@ Movie scans now use the unified roster flow as well: the left panel shows the cu
 
 **Caching**
 - In-memory caching for show details, season data, season maps, and movie details — eliminates redundant API calls across scan/mismatch/rescan cycles
+- Persistent metadata snapshot import/export so both shells can restore the shared TMDB metadata cache across app restarts
+- Persistent poster-image caching and source-image caching in the SQLite cache service so queue/history poster views do not redownload the same artwork across sessions
 - LRU-bounded image cache (200 entries) prevents unbounded memory growth during batch operations
+- Persisted `poster_path` on queued/history jobs plus lazy and startup backfill for older jobs
 - Cache clearing when switching between shows
 
 **Batch Operations**

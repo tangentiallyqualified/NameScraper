@@ -4,6 +4,29 @@
 
 This document turns the nested batch-TV scan discussion into a concrete implementation plan.
 
+## March 29 2026 status update
+
+The core discovery hardening work described in this plan is now implemented on `dev/GUI3`.
+
+Completed from this plan:
+
+1. Recursive TV-library discovery now lives below the GUI layer in `plex_renamer/app/services/tv_library_discovery_service.py`.
+2. Batch TV discovery no longer stops at one directory level and can discover show roots under container folders conservatively.
+3. Release-style show folders whose names contain tokens like `S01` are no longer misclassified as season folders when they contain real nested season directories.
+4. Duplicate handling and controller flows now preserve enough context for the Qt and tkinter shells to present nested discoveries consistently.
+
+Recent validation tied to this work:
+
+1. `tests/test_scan_improvements.py`
+2. `tests/test_media_controller.py`
+3. `tests/test_haikyuu_matching.py`
+4. `tests/test_jojo_matching.py`
+
+What remains useful in this document:
+
+1. The discovery constraints and traversal rules still describe the intended long-term behavior.
+2. The remaining task list should now be read as follow-up cleanup and audit guidance, not as a statement that the discovery service is still missing.
+
 The immediate problem is that batch TV mode only discovers show folders one level deep, so it misses valid TV show roots inside organizational subdirectories. The fix needs to:
 
 1. support nested show discovery in batch TV mode

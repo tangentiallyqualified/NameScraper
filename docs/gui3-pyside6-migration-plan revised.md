@@ -958,6 +958,12 @@ Completed in this pass:
 3. Ensured TV batch discovery shows the ready workspace before automatic episode scanning continues, so reviewable TV matches are visible instead of being hidden behind the scanning screen.
 4. Restored TV suggestion parity with movies by keeping the top-ranked alternate matches for low-confidence TV results even when their scores fall below the old hard threshold.
 5. Hardened TV batch discovery for release-style show folders whose names contain tokens like `S01` while still containing real child season directories, fixing cases such as Akiba Maid War style folders.
+6. Fixed the Qt TV loading flow so batch TV scans no longer expose the ready workspace too early and then flip state underneath the user.
+7. Corrected Qt roster grouping so folders that still need rename work remain under `Matched` instead of incorrectly switching to `Plex Ready` after preview load.
+8. Fixed stacked toast layout sizing so wrapped multi-toast messages no longer clip in the Qt shell.
+9. Expanded TMDB session pool sizing to reduce `urllib3` connection-pool warnings during concurrent poster fetches without changing the existing request-rate limiter.
+10. Persisted poster images, source images, TMDB metadata snapshots, and per-job `poster_path` values so queue/history poster views can survive restarts without redownloading artwork.
+11. Added both lazy and one-shot startup backfill of missing job poster paths in Qt using cached TMDB metadata only, preserving first-run safety while healing older job records.
 
 Validation completed for this pass:
 
@@ -966,15 +972,18 @@ Validation completed for this pass:
 3. `tests/test_haikyuu_matching.py`
 4. `tests/test_jojo_matching.py`
 5. `tests/test_gui_qt_smoke.py`
-6. Result: `79 passed`
+6. `tests/test_queue_controller.py`
+7. `tests/test_tmdb.py`
+8. Focused regressions for the latest cache/startup pass: `41 passed`
+9. Result across the earlier TV parity/discovery sweep: `79 passed`
 
 ## Recommended Next Steps
 
-Phases 0, 1, 2, and 2.5 are complete. If work resumes now, the recommended order is:
+Phases 0 through 6 are now effectively implemented on `dev/GUI3`. If work resumes now, the recommended order is:
 
-1. **Phase 3: Build the PySide6 shell skeleton.** Create `plex_renamer/gui_qt/` with main window, top-level tabs, split-pane workspace, and placeholder panels. Wire the bootstrap entry point. Controllers and services are ready to consume.
-2. **Phase 4: Port queue and history tabs.** These are the most structured tabs and validate the app-layer state flow through `QueueController`. Use `QTreeView`/`QTableView` with proper item models.
-3. **Phase 5: Port roster and preview workflow.** Rebuild the main media workflow using `MediaController` for state and scanning orchestration.
+1. **Finish Phase 7 operational blockers.** Add real scan cancel, wire undo/revert from the Qt main shell, and ensure already-exposed settings visibly affect the active session.
+2. **Reduce remaining trust gaps in Qt queue/history.** Add the missing filter/badge polish and keep the queue/history surfaces aligned with the design doc.
+3. **Tighten refresh efficiency only after the shell is operationally complete.** Poster-fetch deduplication and roster refresh granularity still matter, but they are secondary to the remaining user-trust issues.
 
 The application layer (`app/controllers/`, `app/services/`, `app/models/`) is complete and the tkinter shell now delegates queue submission through the controllers. The PySide6 shell should import from `plex_renamer.app.controllers` for all domain types and orchestration.
 

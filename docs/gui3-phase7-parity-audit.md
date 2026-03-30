@@ -2,7 +2,7 @@
 
 Date: 2026-03-29
 Branch reviewed: `dev/GUI3`
-Implementation range reviewed: `008662a` → `d88a651`
+Implementation range reviewed: `008662a` → `fb49779`
 
 ## Scope
 
@@ -215,12 +215,19 @@ This audit predates the latest stabilization pass. The following findings are no
 2. TV inline alternate-match suggestions now follow the same practical behavior as movie review suggestions: the top runner-up matches are preserved even when the review case is low-confidence.
 3. TV batch discovery was hardened for release-style show roots containing `S01` in the folder name but real nested season directories underneath, fixing the Akiba Maid War style misclassification case.
 4. The left roster review-card interaction is now tighter and clearer: alternate buttons collapse into a dedicated accept/cancel confirmation row instead of competing for the same vertical space.
+5. The Qt batch-TV loading flow no longer lets the user drop into the ready workspace before background episode scanning is actually complete.
+6. Qt roster status grouping now uses the real command-gating rule, so items that still need rename work remain under `Matched` instead of incorrectly presenting as `Plex Ready`.
+7. The toast system is now real and stacked wrapped toast messages no longer clip.
+8. Queue/history poster loading is materially stronger than this audit originally captured: TMDB metadata snapshots now persist across restarts, poster images and source images persist in the cache service, and queued/history jobs persist `poster_path` directly with lazy and startup backfill for older jobs.
+9. TMDB session pool sizing was increased to reduce `urllib3` connection-pool warnings during concurrent poster loads without changing the request-rate ceiling.
 
 What this changes in the assessment:
 
 1. The earlier statement that rematch/manual correction flows are materially behind tkinter is no longer accurate for the core Fix Match path.
-2. The remaining retirement blockers are now more concentrated around undo/revert access, queue/history polish, and broader operational trust rather than the basic TV review workflow itself.
-3. GUI3 is closer to the Phase 7 exit gate than this audit originally recorded, but tkinter remains the safer operational shell until the remaining recovery and polish gaps are closed.
+2. The earlier toast-related design-doc gap should now be treated as implemented with remaining polish work, not as a missing feature.
+3. Queue/history poster persistence is no longer a material parity gap for repeat viewing across sessions; the remaining issues are more about operational controls than cache reuse.
+4. The remaining retirement blockers are now more concentrated around real cancel, undo/revert access, live settings application, and broader operational trust rather than the basic TV review workflow itself.
+5. GUI3 is closer to the Phase 7 exit gate than this audit originally recorded, but tkinter remains the safer operational shell until the remaining recovery and polish gaps are closed.
 
 ## UI Design Document Assessment
 
@@ -254,6 +261,8 @@ These are important because the success condition for GUI3 is not just `same as 
 6. grouped season preview presentation
 7. right-side metadata panel with posters
 8. settings tab sections
+9. toast notifications for queue/job events
+10. inline revert confirmation banner in queue/history
 
 ### Design-doc features still missing or only partially implemented in Qt
 
@@ -261,12 +270,11 @@ These are important because the success condition for GUI3 is not just `same as 
 2. fix-match controls in the preview cards
 3. full companion-file rendering in preview cards
 4. queue/history filter controls
-5. toast notification model
+5. richer toast semantics and notification policy tuning
 6. tab badge failure pip / richer badge behavior
-7. inline revert confirmation banner
-8. cache freshness presentation and refresh/cooldown visibility
-9. poster hero background treatment
-10. completeness report presentation matching the design intent
+7. cache freshness presentation and refresh/cooldown visibility
+8. poster hero background treatment
+9. completeness report presentation matching the design intent
 
 ## Phase 7 Conclusion
 
@@ -287,7 +295,7 @@ But it is not yet at the Phase 7 exit criteria where tkinter is no longer the sa
 If the goal is to reach a real retirement decision, the next work should prioritize:
 
 1. real cancel support
-2. rematch/fix-match flows
-3. Qt undo/revert access from the main shell
-4. live application of settings that are already exposed in the UI
-5. queue/history polish required by the design doc that improves operational clarity, especially filtering and notifications
+2. Qt undo/revert access from the main shell
+3. live application of settings that are already exposed in the UI
+4. queue/history polish required by the design doc that improves operational clarity, especially filtering and badge behavior
+5. refresh-efficiency cleanup such as smarter roster refresh scope and poster-fetch deduplication once the operational blockers are closed
