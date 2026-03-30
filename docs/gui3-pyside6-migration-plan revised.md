@@ -1,5 +1,7 @@
 # GUI3 PySide6 Migration Plan
 
+Canonical note: this is the authoritative tracked GUI3 migration plan for the repository. Temporary audit notes, drafts, and scratch migration writeups should go under `docs/local/` instead of being created as parallel top-level plan files.
+
 ## Purpose
 
 This document turns the GUI migration discussion into a concrete plan that can be audited before committing to a rewrite.
