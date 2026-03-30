@@ -707,8 +707,6 @@ class MainWindow(QMainWindow):
         self._apply_companion_visibility(checked)
 
     def _on_about(self) -> None:
-        from PySide6.QtWidgets import QMessageBox
-
         QMessageBox.about(
             self,
             "About Plex Renamer",

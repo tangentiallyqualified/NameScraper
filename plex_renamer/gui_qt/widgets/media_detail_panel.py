@@ -14,8 +14,8 @@ from ...engine import PreviewItem, ScanState
 from ._formatting import clamped_percent
 
 
-def _format_rating(vote_average: float, vote_count: int = 0) -> str:
-    if not vote_average:
+def _format_rating(vote_average: float | None, vote_count: int = 0) -> str:
+    if vote_average is None:
         return ""
     return f"{vote_average:.1f}/10" + (f" ({vote_count})" if vote_count else "")
 
@@ -27,6 +27,8 @@ def _format_runtime(minutes: int | None) -> str:
         hours, remain = divmod(minutes, 60)
         return f"{hours}h {remain}m" if remain else f"{hours}h"
     return f"{minutes}m"
+
+
 class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
 

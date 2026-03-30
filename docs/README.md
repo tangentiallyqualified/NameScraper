@@ -37,13 +37,13 @@ Use this file for:
 
 ---
 
-## Historical / Point-in-Time Docs
+## Audits
 
 ### [gui3-phase7-parity-audit.md](gui3-phase7-parity-audit.md)
 
-Point-in-time audit of the Phase 7 parity state on `dev/GUI3`.
+Parity audit of the Qt shell vs tkinter, with addenda tracking resolution of findings.
 
-This file is useful as historical review context, but it is not the current source of truth for branch status. Some items called out there have since been fixed.
+Updated 2026-03-30 with a full code review addendum. The audit now concludes that the Qt shell has reached functional parity with tkinter, with one remaining must-fix bug (MatchPickerDialog UI-thread blocking). See the March 30 addendum for the updated assessment and tkinter retirement recommendation.
 
 ### [scan-improvement-plan.md](scan-improvement-plan.md)
 

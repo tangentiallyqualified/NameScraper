@@ -1056,13 +1056,126 @@ This phase addresses findings from the comprehensive code review performed again
 
 ## Recommended Next Steps
 
-Phases 0 through 6 are now effectively implemented on `dev/GUI3`. If work resumes now, the recommended order is:
+Phases 0 through 8 are now effectively complete on `dev/GUI3`. The recommended work order for reaching a tkinter retirement decision is:
 
-1. ~~**Phase 8 high-priority fixes.**~~ ✅ Done — flickering popups fixed (thread-safe image transfer + opacity-zero filter), redundant roster rebuilds eliminated (deferred refresh), poster thread dedup added.
-2. **Finish Phase 7 operational blockers.** Add real scan cancel, wire undo/revert from the Qt main shell, and ensure already-exposed settings visibly affect the active session.
-3. **Phase 8 medium-priority fixes.** Replace per-widget inline stylesheets with QSS properties, cap the metadata cache, and fix the thread-unsafe settings test callback.
-4. **Reduce remaining trust gaps in Qt queue/history.** Add the missing filter/badge polish and keep the queue/history surfaces aligned with the design doc.
-5. **Phase 8 low-priority cleanup.** Dead branches, duplicate utilities, stale labels, and muted confidence color.
+### Phase 9 — Pre-retirement cleanup and polish
+
+The following items were identified in a full code review on 2026-03-30. They are organized by priority relative to a tkinter retirement decision.
+
+#### 9.1 — MatchPickerDialog TMDB search blocks the UI thread (Bug — High)
+
+**Problem:** `MatchPickerDialog._run_search()` calls `self._search_callback(query, ...)` synchronously on the main thread. This performs an HTTP request to TMDB that freezes the UI for 1-5 seconds.
+
+**Fix:** Move the search call to a worker thread with a `QObject` signal bridge, matching the pattern used in `SettingsTab._on_test_key()` and `MediaDetailPanel._build_payload()`. Show a loading state on the result list while the search is in flight.
+
+**Files:** `plex_renamer/gui_qt/widgets/match_picker_dialog.py`
+
+#### 9.2 — Dead code cleanup (Cleanup — Medium)
+
+**Problem:** Eight functions/methods in `media_workspace.py` are defined but never called. They are leftovers from earlier rendering approaches that were replaced by custom row widgets.
+
+Dead functions:
+1. `MediaWorkspace._format_roster_text()` (line 829)
+2. `MediaWorkspace._state_tooltip()` (line 855)
+3. `MediaWorkspace._state_color()` (line 863)
+4. `MediaWorkspace._format_preview_text()` (line 866)
+5. `MediaWorkspace._preview_tooltip()` (line 881)
+6. `_is_movie_state()` (line 1301)
+7. `_confidence_bar_stylesheet()` (line 1363)
+8. `_preview_color()` (line 1483)
+
+**Fix:** Delete all eight. ~60 lines of dead code.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 9.3 — Extract shared base class for QueueTab and HistoryTab (Refactor — Medium)
+
+**Problem:** `QueueTab` and `HistoryTab` share ~70% identical code: `select_job()`, `_selected_jobs()`, `_apply_filter()`, `_select_all()`, `_clear_selection()`, toolbar layout structure, and table setup. This duplication makes it easy for fixes in one tab to be missed in the other.
+
+**Fix:** Extract a `_JobListTab` base class providing the table, model/proxy, selection helpers, filter control, and toolbar skeleton. Each subclass adds its specific actions and filter sets.
+
+**Files:** `plex_renamer/gui_qt/widgets/queue_tab.py`, `plex_renamer/gui_qt/widgets/history_tab.py`
+
+#### 9.4 — Consolidate PIL-to-QPixmap conversion utilities (Refactor — Medium)
+
+**Problem:** The PIL → raw bytes → QPixmap conversion pipeline is implemented in three separate places:
+- `media_workspace.py` (`_pil_to_raw`, `_raw_to_pixmap`)
+- `media_detail_panel.py` (`_build_payload`, inline)
+- `job_detail_panel.py` (`_request_poster._worker`, inline)
+
+**Fix:** Extract to a shared `_image_utils.py` module in `gui_qt/widgets/` with `pil_to_raw()` and `raw_to_pixmap()` functions.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/job_detail_panel.py`
+
+#### 9.5 — Migrate remaining inline setStyleSheet calls to QSS (Polish — Medium)
+
+**Problem:** Phase 8.4 converted roster/preview row widgets to QSS properties, but inline `setStyleSheet()` calls remain in:
+- `settings_tab.py` — 8 calls for API key status colors
+- `scan_progress.py` — 6 calls for checklist icon colors
+- `empty_state.py` — 3 calls for label styling
+- `history_tab.py` — revert banner border
+- `media_workspace.py` `_ActionBar` — background and border
+
+These bypass the theme and make restyling harder.
+
+**Fix:** Convert to QSS dynamic properties (e.g., `tone="success"` / `tone="error"` on the key status label, `phase="active"` / `phase="done"` on checklist icons). Add corresponding selectors to `theme.qss`.
+
+**Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`, `plex_renamer/gui_qt/widgets/scan_progress.py`, `plex_renamer/gui_qt/widgets/empty_state.py`, `plex_renamer/gui_qt/widgets/history_tab.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+#### 9.6 — Cap roster poster cache size (Optimization — Low)
+
+**Problem:** `MediaWorkspace._roster_poster_cache` is an unbounded `dict`. For large libraries, this can accumulate significant memory. The detail panel's metadata cache was already capped at 64 entries in Phase 8.5, but the roster poster cache was not.
+
+**Fix:** Replace with an LRU-bounded cache (e.g., `OrderedDict` with eviction at 128 entries).
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 9.7 — Replace full roster rebuilds with incremental updates (Optimization — Low)
+
+**Problem:** `refresh_from_controller()` clears the entire `QListWidget` and recreates all items on every queue state change. For libraries with many shows, this causes visible flicker and unnecessary widget churn.
+
+**Fix:** Compare the current roster state to the controller state and update only changed items (status pill, checked state, confidence bar) without destroying and recreating the entire list.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 9.8 — Cap toast stack depth (Polish — Low)
+
+**Problem:** If many jobs fail quickly, error toasts (`duration_ms=0`) stack indefinitely with no limit. They persist until manually dismissed and can overflow the visible area.
+
+**Fix:** Cap visible toasts at 3-4. When the limit is reached, collapse excess into a summary toast (e.g., "3 more notifications") or auto-dismiss the oldest non-error toast.
+
+**Files:** `plex_renamer/gui_qt/widgets/toast_manager.py`
+
+#### 9.9 — Wire or hide non-functional settings sections (Polish — Low)
+
+**Problem:** The Cache section's "Clear TMDB Cache" and "Clear All Data" buttons are permanently disabled. The Advanced section's log level combo and "Export Diagnostic Log" button have no connected signals. These look broken to users.
+
+**Fix:** Either wire them to real functionality or hide the sections behind a feature flag / remove them until they're implemented.
+
+**Files:** `plex_renamer/gui_qt/widgets/settings_tab.py`
+
+#### 9.10 — Minor correctness issues (Cleanup — Low)
+
+1. **Duplicate import:** `QMessageBox` is imported at the top of `main_window.py` (line 23) and again locally in `_on_about()` (line 710). Remove the local import.
+2. **Missing blank line:** `_DetailBridge` class definition in `media_detail_panel.py` (line 30) starts immediately after `_format_runtime()` with no PEP 8 blank line separator.
+3. **Fragile movie detection:** `media_detail_panel.py:244` uses `state.media_info.get("title")` as a heuristic for movie vs. TV. Consider using an explicit `_media_type` field consistently.
+4. **`_format_rating(0.0)` returns empty string:** `if not vote_average` is falsy for 0.0. Should be `if vote_average is None`.
+
+**Files:** `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`
+
+### GUI flow improvements (Post-Phase 9)
+
+These are UX refinements to address after the cleanup items above. They do not block tkinter retirement but should be prioritized for the Qt shell's post-parity improvement phase.
+
+1. **Disambiguate the two "Add to Queue" buttons.** The preview header and the bottom action bar both have queue buttons with ambiguous scope. The preview header button should be labeled "Queue This Show" (single-item) and the bottom bar "Queue N Checked" (batch). Currently both say "Add to Queue" / "Add N to Queue".
+
+2. **Add keyboard shortcut for queueing.** The design doc specifies Ctrl+Q for "add selected to queue" and Ctrl+Shift+Q for "add all checked to queue", but neither is implemented. These are the most common actions and should have shortcuts.
+
+3. **Restructure Queue Tab toolbar.** 8 buttons in a single row is cramped. Group primary actions (Start/Stop Queue, Run Selected) and selection actions (Select All, Clear) visually. Move the "Go to TV Shows" / "Go to Movies" navigation buttons from the bottom action area to a more discoverable location.
+
+4. **Improve cancelled/failed scan feedback.** When a scan is cancelled with no results, the empty state appears with no explanation. Consider showing a brief message or toast explaining why the scan ended.
+
+5. **Consider revert banner as overlay.** The history tab's revert confirmation banner pushes the table down. An overlay or toast-style confirmation would avoid layout shift.
 
 The application layer (`app/controllers/`, `app/services/`, `app/models/`) is complete and the tkinter shell now delegates queue submission through the controllers. The PySide6 shell should import from `plex_renamer.app.controllers` for all domain types and orchestration.
 

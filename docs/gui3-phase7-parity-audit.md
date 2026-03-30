@@ -276,26 +276,80 @@ These are important because the success condition for GUI3 is not just `same as 
 8. poster hero background treatment
 9. completeness report presentation matching the design intent
 
+## March 30 2026 Addendum — Full Code Review
+
+A complete code review of the Qt shell was performed on 2026-03-30. The following updates the Phase 7 assessment.
+
+### Operational blockers now resolved since the original audit
+
+1. **Scan cancel is now real.** `MediaWorkspace._on_cancel_scan()` routes through `MediaController.cancel_scan()` and reflects cancelled state via `ScanProgress`. The UI correctly transitions to empty or ready state based on whether partial results exist.
+2. **Undo/revert is now implemented.** `MainWindow._on_undo()` performs a full revert flow: finds the latest revertible job, shows a confirmation dialog with details, executes the revert, refreshes job views, and navigates to history. Ctrl+Z is wired.
+3. **Runtime settings now affect the live session.** Language changes invalidate and recreate the TMDB client. View mode, companion visibility, and discovery visibility changes refresh active workspaces immediately. Settings changes bidirectionally sync between the menu bar toggles and the settings tab.
+4. **Fix Match / rematch flows are real.** Both inline alternate-match suggestions on roster cards and the full Fix Match dialog are functional for TV and movies.
+
+### New findings from the code review
+
+1. **MatchPickerDialog TMDB search blocks the UI thread (Bug — High).** The `_run_search()` method calls `tmdb.search_tv()` / `tmdb.search_movie()` synchronously on the main thread, freezing the UI for 1-5 seconds during network requests. This is the only remaining must-fix bug for retirement.
+
+2. **Dead code (~60 lines).** Eight functions/methods in `media_workspace.py` are defined but never called — leftovers from rendering approaches replaced by custom row widgets.
+
+3. **QueueTab / HistoryTab code duplication (~70%).** These tabs share identical implementations of `select_job()`, `_selected_jobs()`, `_apply_filter()`, `_select_all()`, `_clear_selection()`, and toolbar structure. Should extract a shared base class.
+
+4. **PIL-to-QPixmap conversion duplicated in three files.** The thread-safe raw-bytes transfer pattern is implemented independently in `media_workspace.py`, `media_detail_panel.py`, and `job_detail_panel.py`.
+
+5. **Inline `setStyleSheet()` calls remain in 5 widget files** despite Phase 8.4 converting the row widgets to QSS properties. Settings tab (8 calls), scan progress (6 calls), empty state (3 calls), history tab, and action bar still bypass the theme.
+
+6. **Roster poster cache is unbounded.** Unlike the detail panel's metadata cache (capped at 64 entries in Phase 8.5), the roster poster cache has no eviction.
+
+7. **Non-functional settings sections.** Cache buttons are permanently disabled; Advanced section controls have no connected signals.
+
+8. **Toast manager has no stack limit.** Error toasts with `duration_ms=0` persist indefinitely.
+
+9. **Minor correctness issues:** duplicate QMessageBox import, missing PEP 8 blank line, fragile movie-vs-TV detection heuristic, `_format_rating(0.0)` falsely returns empty string.
+
+Full details are documented in the migration plan under Phase 9.
+
+### Updated tkinter vs Qt comparison
+
+#### Qt is now stronger than tkinter in these areas
+
+1. Shell structure is cleaner and more maintainable.
+2. Queue and history are controller-backed and visually clearer.
+3. Window geometry, splitter positions, recent folders, and tab persistence are better organized.
+4. The scanning state machine is more explicit.
+5. The settings surface is more coherent than the legacy settings flow.
+6. **Scan cancel is real and reflects back through the progress lifecycle.**
+7. **Undo/revert is fully implemented with confirmation dialog and history navigation.**
+8. **Runtime settings visibly affect the active session (language, view mode, companion files).**
+9. **Fix Match is functional for both TV and movies with inline and dialog flows.**
+
+#### tkinter is no longer materially stronger in any operational area
+
+The four original retirement blockers (cancel, undo, settings, rematch) are all resolved. The remaining gaps are code quality and polish items, not functional parity.
+
+### Updated recommendation
+
+**The Qt shell is now at functional parity with tkinter.** The single remaining must-fix before a retirement decision is the MatchPickerDialog UI-thread blocking bug (9.1 in the migration plan). Once that is fixed, tkinter can be retired as the default shell.
+
+The remaining Phase 9 items (dead code, duplication, inline styles, cache bounds, toast limits) are code quality improvements that should be addressed but do not block the retirement decision.
+
 ## Phase 7 Conclusion
 
 ### Current migration position
 
-Phases 3-6 have produced a credible, increasingly usable Qt shell.
+Phases 3-8 have produced a credible, fully functional Qt shell that has reached parity with tkinter.
 
 That shell is:
 
 - beyond prototype status
 - suitable for continued dogfooding
 - structurally cleaner than the legacy UI
+- **functionally equivalent to tkinter for all core workflows**
 
-But it is not yet at the Phase 7 exit criteria where tkinter is no longer the safer operational choice.
+The Phase 7 exit criteria — where tkinter is no longer the safer operational choice — is effectively met pending one bug fix (MatchPickerDialog UI-thread blocking).
 
 ### Recommended next focus
 
-If the goal is to reach a real retirement decision, the next work should prioritize:
-
-1. real cancel support
-2. Qt undo/revert access from the main shell
-3. live application of settings that are already exposed in the UI
-4. queue/history polish required by the design doc that improves operational clarity, especially filtering and badge behavior
-5. refresh-efficiency cleanup such as smarter roster refresh scope and poster-fetch deduplication once the operational blockers are closed
+1. **Fix the MatchPickerDialog UI-thread blocking bug** — this is the only remaining retirement blocker.
+2. **Phase 9 cleanup** — dead code, code duplication, inline styles, cache bounds, and toast limits as documented in the migration plan.
+3. **GUI flow improvements** — button placement disambiguation, keyboard shortcuts, toolbar restructuring, and other UX refinements documented in the migration plan's post-Phase 9 section.

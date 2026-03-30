@@ -284,6 +284,21 @@ This replaces the queue action area that was previously in the detail
 panel, keeping the primary action always visible regardless of what is
 selected.
 
+### Queue button disambiguation (added 2026-03-30)
+
+The preview panel header also contains a queue button ("Add to Queue").
+To avoid confusion about scope:
+
+- **Preview header button**: operates on the single selected roster item
+  only. Label: "Queue This Show" (TV) / "Queue This Movie" (movie).
+- **Bottom action bar button**: operates on all checked roster items.
+  Label: "Queue N Checked" when N > 0, "Add to Queue" when nothing is
+  checked (disabled state).
+
+The preview header button is a convenience shortcut — it should be
+equivalent to checking only the selected item and pressing the bottom
+bar button.
+
 ---
 
 ## Left Panel — Roster
@@ -784,20 +799,24 @@ the error log. Filter to "Failed Only" to see all failures.
 
 ## Keyboard Shortcuts
 
-| Shortcut       | Action                                          |
-|----------------|-------------------------------------------------|
-| Ctrl+O         | Open folder (TV or Movie depending on active tab) |
-| Ctrl+Z         | Undo last rename                                |
-| Ctrl+,         | Open Settings                                   |
-| Ctrl+Q         | Add selected to queue                           |
-| Ctrl+Shift+Q   | Add all checked to queue                        |
-| Space          | Toggle checkbox on selected item                |
-| Enter          | Execute selected queue job                      |
-| Delete         | Remove selected from queue (pending only)       |
-| Ctrl+A         | Select all in current list                      |
-| F5             | Force rematch on selected roster item           |
-| Ctrl+1..5      | Switch to tab 1-5                               |
-| Escape         | Cancel current scan / dismiss toast             |
+| Shortcut       | Action                                          | Status (2026-03-30) |
+|----------------|-------------------------------------------------|---------------------|
+| Ctrl+O         | Open folder (TV or Movie depending on active tab) | Implemented |
+| Ctrl+Z         | Undo last rename                                | Implemented |
+| Ctrl+,         | Open Settings                                   | Implemented |
+| Ctrl+Q         | Add selected to queue                           | **Not yet implemented** |
+| Ctrl+Shift+Q   | Add all checked to queue                        | **Not yet implemented** |
+| Space          | Toggle checkbox on selected item                | **Not yet implemented** |
+| Enter          | Execute selected queue job                      | **Not yet implemented** |
+| Delete         | Remove selected from queue (pending only)       | **Not yet implemented** |
+| Ctrl+A         | Select all in current list                      | **Not yet implemented** |
+| F5             | Force rematch on selected roster item           | **Not yet implemented** |
+| Ctrl+1..5      | Switch to tab 1-5                               | Implemented |
+| Escape         | Cancel current scan / dismiss toast             | **Not yet implemented** |
+
+Ctrl+Q and Ctrl+Shift+Q are the highest-priority unimplemented shortcuts
+as they accelerate the most common workflow (review → queue). Space and
+Enter would meaningfully improve keyboard-driven operation.
 
 ---
 

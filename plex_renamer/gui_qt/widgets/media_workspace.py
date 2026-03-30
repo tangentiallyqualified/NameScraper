@@ -826,17 +826,6 @@ class MediaWorkspace(QWidget):
             return None
         return state.preview_items[index]
 
-    def _format_roster_text(self, state: ScanState) -> str:
-        status, _color = _state_status(state)
-        compact = self._settings is not None and self._settings.view_mode == "compact"
-        if self._media_type == "movie":
-            if compact:
-                return f"{state.display_name} · {status} · {len(state.preview_items)} file(s)"
-            return f"{state.display_name}\n{status} · {len(state.preview_items)} file(s)"
-        if compact:
-            return f"{state.display_name} · {status} · {state.file_count} file(s)"
-        return f"{state.display_name}\n{status} · {state.file_count} file(s)"
-
     def _folder_plan_text(self, state: ScanState) -> str:
         source = state.folder.name
         if self._media_type == "movie":
@@ -851,45 +840,6 @@ class MediaWorkspace(QWidget):
                 state.media_info.get("year", ""),
             )
         return f"Folder rename plan: {source} -> {target}"
-
-    def _state_tooltip(self, state: ScanState) -> str:
-        lines = [state.display_name, _state_status(state)[0], f"Folder: {state.folder}"]
-        if state.duplicate_of:
-            lines.append(f"Duplicate of {state.duplicate_of}")
-        if state.discovery_reason:
-            lines.append(f"Discovery: {state.discovery_reason}")
-        return "\n".join(lines)
-
-    def _state_color(self, state: ScanState) -> QColor:
-        return _state_status(state)[1]
-
-    def _format_preview_text(self, preview: PreviewItem) -> str:
-        rename = preview.new_name or "No rename target"
-        extra = ""
-        compact = self._settings is not None and self._settings.view_mode == "compact"
-        if preview.season is not None and preview.episodes:
-            episode_text = ", ".join(f"E{ep:02d}" for ep in preview.episodes)
-            extra = f"S{preview.season:02d} {episode_text} · "
-        companion_suffix = ""
-        if self._settings is not None and self._settings.show_companion_files and preview.companions:
-            noun = "file" if len(preview.companions) == 1 else "files"
-            companion_suffix = f" · +{len(preview.companions)} companion {noun}"
-        if compact:
-            return f"{extra}{preview.original.name} -> {rename}{companion_suffix}"
-        return f"{extra}{preview.original.name}\n-> {rename}{companion_suffix}"
-
-    def _preview_tooltip(self, preview: PreviewItem) -> str:
-        target_dir = preview.target_dir or preview.original.parent
-        lines = [
-            preview.status,
-            f"Source: {preview.original}",
-            f"Target: {target_dir / (preview.new_name or preview.original.name)}",
-        ]
-        if self._settings is not None and self._settings.show_companion_files and preview.companions:
-            companion_names = ", ".join(companion.original.name for companion in preview.companions)
-            lines.append(f"Companions: {companion_names}")
-        return "\n".join(lines)
-
 
 class _CheckBinding:
     """Small checkbox binding used to reuse engine/controller helpers in Qt."""
@@ -1298,15 +1248,6 @@ def _state_status_tone(state: ScanState) -> str:
     return "info"
 
 
-def _is_movie_state(state: ScanState) -> bool:
-    media_type = state.media_info.get("_media_type")
-    if media_type is not None:
-        return media_type == "movie"
-    if state.preview_items:
-        return state.preview_items[0].media_type == "movie"
-    return bool(state.media_info.get("title"))
-
-
 def _preview_status_label(preview: PreviewItem) -> str:
     if preview.is_conflict:
         return "CONFLICT"
@@ -1358,13 +1299,6 @@ def _repolish(widget: QWidget) -> None:
     style.unpolish(widget)
     style.polish(widget)
     widget.update()
-
-
-def _confidence_bar_stylesheet(color: str) -> str:
-    return (
-        "QProgressBar { background: #2a2a2a; border: 0; border-radius: 2px; }"
-        f"QProgressBar::chunk {{ background: {color}; border-radius: 2px; }}"
-    )
 
 
 def _preview_heading(preview: PreviewItem, *, compact: bool) -> str:
@@ -1478,16 +1412,6 @@ def _make_section_header(text: str, *, selectable: bool = False) -> QListWidgetI
     header.setFont(font)
     header.setSizeHint(QSize(0, 34))
     return header
-
-
-def _preview_color(preview: PreviewItem) -> QColor:
-    if preview.is_conflict or preview.is_unmatched:
-        return QColor("#d44040")
-    if preview.is_review:
-        return QColor("#e5a00d")
-    if preview.is_skipped:
-        return QColor("#777777")
-    return QColor("#e0e0e0")
 
 
 def _format_batch_result(result) -> str:
