@@ -112,6 +112,7 @@ That same model is used for:
 - Controller-backed queue execution and revert flows
 - Queue and history detail panels with cached poster reuse
 - Undo/revert data recorded per completed job
+- Failed revert attempts stay visible in history as `revert_failed`; only clean revert completions are marked `reverted`
 
 ---
 

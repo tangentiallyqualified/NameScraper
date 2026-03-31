@@ -46,6 +46,7 @@ _STATUS_LABELS = {
     JobStatus.FAILED: "✗ Failed",
     JobStatus.CANCELLED: "— Cancelled",
     JobStatus.REVERTED: "↩ Reverted",
+    JobStatus.REVERT_FAILED: "↩✗ Revert Failed",
 }
 _STATUS_COLORS = {
     JobStatus.PENDING: COLORS["text_dim"],
@@ -54,6 +55,7 @@ _STATUS_COLORS = {
     JobStatus.FAILED: COLORS["error"],
     JobStatus.CANCELLED: COLORS["text_muted"],
     JobStatus.REVERTED: COLORS["info"],
+    JobStatus.REVERT_FAILED: COLORS["error"],
 }
 _KIND_LABELS = {"rename": "Rename", "subtitle": "Subtitles", "metadata": "Metadata"}
 
@@ -592,7 +594,8 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         counts = store.count_by_status()
         hist_n = sum(counts.get(s, 0) for s in (
             JobStatus.COMPLETED, JobStatus.FAILED,
-            JobStatus.CANCELLED, JobStatus.REVERTED))
+            JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED))
         btn_clear.configure(state="normal" if hist_n else "disabled")
         btn_revert.configure(state="disabled")
         app._sync_queued_library_states()
@@ -620,12 +623,14 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
             return
         errs = []
         for jid, job in ok:
-            _, e = revert_job(job)
-            store.update_status(jid, JobStatus.REVERTED,
+            success, e = revert_job(job)
+            store.update_status(
+                jid,
+                JobStatus.REVERTED if success else JobStatus.REVERT_FAILED,
                 error_message="; ".join(e[:3]) if e else None)
             errs.extend(e)
         if errs:
-            messagebox.showwarning("Partial Revert",
+            messagebox.showwarning("Revert Failed",
                 f"Done with errors:\n" + "\n".join(errs[:8]))
         else:
             messagebox.showinfo("Reverted", f"Reverted {len(ok)} job(s).")
@@ -635,7 +640,8 @@ def build_history_tab(app: PlexRenamerApp, parent: ttk.Frame) -> None:
         counts = store.count_by_status()
         n = sum(counts.get(s, 0) for s in (
             JobStatus.COMPLETED, JobStatus.FAILED,
-            JobStatus.CANCELLED, JobStatus.REVERTED))
+            JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED))
         if not n: return
         if not messagebox.askyesno("Clear History",
             f"Delete {n} entries?\nAll revert data will be lost."):

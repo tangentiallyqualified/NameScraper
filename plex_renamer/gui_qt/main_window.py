@@ -614,7 +614,7 @@ class MainWindow(QMainWindow):
         self._history_tab.refresh()
         counts = self.queue_ctrl.count_by_status()
         pending = counts.get("pending", 0) + counts.get("running", 0)
-        history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted"))
+        history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted", "revert_failed"))
         self._tabs.setTabText(_QUEUE, "Queue")
         self._tabs.setTabText(_HISTORY, "History")
         self._queue_badge.set_count(pending)

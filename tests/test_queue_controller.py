@@ -5,6 +5,7 @@ import sqlite3
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from plex_renamer.app.controllers.queue_controller import (
     BatchQueueResult,
@@ -254,6 +255,42 @@ class QueueControllerTests(unittest.TestCase):
 
         updated = self.store.get_job(job.job_id)
         self.assertEqual(updated.status, JobStatus.REVERTED)
+
+    def test_revert_job_with_undo_data_failure_sets_revert_failed(self):
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Show",
+            status=JobStatus.COMPLETED,
+            undo_data={"renames": []},
+        )
+        self.store.add_job(job)
+
+        with patch(
+            "plex_renamer.app.controllers.queue_controller.revert_job",
+            return_value=(False, ["could not move file back"]),
+        ):
+            ok, errors = self.ctrl.revert_job(job.job_id)
+
+        self.assertFalse(ok)
+        self.assertEqual(errors, ["could not move file back"])
+
+        updated = self.store.get_job(job.job_id)
+        self.assertEqual(updated.status, JobStatus.REVERT_FAILED)
+        self.assertIn("could not move file back", updated.error_message or "")
+
+    def test_history_includes_revert_failed_jobs(self):
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Show",
+            status=JobStatus.REVERT_FAILED,
+            error_message="revert error",
+        )
+        self.store.add_job(job)
+
+        history = self.ctrl.get_history()
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0].status, JobStatus.REVERT_FAILED)
 
     # ── Query ─────────────────────────────────────────────────────────
 

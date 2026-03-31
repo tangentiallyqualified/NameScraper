@@ -121,6 +121,8 @@ class JobDetailPanel(QFrame):
             parts.append(f"Depends on {job.depends_on[:8]}...")
         if job.status == JobStatus.REVERTED:
             parts.append("Reverted")
+        elif job.status == JobStatus.REVERT_FAILED:
+            parts.append("Revert Failed")
         return " · ".join(parts)
 
     def _request_poster(self, job: RenameJob) -> None:

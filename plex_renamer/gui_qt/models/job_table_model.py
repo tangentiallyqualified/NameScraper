@@ -18,6 +18,7 @@ _STATUS_TEXT = {
     JobStatus.FAILED: "Failed",
     JobStatus.CANCELLED: "Cancelled",
     JobStatus.REVERTED: "Reverted",
+    JobStatus.REVERT_FAILED: "Revert Failed",
 }
 _STATUS_COLOR = {
     JobStatus.PENDING: QColor("#777777"),
@@ -26,6 +27,7 @@ _STATUS_COLOR = {
     JobStatus.FAILED: QColor("#d44040"),
     JobStatus.CANCELLED: QColor("#4a4a4a"),
     JobStatus.REVERTED: QColor("#4a9eda"),
+    JobStatus.REVERT_FAILED: QColor("#d44040"),
 }
 
 

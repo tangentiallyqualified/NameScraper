@@ -294,8 +294,11 @@ class QueueController:
     def revert_job(self, job_id: str) -> tuple[bool, list[str]]:
         """Revert a completed job by ID.
 
-        Returns ``(success, errors)``.  Updates job status to REVERTED
-        in the store regardless of partial failures.
+        Returns ``(success, errors)``.
+
+        Successful reverts are marked ``REVERTED``. Failed revert attempts
+        are marked ``REVERT_FAILED`` so history reflects that the undo did
+        not complete cleanly.
         """
         job = self.job_store.get_job(job_id)
         if job is None:
@@ -306,7 +309,7 @@ class QueueController:
         success, errors = revert_job(job)
         self.job_store.update_status(
             job_id,
-            JobStatus.REVERTED,
+            JobStatus.REVERTED if success else JobStatus.REVERT_FAILED,
             error_message="; ".join(errors[:3]) if errors else None,
         )
         return success, errors
@@ -325,7 +328,7 @@ class QueueController:
         return self.job_store.get_queue()
 
     def get_history(self) -> list[RenameJob]:
-        """Completed, failed, reverted, and cancelled jobs."""
+        """Completed, failed, reverted, revert-failed, and cancelled jobs."""
         return self.job_store.get_history()
 
     def count_by_status(self) -> dict[str, int]:

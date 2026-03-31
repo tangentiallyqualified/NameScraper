@@ -160,6 +160,7 @@ class RenameJob:
         return self.status in (
             JobStatus.COMPLETED, JobStatus.FAILED,
             JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED,
         )
 
 
@@ -477,7 +478,7 @@ class JobStore:
             conn = self._get_conn()
             cursor = conn.execute(
                 "DELETE FROM jobs WHERE status IN "
-                "('completed', 'failed', 'cancelled', 'reverted')")
+                "('completed', 'failed', 'cancelled', 'reverted', 'revert_failed')")
             conn.commit()
             return cursor.rowcount
 
@@ -624,7 +625,7 @@ class JobStore:
             conn = self._get_conn()
             rows = conn.execute(
                 "SELECT * FROM jobs "
-                "WHERE status IN ('completed', 'failed', 'cancelled', 'reverted') "
+                "WHERE status IN ('completed', 'failed', 'cancelled', 'reverted', 'revert_failed') "
                 "ORDER BY updated_at DESC"
             ).fetchall()
             return [self._row_to_job(r) for r in rows]

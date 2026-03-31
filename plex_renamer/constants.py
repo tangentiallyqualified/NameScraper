@@ -35,6 +35,7 @@ class JobStatus(StrEnum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     REVERTED = "reverted"
+    REVERT_FAILED = "revert_failed"
 
 
 class JobKind(StrEnum):

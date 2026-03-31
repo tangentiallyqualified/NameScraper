@@ -2661,7 +2661,7 @@ class PlexRenamerApp:
         running = counts.get('running', 0)
         total = pending + running
         hist = sum(counts.get(s, 0) for s in
-                   ('completed', 'failed', 'cancelled', 'reverted'))
+                   ('completed', 'failed', 'cancelled', 'reverted', 'revert_failed'))
         try:
             # Tab 2 = Queue
             if total > 0:

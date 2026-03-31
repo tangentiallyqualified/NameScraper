@@ -21,6 +21,7 @@ _HISTORY_FILTERS: dict[str, set[str] | None] = {
     "Completed": {JobStatus.COMPLETED},
     "Failed": {JobStatus.FAILED},
     "Reverted": {JobStatus.REVERTED},
+    "Revert Failed": {JobStatus.REVERT_FAILED},
     "Cancelled": {JobStatus.CANCELLED},
 }
 
