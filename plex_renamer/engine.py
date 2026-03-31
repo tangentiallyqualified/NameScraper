@@ -1659,9 +1659,15 @@ class TVScanner:
         """Build preview mapping files in absolute order to TMDB structure."""
         all_files = self._collect_absolute_files(season_dirs)
 
-        # Flat TMDB episode list in order
+        # Flat TMDB episode list in order.
+        # Exclude Season 0 specials here: consolidated absolute mapping is for
+        # distributing regular episodic files across the main seasons. If
+        # specials are included, absolute episode 001 gets consumed by S00E01
+        # and every later episode shifts by one.
         tmdb_list: list[tuple[int, int, str]] = []
         for sn in sorted(tmdb_seasons.keys()):
+            if sn == 0:
+                continue
             sd = tmdb_seasons[sn]
             for ep_num in sorted(sd["titles"].keys()):
                 tmdb_list.append((sn, ep_num, sd["titles"][ep_num]))
@@ -2901,6 +2907,17 @@ def build_rename_job_from_items(
     from .job_store import RenameJob
 
     ops = _build_rename_ops(items, checked_indices, library_root)
+
+    # A movie file that lives directly in the selected library root should be
+    # moved into its own target subdirectory, not treated as a request to
+    # rename the library root itself.
+    if media_type == MediaType.MOVIE:
+        try:
+            if source_folder.resolve() == library_root.resolve():
+                show_folder_rename = None
+        except OSError:
+            if source_folder == library_root:
+                show_folder_rename = None
 
     try:
         source_rel = str(source_folder.relative_to(library_root))

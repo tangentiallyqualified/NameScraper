@@ -189,7 +189,8 @@ _FANSUB_EPISODE_PATTERN = re.compile(
     r".+"                    # title text
     r"\s+-\s+"               # dash separator with spaces
     r"\d{1,3}"               # 1-3 digit episode number
-    r"(?:\s|\.|\(|$)",       # followed by space, dot, paren, or end
+    r"(?:\s*-\s*\d{1,3})*"  # optional episode range/list suffixes
+    r"(?:\s|\.|\(|\[|$)",   # followed by space, dot, bracket, paren, or end
 )
 
 # Parent folder names that strongly suggest TV content
@@ -406,10 +407,24 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         title = m.group(4).strip() if m.group(4) else None
         return eps, title, True
 
-    # Pattern 2: Dash-delimited " - 05 - Title" (common in organized releases)
-    m = re.search(r"-\s*(\d{1,3})\s*-\s*(.*)", name)
+    # Pattern 2: Dash-delimited episode numbers, with optional range and title.
+    # Examples: "Show - 05", "Show - 05-06", "Show - 05 - Title"
+    m = re.search(
+        r"-\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?(?:\s*-\s*(.*))?$",
+        name,
+    )
     if m:
-        return [int(m.group(1))], m.group(2).strip(), False
+        start_num = int(m.group(1))
+        end_num = int(m.group(2)) if m.group(2) else None
+        if start_num not in (480, 720, 1080, 2160) and not (1900 <= start_num <= 2099):
+            episodes = [start_num]
+            if end_num is not None and end_num not in (480, 720, 1080, 2160):
+                if end_num >= start_num and end_num - start_num <= 3:
+                    episodes = list(range(start_num, end_num + 1))
+                else:
+                    episodes.append(end_num)
+            title = m.group(3).strip() if m.group(3) else None
+            return episodes, title, False
 
     # Pattern 2.5: Bare-number OVA "01. Title Here (2000).mkv"
     # Uses the raw stem (before clean_name) to detect the dot separator

@@ -22,6 +22,12 @@ Recent validation tied to this work:
 3. `tests/test_haikyuu_matching.py`
 4. `tests/test_jojo_matching.py`
 
+Follow-up hardening since the original rollout:
+
+1. fansub multi-episode ranges like `[GHOST] Inuyasha - 166-167 [...]` are now treated as TV episodes instead of movie candidates
+2. flat-folder absolute episode mapping now skips TMDB Season 0 specials when distributing regular episodes across main seasons
+3. movie jobs for files that live directly in the selected library root now create `Title (Year)` subfolders inside that root instead of renaming the root itself
+
 What remains useful in this document:
 
 1. The discovery constraints and traversal rules still describe the intended long-term behavior.

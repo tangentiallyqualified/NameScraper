@@ -16,7 +16,7 @@ from plex_renamer.app.services import (
     TVLibraryDiscoveryService,
 )
 from plex_renamer.engine import BatchTVOrchestrator, MovieScanner
-from plex_renamer.parsing import looks_like_tv_episode
+from plex_renamer.parsing import extract_episode, looks_like_tv_episode
 
 
 # ── Bare-number OVA filenames (Bug 1) ──────────────────────────────────────
@@ -75,6 +75,26 @@ class TVCompanionVideoPatternTests(unittest.TestCase):
                 )
 
 
+class CombinedFansubEpisodeRangeTests(unittest.TestCase):
+    """Fansub multi-episode ranges should classify as TV and parse correctly."""
+
+    FILENAME = (
+        "[GHOST][1080p] Inuyasha - 166-167 "
+        "[BD HEVC 10bit Dual Audio AC3][720C96ED].mkv"
+    )
+
+    def test_combined_fansub_range_detected_as_tv(self):
+        self.assertTrue(
+            looks_like_tv_episode(Path(f"/tmp/Inuyasha/{self.FILENAME}")),
+        )
+
+    def test_combined_fansub_range_extracts_multiple_episodes(self):
+        self.assertEqual(
+            extract_episode(self.FILENAME),
+            ([166, 167], None, False),
+        )
+
+
 class MovieDiscoveryOVATests(unittest.TestCase):
     """OVA folders with bare-number files should NOT become movie candidates."""
 
@@ -121,6 +141,21 @@ class MovieDiscoveryOVATests(unittest.TestCase):
             (show / "Frieren.S01E01.mkv").write_text("x")
             (show / "Frieren.NCOP.mkv").write_text("x")
             (show / "Frieren.NCED.mkv").write_text("x")
+
+            service = MovieLibraryDiscoveryService()
+            candidates = service.discover_movie_roots(root)
+
+            self.assertEqual(candidates, [])
+
+    def test_combined_fansub_episode_range_excluded_from_movie_discovery(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "Inuyasha"
+            show.mkdir()
+            (
+                show
+                / "[GHOST][1080p] Inuyasha - 166-167 [BD HEVC 10bit Dual Audio AC3][720C96ED].mkv"
+            ).write_text("x")
 
             service = MovieLibraryDiscoveryService()
             candidates = service.discover_movie_roots(root)
@@ -533,6 +568,78 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
             # All should be Season 1
             for item in items:
                 self.assertEqual(item.season, 1)
+
+
+class FlatFolderSpecialsOffsetRegressionTests(unittest.TestCase):
+    """Flat-folder absolute mapping must not consume regular episodes with TMDB specials."""
+
+    class _FakeInuyashaTMDB:
+        SHOW_INFO = {"id": 249, "name": "Inuyasha", "year": "2000"}
+
+        _SEASON_MAP = {
+            0: {
+                "titles": {1: "Special 1"},
+                "posters": {1: None},
+                "episodes": {},
+                "count": 1,
+            },
+            1: {
+                "titles": {
+                    1: "The Girl Who Overcame Time... and the Boy Who Was Just Overcome",
+                    2: "Seekers of the Sacred Jewel",
+                },
+                "posters": {1: None, 2: None},
+                "episodes": {},
+                "count": 2,
+            },
+            2: {
+                "titles": {
+                    1: "Naraku's Trap, Kagome's Decision",
+                    2: "The Stolen Sacred Jewel",
+                },
+                "posters": {1: None, 2: None},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+
+        def get_season_map(self, show_id):
+            return self._SEASON_MAP, 4
+
+        def get_season(self, show_id, season_num):
+            return self._SEASON_MAP.get(
+                season_num,
+                {"titles": {}, "posters": {}, "episodes": {}},
+            )
+
+    def test_flat_absolute_numbering_ignores_specials_offset(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            files = [
+                "[GHOST][1080p] Inuyasha - 001 [BD HEVC 10bit Dual Audio AC3][5C86C2BB].mkv",
+                "[GHOST][1080p] Inuyasha - 002 [BD HEVC 10bit Dual Audio AC3][BEEE35EE].mkv",
+                "[GHOST][1080p] Inuyasha - 003 [BD HEVC 10bit Dual Audio AC3][11111111].mkv",
+                "[GHOST][1080p] Inuyasha - 004 [BD HEVC 10bit Dual Audio AC3][22222222].mkv",
+            ]
+            for name in files:
+                (root / name).write_text("x")
+
+            from plex_renamer.engine import TVScanner
+
+            tmdb = self._FakeInuyashaTMDB()
+            scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
+            items, _ = scanner.scan()
+
+            by_name = {item.original.name: item for item in items}
+
+            self.assertEqual(by_name[files[0]].season, 1)
+            self.assertEqual(by_name[files[0]].episodes, [1])
+            self.assertEqual(by_name[files[1]].season, 1)
+            self.assertEqual(by_name[files[1]].episodes, [2])
+            self.assertEqual(by_name[files[2]].season, 2)
+            self.assertEqual(by_name[files[2]].episodes, [1])
+            self.assertEqual(by_name[files[3]].season, 2)
+            self.assertEqual(by_name[files[3]].episodes, [2])
 
 
 if __name__ == "__main__":

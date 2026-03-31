@@ -386,6 +386,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
             folder=lib_root,
             media_info={"id": tmdb_id, "title": title, "year": "2021"},
             preview_items=[item],
+            confidence=1.0,
             scanned=True,
             checked=checked,
         )
@@ -425,6 +426,47 @@ class MovieBatchCheckboxTests(unittest.TestCase):
 
         self.assertEqual(result.added, 2)
         self.assertTrue(all(s.queued for s in states))
+
+    def test_root_level_movie_job_does_not_request_library_root_rename(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        lib_root = self.tmp / "library"
+        lib_root.mkdir()
+        movie_file = lib_root / "Spaceballs.1987.2160p.mkv"
+        movie_file.write_text("x")
+
+        item = PreviewItem(
+            original=movie_file,
+            new_name="Spaceballs (1987).mkv",
+            target_dir=lib_root / "Spaceballs (1987)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=222,
+            media_name="Spaceballs",
+        )
+        state = ScanState(
+            folder=lib_root,
+            media_info={"id": 222, "title": "Spaceballs", "year": "1987"},
+            preview_items=[item],
+            confidence=1.0,
+            scanned=True,
+            checked=True,
+        )
+
+        result = self.ctrl.add_movie_batch(
+            states=[state],
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 1)
+        jobs = self.store.get_pending()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0].source_folder, ".")
+        self.assertIsNone(jobs[0].show_folder_rename)
+        self.assertEqual(jobs[0].rename_ops[0].target_dir_relative, "Spaceballs (1987)")
 
 
 class BatchQueueResultTests(unittest.TestCase):

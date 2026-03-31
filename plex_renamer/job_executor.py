@@ -119,8 +119,15 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     library_root = Path(job.library_root)
     root_folder = library_root / job.source_folder
+    root_is_library = (
+        os.path.normcase(str(root_folder)) == os.path.normcase(str(library_root))
+    )
     final_root: Path | None = None
-    if job.show_folder_rename and root_folder.name != job.show_folder_rename:
+    if (
+        job.show_folder_rename
+        and not (job.media_type == MediaType.MOVIE and root_is_library)
+        and root_folder.name != job.show_folder_rename
+    ):
         candidate_root = root_folder.parent / job.show_folder_rename
         same_dir = (
             os.path.normcase(str(root_folder))
@@ -310,7 +317,12 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     # Rename root show/movie folder to match TMDB naming.
     # Skip this when targets were already routed into the final root.
-    if final_root is None and job.show_folder_rename and root_folder.exists():
+    if (
+        final_root is None
+        and job.show_folder_rename
+        and root_folder.exists()
+        and not (job.media_type == MediaType.MOVIE and root_is_library)
+    ):
         if root_folder.name != job.show_folder_rename:
             new_root = root_folder.parent / job.show_folder_rename
             # On case-insensitive filesystems (NTFS), new_root.exists()

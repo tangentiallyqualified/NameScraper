@@ -76,7 +76,9 @@ API keys are stored via OS keyring when available. If `keyring` is unavailable, 
 - Single-show TV scanning
 - Batch TV library discovery from a root folder
 - Season and episode parsing across common release naming styles
+- Anime/fansub episode range parsing for names like `[Group] Show - 166-167 [...]`
 - Specials / Season 0 handling
+- Flat-folder absolute numbering that keeps regular episodes aligned even when TMDB also has Season 0 specials
 - Alternate-match review flows for low-confidence results
 - Completeness reporting against TMDB episode data
 - Plex-style rename plans for files and show folders
@@ -87,6 +89,7 @@ API keys are stored via OS keyring when available. If `keyring` is unavailable, 
 - Automatic filtering of likely TV episodes mixed into movie folders
 - Confidence-based TMDB matching with manual re-match support
 - Plex-ready detection for already-correct files/folders
+- Root-level movie files are moved into `Title (Year)/Title (Year).ext` inside the selected movie root instead of renaming the selected root folder itself
 - Queue-driven rename execution through the shared job pipeline
 
 ### Shared Qt Workflow

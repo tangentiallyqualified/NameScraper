@@ -353,6 +353,43 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertFalse((target / "Unmatched Files").exists(),
                              "Unmatched Files dir should not exist for root-level movies")
 
+    def test_movie_at_library_root_ignores_folder_rename_and_stays_inside_root(self):
+        """Malformed or legacy root-level movie jobs must not rename the library root
+        to a sibling folder outside the selected directory."""
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp) / "Quarantine"
+            library_root.mkdir()
+
+            movie_file = library_root / "Spaceballs.1987.2160p.UHD.BluRay.HEVC.REMUX.mkv"
+            movie_file.write_text("movie")
+
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder=".",
+                media_name="Spaceballs",
+                media_type="movie",
+                show_folder_rename="Spaceballs (1987)",
+                rename_ops=[
+                    RenameOp(
+                        original_relative=movie_file.name,
+                        new_name="Spaceballs (1987).mkv",
+                        target_dir_relative="Spaceballs (1987)",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 1)
+            self.assertTrue((library_root / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists())
+            self.assertFalse((library_root.parent / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists())
+            self.assertTrue(library_root.exists(), "Library root should not be renamed")
+
 
     def test_score_results_prefers_exact_year_over_adjacent_year(self):
         """When two TMDB results share an identical title, the one whose
