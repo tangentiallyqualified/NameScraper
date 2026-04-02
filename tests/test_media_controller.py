@@ -14,7 +14,7 @@ from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.constants import MediaType
-from plex_renamer.engine import PreviewItem, ScanCancelledError, ScanState
+from plex_renamer.engine import PreviewItem, ScanCancelledError, ScanState, set_auto_accept_threshold
 from plex_renamer.job_store import JobStore, RenameJob
 
 
@@ -503,6 +503,7 @@ class RematchStateTests(unittest.TestCase):
         self.ctrl, self.store = _make_controller(self.tmp)
 
     def tearDown(self):
+        set_auto_accept_threshold(0.55)
         self.store.close()
         self._tmp.cleanup()
 
@@ -531,6 +532,50 @@ class RematchStateTests(unittest.TestCase):
         alternate_ids = [match["id"] for match in state.alternate_matches]
         self.assertIn(10, alternate_ids)
         self.assertNotIn(20, alternate_ids)
+
+    def test_rematch_tv_state_marks_manual_match_as_resolved(self):
+        state = ScanState(
+            folder=self.tmp / "Andor.2022",
+            media_info={"id": 10, "name": "Andor", "year": "2022"},
+            confidence=0.2,
+            scanned=True,
+            checked=False,
+            search_results=[
+                {"id": 10, "name": "Andor", "year": "2022"},
+                {"id": 20, "name": "Andor", "year": "2022"},
+            ],
+        )
+        self.ctrl._batch_states = [state]
+        self.ctrl._active_library_mode = MediaType.TV
+
+        with patch(
+            "plex_renamer.app.controllers.media_controller.score_results",
+            return_value=[({"id": 20, "name": "Andor", "year": "2022"}, 0.22)],
+        ):
+            self.ctrl.rematch_tv_state(state, {"id": 20, "name": "Andor", "year": "2022"})
+
+        self.assertEqual(state.match_origin, "manual")
+        self.assertFalse(state.needs_review)
+        self.assertTrue(state.checked)
+
+    def test_apply_runtime_settings_updates_review_threshold(self):
+        state = ScanState(
+            folder=self.tmp / "Show.2024",
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            confidence=0.7,
+            checked=True,
+        )
+        self.ctrl._batch_states = [state]
+        self.ctrl._active_library_mode = MediaType.TV
+
+        self.ctrl.settings.auto_accept_threshold = 0.8
+        self.ctrl.apply_runtime_settings()
+        self.assertTrue(state.needs_review)
+        self.assertFalse(state.checked)
+
+        self.ctrl.settings.auto_accept_threshold = 0.6
+        self.ctrl.apply_runtime_settings()
+        self.assertFalse(state.needs_review)
 
     def test_rematch_tv_state_keeps_runner_up_suggestions_without_score_threshold(self):
         state = ScanState(
@@ -626,6 +671,7 @@ class RematchStateTests(unittest.TestCase):
         self.assertEqual(state.media_info["id"], 99)
         self.assertEqual(state.preview_items[0].new_name, "Dune: Part Two (2024).mkv")
         self.assertTrue(state.checked)
+        self.assertEqual(state.match_origin, "manual")
         self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
 
 

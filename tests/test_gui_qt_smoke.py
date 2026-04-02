@@ -109,18 +109,45 @@ class QtSmokeTests(unittest.TestCase):
 
         window._on_job_started(job)
         window._on_job_completed(job, RenameResult(renamed_count=12))
-        self.assertEqual(window._toast_manager.toast_count(), 1)
+        self.assertEqual(window._toast_manager.toast_count(), 0)
 
         window._history_tab.select_job = MagicMock()
         window._on_job_failed(job, "permission denied")
-        self.assertEqual(window._toast_manager.toast_count(), 2)
+        self.assertEqual(window._toast_manager.toast_count(), 1)
 
         window._show_history_job(job.job_id)
         window._history_tab.select_job.assert_called_once_with(job.job_id)
         self.assertEqual(window.centralWidget().currentIndex(), 3)
 
         window._on_queue_finished()
-        self.assertGreaterEqual(window._toast_manager.toast_count(), 3)
+        self.assertGreaterEqual(window._toast_manager.toast_count(), 2)
+        window.close()
+
+    def test_main_window_batches_quick_success_toasts(self):
+        from plex_renamer.constants import JobStatus
+        from plex_renamer.engine import RenameResult
+        from plex_renamer.gui_qt.main_window import MainWindow
+        from plex_renamer.job_store import RenameJob
+
+        window = MainWindow()
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            status=JobStatus.RUNNING,
+        )
+
+        window._on_job_started(job)
+        window._on_job_completed(job, RenameResult(renamed_count=12))
+        window._on_job_completed(job, RenameResult(renamed_count=8))
+        self.assertEqual(window._toast_manager.toast_count(), 0)
+
+        QTest.qWait(450)
+
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "2 jobs completed")
+        self.assertIn("20 files renamed", toast._message_label.text())
         window.close()
 
     def test_main_window_tab_badges_show_counts_and_failure_pip(self):
@@ -233,8 +260,11 @@ class QtSmokeTests(unittest.TestCase):
 
         with patch("requests.get", return_value=MagicMock(ok=True, status_code=200)) as get_mock:
             tab._on_test_key()
-            self._app.processEvents()
-            QTest.qWait(25)
+            for _ in range(20):
+                self._app.processEvents()
+                if get_mock.call_count:
+                    break
+                QTest.qWait(10)
             self._app.processEvents()
 
         get_mock.assert_called_once()
@@ -553,19 +583,117 @@ class QtSmokeTests(unittest.TestCase):
             history_tab._filter_control.setCurrentText("Completed")
             self.assertEqual(history_tab._proxy.rowCount(), 1)
 
-            queue_tab._select_all()
-            self.assertEqual(len(queue_tab._table.selectionModel().selectedRows()), 1)
-            queue_tab._clear_selection()
-            self.assertEqual(len(queue_tab._table.selectionModel().selectedRows()), 0)
+            queue_tab._master_check.click()
+            self.assertEqual(len(queue_tab._selected_jobs()), 1)
+            self.assertEqual(queue_tab._master_check.checkState(), Qt.CheckState.Checked)
+            queue_tab._master_check.click()
+            self.assertEqual(len(queue_tab._selected_jobs()), 0)
+            self.assertEqual(queue_tab._master_check.checkState(), Qt.CheckState.Unchecked)
 
-            history_tab._select_all()
-            self.assertEqual(len(history_tab._table.selectionModel().selectedRows()), 1)
-            history_tab._clear_selection()
-            self.assertEqual(len(history_tab._table.selectionModel().selectedRows()), 0)
+            history_tab._master_check.click()
+            self.assertEqual(len(history_tab._selected_jobs()), 1)
+            self.assertEqual(history_tab._master_check.checkState(), Qt.CheckState.Checked)
+            history_tab._master_check.click()
+            self.assertEqual(len(history_tab._selected_jobs()), 0)
+            self.assertEqual(history_tab._master_check.checkState(), Qt.CheckState.Unchecked)
 
             queue_tab.close()
             history_tab.close()
-            controller.close()
+            store.close()
+
+    def test_media_workspace_roster_master_checkbox_controls_eligible_states(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, states):
+                self.command_gating = CommandGatingService()
+                self.batch_states = states
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.active_scan = states[0]
+                self.tv_root_folder = Path("C:/library/tv")
+                self.movie_folder = Path("C:/library/movies")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    self.active_scan = self.batch_states[index]
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state_a = ScanState(
+            folder=Path("C:/library/tv/ShowA"),
+            media_info={"id": 1, "name": "Show A", "year": "2020"},
+            preview_items=[],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        state_b = ScanState(
+            folder=Path("C:/library/tv/ShowB"),
+            media_info={"id": 2, "name": "Show B", "year": "2021"},
+            preview_items=[],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=_FakeMediaController([state_a, state_b]),
+            queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=2)})(),
+        )
+        workspace.show_ready()
+
+        workspace._roster_master_check.click()
+
+        self.assertTrue(state_a.checked)
+        self.assertTrue(state_b.checked)
+        self.assertEqual(workspace._roster_master_check.checkState(), Qt.CheckState.Checked)
+
+        workspace._roster_master_check.click()
+
+        self.assertFalse(state_a.checked)
+        self.assertFalse(state_b.checked)
+        self.assertEqual(workspace._roster_master_check.checkState(), Qt.CheckState.Unchecked)
+
+        workspace.close()
+
+    def test_queue_tab_checkbox_column_click_toggles_checked_jobs(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            controller.job_store.add_job(
+                RenameJob(
+                    library_root=tmp,
+                    source_folder="Show",
+                    media_type="tv",
+                    media_name="Example Show",
+                    tmdb_id=123,
+                    status=JobStatus.PENDING,
+                    rename_ops=[],
+                )
+            )
+
+            queue_tab = QueueTab(controller)
+            queue_tab.refresh()
+
+            checkbox_index = queue_tab._proxy.index(0, 0)
+            queue_tab._on_table_clicked(checkbox_index)
+            self.assertEqual(len(queue_tab._selected_jobs()), 1)
+
+            queue_tab._on_table_clicked(checkbox_index)
+            self.assertEqual(len(queue_tab._selected_jobs()), 0)
+
+            queue_tab.close()
+            store.close()
 
     def test_media_workspace_populates_roster_and_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace

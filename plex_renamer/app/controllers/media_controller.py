@@ -28,6 +28,7 @@ from ...engine import (
     PreviewItem,
     ScanState,
     ScanCancelledError,
+    set_auto_accept_threshold,
     score_results,
     TVScanner,
 )
@@ -72,6 +73,7 @@ class MediaController:
         self._refresh_policy = refresh_policy
         self._tv_discovery = tv_discovery or TVLibraryDiscoveryService()
         self._movie_discovery = movie_discovery or MovieLibraryDiscoveryService()
+        set_auto_accept_threshold(self._settings.auto_accept_threshold)
 
         # ── Mode flags ──────────────────────────────────────────────
         self._active_content_mode: MediaType = MediaType.TV
@@ -212,6 +214,16 @@ class MediaController:
     @property
     def settings(self) -> SettingsService:
         return self._settings
+
+    def apply_runtime_settings(self) -> None:
+        """Apply settings that directly affect scan/review semantics."""
+        set_auto_accept_threshold(self._settings.auto_accept_threshold)
+        for state in (*self._batch_states, *self._movie_library_states):
+            if state.match_origin == "manual":
+                continue
+            if state.needs_review:
+                state.checked = False
+        self._notify("library_changed", self.library_states)
 
     # ── Progress helpers ────────────────────────────────────────────
 
@@ -714,6 +726,7 @@ class MediaController:
 
     def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
+        state.match_origin = "manual"
         orchestrator = self._batch_orchestrator
         if orchestrator is not None:
             orchestrator.rematch_show(state, new_match)
@@ -761,6 +774,7 @@ class MediaController:
             "overview": new_match.get("overview", ""),
             "_media_type": MediaType.MOVIE,
         }
+        state.match_origin = "manual"
         state.preview_items = [new_item]
         state.search_results = scanner.get_search_results(preview.original)
         state.alternate_matches = [

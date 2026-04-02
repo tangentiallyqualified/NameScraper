@@ -201,6 +201,7 @@ class ScanState:
 
     # Match metadata
     confidence: float = 0.0
+    match_origin: str = "auto"
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
     relative_folder: str = ""
@@ -241,6 +242,8 @@ class ScanState:
 
     @property
     def needs_review(self) -> bool:
+        if self.show_id is not None and self.match_origin == "manual":
+            return False
         return self.confidence < AUTO_ACCEPT_THRESHOLD
 
     @property
@@ -2392,7 +2395,19 @@ def title_similarity(a: str, b: str) -> float:
 
 
 # Minimum confidence for auto-accepting a match without review
-AUTO_ACCEPT_THRESHOLD = 0.55
+DEFAULT_AUTO_ACCEPT_THRESHOLD = 0.55
+AUTO_ACCEPT_THRESHOLD = DEFAULT_AUTO_ACCEPT_THRESHOLD
+
+
+def set_auto_accept_threshold(value: float) -> float:
+    """Update the runtime auto-accept threshold used by scan/review logic."""
+    global AUTO_ACCEPT_THRESHOLD
+    try:
+        threshold = float(value)
+    except (TypeError, ValueError):
+        threshold = DEFAULT_AUTO_ACCEPT_THRESHOLD
+    AUTO_ACCEPT_THRESHOLD = max(0.50, min(1.00, threshold))
+    return AUTO_ACCEPT_THRESHOLD
 
 
 # Sentinel value returned by the pick callback to cancel the entire scan.

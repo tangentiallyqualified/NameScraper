@@ -266,19 +266,25 @@ workspace, spanning the full width below the 3-panel layout:
 
 ```
 +------------------------------------------------------------------+
-| [check] 3 of 24 shows checked   [Check All] [Uncheck All]       |
-|                                              [Add 3 to Queue]   |
+| 3 of 24 shows checked   2 blocked   1 already queued            |
+|                                              [Queue 3 Checked]  |
 +------------------------------------------------------------------+
 ```
 
 Elements:
 - **Selection summary** (left): "3 of 24 shows checked" in body text.
-- **Check All / Uncheck All** buttons: secondary (outline) style.
-- **Add to Queue button** (right): primary `accent` button, prominent.
+- **Eligibility summary**: blocked or already-queued counts in `text_dim`.
+- **Queue Checked button** (right): primary `accent` button, prominent.
   Disabled with tooltip when nothing is eligible.
-  Label shows count: "Add 3 to Queue" or "Add to Queue" for single items.
-- **Warning text**: if items need review or are already queued, a line
-  of `text_dim` text appears: "2 shows need review - 1 already queued".
+  Label shows count: "Queue 3 Checked" or "Queue Checked" when nothing is
+  selected yet.
+
+Selection ownership note:
+
+1. The bottom bar reflects checkbox state.
+2. It does not own selection itself.
+3. The master checkbox lives above the left roster list.
+4. `Check All` / `Uncheck All` buttons are not the primary UX in GUI3.
 
 This replaces the queue action area that was previously in the detail
 panel, keeping the primary action always visible regardless of what is
@@ -292,7 +298,7 @@ To avoid confusion about scope:
 - **Preview header button**: operates on the single selected roster item
   only. Label: "Queue This Show" (TV) / "Queue This Movie" (movie).
 - **Bottom action bar button**: operates on all checked roster items.
-  Label: "Queue N Checked" when N > 0, "Add to Queue" when nothing is
+  Label: "Queue N Checked" when N > 0, "Queue Checked" when nothing is
   checked (disabled state).
 
 The preview header button is a convenience shortcut — it should be
@@ -307,6 +313,22 @@ bar button.
 
 Lists all discovered media entities (TV shows or movies) with their
 scan status.
+
+Above the grouped list is a sticky roster-selection header:
+
+```
++----------------------------------------------+
+| [--] Select Eligible      3 of 24 checked    |
+| Needs Review 2   Matched 7   Plex Ready 12   |
++----------------------------------------------+
+```
+
+Header behavior:
+
+1. Master checkbox is tri-state: unchecked, checked, partially checked.
+2. It applies only to eligible visible roster items.
+3. Group counts remain visible so the user can see where actionable work sits.
+4. `Plex Ready` remains a group or filter target, not a separate tab.
 
 ### View modes
 
@@ -326,16 +348,23 @@ between items. Each item shows:
 - **Confidence left-border**: a 3px left edge colored by confidence
   level (green / yellow / red), visible in both normal and compact modes.
   This provides an at-a-glance scannable signal down the full roster.
+- Checkbox at the leading edge for bulk selection.
+- Card-body click selects the item for preview/detail without changing its checked state.
 - Title and year in body text.
 - **Status badge**: pill-shaped (`border-radius: 10px`, 6px horizontal
   padding) using the existing badge color tokens. One of: Scanning,
   Ready, Queued, Needs Review, Duplicate, Plex-Ready, Error.
-- Checkbox for batch queue selection, styled with `accent` fill when
-  checked.
 - File count (e.g., "12 files") in caption style, `text_dim` color.
 - Hover: background transitions to `bg_card_hover`.
 - Selected: background transitions to `bg_card_selected`, left border
   widens to 4px and uses `accent` color.
+
+Selection semantics:
+
+1. Focused row drives preview and detail.
+2. Checked rows drive batch queue actions.
+3. Space toggles the checkbox on the focused row.
+4. The focused row and the checked set are related but not identical state.
 
 ### Needs Review — inline alternative matches
 
@@ -555,9 +584,15 @@ Uses the same poster hero treatment, then:
 
 ### Layout
 
-Single panel, full width. Split vertically:
-- Top: queue/pending jobs.
-- Bottom: currently executing job detail (if any).
+Two-panel layout using a horizontal splitter:
+- Left: persistent job detail / rename preview panel.
+- Right: queue list and toolbar.
+
+Rationale:
+
+1. The list stays tall and scannable.
+2. Detail remains visible while moving through jobs.
+3. Bulk actions and per-job inspection stop fighting for vertical space.
 
 ### Empty state
 
@@ -578,12 +613,20 @@ left border (3px):
 - `text_muted` — reverted / cancelled.
 
 Card columns:
+- Header checkbox column with a tri-state master checkbox above the first row.
 - Status icon (Lucide icons: `clock` pending, `loader` running,
   `check-circle` completed, `x-circle` failed, `undo` reverted).
 - Media name in body text.
 - Type badge (TV / Movie) as a small pill.
 - File count in caption style.
 - Added timestamp in caption style, `text_dim`.
+
+Interaction model:
+
+1. Checkbox toggles inclusion in bulk actions.
+2. Row click selects the active job for the left-side detail panel.
+3. Hover highlights the whole row, not individual cells.
+4. Right-click opens a context menu with Execute, Remove, Move, Open Folder, and Show in History where applicable.
 
 ### Companion file grouping
 
@@ -638,14 +681,16 @@ that bulk-updates position values in a single transaction.
 
 ### Actions dropdown
 
-Toolbar dropdown with selection presets:
-- Select All Pending
-- Select All TV Jobs
-- Select All Movie Jobs
-- Deselect All
+Toolbar actions operate on checked jobs.
 
-Multi-select enables bulk actions: Execute Selected, Remove Selected,
-Cancel Selected.
+Primary controls:
+
+1. Master checkbox in the list header.
+2. Execute Checked.
+3. Remove Checked.
+4. Cancel Checked.
+
+Selection presets, if retained, belong in an overflow menu rather than as the primary selection UX.
 
 ### Job completion animation
 
@@ -668,8 +713,8 @@ When a job fails:
 
 ### Layout
 
-Same structure as Queue tab but read-only. Shows completed, failed,
-reverted, and cancelled jobs. Uses the same card style and
+Same two-panel structure as Queue tab: detail on the left, history list on the right.
+Shows completed, failed, reverted, and cancelled jobs. Uses the same card style and
 status-colored left borders.
 
 ### Filtering
@@ -682,13 +727,15 @@ Toolbar segmented control:
 
 ### Actions dropdown
 
-Selection presets:
-- Select All Completed TV Renames
-- Select All Completed Movie Renames
-- Select All Failed Jobs
-- Select All
+Bulk actions operate on checked rows, not the navigated row.
 
-Bulk actions: Revert Selected, Clear Selected from History.
+Primary controls:
+
+1. Tri-state header checkbox.
+2. Revert Checked.
+3. Clear Checked from History.
+
+Selection presets may still exist as secondary helpers, but checkbox selection is the primary interaction model.
 
 ### Revert flow
 
@@ -726,8 +773,9 @@ has a heading-style title and a thin `border_light` bottom separator.
 **Matching**
 - Match language: dropdown (existing 25-language list).
 - Auto-accept confidence threshold: styled `QSlider` with `accent`
-  fill, 0.50-1.00, default 0.85. Current value shown in a small
-  label to the right. Affects `AUTO_ACCEPT_THRESHOLD`.
+  fill, 0.50-1.00, default 0.55. Current value shown in a small
+  label to the right. Affects actual match-review behavior, status labels,
+  and confidence presentation rules.
 - Episode confidence display: toggle switch (show/hide confidence
   bars in preview).
 
@@ -767,7 +815,7 @@ bottom-right of the window. Styled as Level 3 cards (8px border-radius,
 strong shadow) with a colored left border matching the notification type:
 
 - `success` border: "Job completed: Naruto (2002) - 12 files renamed."
-  (3 second auto-dismiss)
+  (only for isolated completions; batched during fast queue runs)
 - `error` border: "Job failed: Dune (2021) - permission denied."
   (persistent until dismissed)
 - `accent` border: "Queue finished - 5 jobs completed, 1 failed."
@@ -781,7 +829,10 @@ Toast features:
 - Failed job toasts are persistent (user must dismiss) and include a
   "Show in History" text link in `info` color that switches to the
   History tab and selects the failed job.
-- Multiple toasts stack vertically with 8px gaps, newest on top.
+- Success toasts are aggregated over a short debounce window during queue execution.
+- If several jobs finish in quick succession, show a rolling summary such as
+  "3 jobs completed - 29 files renamed" rather than three separate flashes.
+- Multiple toasts stack vertically with 8px gaps, newest on top, but failure toasts always win over success summaries.
 
 ### Inline status
 
@@ -850,19 +901,21 @@ Enter would meaningfully improve keyboard-driven operation.
 
 ---
 
-## Implementation Order
+## Prioritized Implementation Plan
 
-This design should be built in the order defined by the migration plan:
+This design should be implemented in the following order, even when the work spans multiple migration phases:
 
-1. **Phase 3**: Application shell, tab bar, `theme.qss` stylesheet,
-   empty states (with drag-and-drop), settings tab.
-2. **Phase 4**: Queue and History tabs (card-based job list, toast
-   notifications, validates controller integration).
-3. **Phase 5**: Roster and preview panels (card-based layouts, sticky
-   season headers, bottom action bar).
-4. **Phase 6**: Detail panel (poster hero area, metadata grid, rematch
-   dialogs, fix-match controls).
+1. **Priority 1 — Trust and state correctness**: wire the confidence threshold into real review behavior, fix post-rematch queue readiness, and aggregate rapid success toasts so queue feedback remains readable.
+2. **Priority 2 — Checkbox selection model**: convert batch roster, queue, and history to explicit checkbox-driven bulk selection with tri-state master checkboxes and row-focus separation.
+3. **Priority 3 — Queue/history operational usability**: move job detail to the left-side panel, keep the list taller, add whole-row hover, right-click menus, open-folder actions, and richer rename previews.
+4. **Priority 4 — Media clarity and poster surfaces**: wire episode stills into TV detail, sharpen roster poster presentation, and replace ambiguous confidence-only cues with threshold-aware status language.
+5. **Priority 5 — Deeper correction workflows**: add per-file TV fixes, unmatched-to-episode assignment, and richer duplicate resolution only after the selection and rematch foundations are stable.
 
-Each phase should be usable independently — Phase 3 launches and
-navigates, Phase 4 manages the queue, etc. Full integration happens
-when all phases complete.
+Phase alignment:
+
+1. **Phase 3** remains the shell and settings foundation.
+2. **Phase 4** should absorb Priorities 1-3 for queue/history.
+3. **Phase 5** should absorb Priority 2 for roster plus the roster-facing parts of Priorities 1 and 4.
+4. **Phase 6** should finish the detail/rematch parts of Priorities 1, 4, and 5.
+
+Each phase should still be usable independently, but the order above controls what gets attention first within each phase.

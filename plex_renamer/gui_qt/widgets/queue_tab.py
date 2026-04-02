@@ -48,7 +48,7 @@ class QueueTab(_JobListTab):
         self._start_btn.clicked.connect(self._toggle_queue)
         self._toolbar_layout.addWidget(self._start_btn)
 
-        self._execute_btn = QPushButton("Run Selected")
+        self._execute_btn = QPushButton("Run Checked")
         self._execute_btn.setProperty("cssClass", "secondary")
         self._execute_btn.clicked.connect(self._execute_selected)
         self._toolbar_layout.addWidget(self._execute_btn)
@@ -60,7 +60,7 @@ class QueueTab(_JobListTab):
         self._select_all_btn.clicked.connect(self._select_all)
         self._toolbar_layout.addWidget(self._select_all_btn)
 
-        self._clear_selection_btn = QPushButton("Clear Selection")
+        self._clear_selection_btn = QPushButton("Clear All")
         self._clear_selection_btn.setProperty("cssClass", "secondary")
         self._clear_selection_btn.clicked.connect(self._clear_selection)
         self._toolbar_layout.addWidget(self._clear_selection_btn)
@@ -78,24 +78,22 @@ class QueueTab(_JobListTab):
         self._toolbar_layout.addWidget(self._movie_btn)
 
         self._finish_toolbar(_QUEUE_FILTERS)
-        self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
-
         actions = QFrame()
         actions.setProperty("cssClass", "panel")
         actions_layout = QHBoxLayout(actions)
         actions_layout.setContentsMargins(12, 12, 12, 12)
 
-        self._remove_btn = QPushButton("Remove Selected")
+        self._remove_btn = QPushButton("Remove Checked")
         self._remove_btn.setProperty("cssClass", "danger")
         self._remove_btn.clicked.connect(self._remove_selected)
         actions_layout.addWidget(self._remove_btn)
 
-        self._move_up_btn = QPushButton("Move Up")
+        self._move_up_btn = QPushButton("Move Checked Up")
         self._move_up_btn.setProperty("cssClass", "secondary")
         self._move_up_btn.clicked.connect(lambda: self._move_selected(-1))
         actions_layout.addWidget(self._move_up_btn)
 
-        self._move_down_btn = QPushButton("Move Down")
+        self._move_down_btn = QPushButton("Move Checked Down")
         self._move_down_btn.setProperty("cssClass", "secondary")
         self._move_down_btn.clicked.connect(lambda: self._move_selected(1))
         actions_layout.addWidget(self._move_down_btn)
@@ -123,22 +121,18 @@ class QueueTab(_JobListTab):
         has_jobs = bool(jobs)
         self._select_all_btn.setEnabled(has_jobs)
         self._clear_selection_btn.setEnabled(has_jobs)
-        self._on_selection_changed()
+        self._sync_selection_widgets()
+        self._update_job_controls()
 
-    def _on_selection_changed(self, *_args) -> None:
-        jobs = self._selected_jobs()
-        if not jobs:
+    def _update_job_controls(self) -> None:
+        focused = self._focused_job()
+        checked_jobs = self._selected_jobs()
+        if focused is None:
             self._detail.clear()
-            self._remove_btn.setEnabled(False)
-            self._move_up_btn.setEnabled(False)
-            self._move_down_btn.setEnabled(False)
-            self._execute_btn.setEnabled(False)
-            return
-        self._detail.set_job(jobs[0] if len(jobs) == 1 else None)
-        if len(jobs) > 1:
-            self._detail.clear(f"{len(jobs)} jobs selected")
-        has_pending = any(job.status == JobStatus.PENDING for job in jobs)
-        can_execute = len(jobs) == 1 and jobs[0].status == JobStatus.PENDING
+        else:
+            self._detail.set_job(focused)
+        has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
+        can_execute = len(checked_jobs) == 1 and checked_jobs[0].status == JobStatus.PENDING
         self._remove_btn.setEnabled(has_pending)
         self._move_up_btn.setEnabled(has_pending)
         self._move_down_btn.setEnabled(has_pending)
@@ -157,7 +151,7 @@ class QueueTab(_JobListTab):
         if len(jobs) != 1:
             return
         if not self._queue_ctrl.execute_single(jobs[0].job_id):
-            QMessageBox.warning(self, "Cannot Run Job", "The selected job could not be executed right now.")
+            QMessageBox.warning(self, "Cannot Run Job", "The checked job could not be executed right now.")
         self.refresh()
         self.queue_changed.emit()
 
@@ -165,12 +159,12 @@ class QueueTab(_JobListTab):
         jobs = self._selected_jobs()
         pending = [job for job in jobs if job.status == JobStatus.PENDING]
         if not pending:
-            QMessageBox.information(self, "Cannot Remove", "Only pending jobs can be removed.")
+            QMessageBox.information(self, "Cannot Remove", "Only checked pending jobs can be removed.")
             return
         if QMessageBox.question(
             self,
             "Remove Jobs",
-            f"Remove {len(pending)} pending job(s) from the queue?",
+            f"Remove {len(pending)} checked pending job(s) from the queue?",
         ) != QMessageBox.StandardButton.Yes:
             return
         self._queue_ctrl.remove_jobs([job.job_id for job in pending])

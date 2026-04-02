@@ -218,7 +218,10 @@ class MediaDetailPanel(QFrame):
 
         def _worker() -> None:
             payload = self._build_payload(tmdb, state, preview, queue_reason, folder_plan)
-            self._bridge.metadata_ready.emit(payload[0], payload[1], token)
+            try:
+                self._bridge.metadata_ready.emit(payload[0], payload[1], token)
+            except RuntimeError:
+                pass
 
         threading.Thread(target=_worker, daemon=True, name="QtMediaDetail").start()
 

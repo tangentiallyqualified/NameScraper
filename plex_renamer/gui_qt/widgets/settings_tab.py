@@ -72,6 +72,7 @@ class SettingsTab(QScrollArea):
     companion_visibility_changed = Signal(bool)
     discovery_visibility_changed = Signal(bool)
     language_changed = Signal(str)
+    threshold_changed = Signal(float)
     api_key_saved = Signal()
 
     def __init__(
@@ -340,6 +341,7 @@ class SettingsTab(QScrollArea):
         self._threshold_label.setText(f"{fval:.2f}")
         if self._settings:
             self._settings.auto_accept_threshold = fval
+        self.threshold_changed.emit(fval)
 
     def _on_confidence_bars(self, checked: bool) -> None:
         if self._settings:

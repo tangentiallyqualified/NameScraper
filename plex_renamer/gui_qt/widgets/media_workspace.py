@@ -16,6 +16,7 @@ from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -59,6 +60,17 @@ class _RosterPosterBridge(QObject):
     poster_ready = Signal(object, object)
 
 
+class _MasterCheckBox(QCheckBox):
+    """Tri-state display checkbox that toggles like a normal binary control."""
+
+    def nextCheckState(self) -> None:
+        self.setCheckState(
+            Qt.CheckState.Unchecked
+            if self.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked
+        )
+
+
 class MediaWorkspace(QWidget):
     """TV or Movie tab workspace with state-driven content switching."""
 
@@ -88,6 +100,7 @@ class MediaWorkspace(QWidget):
         self._roster_poster_cache: OrderedDict[tuple[str, int], QIcon] = OrderedDict()
         self._poster_inflight: set[tuple[str, int]] = set()
         self._preview_group_state: dict[str, set[int]] = {}
+        self._roster_master_syncing = False
         self._poster_bridge = _RosterPosterBridge(self)
         self._poster_bridge.poster_ready.connect(self._apply_roster_poster)
         self._build_ui()
@@ -136,6 +149,21 @@ class MediaWorkspace(QWidget):
         self._roster_hint = QLabel("Scanned items appear here.")
         self._roster_hint.setProperty("cssClass", "caption")
         roster_layout.addWidget(self._roster_hint)
+
+        roster_select_row = QHBoxLayout()
+        roster_select_row.setContentsMargins(0, 0, 0, 0)
+        roster_select_row.setSpacing(8)
+        self._roster_master_check = _MasterCheckBox("Select All")
+        self._roster_master_check.setTristate(True)
+        self._roster_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._roster_master_check.stateChanged.connect(self._on_roster_master_changed)
+        roster_select_row.addWidget(self._roster_master_check)
+        self._roster_selection_summary = QLabel("0 checked")
+        self._roster_selection_summary.setProperty("cssClass", "caption")
+        roster_select_row.addWidget(self._roster_selection_summary)
+        roster_select_row.addStretch()
+        roster_layout.addLayout(roster_select_row)
+
         self._roster_list = QListWidget()
         self._roster_list.setProperty("cssClass", "row-host-list")
         self._roster_list.setIconSize(QSize(42, 60))
@@ -202,8 +230,6 @@ class MediaWorkspace(QWidget):
 
         # Bottom action bar
         self._action_bar = _ActionBar(media_type=self._media_type)
-        self._action_bar.check_all_requested.connect(self._check_all)
-        self._action_bar.uncheck_all_requested.connect(self._uncheck_all)
         self._action_bar.queue_requested.connect(self._queue_checked)
         ready_layout.addWidget(self._action_bar)
 
@@ -295,6 +321,16 @@ class MediaWorkspace(QWidget):
         if self._settings:
             self._settings.splitter_positions = list(self._splitter.sizes())
 
+    def _on_roster_master_changed(self, state: int) -> None:
+        if self._roster_master_syncing:
+            return
+        checked_value = Qt.CheckState.Checked.value
+        unchecked_value = Qt.CheckState.Unchecked.value
+        if state == checked_value:
+            self._check_all()
+        elif state == unchecked_value:
+            self._uncheck_all()
+
     def refresh_from_controller(self) -> None:
         """Synchronize the ready-state roster and preview from controller state."""
         if self._media_ctrl is None:
@@ -316,6 +352,7 @@ class MediaWorkspace(QWidget):
             self._detail_panel.clear()
             self._action_bar.update_summary(0, 0)
             self._action_bar.set_queue_enabled(False)
+            self._update_roster_selection_header([])
             self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setText("Queue This Show")
@@ -827,6 +864,7 @@ class MediaWorkspace(QWidget):
     def _update_action_bar(self) -> None:
         states = self._current_states()
         checked = [state for state in states if state.checked]
+        self._update_roster_selection_header(states)
         self._action_bar.update_summary(len(checked), len(states))
         selected_state = self._selected_state()
         self._fix_match_btn.setEnabled(bool(selected_state and not selected_state.queued and not selected_state.scanning))
@@ -842,6 +880,31 @@ class MediaWorkspace(QWidget):
             self._action_bar.set_queue_enabled(False)
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
+
+    def _update_roster_selection_header(self, states: list[ScanState]) -> None:
+        eligible_states = [
+            state for state in states
+            if _is_state_queue_approvable(state, media_type=self._media_type)
+        ]
+        checked_count = sum(1 for state in eligible_states if state.checked)
+        total_eligible = len(eligible_states)
+        if total_eligible:
+            noun = "item" if total_eligible == 1 else "items"
+            self._roster_selection_summary.setText(f"{checked_count} of {total_eligible} eligible {noun} checked")
+        else:
+            self._roster_selection_summary.setText("No eligible items")
+
+        self._roster_master_syncing = True
+        try:
+            self._roster_master_check.setEnabled(bool(total_eligible))
+            if total_eligible == 0 or checked_count == 0:
+                self._roster_master_check.setCheckState(Qt.CheckState.Unchecked)
+            elif checked_count == total_eligible:
+                self._roster_master_check.setCheckState(Qt.CheckState.Checked)
+            else:
+                self._roster_master_check.setCheckState(Qt.CheckState.PartiallyChecked)
+        finally:
+            self._roster_master_syncing = False
 
     def _request_roster_poster(self, state: ScanState, item: QListWidgetItem) -> None:
         if state.show_id is None or self._tmdb_provider is None:
@@ -1035,37 +1098,17 @@ class _ClickableRow(QFrame):
         super().mousePressEvent(event)
 
 
-class _ToggleSwitch(QAbstractButton):
+class _ToggleSwitch(QCheckBox):
     def __init__(self, checked: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setCheckable(True)
+        self.setText("")
         self.setChecked(checked)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(42, 24)
+        self.setFixedSize(18, 18)
 
     def sizeHint(self) -> QSize:
-        return QSize(42, 24)
-
-    def paintEvent(self, event) -> None:
-        del event
-        track_rect = self.rect().adjusted(1, 1, -1, -1)
-        radius = track_rect.height() / 2
-        knob_size = track_rect.height() - 4
-        knob_y = track_rect.top() + 2
-        knob_x = track_rect.left() + 2 if not self.isChecked() else track_rect.right() - knob_size - 2
-        track_color = QColor("#f0ad00") if self.isChecked() else QColor("#2a2a2a")
-        border_color = QColor("#e5a00d") if self.isChecked() else QColor("#3a3a3a")
-        knob_color = QColor("#0d0d0d") if self.isChecked() else QColor("#6a6a6a")
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(border_color)
-        painter.setBrush(track_color)
-        painter.drawRoundedRect(track_rect, radius, radius)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(knob_color)
-        painter.drawEllipse(knob_x, knob_y, knob_size, knob_size)
+        return QSize(18, 18)
 
 
 class _MiniProgressBar(QWidget):
@@ -1653,8 +1696,6 @@ def _format_batch_result(result) -> str:
 class _ActionBar(QFrame):
     """Bottom action bar for the ready state workspace."""
 
-    check_all_requested = Signal()
-    uncheck_all_requested = Signal()
     queue_requested = Signal()
 
     def __init__(
@@ -1674,16 +1715,6 @@ class _ActionBar(QFrame):
         layout.addWidget(self._summary_label)
 
         layout.addStretch()
-
-        self._check_all_btn = QPushButton("Check All")
-        self._check_all_btn.setProperty("cssClass", "secondary")
-        self._check_all_btn.clicked.connect(self.check_all_requested.emit)
-        layout.addWidget(self._check_all_btn)
-
-        self._uncheck_all_btn = QPushButton("Uncheck All")
-        self._uncheck_all_btn.setProperty("cssClass", "secondary")
-        self._uncheck_all_btn.clicked.connect(self.uncheck_all_requested.emit)
-        layout.addWidget(self._uncheck_all_btn)
 
         self._queue_btn = QPushButton("Queue Checked")
         self._queue_btn.clicked.connect(self.queue_requested.emit)

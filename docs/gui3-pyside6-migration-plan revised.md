@@ -394,6 +394,9 @@ Desired improvements:
 1. Explicit job state icons.
 2. Clear explanation of why a job is pending, blocked, running, failed, or reverted.
 3. Stronger integration with roster state and queue eligibility.
+4. Explicit checkbox-driven bulk selection instead of overloading row selection.
+5. Left-side detail panel plus right-side job list so operational preview stays visible.
+6. Burst-safe notification behavior that aggregates fast success events.
 
 ## Critical UX Changes Required During Migration
 
@@ -473,6 +476,32 @@ Suggested UI treatment:
 1. Queue button label includes eligible count.
 2. Tooltip or inline helper text explains disabled reason.
 3. Batch actions show exact queued, skipped, and blocked counts before submission.
+
+Required selection-model treatment:
+
+1. Keep inspection focus separate from bulk-action selection.
+2. Use explicit checkboxes for roster batch selection, queue selection, and history selection.
+3. Add a tri-state master checkbox at the top of each selectable list.
+4. Persist checked state independently from the currently focused row.
+5. Treat row click as navigation and preview, not implicit inclusion in bulk actions.
+
+## 2.5 Notification aggregation redesign
+
+This is required for operational trust, not optional polish.
+
+Current problem to avoid:
+
+1. Fast queue runs can emit several completion toasts in the same moment.
+2. Limiting the number of simultaneous toasts is not enough if the first few still flash independently.
+3. Success feedback becomes noisy exactly when the app is working well.
+
+Required target behavior:
+
+1. Keep failed-job notifications itemized and persistent.
+2. Aggregate rapid success events into a short rolling summary.
+3. Prefer one queue-run summary toast plus failure exceptions over one success toast per job.
+4. Use a short debounce window so adjacent completions collapse naturally.
+5. Never let success notifications obscure actionable failure notifications.
 
 ## 3. Refresh and cache visibility
 
@@ -796,6 +825,10 @@ Deliverables:
 3. Poster loading integration.
 4. Reorder, remove, revert, and start execution flows.
 5. Clear status and error presentation.
+6. Checkbox-based bulk selection in queue and history with tri-state header checkbox.
+7. Two-panel queue/history layout with persistent job detail preview.
+8. Right-click actions, open-folder actions, and full rename preview for selected jobs.
+9. Aggregated success notifications with per-job failure surfacing.
 
 Note: revert actions in Phase 4 must use `revert_job` exclusively. The `undo_log`/`execute_undo` path will have been retired by the Phase 1 cleanup. There should be no ambiguity about which revert path to call.
 
@@ -803,6 +836,7 @@ Exit criteria:
 
 1. Queue/history are more usable than the tkinter versions.
 2. Job state, error state, and action availability are clearer than today.
+3. Bulk actions no longer depend on ambiguous table row selection.
 
 ## Phase 5: Port roster and preview workflow
 
@@ -819,12 +853,16 @@ Deliverables:
 5. Unmatched grouping improvements.
 6. Review and duplicate action paths.
 7. Better progress representation during scan.
+8. Checkbox-based roster selection with tri-state master checkbox above the list.
+9. Action bar and queue wording aligned to checked-state workflow rather than select-all/select-none buttons.
+10. Plex Ready visibility fixes via grouping, filtering, and collapse behavior rather than a new tab.
 
 Exit criteria:
 
 1. Core scanning and preview workflow is functionally usable.
 2. Progress is clearer than in tkinter.
 3. Queue eligibility is visibly understandable.
+4. Bulk selection in the roster is explicit and consistent with queue/history.
 
 ## Phase 6: Port detail, dialogs, and rematch flows
 
@@ -839,11 +877,15 @@ Deliverables:
 3. TV and movie rematch dialogs.
 4. Refresh actions with cooldown awareness.
 5. Cache freshness display.
+6. Episode still wiring for TV episode detail and preview-related poster surfaces.
+7. Post-rematch state updates that immediately unblock queueing when review is resolved.
+8. Threshold-driven confidence presentation that matches actual matching behavior.
 
 Exit criteria:
 
 1. TV and movie manual correction workflows are equal or better than current behavior.
 2. Refresh and stale-data logic is visible and understandable.
+3. Settings that affect review and confidence behavior are no longer misleading.
 
 ## Phase 7: Parity review and tkinter retirement decision
 
@@ -864,6 +906,50 @@ Exit criteria:
 
 1. GUI3 is stable enough for normal use.
 2. The current shell is no longer the safer operational choice.
+
+## Priority Reset — April 1, 2026
+
+The next implementation pass should be sequenced by operational trust first, then by interaction-model cleanup, then by visual polish.
+
+### Priority 1: Fix trust-breaking behavior
+
+1. Make the user-defined confidence threshold actually drive match-review behavior and related confidence presentation.
+2. Fix rematch approval so resolved items leave `Needs Review` immediately and can be queued without an extra hidden step.
+3. Aggregate rapid success notifications during queue execution; keep failures explicit and actionable.
+4. Prefer filtering and collapse rules for `Plex Ready` over adding more top-level navigation.
+
+### Priority 2: Unify checkbox-driven selection UX
+
+1. Convert the batch roster to explicit checkbox selection with a tri-state master checkbox above the list.
+2. Convert queue and history bulk actions to the same checkbox model.
+3. Separate row focus from bulk-action membership everywhere.
+4. Move bulk-action copy and placement to reflect checked-state workflow.
+
+### Priority 3: Strengthen queue and history operational surfaces
+
+1. Move job detail to a persistent side panel and keep the list taller.
+2. Add right-click menus, whole-row hover, and open-folder actions.
+3. Expand job detail to show folder rename plans and per-operation summaries.
+
+### Priority 4: Improve media clarity
+
+1. Wire episode stills into TV detail and preview-adjacent poster surfaces.
+2. Replace ambiguous confidence-only cues with threshold-aware labels and clearer status language.
+3. Add stronger placeholder artwork and sharper roster poster rendering.
+
+### Priority 5: Deepen correction workflows
+
+1. Support per-file fixes inside TV series.
+2. Allow unmatched files in TV folders to be matched to specific episodes.
+3. Add better duplicate resolution paths, including keep-both or second-copy handling where safe.
+
+### Phase mapping for the next pass
+
+1. Start with Priority 1 items across current Phase 4-6 surfaces.
+2. Fold Priority 2 into Phase 4 for queue/history and Phase 5 for roster.
+3. Treat Priority 3 as the completion bar for Phase 4 usability.
+4. Treat Priority 4 as targeted Phase 5-6 polish only after trust and selection are fixed.
+5. Defer Priority 5 until the selection and rematch foundations are stable.
 
 ## Current-to-Target File Mapping
 

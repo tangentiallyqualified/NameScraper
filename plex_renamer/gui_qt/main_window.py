@@ -175,10 +175,16 @@ class MainWindow(QMainWindow):
         self._queue_run_started = False
         self._queue_completed_count = 0
         self._queue_failed_count = 0
+        self._pending_success_jobs = 0
+        self._pending_success_files = 0
         self._job_poster_backfill_started = False
         self._tv_needs_queue_refresh = False
         self._movie_needs_queue_refresh = False
         self._scan_feedback_token: tuple[str, str] | None = None
+        self._success_toast_timer = QTimer(self)
+        self._success_toast_timer.setSingleShot(True)
+        self._success_toast_timer.setInterval(350)
+        self._success_toast_timer.timeout.connect(self._flush_success_toast_batch)
 
         # ── Tab content ──────────────────────────────────────────
         self._tv_workspace = MediaWorkspace(
@@ -240,6 +246,7 @@ class MainWindow(QMainWindow):
         self._settings_tab.companion_visibility_changed.connect(self._apply_companion_visibility)
         self._settings_tab.discovery_visibility_changed.connect(self._apply_discovery_visibility)
         self._settings_tab.language_changed.connect(self._on_language_changed)
+        self._settings_tab.threshold_changed.connect(self._on_threshold_changed)
         self._settings_tab.api_key_saved.connect(self._invalidate_tmdb)
 
         # ── Restore geometry ─────────────────────────────────────
@@ -361,6 +368,12 @@ class MainWindow(QMainWindow):
         self._invalidate_tmdb()
         self._refresh_media_workspaces()
         self.statusBar().showMessage(f"TMDB language updated to {tag}.", 3000)
+
+    def _on_threshold_changed(self, value: float) -> None:
+        self.settings_service.auto_accept_threshold = value
+        self.media_ctrl.apply_runtime_settings()
+        self._refresh_media_workspaces()
+        self.statusBar().showMessage(f"Auto-accept threshold updated to {value:.2f}.", 3000)
 
     # ── Menu bar ─────────────────────────────────────────────────
 
@@ -626,14 +639,38 @@ class MainWindow(QMainWindow):
             self._queue_run_started = True
             self._queue_completed_count = 0
             self._queue_failed_count = 0
+            self._pending_success_jobs = 0
+            self._pending_success_files = 0
+            self._success_toast_timer.stop()
 
     def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
         self._queue_completed_count += 1
         renamed = result.renamed_count
-        noun = "file" if renamed == 1 else "files"
+        if not self._queue_run_started:
+            noun = "file" if renamed == 1 else "files"
+            self._toast_manager.show_toast(
+                title=f"Job completed: {job.media_name}",
+                message=f"{renamed} {noun} renamed.",
+                tone="success",
+                duration_ms=3000,
+            )
+            return
+        self._pending_success_jobs += 1
+        self._pending_success_files += renamed
+        self._success_toast_timer.start()
+
+    def _flush_success_toast_batch(self) -> None:
+        if self._pending_success_jobs <= 0 or not self._queue_run_started:
+            return
+        jobs = self._pending_success_jobs
+        files = self._pending_success_files
+        self._pending_success_jobs = 0
+        self._pending_success_files = 0
+        job_noun = "job" if jobs == 1 else "jobs"
+        file_noun = "file" if files == 1 else "files"
         self._toast_manager.show_toast(
-            title=f"Job completed: {job.media_name}",
-            message=f"{renamed} {noun} renamed.",
+            title=f"{jobs} {job_noun} completed",
+            message=f"{files} {file_noun} renamed.",
             tone="success",
             duration_ms=3000,
         )
@@ -657,6 +694,9 @@ class MainWindow(QMainWindow):
     def _on_queue_finished(self) -> None:
         if not self._queue_run_started:
             return
+        self._success_toast_timer.stop()
+        self._pending_success_jobs = 0
+        self._pending_success_files = 0
         summary = f"{self._queue_completed_count} completed"
         if self._queue_failed_count:
             summary += f", {self._queue_failed_count} failed"
