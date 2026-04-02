@@ -233,6 +233,87 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(persisted, [(job.job_id, "/poster.jpg")])
         panel.close()
 
+    def test_job_detail_panel_shows_folder_plan_and_preview_lines(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp)
+            (library_root / "Bleach").mkdir()
+            (library_root / "Bleach (2004)").mkdir()
+
+            panel = JobDetailPanel()
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                show_folder_rename="Bleach (2004)",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            panel.set_job(job)
+
+            self.assertIn("Folder Rename: Bleach -> Bleach (2004)", panel._paths.text())
+            preview = panel._preview.toPlainText().replace("\\", "/")
+            self.assertIn("Folder: Bleach -> Bleach (2004)", preview)
+            self.assertIn(
+                "Bleach/Disc 01/Bleach - 001.mkv -> Bleach (2004)/Season 01/Bleach (2004) - S01E01.mkv",
+                preview,
+            )
+            self.assertTrue(panel._open_source_btn.isEnabled())
+            self.assertTrue(panel._open_target_btn.isEnabled())
+            panel.close()
+
+    def test_job_detail_panel_open_target_folder_uses_existing_parent(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp)
+            (library_root / "Bleach").mkdir()
+            target_parent = library_root / "Bleach (2004)"
+            target_parent.mkdir()
+
+            panel = JobDetailPanel()
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                show_folder_rename="Bleach (2004)",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach/Season 01",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            panel.set_job(job)
+
+            with patch(
+                "plex_renamer.gui_qt.widgets.job_detail_panel.QDesktopServices.openUrl",
+                return_value=True,
+            ) as open_mock:
+                self.assertTrue(panel.open_target_folder())
+
+            self.assertEqual(open_mock.call_count, 1)
+            self.assertEqual(
+                Path(open_mock.call_args.args[0].toLocalFile()),
+                target_parent,
+            )
+            panel.close()
+
     def test_media_detail_panel_caps_metadata_cache_and_can_clear_it(self):
         from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
 
@@ -250,6 +331,96 @@ class QtSmokeTests(unittest.TestCase):
 
         self.assertEqual(len(panel._metadata_cache), 0)
         self.assertEqual(len(panel._loading_tokens), 0)
+        panel.close()
+
+    def test_media_detail_panel_uses_episode_still_and_threshold_match_text(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            settings.auto_accept_threshold = 0.6
+            tmdb = MagicMock()
+            tmdb.get_tv_details.return_value = {"status": "Returning Series"}
+            tmdb.fetch_poster.return_value = None
+
+            preview = PreviewItem(
+                original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+                season=1,
+                episodes=[1],
+                status="REVIEW",
+            )
+            state = ScanState(
+                folder=Path("C:/library/tv/Review.Show.2024"),
+                media_info={"id": 102, "name": "Review Show", "year": "2024"},
+                preview_items=[preview],
+                scanner=type(
+                    "Scanner",
+                    (),
+                    {
+                        "episode_meta": {
+                            (1, 1): {
+                                "still_path": "/episode-still.jpg",
+                                "overview": "Episode overview",
+                                "air_date": "2024-01-01",
+                                "directors": [],
+                                "writers": [],
+                                "guest_stars": [],
+                            }
+                        }
+                    },
+                )(),
+                scanned=True,
+                confidence=0.42,
+            )
+
+            panel = MediaDetailPanel(tmdb_provider=lambda: tmdb, settings_service=settings)
+            payload, _image = panel._build_payload(tmdb, state, preview, "", "")
+
+            tmdb.fetch_poster.assert_called_once_with(
+                102,
+                media_type="tv",
+                season=1,
+                ep_still="/episode-still.jpg",
+                target_width=280,
+            )
+            self.assertEqual(payload["artwork_mode"], "still")
+            self.assertIn(("Match", "42% confidence · below 60% threshold"), payload["rows"])
+            self.assertIn("Artwork: episode still", payload["extra"])
+
+            panel._current_token = "token"
+            panel._apply_payload(payload, None, "token")
+            self.assertEqual(panel._artwork_mode, "still")
+            self.assertEqual(panel._poster.height(), 158)
+            panel.close()
+
+    def test_media_detail_panel_uses_landscape_placeholder_for_episode_selection_without_tmdb(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        preview = PreviewItem(
+            original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+            new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW",
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Review.Show.2024"),
+            media_info={"id": 102, "name": "Review Show", "year": "2024"},
+            preview_items=[preview],
+            scanned=True,
+            confidence=0.42,
+        )
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        panel.set_selection(state, preview=preview)
+
+        self.assertEqual(panel._artwork_mode, "still")
+        self.assertEqual(panel._poster.height(), 158)
+        self.assertIsNotNone(panel._poster.pixmap())
+        self.assertEqual(panel._poster.text(), "")
         panel.close()
 
     def test_settings_tab_async_api_key_test_updates_ui_via_bridge(self):
@@ -568,6 +739,9 @@ class QtSmokeTests(unittest.TestCase):
             queue_tab.refresh()
             history_tab.refresh()
 
+            self.assertEqual(queue_tab._content_splitter.orientation(), Qt.Orientation.Horizontal)
+            self.assertEqual(history_tab._content_splitter.orientation(), Qt.Orientation.Horizontal)
+
             self.assertEqual(queue_tab._model.rowCount(), 1)
             self.assertEqual(history_tab._model.rowCount(), 1)
             self.assertEqual(queue_tab._proxy.rowCount(), 1)
@@ -599,6 +773,62 @@ class QtSmokeTests(unittest.TestCase):
 
             queue_tab.close()
             history_tab.close()
+            store.close()
+
+    def test_queue_tab_context_menu_exposes_queue_and_folder_actions(self):
+        from PySide6.QtWidgets import QMenu
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import JobStore, RenameJob, RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp)
+            (library_root / "Show").mkdir()
+            store = JobStore(db_path=library_root / "jobs.db")
+            controller = QueueController(store)
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Show",
+                media_type="tv",
+                media_name="Example Show",
+                tmdb_id=123,
+                status=JobStatus.PENDING,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Show/Example Show - 001.mkv",
+                        new_name="Example Show - S01E01.mkv",
+                        target_dir_relative="Show/Season 01",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+            controller.job_store.add_job(job)
+
+            queue_tab = QueueTab(controller)
+            queue_tab.refresh()
+            queue_tab.select_job(job.job_id)
+            queue_tab._master_check.click()
+            self._app.processEvents()
+
+            menu = QMenu()
+            queue_tab._populate_context_menu(menu, queue_tab._focused_job(), queue_tab._selected_jobs())
+            action_text = [action.text() for action in menu.actions() if not action.isSeparator()]
+
+            self.assertEqual(
+                action_text,
+                [
+                    "Run Checked",
+                    "Remove Checked",
+                    "Move Checked Up",
+                    "Move Checked Down",
+                    "Open Source Folder",
+                    "Open Target Folder",
+                ],
+            )
+
+            queue_tab.close()
+            menu.close()
             store.close()
 
     def test_media_workspace_roster_master_checkbox_controls_eligible_states(self):
@@ -1339,6 +1569,115 @@ class QtSmokeTests(unittest.TestCase):
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
             self.assertEqual(row_widget._confidence._color.name(), "#777777")
+
+            workspace.close()
+
+    def test_media_workspace_roster_rows_use_placeholder_thumbnail_without_poster(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            state = ScanState(
+                folder=Path("C:/library/tv/Example.Show.2024.Source"),
+                media_info={"id": 101, "name": "Example Show", "year": "2024"},
+                preview_items=[],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+                tmdb_provider=lambda: None,
+            )
+            workspace.show_ready()
+
+            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
+            self.assertIsInstance(row_widget, _RosterRowWidget)
+            self.assertIsNotNone(row_widget._poster.pixmap())
+            self.assertEqual(row_widget._poster.text(), "")
+
+            workspace.close()
+
+    def test_media_workspace_shows_threshold_aware_roster_match_text(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            settings.auto_accept_threshold = 0.6
+            review_state = ScanState(
+                folder=Path("C:/library/tv/Review.Show.2024"),
+                media_info={"id": 102, "name": "Review Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="REVIEW",
+                    )
+                ],
+                scanned=True,
+                confidence=0.42,
+                alternate_matches=[{"id": 202, "name": "Review Show", "year": "2024"}],
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [review_state]
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=0)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
+            self.assertIsInstance(row_widget, _RosterRowWidget)
+            self.assertIn("below 60% threshold", row_widget._meta.text())
+            self.assertEqual(row_widget._status.text(), "NEEDS REVIEW")
 
             workspace.close()
 

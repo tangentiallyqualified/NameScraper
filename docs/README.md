@@ -23,6 +23,8 @@ Use this file for:
 
 This is the primary source of truth for `dev/GUI3` migration progress.
 
+Updated 2026-04-01 with a nightly progress note covering completion of the April 1 trust, selection, queue/history, and media-clarity implementation pass.
+
 ### [gui3-pyside6-ui-design.md](gui3-pyside6-ui-design.md)
 
 The design and interaction reference for the Qt shell.
@@ -35,6 +37,8 @@ Use this file for:
 - component expectations
 - interaction principles
 
+Updated 2026-04-01 with an implementation-status section so the design intent and shipped GUI3 behavior stay aligned.
+
 ---
 
 ## Audits
@@ -43,7 +47,7 @@ Use this file for:
 
 Parity audit of the Qt shell vs tkinter, with addenda tracking resolution of findings.
 
-Updated 2026-03-30 with a full code review addendum. The audit now concludes that the Qt shell has reached functional parity with tkinter, with one remaining must-fix bug (MatchPickerDialog UI-thread blocking). See the March 30 addendum for the updated assessment and tkinter retirement recommendation.
+Updated 2026-04-01 with an additional addendum covering the queue/history operational pass and the latest media-clarity work. The audit still treats the MatchPickerDialog UI-thread blocking issue as the remaining retirement blocker.
 
 ### [scan-improvement-plan.md](scan-improvement-plan.md)
 

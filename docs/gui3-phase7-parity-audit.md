@@ -353,3 +353,26 @@ The Phase 7 exit criteria — where tkinter is no longer the safer operational c
 1. **Fix the MatchPickerDialog UI-thread blocking bug** — this is the only remaining retirement blocker.
 2. **Phase 9 cleanup** — dead code, code duplication, inline styles, cache bounds, and toast limits as documented in the migration plan.
 3. **GUI flow improvements** — button placement disambiguation, keyboard shortcuts, toolbar restructuring, and other UX refinements documented in the migration plan's post-Phase 9 section.
+
+## April 1 2026 Night Addendum — Priority Reset Follow-Through
+
+The April 1 implementation pass materially closed the queue/history and media-clarity gaps that were still open in the design documents.
+
+### Additional progress now visible on `dev/GUI3`
+
+1. Queue and history now use a persistent split layout with job detail on the left and operational lists on the right, which is closer to the intended GUI3 workflow than the earlier stacked presentation.
+2. Queue/history bulk actions are now available from right-click menus in addition to the toolbar, including open-folder actions for the currently focused job.
+3. Job detail now shows folder rename plans and a fuller rename preview instead of only a short summary.
+4. TV detail now prefers episode still artwork when available and uses a shorter landscape treatment for episode selections, which materially improves the usefulness of the context below the image.
+5. Threshold-driven match language is now explicit in both roster and detail surfaces, so low-confidence matches no longer present as a bare percentage without context.
+6. Placeholder artwork and sharper roster poster handling are now in place, reducing the remaining “raw fallback” feel in media surfaces.
+
+### What this changes in the assessment
+
+1. The remaining design-doc gaps are no longer concentrated in queue/history operational usability.
+2. Media-clarity work has moved from a structural gap to mostly polish-level follow-up.
+3. The Qt shell is further ahead on day-to-day usability than the March 30 review captured, even though the core retirement recommendation is unchanged.
+
+### Recommendation after this addendum
+
+The practical retirement blocker remains the same: fix the `MatchPickerDialog` UI-thread blocking bug first. After that, the remaining work is primarily cleanup, deeper correction workflows, and polish rather than missing core operational surfaces.

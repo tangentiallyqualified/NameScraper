@@ -919,3 +919,15 @@ Phase alignment:
 4. **Phase 6** should finish the detail/rematch parts of Priorities 1, 4, and 5.
 
 Each phase should still be usable independently, but the order above controls what gets attention first within each phase.
+
+## Implementation Status — April 1, 2026 (Night)
+
+Current working-tree status against the priorities above:
+
+1. **Priority 1 is implemented**: threshold changes affect live review behavior, manual rematch approval is reflected immediately, and bursty queue success feedback is aggregated.
+2. **Priority 2 is implemented**: roster, queue, and history all use checkbox-driven bulk selection with tri-state master controls and focus separated from bulk actions.
+3. **Priority 3 is substantially implemented**: queue/history now run in a detail-left, list-right split layout with right-click actions, open-folder actions, and richer rename preview in the job detail pane.
+4. **Priority 4 is largely implemented**: the TV detail panel now uses episode stills when available, episode selections use a shorter landscape artwork frame, match language is threshold-aware, and placeholder artwork / sharper roster poster rendering are in place.
+5. **Priority 5 is still the main remaining implementation block**: deeper per-file reassignment and unmatched-to-episode correction flows have not been built yet.
+
+This means the design is no longer blocked on the queue/history interaction model. The next implementation emphasis should shift from operational trust to deeper correction workflows plus any remaining poster-surface polish.

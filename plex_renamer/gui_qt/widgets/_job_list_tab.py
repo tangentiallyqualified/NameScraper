@@ -12,7 +12,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QPushButton,
+    QSplitter,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -71,6 +73,7 @@ class _JobListTab(QWidget):
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
         self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         for column in (0, 1, 3, 4, 5, 6):
             self._table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
@@ -91,15 +94,29 @@ class _JobListTab(QWidget):
         self._selection_bar_layout.addWidget(self._selection_status)
         self._selection_bar_layout.addStretch()
 
-        self._root.addWidget(self._selection_bar)
-        self._root.addWidget(self._table, stretch=1)
-
         self._detail = JobDetailPanel(
             tmdb_provider=tmdb_provider,
             persist_poster_path=self._queue_ctrl.set_job_poster_path,
         )
-        self._root.addWidget(self._detail)
+        self._detail.setProperty("cssClass", "panel")
+        self._content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._content_splitter.setChildrenCollapsible(False)
+        self._content_splitter.addWidget(self._detail)
+
+        self._list_pane = QFrame()
+        self._list_pane.setProperty("cssClass", "panel")
+        self._list_layout = QVBoxLayout(self._list_pane)
+        self._list_layout.setContentsMargins(12, 12, 12, 12)
+        self._list_layout.setSpacing(8)
+        self._list_layout.addWidget(self._selection_bar)
+        self._content_splitter.addWidget(self._list_pane)
+        self._content_splitter.setStretchFactor(0, 0)
+        self._content_splitter.setStretchFactor(1, 1)
+        self._content_splitter.setSizes([400, 860])
+        self._root.addWidget(self._content_splitter, stretch=1)
+
         self._table.clicked.connect(self._on_table_clicked)
+        self._table.customContextMenuRequested.connect(self._show_context_menu)
         self._table.selectionModel().currentRowChanged.connect(self._on_current_row_changed)
         self._model.dataChanged.connect(self._on_checked_jobs_changed)
         self._model.modelReset.connect(self._sync_selection_widgets)
@@ -120,7 +137,10 @@ class _JobListTab(QWidget):
         self._toolbar_layout.addWidget(refresh_btn)
 
     def _insert_panel_before_detail(self, widget: QWidget) -> None:
-        self._root.insertWidget(self._root.count() - 1, widget)
+        self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
+
+    def _finish_list_pane(self) -> None:
+        self._list_layout.addWidget(self._table, stretch=1)
 
     def select_job(self, job_id: str) -> None:
         for row, job in enumerate(self._model.jobs()):
@@ -230,6 +250,35 @@ class _JobListTab(QWidget):
                 self._master_check.setCheckState(Qt.CheckState.PartiallyChecked)
         finally:
             self._master_check_syncing = False
+
+    def _show_context_menu(self, pos) -> None:
+        index = self._table.indexAt(pos)
+        if index.isValid():
+            current_index = self._proxy.index(index.row(), 0)
+            self._table.selectionModel().setCurrentIndex(
+                current_index,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows,
+            )
+        focused = self._focused_job()
+        if focused is None:
+            return
+        menu = QMenu(self)
+        self._populate_context_menu(menu, focused, self._selected_jobs())
+        if not menu.actions():
+            return
+        menu.exec(self._table.viewport().mapToGlobal(pos))
+
+    def _add_folder_context_actions(self, menu: QMenu) -> None:
+        open_source = menu.addAction("Open Source Folder")
+        open_source.setEnabled(self._detail.can_open_source_folder())
+        open_source.triggered.connect(self._detail.open_source_folder)
+
+        open_target = menu.addAction("Open Target Folder")
+        open_target.setEnabled(self._detail.can_open_target_folder())
+        open_target.triggered.connect(self._detail.open_target_folder)
+
+    def _populate_context_menu(self, menu: QMenu, focused_job: RenameJob, checked_jobs: list[RenameJob]) -> None:
+        del menu, focused_job, checked_jobs
 
     def _update_job_controls(self) -> None:
         """Implemented by subclasses to refresh detail and button enabled states."""

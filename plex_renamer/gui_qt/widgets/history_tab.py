@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QMenu,
     QPushButton,
 )
 
@@ -87,6 +88,7 @@ class HistoryTab(_JobListTab):
         banner_layout.addWidget(self._cancel_revert_btn)
 
         self._insert_panel_before_detail(self._revert_banner)
+        self._finish_list_pane()
         self.refresh()
 
     def refresh(self) -> None:
@@ -122,6 +124,17 @@ class HistoryTab(_JobListTab):
             self._detail.set_job(focused)
         can_revert = any(job.status == JobStatus.COMPLETED and job.undo_data for job in jobs)
         self._revert_btn.setEnabled(can_revert)
+
+    def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
+        can_revert = any(job.status == JobStatus.COMPLETED and job.undo_data for job in checked_jobs)
+
+        revert_action = menu.addAction("Revert Checked")
+        revert_action.setEnabled(can_revert)
+        revert_action.triggered.connect(self._revert_selected)
+
+        menu.addSeparator()
+        self._add_folder_context_actions(menu)
+        del focused_job
 
     def _revert_selected(self) -> None:
         jobs = [job for job in self._selected_jobs() if job.status == JobStatus.COMPLETED and job.undo_data]

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePol
 
 from ...engine import PreviewItem, ScanState
 from ._formatting import clamped_percent
-from ._image_utils import pil_to_raw, raw_to_pixmap
+from ._image_utils import build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
 
 
 def _format_rating(vote_average: float | None, vote_count: int = 0) -> str:
@@ -43,10 +43,38 @@ def _state_media_type(state: ScanState) -> str:
     return "movie" if state.media_info.get("title") else "tv"
 
 
+def _auto_accept_threshold(settings) -> float:
+    if settings is None:
+        return 0.55
+    return settings.auto_accept_threshold
+
+
+def _state_match_summary(state: ScanState, threshold: float) -> str:
+    pct = f"{clamped_percent(state.confidence)}%"
+    threshold_text = f"{clamped_percent(threshold)}%"
+    if state.show_id is None:
+        return "No confirmed TMDB match"
+    if state.duplicate_of is not None:
+        return f"{pct} confidence · duplicate match"
+    if state.match_origin == "manual" and not state.needs_review:
+        return f"{pct} confidence · manually approved"
+    if state.needs_review:
+        return f"{pct} confidence · below {threshold_text} threshold"
+    return f"{pct} confidence · clears {threshold_text} threshold"
+
+
+def _selection_artwork_mode(preview: PreviewItem | None) -> str:
+    if preview is not None and preview.season is not None and preview.episodes:
+        return "still"
+    return "poster"
+
+
 class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
     _MAX_METADATA_CACHE_ENTRIES = 64
+    _PORTRAIT_ARTWORK_SIZE = QSize(220, 340)
+    _LANDSCAPE_ARTWORK_SIZE = QSize(280, 158)
 
     def __init__(
         self,
@@ -59,6 +87,7 @@ class MediaDetailPanel(QFrame):
         self._settings = settings_service
         self._current_token = ""
         self._poster_pixmap: QPixmap | None = None
+        self._artwork_mode = "poster"
         self._current_state: ScanState | None = None
         self._current_preview: PreviewItem | None = None
         self._current_queue_reason = ""
@@ -80,8 +109,7 @@ class MediaDetailPanel(QFrame):
 
         self._poster = QLabel("No Poster")
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._poster.setFixedHeight(340)
-        self._poster.setMinimumWidth(220)
+        self._set_artwork_mode("poster")
         self._poster.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._poster.setProperty("cssClass", "media-poster")
         poster_layout.addWidget(self._poster)
@@ -149,8 +177,8 @@ class MediaDetailPanel(QFrame):
         self._current_queue_reason = ""
         self._current_folder_plan = ""
         self._poster_pixmap = None
-        self._poster.setPixmap(QPixmap())
-        self._poster.setText("No Poster")
+        self._set_artwork_mode("poster")
+        self._show_artwork_placeholder()
         self._title.setText("Selection")
         self._subtitle.setText(text)
         for key_label, value_label in self._meta_rows:
@@ -185,22 +213,22 @@ class MediaDetailPanel(QFrame):
         tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
         if tmdb is None or not state.show_id:
             self._poster_pixmap = None
+            self._set_artwork_mode(_selection_artwork_mode(preview))
             self._overview.setText("")
             self._extra.setText("")
             self._subtitle.setText(queue_reason or "TMDB metadata unavailable.")
-            self._poster.setPixmap(QPixmap())
-            self._poster.setText("No Poster")
+            self._show_artwork_placeholder(state.display_name)
             self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
             return
 
         preview_pending = state.scanning or (not state.scanned and preview is None and not state.preview_items)
         if preview_pending:
             self._poster_pixmap = None
+            self._set_artwork_mode(_selection_artwork_mode(preview))
             self._overview.setText("")
             self._extra.setText("")
             self._subtitle.setText("Preview is still loading...")
-            self._poster.setPixmap(QPixmap())
-            self._poster.setText("No Poster")
+            self._show_artwork_placeholder(state.display_name)
             self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
             return
 
@@ -244,10 +272,11 @@ class MediaDetailPanel(QFrame):
         queue_reason: str,
         folder_plan: str,
     ) -> list[tuple[str, str]]:
+        threshold = _auto_accept_threshold(self._settings)
         rows = [("Queue", queue_reason)] if queue_reason else []
         if folder_plan:
             rows.append(("Folder", folder_plan))
-        rows.append(("Confidence", f"{clamped_percent(state.confidence)}%"))
+        rows.append(("Match", _state_match_summary(state, threshold)))
         if preview is not None:
             rows.append(("File", preview.original.name))
             rows.append(("Status", preview.status))
@@ -255,6 +284,7 @@ class MediaDetailPanel(QFrame):
 
     def _build_payload(self, tmdb, state: ScanState, preview: PreviewItem | None, queue_reason: str, folder_plan: str):
         media_type = _state_media_type(state)
+        threshold = _auto_accept_threshold(self._settings)
         details = (
             tmdb.get_movie_details(state.show_id)
             if media_type == "movie"
@@ -266,11 +296,13 @@ class MediaDetailPanel(QFrame):
         if preview is not None and preview.season is not None and preview.episodes and state.scanner is not None:
             season_num = preview.season
             episode_meta = state.scanner.episode_meta.get((preview.season, preview.episodes[0]))
+        ep_still = episode_meta.get("still_path") if episode_meta else None
 
         image = tmdb.fetch_poster(
             state.show_id,
             media_type=media_type,
             season=season_num,
+            ep_still=ep_still,
             target_width=280,
         )
         raw_image = pil_to_raw(image) if image is not None else None
@@ -308,7 +340,7 @@ class MediaDetailPanel(QFrame):
             if state.completeness is not None:
                 rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
 
-        rows.append(("Confidence", f"{clamped_percent(state.confidence)}%"))
+        rows.append(("Match", _state_match_summary(state, threshold)))
         if queue_reason:
             rows.append(("Queue", queue_reason))
         if folder_plan:
@@ -329,6 +361,8 @@ class MediaDetailPanel(QFrame):
 
         extra_lines = []
         if episode_meta:
+            if ep_still:
+                extra_lines.append("Artwork: episode still")
             if episode_meta.get("directors"):
                 extra_lines.append("Directors: " + ", ".join(episode_meta["directors"]))
             if episode_meta.get("writers"):
@@ -354,6 +388,7 @@ class MediaDetailPanel(QFrame):
                 "rows": rows,
                 "overview": overview,
                 "extra": "\n".join(extra_lines),
+                "artwork_mode": "still" if ep_still else "poster",
             },
             raw_image,
         )
@@ -388,11 +423,12 @@ class MediaDetailPanel(QFrame):
         self._subtitle.setText(payload.get("subtitle", ""))
         self._overview.setText(payload.get("overview", ""))
         self._extra.setText(payload.get("extra", ""))
+        self._set_artwork_mode(payload.get("artwork_mode", "poster"))
         self._set_meta_rows(payload.get("rows", []))
         if pixmap is None or pixmap.isNull():
             self._poster_pixmap = None
-            self._poster.setPixmap(QPixmap())
-            self._poster.setText("No Poster")
+            title = payload.get("title", "Selection")
+            self._show_artwork_placeholder(title)
         else:
             self._poster_pixmap = pixmap
             self._poster.setText("")
@@ -407,13 +443,40 @@ class MediaDetailPanel(QFrame):
             return
         target = self._poster.contentsRect().size()
         if not target.isValid():
-            target = QSize(220, 340)
+            target = self._LANDSCAPE_ARTWORK_SIZE if self._artwork_mode == "still" else self._PORTRAIT_ARTWORK_SIZE
         scaled = self._poster_pixmap.scaled(
             target,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
         self._poster.setPixmap(scaled)
+
+    def _set_artwork_mode(self, mode: str) -> None:
+        normalized = "still" if mode == "still" else "poster"
+        self._artwork_mode = normalized
+        size = self._LANDSCAPE_ARTWORK_SIZE if normalized == "still" else self._PORTRAIT_ARTWORK_SIZE
+        self._poster.setMinimumWidth(size.width())
+        self._poster.setFixedHeight(size.height())
+
+    def _artwork_placeholder_text(self) -> str:
+        return "No Episode Image" if self._artwork_mode == "still" else "No Poster"
+
+    def _show_artwork_placeholder(self, label: str = "") -> None:
+        self._poster_pixmap = None
+        subtitle = self._artwork_placeholder_text()
+        title = "EPISODE" if self._artwork_mode == "still" else (label or "TMDB")
+        if self._artwork_mode != "still" and label:
+            title = label.split(" (", 1)[0]
+        placeholder = build_placeholder_pixmap(
+            self._poster.size() if self._poster.size().isValid() else (
+                self._LANDSCAPE_ARTWORK_SIZE if self._artwork_mode == "still" else self._PORTRAIT_ARTWORK_SIZE
+            ),
+            title=title,
+            subtitle=subtitle,
+            accent="#4a9eda" if self._artwork_mode == "still" else "#e5a00d",
+        )
+        self._poster.setPixmap(placeholder)
+        self._poster.setText("")
 
     def _set_meta_rows(self, rows: list[tuple[str, str]]) -> None:
         for row_index, (key_label, value_label) in enumerate(self._meta_rows):

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QMessageBox,
+    QMenu,
     QPushButton,
     QWidget,
 )
@@ -100,6 +101,7 @@ class QueueTab(_JobListTab):
 
         actions_layout.addStretch()
         self._insert_panel_before_detail(actions)
+        self._finish_list_pane()
 
         self.refresh()
 
@@ -137,6 +139,30 @@ class QueueTab(_JobListTab):
         self._move_up_btn.setEnabled(has_pending)
         self._move_down_btn.setEnabled(has_pending)
         self._execute_btn.setEnabled(can_execute)
+
+    def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
+        has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
+        can_execute = len(checked_jobs) == 1 and checked_jobs[0].status == JobStatus.PENDING
+
+        execute_action = menu.addAction("Run Checked")
+        execute_action.setEnabled(can_execute)
+        execute_action.triggered.connect(self._execute_selected)
+
+        remove_action = menu.addAction("Remove Checked")
+        remove_action.setEnabled(has_pending)
+        remove_action.triggered.connect(self._remove_selected)
+
+        move_up_action = menu.addAction("Move Checked Up")
+        move_up_action.setEnabled(has_pending)
+        move_up_action.triggered.connect(lambda: self._move_selected(-1))
+
+        move_down_action = menu.addAction("Move Checked Down")
+        move_down_action.setEnabled(has_pending)
+        move_down_action.triggered.connect(lambda: self._move_selected(1))
+
+        menu.addSeparator()
+        self._add_folder_context_actions(menu)
+        del focused_job
 
     def _toggle_queue(self) -> None:
         if self._queue_ctrl.is_running:

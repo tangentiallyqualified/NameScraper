@@ -12,7 +12,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -36,7 +36,7 @@ from ...parsing import clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ...app.services.command_gating_service import CommandGatingService
 from ._formatting import clamped_percent, percent_text
-from ._image_utils import pil_to_raw, raw_to_pixmap
+from ._image_utils import build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
 from .media_detail_panel import MediaDetailPanel
 from .empty_state import EmptyStateWidget
 from .match_picker_dialog import MatchPickerDialog
@@ -97,7 +97,7 @@ class MediaWorkspace(QWidget):
         self._settings = settings_service
         self._roster_syncing = False
         self._preview_syncing = False
-        self._roster_poster_cache: OrderedDict[tuple[str, int], QIcon] = OrderedDict()
+        self._roster_poster_cache: OrderedDict[tuple[str, int], QPixmap] = OrderedDict()
         self._poster_inflight: set[tuple[str, int]] = set()
         self._preview_group_state: dict[str, set[int]] = {}
         self._roster_master_syncing = False
@@ -916,7 +916,7 @@ class MediaWorkspace(QWidget):
             self._roster_poster_cache.move_to_end(key)
             widget = self._roster_list.itemWidget(item)
             if isinstance(widget, _RosterRowWidget):
-                widget.set_poster(cached.pixmap(self._roster_list.iconSize()))
+                widget.set_poster(cached)
             return
 
         # Skip if a fetch for this key is already in flight.
@@ -929,7 +929,7 @@ class MediaWorkspace(QWidget):
 
         def _worker() -> None:
             try:
-                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=42)
+                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=84)
                 if image is None:
                     return
                 self._poster_bridge.poster_ready.emit(key, pil_to_raw(image))
@@ -942,8 +942,7 @@ class MediaWorkspace(QWidget):
         pixmap = raw_to_pixmap(raw_data)
         if pixmap.isNull():
             return
-        icon = QIcon(pixmap)
-        self._roster_poster_cache[key] = icon
+        self._roster_poster_cache[key] = pixmap
         self._roster_poster_cache.move_to_end(key)
         while len(self._roster_poster_cache) > _MAX_ROSTER_POSTER_CACHE:
             self._roster_poster_cache.popitem(last=False)
@@ -964,6 +963,7 @@ class MediaWorkspace(QWidget):
             state,
             compact=compact,
             media_type=self._media_type,
+            auto_accept_threshold=_auto_accept_threshold(self._settings),
             checkable=_is_state_queue_approvable(state, media_type=self._media_type),
             parent=self._roster_list,
         )
@@ -979,7 +979,7 @@ class MediaWorkspace(QWidget):
         self._roster_list.setItemWidget(item, widget)
         key = item.data(Qt.ItemDataRole.UserRole + 2)
         if key in self._roster_poster_cache:
-            widget.set_poster(self._roster_poster_cache[key].pixmap(self._roster_list.iconSize()))
+            widget.set_poster(self._roster_poster_cache[key])
 
     def _attach_preview_widget(self, item: QListWidgetItem, state: ScanState, index: int, preview: PreviewItem) -> None:
         compact = self._settings is not None and self._settings.view_mode == "compact"
@@ -1159,6 +1159,7 @@ class _RosterRowWidget(_ClickableRow):
         *,
         compact: bool,
         media_type: str,
+        auto_accept_threshold: float,
         checkable: bool,
         parent: QWidget | None = None,
     ) -> None:
@@ -1168,12 +1169,15 @@ class _RosterRowWidget(_ClickableRow):
         self._state = state
         self._compact = compact
         self._media_type = media_type
+        self._auto_accept_threshold = auto_accept_threshold
         self._selected = False
         self._pending_alternate: dict | None = None
         self._poster = QLabel()
-        self._poster.setFixedSize(30, 44) if compact else self._poster.setFixedSize(36, 52)
+        self._poster_size = QSize(30, 44) if compact else QSize(36, 52)
+        self._poster.setFixedSize(self._poster_size)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._poster.setText("No Poster" if not compact else "")
+        if not compact:
+            self._apply_placeholder_poster()
         self._poster.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QHBoxLayout(self)
@@ -1213,7 +1217,7 @@ class _RosterRowWidget(_ClickableRow):
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
         if state.show_id is not None:
-            meta_parts.append(f"{percent_text(state.confidence)} match")
+            meta_parts.append(_state_match_summary(state, auto_accept_threshold))
         self._meta = QLabel(" · ".join(meta_parts))
         self._meta.setProperty("cssClass", "caption")
         self._meta.setWordWrap(True)
@@ -1284,6 +1288,8 @@ class _RosterRowWidget(_ClickableRow):
 
     def set_poster(self, pixmap: QPixmap) -> None:
         if self._compact or pixmap.isNull():
+            if not self._compact:
+                self._apply_placeholder_poster()
             return
         self._poster.setText("")
         self._poster.setPixmap(
@@ -1293,6 +1299,17 @@ class _RosterRowWidget(_ClickableRow):
                 Qt.TransformationMode.SmoothTransformation,
             )
         )
+
+    def _apply_placeholder_poster(self) -> None:
+        title = _placeholder_initials(self._state.display_name)
+        placeholder = build_placeholder_pixmap(
+            self._poster_size,
+            title=title,
+            subtitle="",
+            accent=_state_status(self._state)[1].name(),
+        )
+        self._poster.setPixmap(placeholder)
+        self._poster.setText("")
 
     def _apply_style(self) -> None:
         self.setProperty("band", _confidence_band(self._state.confidence, state=self._state))
@@ -1575,6 +1592,13 @@ def _match_label(match: dict, *, media_type: str) -> str:
     return f"{title} ({year})" if year else title
 
 
+def _placeholder_initials(text: str) -> str:
+    parts = [part[0] for part in text.replace("(", " ").replace(")", " ").split() if part]
+    if not parts:
+        return "TM"
+    return "".join(parts[:2]).upper()
+
+
 def _state_status(state: ScanState) -> tuple[str, QColor]:
     if state.queued:
         return "Queued", QColor("#4a9eda")
@@ -1586,9 +1610,29 @@ def _state_status(state: ScanState) -> tuple[str, QColor]:
         return "Unmatched", QColor("#d44040")
     if state.needs_review:
         return "Needs Review", QColor("#e5a00d")
+    if state.match_origin == "manual":
+        return "Approved", QColor("#4a9eda")
     if _is_plex_ready_state(state):
         return "Plex Ready", QColor("#3ea463")
     return "Matched", QColor("#4a9eda")
+
+
+def _auto_accept_threshold(settings) -> float:
+    if settings is None:
+        return 0.55
+    return settings.auto_accept_threshold
+
+
+def _state_match_summary(state: ScanState, threshold: float) -> str:
+    pct = percent_text(state.confidence)
+    threshold_text = percent_text(threshold)
+    if state.duplicate_of is not None:
+        return f"{pct} confidence · duplicate match"
+    if state.match_origin == "manual" and not state.needs_review:
+        return f"{pct} confidence · manually approved"
+    if state.needs_review:
+        return f"{pct} confidence · below {threshold_text} threshold"
+    return f"{pct} confidence · clears {threshold_text} threshold"
 
 
 def _roster_group(state: ScanState) -> str:

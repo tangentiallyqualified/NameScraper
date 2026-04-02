@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
 
 
 def pil_to_raw(pil_image) -> tuple[bytes, int, int]:
@@ -16,3 +17,54 @@ def raw_to_pixmap(raw_data: tuple[bytes, int, int]) -> QPixmap:
     data, width, height = raw_data
     qimage = QImage(data, width, height, 4 * width, QImage.Format.Format_RGBA8888)
     return QPixmap.fromImage(qimage)
+
+
+def build_placeholder_pixmap(
+    size: QSize,
+    *,
+    title: str,
+    subtitle: str = "",
+    accent: str = "#e5a00d",
+) -> QPixmap:
+    """Create a styled placeholder artwork card for empty poster slots."""
+    width = max(1, size.width())
+    height = max(1, size.height())
+    pixmap = QPixmap(width, height)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+    rect = QRectF(1, 1, width - 2, height - 2)
+    path = QPainterPath()
+    path.addRoundedRect(rect, 10, 10)
+
+    gradient = QLinearGradient(0, 0, 0, float(height))
+    gradient.setColorAt(0.0, QColor("#262626"))
+    gradient.setColorAt(1.0, QColor("#151515"))
+    painter.fillPath(path, gradient)
+
+    painter.setPen(QColor("#2a2a2a"))
+    painter.drawPath(path)
+
+    accent_rect = QRectF(rect.left() + 8, rect.top() + 8, 4, max(20.0, rect.height() * 0.35))
+    accent_path = QPainterPath()
+    accent_path.addRoundedRect(accent_rect, 2, 2)
+    painter.fillPath(accent_path, QColor(accent))
+
+    painter.setPen(QColor("#e0e0e0"))
+    title_font = QFont("Segoe UI", max(8, min(18, height // 7)))
+    title_font.setBold(True)
+    painter.setFont(title_font)
+    text_rect = QRectF(rect.left() + 20, rect.top() + 16, rect.width() - 28, rect.height() - 32)
+    painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), title)
+
+    if subtitle:
+        subtitle_font = QFont("Segoe UI", max(7, min(11, height // 11)))
+        painter.setFont(subtitle_font)
+        painter.setPen(QColor("#777777"))
+        subtitle_rect = QRectF(text_rect.left(), text_rect.top() + max(18.0, rect.height() * 0.28), text_rect.width(), text_rect.height() - 18)
+        painter.drawText(subtitle_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), subtitle)
+
+    painter.end()
+    return pixmap

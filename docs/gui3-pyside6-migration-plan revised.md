@@ -943,6 +943,28 @@ The next implementation pass should be sequenced by operational trust first, the
 2. Allow unmatched files in TV folders to be matched to specific episodes.
 3. Add better duplicate resolution paths, including keep-both or second-copy handling where safe.
 
+## Progress Update — April 1, 2026 (Night)
+
+The current `dev/GUI3` working tree has completed or substantially completed the first four priorities from the April 1 reset.
+
+Delivered in this pass:
+
+1. **Priority 1 is complete**: the confidence threshold now drives live review semantics, manual rematch approval clears `Needs Review` immediately, and rapid success notifications aggregate during queue runs.
+2. **Priority 2 is complete**: roster, queue, and history now use explicit checkbox-driven bulk selection with tri-state master checkboxes and a clean separation between focused row and bulk-action membership.
+3. **Priority 3 is substantially complete**: queue and history now use a persistent split layout with job detail at the left, list operations at the right, right-click operational menus, open-folder actions, richer rename preview, and corrected queue/history panel framing.
+4. **Priority 4 is largely complete**: TV detail now prefers episode still artwork when available, match language is threshold-aware in both roster and detail, roster posters use sharper cached pixmaps, and placeholder artwork is now intentional rather than raw fallback text. Episode selections in detail also use a shorter landscape artwork frame to leave more room for context.
+
+Remaining recommended work:
+
+1. **Priority 5** remains the main unfinished implementation block.
+2. Media-clarity follow-up is now polish-level rather than trust-level: preview-adjacent still treatment, poster-hero styling, and any remaining artwork consistency cleanup.
+3. The `MatchPickerDialog` UI-thread blocking bug remains a separate retirement blocker called out in the Phase 7 audit.
+
+Validation completed during this pass:
+
+1. Targeted Qt smoke coverage passed for the queue/history split shell, context actions, folder actions, and richer job detail preview.
+2. Targeted Qt smoke coverage passed for threshold-aware match language, episode-still detail artwork, landscape episode placeholders, and roster placeholder thumbnails.
+
 ### Phase mapping for the next pass
 
 1. Start with Priority 1 items across current Phase 4-6 surfaces.
