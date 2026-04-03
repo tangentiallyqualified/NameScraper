@@ -1326,7 +1326,7 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 10.4 — Alternate match discovery indicator on roster cards (Workflow — Medium)
+#### ~~10.4 — Alternate match discovery indicator on roster cards (Workflow — Medium)~~ Implemented
 
 **Problem:** Alternate matches are only visible after clicking into a needs-review roster row. There is no signal on the roster card itself that alternatives exist. Users must click into every review item to discover whether alternatives are available.
 
@@ -1334,7 +1334,7 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 10.5 — Poster hero blur backdrop in detail panel (Visual — Medium)
+#### ~~10.5 — Poster hero blur backdrop in detail panel (Visual — Medium)~~ Implemented
 
 **Problem:** The design document calls for a blurred, darkened poster backdrop behind the detail panel metadata area (similar to Plex or Jellyfin). This is the single highest-visual-impact polish item and would make the detail panel feel like a media application rather than a data table.
 
@@ -1342,13 +1342,13 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
-#### 10.6 — Sticky season headers with progress bars in preview (Visual — Medium)
+#### ~~10.6 — Sticky season headers with progress bars in preview (Visual — Medium)~~ Implemented
 
 **Problem:** The design document specifies that season headers should pin to the top of the preview scroll area when scrolling past, with a thin progress bar showing the season match ratio. Currently headers are static group labels with no progress indicator.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 10.7 — Tab badge scale-pulse animation (Visual — Low)
+#### ~~10.7 — Tab badge scale-pulse animation (Visual — Low)~~ Implemented
 
 **Problem:** Tab badges update their count but do not animate on change. The design document calls for a brief scale-pulse (200ms to 1.15x and back) when the count changes.
 
@@ -1356,7 +1356,7 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/tab_badge.py`
 
-#### 10.8 — Toast auto-dismiss progress bar (Visual — Low)
+#### ~~10.8 — Toast auto-dismiss progress bar (Visual — Low)~~ Already implemented
 
 **Problem:** Toasts auto-dismiss after a timer, but there is no visual indicator of remaining time. The design document calls for a thin depleting progress bar at the toast bottom.
 
@@ -1378,13 +1378,13 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`
 
-#### 10.11 — Spacing normalization to 4px grid (Visual — Low)
+#### ~~10.11 — Spacing normalization to 4px grid (Visual — Low)~~ Implemented
 
 **Problem:** The theme establishes a 4px base grid, but some widget padding values are inconsistent (e.g. 10px preview row padding vs 8px roster row padding). A normalization pass would tighten the visual rhythm.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
-#### 10.12 — Empty state icon replacement (Visual — Low)
+#### ~~10.12 — Empty state icon replacement (Visual — Low)~~ Implemented
 
 **Problem:** The empty state folder picker uses an emoji instead of a proper icon. The design document calls for a Lucide `folder-open` icon at 64px. The emoji looks out of place in an otherwise icon-driven UI.
 

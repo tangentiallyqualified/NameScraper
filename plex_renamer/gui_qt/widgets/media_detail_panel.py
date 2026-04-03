@@ -7,7 +7,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
@@ -69,6 +69,61 @@ def _selection_artwork_mode(preview: PreviewItem | None) -> str:
     return "poster"
 
 
+def _blur_and_darken(source: QPixmap, radius: int = 12, darkness: float = 0.70) -> QPixmap:
+    """Return a blurred, darkened copy of *source* for backdrop use.
+
+    Uses a simple box-blur approximation by scaling down then back up,
+    then overlays a dark tint.  This avoids a dependency on
+    QGraphicsBlurEffect (which requires a scene/view) and is fast enough
+    for the single poster-sized image we need.
+    """
+    if source.isNull():
+        return QPixmap()
+    # Scale down to ~1/radius then back up for a fast blur approximation
+    w, h = source.width(), source.height()
+    tiny = source.scaled(
+        max(1, w // radius),
+        max(1, h // radius),
+        Qt.AspectRatioMode.IgnoreAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    blurred = tiny.scaled(w, h, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    # Darken with a semi-transparent overlay
+    result = QPixmap(blurred)
+    painter = QPainter(result)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceAtop)
+    painter.fillRect(result.rect(), QColor(0, 0, 0, int(255 * darkness)))
+    painter.end()
+    return result
+
+
+class _PosterHeroFrame(QFrame):
+    """Poster with an optional blurred backdrop that extends behind it."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._backdrop: QPixmap | None = None
+
+    def set_backdrop(self, source: QPixmap | None) -> None:
+        if source is None or source.isNull():
+            self._backdrop = None
+        else:
+            self._backdrop = _blur_and_darken(source)
+        self.update()
+
+    def clear_backdrop(self) -> None:
+        self._backdrop = None
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        if self._backdrop is not None and not self._backdrop.isNull():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            painter.drawPixmap(self.rect(), self._backdrop)
+            painter.end()
+        super().paintEvent(event)
+
+
 class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
@@ -102,8 +157,8 @@ class MediaDetailPanel(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        poster_frame = QFrame()
-        poster_layout = QVBoxLayout(poster_frame)
+        self._hero_frame = _PosterHeroFrame()
+        poster_layout = QVBoxLayout(self._hero_frame)
         poster_layout.setContentsMargins(0, 0, 0, 0)
         poster_layout.setSpacing(0)
 
@@ -113,7 +168,7 @@ class MediaDetailPanel(QFrame):
         self._poster.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._poster.setProperty("cssClass", "media-poster")
         poster_layout.addWidget(self._poster)
-        layout.addWidget(poster_frame, stretch=0)
+        layout.addWidget(self._hero_frame, stretch=0)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -440,6 +495,7 @@ class MediaDetailPanel(QFrame):
 
     def _render_poster(self) -> None:
         if self._poster_pixmap is None or self._poster_pixmap.isNull():
+            self._hero_frame.clear_backdrop()
             return
         target = self._poster.contentsRect().size()
         if not target.isValid():
@@ -450,6 +506,7 @@ class MediaDetailPanel(QFrame):
             Qt.TransformationMode.SmoothTransformation,
         )
         self._poster.setPixmap(scaled)
+        self._hero_frame.set_backdrop(self._poster_pixmap)
 
     def _set_artwork_mode(self, mode: str) -> None:
         normalized = "still" if mode == "still" else "poster"
@@ -463,6 +520,7 @@ class MediaDetailPanel(QFrame):
 
     def _show_artwork_placeholder(self, label: str = "") -> None:
         self._poster_pixmap = None
+        self._hero_frame.clear_backdrop()
         subtitle = self._artwork_placeholder_text()
         title = "EPISODE" if self._artwork_mode == "still" else (label or "TMDB")
         if self._artwork_mode != "still" and label:

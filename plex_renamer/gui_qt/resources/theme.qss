@@ -813,3 +813,15 @@ QGroupBox::title {
     padding: 0 8px;
     color: #e0e0e0;
 }
+
+
+/* ─── Sticky season header overlay ──────────────────────────────── */
+
+QLabel[cssClass="sticky-season-header"] {
+    background-color: rgba(42, 33, 16, 230);
+    color: #f0b429;
+    font-weight: bold;
+    font-size: 10pt;
+    padding: 4px 12px;
+    border-bottom: 1px solid #3a3a3a;
+}

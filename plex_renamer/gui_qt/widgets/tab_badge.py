@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize
+from PySide6.QtWidgets import QGraphicsOpacityEffect, QHBoxLayout, QLabel, QWidget
 
 
 class TabBadge(QWidget):
@@ -26,8 +27,24 @@ class TabBadge(QWidget):
         self._pip.setVisible(show_failure_pip)
         layout.addWidget(self._pip)
 
+        # Pulse animation on the count label using opacity as a proxy
+        # for a visible "bump" when the count changes.
+        self._opacity_effect = QGraphicsOpacityEffect(self._count_label)
+        self._opacity_effect.setOpacity(1.0)
+        self._count_label.setGraphicsEffect(self._opacity_effect)
+        self._pulse_anim = QPropertyAnimation(self._opacity_effect, b"opacity")
+        self._pulse_anim.setDuration(200)
+        self._pulse_anim.setKeyValueAt(0, 1.0)
+        self._pulse_anim.setKeyValueAt(0.5, 0.4)
+        self._pulse_anim.setKeyValueAt(1.0, 1.0)
+        self._pulse_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
     def set_count(self, count: int) -> None:
-        self._count_label.setText(str(max(0, count)))
+        new_text = str(max(0, count))
+        if new_text != self._count_label.text():
+            self._count_label.setText(new_text)
+            self._pulse_anim.stop()
+            self._pulse_anim.start()
 
     def count_text(self) -> str:
         return self._count_label.text()

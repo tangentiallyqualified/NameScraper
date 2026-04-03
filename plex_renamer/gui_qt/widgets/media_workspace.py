@@ -212,6 +212,14 @@ class MediaWorkspace(QWidget):
         self._preview_list.itemClicked.connect(self._on_preview_item_clicked)
         preview_layout.addWidget(self._preview_list, stretch=1)
 
+        # Sticky season header overlay (TV only)
+        self._sticky_header = QLabel()
+        self._sticky_header.setProperty("cssClass", "sticky-season-header")
+        self._sticky_header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self._sticky_header.hide()
+        self._sticky_header.setParent(self._preview_list)
+        self._preview_list.verticalScrollBar().valueChanged.connect(self._update_sticky_header)
+
         self._detail_panel = MediaDetailPanel(
             tmdb_provider=self._tmdb_provider,
             settings_service=self._settings,
@@ -637,8 +645,10 @@ class MediaWorkspace(QWidget):
                 key=lambda entry: (entry[0] is None, entry[0] or 0),
             ):
                 is_collapsed = season_num in collapsed
+                matched = sum(1 for i in indices if state.preview_items[i].status == "OK")
+                ratio_text = f" — {matched}/{len(indices)}"
                 header = _make_section_header(
-                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num),
+                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num) + ratio_text,
                     selectable=True,
                 )
                 header.setData(Qt.ItemDataRole.UserRole + 1, season_num)
@@ -699,6 +709,34 @@ class MediaWorkspace(QWidget):
         else:
             collapsed.add(season_num)
         self._populate_preview(state)
+
+    def _update_sticky_header(self) -> None:
+        """Show a floating season header at the top of the preview list when scrolled."""
+        if self._media_type != "tv" or self._preview_list.count() == 0:
+            self._sticky_header.hide()
+            return
+        # Find the topmost visible item; walk backwards to find its season header
+        top_item = self._preview_list.itemAt(4, 4)
+        if top_item is None:
+            self._sticky_header.hide()
+            return
+        top_row = self._preview_list.row(top_item)
+        header_text = ""
+        for row in range(top_row, -1, -1):
+            item = self._preview_list.item(row)
+            if item is not None and item.data(Qt.ItemDataRole.UserRole + 1) is not None:
+                header_text = item.text()
+                break
+        if not header_text or top_row == 0:
+            self._sticky_header.hide()
+            return
+        self._sticky_header.setText(header_text)
+        vp = self._preview_list.viewport()
+        self._sticky_header.setFixedWidth(vp.width())
+        self._sticky_header.setFixedHeight(30)
+        self._sticky_header.move(0, 0)
+        self._sticky_header.show()
+        self._sticky_header.raise_()
 
     def _on_preview_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         if self._preview_syncing:
@@ -1254,7 +1292,7 @@ class _RosterRowWidget(_ClickableRow):
         self._poster.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 7, 8, 7)
+        layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
         self._check = _ToggleSwitch(state.checked if checkable else False, self)
@@ -1291,6 +1329,9 @@ class _RosterRowWidget(_ClickableRow):
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
         if state.show_id is not None:
             meta_parts.append(_state_match_summary(state, auto_accept_threshold))
+        if state.needs_review and state.alternate_matches and not state.queued:
+            n_alts = min(len(state.alternate_matches), 2)
+            meta_parts.append(f"{n_alts} alternative{'s' if n_alts != 1 else ''}")
         self._meta = QLabel(" · ".join(meta_parts))
         self._meta.setProperty("cssClass", "caption")
         self._meta.setWordWrap(True)
@@ -1444,8 +1485,8 @@ class _PreviewRowWidget(_ClickableRow):
         self._selected = False
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         self._check = _ToggleSwitch(checked if preview.is_actionable and checkable else False, self)
         self._check.setVisible(preview.is_actionable and checkable)

@@ -9,14 +9,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QSizePolicy,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -122,10 +124,16 @@ class _DropZone(QFrame):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(12)
 
-        # Folder icon (text-based for now, icon set integration later)
-        icon_label = QLabel("\U0001F4C2")  # open folder emoji as placeholder
+        # Folder icon using Qt built-in style icon
+        icon_label = QLabel()
         icon_label.setProperty("cssClass", "drop-zone-icon")
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        style = QApplication.style()
+        if style is not None:
+            folder_icon = style.standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+            icon_label.setPixmap(folder_icon.pixmap(QSize(48, 48)))
+        else:
+            icon_label.setText("\U0001F4C2")
         layout.addWidget(icon_label)
 
         title = "Select TV Library Folder" if media_type == "tv" else "Select Movie Folder"
