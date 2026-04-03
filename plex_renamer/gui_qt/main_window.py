@@ -18,11 +18,14 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
+    QLineEdit,
     QMainWindow,
     QMenuBar,
     QMessageBox,
     QTabBar,
     QTabWidget,
+    QTextEdit,
 )
 
 from ..app.models import ScanLifecycle, ScanProgress
@@ -459,6 +462,36 @@ class MainWindow(QMainWindow):
         queue_checked.triggered.connect(self._queue_checked_from_shortcut)
         self.addAction(queue_checked)
 
+        # Space — toggle checkbox on focused roster item
+        toggle_check = QAction(self)
+        toggle_check.setShortcut(QKeySequence(Qt.Key.Key_Space))
+        toggle_check.triggered.connect(self._toggle_focused_check)
+        self.addAction(toggle_check)
+
+        # Escape — cancel scan or dismiss topmost toast
+        escape_action = QAction(self)
+        escape_action.setShortcut(QKeySequence(Qt.Key.Key_Escape))
+        escape_action.triggered.connect(self._on_escape)
+        self.addAction(escape_action)
+
+        # F5 — force rematch on selected roster item
+        force_rematch = QAction(self)
+        force_rematch.setShortcut(QKeySequence(Qt.Key.Key_F5))
+        force_rematch.triggered.connect(self._force_rematch_from_shortcut)
+        self.addAction(force_rematch)
+
+        # Delete — remove checked pending queue jobs
+        delete_action = QAction(self)
+        delete_action.setShortcut(QKeySequence(Qt.Key.Key_Delete))
+        delete_action.triggered.connect(self._delete_from_shortcut)
+        self.addAction(delete_action)
+
+        # Enter — execute focused pending queue job
+        enter_action = QAction(self)
+        enter_action.setShortcut(QKeySequence(Qt.Key.Key_Return))
+        enter_action.triggered.connect(self._enter_from_shortcut)
+        self.addAction(enter_action)
+
     # ── Folder selection → controller scan ───────────────────────
 
     def _on_tv_folder_selected(self, path: str) -> None:
@@ -504,6 +537,46 @@ class MainWindow(QMainWindow):
         workspace = self._active_media_workspace_for_shortcuts()
         if workspace is not None:
             workspace.queue_checked()
+
+    @staticmethod
+    def _text_input_focused() -> bool:
+        """Return True if a text input widget currently has focus."""
+        focused = QApplication.focusWidget()
+        return isinstance(focused, (QLineEdit, QTextEdit))
+
+    def _toggle_focused_check(self) -> None:
+        if self._text_input_focused():
+            return
+        workspace = self._active_media_workspace_for_shortcuts()
+        if workspace is not None:
+            workspace.toggle_focused_check()
+
+    def _on_escape(self) -> None:
+        # First try to cancel a running scan on the active workspace
+        workspace = self._active_media_workspace_for_shortcuts()
+        if workspace is not None and workspace.cancel_scan():
+            return
+        # Otherwise dismiss the topmost toast
+        self._toast_manager.dismiss_topmost()
+
+    def _force_rematch_from_shortcut(self) -> None:
+        if self._text_input_focused():
+            return
+        workspace = self._active_media_workspace_for_shortcuts()
+        if workspace is not None:
+            workspace.force_rematch()
+
+    def _delete_from_shortcut(self) -> None:
+        if self._text_input_focused():
+            return
+        if self._tabs.currentIndex() == _QUEUE:
+            self._queue_tab.remove_focused_checked()
+
+    def _enter_from_shortcut(self) -> None:
+        if self._text_input_focused():
+            return
+        if self._tabs.currentIndex() == _QUEUE:
+            self._queue_tab.execute_focused()
 
     # ── Controller callback handlers (main thread via bridge) ────
 

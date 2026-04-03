@@ -298,6 +298,38 @@ class MediaWorkspace(QWidget):
     def queue_checked(self) -> None:
         self._queue_checked()
 
+    def toggle_focused_check(self) -> None:
+        """Toggle the checkbox on the currently focused roster item (Space)."""
+        if self._stack.currentIndex() != _READY:
+            return
+        item = self._roster_list.currentItem()
+        if item is None or item.data(_ROSTER_ENTRY_KIND_ROLE) != "state":
+            return
+        row = item.data(Qt.ItemDataRole.UserRole)
+        states = self._current_states()
+        if row is None or not (0 <= row < len(states)):
+            return
+        state = states[row]
+        state.checked = not state.checked
+        item.setData(_CHECKED_ROLE, state.checked)
+        widget = self._roster_list.itemWidget(item)
+        if isinstance(widget, _RosterRowWidget):
+            widget.set_checked(state.checked)
+        self._update_action_bar()
+
+    def force_rematch(self) -> None:
+        """Open the Fix Match dialog for the currently selected roster item (F5)."""
+        if self._stack.currentIndex() != _READY:
+            return
+        self._fix_match()
+
+    def cancel_scan(self) -> bool:
+        """Cancel a running scan. Returns True if a cancel was initiated."""
+        if self._stack.currentIndex() != _SCANNING:
+            return False
+        self._on_cancel_scan()
+        return True
+
     # ── Internals ────────────────────────────────────────────────
 
     def _on_folder_selected(self, path: str) -> None:
@@ -763,8 +795,42 @@ class MediaWorkspace(QWidget):
                 state.checked = original_checked
 
     def _queue_checked(self) -> None:
-        states = [state for state in self._current_states() if state.checked]
-        self._queue_states(states, empty_message="Select at least one actionable item before queueing.")
+        checked = [state for state in self._current_states() if state.checked]
+        if not checked:
+            self.status_message.emit("Select at least one actionable item before queueing.", 4000)
+            return
+        eligible = [s for s in checked if _is_state_queue_approvable(s, media_type=self._media_type)]
+        skipped = len(checked) - len(eligible)
+        if skipped and eligible:
+            skip_reasons = self._summarize_skip_reasons(checked)
+            detail = ", ".join(f"{count} {reason}" for reason, count in skip_reasons.items())
+            answer = QMessageBox.question(
+                self,
+                "Queue Checked Items",
+                f"Queueing {len(eligible)} of {len(checked)} checked — {detail} will be skipped.\n\nProceed?",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._queue_states(checked, empty_message="Select at least one actionable item before queueing.")
+
+    def _summarize_skip_reasons(self, states: list[ScanState]) -> dict[str, int]:
+        reasons: dict[str, int] = {}
+        for state in states:
+            if _is_state_queue_approvable(state, media_type=self._media_type):
+                continue
+            if state.queued:
+                reasons["already queued"] = reasons.get("already queued", 0) + 1
+            elif state.scanning:
+                reasons["still scanning"] = reasons.get("still scanning", 0) + 1
+            elif state.needs_review:
+                reasons["needs review"] = reasons.get("needs review", 0) + 1
+            elif state.duplicate_of is not None:
+                reasons["duplicate"] = reasons.get("duplicate", 0) + 1
+            elif _is_plex_ready_state(state):
+                reasons["already Plex-ready"] = reasons.get("already Plex-ready", 0) + 1
+            else:
+                reasons["ineligible"] = reasons.get("ineligible", 0) + 1
+        return reasons
 
     def _queue_states(self, states: list[ScanState], *, empty_message: str) -> None:
         if self._media_ctrl is None or self._queue_ctrl is None:
@@ -871,13 +937,20 @@ class MediaWorkspace(QWidget):
         self._queue_inline_btn.setText("Queue This Show")
         if selected_state is None:
             self._queue_inline_btn.setEnabled(False)
+            self._queue_inline_btn.setToolTip("")
         else:
-            self._queue_inline_btn.setEnabled(_is_state_queue_approvable(selected_state, media_type=self._media_type))
+            approvable = _is_state_queue_approvable(selected_state, media_type=self._media_type)
+            self._queue_inline_btn.setEnabled(approvable)
+            if approvable:
+                self._queue_inline_btn.setToolTip("")
+            else:
+                inline_eligibility = self._queue_eligibility([selected_state])
+                self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
         if checked:
             eligibility = self._queue_eligibility(checked)
-            self._action_bar.set_queue_enabled(eligibility.enabled)
+            self._action_bar.set_queue_enabled(eligibility.enabled, tooltip="" if eligibility.enabled else (eligibility.reason or ""))
         else:
-            self._action_bar.set_queue_enabled(False)
+            self._action_bar.set_queue_enabled(False, tooltip="Check at least one item to queue.")
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
 
@@ -1773,5 +1846,6 @@ class _ActionBar(QFrame):
         else:
             self._queue_btn.setText("Queue Checked")
 
-    def set_queue_enabled(self, enabled: bool) -> None:
+    def set_queue_enabled(self, enabled: bool, tooltip: str = "") -> None:
         self._queue_btn.setEnabled(enabled)
+        self._queue_btn.setToolTip(tooltip)

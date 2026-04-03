@@ -207,6 +207,20 @@ class QueueTab(_JobListTab):
         for job_id in pending_ids:
             self.select_job(job_id)
 
+    def execute_focused(self) -> None:
+        """Execute the currently focused pending job (Enter shortcut)."""
+        focused = self._focused_job()
+        if focused is None or focused.status != JobStatus.PENDING:
+            return
+        if not self._queue_ctrl.execute_single(focused.job_id):
+            QMessageBox.warning(self, "Cannot Run Job", "The focused job could not be executed right now.")
+        self.refresh()
+        self.queue_changed.emit()
+
+    def remove_focused_checked(self) -> None:
+        """Remove checked pending jobs (Delete shortcut)."""
+        self._remove_selected()
+
     def _switch_tab(self, index: int) -> None:
         if self._navigate_to_media is not None:
             self._navigate_to_media(index)

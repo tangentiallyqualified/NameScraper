@@ -855,15 +855,15 @@ the error log. Filter to "Failed Only" to see all failures.
 | Ctrl+O         | Open folder (TV or Movie depending on active tab) | Implemented |
 | Ctrl+Z         | Undo last rename                                | Implemented |
 | Ctrl+,         | Open Settings                                   | Implemented |
-| Ctrl+Q         | Add selected to queue                           | **Not yet implemented** |
-| Ctrl+Shift+Q   | Add all checked to queue                        | **Not yet implemented** |
-| Space          | Toggle checkbox on selected item                | **Not yet implemented** |
-| Enter          | Execute selected queue job                      | **Not yet implemented** |
-| Delete         | Remove selected from queue (pending only)       | **Not yet implemented** |
+| Ctrl+Q         | Add selected to queue                           | Implemented |
+| Ctrl+Shift+Q   | Add all checked to queue                        | Implemented |
+| Space          | Toggle checkbox on selected item                | Implemented |
+| Enter          | Execute selected queue job                      | Implemented |
+| Delete         | Remove selected from queue (pending only)       | Implemented |
 | Ctrl+A         | Select all in current list                      | **Not yet implemented** |
-| F5             | Force rematch on selected roster item           | **Not yet implemented** |
+| F5             | Force rematch on selected roster item           | Implemented |
 | Ctrl+1..5      | Switch to tab 1-5                               | Implemented |
-| Escape         | Cancel current scan / dismiss toast             | **Not yet implemented** |
+| Escape         | Cancel current scan / dismiss toast             | Implemented |
 
 Ctrl+Q and Ctrl+Shift+Q are the highest-priority unimplemented shortcuts
 as they accelerate the most common workflow (review → queue). Space and

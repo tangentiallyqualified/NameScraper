@@ -1287,6 +1287,130 @@ These are UX refinements to address after the cleanup items above. They do not b
 
 The application layer (`app/controllers/`, `app/services/`, `app/models/`) is complete and the tkinter shell now delegates queue submission through the controllers. The PySide6 shell should import from `plex_renamer.app.controllers` for all domain types and orchestration.
 
+### Phase 10 — Post-parity polish and workflow improvements
+
+Date added: 2026-04-02
+
+Phase 9 cleanup is complete and the Qt shell is at functional parity with tkinter. Phase 10 addresses the remaining workflow gaps, visual polish, and code quality improvements that make the Qt shell feel like a genuine upgrade rather than a reskin.
+
+Items are organized by priority. Higher-priority items have the most user-facing impact relative to effort.
+
+#### ~~10.1 — Keyboard shortcuts for core workflows (Workflow — High)~~ Implemented
+
+**Problem:** The design document specifies several keyboard shortcuts that are still unimplemented. These are the most common user actions after visual review, and keyboard-driven users currently must reach for the mouse.
+
+**Missing shortcuts:**
+- `Space` — toggle checkbox on focused roster/queue/history row
+- `Escape` — cancel current scan or dismiss topmost toast
+- `Delete` — remove selected pending job from queue
+- `Enter` — execute selected pending queue job
+- `F5` — force rematch on selected roster item
+
+`Space` and `Escape` are the highest-value additions: `Space` enables keyboard-driven batch selection, and `Escape` provides the expected safety valve for scan cancellation without clicking.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/widgets/queue_tab.py`, `plex_renamer/gui_qt/widgets/toast_manager.py`
+
+#### ~~10.2 — Queue eligibility tooltips on disabled buttons (Workflow — High)~~ Implemented
+
+**Problem:** When the "Queue This Show" or "Queue N Checked" button is disabled, there is no explanation. Users must infer the reason from status badges scattered across the roster. The design document calls for explicit "why can't I queue this?" feedback.
+
+**Fix:** Pull reasons from `CommandGatingService` and set a tooltip on the disabled queue button. Example: "2 items still scanning, 1 needs review." This is a small change with outsized clarity impact.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/app/services/command_gating_service.py`
+
+#### ~~10.3 — Batch queue pre-flight summary for skipped items (Workflow — High)~~ Implemented
+
+**Problem:** When "Queue N Checked" is clicked, ineligible items are silently skipped. The success toast reports counts after the fact but the user does not learn which items were skipped or why before committing.
+
+**Fix:** Show a pre-flight confirmation when any checked items will be skipped: "Queueing 5 of 8 checked — 2 need review, 1 already queued. Proceed?" This can be an inline banner or a lightweight dialog. Skip the confirmation when all checked items are eligible.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 10.4 — Alternate match discovery indicator on roster cards (Workflow — Medium)
+
+**Problem:** Alternate matches are only visible after clicking into a needs-review roster row. There is no signal on the roster card itself that alternatives exist. Users must click into every review item to discover whether alternatives are available.
+
+**Fix:** Add a small indicator on roster cards that have alternate matches — e.g. "2 alternatives" caption text or a subtle icon. This makes review items self-documenting.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 10.5 — Poster hero blur backdrop in detail panel (Visual — Medium)
+
+**Problem:** The design document calls for a blurred, darkened poster backdrop behind the detail panel metadata area (similar to Plex or Jellyfin). This is the single highest-visual-impact polish item and would make the detail panel feel like a media application rather than a data table.
+
+**Implementation:** Use `QGraphicsBlurEffect` on a scaled poster copy, darkened to ~30% opacity, behind the metadata area. Fall back to solid `bg_mid` gradient when no poster is available.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+#### 10.6 — Sticky season headers with progress bars in preview (Visual — Medium)
+
+**Problem:** The design document specifies that season headers should pin to the top of the preview scroll area when scrolling past, with a thin progress bar showing the season match ratio. Currently headers are static group labels with no progress indicator.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 10.7 — Tab badge scale-pulse animation (Visual — Low)
+
+**Problem:** Tab badges update their count but do not animate on change. The design document calls for a brief scale-pulse (200ms to 1.15x and back) when the count changes.
+
+**Fix:** Add a `QPropertyAnimation` on scale transform to `TabBadge.set_count()` when the new count differs from the old count.
+
+**Files:** `plex_renamer/gui_qt/widgets/tab_badge.py`
+
+#### 10.8 — Toast auto-dismiss progress bar (Visual — Low)
+
+**Problem:** Toasts auto-dismiss after a timer, but there is no visual indicator of remaining time. The design document calls for a thin depleting progress bar at the toast bottom.
+
+**Fix:** Add a 2px-height progress bar to toast widgets that animates from full to empty over the dismiss duration.
+
+**Files:** `plex_renamer/gui_qt/widgets/toast_manager.py`
+
+#### 10.9 — Job completion and failure transition animations (Visual — Low)
+
+**Problem:** Queue job state transitions (pending → running → completed/failed) are instant. The design document calls for a brief color tint (200ms green fade on completion, red on failure) before settling to the final state.
+
+**Fix:** Use `QPropertyAnimation` on background color for job row widgets during state transitions.
+
+**Files:** `plex_renamer/gui_qt/widgets/_job_list_tab.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+#### 10.10 — Poster loading placeholder shimmer (Visual — Low)
+
+**Problem:** While roster posters and detail panel artwork load, the space is empty. A shimmer placeholder or small spinner would signal that content is coming, not missing.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`
+
+#### 10.11 — Spacing normalization to 4px grid (Visual — Low)
+
+**Problem:** The theme establishes a 4px base grid, but some widget padding values are inconsistent (e.g. 10px preview row padding vs 8px roster row padding). A normalization pass would tighten the visual rhythm.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/resources/theme.qss`
+
+#### 10.12 — Empty state icon replacement (Visual — Low)
+
+**Problem:** The empty state folder picker uses an emoji instead of a proper icon. The design document calls for a Lucide `folder-open` icon at 64px. The emoji looks out of place in an otherwise icon-driven UI.
+
+**Files:** `plex_renamer/gui_qt/widgets/empty_state.py`
+
+#### 10.13 — Confirmation for large destructive batch operations (Workflow — Low)
+
+**Problem:** Removing or clearing large batches (10+ jobs) in queue/history proceeds without extra confirmation. Only revert has an inline banner.
+
+**Fix:** Add confirmation for bulk remove and bulk clear when the selection exceeds a threshold.
+
+**Files:** `plex_renamer/gui_qt/widgets/queue_tab.py`, `plex_renamer/gui_qt/widgets/history_tab.py`
+
+#### 10.14 — Refactor media_workspace.py (Code Quality — Medium)
+
+**Problem:** `media_workspace.py` is 1,777 lines and carries roster building, preview rendering, poster caching, checkbox sync, detail rendering, and alternate-match flows. This accumulation makes it hard to test, navigate, or modify any single concern without risk of side effects.
+
+**Recommended split:**
+1. Extract `_RosterPanel` — roster list, grouping, poster loading, checkbox sync
+2. Extract `_PreviewPanel` — season groups, file cards, companion file rendering
+3. Keep `MediaWorkspace` as a thin coordinator binding the panels to `MediaController`
+
+This is not urgent but becomes increasingly important as more features (sticky headers, animations, deeper correction workflows) are added to these surfaces.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
 ## Audit Checklist
 
 Use this checklist before approving progress to each new phase:

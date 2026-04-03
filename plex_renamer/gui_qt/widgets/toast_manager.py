@@ -170,6 +170,15 @@ class ToastManager(QWidget):
         self.raise_()
         self._reposition()
 
+    def dismiss_topmost(self) -> bool:
+        """Dismiss the newest visible toast. Returns True if one was dismissed."""
+        for index in range(self._layout.count()):
+            widget = self._layout.itemAt(index).widget()
+            if isinstance(widget, _ToastCard):
+                widget.dismiss()
+                return True
+        return False
+
     def toast_count(self) -> int:
         return sum(1 for index in range(self._layout.count()) if self._layout.itemAt(index).widget() is not None)
 
