@@ -724,6 +724,14 @@ class MediaController:
         except ValueError:
             return state.folder.as_posix()
 
+    def approve_match(self, state: ScanState) -> None:
+        """Accept the current TMDB match as manually approved, clearing needs-review."""
+        if state.show_id is None:
+            return
+        state.match_origin = "manual"
+        state.checked = True
+        self._notify("library_changed", self.library_states)
+
     def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
         state.match_origin = "manual"

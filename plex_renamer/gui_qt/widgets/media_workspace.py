@@ -11,8 +11,8 @@ import threading
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -91,7 +91,16 @@ class _RosterPosterBridge(QObject):
 
 
 class _MasterCheckBox(QCheckBox):
-    """Tri-state display checkbox that toggles like a normal binary control."""
+    """Tri-state display checkbox that toggles like a normal binary control.
+
+    Uses QSS for indicator styling — see theme.qss _MasterCheckBox selectors.
+    """
+
+    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(text, parent)
+        self.setProperty("cssClass", "master-check")
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def nextCheckState(self) -> None:
         self.setCheckState(
@@ -131,6 +140,7 @@ class MediaWorkspace(QWidget):
         self._poster_inflight: set[tuple[str, int]] = set()
         self._preview_group_state: dict[str, set[int]] = {}
         self._roster_master_syncing = False
+        self._roster_collapsed: dict[str, bool] = {"plex-ready": True}
         self._poster_bridge = _RosterPosterBridge(self)
         self._poster_bridge.poster_ready.connect(self._apply_roster_poster)
         self._build_ui()
@@ -192,6 +202,11 @@ class MediaWorkspace(QWidget):
         self._roster_selection_summary.setProperty("cssClass", "caption")
         roster_select_row.addWidget(self._roster_selection_summary)
         roster_select_row.addStretch()
+        self._roster_queue_btn = QPushButton("Queue Checked")
+        self._roster_queue_btn.setProperty("cssClass", "primary")
+        self._roster_queue_btn.setEnabled(False)
+        self._roster_queue_btn.clicked.connect(self._queue_checked)
+        roster_select_row.addWidget(self._roster_queue_btn)
         roster_layout.addLayout(roster_select_row)
 
         self._roster_list = QListWidget()
@@ -201,6 +216,7 @@ class MediaWorkspace(QWidget):
         self._roster_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._roster_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._roster_list.itemChanged.connect(self._on_roster_item_changed)
+        self._roster_list.itemClicked.connect(self._on_roster_item_clicked)
         self._roster_list.currentItemChanged.connect(self._on_roster_current_item_changed)
         roster_layout.addWidget(self._roster_list, stretch=1)
 
@@ -233,6 +249,22 @@ class MediaWorkspace(QWidget):
         self._preview_summary.setProperty("cssClass", "text-dim")
         self._preview_summary.setWordWrap(True)
         preview_layout.addWidget(self._preview_summary)
+
+        preview_check_row = QHBoxLayout()
+        preview_check_row.setContentsMargins(0, 0, 0, 0)
+        preview_check_row.setSpacing(8)
+        self._preview_master_check = _MasterCheckBox("Select All Files")
+        self._preview_master_check.setTristate(True)
+        self._preview_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._preview_master_check.stateChanged.connect(self._on_preview_master_changed)
+        preview_check_row.addWidget(self._preview_master_check)
+        self._preview_check_summary = QLabel("")
+        self._preview_check_summary.setProperty("cssClass", "caption")
+        preview_check_row.addWidget(self._preview_check_summary)
+        preview_check_row.addStretch()
+        preview_layout.addLayout(preview_check_row)
+        self._preview_master_syncing = False
+
         self._preview_list = QListWidget()
         self._preview_list.setProperty("cssClass", "row-host-list")
         self._preview_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -267,9 +299,7 @@ class MediaWorkspace(QWidget):
         ready_layout.addWidget(self._splitter, stretch=1)
 
         # Bottom action bar
-        self._action_bar = _ActionBar(media_type=self._media_type)
-        self._action_bar.queue_requested.connect(self._queue_checked)
-        ready_layout.addWidget(self._action_bar)
+        # Bottom action bar removed — queue button is now in the roster panel header.
 
         self._stack.addWidget(ready_container)
 
@@ -420,8 +450,9 @@ class MediaWorkspace(QWidget):
             self._folder_plan_label.setText("Select a roster item to see the planned folder rename.")
             self._preview_summary.setText("Preview items will appear here once a scan is ready.")
             self._detail_panel.clear()
-            self._action_bar.update_summary(0, 0)
-            self._action_bar.set_queue_enabled(False)
+            self._roster_queue_btn.setEnabled(False)
+            self._roster_queue_btn.setText("Queue Checked")
+            self._roster_queue_btn.setToolTip("")
             self._update_roster_selection_header([])
             self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
@@ -488,20 +519,23 @@ class MediaWorkspace(QWidget):
             indices = [index for index, state in enumerate(states) if _roster_group(state) == group]
             if not indices:
                 continue
+            collapsed = self._roster_collapsed.get(group, False)
+            arrow = "▶" if collapsed else "▼"
             yield {
                 "kind": "header",
                 "key": f"header:{group}",
                 "group": group,
-                "title": title,
+                "title": f"{arrow}  {title} ({len(indices)})",
             }
-            for index in indices:
-                state = states[index]
-                yield {
-                    "kind": "state",
-                    "key": _roster_item_key(state),
-                    "index": index,
-                    "state": state,
-                }
+            if not collapsed:
+                for index in indices:
+                    state = states[index]
+                    yield {
+                        "kind": "state",
+                        "key": _roster_item_key(state),
+                        "index": index,
+                        "state": state,
+                    }
 
     def _place_roster_item(self, item: QListWidgetItem, target_row: int) -> None:
         current_row = self._roster_list.row(item)
@@ -609,6 +643,22 @@ class MediaWorkspace(QWidget):
                 if hasattr(binding, "set"):
                     binding.set(False)
 
+    def _on_roster_item_clicked(self, item: QListWidgetItem) -> None:
+        if item.data(_ROSTER_ENTRY_KIND_ROLE) != "header":
+            return
+        key = item.data(_ROSTER_ENTRY_KEY_ROLE) or ""
+        group = key.removeprefix("header:")
+        if not group:
+            return
+        self._roster_collapsed[group] = not self._roster_collapsed.get(group, False)
+        states = self._current_states()
+        if states:
+            self._roster_syncing = True
+            try:
+                self._sync_roster_items(states)
+            finally:
+                self._roster_syncing = False
+
     def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         if self._roster_syncing or self._media_ctrl is None:
             return
@@ -677,8 +727,9 @@ class MediaWorkspace(QWidget):
                 is_collapsed = season_num in collapsed
                 matched = sum(1 for i in indices if state.preview_items[i].status == "OK")
                 ratio_text = f" — {matched}/{len(indices)}"
+                sn_name = state.season_names.get(season_num, "") if season_num is not None else ""
                 header = _make_section_header(
-                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num) + ratio_text,
+                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num, name=sn_name) + ratio_text,
                     selectable=True,
                 )
                 header.setData(Qt.ItemDataRole.UserRole + 1, season_num)
@@ -714,6 +765,7 @@ class MediaWorkspace(QWidget):
         self._preview_syncing = False
         self._preview_list.setUpdatesEnabled(True)
         self._sync_row_selection(self._preview_list)
+        self._update_preview_master_state(state)
 
     def _build_preview_row(self, state: ScanState, index: int, preview: PreviewItem) -> QListWidgetItem:
         row = QListWidgetItem()
@@ -814,7 +866,80 @@ class MediaWorkspace(QWidget):
                 roster_widget.set_checked(state.checked)
         preview = state.preview_items[index]
         self._render_detail(state, preview)
+        self._update_preview_master_state(state)
         self._update_action_bar()
+
+    def _on_preview_master_changed(self, check_state: int) -> None:
+        if self._preview_master_syncing:
+            return
+        state = self._selected_state()
+        if state is None:
+            return
+        target = check_state == int(Qt.CheckState.Checked.value)
+        self._preview_syncing = True
+        try:
+            for i, preview in enumerate(state.preview_items):
+                if not preview.is_actionable:
+                    continue
+                binding = state.check_vars.get(str(i))
+                if binding is not None:
+                    binding.set(target)
+                for row in range(self._preview_list.count()):
+                    item = self._preview_list.item(row)
+                    if item is not None and item.data(Qt.ItemDataRole.UserRole) == i:
+                        item.setData(_CHECKED_ROLE, target)
+                        w = self._preview_list.itemWidget(item)
+                        if isinstance(w, _PreviewRowWidget):
+                            w.set_checked(target)
+                        break
+        finally:
+            self._preview_syncing = False
+        state.checked = target
+        current_roster_item = self._roster_list.item(self._roster_list.currentRow())
+        if current_roster_item is not None and current_roster_item.data(Qt.ItemDataRole.UserRole) is not None:
+            self._roster_syncing = True
+            current_roster_item.setData(_CHECKED_ROLE, state.checked)
+            self._roster_syncing = False
+            roster_widget = self._roster_list.itemWidget(current_roster_item)
+            if isinstance(roster_widget, _RosterRowWidget):
+                roster_widget.set_checked(state.checked)
+        self._update_preview_master_state(state)
+        self._update_action_bar()
+
+    def _update_preview_master_state(self, state: ScanState | None) -> None:
+        if state is None:
+            self._preview_master_check.setEnabled(False)
+            self._preview_check_summary.setText("")
+            return
+        actionable = [(i, p) for i, p in enumerate(state.preview_items) if p.is_actionable]
+        if not actionable or not _is_state_queue_approvable(state, media_type=self._media_type):
+            self._preview_master_check.setEnabled(False)
+            self._preview_master_check.setVisible(False)
+            self._preview_check_summary.setVisible(False)
+            return
+        self._preview_master_check.setVisible(True)
+        self._preview_check_summary.setVisible(True)
+        self._preview_master_check.setEnabled(True)
+        checked = 0
+        for i, _ in actionable:
+            binding = state.check_vars.get(str(i))
+            if binding is not None and binding.get():
+                checked += 1
+        total = len(actionable)
+        self._preview_master_syncing = True
+        try:
+            if checked == 0:
+                self._preview_master_check.setCheckState(Qt.CheckState.Unchecked)
+                self._preview_master_check.setText("Select All Files")
+            elif checked == total:
+                self._preview_master_check.setCheckState(Qt.CheckState.Checked)
+                self._preview_master_check.setText("Deselect All Files")
+            else:
+                self._preview_master_check.setCheckState(Qt.CheckState.PartiallyChecked)
+                self._preview_master_check.setText("Select All Files")
+            self._preview_check_summary.setText(f"{checked} of {total} files checked")
+        finally:
+            self._preview_master_syncing = False
 
     def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
         if state is None:
@@ -999,7 +1124,6 @@ class MediaWorkspace(QWidget):
         states = self._current_states()
         checked = [state for state in states if state.checked]
         self._update_roster_selection_header(states)
-        self._action_bar.update_summary(len(checked), len(states))
         selected_state = self._selected_state()
         self._fix_match_btn.setEnabled(bool(selected_state and not selected_state.queued and not selected_state.scanning))
         self._queue_inline_btn.setText("Queue This Show")
@@ -1016,9 +1140,13 @@ class MediaWorkspace(QWidget):
                 self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
         if checked:
             eligibility = self._queue_eligibility(checked)
-            self._action_bar.set_queue_enabled(eligibility.enabled, tooltip="" if eligibility.enabled else (eligibility.reason or ""))
+            self._roster_queue_btn.setText(f"Queue {len(checked)} Checked")
+            self._roster_queue_btn.setEnabled(eligibility.enabled)
+            self._roster_queue_btn.setToolTip("" if eligibility.enabled else (eligibility.reason or ""))
         else:
-            self._action_bar.set_queue_enabled(False, tooltip="Check at least one item to queue.")
+            self._roster_queue_btn.setText("Queue Checked")
+            self._roster_queue_btn.setEnabled(False)
+            self._roster_queue_btn.setToolTip("Check at least one item to queue.")
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
 
@@ -1040,10 +1168,13 @@ class MediaWorkspace(QWidget):
             self._roster_master_check.setEnabled(bool(total_eligible))
             if total_eligible == 0 or checked_count == 0:
                 self._roster_master_check.setCheckState(Qt.CheckState.Unchecked)
+                self._roster_master_check.setText("Select All")
             elif checked_count == total_eligible:
                 self._roster_master_check.setCheckState(Qt.CheckState.Checked)
+                self._roster_master_check.setText("Deselect All")
             else:
                 self._roster_master_check.setCheckState(Qt.CheckState.PartiallyChecked)
+                self._roster_master_check.setText("Select All")
         finally:
             self._roster_master_syncing = False
 
@@ -1070,7 +1201,7 @@ class MediaWorkspace(QWidget):
 
         def _worker() -> None:
             try:
-                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=84)
+                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=185)
                 if image is None:
                     return
                 self._poster_bridge.poster_ready.emit(key, pil_to_raw(image))
@@ -1114,6 +1245,9 @@ class MediaWorkspace(QWidget):
         )
         widget.alternate_confirmed.connect(
             lambda match, state=state: self._apply_alternate_match(state, match)
+        )
+        widget.approve_requested.connect(
+            lambda state=state: self._approve_match(state)
         )
         widget.geometry_changed.connect(lambda item=item, widget=widget: self._sync_item_height(item, widget))
         self._sync_item_height(item, widget)
@@ -1167,6 +1301,12 @@ class MediaWorkspace(QWidget):
             widget = list_widget.itemWidget(item)
             if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget)):
                 widget.set_selected(item is current)
+
+    def _approve_match(self, state: ScanState) -> None:
+        if self._media_ctrl is None:
+            return
+        self._media_ctrl.approve_match(state)
+        self.status_message.emit("Match approved.", 3000)
 
     def _apply_alternate_match(self, state: ScanState, match: dict) -> None:
         if self._media_ctrl is None:
@@ -1240,16 +1380,59 @@ class _ClickableRow(QFrame):
 
 
 class _ToggleSwitch(QCheckBox):
+    _SIZE = 20
+    _RADIUS = 4
+    _BG_OFF = QColor("#3a3a3a")
+    _BG_ON = QColor("#3ea463")
+    _BG_PARTIAL = QColor("#4a9eda")
+    _BORDER_OFF = QColor("#555555")
+    _BORDER_ON = QColor("#2d7a4a")
+    _CHECK_COLOR = QColor("#ffffff")
+
     def __init__(self, checked: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setText("")
         self.setChecked(checked)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(18, 18)
+        self.setFixedSize(self._SIZE, self._SIZE)
 
     def sizeHint(self) -> QSize:
-        return QSize(18, 18)
+        return QSize(self._SIZE, self._SIZE)
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        state = self.checkState()
+        if state == Qt.CheckState.Checked:
+            bg, border = self._BG_ON, self._BORDER_ON
+        elif state == Qt.CheckState.PartiallyChecked:
+            bg, border = self._BG_PARTIAL, self._BG_PARTIAL
+        else:
+            bg, border = self._BG_OFF, self._BORDER_OFF
+
+        s = self._SIZE
+        margin = 1.5
+        rect_f = QRectF(margin, margin, s - 2 * margin, s - 2 * margin)
+        p.setBrush(bg)
+        p.setPen(QPen(border, 1.5))
+        p.drawRoundedRect(rect_f, self._RADIUS, self._RADIUS)
+
+        pen = QPen(self._CHECK_COLOR, 2.0)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        if state == Qt.CheckState.Checked:
+            # Checkmark
+            p.drawLine(int(s * 0.25), int(s * 0.50), int(s * 0.43), int(s * 0.68))
+            p.drawLine(int(s * 0.43), int(s * 0.68), int(s * 0.75), int(s * 0.32))
+        elif state == Qt.CheckState.PartiallyChecked:
+            # Dash
+            y = s // 2
+            p.drawLine(int(s * 0.28), y, int(s * 0.72), y)
+
+        p.end()
 
 
 class _MiniProgressBar(QWidget):
@@ -1292,6 +1475,7 @@ class _MiniProgressBar(QWidget):
 class _RosterRowWidget(_ClickableRow):
     check_toggled = Signal(bool)
     alternate_confirmed = Signal(object)
+    approve_requested = Signal()
     geometry_changed = Signal()
 
     def __init__(
@@ -1314,7 +1498,7 @@ class _RosterRowWidget(_ClickableRow):
         self._selected = False
         self._pending_alternate: dict | None = None
         self._poster = QLabel()
-        self._poster_size = QSize(30, 44) if compact else QSize(36, 52)
+        self._poster_size = QSize(34, 50) if compact else QSize(48, 70)
         self._poster.setFixedSize(self._poster_size)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._shimmer: ShimmerOverlay | None = None
@@ -1376,6 +1560,15 @@ class _RosterRowWidget(_ClickableRow):
             value=clamped_percent(state.confidence),
         )
         body.addWidget(self._confidence)
+
+        self._approve_btn = None
+        if state.needs_review and state.show_id is not None and not state.queued:
+            self._approve_btn = QPushButton("Approve Match")
+            self._approve_btn.setProperty("cssClass", "primary")
+            self._approve_btn.setProperty("sizeVariant", "compact")
+            self._approve_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self._approve_btn.clicked.connect(self.approve_requested.emit)
+            body.addWidget(self._approve_btn)
 
         self._alternates_layout = None
         self._alternates_widget = None
@@ -1593,42 +1786,3 @@ class _PreviewRowWidget(_ClickableRow):
             self._confidence.setColor(_preview_band(self._preview))
 
 
-class _ActionBar(QFrame):
-    """Bottom action bar for the ready state workspace."""
-
-    queue_requested = Signal()
-
-    def __init__(
-        self,
-        media_type: str = "tv",
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._media_type = media_type
-        self.setProperty("cssClass", "action-bar")
-        self.setFixedHeight(52)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 16, 0)
-
-        self._summary_label = QLabel("0 of 0 items checked")
-        layout.addWidget(self._summary_label)
-
-        layout.addStretch()
-
-        self._queue_btn = QPushButton("Queue Checked")
-        self._queue_btn.clicked.connect(self.queue_requested.emit)
-        layout.addWidget(self._queue_btn)
-        self._queue_btn.setEnabled(False)
-
-    def update_summary(self, checked: int, total: int) -> None:
-        noun = "items" if self._media_type == "movie" else "shows"
-        self._summary_label.setText(f"{checked} of {total} {noun} checked")
-        if checked:
-            self._queue_btn.setText(f"Queue {checked} Checked")
-        else:
-            self._queue_btn.setText("Queue Checked")
-
-    def set_queue_enabled(self, enabled: bool, tooltip: str = "") -> None:
-        self._queue_btn.setEnabled(enabled)
-        self._queue_btn.setToolTip(tooltip)

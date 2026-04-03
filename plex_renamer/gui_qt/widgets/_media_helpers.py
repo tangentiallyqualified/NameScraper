@@ -127,14 +127,15 @@ def auto_accept_threshold(settings) -> float:
 
 def state_match_summary(state: ScanState, threshold: float) -> str:
     pct = percent_text(state.confidence)
-    threshold_text = percent_text(threshold)
     if state.duplicate_of is not None:
         return f"{pct} confidence · duplicate match"
     if state.match_origin == "manual" and not state.needs_review:
         return f"{pct} confidence · manually approved"
+    if state.tie_detected and state.needs_review:
+        return f"{pct} confidence · tied match — please choose"
     if state.needs_review:
-        return f"{pct} confidence · below {threshold_text} threshold"
-    return f"{pct} confidence · clears {threshold_text} threshold"
+        return f"{pct} confidence · needs review"
+    return f"{pct} confidence"
 
 
 # ── Roster helpers ──────────────────────────────────────────────────
@@ -272,9 +273,11 @@ def companion_summary(preview: PreviewItem) -> str:
     return f"Companions: {names}{extra}"
 
 
-def season_label(season_num: int | None) -> str:
+def season_label(season_num: int | None, *, name: str = "") -> str:
     if season_num is None:
         return "Other Files"
+    if name:
+        return f"Season {season_num} — {name}"
     return f"Season {season_num}"
 
 

@@ -47,7 +47,7 @@ class JobDetailPanel(QFrame):
         layout.setSpacing(12)
 
         self._poster = QLabel()
-        self._poster.setFixedSize(96, 144)
+        self._poster.setFixedSize(120, 180)
         self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._poster.setProperty("cssClass", "card")
@@ -300,9 +300,9 @@ class JobDetailPanel(QFrame):
                         self._persist_poster_path(job.job_id, poster_path)
 
             if poster_path:
-                image = tmdb.fetch_image(poster_path, target_width=96)
+                image = tmdb.fetch_image(poster_path, target_width=200)
             elif job.tmdb_id:
-                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=96)
+                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=200)
                 poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
                 if poster_path:
                     job.poster_path = poster_path

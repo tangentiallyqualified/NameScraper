@@ -224,8 +224,12 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._queue_tab, "Queue")
         self._tabs.addTab(self._history_tab, "History")
         self._tabs.addTab(self._settings_tab, "Settings")
+        self._tv_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
+        self._movie_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
         self._queue_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
         self._history_badge = TabBadge(parent=self._tabs)
+        self._tabs.tabBar().setTabButton(_TV, QTabBar.ButtonPosition.RightSide, self._tv_badge)
+        self._tabs.tabBar().setTabButton(_MOVIES, QTabBar.ButtonPosition.RightSide, self._movie_badge)
         self._tabs.tabBar().setTabButton(_QUEUE, QTabBar.ButtonPosition.RightSide, self._queue_badge)
         self._tabs.tabBar().setTabButton(_HISTORY, QTabBar.ButtonPosition.RightSide, self._history_badge)
 
@@ -635,6 +639,7 @@ class MainWindow(QMainWindow):
         ws = self._active_workspace()
 
         states = self.media_ctrl.library_states
+        self._update_media_badges(states)
         needs_tv_bulk_scan = (
             self.media_ctrl.active_content_mode == "tv"
             and self.media_ctrl.batch_mode
@@ -694,6 +699,14 @@ class MainWindow(QMainWindow):
         # Mark the other workspace as needing a refresh on next tab switch.
         self._tv_needs_queue_refresh = active != _TV
         self._movie_needs_queue_refresh = active != _MOVIES
+
+    def _update_media_badges(self, states) -> None:
+        mode = self.media_ctrl.active_content_mode
+        needs_action = sum(1 for s in states if s.needs_review or s.show_id is None)
+        has_issues = needs_action > 0
+        badge = self._tv_badge if mode == "tv" else self._movie_badge
+        badge.set_count(needs_action)
+        badge.set_failure_visible(has_issues)
 
     def _refresh_job_views(self) -> None:
         self._queue_tab.refresh()

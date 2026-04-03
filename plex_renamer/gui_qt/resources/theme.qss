@@ -288,10 +288,6 @@ QFrame[cssClass="callout-banner"] {
     border-radius: 6px;
 }
 
-QFrame[cssClass="action-bar"] {
-    background-color: #151515;
-    border-top: 1px solid #2a2a2a;
-}
 
 QLabel[cssClass="drop-zone-icon"] {
     font-size: 48px;
@@ -568,20 +564,31 @@ QCheckBox:focus {
 }
 
 QCheckBox::indicator {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #3a3a3a;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #555555;
     border-radius: 4px;
-    background-color: transparent;
+    background-color: #3a3a3a;
 }
 
 QCheckBox::indicator:hover {
     border-color: #777777;
+    background-color: #444444;
 }
 
 QCheckBox::indicator:checked {
-    background-color: #e5a00d;
-    border-color: #e5a00d;
+    background-color: #3ea463;
+    border-color: #2d7a4a;
+}
+
+QCheckBox::indicator:indeterminate {
+    background-color: #4a9eda;
+    border-color: #4a9eda;
+}
+
+QCheckBox[cssClass="master-check"]::indicator {
+    width: 18px;
+    height: 18px;
 }
 
 

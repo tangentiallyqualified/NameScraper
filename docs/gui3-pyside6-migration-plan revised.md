@@ -1414,7 +1414,7 @@ Date added: 2026-04-03
 
 Phase 10 delivered visual polish and code quality. Phase 11 addresses real workflow gaps and usability issues surfaced during hands-on use. These items are more substantial than Phase 10 — several touch both the engine scoring logic and the GUI layout — and are organized by priority.
 
-#### 11.1 — Move queue button to the left roster panel (Layout — High)
+#### ~~11.1 — Move queue button to the left roster panel (Layout — High)~~ Implemented
 
 **Problem:** The "Queue N Checked" button lives in a bottom action bar (`_ActionBar`, `media_workspace.py:1596`). Users naturally check items in the roster and expect the queue action to be co-located with the roster, not at the bottom of the full workspace.
 
@@ -1422,7 +1422,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
 
-#### 11.2 — Improve checkbox visual styling (Visual — High)
+#### ~~11.2 — Improve checkbox visual styling (Visual — High)~~ Implemented
 
 **Problem:** `_ToggleSwitch` is a bare `QCheckBox` at 18×18px with no custom paint. It renders as a small platform-default square with no visual distinction from native controls. In a dark-themed media app, the checkboxes look like blobs.
 
@@ -1430,7 +1430,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_ToggleSwitch`, `_MasterCheckBox`)
 
-#### 11.3 — "Select All" / "Deselect All" toggle text on master checkbox (Workflow — High)
+#### ~~11.3 — "Select All" / "Deselect All" toggle text on master checkbox (Workflow — High)~~ Implemented
 
 **Problem:** The roster master checkbox always reads "Select All" regardless of state. When all items are checked, the label should read "Deselect All" so the action is self-documenting.
 
@@ -1438,7 +1438,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_update_roster_selection_header`)
 
-#### 11.4 — Preview panel master checkbox for matched content (Workflow — High)
+#### ~~11.4 — Preview panel master checkbox for matched content (Workflow — High)~~ Implemented
 
 **Problem:** The preview panel has no select-all mechanism. Users must check individual files one by one within a matched show's preview. For a 24-episode season, this is tedious.
 
@@ -1446,7 +1446,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (preview header area, around lines 210-225)
 
-#### 11.5 — Collapsible roster group headers with item counts (Workflow — High)
+#### ~~11.5 — Collapsible roster group headers with item counts (Workflow — High)~~ Implemented
 
 **Problem:** Roster group headers ("PLEX READY", "MATCHED", "NEEDS REVIEW", etc.) are static text labels. Groups cannot be collapsed, and headers do not show how many items belong to each group. The "Plex Ready" group is typically the largest and least interesting since those items need no user action — it should be collapsed by default.
 
@@ -1458,7 +1458,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/_media_helpers.py`
 
-#### 11.6 — Season name in season headers (Visual — Medium)
+#### ~~11.6 — Season name in season headers (Visual — Medium)~~ Implemented
 
 **Problem:** Season headers in the TV preview panel display "Season 1", "Season 2", etc. TMDB provides season names (e.g. "Season 1: The Phantom Blood Arc") that would add useful context when they differ from the generic numbering.
 
@@ -1466,7 +1466,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_populate_preview`), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`season_label`)
 
-#### 11.7 — Approve button for needs-review matches (Workflow — High)
+#### ~~11.7 — Approve button for needs-review matches (Workflow — High)~~ Implemented
 
 **Problem:** When the scanner guesses correctly but below threshold, the user must open the match picker dialog ("Fix Match") to accept the existing guess. This is a five-click workflow for what should be a one-click approval. The inline alternate-match buttons allow choosing a *different* match, but there is no inline "accept the current guess" button.
 
@@ -1474,7 +1474,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_RosterRowWidget`), `plex_renamer/app/controllers/media_controller.py` (new `approve_match` method)
 
-#### 11.8 — Tied-confidence matches trigger needs-review (Scoring — High)
+#### ~~11.8 — Tied-confidence matches trigger needs-review (Scoring — High)~~ Implemented
 
 **Problem:** When two or more TMDB results score identically (or within a very narrow margin), the top result is silently auto-accepted if it clears the threshold. The user never learns that an equally plausible alternative existed. This is especially common for remakes and regional variants.
 
@@ -1482,7 +1482,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/engine.py` (`score_results`, `discover_shows`, `discover_movies`, `ScanState`), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`state_status`, `state_match_summary`)
 
-#### 11.9 — Episode count confidence bonus for TV matching (Scoring — High)
+#### ~~11.9 — Episode count confidence bonus for TV matching (Scoring — High)~~ Implemented
 
 **Problem:** TV match confidence is based on title similarity (70%) and year match (30%). It does not account for episode count alignment. When the number of files identified as episodes exactly matches the total number of episodes in a TMDB season or series, this is strong evidence of a correct match and should boost confidence. Specials (Season 0) should be excluded from the count comparison to avoid false negatives.
 
@@ -1492,7 +1492,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/engine.py` (`discover_shows`, `_episode_count_tiebreak`, `ScanState`)
 
-#### 11.10 — Higher-resolution posters everywhere (Visual — High)
+#### ~~11.10 — Higher-resolution posters everywhere (Visual — High)~~ Implemented
 
 **Problem:** Roster posters are fetched at `target_width=84` and displayed at 36×52px. Detail panel posters are fetched at `target_width=280` and displayed at 220×340px. Both appear blurry, especially on HiDPI displays where the physical pixels are 2× the logical size.
 
@@ -1515,7 +1515,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/engine.py` (`ScanState`, `_apply_duplicate_labels`), `plex_renamer/gui_qt/widgets/media_workspace.py` (roster row, duplicate actions), `plex_renamer/app/controllers/media_controller.py`
 
-#### 11.12 — Remove "below X% threshold" text from match summary (Visual — Low)
+#### ~~11.12 — Remove "below X% threshold" text from match summary (Visual — Low)~~ Implemented
 
 **Problem:** The match summary line shows "72% confidence · below 55% threshold" for needs-review items and "85% confidence · clears 55% threshold" for accepted items. The threshold detail is implementation noise — the user does not need to see the internal threshold value.
 
@@ -1523,7 +1523,7 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/_media_helpers.py` (`state_match_summary`)
 
-#### 11.13 — Queue and history badge counts on media tabs (Visual — Low)
+#### ~~11.13 — Queue and history badge counts on media tabs (Visual — Low)~~ Implemented
 
 **Problem:** The Queue and History tabs already have `TabBadge` counts, but the TV Shows and Movies tabs have no count indicator. After scanning, there is no at-a-glance signal of how many items need attention (needs review, unmatched) vs how many are ready.
 

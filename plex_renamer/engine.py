@@ -221,12 +221,16 @@ class ScanState:
     display_order: list[int] = field(default_factory=list)
     collapsed_seasons: set[int] = field(default_factory=set)
 
+    # Season metadata (populated during TV scan)
+    season_names: dict[int, str] = field(default_factory=dict)  # season_num -> TMDB season name
+
     # Flags
     scanned: bool = False                               # True after Phase 2 scan
     scanning: bool = False                              # True while Phase 2 scan is in progress
     checked: bool = True                                # Master show-level checkbox
     duplicate_of: str | None = None                     # Display name of the primary match (if this is a dup)
     queued: bool = False                                # True after added to job queue
+    tie_detected: bool = False                          # True when top matches tied in confidence
 
     @property
     def show_id(self) -> int | None:
@@ -244,6 +248,8 @@ class ScanState:
     def needs_review(self) -> bool:
         if self.show_id is not None and self.match_origin == "manual":
             return False
+        if self.tie_detected:
+            return True
         return self.confidence < AUTO_ACCEPT_THRESHOLD
 
     @property
@@ -561,14 +567,53 @@ class BatchTVOrchestrator:
                         compare_seasons=use_seasons,
                     )
 
+            # Episode count confidence bonus: when the file count
+            # (excluding specials) matches the TMDB total, boost
+            # confidence.  Specials (S00E##) would throw off the count,
+            # so we use direct_episode_file_count which only counts
+            # files with identified season/episode patterns.
+            ep_file_count = file_count if not use_seasons else candidate.direct_episode_file_count
+            if ep_file_count > 0 and best.get("id") is not None:
+                details = self.tmdb.get_tv_details(best["id"])
+                tmdb_ep_count = (details or {}).get("number_of_episodes") or 0
+                if tmdb_ep_count > 0:
+                    if ep_file_count == tmdb_ep_count:
+                        best_score = min(best_score + 0.10, 1.0)
+                    elif abs(ep_file_count - tmdb_ep_count) <= 2:
+                        best_score = min(best_score + 0.05, 1.0)
+
             alternates = pick_alternate_matches(
                 scored,
                 selected_id=best.get("id"),
                 limit=3,
             )
 
-            # Only auto-check shows with confident matches
-            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD
+            # Detect tied top matches — if the runner-up is within 0.02
+            # of the winner, flag for user review even if above threshold.
+            tie_detected = False
+            if len(scored) >= 2:
+                for r, s in scored:
+                    if r.get("id") != best.get("id"):
+                        if best_score - s <= 0.02 and best_score >= AUTO_ACCEPT_THRESHOLD:
+                            tie_detected = True
+                        break
+
+            # Only auto-check shows with confident matches (and no ties)
+            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD and not tie_detected
+
+            # Populate season names from TMDB details (may already be cached
+            # from tiebreak or episode count bonus).
+            season_names: dict[int, str] = {}
+            if best.get("id") is not None:
+                details = self.tmdb.get_tv_details(best["id"])
+                if details:
+                    for si in details.get("seasons", []):
+                        sn = si.get("season_number")
+                        name = si.get("name", "")
+                        if sn is not None and sn > 0 and name:
+                            generic = f"Season {sn}"
+                            if name != generic:
+                                season_names[sn] = name
 
             state = ScanState(
                 folder=folder,
@@ -584,6 +629,8 @@ class BatchTVOrchestrator:
                 direct_episode_file_count=candidate.direct_episode_file_count,
                 direct_video_file_count=candidate.direct_video_file_count,
                 discovered_via_symlink=candidate.discovered_via_symlink,
+                tie_detected=tie_detected,
+                season_names=season_names,
             )
             states.append(state)
 
@@ -960,7 +1007,17 @@ class BatchMovieOrchestrator:
 
             best, best_score = scored[0]
             alternates = [r for r, s in scored[1:4] if s > 0.3]
-            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD
+
+            # Detect tied top matches
+            tie_detected = False
+            if len(scored) >= 2:
+                for r, s in scored:
+                    if r.get("id") != best.get("id"):
+                        if best_score - s <= 0.02 and best_score >= AUTO_ACCEPT_THRESHOLD:
+                            tie_detected = True
+                        break
+
+            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD and not tie_detected
 
             state = ScanState(
                 folder=folder,
@@ -975,6 +1032,7 @@ class BatchMovieOrchestrator:
                 discovery_reason=candidate.discovery_reason,
                 direct_video_file_count=candidate.direct_video_file_count,
                 discovered_via_symlink=candidate.discovered_via_symlink,
+                tie_detected=tie_detected,
             )
             states.append(state)
 

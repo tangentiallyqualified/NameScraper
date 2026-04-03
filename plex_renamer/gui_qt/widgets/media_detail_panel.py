@@ -128,8 +128,8 @@ class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
     _MAX_METADATA_CACHE_ENTRIES = 64
-    _PORTRAIT_ARTWORK_SIZE = QSize(220, 340)
-    _LANDSCAPE_ARTWORK_SIZE = QSize(280, 158)
+    _PORTRAIT_ARTWORK_SIZE = QSize(280, 420)
+    _LANDSCAPE_ARTWORK_SIZE = QSize(320, 180)
 
     def __init__(
         self,
@@ -361,7 +361,7 @@ class MediaDetailPanel(QFrame):
             media_type=media_type,
             season=season_num,
             ep_still=ep_still,
-            target_width=280,
+            target_width=500,
         )
         raw_image = pil_to_raw(image) if image is not None else None
 
