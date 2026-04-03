@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePol
 
 from ...engine import PreviewItem, ScanState
 from ._formatting import clamped_percent
-from ._image_utils import build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
+from ._image_utils import ShimmerOverlay, build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
 
 
 def _format_rating(vote_average: float | None, vote_count: int = 0) -> str:
@@ -167,6 +167,7 @@ class MediaDetailPanel(QFrame):
         self._set_artwork_mode("poster")
         self._poster.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._poster.setProperty("cssClass", "media-poster")
+        self._poster_shimmer: ShimmerOverlay | None = None
         poster_layout.addWidget(self._poster)
         layout.addWidget(self._hero_frame, stretch=0)
 
@@ -294,6 +295,8 @@ class MediaDetailPanel(QFrame):
             return
 
         self._subtitle.setText(queue_reason or "Fetching metadata...")
+        self._set_artwork_mode(_selection_artwork_mode(preview))
+        self._show_artwork_placeholder(state.display_name, loading=True)
         self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
         if token in self._loading_tokens:
             return
@@ -474,6 +477,7 @@ class MediaDetailPanel(QFrame):
             self._metadata_cache.popitem(last=False)
         if token != self._current_token:
             return
+        self._stop_shimmer()
         self._title.setText(payload.get("title", "Selection"))
         self._subtitle.setText(payload.get("subtitle", ""))
         self._overview.setText(payload.get("overview", ""))
@@ -518,7 +522,7 @@ class MediaDetailPanel(QFrame):
     def _artwork_placeholder_text(self) -> str:
         return "No Episode Image" if self._artwork_mode == "still" else "No Poster"
 
-    def _show_artwork_placeholder(self, label: str = "") -> None:
+    def _show_artwork_placeholder(self, label: str = "", *, loading: bool = False) -> None:
         self._poster_pixmap = None
         self._hero_frame.clear_backdrop()
         subtitle = self._artwork_placeholder_text()
@@ -535,6 +539,16 @@ class MediaDetailPanel(QFrame):
         )
         self._poster.setPixmap(placeholder)
         self._poster.setText("")
+        if loading:
+            if self._poster_shimmer is None:
+                self._poster_shimmer = ShimmerOverlay(self._poster)
+        else:
+            self._stop_shimmer()
+
+    def _stop_shimmer(self) -> None:
+        if self._poster_shimmer is not None:
+            self._poster_shimmer.stop()
+            self._poster_shimmer = None
 
     def _set_meta_rows(self, rows: list[tuple[str, str]]) -> None:
         for row_index, (key_label, value_label) in enumerate(self._meta_rows):

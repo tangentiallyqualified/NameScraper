@@ -1364,19 +1364,21 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/toast_manager.py`
 
-#### 10.9 — Job completion and failure transition animations (Visual — Low)
+#### ~~10.9 — Job completion and failure transition animations (Visual — Low)~~ Implemented
 
 **Problem:** Queue job state transitions (pending → running → completed/failed) are instant. The design document calls for a brief color tint (200ms green fade on completion, red on failure) before settling to the final state.
 
-**Fix:** Use `QPropertyAnimation` on background color for job row widgets during state transitions.
+**Fix:** `JobTableModel` now tracks previous status per job and applies a 600ms background highlight (green for completed, red for failed, blue for reverted) via `BackgroundRole`, cleared by a single-shot `QTimer`.
 
-**Files:** `plex_renamer/gui_qt/widgets/_job_list_tab.py`, `plex_renamer/gui_qt/resources/theme.qss`
+**Files:** `plex_renamer/gui_qt/models/job_table_model.py`
 
-#### 10.10 — Poster loading placeholder shimmer (Visual — Low)
+#### ~~10.10 — Poster loading placeholder shimmer (Visual — Low)~~ Implemented
 
 **Problem:** While roster posters and detail panel artwork load, the space is empty. A shimmer placeholder or small spinner would signal that content is coming, not missing.
 
-**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`
+**Fix:** Added `ShimmerOverlay` widget to `_image_utils.py` — a translucent sweeping highlight band animated via `QPropertyAnimation`. Roster row widgets show the shimmer on the poster placeholder and stop it when the real poster arrives. The detail panel shows the shimmer during metadata fetch and stops it on `_apply_payload`.
+
+**Files:** `plex_renamer/gui_qt/widgets/_image_utils.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`
 
 #### ~~10.11 — Spacing normalization to 4px grid (Visual — Low)~~ Implemented
 
@@ -1390,26 +1392,144 @@ Items are organized by priority. Higher-priority items have the most user-facing
 
 **Files:** `plex_renamer/gui_qt/widgets/empty_state.py`
 
-#### 10.13 — Confirmation for large destructive batch operations (Workflow — Low)
+#### ~~10.13 — Confirmation for large destructive batch operations (Workflow — Low)~~ Implemented
 
 **Problem:** Removing or clearing large batches (10+ jobs) in queue/history proceeds without extra confirmation. Only revert has an inline banner.
 
-**Fix:** Add confirmation for bulk remove and bulk clear when the selection exceeds a threshold.
+**Fix:** Queue bulk remove now shows file count context when 10+ jobs are selected. History clear now shows revertible job count and warns about undo data loss.
 
 **Files:** `plex_renamer/gui_qt/widgets/queue_tab.py`, `plex_renamer/gui_qt/widgets/history_tab.py`
 
-#### 10.14 — Refactor media_workspace.py (Code Quality — Medium)
+#### ~~10.14 — Refactor media_workspace.py (Code Quality — Medium)~~ Implemented
 
-**Problem:** `media_workspace.py` is 1,777 lines and carries roster building, preview rendering, poster caching, checkbox sync, detail rendering, and alternate-match flows. This accumulation makes it hard to test, navigate, or modify any single concern without risk of side effects.
+**Problem:** `media_workspace.py` was 1,892 lines and carried roster building, preview rendering, poster caching, checkbox sync, detail rendering, alternate-match flows, and 29 pure helper functions.
 
-**Recommended split:**
-1. Extract `_RosterPanel` — roster list, grouping, poster loading, checkbox sync
-2. Extract `_PreviewPanel` — season groups, file cards, companion file rendering
-3. Keep `MediaWorkspace` as a thin coordinator binding the panels to `MediaController`
+**Fix:** Extracted all pure helper functions (state classification, roster helpers, preview helpers, shared UI helpers) into `_media_helpers.py` (321 lines). `media_workspace.py` imports these via aliased imports to preserve the existing `_` prefix convention at call sites. Module reduced from 1,892 to 1,627 lines. Unused imports (`QFont`, `percent_text`, `CommandGatingService`) cleaned up.
 
-This is not urgent but becomes increasingly important as more features (sticky headers, animations, deeper correction workflows) are added to these surfaces.
+**Files:** `plex_renamer/gui_qt/widgets/_media_helpers.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+### Phase 11 — UX improvements and workflow gaps
+
+Date added: 2026-04-03
+
+Phase 10 delivered visual polish and code quality. Phase 11 addresses real workflow gaps and usability issues surfaced during hands-on use. These items are more substantial than Phase 10 — several touch both the engine scoring logic and the GUI layout — and are organized by priority.
+
+#### 11.1 — Move queue button to the left roster panel (Layout — High)
+
+**Problem:** The "Queue N Checked" button lives in a bottom action bar (`_ActionBar`, `media_workspace.py:1596`). Users naturally check items in the roster and expect the queue action to be co-located with the roster, not at the bottom of the full workspace.
+
+**Fix:** Move the queue button above the roster `QListWidget` in the left panel, beside or below the master checkbox row. Remove `_ActionBar` or reduce it to a status-only role. Assess whether the bottom bar is still useful after this move — its only remaining function is a "{checked} of {total}" summary that duplicates the roster header's selection summary. If it adds nothing, remove it entirely.
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`
+
+#### 11.2 — Improve checkbox visual styling (Visual — High)
+
+**Problem:** `_ToggleSwitch` is a bare `QCheckBox` at 18×18px with no custom paint. It renders as a small platform-default square with no visual distinction from native controls. In a dark-themed media app, the checkboxes look like blobs.
+
+**Fix:** Custom-paint the checkbox: rounded rect background, check/dash indicator via `QPainter`, color-coded by theme (`accent` when checked, `bg_raised` when unchecked, intermediate dash for tri-state). The hit target should stay 18×18 or expand slightly (24×24) for touch friendliness. Apply the same treatment to the master checkbox.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_ToggleSwitch`, `_MasterCheckBox`)
+
+#### 11.3 — "Select All" / "Deselect All" toggle text on master checkbox (Workflow — High)
+
+**Problem:** The roster master checkbox always reads "Select All" regardless of state. When all items are checked, the label should read "Deselect All" so the action is self-documenting.
+
+**Fix:** In `_update_roster_selection_header()`, set the master checkbox text to "Deselect All" when the check state is `Qt.CheckState.Checked`, and "Select All" otherwise.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_update_roster_selection_header`)
+
+#### 11.4 — Preview panel master checkbox for matched content (Workflow — High)
+
+**Problem:** The preview panel has no select-all mechanism. Users must check individual files one by one within a matched show's preview. For a 24-episode season, this is tedious.
+
+**Fix:** Add a master checkbox to the preview panel header (beside the "Fix Match" button row). It should toggle all actionable preview items for the currently displayed state. Tri-state display: unchecked when none checked, checked when all checked, partial otherwise. Only visible when the current state is queueable and has checkable preview items.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (preview header area, around lines 210-225)
+
+#### 11.5 — Collapsible roster group headers with item counts (Workflow — High)
+
+**Problem:** Roster group headers ("PLEX READY", "MATCHED", "NEEDS REVIEW", etc.) are static text labels. Groups cannot be collapsed, and headers do not show how many items belong to each group. The "Plex Ready" group is typically the largest and least interesting since those items need no user action — it should be collapsed by default.
+
+**Fix:**
+1. Replace `_make_section_header()` `QListWidgetItem` approach with a clickable header widget that toggles visibility of child items. Track collapsed state in a `dict[str, bool]` on `MediaWorkspace`, keyed by group name.
+2. Display item count on each header: "PLEX READY (12)" / "NEEDS REVIEW (3)".
+3. Default "Plex Ready" to collapsed. Persist collapse state across roster rebuilds within the same session (not across app restarts).
+4. Animate collapse with a brief height transition or use `QListWidgetItem.setHidden()` for simplicity.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui_qt/widgets/_media_helpers.py`
+
+#### 11.6 — Season name in season headers (Visual — Medium)
+
+**Problem:** Season headers in the TV preview panel display "Season 1", "Season 2", etc. TMDB provides season names (e.g. "Season 1: The Phantom Blood Arc") that would add useful context when they differ from the generic numbering.
+
+**Fix:** When building season headers in `_populate_preview()`, look up the season name from `state.scanner.season_meta` (or fetch from TMDB details if available). Display as "Season 1 — {name}" when a meaningful name exists, falling back to "Season {n}" when the name is generic or unavailable.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_populate_preview`), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`season_label`)
+
+#### 11.7 — Approve button for needs-review matches (Workflow — High)
+
+**Problem:** When the scanner guesses correctly but below threshold, the user must open the match picker dialog ("Fix Match") to accept the existing guess. This is a five-click workflow for what should be a one-click approval. The inline alternate-match buttons allow choosing a *different* match, but there is no inline "accept the current guess" button.
+
+**Fix:** Add an "Approve" button on `_RosterRowWidget` when `state.needs_review` is true and the state has a `show_id`. Clicking it should set `match_origin = "manual"` via `MediaController`, clear `needs_review`, auto-check the item, and refresh the roster row in place. This is distinct from the alternate-match buttons which change the match — "Approve" accepts the existing one.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_RosterRowWidget`), `plex_renamer/app/controllers/media_controller.py` (new `approve_match` method)
+
+#### 11.8 — Tied-confidence matches trigger needs-review (Scoring — High)
+
+**Problem:** When two or more TMDB results score identically (or within a very narrow margin), the top result is silently auto-accepted if it clears the threshold. The user never learns that an equally plausible alternative existed. This is especially common for remakes and regional variants.
+
+**Fix:** In `score_results()` or the calling code in `discover_shows()` / `discover_movies()`, after scoring, if the top two results have confidence within 0.02 of each other and both clear the auto-accept threshold, force `needs_review = True` by keeping the confidence at the raw score but adding a flag (`tie_detected = True`) on the `ScanState`. The needs-review presentation should indicate "Tied match — please choose" rather than "below threshold". Present both tied candidates as alternate matches for inline selection.
+
+**Files:** `plex_renamer/engine.py` (`score_results`, `discover_shows`, `discover_movies`, `ScanState`), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`state_status`, `state_match_summary`)
+
+#### 11.9 — Episode count confidence bonus for TV matching (Scoring — High)
+
+**Problem:** TV match confidence is based on title similarity (70%) and year match (30%). It does not account for episode count alignment. When the number of files identified as episodes exactly matches the total number of episodes in a TMDB season or series, this is strong evidence of a correct match and should boost confidence. Specials (Season 0) should be excluded from the count comparison to avoid false negatives.
+
+**Current state:** `_episode_count_tiebreak()` already uses episode count to break near-ties (within 0.10 of top score), but this only reranks — it does not feed back into confidence. A perfect episode count match on the top result does not increase its score.
+
+**Fix:** After `score_results()` and `_episode_count_tiebreak()`, when the winning result's episode count matches the file count exactly (excluding specials), apply a confidence bonus (e.g. +0.10). When the count is close (within ±2), apply a smaller bonus (+0.05). Feed the adjusted confidence into `ScanState.confidence`. This must be specials-aware: count files that parse as S00E## separately and exclude them from the episode count comparison.
+
+**Files:** `plex_renamer/engine.py` (`discover_shows`, `_episode_count_tiebreak`, `ScanState`)
+
+#### 11.10 — Higher-resolution posters everywhere (Visual — High)
+
+**Problem:** Roster posters are fetched at `target_width=84` and displayed at 36×52px. Detail panel posters are fetched at `target_width=280` and displayed at 220×340px. Both appear blurry, especially on HiDPI displays where the physical pixels are 2× the logical size.
+
+**Fix:**
+1. **Roster posters:** Increase `target_width` to at least 185 (enough for 2× on a 92px logical display after planned size increase). Increase the roster poster `QLabel` from 36×52 to at least 48×70 to make artwork recognizable. Update compact size proportionally.
+2. **Detail panel posters:** Increase `target_width` to 500 (enough for 2× on 250px logical width). Consider increasing `_PORTRAIT_ARTWORK_SIZE` from 220×340 to 280×420 if layout permits.
+3. **Job detail panel:** Increase `target_width` from 96 to 200.
+4. Scale all `QPixmap` display using `Qt.TransformationMode.SmoothTransformation` (already the case — verify).
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (poster size, fetch width), `plex_renamer/gui_qt/widgets/media_detail_panel.py` (portrait/landscape sizes, fetch width), `plex_renamer/gui_qt/widgets/job_detail_panel.py` (fetch width)
+
+#### 11.11 — Improved duplicate handling: season-level matching and merging (Workflow — Medium)
+
+**Problem:** When the same show appears in multiple folders (e.g. "Show Name Season 1" and "Show Name Season 2" as separate root-level folders), each matches the same TMDB ID and the lower-priority folder is marked as a duplicate and locked out of queueing. The user has no way to indicate that each folder represents a distinct season of the same show and should be merged under one match.
+
+**Fix:**
+1. Allow duplicate-flagged states to be matched to individual seasons rather than the show as a whole. When a state is marked `duplicate_of`, offer a "Match to Season" action in the roster row that lets the user assign a specific season number.
+2. When two states share a TMDB ID but are assigned different seasons, they should not be considered duplicates — they are complementary. Update `_apply_duplicate_labels()` to exclude states with distinct season assignments.
+3. Consider auto-detecting season assignment from folder names containing "Season N" patterns.
+
+**Files:** `plex_renamer/engine.py` (`ScanState`, `_apply_duplicate_labels`), `plex_renamer/gui_qt/widgets/media_workspace.py` (roster row, duplicate actions), `plex_renamer/app/controllers/media_controller.py`
+
+#### 11.12 — Remove "below X% threshold" text from match summary (Visual — Low)
+
+**Problem:** The match summary line shows "72% confidence · below 55% threshold" for needs-review items and "85% confidence · clears 55% threshold" for accepted items. The threshold detail is implementation noise — the user does not need to see the internal threshold value.
+
+**Fix:** Simplify to "72% confidence · needs review" and "85% confidence" (or drop the suffix entirely for accepted matches). The threshold is a settings concern, not a per-item display concern.
+
+**Files:** `plex_renamer/gui_qt/widgets/_media_helpers.py` (`state_match_summary`)
+
+#### 11.13 — Queue and history badge counts on media tabs (Visual — Low)
+
+**Problem:** The Queue and History tabs already have `TabBadge` counts, but the TV Shows and Movies tabs have no count indicator. After scanning, there is no at-a-glance signal of how many items need attention (needs review, unmatched) vs how many are ready.
+
+**Fix:** Add a `TabBadge` to the TV and Movies tabs showing the count of items needing action (needs_review + unmatched). Alternatively, show the total scanned count with a failure pip when any items need review. Update on scan completion and roster state changes.
+
+**Files:** `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/widgets/tab_badge.py`
 
 ## Audit Checklist
 

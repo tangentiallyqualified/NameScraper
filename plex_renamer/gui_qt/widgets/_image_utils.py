@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtCore import Property, QPropertyAnimation, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
+from PySide6.QtWidgets import QWidget
 
 
 def pil_to_raw(pil_image) -> tuple[bytes, int, int]:
@@ -68,3 +69,57 @@ def build_placeholder_pixmap(
 
     painter.end()
     return pixmap
+
+
+class ShimmerOverlay(QWidget):
+    """Translucent animated shimmer drawn over a parent widget while content loads."""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._phase = 0.0
+
+        self._anim = QPropertyAnimation(self, b"phase", self)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setDuration(1200)
+        self._anim.setLoopCount(-1)
+        self._anim.start()
+
+    def _get_phase(self) -> float:
+        return self._phase
+
+    def _set_phase(self, value: float) -> None:
+        self._phase = value
+        self.update()
+
+    phase = Property(float, _get_phase, _set_phase)
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        w, h = self.width(), self.height()
+        if w < 1 or h < 1:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        # Sweeping highlight band
+        band_w = w * 0.6
+        x = -band_w + (w + band_w) * self._phase
+        grad = QLinearGradient(x, 0, x + band_w, 0)
+        grad.setColorAt(0.0, QColor(255, 255, 255, 0))
+        grad.setColorAt(0.5, QColor(255, 255, 255, 18))
+        grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+        painter.fillRect(0, 0, w, h, grad)
+        painter.end()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self.resize(self.parentWidget().size())
+
+    def stop(self) -> None:
+        self._anim.stop()
+        self.hide()
+        self.deleteLater()

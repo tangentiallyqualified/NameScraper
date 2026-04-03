@@ -182,11 +182,14 @@ class HistoryTab(_JobListTab):
         self._revert_banner.hide()
 
     def _clear_history(self) -> None:
-        if QMessageBox.question(
-            self,
-            "Clear History",
-            "Delete all history entries? Stored undo data for historical jobs will be lost.",
-        ) != QMessageBox.StandardButton.Yes:
+        jobs = self._queue_ctrl.get_history()
+        revertible = sum(1 for job in jobs if job.status == JobStatus.COMPLETED and job.undo_data)
+        message = f"Delete all {len(jobs)} history entries?"
+        if revertible:
+            message += f"\n\nStored undo data for {revertible} revertible job(s) will be lost."
+        else:
+            message += "\n\nThis cannot be undone."
+        if QMessageBox.question(self, "Clear History", message) != QMessageBox.StandardButton.Yes:
             return
         self._queue_ctrl.clear_history()
         self.refresh()

@@ -187,11 +187,11 @@ class QueueTab(_JobListTab):
         if not pending:
             QMessageBox.information(self, "Cannot Remove", "Only checked pending jobs can be removed.")
             return
-        if QMessageBox.question(
-            self,
-            "Remove Jobs",
-            f"Remove {len(pending)} checked pending job(s) from the queue?",
-        ) != QMessageBox.StandardButton.Yes:
+        total_files = sum(job.selected_count for job in pending)
+        message = f"Remove {len(pending)} checked pending job(s) from the queue?"
+        if len(pending) >= 10:
+            message += f"\n\nThis will discard rename plans for {total_files} file(s)."
+        if QMessageBox.question(self, "Remove Jobs", message) != QMessageBox.StandardButton.Yes:
             return
         self._queue_ctrl.remove_jobs([job.job_id for job in pending])
         self.refresh()

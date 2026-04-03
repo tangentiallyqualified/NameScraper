@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QTimer, Qt
 from PySide6.QtGui import QColor
 
 from ...constants import JobStatus
@@ -41,18 +41,50 @@ def _fmt_dt(value: str) -> str:
 class JobTableModel(QAbstractTableModel):
     """Read-only model exposing RenameJob rows to a QTableView."""
 
+    _TRANSITION_COLORS = {
+        JobStatus.COMPLETED: QColor(62, 164, 99, 50),   # success tint
+        JobStatus.FAILED: QColor(212, 64, 64, 50),      # error tint
+        JobStatus.REVERTED: QColor(74, 158, 218, 40),   # info tint
+    }
+
     def __init__(self, *, history: bool = False, parent=None) -> None:
         super().__init__(parent)
         self._history = history
         self._jobs: list[RenameJob] = []
         self._checked_job_ids: set[str] = set()
+        self._prev_statuses: dict[str, str] = {}
+        self._highlight_jobs: dict[str, str] = {}  # job_id -> new status
+        self._highlight_timer = QTimer(self)
+        self._highlight_timer.setSingleShot(True)
+        self._highlight_timer.setInterval(600)
+        self._highlight_timer.timeout.connect(self._clear_highlights)
 
     def set_jobs(self, jobs: list[RenameJob]) -> None:
+        # Detect status transitions before resetting
+        new_highlights: dict[str, str] = {}
+        for job in jobs:
+            prev = self._prev_statuses.get(job.job_id)
+            if prev is not None and prev != job.status and job.status in self._TRANSITION_COLORS:
+                new_highlights[job.job_id] = job.status
+        self._prev_statuses = {job.job_id: job.status for job in jobs}
+        if new_highlights:
+            self._highlight_jobs = new_highlights
+            self._highlight_timer.start()
+
         self.beginResetModel()
         self._jobs = list(jobs)
         valid_ids = {job.job_id for job in self._jobs}
         self._checked_job_ids &= valid_ids
         self.endResetModel()
+
+    def _clear_highlights(self) -> None:
+        if not self._highlight_jobs:
+            return
+        self._highlight_jobs.clear()
+        if self._jobs:
+            top_left = self.index(0, 0)
+            bottom_right = self.index(len(self._jobs) - 1, self.columnCount() - 1)
+            self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.BackgroundRole])
 
     def jobs(self) -> list[RenameJob]:
         return list(self._jobs)
@@ -147,6 +179,11 @@ class JobTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.ForegroundRole and column == 1:
             return _STATUS_COLOR.get(job.status)
+
+        if role == Qt.ItemDataRole.BackgroundRole:
+            highlight_status = self._highlight_jobs.get(job.job_id)
+            if highlight_status is not None:
+                return self._TRANSITION_COLORS.get(highlight_status)
 
         if role == Qt.ItemDataRole.UserRole:
             return job
