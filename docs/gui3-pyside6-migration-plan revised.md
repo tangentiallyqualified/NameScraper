@@ -1174,7 +1174,7 @@ The following items were identified in a full code review on 2026-03-30. They ar
 
 **Problem:** `MatchPickerDialog._run_search()` calls `self._search_callback(query, ...)` synchronously on the main thread. This performs an HTTP request to TMDB that freezes the UI for 1-5 seconds.
 
-**Fix:** Move the search call to a worker thread with a `QObject` signal bridge, matching the pattern used in `SettingsTab._on_test_key()` and `MediaDetailPanel._build_payload()`. Show a loading state on the result list while the search is in flight.
+**Fix:** Move the search call to a worker thread with a `QObject` signal bridge, matching the pattern used in `SettingsTab._on_test_key()` and `MediaDetailPanel._build_payload()`. Show a loading state on the result list while the search is in flight. Follow-up hardening preserved the current selection while a search is running, disabled acceptance during in-flight searches, and restored deterministic Enter-key behavior in the Qt smoke test.
 
 **Files:** `plex_renamer/gui_qt/widgets/match_picker_dialog.py`
 

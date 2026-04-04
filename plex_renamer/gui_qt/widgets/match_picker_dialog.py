@@ -56,6 +56,7 @@ class MatchPickerDialog(QDialog):
         self._year_hint = year_hint
         self._selected: dict | None = None
         self._results: list[dict] = []
+        self._search_in_progress = False
         self._search_bridge = _SearchBridge(self)
         self._search_bridge.results_ready.connect(self._on_search_results)
 
@@ -116,13 +117,19 @@ class MatchPickerDialog(QDialog):
         if not query:
             QMessageBox.information(self, "Search Required", "Enter a title to search TMDB.")
             return
+        self._search_in_progress = True
         self._search_button.setEnabled(False)
         self._query.setEnabled(False)
-        self._result_list.clear()
-        self._result_list.addItem("Searching...")
-        self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
-        self._overview.setText("")
-        self._ok_button.setEnabled(False)
+        self._result_list.setEnabled(False)
+
+        if self._selected is None:
+            self._result_list.clear()
+            self._result_list.addItem("Searching...")
+            self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
+            self._overview.setText("")
+            self._ok_button.setEnabled(False)
+        else:
+            self._overview.setText("Searching...")
 
         callback = self._search_callback
         year_hint = self._year_hint
@@ -143,9 +150,16 @@ class MatchPickerDialog(QDialog):
         threading.Thread(target=_worker, daemon=True, name="QtMatchSearch").start()
 
     def _on_search_results(self, results: list[dict]) -> None:
+        self._search_in_progress = False
         self._search_button.setEnabled(True)
         self._query.setEnabled(True)
+        self._result_list.setEnabled(True)
         self._set_results(results)
+
+    def accept(self) -> None:
+        if self._search_in_progress:
+            return
+        super().accept()
 
     def _set_results(self, results: list[dict]) -> None:
         self._results = list(results)
