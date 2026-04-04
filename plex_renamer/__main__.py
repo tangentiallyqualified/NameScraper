@@ -2,13 +2,11 @@
 Entry point for Plex Renamer.
 
 Usage:
-    python -m plex_renamer          # tkinter shell (current default)
-    python -m plex_renamer --qt     # PySide6 shell (GUI3)
+    python -m plex_renamer
 """
 
 import logging
 import os
-import sys
 
 
 def _env_flag(name: str) -> bool:
@@ -31,13 +29,8 @@ def main():
         format="%(name)s %(levelname)s: %(message)s",
     )
 
-    if "--qt" in sys.argv:
-        from .gui_qt.app import run
-        run()
-    else:
-        from .gui import PlexRenamerApp
-        app = PlexRenamerApp()
-        app.run()
+    from .gui_qt.app import run
+    run()
 
 
 if __name__ == "__main__":

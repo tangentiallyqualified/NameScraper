@@ -1597,7 +1597,7 @@ class _RosterRowWidget(_ClickableRow):
             body.addWidget(self._approve_btn)
 
         self._season_btn = None
-        if state.duplicate_of is not None and state.show_id is not None:
+        if state.duplicate_of is not None and state.show_id is not None and self._media_type == "tv":
             label = f"Assign Season ({state.season_assignment})" if state.season_assignment else "Assign Season"
             self._season_btn = QPushButton(label)
             self._season_btn.setProperty("cssClass", "secondary")

@@ -2,7 +2,7 @@
    All visual styling lives here.  Widget code should not contain
    inline style — use QSS class selectors and dynamic properties.
 
-   Color tokens (from styles.py):
+   Color tokens:
      bg_dark:          #0d0d0d    bg_mid:           #151515
      bg_card:          #1c1c1c    bg_card_hover:    #242424
      bg_card_selected: #1f1a0e    bg_input:         #252525

@@ -27,6 +27,7 @@ from .parsing import (
     build_show_folder_name,
     build_tv_name,
     clean_folder_name,
+    clean_name,
     extract_episode,
     extract_year,
     get_season,
@@ -506,13 +507,18 @@ class BatchTVOrchestrator:
         """
         discovery_service = self._get_discovery_service()
         discovered = discovery_service.discover_show_roots(self.root)
-        candidates: list[tuple[object, str, str, str | None]] = []
+        candidates: list[tuple[object, str, str, str, str | None]] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
             cleaned = best_tv_match_title(candidate.folder, include_year=False)
             score_name = best_tv_match_title(candidate.folder)
+            # Keep the folder-derived name as a fallback for scoring.
+            # File-inferred titles are better for TMDB search but may be
+            # shorter than the full show name (e.g. "Evangelion" from episode
+            # filenames vs "Neon Genesis Evangelion" from the folder).
+            folder_score_name = clean_folder_name(candidate.folder.name)
             year_hint = extract_year(candidate.folder.name)
-            candidates.append((candidate, cleaned, score_name, year_hint))
+            candidates.append((candidate, cleaned, score_name, folder_score_name, year_hint))
 
         if not candidates:
             return []
@@ -520,7 +526,7 @@ class BatchTVOrchestrator:
         _log.info("Discovered %d candidate show folders", len(candidates))
 
         # Parallel TMDB search
-        queries = [(name, year) for _, name, _, year in candidates]
+        queries = [(name, year) for _, name, _, _, year in candidates]
         all_results = self.tmdb.search_tv_batch(
             queries,
             progress_callback=progress_callback,
@@ -528,7 +534,7 @@ class BatchTVOrchestrator:
 
         # Build ScanState for each candidate
         states: list[ScanState] = []
-        for (candidate, cleaned_name, score_name, year_hint), results in zip(candidates, all_results):
+        for (candidate, cleaned_name, score_name, folder_score_name, year_hint), results in zip(candidates, all_results):
             _raise_if_cancelled(cancel_event)
             folder = candidate.folder
             if not results:
@@ -556,9 +562,22 @@ class BatchTVOrchestrator:
                 states.append(state)
                 continue
 
-            # Score results
+            # Score results using the file-inferred title, then also try
+            # the folder-derived title and keep whichever scores higher
+            # per result.  File-inferred titles are better TMDB search
+            # queries but may be abbreviated (e.g. "Evangelion" from
+            # episode filenames vs "Neon Genesis Evangelion" from the
+            # folder name).
             raw_name = score_name
             scored = score_results(results, raw_name, year_hint, title_key="name")
+            if folder_score_name and folder_score_name != score_name:
+                folder_scored = score_results(results, folder_score_name, year_hint, title_key="name")
+                folder_map = {r.get("id"): s for r, s in folder_scored}
+                scored = [
+                    (r, max(s, folder_map.get(r.get("id"), 0.0)))
+                    for r, s in scored
+                ]
+                scored.sort(key=lambda x: x[1], reverse=True)
             scored = boost_scores_with_alt_titles(
                 scored, raw_name, year_hint, self.tmdb,
                 title_key="name", media_type="tv",
@@ -1716,7 +1735,61 @@ class TVScanner:
                         entry, s0_titles, s0_tmdb_title_lookup, specials_target,
                     ))
 
+        self._resolve_duplicate_episodes(items)
         return items
+
+    def _resolve_duplicate_episodes(self, items: list[PreviewItem]) -> None:
+        """Skip files that duplicate an episode already claimed by a better match.
+
+        When two files in the same season both parse to the same episode
+        number, the file whose cleaned stem is most similar to the show
+        title keeps priority.  The other file is marked as SKIP.
+
+        This handles bundled movies (e.g. "End of Evangelion - 25'")
+        alongside regular episodes ("Evangelion - 25") in the same folder.
+        """
+        show_title = clean_folder_name(
+            self.show_info.get("name", ""), include_year=False,
+        ).casefold()
+
+        # Group OK items by (season, episode) to find duplicates.
+        from collections import defaultdict
+        ep_map: dict[tuple[int, int], list[int]] = defaultdict(list)
+        for idx, item in enumerate(items):
+            if item.status != "OK" or not item.episodes:
+                continue
+            for ep in item.episodes:
+                ep_map[(item.season, ep)].append(idx)
+
+        for key, indices in ep_map.items():
+            if len(indices) < 2:
+                continue
+            # Score each candidate by title similarity to the show name
+            scored: list[tuple[int, float]] = []
+            for idx in indices:
+                item = items[idx]
+                stem = clean_name(item.original.stem).casefold()
+                # Simple overlap: does the stem start with the show title?
+                if stem.startswith(show_title):
+                    score = len(show_title) / max(len(stem), 1)
+                elif show_title in stem:
+                    score = len(show_title) / max(len(stem), 1) * 0.5
+                else:
+                    score = 0.0
+                scored.append((idx, score))
+
+            # The item with the highest score wins; ties prefer shorter stems
+            # (simpler filenames are more likely to be the actual episode)
+            scored.sort(key=lambda x: (-x[1], len(clean_name(items[x[0]].original.stem)), x[0]))
+            # Skip all but the winner
+            for loser_idx, _ in scored[1:]:
+                loser = items[loser_idx]
+                loser.status = (
+                    f"SKIP: duplicate episode {key[1]} — filename does not "
+                    f"match show title"
+                )
+                loser.new_name = None
+                loser.target_dir = None
 
     def _scan_nested_extras(
         self,
@@ -1907,6 +1980,7 @@ class TVScanner:
                     episode_confidence=0.7,
                     **self._media_fields,
                 ))
+            self._resolve_duplicate_episodes(items)
             return items
 
         # Sequential fallback — distribute files across TMDB seasons in order
@@ -1949,6 +2023,7 @@ class TVScanner:
                 **self._media_fields,
             ))
 
+        self._resolve_duplicate_episodes(items)
         return items
 
     def _try_title_based_matching(

@@ -199,6 +199,21 @@ class MovieLibraryDiscoveryService:
         tv_file_count = sum(1 for f in direct_video_files if looks_like_tv_episode(f))
         non_tv_video_count = len(direct_video_files) - tv_file_count
 
+        # --- majority TV content → not a movie folder ---
+        # When the majority of video files are TV episodes, the remaining
+        # files are likely variant cuts, specials, or movies bundled with
+        # the series — not standalone movie candidates.
+        total_video = len(direct_video_files)
+        if total_video > 0 and tv_file_count > total_video / 2:
+            return _ClassifiedDirectory(
+                role=MovieDirectoryRole.NON_MOVIE_LEAF,
+                child_dirs=[],
+                discovery_reason="majority_tv_content",
+                direct_video_file_count=non_tv_video_count,
+                has_title_year_folder_name=False,
+                discovered_via_symlink=directory.is_symlink(),
+            )
+
         # --- movie root: 1-2 non-TV video files ---
         if 1 <= non_tv_video_count <= 2 and tv_file_count == 0:
             reason = "title_year_folder" if has_title_year else "direct_video_files"

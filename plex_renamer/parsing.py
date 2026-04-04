@@ -88,6 +88,11 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
         # Stop at "Season" followed by digits (not part of title)
         if re.match(r"(?i)^(?:Season|Seasons?)$", token):
             break
+        # Stop at bare episode ranges like "1-26", "01-13" that aren't
+        # years or part of the title.  These indicate episode numbering
+        # embedded in the folder name, not the show title.
+        if re.fullmatch(r"\d{1,3}-\d{1,3}", token):
+            break
         title_tokens.append(token)
 
     title = " ".join(title_tokens).strip().rstrip("-").strip()
@@ -189,7 +194,8 @@ _FANSUB_EPISODE_PATTERN = re.compile(
     r".+"                    # title text
     r"\s+-\s+"               # dash separator with spaces
     r"\d{1,3}"               # 1-3 digit episode number
-    r"(?:\s*-\s*\d{1,3})*"  # optional episode range/list suffixes
+    r"['\u2032]?"            # optional prime/tick (director's cut marker)
+    r"(?:\s*-\s*\d{1,3}['\u2032]?)*"  # optional episode range/list suffixes
     r"(?:\s|\.|\(|\[|$)",   # followed by space, dot, bracket, paren, or end
 )
 
@@ -296,7 +302,7 @@ _TV_TITLE_PREFIX_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+\d{1,3}(?:\s*-\s*\d{1,3})*(?=\s|\.|\(|\[|$)",
+        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+\d{1,3}['\u2032]?(?:\s*-\s*\d{1,3}['\u2032]?)*(?=\s|\.|\(|\[|$)",
         re.IGNORECASE,
     ),
 )
@@ -497,8 +503,9 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 
     # Pattern 2: Dash-delimited episode numbers, with optional range and title.
     # Examples: "Show - 05", "Show - 05-06", "Show - 05 - Title"
+    # Tolerates a trailing tick/prime mark (director's cut indicator).
     m = re.search(
-        r"-\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?(?:\s*-\s*(.*))?$",
+        r"-\s*(\d{1,3})['\u2032]?(?:\s*-\s*(\d{1,3})['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
     )
     if m:
@@ -633,6 +640,48 @@ def get_season(folder: Path) -> int | None:
         return int(m.group(1))
 
     return None
+
+
+# Pattern for folder names that are *primarily* a season label — i.e. the
+# season indicator is the whole name, not just one token buried in a long
+# release-style string like "Squid.Game.S02.2021.2160p.NF.WEB-DL...".
+#
+# Matches (case-insensitive):
+#   Season 01, Season 1, S02, Staffel 3, Saison 3, Temporada 5,
+#   Stagione 2, Second Season, 3rd Season, Specials, OVA, 02,
+#   Season 01 - Subtitle text, S01 (BD Remux ...)
+# Does NOT match:
+#   Squid.Game.S02.2021.2160p..., Legend.of.the.Galactic.Heroes.1988.S01...
+_SEASON_ONLY_NAME_RE = re.compile(
+    r"^(?:"
+    # Specials / extras names
+    r"specials?|extras?|bonus|OVAs?|OADs?|ONAs?|movies?|shorts?"
+    r"|behind[\s._\-]*the[\s._\-]*scenes"
+    r"|deleted[\s._\-]*scenes|featurettes?"
+    r"|special[\s._\-]*features?"
+    # "Season 01", "Season 1 - Name", "Season 01 (info)"
+    r"|(?:season|staffel|saison|temporada|stagione)[\s._\-]*\d{1,2}"
+        r"(?:[\s._\-]+.*?)?"
+    # "S01", "S01 - Title" (but NOT "S01 (BD Remux ...)" or "S01 [info]")
+    r"|S\d{1,2}(?:[\s._\-]+\-[\s._\-]+.*)?"
+    # Ordinal season: "Second Season", "3rd Season"
+    r"|(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth"
+        r"|\d{1,2}(?:st|nd|rd|th))[\s._\-]+season(?:[\s._\-]+.*)?"
+    # Bare number: "01", "2"
+    r"|\d{1,2}"
+    r")$",
+    re.IGNORECASE,
+)
+
+
+def is_season_only_name(folder_name: str) -> bool:
+    """Return True if *folder_name* is primarily a season label.
+
+    This distinguishes real season folders (``Season 01``, ``S02``) from
+    release-style show folders that happen to contain a season tag
+    (``Squid.Game.S02.2021.2160p.NF.WEB-DL...``).
+    """
+    return _SEASON_ONLY_NAME_RE.fullmatch(folder_name.strip()) is not None
 
 
 # ─── Name builders ───────────────────────────────────────────────────────────

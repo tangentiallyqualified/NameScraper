@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from ...constants import VIDEO_EXTENSIONS
-from ...parsing import get_season, is_extras_folder, looks_like_tv_episode
+from ...parsing import (
+    clean_folder_name,
+    get_season,
+    is_extras_folder,
+    is_season_only_name,
+    looks_like_tv_episode,
+)
 from ..models import TVDirectoryRole, TVDiscoveryCandidate
 
 
@@ -313,6 +319,12 @@ class TVLibraryDiscoveryService:
             return False
 
         child_entries = self._scan_children(child.path)
+
+        # An empty folder is not a meaningful season subdir even if its
+        # name looks like one — there is nothing to scan or rename.
+        if not child_entries:
+            return False
+
         has_direct_episodes = any(
             grandchild.is_file
             and grandchild.path.suffix.lower() in VIDEO_EXTENSIONS
@@ -377,12 +389,17 @@ class TVLibraryDiscoveryService:
         This distinguishes a real show folder (where most children are
         seasons like ``Season 01``, ``S04``, ``Second Season``) from a
         batch library where a few show folders happen to contain ``S##``
-        in their names (e.g. ``[FLE} Solo Leveling - S01 ...``).
+        in their names (e.g. ``Squid.Game.S02.2021.2160p...``).
 
-        Only children with season number >= 1 are counted as season dirs.
-        Season 0 / Specials folders are excluded from both counts so they
-        don't skew the ratio either way.
+        A child counts as a season folder if either:
+          a) Its name is primarily a season label (``Season 01``, ``S02``).
+          b) It has a season indicator AND its cleaned show title matches
+             the parent folder's cleaned show title — i.e. it's a
+             release-style season folder for the same show.
+
+        Season 0 / Specials folders are excluded from both counts.
         """
+        parent_title = clean_folder_name(directory.name, include_year=False).casefold()
         children = self._scan_children(directory)
         season_count = 0
         non_season_count = 0
@@ -398,13 +415,28 @@ class TVLibraryDiscoveryService:
                 # Specials/S00 — don't count in either direction
                 continue
             if sn is not None and sn >= 1:
-                season_count += 1
+                if is_season_only_name(child.path.name):
+                    season_count += 1
+                elif self._child_title_matches_parent(child.path.name, parent_title):
+                    season_count += 1
+                else:
+                    non_season_count += 1
             else:
                 non_season_count += 1
         total = season_count + non_season_count
         if total == 0:
             return False
         return season_count > total / 2
+
+    @staticmethod
+    def _child_title_matches_parent(child_name: str, parent_title_cf: str) -> bool:
+        """Return True if the child folder's cleaned title matches the parent's."""
+        if not parent_title_cf:
+            return False
+        child_title = clean_folder_name(child_name, include_year=False).casefold()
+        # The child's title (with season/release noise stripped) should match
+        # or start with the parent's title for it to be a season of that show.
+        return child_title == parent_title_cf or child_title.startswith(parent_title_cf)
 
     @staticmethod
     def _canonical_path(directory: Path) -> str | None:
