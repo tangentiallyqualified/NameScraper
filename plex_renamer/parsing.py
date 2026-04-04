@@ -509,9 +509,10 @@ def get_season(folder: Path) -> int | None:
     if _SPECIALS_SUFFIX.search(name):
         return 0
 
-    # "Season ##" anywhere (1-2 digits only — avoids matching "Season 1080p")
+    # "Season ##" anywhere (1-2 digits only — avoids matching "Season 1080p").
+    # Reject if followed by a comma+digit (e.g. "Season 1,2,3" = collection).
     m = re.search(r"season\s*(\d{1,2})(?!\d)", name, re.IGNORECASE)
-    if m:
+    if m and not re.match(r"\d{1,2}\s*,\s*\d", name[m.start(1):]):
         return int(m.group(1))
 
     # "S##" as a standalone token

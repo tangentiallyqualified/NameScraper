@@ -1504,16 +1504,19 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (poster size, fetch width), `plex_renamer/gui_qt/widgets/media_detail_panel.py` (portrait/landscape sizes, fetch width), `plex_renamer/gui_qt/widgets/job_detail_panel.py` (fetch width)
 
-#### 11.11 — Improved duplicate handling: season-level matching and merging (Workflow — Medium)
+#### ~~11.11 — Improved duplicate handling: season-level matching and merging (Workflow — Medium)~~ Implemented
 
 **Problem:** When the same show appears in multiple folders (e.g. "Show Name Season 1" and "Show Name Season 2" as separate root-level folders), each matches the same TMDB ID and the lower-priority folder is marked as a duplicate and locked out of queueing. The user has no way to indicate that each folder represents a distinct season of the same show and should be merged under one match.
 
 **Fix:**
-1. Allow duplicate-flagged states to be matched to individual seasons rather than the show as a whole. When a state is marked `duplicate_of`, offer a "Match to Season" action in the roster row that lets the user assign a specific season number.
-2. When two states share a TMDB ID but are assigned different seasons, they should not be considered duplicates — they are complementary. Update `_apply_duplicate_labels()` to exclude states with distinct season assignments.
-3. Consider auto-detecting season assignment from folder names containing "Season N" patterns.
+1. Added `season_assignment: int | None` field to `ScanState` — auto-detected from folder names via `get_season()` during TV discovery.
+2. Updated duplicate labeling in both orchestrators and `MediaController` so states with the same TMDB ID but different explicit season assignments can coexist instead of being forced into a single primary/duplicate slot.
+3. Added sibling-season merging in `BatchTVOrchestrator`: when multiple folders match the same show with distinct assigned seasons, they are collapsed into one `ScanState` with a `season_folders` map that preserves the per-season source folders for scanning and rename planning.
+4. Extended `TVScanner` to honor `season_hint` and `season_folders`, so flat single-season folders avoid the multi-season consolidated scan path and merged sibling folders still scan into canonical `Season NN` targets correctly.
+5. Added `MediaController.assign_season()` plus an "Assign Season" roster action backed by `QInputDialog`, and surfaced the assignment in roster metadata/signatures so the UI refreshes immediately.
+6. Tightened `get_season()` parsing to reject collection-style folder names like `Season 1,2,3`, which should not be treated as a single-season assignment.
 
-**Files:** `plex_renamer/engine.py` (`ScanState`, `_apply_duplicate_labels`), `plex_renamer/gui_qt/widgets/media_workspace.py` (roster row, duplicate actions), `plex_renamer/app/controllers/media_controller.py`
+**Files:** `plex_renamer/engine.py` (`ScanState`, `_apply_duplicate_labels`, `_merge_season_siblings`, `TVScanner`), `plex_renamer/gui_qt/widgets/media_workspace.py` (roster row, duplicate actions, season prompt), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`roster_signature`), `plex_renamer/app/controllers/media_controller.py` (`assign_season`, `_apply_movie_duplicate_labels`), `plex_renamer/parsing.py` (`get_season`)
 
 #### ~~11.12 — Remove "below X% threshold" text from match summary (Visual — Low)~~ Implemented
 

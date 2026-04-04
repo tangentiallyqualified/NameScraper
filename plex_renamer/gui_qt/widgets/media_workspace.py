@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -1249,6 +1250,9 @@ class MediaWorkspace(QWidget):
         widget.approve_requested.connect(
             lambda state=state: self._approve_match(state)
         )
+        widget.season_assign_requested.connect(
+            lambda state=state: self._prompt_assign_season(state)
+        )
         widget.geometry_changed.connect(lambda item=item, widget=widget: self._sync_item_height(item, widget))
         self._sync_item_height(item, widget)
         self._roster_list.setItemWidget(item, widget)
@@ -1307,6 +1311,21 @@ class MediaWorkspace(QWidget):
             return
         self._media_ctrl.approve_match(state)
         self.status_message.emit("Match approved.", 3000)
+
+    def _prompt_assign_season(self, state: ScanState) -> None:
+        if self._media_ctrl is None:
+            return
+        current = state.season_assignment or 1
+        season_num, ok = QInputDialog.getInt(
+            self, "Assign Season",
+            f"Season number for \"{state.display_name}\":",
+            current, 0, 99,
+        )
+        if not ok:
+            return
+        self._media_ctrl.assign_season(state, season_num if season_num > 0 else None)
+        label = f"Season {season_num}" if season_num > 0 else "cleared"
+        self.status_message.emit(f"Season assignment: {label}.", 3000)
 
     def _apply_alternate_match(self, state: ScanState, match: dict) -> None:
         if self._media_ctrl is None:
@@ -1476,6 +1495,7 @@ class _RosterRowWidget(_ClickableRow):
     check_toggled = Signal(bool)
     alternate_confirmed = Signal(object)
     approve_requested = Signal()
+    season_assign_requested = Signal()
     geometry_changed = Signal()
 
     def __init__(
@@ -1543,6 +1563,8 @@ class _RosterRowWidget(_ClickableRow):
         body.addLayout(title_row)
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
+        if state.season_assignment is not None:
+            meta_parts.append(f"Season {state.season_assignment}")
         if state.show_id is not None:
             meta_parts.append(_state_match_summary(state, auto_accept_threshold))
         if state.needs_review and state.alternate_matches and not state.queued:
@@ -1569,6 +1591,16 @@ class _RosterRowWidget(_ClickableRow):
             self._approve_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self._approve_btn.clicked.connect(self.approve_requested.emit)
             body.addWidget(self._approve_btn)
+
+        self._season_btn = None
+        if state.duplicate_of is not None and state.show_id is not None:
+            label = f"Assign Season ({state.season_assignment})" if state.season_assignment else "Assign Season"
+            self._season_btn = QPushButton(label)
+            self._season_btn.setProperty("cssClass", "secondary")
+            self._season_btn.setProperty("sizeVariant", "compact")
+            self._season_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self._season_btn.clicked.connect(self.season_assign_requested.emit)
+            body.addWidget(self._season_btn)
 
         self._alternates_layout = None
         self._alternates_widget = None

@@ -223,6 +223,9 @@ class ScanState:
 
     # Season metadata (populated during TV scan)
     season_names: dict[int, str] = field(default_factory=dict)  # season_num -> TMDB season name
+    season_assignment: int | None = None  # detected or manually assigned season number
+    # Extra season folders merged from sibling discoveries (season_num -> Path)
+    season_folders: dict[int, "Path"] = field(default_factory=dict)
 
     # Flags
     scanned: bool = False                               # True after Phase 2 scan
@@ -371,31 +374,49 @@ class BatchTVOrchestrator:
         return (-state.confidence, depth, evidence_rank, normalized_relative)
 
     def _apply_duplicate_labels(self) -> None:
-        """Mark lower-priority TMDB matches as duplicates deterministically."""
+        """Mark lower-priority TMDB matches as duplicates deterministically.
+
+        Two states with the same TMDB ID are considered duplicates UNLESS
+        both have an explicit (non-None) season_assignment that differs —
+        in that case they represent distinct seasons discovered as separate
+        folders and should coexist.
+        """
         for state in self.states:
             state.duplicate_of = None
             state.duplicate_of_relative_folder = None
 
-        seen_ids: dict[int, ScanState] = {}
+        # Group by TMDB ID, then within each group find a primary for each
+        # "slot".  A slot is identified by season_assignment when set, but
+        # a state with season_assignment=None competes with every slot.
+        groups: dict[int, list[ScanState]] = {}
         for state in self.states:
             sid = state.show_id
             if sid is None:
                 continue
-            primary = seen_ids.get(sid)
-            if primary is None:
-                seen_ids[sid] = state
-                continue
+            groups.setdefault(sid, []).append(state)
 
-            if self._duplicate_priority(state) < self._duplicate_priority(primary):
-                primary.duplicate_of = state.display_name
-                primary.duplicate_of_relative_folder = state.relative_folder or None
-                primary.checked = False
-                state.duplicate_of = None
-                state.duplicate_of_relative_folder = None
-                seen_ids[sid] = state
-            else:
-                state.duplicate_of = primary.display_name
-                state.duplicate_of_relative_folder = primary.relative_folder or None
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            # Sort by priority so the best candidate is first
+            group.sort(key=self._duplicate_priority)
+            primaries: dict[int | None, ScanState] = {}
+            for state in group:
+                sa = state.season_assignment
+                if sa is not None:
+                    existing = primaries.get(sa)
+                    if existing is None:
+                        primaries[sa] = state
+                        continue
+                else:
+                    # No season assignment — duplicate of the best primary
+                    existing = next(iter(primaries.values()), None) if primaries else None
+                    if existing is None:
+                        primaries[None] = state
+                        continue
+                # This state is a duplicate of `existing`
+                state.duplicate_of = existing.display_name
+                state.duplicate_of_relative_folder = existing.relative_folder or None
                 state.checked = False
 
     @staticmethod
@@ -528,6 +549,7 @@ class BatchTVOrchestrator:
                     direct_episode_file_count=candidate.direct_episode_file_count,
                     direct_video_file_count=candidate.direct_video_file_count,
                     discovered_via_symlink=candidate.discovered_via_symlink,
+                    season_assignment=get_season(folder),
                 )
                 states.append(state)
                 continue
@@ -631,6 +653,7 @@ class BatchTVOrchestrator:
                 discovered_via_symlink=candidate.discovered_via_symlink,
                 tie_detected=tie_detected,
                 season_names=season_names,
+                season_assignment=get_season(folder),
             )
             states.append(state)
 
@@ -651,12 +674,95 @@ class BatchTVOrchestrator:
                 self._normalized_relative_folder(s.relative_folder, s.folder),
             )
 
+        states = self._merge_season_siblings(states)
         states.sort(key=_sort_key)
 
         self.states = states
         self._apply_duplicate_labels()
         self.states.sort(key=_sort_key)
         return states
+
+    @staticmethod
+    def _merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
+        """Merge states that share a TMDB ID and have distinct season_assignments.
+
+        When multiple folders match the same show but each represents a
+        different season (e.g. "Show S01", "Show S02"), combine them into
+        a single ScanState whose ``season_folders`` map tells TVScanner
+        where each season lives on disk.
+        """
+        # Group matched states by TMDB ID
+        groups: dict[int, list[ScanState]] = {}
+        rest: list[ScanState] = []
+        for state in states:
+            sid = state.show_id
+            if sid is None or state.season_assignment is None:
+                rest.append(state)
+                continue
+            groups.setdefault(sid, []).append(state)
+
+        merged: list[ScanState] = list(rest)
+        for sid, group in groups.items():
+            if len(group) < 2:
+                merged.extend(group)
+                continue
+
+            # Check all have distinct season assignments
+            assignments = {s.season_assignment for s in group}
+            if len(assignments) < len(group):
+                # Some share the same season — can't fully merge, keep as-is
+                merged.extend(group)
+                continue
+
+            # Pick the best state as primary (highest confidence, then name)
+            group.sort(key=lambda s: (-s.confidence, s.display_name.lower()))
+            primary = group[0]
+
+            # Build season_folders map from all states in the group.
+            # If the folder itself has no video files but contains a season
+            # subdir matching the same season number, resolve to that subdir
+            # (e.g. "Show.S03.release/" containing an "S03/" subfolder).
+            season_map: dict[int, Path] = {}
+            total_files = primary.direct_video_file_count
+            total_ep_files = primary.direct_episode_file_count
+            for s in group:
+                if s.season_assignment is not None:
+                    season_map[s.season_assignment] = BatchTVOrchestrator._resolve_season_folder(
+                        s.folder, s.season_assignment,
+                    )
+                if s is not primary:
+                    total_files += s.direct_video_file_count
+                    total_ep_files += s.direct_episode_file_count
+                    # Merge season names
+                    for sn, name in s.season_names.items():
+                        primary.season_names.setdefault(sn, name)
+
+            primary.season_folders = season_map
+            primary.season_assignment = None  # no longer a single-season state
+            primary.direct_video_file_count = total_files
+            primary.direct_episode_file_count = total_ep_files
+            merged.append(primary)
+
+        return merged
+
+    @staticmethod
+    def _resolve_season_folder(folder: Path, season_num: int) -> Path:
+        """Return the actual directory containing episode files.
+
+        If *folder* has no video files but contains a single subdir whose
+        ``get_season()`` matches *season_num*, return that subdir instead.
+        This handles release layouts like ``Show.S03.release/S03/E01.mkv``.
+        """
+        has_video = any(
+            f.suffix.lower() in VIDEO_EXTENSIONS
+            for f in folder.iterdir() if f.is_file()
+        )
+        if has_video:
+            return folder
+        for child in folder.iterdir():
+            if child.is_dir() and get_season(child) == season_num:
+                return child
+        return folder
 
     def scan_show(
         self,
@@ -682,7 +788,9 @@ class BatchTVOrchestrator:
         _log.info("Scanning episodes for: %s", state.display_name)
 
         try:
-            scanner = TVScanner(self.tmdb, state.media_info, state.folder)
+            scanner = TVScanner(self.tmdb, state.media_info, state.folder,
+                                season_hint=state.season_assignment,
+                                season_folders=state.season_folders or None)
             items, has_mismatch = scanner.scan()
             _raise_if_cancelled(cancel_event)
 
@@ -876,31 +984,42 @@ class BatchMovieOrchestrator:
         return (ready_rank, -state.confidence, depth, evidence_rank, normalized_relative)
 
     def _apply_duplicate_labels(self) -> None:
-        """Mark lower-priority TMDB matches as duplicates deterministically."""
+        """Mark lower-priority TMDB matches as duplicates deterministically.
+
+        Same season-aware logic as BatchTVOrchestrator: two states with
+        the same TMDB ID are duplicates unless both have explicit, distinct
+        season_assignment values.
+        """
         for state in self.states:
             state.duplicate_of = None
             state.duplicate_of_relative_folder = None
 
-        seen_ids: dict[int, ScanState] = {}
+        groups: dict[int, list[ScanState]] = {}
         for state in self.states:
-            mid = state.show_id  # works for movies too — reads media_info["id"]
+            mid = state.show_id
             if mid is None:
                 continue
-            primary = seen_ids.get(mid)
-            if primary is None:
-                seen_ids[mid] = state
-                continue
+            groups.setdefault(mid, []).append(state)
 
-            if self._duplicate_priority(state) < self._duplicate_priority(primary):
-                primary.duplicate_of = state.display_name
-                primary.duplicate_of_relative_folder = state.relative_folder or None
-                primary.checked = False
-                state.duplicate_of = None
-                state.duplicate_of_relative_folder = None
-                seen_ids[mid] = state
-            else:
-                state.duplicate_of = primary.display_name
-                state.duplicate_of_relative_folder = primary.relative_folder or None
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            group.sort(key=self._duplicate_priority)
+            primaries: dict[int | None, ScanState] = {}
+            for state in group:
+                sa = state.season_assignment
+                if sa is not None:
+                    existing = primaries.get(sa)
+                    if existing is None:
+                        primaries[sa] = state
+                        continue
+                else:
+                    existing = next(iter(primaries.values()), None) if primaries else None
+                    if existing is None:
+                        primaries[None] = state
+                        continue
+                state.duplicate_of = existing.display_name
+                state.duplicate_of_relative_folder = existing.relative_folder or None
                 state.checked = False
 
     def _get_discovery_service(self):
@@ -1168,10 +1287,14 @@ class TVScanner:
     redundant filesystem walks and API calls across scan/mismatch/consolidated.
     """
 
-    def __init__(self, tmdb: TMDBClient, show_info: dict, root_folder: Path):
+    def __init__(self, tmdb: TMDBClient, show_info: dict, root_folder: Path,
+                 *, season_hint: int | None = None,
+                 season_folders: dict[int, Path] | None = None):
         self.tmdb = tmdb
         self.show_info = show_info
         self.root = root_folder
+        self._season_hint = season_hint  # from ScanState.season_assignment
+        self._season_folders = season_folders  # explicit season->folder map from merged siblings
         # Populated during scan — used by the GUI for detail panel
         self.episode_titles: dict[tuple[int, int], str] = {}
         self.episode_posters: dict[tuple[int, int], str | None] = {}
@@ -1183,12 +1306,24 @@ class TVScanner:
     def _get_season_dirs(self) -> list[tuple[Path, int]]:
         """Find and sort season subdirectories. Cached after first call.
 
+        When ``_season_folders`` is provided (merged sibling folders), those
+        are used directly — each entry maps a season number to an external
+        folder path.  Otherwise, the standard discovery logic runs:
+
         First pass uses ``get_season()`` for standard patterns (Season 01,
         S02, ordinals).  Second pass matches remaining subdirectories against
         TMDB season names so that named anime seasons (e.g. "Karasuno High
         School vs. Shiratorizawa Academy") are correctly identified.
         """
         if self._season_dirs is not None:
+            return self._season_dirs
+
+        # Explicit season folder map from merged sibling discoveries
+        if self._season_folders:
+            self._season_dirs = sorted(
+                [(folder, sn) for sn, folder in self._season_folders.items()],
+                key=lambda x: x[1],
+            )
             return self._season_dirs
 
         # Compute season number once per directory, filter and sort
@@ -1217,7 +1352,7 @@ class TVScanner:
         dirs_with_season.sort(key=lambda x: x[1])
 
         if not dirs_with_season:
-            self._season_dirs = [(self.root, 1)]
+            self._season_dirs = [(self.root, self._season_hint or 1)]
         else:
             self._season_dirs = dirs_with_season
         return self._season_dirs
@@ -1358,6 +1493,9 @@ class TVScanner:
         # Flat folder (no season subdirs) mapped to a multi-season TMDB show:
         # use consolidated/absolute preview to distribute files across seasons
         # instead of cramming everything into Season 01.
+        # Exception: when a season_hint is set the folder represents a single
+        # known season (e.g. "Show S02"), so skip the consolidated path and
+        # match files against that one season only.
         is_flat_folder = (
             len(season_dirs) == 1
             and season_dirs[0][0] == self.root
@@ -1365,7 +1503,7 @@ class TVScanner:
         non_special_tmdb_seasons = {
             sn for sn in tmdb_seasons if sn != 0
         }
-        if is_flat_folder and len(non_special_tmdb_seasons) > 1:
+        if is_flat_folder and len(non_special_tmdb_seasons) > 1 and self._season_hint is None:
             return (
                 self._build_consolidated_preview(season_dirs, tmdb_seasons),
                 False,
@@ -1545,11 +1683,12 @@ class TVScanner:
                     ]
 
                     target_dir = season_dir
-                    if season_dir == self.root or get_season(season_dir) is None:
-                        # Flat show root or named-season folder (matched
-                        # via TMDB name, not a standard pattern like S03).
-                        # Target the canonical Season NN directory so files
-                        # are moved there and the old folder is cleaned up.
+                    if (season_dir == self.root
+                            or get_season(season_dir) is None
+                            or self._season_folders):
+                        # Flat show root, named-season folder, or merged
+                        # sibling folder — target the canonical Season NN
+                        # directory so files are moved there.
                         target_dir = self.root / f"Season {season_num:02d}"
 
                     new_name = build_tv_name(
@@ -2940,9 +3079,6 @@ def build_rename_job_from_state(
     checked_indices = checked_indices or get_checked_indices_from_state(state)
     ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
 
-    # Prefer the pre-computed relative_folder from discovery; fall back to
-    # computing it from the absolute paths (which can fail if the state was
-    # restored against a different library_root).
     if state.relative_folder:
         source_folder = state.relative_folder
     else:

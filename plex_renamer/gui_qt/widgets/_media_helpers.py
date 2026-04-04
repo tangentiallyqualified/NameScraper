@@ -171,6 +171,7 @@ def roster_signature(state: ScanState, *, compact: bool, media_type: str) -> tup
         state.needs_review,
         state.confidence,
         state.file_count,
+        state.season_assignment,
         compact,
         media_type,
         alt_signature,

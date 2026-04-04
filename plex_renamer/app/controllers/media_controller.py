@@ -289,7 +289,8 @@ class MediaController:
         self._active_library_mode = MediaType.TV
         self._tv_root_folder = folder
 
-        scanner = TVScanner(tmdb, show_info, folder)
+        from ...parsing import get_season
+        scanner = TVScanner(tmdb, show_info, folder, season_hint=get_season(folder))
         state = ScanState(
             folder=folder,
             media_info=show_info,
@@ -515,7 +516,8 @@ class MediaController:
     def scan_show(self, state: ScanState, tmdb: Any) -> None:
         """Scan a single show's episodes in a background thread."""
         if state.scanner is None:
-            state.scanner = TVScanner(tmdb, state.media_info, state.folder)
+            state.scanner = TVScanner(tmdb, state.media_info, state.folder,
+                                      season_hint=state.season_assignment)
 
         self._set_progress(
             ScanLifecycle.SCANNING,
@@ -681,27 +683,32 @@ class MediaController:
             state.duplicate_of = None
             state.duplicate_of_relative_folder = None
 
-        seen_ids: dict[int, ScanState] = {}
+        groups: dict[int, list[ScanState]] = {}
         for state in states:
             media_id = state.show_id
             if media_id is None:
                 continue
+            groups.setdefault(media_id, []).append(state)
 
-            primary = seen_ids.get(media_id)
-            if primary is None:
-                seen_ids[media_id] = state
+        for group in groups.values():
+            if len(group) < 2:
                 continue
-
-            if self._movie_duplicate_priority(state) < self._movie_duplicate_priority(primary):
-                primary.duplicate_of = state.display_name
-                primary.duplicate_of_relative_folder = self._movie_state_relative_folder(state)
-                primary.checked = False
-                state.duplicate_of = None
-                state.duplicate_of_relative_folder = None
-                seen_ids[media_id] = state
-            else:
-                state.duplicate_of = primary.display_name
-                state.duplicate_of_relative_folder = self._movie_state_relative_folder(primary)
+            group.sort(key=self._movie_duplicate_priority)
+            primaries: dict[int | None, ScanState] = {}
+            for state in group:
+                sa = state.season_assignment
+                if sa is not None:
+                    existing = primaries.get(sa)
+                    if existing is None:
+                        primaries[sa] = state
+                        continue
+                else:
+                    existing = next(iter(primaries.values()), None) if primaries else None
+                    if existing is None:
+                        primaries[None] = state
+                        continue
+                state.duplicate_of = existing.display_name
+                state.duplicate_of_relative_folder = self._movie_state_relative_folder(existing)
                 state.checked = False
 
     def _movie_duplicate_priority(self, state: ScanState) -> tuple[int, float, int, str, str]:
@@ -730,6 +737,15 @@ class MediaController:
             return
         state.match_origin = "manual"
         state.checked = True
+        self._notify("library_changed", self.library_states)
+
+    def assign_season(self, state: ScanState, season_num: int | None) -> None:
+        """Assign (or clear) a season number on a state and recompute duplicates."""
+        state.season_assignment = season_num
+        if self._batch_orchestrator is not None:
+            self._batch_orchestrator._apply_duplicate_labels()
+        elif self._movie_library_states:
+            self._apply_movie_duplicate_labels(self._movie_library_states)
         self._notify("library_changed", self.library_states)
 
     def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
