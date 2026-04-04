@@ -49,7 +49,7 @@ from ..job_store import JobStore, RenameJob, DuplicateJobError
 from ..job_executor import QueueExecutor
 from ..keys import get_api_key, save_api_key
 from ..parsing import (
-    build_movie_name, build_show_folder_name, clean_folder_name,
+    best_tv_match_title, build_movie_name, build_show_folder_name, clean_folder_name,
     extract_year, is_already_complete,
 )
 from ..styles import COLORS, get_dpi_scale, setup_styles
@@ -1439,10 +1439,9 @@ class PlexRenamerApp:
             else:
                 self.batch_mode = False
                 self.batch_orchestrator = None
-                folder_name = self.folder.name
-                cleaned = clean_folder_name(folder_name)
-                search_query = re.sub(r"\s*\(\d{4}\)\s*$", "", cleaned).strip()
-                self._search_tv(tmdb, search_query, folder_name)
+                raw_name = best_tv_match_title(self.folder)
+                search_query = best_tv_match_title(self.folder, include_year=False)
+                self._search_tv(tmdb, search_query, raw_name)
         else:
             self.media_type = MediaType.MOVIE
             self._setup_movie_scan(tmdb)

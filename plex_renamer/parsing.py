@@ -286,6 +286,94 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     return False
 
 
+_TV_TITLE_PREFIX_PATTERNS = (
+    re.compile(
+        r"^(?P<title>.+?)[ ._\-]+S\d{1,2}E\d{1,3}(?:[E\-]?E?\d{1,3})?(?=[ ._\-]|$)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?P<title>.+?)[ ._\-]+\d{1,2}x\d{2,3}(?=[ ._\-]|$)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+\d{1,3}(?:\s*-\s*\d{1,3})*(?=\s|\.|\(|\[|$)",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _extract_tv_title_prefix(filename: str) -> str | None:
+    """Extract a conservative show-title prefix from an episodic filename."""
+    stem = TRAILING_GROUP.sub("", Path(filename).stem)
+    stem = re.sub(r"\[[^\[\]]*\]", "", stem).strip()
+
+    for pattern in _TV_TITLE_PREFIX_PATTERNS:
+        match = pattern.search(stem)
+        if not match:
+            continue
+        title = clean_folder_name(match.group("title"), include_year=False)
+        title = re.sub(r"\s+", " ", title).strip(" ._-")
+        if len(title) >= 2 and re.search(r"[A-Za-z]", title):
+            return title
+    return None
+
+
+def _infer_tv_title_from_direct_episode_files(folder: Path) -> str | None:
+    """Infer a TV title from direct episode files only when they strongly agree.
+
+    This is intentionally conservative: it only overrides the folder-derived
+    title when at least two direct child episode files produce the same title
+    prefix and that prefix accounts for at least 80% of the episodic files.
+    """
+    episode_file_count = 0
+    title_counts: dict[str, int] = {}
+    title_examples: dict[str, str] = {}
+
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return None
+
+    for child in entries:
+        if not child.is_file() or child.suffix.lower() not in VIDEO_EXTENSIONS:
+            continue
+        if not looks_like_tv_episode(child):
+            continue
+
+        episode_file_count += 1
+        title = _extract_tv_title_prefix(child.name)
+        if not title:
+            continue
+
+        key = title.casefold()
+        title_counts[key] = title_counts.get(key, 0) + 1
+        title_examples.setdefault(key, title)
+
+    if episode_file_count < 2 or not title_counts:
+        return None
+
+    best_key, best_count = max(title_counts.items(), key=lambda item: (item[1], len(item[0])))
+    if best_count < 2 or (best_count * 5) < (episode_file_count * 4):
+        return None
+    return title_examples[best_key]
+
+
+def best_tv_match_title(folder: Path, *, include_year: bool = True) -> str:
+    """Return the best available TV title for matching/search.
+
+    Prefer a title inferred from direct episode filenames when the evidence is
+    strong; otherwise fall back to the folder name parser.
+    """
+    inferred = _infer_tv_title_from_direct_episode_files(folder)
+    if inferred is not None:
+        if include_year:
+            year = extract_year(folder.name)
+            if year:
+                return f"{inferred} ({year})"
+        return inferred
+    return clean_folder_name(folder.name, include_year=include_year)
+
+
 # ─── Companion subtitle discovery ────────────────────────────────────────────
 
 # Matches a trailing language tag on a subtitle stem, e.g.:

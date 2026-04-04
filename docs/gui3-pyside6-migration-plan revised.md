@@ -1534,6 +1534,14 @@ Phase 10 delivered visual polish and code quality. Phase 11 addresses real workf
 
 **Files:** `plex_renamer/gui_qt/main_window.py`, `plex_renamer/gui_qt/widgets/tab_badge.py`
 
+#### ~~11.14 — Ignore release-group suffixes in TV folder matching when episode files agree (Scoring — High)~~ Implemented
+
+**Problem:** Some TV folders are named with trailing release-group or source noise rather than a clean show title, e.g. `chernobyl framestor`. The existing TV discovery path scored against the folder name itself, so the extra token could bury the correct TMDB result. In this case the raw TMDB search still returned `Chernobyl (2019)` first, but local rescoring pushed it far down the list and the later episode-count tiebreak incorrectly selected `Chernobyl, la serie`.
+
+**Fix:** Added a conservative file-based title heuristic for TV matching. When a folder contains direct child episode files and at least two of those filenames agree on the same extracted show-title prefix, covering at least 80% of the episodic files, that inferred title is used for TMDB search and rescoring instead of the raw folder name. If the filenames disagree, the matcher falls back to the folder-derived title. Wired this through batch TV discovery, TV rematch rescoring, and the Qt/Tk Fix Match default query so the matching surface stays consistent.
+
+**Files:** `plex_renamer/parsing.py` (`best_tv_match_title` and helpers), `plex_renamer/engine.py` (`discover_shows`, `rematch_show`), `plex_renamer/app/controllers/media_controller.py`, `plex_renamer/gui_qt/widgets/media_workspace.py`, `plex_renamer/gui/app.py`, `plex_renamer/gui/library_panel.py`, `tests/test_scan_improvements.py`
+
 ## Audit Checklist
 
 Use this checklist before approving progress to each new phase:

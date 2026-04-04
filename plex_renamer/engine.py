@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from .constants import VIDEO_EXTENSIONS, MediaType
 from .parsing import (
     EXTRAS_FOLDER_PATTERN,
+    best_tv_match_title,
     is_extras_folder,
     build_movie_name,
     build_show_folder_name,
@@ -505,12 +506,13 @@ class BatchTVOrchestrator:
         """
         discovery_service = self._get_discovery_service()
         discovered = discovery_service.discover_show_roots(self.root)
-        candidates: list[tuple[object, str, str | None]] = []
+        candidates: list[tuple[object, str, str, str | None]] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
-            cleaned = clean_folder_name(candidate.folder.name, include_year=False)
+            cleaned = best_tv_match_title(candidate.folder, include_year=False)
+            score_name = best_tv_match_title(candidate.folder)
             year_hint = extract_year(candidate.folder.name)
-            candidates.append((candidate, cleaned, year_hint))
+            candidates.append((candidate, cleaned, score_name, year_hint))
 
         if not candidates:
             return []
@@ -518,7 +520,7 @@ class BatchTVOrchestrator:
         _log.info("Discovered %d candidate show folders", len(candidates))
 
         # Parallel TMDB search
-        queries = [(name, year) for _, name, year in candidates]
+        queries = [(name, year) for _, name, _, year in candidates]
         all_results = self.tmdb.search_tv_batch(
             queries,
             progress_callback=progress_callback,
@@ -526,7 +528,7 @@ class BatchTVOrchestrator:
 
         # Build ScanState for each candidate
         states: list[ScanState] = []
-        for (candidate, cleaned_name, year_hint), results in zip(candidates, all_results):
+        for (candidate, cleaned_name, score_name, year_hint), results in zip(candidates, all_results):
             _raise_if_cancelled(cancel_event)
             folder = candidate.folder
             if not results:
@@ -555,7 +557,7 @@ class BatchTVOrchestrator:
                 continue
 
             # Score results
-            raw_name = clean_folder_name(folder.name)
+            raw_name = score_name
             scored = score_results(results, raw_name, year_hint, title_key="name")
             scored = boost_scores_with_alt_titles(
                 scored, raw_name, year_hint, self.tmdb,
@@ -865,7 +867,7 @@ class BatchTVOrchestrator:
         """Swap a show's TMDB match and invalidate its scan data."""
         state.media_info = new_match
         # Rescore confidence against the original search results
-        raw_name = clean_folder_name(state.folder.name)
+        raw_name = best_tv_match_title(state.folder)
         year_hint = extract_year(state.folder.name)
         scored = score_results(
             [new_match], raw_name, year_hint, title_key="name")

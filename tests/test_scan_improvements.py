@@ -9,6 +9,7 @@ from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.engine import BatchTVOrchestrator
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
+from plex_renamer.parsing import best_tv_match_title
 
 
 class _FakeTMDB:
@@ -40,7 +41,89 @@ class _FakeTMDB:
         return {"number_of_seasons": 1, "number_of_episodes": 12}
 
 
+class _RecordingTVTMDB(_FakeTMDB):
+    def __init__(self):
+        self.queries: list[tuple[str, str | None]] = []
+
+    def search_tv_batch(self, queries, progress_callback=None):
+        self.queries = list(queries)
+        results = []
+        total = len(queries)
+        for index, (_name, _year) in enumerate(queries, start=1):
+            if progress_callback:
+                progress_callback(index, total)
+            results.append([
+                {
+                    "id": 87108,
+                    "name": "Chernobyl",
+                    "year": "2019",
+                    "poster_path": None,
+                    "overview": "",
+                },
+                {
+                    "id": 85716,
+                    "name": "Chernobyl, la serie",
+                    "year": "2018",
+                    "poster_path": None,
+                    "overview": "",
+                },
+                {
+                    "id": 102179,
+                    "name": "Chornobyl: Aftermath",
+                    "year": "2016",
+                    "poster_path": None,
+                    "overview": "",
+                },
+            ])
+        return results
+
+    def get_tv_details(self, show_id):
+        details = {
+            87108: {"number_of_seasons": 1, "number_of_episodes": 5},
+            85716: {"number_of_seasons": 1, "number_of_episodes": 5},
+            102179: {"number_of_seasons": 1, "number_of_episodes": 4},
+        }
+        return details.get(show_id, super().get_tv_details(show_id))
+
+
 class ScanImprovementTests(unittest.TestCase):
+    def test_tv_discovery_uses_consistent_episode_title_over_noisy_folder_suffix(self):
+        with TemporaryDirectory() as tmp:
+            show = Path(tmp) / "chernobyl framestor"
+            show.mkdir()
+            for episode in range(1, 6):
+                (
+                    show
+                    / f"Chernobyl.S01E0{episode}.2160p.DTS-HD.MA.5.1.DV.HEVC.REMUX-FraMeSToR.mkv"
+                ).write_text("x")
+
+            tmdb = _RecordingTVTMDB()
+            orchestrator = BatchTVOrchestrator(
+                tmdb,
+                show,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_shows()
+
+            self.assertEqual(tmdb.queries, [("Chernobyl", None)])
+            self.assertEqual(len(states), 1)
+            self.assertEqual(states[0].show_id, 87108)
+            self.assertEqual(states[0].media_info["name"], "Chernobyl")
+            self.assertEqual(states[0].display_name, "Chernobyl (2019)")
+
+    def test_best_tv_match_title_falls_back_when_episode_titles_disagree(self):
+        with TemporaryDirectory() as tmp:
+            show = Path(tmp) / "anthology framestor"
+            show.mkdir()
+            (show / "Show.One.S01E01.mkv").write_text("x")
+            (show / "Show.Two.S01E02.mkv").write_text("x")
+
+            self.assertEqual(
+                best_tv_match_title(show, include_year=False),
+                "anthology framestor",
+            )
+
     def test_nested_discovery_finds_show_roots_but_not_containers_or_movies(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -32,7 +32,7 @@ from ...engine import (
     score_results,
     TVScanner,
 )
-from ...parsing import clean_folder_name, extract_year
+from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
@@ -756,13 +756,13 @@ class MediaController:
             orchestrator.rematch_show(state, new_match)
         else:
             state.media_info = new_match
-            raw_name = clean_folder_name(state.folder.name)
+            raw_name = best_tv_match_title(state.folder)
             year_hint = extract_year(state.folder.name)
             scored = score_results([new_match], raw_name, year_hint, title_key="name")
             state.confidence = scored[0][1] if scored else 0.0
             state.reset_scan()
 
-        raw_name = clean_folder_name(state.folder.name)
+        raw_name = best_tv_match_title(state.folder)
         year_hint = extract_year(state.folder.name)
         scored = score_results(state.search_results, raw_name, year_hint, title_key="name")
         state.alternate_matches = pick_alternate_matches(

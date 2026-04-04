@@ -567,7 +567,9 @@ def _apply_alternate_match(app, show_idx: int, alt_idx: int) -> None:
         app.batch_orchestrator.rematch_show(state, new_match)
 
     # Rebuild alternates from search results excluding the new best match
-    raw_name = clean_folder_name(state.folder.name)
+    from ..parsing import best_tv_match_title
+
+    raw_name = best_tv_match_title(state.folder)
     year_hint = extract_year(state.folder.name)
     scored = score_results(state.search_results, raw_name, year_hint, title_key="name")
     state.alternate_matches = [

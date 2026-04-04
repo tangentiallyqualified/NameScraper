@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...engine import PreviewItem, ScanState
-from ...parsing import clean_folder_name, extract_year
+from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ._formatting import clamped_percent
 from ._image_utils import ShimmerOverlay, build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
@@ -1084,7 +1084,11 @@ class MediaWorkspace(QWidget):
             search_callback = tmdb.search_tv
             dialog_title = f"Fix Match: {state.folder.name}"
 
-        query = clean_folder_name(query_source, include_year=False)
+        query = (
+            best_tv_match_title(state.folder, include_year=False)
+            if self._media_type == "tv"
+            else clean_folder_name(query_source, include_year=False)
+        )
         year_hint = extract_year(query_source)
         chosen = MatchPickerDialog.pick(
             title=dialog_title,
