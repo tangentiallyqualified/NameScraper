@@ -29,6 +29,8 @@ from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
 
 _HOVER_COLOR = QColor(36, 36, 36)  # #242424
+_SELECTED_ROW_COLOR = QColor(31, 26, 14)  # #1f1a0e
+_ROW_ACCENT_COLOR = QColor(229, 160, 13)  # #e5a00d
 
 
 class _CheckableHeaderView(QHeaderView):
@@ -97,11 +99,61 @@ class _HoverRowDelegate(QStyledItemDelegate):
         self._table.viewport().update()
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
-        # Strip Qt's built-in hover state so it doesn't paint its own highlight
-        option.state &= ~QStyle.StateFlag.State_MouseOver
-        if index.row() == self._hover_row:
+        paint_option = QStyleOptionViewItem(option)
+        current_row = self._table.currentIndex().row()
+        highlight_row = current_row if current_row >= 0 else -1
+        background = index.data(Qt.ItemDataRole.BackgroundRole)
+
+        if isinstance(background, QBrush):
+            painter.fillRect(option.rect, background)
+        elif isinstance(background, QColor):
+            painter.fillRect(option.rect, background)
+
+        if index.row() == highlight_row:
+            painter.fillRect(option.rect, _SELECTED_ROW_COLOR)
+            if index.column() == 0:
+                painter.fillRect(
+                    QRect(option.rect.left(), option.rect.top(), 4, option.rect.height()),
+                    _ROW_ACCENT_COLOR,
+                )
+        elif index.row() == self._hover_row:
             painter.fillRect(option.rect, _HOVER_COLOR)
-        super().paint(painter, option, index)
+
+        paint_option.state &= ~(
+            QStyle.StateFlag.State_MouseOver
+            | QStyle.StateFlag.State_Selected
+            | QStyle.StateFlag.State_HasFocus
+        )
+        paint_option.backgroundBrush = QBrush(Qt.BrushStyle.NoBrush)
+
+        if index.column() == 0:
+            self._paint_checkbox(painter, paint_option, index)
+            return
+
+        super().paint(painter, paint_option, index)
+
+    def _paint_checkbox(
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> None:
+        check_state = index.data(Qt.ItemDataRole.CheckStateRole)
+        if check_state is None:
+            return
+        checkbox = QStyleOptionButton()
+        indicator_size = 18
+        x = option.rect.x() + (option.rect.width() - indicator_size) // 2
+        y = option.rect.y() + (option.rect.height() - indicator_size) // 2
+        checkbox.rect = QRect(x, y, indicator_size, indicator_size)
+        checkbox.state = QStyle.StateFlag.State_Enabled
+        if check_state == Qt.CheckState.Checked:
+            checkbox.state |= QStyle.StateFlag.State_On
+        elif check_state == Qt.CheckState.PartiallyChecked:
+            checkbox.state |= QStyle.StateFlag.State_NoChange
+        else:
+            checkbox.state |= QStyle.StateFlag.State_Off
+        self._table.style().drawControl(QStyle.ControlElement.CE_CheckBox, checkbox, painter)
 
 
 class _JobListTab(QWidget):
@@ -125,7 +177,7 @@ class _JobListTab(QWidget):
 
         self._root = QVBoxLayout(self)
         self._root.setContentsMargins(0, 0, 0, 0)
-        self._root.setSpacing(8)
+        self._root.setSpacing(0)
 
         self._toolbar = QFrame()
         self._toolbar.setProperty("cssClass", "panel")
@@ -147,8 +199,14 @@ class _JobListTab(QWidget):
         self._header.setStretchLastSection(True)
         self._table.setMouseTracking(True)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self._header.resizeSection(0, 36)
         self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        for column in (0, 1, 3, 4, 5, 6, 7):
+        self._header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
+        self._header.resizeSection(7, 108)
+        for column in (1, 3, 4, 5, 6, 7):
+            if column == 7:
+                continue
             self._header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
 
         self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)
@@ -165,7 +223,6 @@ class _JobListTab(QWidget):
         self._detail.setProperty("cssClass", "panel")
         self._content_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._content_splitter.setChildrenCollapsible(False)
-        self._content_splitter.addWidget(self._detail)
 
         self._list_pane = QFrame()
         self._list_pane.setProperty("cssClass", "panel")
@@ -173,9 +230,10 @@ class _JobListTab(QWidget):
         self._list_layout.setContentsMargins(12, 12, 12, 12)
         self._list_layout.setSpacing(8)
         self._content_splitter.addWidget(self._list_pane)
-        self._content_splitter.setStretchFactor(0, 0)
-        self._content_splitter.setStretchFactor(1, 1)
-        self._content_splitter.setSizes([400, 860])
+        self._content_splitter.addWidget(self._detail)
+        self._content_splitter.setStretchFactor(0, 1)
+        self._content_splitter.setStretchFactor(1, 0)
+        self._content_splitter.setSizes([860, 400])
         self._root.addWidget(self._content_splitter, stretch=1)
 
         self._table.customContextMenuRequested.connect(self._show_context_menu)
@@ -280,7 +338,7 @@ class _JobListTab(QWidget):
         # on Press for UserCheckable items) is suppressed.
         if event.type() == QEvent.Type.MouseButtonPress:
             me: QMouseEvent = event
-            index = self._table.indexAt(me.pos())
+            index = self._table.indexAt(me.position().toPoint())
             if index.isValid() and index.column() == 0:
                 source = self._proxy.mapToSource(index)
                 if source.isValid():
@@ -297,6 +355,7 @@ class _JobListTab(QWidget):
         return super().eventFilter(obj, event)
 
     def _on_current_row_changed(self, _current: QModelIndex, _previous: QModelIndex) -> None:
+        self._table.viewport().update()
         self._update_job_controls()
 
     def _on_checked_jobs_changed(self, top_left: QModelIndex, _bottom_right: QModelIndex, roles: list[int]) -> None:
@@ -347,14 +406,15 @@ class _JobListTab(QWidget):
             return
         menu.exec(self._table.viewport().mapToGlobal(pos))
 
-    def _add_folder_context_actions(self, menu: QMenu) -> None:
+    def _add_folder_context_actions(self, menu: QMenu, *, include_target: bool = True) -> None:
         open_source = menu.addAction("Open Source Folder")
         open_source.setEnabled(self._detail.can_open_source_folder())
         open_source.triggered.connect(self._detail.open_source_folder)
 
-        open_target = menu.addAction("Open Target Folder")
-        open_target.setEnabled(self._detail.can_open_target_folder())
-        open_target.triggered.connect(self._detail.open_target_folder)
+        if include_target:
+            open_target = menu.addAction("Open Target Folder")
+            open_target.setEnabled(self._detail.can_open_target_folder())
+            open_target.triggered.connect(self._detail.open_target_folder)
 
     def _populate_context_menu(self, menu: QMenu, focused_job: RenameJob, checked_jobs: list[RenameJob]) -> None:
         del menu, focused_job, checked_jobs

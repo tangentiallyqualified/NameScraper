@@ -47,7 +47,7 @@ class QueueTab(_JobListTab):
         self._start_btn.clicked.connect(self._toggle_queue)
         self._toolbar_layout.addWidget(self._start_btn)
 
-        self._execute_btn = QPushButton("Run Checked")
+        self._execute_btn = QPushButton("Run Selected")
         self._execute_btn.setProperty("cssClass", "secondary")
         self._execute_btn.clicked.connect(self._execute_selected)
         self._toolbar_layout.addWidget(self._execute_btn)
@@ -102,15 +102,16 @@ class QueueTab(_JobListTab):
         else:
             self._detail.set_job(focused)
         has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
-        can_execute = len(checked_jobs) == 1 and checked_jobs[0].status == JobStatus.PENDING
+        pending_checked = [job for job in checked_jobs if job.status == JobStatus.PENDING]
         self._remove_btn.setEnabled(has_pending)
-        self._execute_btn.setEnabled(can_execute)
+        self._execute_btn.setEnabled(bool(pending_checked))
+        self._execute_btn.setText("Run Selected")
 
     def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
         has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
-        can_execute = len(checked_jobs) == 1 and checked_jobs[0].status == JobStatus.PENDING
+        can_execute = any(job.status == JobStatus.PENDING for job in checked_jobs)
 
-        execute_action = menu.addAction("Run Checked")
+        execute_action = menu.addAction("Run Selected")
         execute_action.setEnabled(can_execute)
         execute_action.triggered.connect(self._execute_selected)
 
@@ -123,7 +124,7 @@ class QueueTab(_JobListTab):
         move_top_action.triggered.connect(self._move_to_top)
 
         menu.addSeparator()
-        self._add_folder_context_actions(menu)
+        self._add_folder_context_actions(menu, include_target=False)
         del focused_job
 
     def _toggle_queue(self) -> None:
@@ -135,13 +136,21 @@ class QueueTab(_JobListTab):
         self.queue_changed.emit()
 
     def _execute_selected(self) -> None:
-        jobs = self._selected_jobs()
-        if len(jobs) != 1:
+        jobs = [job for job in self._selected_jobs() if job.status == JobStatus.PENDING]
+        if not jobs:
             return
-        if not self._queue_ctrl.execute_single(jobs[0].job_id):
-            QMessageBox.warning(self, "Cannot Run Job", "The checked job could not be executed right now.")
+        failed: list[str] = []
+        for job in jobs:
+            if not self._queue_ctrl.execute_single(job.job_id):
+                failed.append(job.media_name or job.job_id[:8])
         self.refresh()
         self.queue_changed.emit()
+        if failed:
+            QMessageBox.warning(
+                self,
+                "Cannot Run Job",
+                "The following checked jobs could not be executed right now:\n\n" + "\n".join(failed[:8]),
+            )
 
     def _remove_selected(self) -> None:
         jobs = self._selected_jobs()

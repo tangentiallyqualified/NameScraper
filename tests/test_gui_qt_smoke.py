@@ -308,18 +308,145 @@ class QtSmokeTests(unittest.TestCase):
 
             panel.set_job(job)
 
-            self.assertIn("Folder Rename: Bleach -> Bleach (2004)", panel._paths.text())
             self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
             folder_item = panel._preview_tree.topLevelItem(0)
             rename_item = panel._preview_tree.topLevelItem(1)
-            self.assertEqual((folder_item.text(0), folder_item.text(1)), ("Bleach", "Bleach (2004)"))
-            self.assertIn(
-                (rename_item.text(0), rename_item.text(1)),
-                [("Bleach - 001.mkv", "Bleach (2004) - S01E01.mkv")],
-            )
+            folder_widget = panel._preview_tree.itemWidget(folder_item, 0)
+            rename_widget = panel._preview_tree.itemWidget(rename_item, 0)
+            self.assertEqual(folder_item.text(0), "")
+            self.assertEqual(folder_widget._before.text(), "Bleach")
+            self.assertEqual(folder_widget._after.text(), "Bleach (2004)")
+            self.assertEqual(rename_item.text(0), "")
+            self.assertEqual(rename_widget._before.text(), "Bleach - 001.mkv")
+            self.assertEqual(rename_widget._after.text(), "Bleach (2004) - S01E01.mkv")
             self.assertTrue(panel._open_source_btn.isEnabled())
             self.assertTrue(panel._open_target_btn.isEnabled())
             panel.close()
+
+    def test_job_detail_panel_hides_target_button_in_queue_mode(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        panel = JobDetailPanel()
+        panel.set_history_mode(False)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            rename_ops=[],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._open_source_btn.text(), "Open Source")
+        self.assertEqual(panel._open_target_btn.text(), "Open Target")
+        self.assertFalse(panel._open_source_btn.isHidden())
+        self.assertTrue(panel._open_target_btn.isHidden())
+        panel.close()
+
+    def test_job_detail_panel_preview_rows_wrap_original_and_new_names(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        long_original = "Legend of the Galactic Heroes - Overture to a New War [Extremely Long Source Name].mkv"
+        long_new = "Legend of the Galactic Heroes - Overture to a New War (1993) - Director's Cut Restoration Edition.mkv"
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="LOGH",
+            media_name="Legend of the Galactic Heroes - Overture to a New War (1993)",
+            rename_ops=[
+                RenameOp(
+                    original_relative=f"LOGH/{long_original}",
+                    new_name=long_new,
+                    target_dir_relative="LOGH",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        item = panel._preview_tree.topLevelItem(0)
+        widget = panel._preview_tree.itemWidget(item, 0)
+        self.assertEqual(item.text(0), "")
+        self.assertEqual(widget._before.text(), long_original)
+        self.assertEqual(widget._after.text(), long_new)
+        self.assertTrue(widget._before.wordWrap())
+        self.assertTrue(widget._after.wordWrap())
+        panel.close()
+
+    def test_job_detail_panel_starts_season_groups_collapsed(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Bleach",
+            media_name="Bleach",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Bleach/Bleach - 001.mkv",
+                    new_name="Bleach - S01E01.mkv",
+                    target_dir_relative="Bleach/Season 01",
+                    status="OK",
+                    selected=True,
+                    season=1,
+                ),
+                RenameOp(
+                    original_relative="Bleach/Bleach - 002.mkv",
+                    new_name="Bleach - S01E02.mkv",
+                    target_dir_relative="Bleach/Season 01",
+                    status="OK",
+                    selected=True,
+                    season=1,
+                ),
+            ],
+        )
+
+        panel.set_job(job)
+
+        season_header = panel._preview_tree.topLevelItem(0)
+        self.assertEqual(season_header.text(0), "▸ Season 01 (2 files)")
+        self.assertFalse(season_header.isExpanded())
+        panel.close()
+
+    def test_job_detail_panel_preview_headers_toggle_on_single_click(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Bleach",
+            media_name="Bleach",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Bleach/Bleach - 001.mkv",
+                    new_name="Bleach - S01E01.mkv",
+                    target_dir_relative="Bleach/Season 01",
+                    status="OK",
+                    selected=True,
+                    season=1,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        season_header = panel._preview_tree.topLevelItem(0)
+        self.assertFalse(season_header.isExpanded())
+        panel._on_preview_item_clicked(season_header, 0)
+        self.assertTrue(season_header.isExpanded())
+        self.assertEqual(season_header.text(0), "▾ Season 01 (1 files)")
+        panel._on_preview_item_clicked(season_header, 0)
+        self.assertFalse(season_header.isExpanded())
+        self.assertEqual(season_header.text(0), "▸ Season 01 (1 files)")
+        panel.close()
 
     def test_job_detail_panel_open_target_folder_uses_existing_parent(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
@@ -546,6 +673,55 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
 
             workspace.close()
+
+    def test_media_workspace_hides_duplicate_movie_approve_button_and_refreshes_after_approval(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = [state]
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.approved: list[ScanState] = []
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+            def approve_match(self, state):
+                self.approved.append(state)
+
+        state = ScanState(
+            folder=Path("C:/library/movies/Example Movie"),
+            media_info={"id": 101, "title": "Example Movie", "year": "2024", "_media_type": "movie"},
+            preview_items=[],
+            scanned=True,
+            checked=False,
+            confidence=0.42,
+            duplicate_of="Primary Movie (2024)",
+        )
+        media_ctrl = _FakeMediaController(state)
+        workspace = MediaWorkspace(media_type="movie", media_controller=media_ctrl)
+        workspace.show_ready()
+
+        row_widget = self._roster_widget_for_index(workspace, 0)
+        self.assertIsNotNone(row_widget)
+        self.assertIsNone(row_widget._approve_btn)
+
+        with patch.object(workspace, "refresh_from_controller") as refresh_mock:
+            workspace._approve_match(state)
+
+        self.assertEqual(media_ctrl.approved, [state])
+        refresh_mock.assert_called_once_with()
+        workspace.close()
 
     def test_main_window_queue_shortcuts_trigger_selected_and_checked_actions(self):
         from plex_renamer.gui_qt.main_window import MainWindow
@@ -800,6 +976,10 @@ class QtSmokeTests(unittest.TestCase):
 
             self.assertEqual(queue_tab._content_splitter.orientation(), Qt.Orientation.Horizontal)
             self.assertEqual(history_tab._content_splitter.orientation(), Qt.Orientation.Horizontal)
+            self.assertIs(queue_tab._content_splitter.widget(0), queue_tab._list_pane)
+            self.assertIs(queue_tab._content_splitter.widget(1), queue_tab._detail)
+            self.assertIs(history_tab._content_splitter.widget(0), history_tab._list_pane)
+            self.assertIs(history_tab._content_splitter.widget(1), history_tab._detail)
 
             self.assertEqual(queue_tab._model.rowCount(), 1)
             self.assertEqual(history_tab._model.rowCount(), 1)
@@ -877,16 +1057,61 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(
                 action_text,
                 [
-                    "Run Checked",
+                    "Run Selected",
                     "Remove Checked",
                     "Move to Top of Queue",
                     "Open Source Folder",
-                    "Open Target Folder",
                 ],
             )
 
             queue_tab.close()
             menu.close()
+            controller.close()
+
+    def test_queue_tab_run_selected_executes_checked_pending_jobs_in_order(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            first = RenameJob(
+                library_root=tmp,
+                source_folder="Show1",
+                media_type="tv",
+                media_name="Example Show 1",
+                tmdb_id=123,
+                status=JobStatus.PENDING,
+                rename_ops=[],
+            )
+            second = RenameJob(
+                library_root=tmp,
+                source_folder="Show2",
+                media_type="tv",
+                media_name="Example Show 2",
+                tmdb_id=456,
+                status=JobStatus.PENDING,
+                rename_ops=[],
+            )
+            controller.job_store.add_job(first)
+            controller.job_store.add_job(second)
+            controller.execute_single = MagicMock(return_value=True)
+
+            queue_tab = QueueTab(controller)
+            queue_tab.refresh()
+            queue_tab._model.set_checked_job_ids({first.job_id, second.job_id})
+
+            self.assertTrue(queue_tab._execute_btn.isEnabled())
+            self.assertEqual(queue_tab._execute_btn.text(), "Run Selected")
+
+            queue_tab._execute_btn.click()
+
+            self.assertEqual(
+                [call.args[0] for call in controller.execute_single.call_args_list],
+                [first.job_id, second.job_id],
+            )
+            queue_tab.close()
             controller.close()
 
     def test_media_workspace_roster_master_checkbox_controls_eligible_states(self):

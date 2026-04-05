@@ -22,9 +22,9 @@ Items are organized by surface area. Priority reflects user-facing impact, not i
 
 ### Q.2 — Highlight full rows on hover, not individual cells (Visual — High)
 
-**Problem:** Hovering over a row highlights individual cells instead of the entire row. This makes the table feel broken.
+**Problem:** The queue/history table still paints interaction state at the cell level instead of as a single row. On hover this makes the table feel broken, and on focus/selection it creates segmented highlights plus repeated vertical emphasis in each cell instead of one clear row treatment.
 
-**Fix:** Set `QTableView::item:hover` in `theme.qss` to use a row-level hover color. Ensure `setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)` is set on the table view so hover and selection track by row.
+**Fix:** Move row interaction painting fully into the delegate (or an equivalent row-aware paint path) instead of letting Qt paint per-cell hover/selection backgrounds. Suppress both built-in hover and selected-cell painting, draw one contiguous row background for the hovered/current row, and draw the accent/vertical emphasis only once in column 0. While a row is focused, individual cells should not add their own extra hover highlight.
 
 **Files:** `plex_renamer/gui_qt/widgets/_job_list_tab.py` (table view setup), `plex_renamer/gui_qt/resources/theme.qss`
 
@@ -112,15 +112,31 @@ Items are organized by surface area. Priority reflects user-facing impact, not i
 
 **Files:** `plex_renamer/gui_qt/widgets/tab_badge.py`, `plex_renamer/gui_qt/resources/theme.qss`
 
+### Q.13 — Put the job detail panel on the right, not the left (Layout — High)
+
+**Problem:** The queue/history shell currently mounts `JobDetailPanel` to the left of the table pane. That is the opposite of the batch-mode workspace, so the user has to mentally flip panel orientation when switching between the review and queue workflows.
+
+**Fix:** Reverse the splitter order in `_JobListTab` so the list pane is on the left and the detail panel is on the right. Preserve the existing splitter-persistence behavior, but reset or migrate saved sizes if necessary so older stored positions do not produce a collapsed panel after the swap.
+
+**Files:** `plex_renamer/gui_qt/widgets/_job_list_tab.py`, `plex_renamer/app/services/settings_service.py` (only if splitter persistence needs migration)
+
+### Q.14 — Remove the black gutter between the toolbar row and content panels (Visual — Medium)
+
+**Problem:** There is a full-width black strip between the toolbar/action row and the two panels beneath it. This reads as an unintended gap rather than deliberate spacing because it exposes the window background between two adjacent panel surfaces.
+
+**Fix:** Remove the parent layout gap in `_JobListTab` by eliminating the outer `QVBoxLayout` spacing between the toolbar and splitter, then keep breathing room inside the panels via their own margins. The toolbar and content region should stack cleanly without a visible background seam.
+
+**Files:** `plex_renamer/gui_qt/widgets/_job_list_tab.py`
+
 ---
 
 ## Job Detail Panel
 
 ### D.1 — Make rename previews explicit and non-truncated (Layout — High)
 
-**Problem:** The rename preview in `JobDetailPanel` is a `QPlainTextEdit` (lines 97-106) that shows the first 8 operations as truncated text lines. Users can't see the full original and target paths, and the text box format doesn't clearly communicate the rename mapping.
+**Problem:** The rename preview is now more explicit than the original text box, but the layout still treats it as secondary content inside the right-hand text column beside the poster. That means the preview does not use the full panel width and cannot extend beneath the poster, even though the rename mapping is the main reason to open the detail panel.
 
-**Fix:** Replace the `QPlainTextEdit` with a two-column layout or a styled `QTreeWidget` showing `Original Name -> New Name` pairs. Each row should show the full filename (not path) with the rename arrow. Group by season if applicable, with collapsible season headers. Show an overflow count at the bottom ("+ N more files") that expands on click. The preview should be the primary content of the detail panel, not a small text box.
+**Fix:** Restructure `JobDetailPanel` into a top summary region and a full-width preview region underneath it. Keep poster, title, metadata, and folder actions in the top region, then let the rename preview span the entire panel width below that header so rows can extend beneath the poster. Keep the two-column `QTreeWidget` treatment, full filenames, season grouping, and explicit rename mapping, but make the preview the dominant body content instead of something constrained by the poster column.
 
 **Files:** `plex_renamer/gui_qt/widgets/job_detail_panel.py` (lines 97-106)
 
@@ -160,6 +176,14 @@ Items are organized by surface area. Priority reflects user-facing impact, not i
 
 **Files:** `plex_renamer/gui_qt/widgets/history_tab.py` (lines 70-90)
 
+### D.6 — Remove library/source/target path text from the job detail body (Layout — Medium)
+
+**Problem:** The always-visible path summary in `JobDetailPanel` adds a dense block of low-value text (`Library`, `Source`, `Target`) above the rename preview. It competes with the real payload of the panel and makes the queue/history detail view feel cluttered.
+
+**Fix:** Remove the always-visible `_paths` text block from the detail layout. Keep the source/target folder buttons as the primary path affordances. If path inspection is still needed for debugging, move it behind an optional disclosure or a less prominent secondary surface rather than keeping it in the main reading flow.
+
+**Files:** `plex_renamer/gui_qt/widgets/job_detail_panel.py`
+
 ---
 
 ## Batch Mode Refinements
@@ -180,12 +204,30 @@ Items are organized by surface area. Priority reflects user-facing impact, not i
 
 **Files:** `plex_renamer/app/controllers/media_controller.py` (queue/unqueue state management), `plex_renamer/gui_qt/widgets/media_workspace.py` (preview population)
 
+### B.3 — Fix duplicate movie approval controls and post-approve regrouping (Bug — High)
+
+**Problem:** Duplicate movie rows still expose `Approve Match`, and approving them can leave the roster in an incoherent state where the item styling/grouping no longer matches the duplicate section header. This makes duplicate handling feel unreliable at exactly the point where the UI should be most strict.
+
+**Fix:** Treat duplicates as a separate resolution path, not as normal review items. Hide `Approve Match` whenever `duplicate_of` is set, even if the state also has `needs_review` and `show_id`. After any approve/rematch action, force an immediate roster refresh so section membership, header counts, and row widgets are rebuilt from the latest controller state. Confirm that a movie only moves out of `Duplicates` once the duplicate state is actually cleared.
+
+**Files:** `plex_renamer/gui_qt/widgets/media_workspace.py` (`_approve_match`, `_RosterRowWidget`), `plex_renamer/gui_qt/widgets/_media_helpers.py` (`roster_group`, `state_status`)
+
+---
+
+## April 5 2026 Assessment Pass
+
+This pass folds the latest queue/detail polish list into the working plan.
+
+- The duplicate-match approval issue is a new operational bug, not just polish, and should be treated as a high-priority batch-mode fix before broader queue refinements.
+- The focused-row highlight problem is already represented by Q.2, but the acceptance criteria needed to be tightened because the current delegate only suppresses cell-level hover painting, not the selected-row segmentation the user still sees.
+- The panel-orientation mismatch, full-width rename-preview requirement, path-text clutter, and toolbar/content gutter are all real issues in the current Qt shell and were not explicitly captured in the plan before this pass.
+
 ---
 
 ## Implementation Notes
 
 - Items are independent and can be addressed in any order.
-- Start with high-priority items that affect trust and usability: Q.1, Q.2, Q.3, Q.5, Q.10, D.1, D.3, B.1, B.2.
-- Visual polish items (Q.11, Q.12, D.4) can be batched together.
+- Start with high-priority items that affect trust and usability: B.3, Q.2, Q.13, D.1, D.3, Q.14, Q.1, Q.3, Q.5, Q.10, B.2.
+- Visual polish items (Q.11, Q.12, D.4) can be batched together once the queue/detail layout issues are stable.
 - Q.6 (clear selections on tab entry) and Q.7 (disable reverted checkboxes) are quick wins.
-- D.1 and D.2 (preview overhaul) should be done together as they share the same widget.
+- D.1, D.2, and D.6 should be done together as they share the same widget and reading flow.

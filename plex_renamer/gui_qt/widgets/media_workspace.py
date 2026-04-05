@@ -1324,6 +1324,7 @@ class MediaWorkspace(QWidget):
         if self._media_ctrl is None:
             return
         self._media_ctrl.approve_match(state)
+        self.refresh_from_controller()
         self.status_message.emit("Match approved.", 3000)
 
     def _prompt_assign_season(self, state: ScanState) -> None:
@@ -1598,7 +1599,7 @@ class _RosterRowWidget(_ClickableRow):
         body.addWidget(self._confidence)
 
         self._approve_btn = None
-        if state.needs_review and state.show_id is not None and not state.queued:
+        if state.needs_review and state.show_id is not None and not state.queued and state.duplicate_of is None:
             self._approve_btn = QPushButton("Approve Match")
             self._approve_btn.setProperty("cssClass", "primary")
             self._approve_btn.setProperty("sizeVariant", "compact")

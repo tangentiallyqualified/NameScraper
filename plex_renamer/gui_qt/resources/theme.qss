@@ -171,6 +171,23 @@ QTableView::item:hover {
     background-color: transparent;
 }
 
+QTreeWidget[cssClass="job-preview-tree"] {
+    background-color: #151515;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    outline: none;
+    padding: 0px;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::item {
+    padding: 2px 0px;
+    margin: 0px;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::branch {
+    background: transparent;
+}
+
 QHeaderView::section {
     background-color: #1c1c1c;
     color: #777777;
@@ -397,6 +414,12 @@ QPushButton[cssClass="secondary"] {
     border: 1px solid #3a3a3a;
 }
 
+QPushButton[cssClass="secondary"]:disabled {
+    background-color: #323232;
+    color: #8d8d8d;
+    border-color: #505050;
+}
+
 QPushButton[cssClass="secondary"]:hover {
     background-color: #242424;
     border-color: #4a4a4a;
@@ -404,6 +427,12 @@ QPushButton[cssClass="secondary"]:hover {
 
 QPushButton[cssClass="secondary"]:pressed {
     background-color: #1c1c1c;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="detail"] {
+    padding: 6px 12px;
+    min-height: 34px;
+    font-size: 12px;
 }
 
 QPushButton[cssClass="secondary"][sizeVariant="compact"] {
