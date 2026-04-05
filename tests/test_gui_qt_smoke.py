@@ -26,6 +26,29 @@ class QtSmokeTests(unittest.TestCase):
 
         cls._app = QApplication.instance() or QApplication([])
 
+    def _reset_main_window_queue(self, window) -> None:
+        queued_ids = [job.job_id for job in window.queue_ctrl.get_queue()]
+        if queued_ids:
+            window.queue_ctrl.remove_jobs(queued_ids)
+        if window.queue_ctrl.get_history():
+            window.queue_ctrl.clear_history()
+        window._on_queue_changed()
+        self._app.processEvents()
+
+    def _roster_widget_for_index(self, workspace, index: int):
+        for row in range(workspace._roster_list.count()):
+            item = workspace._roster_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == index:
+                return workspace._roster_list.itemWidget(item)
+        return None
+
+    def _assert_roster_section_title(self, workspace, row: int, expected: str) -> None:
+        text = workspace._roster_list.item(row).text().strip()
+        normalized = text.removeprefix("▼").removeprefix("▶").strip()
+        if " (" in normalized:
+            normalized = normalized.split(" (", 1)[0]
+        self.assertEqual(normalized, expected)
+
     def test_main_window_instantiates(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 
@@ -197,7 +220,7 @@ class QtSmokeTests(unittest.TestCase):
         QTest.qWait(10)
         self._app.processEvents()
 
-        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=96)
+        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=200)
         panel.close()
 
     def test_job_detail_panel_backfills_poster_path_from_cached_tmdb_metadata(self):
@@ -228,7 +251,7 @@ class QtSmokeTests(unittest.TestCase):
         self._app.processEvents()
 
         tmdb.get_cached_poster_path.assert_called_once_with(123, media_type=job.media_type)
-        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=96)
+        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=200)
         self.assertEqual(job.poster_path, "/poster.jpg")
         self.assertEqual(persisted, [(job.job_id, "/poster.jpg")])
         panel.close()
@@ -243,6 +266,7 @@ class QtSmokeTests(unittest.TestCase):
             (library_root / "Bleach (2004)").mkdir()
 
             panel = JobDetailPanel()
+            panel.set_history_mode(True)
             job = RenameJob(
                 library_root=str(library_root),
                 source_folder="Bleach",
@@ -262,11 +286,13 @@ class QtSmokeTests(unittest.TestCase):
             panel.set_job(job)
 
             self.assertIn("Folder Rename: Bleach -> Bleach (2004)", panel._paths.text())
-            preview = panel._preview.toPlainText().replace("\\", "/")
-            self.assertIn("Folder: Bleach -> Bleach (2004)", preview)
+            self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
+            folder_item = panel._preview_tree.topLevelItem(0)
+            rename_item = panel._preview_tree.topLevelItem(1)
+            self.assertEqual((folder_item.text(0), folder_item.text(1)), ("Bleach", "Bleach (2004)"))
             self.assertIn(
-                "Bleach/Disc 01/Bleach - 001.mkv -> Bleach (2004)/Season 01/Bleach (2004) - S01E01.mkv",
-                preview,
+                (rename_item.text(0), rename_item.text(1)),
+                [("Bleach - 001.mkv", "Bleach (2004) - S01E01.mkv")],
             )
             self.assertTrue(panel._open_source_btn.isEnabled())
             self.assertTrue(panel._open_target_btn.isEnabled())
@@ -383,7 +409,7 @@ class QtSmokeTests(unittest.TestCase):
                 media_type="tv",
                 season=1,
                 ep_still="/episode-still.jpg",
-                target_width=280,
+                target_width=500,
             )
             self.assertEqual(payload["artwork_mode"], "still")
             self.assertIn(("Match", "42% confidence · below 60% threshold"), payload["rows"])
@@ -392,7 +418,7 @@ class QtSmokeTests(unittest.TestCase):
             panel._current_token = "token"
             panel._apply_payload(payload, None, "token")
             self.assertEqual(panel._artwork_mode, "still")
-            self.assertEqual(panel._poster.height(), 158)
+            self.assertEqual(panel._poster.height(), 180)
             panel.close()
 
     def test_media_detail_panel_uses_landscape_placeholder_for_episode_selection_without_tmdb(self):
@@ -418,7 +444,7 @@ class QtSmokeTests(unittest.TestCase):
         panel.set_selection(state, preview=preview)
 
         self.assertEqual(panel._artwork_mode, "still")
-        self.assertEqual(panel._poster.height(), 158)
+        self.assertEqual(panel._poster.height(), 180)
         self.assertIsNotNone(panel._poster.pixmap())
         self.assertEqual(panel._poster.text(), "")
         panel.close()
@@ -494,7 +520,7 @@ class QtSmokeTests(unittest.TestCase):
             workspace.show_ready()
 
             self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
-            self.assertEqual(workspace._action_bar._queue_btn.text(), "Queue 1 Checked")
+            self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
 
             workspace.close()
 
@@ -508,6 +534,7 @@ class QtSmokeTests(unittest.TestCase):
             return None
 
         window = MainWindow()
+        self._reset_main_window_queue(window)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -601,6 +628,8 @@ class QtSmokeTests(unittest.TestCase):
 
         with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
             window = MainWindow()
+        self._reset_main_window_queue(window)
+        window._tmdb = None
         snapshot = {"movie_cache": {"123": {"poster_path": "/poster.jpg"}}}
         lookup = type("Lookup", (), {"is_hit": True, "value": snapshot})()
         window._cache_service.get = MagicMock(return_value=lookup)
@@ -689,18 +718,25 @@ class QtSmokeTests(unittest.TestCase):
 
             history_tab = HistoryTab(queue_ctrl)
             history_tab.select_job(job.job_id)
+            history_tab._model.set_checked_job_ids({job.job_id})
 
             history_tab._revert_selected()
 
-            self.assertFalse(history_tab._revert_banner.isHidden())
-            self.assertIn("move 2 files", history_tab._revert_banner_label.text())
+            self.assertTrue(history_tab._revert_btn.isHidden())
+            self.assertFalse(history_tab._confirm_revert_btn.isHidden())
+            self.assertFalse(history_tab._cancel_revert_btn.isHidden())
+            self.assertFalse(history_tab._revert_info.isHidden())
+            self.assertIn("1 job, 2 files", history_tab._revert_info.text())
 
             history_tab._confirm_revert()
 
             queue_ctrl.revert_job.assert_called_once_with(job.job_id)
-            self.assertTrue(history_tab._revert_banner.isHidden())
+            self.assertTrue(history_tab._confirm_revert_btn.isHidden())
+            self.assertTrue(history_tab._cancel_revert_btn.isHidden())
+            self.assertTrue(history_tab._revert_info.isHidden())
+            self.assertFalse(history_tab._revert_btn.isHidden())
             history_tab.close()
-            store.close()
+            queue_ctrl.close()
 
     def test_queue_and_history_tabs_refresh(self):
         from plex_renamer.app.controllers.queue_controller import QueueController
@@ -757,23 +793,23 @@ class QtSmokeTests(unittest.TestCase):
             history_tab._filter_control.setCurrentText("Completed")
             self.assertEqual(history_tab._proxy.rowCount(), 1)
 
-            queue_tab._master_check.click()
+            queue_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 1)
-            self.assertEqual(queue_tab._master_check.checkState(), Qt.CheckState.Checked)
-            queue_tab._master_check.click()
+            self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Checked)
+            queue_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 0)
-            self.assertEqual(queue_tab._master_check.checkState(), Qt.CheckState.Unchecked)
+            self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Unchecked)
 
-            history_tab._master_check.click()
+            history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 1)
-            self.assertEqual(history_tab._master_check.checkState(), Qt.CheckState.Checked)
-            history_tab._master_check.click()
+            self.assertEqual(history_tab._header.check_state(), Qt.CheckState.Checked)
+            history_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 0)
-            self.assertEqual(history_tab._master_check.checkState(), Qt.CheckState.Unchecked)
+            self.assertEqual(history_tab._header.check_state(), Qt.CheckState.Unchecked)
 
             queue_tab.close()
             history_tab.close()
-            store.close()
+            controller.close()
 
     def test_queue_tab_context_menu_exposes_queue_and_folder_actions(self):
         from PySide6.QtWidgets import QMenu
@@ -808,7 +844,7 @@ class QtSmokeTests(unittest.TestCase):
             queue_tab = QueueTab(controller)
             queue_tab.refresh()
             queue_tab.select_job(job.job_id)
-            queue_tab._master_check.click()
+            queue_tab._model.set_checked_job_ids({job.job_id})
             self._app.processEvents()
 
             menu = QMenu()
@@ -820,8 +856,7 @@ class QtSmokeTests(unittest.TestCase):
                 [
                     "Run Checked",
                     "Remove Checked",
-                    "Move Checked Up",
-                    "Move Checked Down",
+                    "Move to Top of Queue",
                     "Open Source Folder",
                     "Open Target Folder",
                 ],
@@ -829,7 +864,7 @@ class QtSmokeTests(unittest.TestCase):
 
             queue_tab.close()
             menu.close()
-            store.close()
+            controller.close()
 
     def test_media_workspace_roster_master_checkbox_controls_eligible_states(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
@@ -914,16 +949,28 @@ class QtSmokeTests(unittest.TestCase):
 
             queue_tab = QueueTab(controller)
             queue_tab.refresh()
+            queue_tab.show()
+            self._app.processEvents()
 
             checkbox_index = queue_tab._proxy.index(0, 0)
-            queue_tab._on_table_clicked(checkbox_index)
+            QTest.mouseClick(
+                queue_tab._table.viewport(),
+                Qt.MouseButton.LeftButton,
+                Qt.KeyboardModifier.NoModifier,
+                queue_tab._table.visualRect(checkbox_index).center(),
+            )
             self.assertEqual(len(queue_tab._selected_jobs()), 1)
 
-            queue_tab._on_table_clicked(checkbox_index)
+            QTest.mouseClick(
+                queue_tab._table.viewport(),
+                Qt.MouseButton.LeftButton,
+                Qt.KeyboardModifier.NoModifier,
+                queue_tab._table.visualRect(checkbox_index).center(),
+            )
             self.assertEqual(len(queue_tab._selected_jobs()), 0)
 
             queue_tab.close()
-            store.close()
+            controller.close()
 
     def test_media_workspace_populates_roster_and_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
@@ -1012,7 +1059,7 @@ class QtSmokeTests(unittest.TestCase):
             workspace.show_ready()
 
             self.assertEqual(workspace._roster_list.count(), 3)
-            self.assertEqual(workspace._roster_list.item(0).text(), "MATCHED")
+            self._assert_roster_section_title(workspace, 0, "MATCHED")
             self.assertIsNone(workspace._roster_list.item(1).data(Qt.ItemDataRole.CheckStateRole))
             self.assertIsNone(workspace._preview_list.item(0).data(Qt.ItemDataRole.CheckStateRole))
             self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
@@ -1360,7 +1407,7 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._roster_list.item(0).text(), "MATCHED")
+            self._assert_roster_section_title(workspace, 0, "MATCHED")
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
             self.assertEqual(row_widget._status.text(), "MATCHED")
@@ -1387,13 +1434,6 @@ class QtSmokeTests(unittest.TestCase):
 
             def sync_queued_states(self):
                 return None
-
-        def _roster_widget_for_index(workspace: MediaWorkspace, index: int):
-            for row in range(workspace._roster_list.count()):
-                item = workspace._roster_list.item(row)
-                if item.data(Qt.ItemDataRole.UserRole) == index:
-                    return workspace._roster_list.itemWidget(item)
-            return None
 
         def _episode(path_root: str, season: int, episode: int, *, status: str = "OK", new_name: str | None = None, target_dir: Path | None = None):
             original = Path(f"{path_root}/Season 01/Example.Show.S01E0{episode}.mkv")
@@ -1490,11 +1530,13 @@ class QtSmokeTests(unittest.TestCase):
                 settings_service=settings,
             )
             workspace.show_ready()
+            workspace._roster_collapsed["plex-ready"] = False
+            workspace.refresh_from_controller()
 
-            matched_widget = _roster_widget_for_index(workspace, 0)
-            review_widget = _roster_widget_for_index(workspace, 1)
-            duplicate_widget = _roster_widget_for_index(workspace, 2)
-            plex_ready_widget = _roster_widget_for_index(workspace, 3)
+            matched_widget = self._roster_widget_for_index(workspace, 0)
+            review_widget = self._roster_widget_for_index(workspace, 1)
+            duplicate_widget = self._roster_widget_for_index(workspace, 2)
+            plex_ready_widget = self._roster_widget_for_index(workspace, 3)
 
             self.assertIsInstance(matched_widget, _RosterRowWidget)
             self.assertFalse(matched_widget._check.isHidden())
@@ -1676,7 +1718,8 @@ class QtSmokeTests(unittest.TestCase):
 
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertIn("below 60% threshold", row_widget._meta.text())
+            self.assertIn("42% confidence", row_widget._meta.text())
+            self.assertIn("needs review", row_widget._meta.text())
             self.assertEqual(row_widget._status.text(), "NEEDS REVIEW")
 
             workspace.close()
@@ -1721,13 +1764,6 @@ class QtSmokeTests(unittest.TestCase):
                 confidence=1.0,
             )
 
-        def _widget_for_index(workspace: MediaWorkspace, index: int):
-            for row in range(workspace._roster_list.count()):
-                item = workspace._roster_list.item(row)
-                if item.data(Qt.ItemDataRole.UserRole) == index:
-                    return workspace._roster_list.itemWidget(item)
-            return None
-
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
             first = _make_state("Example Show", 101)
@@ -1743,13 +1779,13 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            original_widget = _widget_for_index(workspace, 0)
+            original_widget = self._roster_widget_for_index(workspace, 0)
             self.assertIsInstance(original_widget, _RosterRowWidget)
 
             second.queued = True
             workspace.refresh_from_controller()
 
-            refreshed_widget = _widget_for_index(workspace, 0)
+            refreshed_widget = self._roster_widget_for_index(workspace, 0)
             self.assertIs(refreshed_widget, original_widget)
 
             workspace.close()
@@ -1825,7 +1861,7 @@ class QtSmokeTests(unittest.TestCase):
             self._app.processEvents()
 
             self.assertTrue(queue_ctrl.called)
-            self.assertEqual(workspace._roster_list.item(0).text(), "QUEUED")
+            self._assert_roster_section_title(workspace, 0, "QUEUED")
 
             workspace.close()
 
@@ -1881,6 +1917,7 @@ class QtSmokeTests(unittest.TestCase):
         from plex_renamer.gui_qt.main_window import MainWindow
 
         window = MainWindow()
+        self._reset_main_window_queue(window)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
