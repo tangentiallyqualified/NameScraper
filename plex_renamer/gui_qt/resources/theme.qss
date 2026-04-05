@@ -162,9 +162,13 @@ QTableView {
     alternate-background-color: #1c1c1c;
     border: 1px solid #2a2a2a;
     border-radius: 6px;
-    gridline-color: #2a2a2a;
+    gridline-color: transparent;
     selection-background-color: #1f1a0e;
     selection-color: #e0e0e0;
+}
+
+QTableView::item:hover {
+    background-color: transparent;
 }
 
 QHeaderView::section {

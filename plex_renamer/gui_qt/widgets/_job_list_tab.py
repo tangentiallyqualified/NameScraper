@@ -148,7 +148,6 @@ class _JobListTab(QWidget):
         self._content_splitter.setSizes([400, 860])
         self._root.addWidget(self._content_splitter, stretch=1)
 
-        self._table.clicked.connect(self._on_table_clicked)
         self._table.customContextMenuRequested.connect(self._show_context_menu)
         self._table.selectionModel().currentRowChanged.connect(self._on_current_row_changed)
         self._table.entered.connect(self._on_cell_entered)
@@ -246,17 +245,6 @@ class _JobListTab(QWidget):
 
     def _on_current_row_changed(self, _current: QModelIndex, _previous: QModelIndex) -> None:
         self._update_job_controls()
-
-    def _on_table_clicked(self, index: QModelIndex) -> None:
-        if not index.isValid() or index.column() != 0:
-            return
-        current = self._proxy.data(index, Qt.ItemDataRole.CheckStateRole)
-        next_state = (
-            Qt.CheckState.Unchecked
-            if current == Qt.CheckState.Checked
-            else Qt.CheckState.Checked
-        )
-        self._proxy.setData(index, next_state, Qt.ItemDataRole.CheckStateRole)
 
     def _on_checked_jobs_changed(self, top_left: QModelIndex, _bottom_right: QModelIndex, roles: list[int]) -> None:
         if roles and Qt.ItemDataRole.CheckStateRole not in roles:
