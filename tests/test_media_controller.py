@@ -145,6 +145,21 @@ def _make_controller(tmp: Path):
     ), store
 
 
+def _wait_until(
+    predicate,
+    *,
+    timeout_s: float = 2.0,
+    interval_s: float = 0.01,
+    description: str,
+) -> None:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(interval_s)
+    raise AssertionError(f"Timed out waiting for {description}")
+
+
 # ── Tests ─────────────────────────────────────────────────────────────
 
 class MediaControllerInitTests(unittest.TestCase):
@@ -233,8 +248,8 @@ class AcceptTVShowTests(unittest.TestCase):
 
         mode_events = [e for e in events if e[0] == "mode"]
         lib_events = [e for e in events if e[0] == "library"]
-        self.assertTrue(len(mode_events) >= 1)
-        self.assertTrue(len(lib_events) >= 1)
+        self.assertEqual(len(mode_events), 1)
+        self.assertEqual(len(lib_events), 1)
         self.assertEqual(mode_events[0], ("mode", MediaType.TV, MediaType.TV))
         self.assertEqual(lib_events[0], ("library", 1))
 
@@ -297,11 +312,10 @@ class TVBatchTests(unittest.TestCase):
         self.assertEqual(self.ctrl.active_content_mode, MediaType.TV)
         self.assertEqual(self.ctrl.tv_root_folder, root)
 
-        # Wait for background thread
-        for _ in range(50):
-            if self.ctrl.batch_states:
-                break
-            time.sleep(0.1)
+        _wait_until(
+            lambda: bool(self.ctrl.batch_states),
+            description="TV batch states to populate",
+        )
 
         self.assertTrue(len(self.ctrl.batch_states) >= 1)
         naruto = [s for s in self.ctrl.batch_states if "Naruto" in s.display_name]
@@ -313,13 +327,13 @@ class TVBatchTests(unittest.TestCase):
 
         self.ctrl.start_tv_batch(root, _FakeTMDB())
 
-        for _ in range(50):
-            if self.ctrl.scan_progress.lifecycle in (
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle in {
                 ScanLifecycle.WARNING,
                 ScanLifecycle.READY,
-            ):
-                break
-            time.sleep(0.1)
+            },
+            description="empty TV batch scan to finish",
+        )
 
         self.assertEqual(self.ctrl.batch_states, [])
 
@@ -331,17 +345,17 @@ class TVBatchTests(unittest.TestCase):
 
         self.ctrl.start_tv_batch(root, _SlowTMDB())
 
-        for _ in range(50):
-            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.MATCHING:
-                break
-            time.sleep(0.02)
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.MATCHING,
+            description="TV batch scan to enter MATCHING",
+        )
 
         self.assertTrue(self.ctrl.cancel_scan())
 
-        for _ in range(50):
-            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
-                break
-            time.sleep(0.02)
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED,
+            description="TV batch scan cancellation",
+        )
 
         self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
         self.assertEqual(self.ctrl.batch_states, [])
@@ -362,17 +376,17 @@ class TVBatchTests(unittest.TestCase):
 
         self.ctrl.scan_all_shows()
 
-        for _ in range(50):
-            if self.ctrl.scan_progress.done >= 1:
-                break
-            time.sleep(0.02)
+        _wait_until(
+            lambda: self.ctrl.scan_progress.done >= 1,
+            description="TV bulk scan to produce partial progress",
+        )
 
         self.assertTrue(self.ctrl.cancel_scan())
 
-        for _ in range(50):
-            if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
-                break
-            time.sleep(0.02)
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED,
+            description="TV bulk scan cancellation",
+        )
 
         self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
         self.assertTrue(self.ctrl.batch_states[0].scanned)
@@ -695,17 +709,17 @@ class MovieBatchCancellationTests(unittest.TestCase):
         ):
             self.ctrl.start_movie_batch(root, _FakeTMDB())
 
-            for _ in range(50):
-                if self.ctrl.scan_progress.lifecycle == ScanLifecycle.SCANNING:
-                    break
-                time.sleep(0.02)
+            _wait_until(
+                lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.SCANNING,
+                description="movie batch scan to enter SCANNING",
+            )
 
             self.assertTrue(self.ctrl.cancel_scan())
 
-            for _ in range(50):
-                if self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
-                    break
-                time.sleep(0.02)
+            _wait_until(
+                lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED,
+                description="movie batch scan cancellation",
+            )
 
         self.assertEqual(self.ctrl.scan_progress.lifecycle, ScanLifecycle.CANCELLED)
         self.assertEqual(self.ctrl.movie_library_states, [])
