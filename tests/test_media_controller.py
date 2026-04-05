@@ -160,9 +160,7 @@ def _wait_until(
     raise AssertionError(f"Timed out waiting for {description}")
 
 
-# ── Tests ─────────────────────────────────────────────────────────────
-
-class MediaControllerInitTests(unittest.TestCase):
+class _ControllerTestCase(unittest.TestCase):
     def setUp(self):
         self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
         self.tmp = Path(self._tmp.name)
@@ -171,6 +169,49 @@ class MediaControllerInitTests(unittest.TestCase):
     def tearDown(self):
         self.store.close()
         self._tmp.cleanup()
+
+    def set_tv_session(
+        self,
+        states,
+        *,
+        active_scan=None,
+        batch_mode=True,
+        tv_root_folder=None,
+        batch_orchestrator=None,
+        selected_index=None,
+    ) -> None:
+        self.ctrl._batch_mode = batch_mode
+        self.ctrl._batch_states = list(states)
+        self.ctrl._active_content_mode = MediaType.TV
+        self.ctrl._active_library_mode = MediaType.TV
+        self.ctrl._active_scan = active_scan
+        self.ctrl._batch_orchestrator = batch_orchestrator
+        self.ctrl._tv_root_folder = tv_root_folder
+        self.ctrl.library_selected_index = selected_index
+
+    def set_movie_session(
+        self,
+        states,
+        *,
+        preview_items=None,
+        movie_folder=None,
+        movie_scanner=None,
+        movie_media_info=None,
+        selected_index=None,
+    ) -> None:
+        self.ctrl._movie_library_states = list(states)
+        self.ctrl._movie_preview_items = list(preview_items or [])
+        self.ctrl._movie_folder = movie_folder
+        self.ctrl._movie_scanner = movie_scanner
+        self.ctrl._movie_media_info = movie_media_info
+        self.ctrl._active_content_mode = MediaType.MOVIE
+        self.ctrl._active_library_mode = MediaType.MOVIE
+        self.ctrl.library_selected_index = selected_index
+
+
+# ── Tests ─────────────────────────────────────────────────────────────
+
+class MediaControllerInitTests(_ControllerTestCase):
 
     def test_initial_state(self):
         self.assertEqual(self.ctrl.active_content_mode, MediaType.TV)
@@ -188,8 +229,7 @@ class MediaControllerInitTests(unittest.TestCase):
             folder=self.tmp / "Show",
             media_info={"id": 1, "name": "Show"},
         )
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([state], batch_mode=False)
         self.assertEqual(self.ctrl.library_states, [state])
 
     def test_library_states_routes_to_movie_states_for_movie(self):
@@ -197,20 +237,11 @@ class MediaControllerInitTests(unittest.TestCase):
             folder=self.tmp / "Movie",
             media_info={"id": 2, "title": "Movie"},
         )
-        self.ctrl._movie_library_states = [state]
-        self.ctrl._active_library_mode = MediaType.MOVIE
+        self.set_movie_session([state])
         self.assertEqual(self.ctrl.library_states, [state])
 
 
-class AcceptTVShowTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class AcceptTVShowTests(_ControllerTestCase):
 
     def test_accept_tv_show_sets_mode_and_state(self):
         folder = self.tmp / "Naruto"
@@ -254,24 +285,14 @@ class AcceptTVShowTests(unittest.TestCase):
         self.assertEqual(lib_events[0], ("library", 1))
 
 
-class SelectShowTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class SelectShowTests(_ControllerTestCase):
 
     def test_select_show_sets_active_scan(self):
         states = [
             ScanState(folder=self.tmp / "A", media_info={"id": 1, "name": "A"}),
             ScanState(folder=self.tmp / "B", media_info={"id": 2, "name": "B"}),
         ]
-        self.ctrl._batch_states = states
-        self.ctrl._active_content_mode = MediaType.TV
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session(states, batch_mode=False)
 
         result = self.ctrl.select_show(1)
         self.assertIs(result, states[1])
@@ -279,21 +300,12 @@ class SelectShowTests(unittest.TestCase):
         self.assertEqual(self.ctrl.library_selected_index, 1)
 
     def test_select_show_out_of_range_returns_none(self):
-        self.ctrl._batch_states = []
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([], batch_mode=False)
         result = self.ctrl.select_show(5)
         self.assertIsNone(result)
 
 
-class TVBatchTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class TVBatchTests(_ControllerTestCase):
 
     def test_start_tv_batch_populates_states(self):
         root = self.tmp / "tv_root"
@@ -317,9 +329,9 @@ class TVBatchTests(unittest.TestCase):
             description="TV batch states to populate",
         )
 
-        self.assertTrue(len(self.ctrl.batch_states) >= 1)
+        self.assertEqual(len(self.ctrl.batch_states), 1)
         naruto = [s for s in self.ctrl.batch_states if "Naruto" in s.display_name]
-        self.assertTrue(len(naruto) >= 1)
+        self.assertEqual(len(naruto), 1)
 
     def test_start_tv_batch_empty_folder(self):
         root = self.tmp / "empty_root"
@@ -368,11 +380,10 @@ class TVBatchTests(unittest.TestCase):
         for state in states:
             state.folder.mkdir()
 
-        self.ctrl._batch_mode = True
-        self.ctrl._active_content_mode = MediaType.TV
-        self.ctrl._active_library_mode = MediaType.TV
-        self.ctrl._batch_states = states
-        self.ctrl._batch_orchestrator = _CancelableBatchOrchestrator(states)
+        self.set_tv_session(
+            states,
+            batch_orchestrator=_CancelableBatchOrchestrator(states),
+        )
 
         self.ctrl.scan_all_shows()
 
@@ -393,15 +404,7 @@ class TVBatchTests(unittest.TestCase):
         self.assertFalse(self.ctrl.batch_states[1].scanned)
 
 
-class MovieStateBuildTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class MovieStateBuildTests(_ControllerTestCase):
 
     def test_build_movie_library_states_uses_scanner_metadata_and_skips_non_movies(self):
         movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
@@ -510,16 +513,11 @@ class MovieStateBuildTests(unittest.TestCase):
         self.assertFalse(duplicate_state.checked)
 
 
-class RematchStateTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
+class RematchStateTests(_ControllerTestCase):
 
     def tearDown(self):
         set_auto_accept_threshold(0.55)
-        self.store.close()
-        self._tmp.cleanup()
+        super().tearDown()
 
     def test_rematch_tv_state_updates_match_and_alternates(self):
         state = ScanState(
@@ -536,8 +534,7 @@ class RematchStateTests(unittest.TestCase):
                 {"id": 20, "name": "Andor", "year": "2022"},
             ],
         )
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([state], batch_mode=False)
 
         self.ctrl.rematch_tv_state(state, {"id": 20, "name": "Andor", "year": "2022"})
 
@@ -559,8 +556,7 @@ class RematchStateTests(unittest.TestCase):
                 {"id": 20, "name": "Andor", "year": "2022"},
             ],
         )
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([state], batch_mode=False)
 
         with patch(
             "plex_renamer.app.controllers.media_controller.score_results",
@@ -579,8 +575,7 @@ class RematchStateTests(unittest.TestCase):
             confidence=0.7,
             checked=True,
         )
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([state], batch_mode=False)
 
         self.ctrl.settings.auto_accept_threshold = 0.8
         self.ctrl.apply_runtime_settings()
@@ -603,8 +598,7 @@ class RematchStateTests(unittest.TestCase):
                 {"id": 30, "name": "Dok Ngew", "year": "2017"},
             ],
         )
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_library_mode = MediaType.TV
+        self.set_tv_session([state], batch_mode=False)
 
         with patch(
             "plex_renamer.app.controllers.media_controller.score_results",
@@ -673,9 +667,11 @@ class RematchStateTests(unittest.TestCase):
             search_results=scanner.get_search_results(movie_file),
             alternate_matches=[scanner.get_search_results(movie_file)[0]],
         )
-        self.ctrl._movie_library_states = [state]
-        self.ctrl._movie_preview_items = [old_item]
-        self.ctrl._active_library_mode = MediaType.MOVIE
+        self.set_movie_session(
+            [state],
+            preview_items=[old_item],
+            movie_scanner=scanner,
+        )
 
         self.ctrl.rematch_movie_state(
             state,
@@ -689,15 +685,7 @@ class RematchStateTests(unittest.TestCase):
         self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
 
 
-class MovieBatchCancellationTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class MovieBatchCancellationTests(_ControllerTestCase):
 
     def test_cancel_movie_batch_sets_cancelled_progress(self):
         root = self.tmp / "movies"
@@ -725,26 +713,19 @@ class MovieBatchCancellationTests(unittest.TestCase):
         self.assertEqual(self.ctrl.movie_library_states, [])
 
 
-class SessionSaveRestoreTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class SessionSaveRestoreTests(_ControllerTestCase):
 
     def test_save_restore_tv_from_tab_switch(self):
         state = ScanState(
             folder=self.tmp / "Show",
             media_info={"id": 1, "name": "Show"},
         )
-        self.ctrl._batch_mode = True
-        self.ctrl._batch_states = [state]
-        self.ctrl._active_scan = state
-        self.ctrl._tv_root_folder = self.tmp / "tv"
-        self.ctrl._library_selected_index = 0
+        self.set_tv_session(
+            [state],
+            active_scan=state,
+            tv_root_folder=self.tmp / "tv",
+            selected_index=0,
+        )
 
         snapshot = self.ctrl.snapshot_tv_for_tab_switch()
 
@@ -787,11 +768,11 @@ class SessionSaveRestoreTests(unittest.TestCase):
             preview_items=[item],
             scanned=True,
         )
-        self.ctrl._movie_library_states = [state]
-        self.ctrl._movie_preview_items = [item]
-        self.ctrl._movie_folder = self.tmp
-        self.ctrl._active_content_mode = MediaType.MOVIE
-        self.ctrl._active_library_mode = MediaType.MOVIE
+        self.set_movie_session(
+            [state],
+            preview_items=[item],
+            movie_folder=self.tmp,
+        )
 
         snapshot = self.ctrl.snapshot_movie_for_tab_switch()
 
@@ -808,22 +789,14 @@ class SessionSaveRestoreTests(unittest.TestCase):
         self.assertEqual(self.ctrl.active_library_mode, MediaType.MOVIE)
 
 
-class SyncQueuedStatesTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class SyncQueuedStatesTests(_ControllerTestCase):
 
     def test_sync_marks_queued_tv_states(self):
         state = ScanState(
             folder=self.tmp / "Show",
             media_info={"id": 100, "name": "Show"},
         )
-        self.ctrl._batch_states = [state]
+        self.set_tv_session([state], batch_mode=False)
 
         # Add a pending job for this show
         job = RenameJob(
@@ -842,7 +815,7 @@ class SyncQueuedStatesTests(unittest.TestCase):
             folder=self.tmp / "Other",
             media_info={"id": 999, "name": "Other"},
         )
-        self.ctrl._batch_states = [state]
+        self.set_tv_session([state], batch_mode=False)
 
         self.ctrl.sync_queued_states()
         self.assertFalse(state.queued)
@@ -853,7 +826,7 @@ class SyncQueuedStatesTests(unittest.TestCase):
             media_info={"id": 100, "name": "Dup"},
             duplicate_of="Primary Show",
         )
-        self.ctrl._batch_states = [state]
+        self.set_tv_session([state], batch_mode=False)
 
         job = RenameJob(
             library_root=str(self.tmp),
@@ -872,7 +845,7 @@ class SyncQueuedStatesTests(unittest.TestCase):
             media_info={"id": 100, "title": "Dup Movie", "_media_type": MediaType.MOVIE},
             duplicate_of="Primary Movie",
         )
-        self.ctrl._movie_library_states = [state]
+        self.set_movie_session([state])
 
         job = RenameJob(
             library_root=str(self.tmp),
@@ -886,15 +859,7 @@ class SyncQueuedStatesTests(unittest.TestCase):
         self.assertFalse(state.queued)
 
 
-class ListenerTests(unittest.TestCase):
-    def setUp(self):
-        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
-        self.tmp = Path(self._tmp.name)
-        self.ctrl, self.store = _make_controller(self.tmp)
-
-    def tearDown(self):
-        self.store.close()
-        self._tmp.cleanup()
+class ListenerTests(_ControllerTestCase):
 
     def test_add_and_clear_listeners(self):
         lid = self.ctrl.add_listener(on_progress=lambda p: None)
