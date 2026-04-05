@@ -119,7 +119,7 @@ try {
 
     Write-Host ""
     Write-Host "Pushing HEAD to $Remote/$Branch..."
-    git push $Remote "HEAD:$Branch"
+    git push -u $Remote "HEAD:$Branch"
     if ($LASTEXITCODE -ne 0) {
         throw "git push failed."
     }
