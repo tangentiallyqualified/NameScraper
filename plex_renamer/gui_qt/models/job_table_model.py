@@ -50,8 +50,6 @@ class JobTableModel(QAbstractTableModel):
         JobStatus.REVERTED: QColor(74, 158, 218, 40),   # info tint
     }
 
-    _HOVER_COLOR = QColor(36, 36, 36)  # #242424
-
     def __init__(self, *, history: bool = False, parent=None) -> None:
         super().__init__(parent)
         self._history = history
@@ -59,7 +57,6 @@ class JobTableModel(QAbstractTableModel):
         self._checked_job_ids: set[str] = set()
         self._prev_statuses: dict[str, str] = {}
         self._highlight_jobs: dict[str, str] = {}  # job_id -> new status
-        self._hover_row: int = -1
         self._highlight_timer = QTimer(self)
         self._highlight_timer.setSingleShot(True)
         self._highlight_timer.setInterval(600)
@@ -82,17 +79,6 @@ class JobTableModel(QAbstractTableModel):
         valid_ids = {job.job_id for job in self._jobs}
         self._checked_job_ids &= valid_ids
         self.endResetModel()
-
-    def set_hover_row(self, row: int) -> None:
-        if row == self._hover_row:
-            return
-        old = self._hover_row
-        self._hover_row = row
-        cols = self.columnCount() - 1
-        if old >= 0 and old < len(self._jobs):
-            self.dataChanged.emit(self.index(old, 0), self.index(old, cols), [Qt.ItemDataRole.BackgroundRole])
-        if row >= 0 and row < len(self._jobs):
-            self.dataChanged.emit(self.index(row, 0), self.index(row, cols), [Qt.ItemDataRole.BackgroundRole])
 
     def _clear_highlights(self) -> None:
         if not self._highlight_jobs:
@@ -206,8 +192,6 @@ class JobTableModel(QAbstractTableModel):
             highlight_status = self._highlight_jobs.get(job.job_id)
             if highlight_status is not None:
                 return self._TRANSITION_COLORS.get(highlight_status)
-            if index.row() == self._hover_row:
-                return self._HOVER_COLOR
 
         if role == Qt.ItemDataRole.UserRole:
             return job

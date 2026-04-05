@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QRect, Qt, Signal
-from PySide6.QtGui import QPainter
+from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -14,8 +14,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QSplitter,
-    QStyleOptionButton,
     QStyle,
+    QStyleOptionButton,
+    QStyleOptionViewItem,
+    QStyledItemDelegate,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -25,6 +27,8 @@ from ...job_store import RenameJob
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
+
+_HOVER_COLOR = QColor(36, 36, 36)  # #242424
 
 
 class _CheckableHeaderView(QHeaderView):
@@ -78,6 +82,28 @@ class _CheckableHeaderView(QHeaderView):
         super().mousePressEvent(event)
 
 
+class _HoverRowDelegate(QStyledItemDelegate):
+    """Delegate that paints a full-row hover background, avoiding per-cell gaps."""
+
+    def __init__(self, table: QTableView, parent=None) -> None:
+        super().__init__(parent)
+        self._table = table
+        self._hover_row: int = -1
+
+    def set_hover_row(self, row: int) -> None:
+        if row == self._hover_row:
+            return
+        self._hover_row = row
+        self._table.viewport().update()
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+        # Strip Qt's built-in hover state so it doesn't paint its own highlight
+        option.state &= ~QStyle.StateFlag.State_MouseOver
+        if index.row() == self._hover_row:
+            painter.fillRect(option.rect, _HOVER_COLOR)
+        super().paint(painter, option, index)
+
+
 class _JobListTab(QWidget):
     """Shared table/detail/filter shell for queue and history tabs."""
 
@@ -117,12 +143,16 @@ class _JobListTab(QWidget):
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
+        self._table.setShowGrid(False)
         self._header.setStretchLastSection(True)
         self._table.setMouseTracking(True)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         for column in (0, 1, 3, 4, 5, 6, 7):
             self._header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+
+        self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)
+        self._table.setItemDelegate(self._hover_delegate)
 
         self._selection_status = QLabel("0 checked")
         self._selection_status.setProperty("cssClass", "text-dim")
@@ -235,12 +265,35 @@ class _JobListTab(QWidget):
             self._clear_selection()
 
     def _on_cell_entered(self, index: QModelIndex) -> None:
-        source = self._proxy.mapToSource(index)
-        self._model.set_hover_row(source.row() if source.isValid() else -1)
+        self._hover_delegate.set_hover_row(index.row() if index.isValid() else -1)
 
     def eventFilter(self, obj, event) -> bool:
-        if obj is self._table.viewport() and event.type() == event.Type.Leave:
-            self._model.set_hover_row(-1)
+        if obj is not self._table.viewport():
+            return super().eventFilter(obj, event)
+
+        if event.type() == QEvent.Type.Leave:
+            self._hover_delegate.set_hover_row(-1)
+            return False
+
+        # Handle clicks anywhere in column 0 as checkbox toggle.
+        # We intercept Release so Qt's native checkbox handling (which fires
+        # on Press for UserCheckable items) is suppressed.
+        if event.type() == QEvent.Type.MouseButtonPress:
+            me: QMouseEvent = event
+            index = self._table.indexAt(me.pos())
+            if index.isValid() and index.column() == 0:
+                source = self._proxy.mapToSource(index)
+                if source.isValid():
+                    current = self._model.data(source, Qt.ItemDataRole.CheckStateRole)
+                    if current is not None:
+                        next_state = (
+                            Qt.CheckState.Unchecked
+                            if current == Qt.CheckState.Checked
+                            else Qt.CheckState.Checked
+                        )
+                        self._model.setData(source, next_state, Qt.ItemDataRole.CheckStateRole)
+                        return True  # consume: prevents Qt's native checkbox double-toggle
+
         return super().eventFilter(obj, event)
 
     def _on_current_row_changed(self, _current: QModelIndex, _previous: QModelIndex) -> None:
