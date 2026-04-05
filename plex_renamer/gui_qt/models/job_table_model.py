@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor
 from ...constants import JobStatus
 from ...job_store import RenameJob
 
-_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "When"]
+_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "Companions", "When"]
 _STATUS_TEXT = {
     JobStatus.PENDING: "Pending",
     JobStatus.RUNNING: "Running",
@@ -33,7 +33,10 @@ _STATUS_COLOR = {
 
 def _fmt_dt(value: str) -> str:
     try:
-        return datetime.fromisoformat(value).strftime("%b %d, %H:%M")
+        dt = datetime.fromisoformat(value)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone()
+        return dt.strftime("%b %d, %H:%M")
     except (TypeError, ValueError):
         return value[:16] if value else ""
 
@@ -47,6 +50,8 @@ class JobTableModel(QAbstractTableModel):
         JobStatus.REVERTED: QColor(74, 158, 218, 40),   # info tint
     }
 
+    _HOVER_COLOR = QColor(36, 36, 36)  # #242424
+
     def __init__(self, *, history: bool = False, parent=None) -> None:
         super().__init__(parent)
         self._history = history
@@ -54,6 +59,7 @@ class JobTableModel(QAbstractTableModel):
         self._checked_job_ids: set[str] = set()
         self._prev_statuses: dict[str, str] = {}
         self._highlight_jobs: dict[str, str] = {}  # job_id -> new status
+        self._hover_row: int = -1
         self._highlight_timer = QTimer(self)
         self._highlight_timer.setSingleShot(True)
         self._highlight_timer.setInterval(600)
@@ -76,6 +82,17 @@ class JobTableModel(QAbstractTableModel):
         valid_ids = {job.job_id for job in self._jobs}
         self._checked_job_ids &= valid_ids
         self.endResetModel()
+
+    def set_hover_row(self, row: int) -> None:
+        if row == self._hover_row:
+            return
+        old = self._hover_row
+        self._hover_row = row
+        cols = self.columnCount() - 1
+        if old >= 0 and old < len(self._jobs):
+            self.dataChanged.emit(self.index(old, 0), self.index(old, cols), [Qt.ItemDataRole.BackgroundRole])
+        if row >= 0 and row < len(self._jobs):
+            self.dataChanged.emit(self.index(row, 0), self.index(row, cols), [Qt.ItemDataRole.BackgroundRole])
 
     def _clear_highlights(self) -> None:
         if not self._highlight_jobs:
@@ -154,6 +171,8 @@ class JobTableModel(QAbstractTableModel):
         value_column = column - 1
 
         if role == Qt.ItemDataRole.CheckStateRole and column == 0:
+            if job.status in (JobStatus.REVERTED, JobStatus.REVERT_FAILED):
+                return None
             return Qt.CheckState.Checked if job.job_id in self._checked_job_ids else Qt.CheckState.Unchecked
 
         if role == Qt.ItemDataRole.DisplayRole:
@@ -170,10 +189,13 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 4:
                 return str(job.selected_count)
             if value_column == 5:
+                comp = len(job.companion_ops)
+                return str(comp) if comp else ""
+            if value_column == 6:
                 return _fmt_dt(job.updated_at if self._history else job.created_at)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if column in (0, 1, 3, 4, 5, 6):
+            if column in (0, 1, 3, 4, 5, 6, 7):
                 return int(Qt.AlignmentFlag.AlignCenter)
             return int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
@@ -184,6 +206,8 @@ class JobTableModel(QAbstractTableModel):
             highlight_status = self._highlight_jobs.get(job.job_id)
             if highlight_status is not None:
                 return self._TRANSITION_COLORS.get(highlight_status)
+            if index.row() == self._hover_row:
+                return self._HOVER_COLOR
 
         if role == Qt.ItemDataRole.UserRole:
             return job
@@ -209,10 +233,13 @@ class JobTableModel(QAbstractTableModel):
     def flags(self, index: QModelIndex):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
-        flags = Qt.ItemFlag.ItemIsEnabled
+        base = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         if index.column() == 0:
-            return flags | Qt.ItemFlag.ItemIsUserCheckable
-        return flags | Qt.ItemFlag.ItemIsSelectable
+            job = self._jobs[index.row()]
+            if job.status in (JobStatus.REVERTED, JobStatus.REVERT_FAILED):
+                return base
+            return base | Qt.ItemFlag.ItemIsUserCheckable
+        return base
 
     def _emit_check_state_changed(self) -> None:
         if not self._jobs:

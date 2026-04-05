@@ -137,10 +137,11 @@ QLabel[cssClass="tab-badge-count"] {
     color: #e0e0e0;
     border: 1px solid #3a3a3a;
     border-radius: 8px;
-    padding: 1px 6px;
+    padding: 2px 6px;
     font-size: 10px;
     font-weight: 600;
-    min-width: 10px;
+    min-width: 14px;
+    qproperty-alignment: AlignCenter;
 }
 
 QLabel[cssClass="tab-badge-pip"] {

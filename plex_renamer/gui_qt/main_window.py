@@ -217,6 +217,7 @@ class MainWindow(QMainWindow):
             settings_service=self.settings_service,
             cache_service=self._cache_service,
             clear_tmdb_callback=self._drop_tmdb_client,
+            clear_history_callback=self._clear_history_from_settings,
         )
 
         self._tabs.addTab(self._tv_workspace, "TV Shows")
@@ -255,6 +256,7 @@ class MainWindow(QMainWindow):
         self._settings_tab.language_changed.connect(self._on_language_changed)
         self._settings_tab.threshold_changed.connect(self._on_threshold_changed)
         self._settings_tab.api_key_saved.connect(self._invalidate_tmdb)
+        self._settings_tab.history_cleared.connect(self._on_queue_changed)
 
         # ── Restore geometry ─────────────────────────────────────
         self._restore_window_state()
@@ -321,6 +323,14 @@ class MainWindow(QMainWindow):
 
     def _drop_tmdb_client(self) -> None:
         self._tmdb = None
+
+    def _clear_history_from_settings(self) -> tuple[int, int]:
+        """Clear job history; returns (total_cleared, revertible_count)."""
+        jobs = self.queue_ctrl.get_history()
+        revertible = sum(1 for j in jobs if j.status == "completed" and j.undo_data)
+        count = self.queue_ctrl.clear_history()
+        self._history_tab.refresh()
+        return count, revertible
 
     def _start_job_poster_backfill(self) -> None:
         if self._job_poster_backfill_started:
@@ -832,7 +842,13 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         self._capture_active_snapshot()
 
-        if index == _TV:
+        if index == _QUEUE:
+            self._queue_tab._model.clear_checked()
+            self._queue_tab.refresh()
+        elif index == _HISTORY:
+            self._history_tab._model.clear_checked()
+            self._history_tab.refresh()
+        elif index == _TV:
             if self._tv_snapshot is not None:
                 self.media_ctrl.restore_tv_from_tab_switch(self._tv_snapshot)
                 self._tv_workspace.refresh_from_controller()

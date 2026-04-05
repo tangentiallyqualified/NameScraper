@@ -6,8 +6,6 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
     QMessageBox,
     QMenu,
     QPushButton,
@@ -54,17 +52,10 @@ class QueueTab(_JobListTab):
         self._execute_btn.clicked.connect(self._execute_selected)
         self._toolbar_layout.addWidget(self._execute_btn)
 
-        self._toolbar_layout.addSpacing(12)
-
-        self._select_all_btn = QPushButton("Select All")
-        self._select_all_btn.setProperty("cssClass", "secondary")
-        self._select_all_btn.clicked.connect(self._select_all)
-        self._toolbar_layout.addWidget(self._select_all_btn)
-
-        self._clear_selection_btn = QPushButton("Clear All")
-        self._clear_selection_btn.setProperty("cssClass", "secondary")
-        self._clear_selection_btn.clicked.connect(self._clear_selection)
-        self._toolbar_layout.addWidget(self._clear_selection_btn)
+        self._remove_btn = QPushButton("Remove Checked")
+        self._remove_btn.setProperty("cssClass", "danger")
+        self._remove_btn.clicked.connect(self._remove_selected)
+        self._toolbar_layout.addWidget(self._remove_btn)
 
         self._toolbar_layout.addSpacing(12)
 
@@ -79,28 +70,6 @@ class QueueTab(_JobListTab):
         self._toolbar_layout.addWidget(self._movie_btn)
 
         self._finish_toolbar(_QUEUE_FILTERS)
-        actions = QFrame()
-        actions.setProperty("cssClass", "panel")
-        actions_layout = QHBoxLayout(actions)
-        actions_layout.setContentsMargins(12, 12, 12, 12)
-
-        self._remove_btn = QPushButton("Remove Checked")
-        self._remove_btn.setProperty("cssClass", "danger")
-        self._remove_btn.clicked.connect(self._remove_selected)
-        actions_layout.addWidget(self._remove_btn)
-
-        self._move_up_btn = QPushButton("Move Checked Up")
-        self._move_up_btn.setProperty("cssClass", "secondary")
-        self._move_up_btn.clicked.connect(lambda: self._move_selected(-1))
-        actions_layout.addWidget(self._move_up_btn)
-
-        self._move_down_btn = QPushButton("Move Checked Down")
-        self._move_down_btn.setProperty("cssClass", "secondary")
-        self._move_down_btn.clicked.connect(lambda: self._move_selected(1))
-        actions_layout.addWidget(self._move_down_btn)
-
-        actions_layout.addStretch()
-        self._insert_panel_before_detail(actions)
         self._finish_list_pane()
 
         self.refresh()
@@ -120,10 +89,9 @@ class QueueTab(_JobListTab):
             parts.append(f"showing {shown}/{len(jobs)}")
         self._status.setText(" · ".join(parts) if parts else "Queue empty")
         self._start_btn.setText("Stop Queue" if self._queue_ctrl.is_running else "Start Queue")
-        has_jobs = bool(jobs)
-        self._select_all_btn.setEnabled(has_jobs)
-        self._clear_selection_btn.setEnabled(has_jobs)
         self._sync_selection_widgets()
+        if not self._table.currentIndex().isValid() and self._proxy.rowCount():
+            self._table.selectRow(0)
         self._update_job_controls()
 
     def _update_job_controls(self) -> None:
@@ -136,8 +104,6 @@ class QueueTab(_JobListTab):
         has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
         can_execute = len(checked_jobs) == 1 and checked_jobs[0].status == JobStatus.PENDING
         self._remove_btn.setEnabled(has_pending)
-        self._move_up_btn.setEnabled(has_pending)
-        self._move_down_btn.setEnabled(has_pending)
         self._execute_btn.setEnabled(can_execute)
 
     def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
@@ -152,13 +118,9 @@ class QueueTab(_JobListTab):
         remove_action.setEnabled(has_pending)
         remove_action.triggered.connect(self._remove_selected)
 
-        move_up_action = menu.addAction("Move Checked Up")
-        move_up_action.setEnabled(has_pending)
-        move_up_action.triggered.connect(lambda: self._move_selected(-1))
-
-        move_down_action = menu.addAction("Move Checked Down")
-        move_down_action.setEnabled(has_pending)
-        move_down_action.triggered.connect(lambda: self._move_selected(1))
+        move_top_action = menu.addAction("Move to Top of Queue")
+        move_top_action.setEnabled(has_pending)
+        move_top_action.triggered.connect(self._move_to_top)
 
         menu.addSeparator()
         self._add_folder_context_actions(menu)
@@ -197,15 +159,13 @@ class QueueTab(_JobListTab):
         self.refresh()
         self.queue_changed.emit()
 
-    def _move_selected(self, direction: int) -> None:
+    def _move_to_top(self) -> None:
         pending_ids = [job.job_id for job in self._selected_jobs() if job.status == JobStatus.PENDING]
         if not pending_ids:
             return
-        self._queue_ctrl.move_jobs(pending_ids, direction)
+        self._queue_ctrl.move_jobs_to_top(pending_ids)
         self.refresh()
         self.queue_changed.emit()
-        for job_id in pending_ids:
-            self.select_job(job_id)
 
     def execute_focused(self) -> None:
         """Execute the currently focused pending job (Enter shortcut)."""

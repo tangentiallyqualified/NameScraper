@@ -6,7 +6,7 @@ import threading
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QColor, QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -21,11 +21,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...engine import score_results
 
-def _label_for_result(result: dict, title_key: str) -> str:
+_AUTO_ACCEPT_THRESHOLD = 0.70
+_SUCCESS_COLOR = QColor("#3ea463")
+
+
+def _label_for_result(result: dict, title_key: str, score: float | None = None) -> str:
     title = result.get(title_key) or result.get("name") or result.get("title") or "Unknown"
     year = result.get("year", "")
-    return f"{title} ({year})" if year else title
+    label = f"{title} ({year})" if year else title
+    if score is not None:
+        label += f" \u2014 {score:.0%}"
+    return label
 
 
 class _SearchBridge(QObject):
@@ -46,6 +54,7 @@ class MatchPickerDialog(QDialog):
         initial_results: list[dict],
         search_callback: Callable[[str, str | None], list[dict]],
         year_hint: str | None = None,
+        raw_name: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -54,6 +63,7 @@ class MatchPickerDialog(QDialog):
         self._title_key = title_key
         self._search_callback = search_callback
         self._year_hint = year_hint
+        self._raw_name = raw_name or initial_query
         self._selected: dict | None = None
         self._results: list[dict] = []
         self._search_in_progress = False
@@ -173,9 +183,15 @@ class MatchPickerDialog(QDialog):
             self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
             return
 
+        scored = score_results(results, self._raw_name, self._year_hint, title_key=self._title_key)
+        score_map = {id(r): s for r, s in scored}
+
         for index, result in enumerate(results):
-            item = QListWidgetItem(_label_for_result(result, self._title_key))
+            score = score_map.get(id(result))
+            item = QListWidgetItem(_label_for_result(result, self._title_key, score))
             item.setData(Qt.ItemDataRole.UserRole, index)
+            if score is not None and score >= _AUTO_ACCEPT_THRESHOLD:
+                item.setForeground(_SUCCESS_COLOR)
             overview = result.get("overview", "")
             if overview:
                 item.setToolTip(overview)
@@ -209,6 +225,7 @@ class MatchPickerDialog(QDialog):
         initial_results: list[dict],
         search_callback: Callable[[str, str | None], list[dict]],
         year_hint: str | None = None,
+        raw_name: str | None = None,
         parent: QWidget | None = None,
     ) -> dict | None:
         dialog = cls(
@@ -218,6 +235,7 @@ class MatchPickerDialog(QDialog):
             initial_results=initial_results,
             search_callback=search_callback,
             year_hint=year_hint,
+            raw_name=raw_name,
             parent=parent,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:

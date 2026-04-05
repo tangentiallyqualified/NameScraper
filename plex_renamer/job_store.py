@@ -472,6 +472,31 @@ class JobStore:
                     "WHERE job_id = ?", (pos, now, jid))
             conn.commit()
 
+    def move_jobs_to_top(self, job_ids: list[str]) -> None:
+        """Move the given pending jobs to the top of the queue."""
+        if not job_ids:
+            return
+        with self._lock:
+            conn = self._get_conn()
+            now = datetime.now(timezone.utc).isoformat()
+            rows = conn.execute(
+                "SELECT job_id, position FROM jobs "
+                "WHERE status = 'pending' "
+                "ORDER BY position ASC"
+            ).fetchall()
+            ordered = [r["job_id"] for r in rows]
+            id_set = set(job_ids)
+            selected = [jid for jid in ordered if jid in id_set]
+            rest = [jid for jid in ordered if jid not in id_set]
+            if not selected:
+                return
+            new_order = selected + rest
+            for pos, jid in enumerate(new_order, start=1):
+                conn.execute(
+                    "UPDATE jobs SET position = ?, updated_at = ? "
+                    "WHERE job_id = ?", (pos, now, jid))
+            conn.commit()
+
     def clear_history(self) -> int:
         """Delete all terminal jobs.  Returns row count."""
         with self._lock:

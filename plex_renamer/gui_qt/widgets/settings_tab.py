@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSlider,
@@ -74,18 +75,21 @@ class SettingsTab(QScrollArea):
     language_changed = Signal(str)
     threshold_changed = Signal(float)
     api_key_saved = Signal()
+    history_cleared = Signal()
 
     def __init__(
         self,
         settings_service: "SettingsService | None" = None,
         cache_service=None,
         clear_tmdb_callback: Callable[[], None] | None = None,
+        clear_history_callback: Callable[[], tuple[int, int]] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._settings = settings_service
         self._cache_service = cache_service
         self._clear_tmdb_callback = clear_tmdb_callback
+        self._clear_history_callback = clear_history_callback
         self._api_test_bridge = _ApiKeyTestBridge(self)
         self._api_test_bridge.result_ready.connect(self._show_test_result)
         self.setWidgetResizable(True)
@@ -101,6 +105,7 @@ class SettingsTab(QScrollArea):
         self._build_matching_section()
         self._build_api_keys_section()
         self._build_cache_section()
+        self._build_data_management_section()
         self._build_advanced_section()
 
         self._layout.addStretch()
@@ -265,6 +270,42 @@ class SettingsTab(QScrollArea):
         section.add_widget(self._cache_confirm)
 
         self._layout.addWidget(section)
+
+    # ── Data Management ──────────────────────────────────────────
+
+    def _build_data_management_section(self) -> None:
+        section = _SectionCard("Data Management")
+
+        row = QHBoxLayout()
+        self._clear_history_btn = QPushButton("Clear Job History")
+        self._clear_history_btn.setProperty("cssClass", "danger")
+        self._clear_history_btn.setEnabled(self._clear_history_callback is not None)
+        self._clear_history_btn.clicked.connect(self._on_clear_history)
+        row.addWidget(self._clear_history_btn)
+        row.addStretch()
+        section.add_layout(row)
+
+        self._history_confirm = QLabel("")
+        self._history_confirm.setProperty("cssClass", "caption")
+        section.add_widget(self._history_confirm)
+
+        self._layout.addWidget(section)
+
+    def _on_clear_history(self) -> None:
+        if self._clear_history_callback is None:
+            return
+        if QMessageBox.question(
+            self,
+            "Clear Job History",
+            "Delete all job history entries?\n\nStored undo data for revertible jobs will be lost.",
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        count, revertible = self._clear_history_callback()
+        noun = "entry" if count == 1 else "entries"
+        self._history_confirm.setProperty("tone", "success")
+        self._history_confirm.setText(f"Cleared {count} history {noun}.")
+        _repolish(self._history_confirm)
+        self.history_cleared.emit()
 
     # ── Advanced ─────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
@@ -33,6 +33,7 @@ class JobDetailPanel(QFrame):
         super().__init__(parent)
         self._tmdb_provider = tmdb_provider
         self._persist_poster_path = persist_poster_path
+        self._history_mode: bool = False
         self._current_job_id: str | None = None
         self._current_job: RenameJob | None = None
         self._poster_pixmap: QPixmap | None = None
@@ -47,7 +48,7 @@ class JobDetailPanel(QFrame):
         layout.setSpacing(12)
 
         self._poster = QLabel()
-        self._poster.setFixedSize(120, 180)
+        self._poster.setFixedSize(160, 240)
         self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._poster.setProperty("cssClass", "card")
@@ -98,17 +99,25 @@ class JobDetailPanel(QFrame):
         preview_heading.setProperty("cssClass", "text-dim")
         body.addWidget(preview_heading)
 
-        self._preview = QPlainTextEdit()
-        self._preview.setReadOnly(True)
-        self._preview.setMinimumHeight(0)
-        self._preview.setPlaceholderText("Rename operations appear here.")
-        self._preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        body.addWidget(self._preview, stretch=1)
+        self._preview_tree = QTreeWidget()
+        self._preview_tree.setHeaderLabels(["Original", "New Name"])
+        self._preview_tree.setRootIsDecorated(True)
+        self._preview_tree.setMinimumHeight(0)
+        self._preview_tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
+        self._preview_tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._preview_tree.header().setStretchLastSection(False)
+        self._preview_tree.header().setSectionResizeMode(0, self._preview_tree.header().ResizeMode.Stretch)
+        self._preview_tree.header().setSectionResizeMode(1, self._preview_tree.header().ResizeMode.Stretch)
+        body.addWidget(self._preview_tree, stretch=1)
 
         self._error = QLabel("")
         self._error.setWordWrap(True)
         self._error.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         body.addWidget(self._error)
+
+    def set_history_mode(self, history: bool) -> None:
+        """Toggle between queue mode (history=False) and history mode."""
+        self._history_mode = history
 
     def clear(self, text: str = "Select a job to see details") -> None:
         self._current_job_id = None
@@ -120,10 +129,10 @@ class JobDetailPanel(QFrame):
         self._meta.setText("")
         self._summary.setText("")
         self._paths.setText("")
-        self._preview.clear()
+        self._preview_tree.clear()
         self._error.setText("")
-        self._open_source_btn.setEnabled(False)
-        self._open_target_btn.setEnabled(False)
+        self._open_source_btn.hide()
+        self._open_target_btn.hide()
 
     def set_job(self, job: RenameJob | None) -> None:
         if job is None:
@@ -141,9 +150,14 @@ class JobDetailPanel(QFrame):
         )
         self._summary.setText(self._build_summary(job))
         self._paths.setText(self._build_path_summary(job))
-        self._preview.setPlainText(self._build_operation_preview(job))
+        self._populate_preview_tree(job)
+        self._open_source_btn.show()
         self._open_source_btn.setEnabled(self.can_open_source_folder())
-        self._open_target_btn.setEnabled(self.can_open_target_folder())
+        if self._history_mode:
+            self._open_target_btn.show()
+            self._open_target_btn.setEnabled(self.can_open_target_folder())
+        else:
+            self._open_target_btn.hide()
         if job.error_message:
             self._error.setText(job.error_message)
             self._error.setStyleSheet("color: #d44040;")
@@ -202,31 +216,70 @@ class JobDetailPanel(QFrame):
                 lines.append(f"Target Folders: {len(targets)} total")
         return "\n".join(lines)
 
-    def _build_operation_preview(self, job: RenameJob) -> str:
+    def _populate_preview_tree(self, job: RenameJob) -> None:
+        self._preview_tree.clear()
         ops = job.selected_ops or job.rename_ops
         if not ops:
-            return "No rename operations recorded for this job."
+            placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded.", ""])
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+            return
 
-        preview_lines: list[str] = []
+        # Folder rename banner
         if job.show_folder_rename:
             source_name = Path(job.source_folder).name or job.source_folder
             if source_name and source_name != ".":
-                preview_lines.append(f"Folder: {source_name} -> {job.show_folder_rename}")
-                preview_lines.append("")
+                folder_item = QTreeWidgetItem(self._preview_tree, [source_name, job.show_folder_rename])
+                folder_item.setFirstColumnSpanned(False)
+                font = folder_item.font(0)
+                font.setBold(True)
+                folder_item.setFont(0, font)
+                folder_item.setFont(1, font)
 
-        preview_limit = 8
-        for op in ops[:preview_limit]:
-            target_dir = self._final_target_dir_relative(job, op)
-            target_path = target_dir / op.new_name if str(target_dir) not in ("", ".") else Path(op.new_name)
-            preview_lines.append(f"{op.original_relative} -> {target_path}")
-        if len(ops) > preview_limit:
-            preview_lines.append(f"... {len(ops) - preview_limit} more operation(s)")
+        video_ops = [op for op in ops if op.file_type == "video"]
+        companion_ops = [op for op in ops if op.file_type != "video"]
 
-        if job.companion_ops:
-            preview_lines.append("")
-            preview_lines.append(f"Companion files included: {len(job.companion_ops)}")
+        # Group video ops by season
+        is_tv = job.media_type == "tv"
+        if is_tv and any(op.season is not None for op in video_ops):
+            from collections import defaultdict
+            by_season: dict[int | None, list] = defaultdict(list)
+            for op in video_ops:
+                by_season[op.season].append(op)
+            for season_num in sorted(by_season, key=lambda s: (s is None, s or 0)):
+                season_ops = by_season[season_num]
+                if season_num is not None:
+                    label = f"Season {season_num:02d} ({len(season_ops)} files)"
+                else:
+                    label = f"Other Files ({len(season_ops)} files)"
+                header = QTreeWidgetItem(self._preview_tree, [label, ""])
+                header.setFirstColumnSpanned(True)
+                font = header.font(0)
+                font.setBold(True)
+                header.setFont(0, font)
+                for op in season_ops:
+                    original = Path(op.original_relative).name
+                    QTreeWidgetItem(header, [original, op.new_name])
+                header.setExpanded(len(by_season) <= 3)
+        else:
+            for op in video_ops:
+                original = Path(op.original_relative).name
+                QTreeWidgetItem(self._preview_tree, [original, op.new_name])
 
-        return "\n".join(preview_lines)
+        # Companion files section
+        if companion_ops:
+            comp_header = QTreeWidgetItem(
+                self._preview_tree,
+                [f"Companion Files ({len(companion_ops)})", ""],
+            )
+            comp_header.setFirstColumnSpanned(True)
+            font = comp_header.font(0)
+            font.setBold(True)
+            comp_header.setFont(0, font)
+            for op in companion_ops:
+                original = Path(op.original_relative).name
+                QTreeWidgetItem(comp_header, [original, op.new_name])
+            comp_header.setExpanded(False)
+
 
     def _target_paths(self, job: RenameJob) -> list[Path]:
         paths: list[Path] = []

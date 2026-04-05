@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QHBoxLayout, QLabel, QWidget
 
 
@@ -19,12 +19,13 @@ class TabBadge(QWidget):
 
         self._count_label = QLabel("0")
         self._count_label.setProperty("cssClass", "tab-badge-count")
+        self._count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._count_label)
 
         self._pip = QLabel("")
         self._pip.setProperty("cssClass", "tab-badge-pip")
         self._pip.setFixedSize(8, 8)
-        self._pip.setVisible(show_failure_pip)
+        self._pip.setVisible(False)
         layout.addWidget(self._pip)
 
         # Pulse animation on the count label using opacity as a proxy
@@ -50,7 +51,13 @@ class TabBadge(QWidget):
         return self._count_label.text()
 
     def set_failure_visible(self, visible: bool) -> None:
-        self._pip.setVisible(visible)
+        self._pip.setVisible(False)  # Pip is deprecated — use badge color instead
+        if visible:
+            self._count_label.setStyleSheet(
+                "background-color: #d44040; color: #ffffff; border-color: #d44040;"
+            )
+        else:
+            self._count_label.setStyleSheet("")  # Revert to QSS defaults
 
     def failure_visible(self) -> bool:
-        return not self._pip.isHidden()
+        return "d44040" in (self._count_label.styleSheet() or "")

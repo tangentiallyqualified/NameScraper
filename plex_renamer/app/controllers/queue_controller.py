@@ -281,6 +281,10 @@ class QueueController:
         """Move pending jobs up or down in queue order."""
         self.job_store.move_jobs(job_ids, direction)
 
+    def move_jobs_to_top(self, job_ids: list[str]) -> None:
+        """Move pending jobs to the top of the queue."""
+        self.job_store.move_jobs_to_top(job_ids)
+
     def remove_jobs(self, job_ids: list[str]) -> int:
         """Remove pending or cancelled jobs from the queue."""
         return self.job_store.remove_jobs(job_ids)

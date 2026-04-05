@@ -4,17 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, Qt
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QRect, Qt, Signal
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMenu,
-    QPushButton,
     QSplitter,
+    QStyleOptionButton,
+    QStyle,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -26,15 +27,55 @@ from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
 
 
-class _MasterCheckBox(QCheckBox):
-    """Tri-state display checkbox that toggles like a normal binary control."""
+class _CheckableHeaderView(QHeaderView):
+    """Header view that draws a tri-state checkbox in section 0."""
 
-    def nextCheckState(self) -> None:
-        self.setCheckState(
-            Qt.CheckState.Unchecked
-            if self.checkState() == Qt.CheckState.Checked
-            else Qt.CheckState.Checked
-        )
+    checkStateChanged = Signal(int)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(Qt.Orientation.Horizontal, parent)
+        self._check_state = Qt.CheckState.Unchecked
+
+    def check_state(self) -> Qt.CheckState:
+        return self._check_state
+
+    def set_check_state(self, state: Qt.CheckState) -> None:
+        if self._check_state == state:
+            return
+        self._check_state = state
+        self.viewport().update()
+
+    def paintSection(self, painter: QPainter, rect: QRect, logical_index: int) -> None:
+        painter.save()
+        super().paintSection(painter, rect, logical_index)
+        painter.restore()
+        if logical_index == 0:
+            option = QStyleOptionButton()
+            size = 18
+            x = rect.x() + (rect.width() - size) // 2
+            y = rect.y() + (rect.height() - size) // 2
+            option.rect = QRect(x, y, size, size)
+            if self._check_state == Qt.CheckState.Checked:
+                option.state = QStyle.StateFlag.State_On | QStyle.StateFlag.State_Enabled
+            elif self._check_state == Qt.CheckState.PartiallyChecked:
+                option.state = QStyle.StateFlag.State_NoChange | QStyle.StateFlag.State_Enabled
+            else:
+                option.state = QStyle.StateFlag.State_Off | QStyle.StateFlag.State_Enabled
+            self.style().drawControl(QStyle.ControlElement.CE_CheckBox, option, painter)
+
+    def mousePressEvent(self, event) -> None:
+        logical = self.logicalIndexAt(event.pos())
+        if logical == 0:
+            next_state = (
+                Qt.CheckState.Unchecked
+                if self._check_state == Qt.CheckState.Checked
+                else Qt.CheckState.Checked
+            )
+            self._check_state = next_state
+            self.viewport().update()
+            self.checkStateChanged.emit(next_state.value)
+            return
+        super().mousePressEvent(event)
 
 
 class _JobListTab(QWidget):
@@ -66,38 +107,31 @@ class _JobListTab(QWidget):
         self._toolbar_layout.setContentsMargins(12, 12, 12, 12)
         self._root.addWidget(self._toolbar)
 
+        self._header = _CheckableHeaderView(self)
+        self._header.checkStateChanged.connect(self._on_master_check_changed)
+
         self._table = QTableView()
+        self._table.setHorizontalHeader(self._header)
         self._table.setModel(self._proxy)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
-        self._table.horizontalHeader().setStretchLastSection(True)
+        self._header.setStretchLastSection(True)
+        self._table.setMouseTracking(True)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        for column in (0, 1, 3, 4, 5, 6):
-            self._table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-
-        self._selection_bar = QFrame()
-        self._selection_bar.setProperty("cssClass", "panel")
-        self._selection_bar_layout = QHBoxLayout(self._selection_bar)
-        self._selection_bar_layout.setContentsMargins(12, 10, 12, 10)
-        self._selection_bar_layout.setSpacing(8)
-
-        self._master_check = _MasterCheckBox("Select All")
-        self._master_check.setTristate(True)
-        self._master_check.stateChanged.connect(self._on_master_check_changed)
-        self._selection_bar_layout.addWidget(self._master_check)
+        self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        for column in (0, 1, 3, 4, 5, 6, 7):
+            self._header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
 
         self._selection_status = QLabel("0 checked")
         self._selection_status.setProperty("cssClass", "text-dim")
-        self._selection_bar_layout.addWidget(self._selection_status)
-        self._selection_bar_layout.addStretch()
 
         self._detail = JobDetailPanel(
             tmdb_provider=tmdb_provider,
             persist_poster_path=self._queue_ctrl.set_job_poster_path,
         )
+        self._detail.set_history_mode(history)
         self._detail.setProperty("cssClass", "panel")
         self._content_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._content_splitter.setChildrenCollapsible(False)
@@ -108,7 +142,6 @@ class _JobListTab(QWidget):
         self._list_layout = QVBoxLayout(self._list_pane)
         self._list_layout.setContentsMargins(12, 12, 12, 12)
         self._list_layout.setSpacing(8)
-        self._list_layout.addWidget(self._selection_bar)
         self._content_splitter.addWidget(self._list_pane)
         self._content_splitter.setStretchFactor(0, 0)
         self._content_splitter.setStretchFactor(1, 1)
@@ -118,6 +151,8 @@ class _JobListTab(QWidget):
         self._table.clicked.connect(self._on_table_clicked)
         self._table.customContextMenuRequested.connect(self._show_context_menu)
         self._table.selectionModel().currentRowChanged.connect(self._on_current_row_changed)
+        self._table.entered.connect(self._on_cell_entered)
+        self._table.viewport().installEventFilter(self)
         self._model.dataChanged.connect(self._on_checked_jobs_changed)
         self._model.modelReset.connect(self._sync_selection_widgets)
 
@@ -127,14 +162,11 @@ class _JobListTab(QWidget):
         self._filter_control.currentTextChanged.connect(self._apply_filter)
         self._toolbar_layout.addWidget(self._filter_control)
 
+        self._toolbar_layout.addWidget(self._selection_status)
+
         self._status = QLabel("")
         self._status.setProperty("cssClass", "text-dim")
         self._toolbar_layout.addWidget(self._status, stretch=1)
-
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.setProperty("cssClass", "secondary")
-        refresh_btn.clicked.connect(self.refresh)
-        self._toolbar_layout.addWidget(refresh_btn)
 
     def _insert_panel_before_detail(self, widget: QWidget) -> None:
         self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
@@ -198,12 +230,19 @@ class _JobListTab(QWidget):
     def _on_master_check_changed(self, state: int) -> None:
         if self._master_check_syncing:
             return
-        checked_value = Qt.CheckState.Checked.value
-        unchecked_value = Qt.CheckState.Unchecked.value
-        if state == checked_value:
+        if state == Qt.CheckState.Checked.value:
             self._select_all()
-        elif state == unchecked_value:
+        elif state == Qt.CheckState.Unchecked.value:
             self._clear_selection()
+
+    def _on_cell_entered(self, index: QModelIndex) -> None:
+        source = self._proxy.mapToSource(index)
+        self._model.set_hover_row(source.row() if source.isValid() else -1)
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self._table.viewport() and event.type() == event.Type.Leave:
+            self._model.set_hover_row(-1)
+        return super().eventFilter(obj, event)
 
     def _on_current_row_changed(self, _current: QModelIndex, _previous: QModelIndex) -> None:
         self._update_job_controls()
@@ -241,13 +280,12 @@ class _JobListTab(QWidget):
 
         self._master_check_syncing = True
         try:
-            self._master_check.setEnabled(bool(visible_ids))
             if not visible_ids or checked_visible == 0:
-                self._master_check.setCheckState(Qt.CheckState.Unchecked)
+                self._header.set_check_state(Qt.CheckState.Unchecked)
             elif checked_visible == len(visible_ids):
-                self._master_check.setCheckState(Qt.CheckState.Checked)
+                self._header.set_check_state(Qt.CheckState.Checked)
             else:
-                self._master_check.setCheckState(Qt.CheckState.PartiallyChecked)
+                self._header.set_check_state(Qt.CheckState.PartiallyChecked)
         finally:
             self._master_check_syncing = False
 

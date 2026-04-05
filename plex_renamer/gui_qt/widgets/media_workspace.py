@@ -638,6 +638,15 @@ class MediaWorkspace(QWidget):
     def _normalize_queue_selection(self, states: list[ScanState]) -> None:
         for state in states:
             if _is_state_queue_approvable(state, media_type=self._media_type):
+                # Re-enable check bindings for items that became approvable
+                # again (e.g. after unqueueing).
+                for index, item in enumerate(state.preview_items):
+                    key = str(index)
+                    binding = state.check_vars.get(key)
+                    if binding is not None and hasattr(binding, "set") and item.is_actionable:
+                        binding.set(True)
+                if state.preview_items and not state.checked:
+                    state.checked = True
                 continue
             state.checked = False
             for binding in state.check_vars.values():
@@ -1097,6 +1106,7 @@ class MediaWorkspace(QWidget):
             initial_results=state.search_results,
             search_callback=search_callback,
             year_hint=year_hint,
+            raw_name=query,
             parent=self,
         )
         if not chosen:

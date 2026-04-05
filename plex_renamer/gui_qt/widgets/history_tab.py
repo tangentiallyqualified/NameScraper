@@ -6,8 +6,6 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
     QLabel,
     QMessageBox,
     QMenu,
@@ -50,44 +48,24 @@ class HistoryTab(_JobListTab):
         self._revert_btn.clicked.connect(self._revert_selected)
         self._toolbar_layout.addWidget(self._revert_btn)
 
-        self._clear_btn = QPushButton("Clear History")
-        self._clear_btn.setProperty("cssClass", "danger")
-        self._clear_btn.clicked.connect(self._clear_history)
-        self._toolbar_layout.addWidget(self._clear_btn)
-
-        self._select_all_btn = QPushButton("Select All")
-        self._select_all_btn.setProperty("cssClass", "secondary")
-        self._select_all_btn.clicked.connect(self._select_all)
-        self._toolbar_layout.addWidget(self._select_all_btn)
-
-        self._clear_selection_btn = QPushButton("Clear All")
-        self._clear_selection_btn.setProperty("cssClass", "secondary")
-        self._clear_selection_btn.clicked.connect(self._clear_selection)
-        self._toolbar_layout.addWidget(self._clear_selection_btn)
-
-        self._finish_toolbar(_HISTORY_FILTERS)
-
-        self._revert_banner = QFrame()
-        self._revert_banner.setProperty("cssClass", "callout-banner")
-        self._revert_banner.hide()
-        banner_layout = QHBoxLayout(self._revert_banner)
-        banner_layout.setContentsMargins(12, 12, 12, 12)
-        banner_layout.setSpacing(12)
-
-        self._revert_banner_label = QLabel("")
-        self._revert_banner_label.setWordWrap(True)
-        banner_layout.addWidget(self._revert_banner_label, stretch=1)
-
-        self._confirm_revert_btn = QPushButton("Revert")
+        self._confirm_revert_btn = QPushButton("Confirm Revert")
+        self._confirm_revert_btn.setProperty("cssClass", "danger")
         self._confirm_revert_btn.clicked.connect(self._confirm_revert)
-        banner_layout.addWidget(self._confirm_revert_btn)
+        self._confirm_revert_btn.hide()
+        self._toolbar_layout.addWidget(self._confirm_revert_btn)
 
         self._cancel_revert_btn = QPushButton("Cancel")
         self._cancel_revert_btn.setProperty("cssClass", "secondary")
         self._cancel_revert_btn.clicked.connect(self._cancel_revert)
-        banner_layout.addWidget(self._cancel_revert_btn)
+        self._cancel_revert_btn.hide()
+        self._toolbar_layout.addWidget(self._cancel_revert_btn)
 
-        self._insert_panel_before_detail(self._revert_banner)
+        self._revert_info = QLabel("")
+        self._revert_info.setProperty("cssClass", "text-dim")
+        self._revert_info.hide()
+        self._toolbar_layout.addWidget(self._revert_info)
+
+        self._finish_toolbar(_HISTORY_FILTERS)
         self._finish_list_pane()
         self.refresh()
 
@@ -99,9 +77,6 @@ class HistoryTab(_JobListTab):
         if jobs and shown != len(jobs):
             status += f" · showing {shown}/{len(jobs)}"
         self._status.setText(status)
-        self._clear_btn.setEnabled(bool(jobs))
-        self._select_all_btn.setEnabled(bool(jobs))
-        self._clear_selection_btn.setEnabled(bool(jobs))
         if self._pending_revert_job_ids:
             available_job_ids = {job.job_id for job in jobs}
             self._pending_revert_job_ids = [
@@ -110,6 +85,8 @@ class HistoryTab(_JobListTab):
             if not self._pending_revert_job_ids:
                 self._cancel_revert()
         self._sync_selection_widgets()
+        if not self._table.currentIndex().isValid() and self._proxy.rowCount():
+            self._table.selectRow(0)
         self._update_job_controls()
 
     def _update_job_controls(self) -> None:
@@ -145,10 +122,11 @@ class HistoryTab(_JobListTab):
         total_renames = sum(len((job.undo_data or {}).get("renames", [])) for job in jobs)
         job_noun = "job" if len(jobs) == 1 else "jobs"
         file_noun = "file" if total_renames == 1 else "files"
-        self._revert_banner_label.setText(
-            f"Revert {len(jobs)} {job_noun}? This will move {total_renames} {file_noun} back to their original locations."
-        )
-        self._revert_banner.show()
+        self._revert_info.setText(f"{len(jobs)} {job_noun}, {total_renames} {file_noun}")
+        self._revert_btn.hide()
+        self._confirm_revert_btn.show()
+        self._cancel_revert_btn.show()
+        self._revert_info.show()
 
     def _confirm_revert(self) -> None:
         if not self._pending_revert_job_ids:
@@ -179,18 +157,8 @@ class HistoryTab(_JobListTab):
 
     def _cancel_revert(self) -> None:
         self._pending_revert_job_ids = []
-        self._revert_banner.hide()
+        self._confirm_revert_btn.hide()
+        self._cancel_revert_btn.hide()
+        self._revert_info.hide()
+        self._revert_btn.show()
 
-    def _clear_history(self) -> None:
-        jobs = self._queue_ctrl.get_history()
-        revertible = sum(1 for job in jobs if job.status == JobStatus.COMPLETED and job.undo_data)
-        message = f"Delete all {len(jobs)} history entries?"
-        if revertible:
-            message += f"\n\nStored undo data for {revertible} revertible job(s) will be lost."
-        else:
-            message += "\n\nThis cannot be undone."
-        if QMessageBox.question(self, "Clear History", message) != QMessageBox.StandardButton.Yes:
-            return
-        self._queue_ctrl.clear_history()
-        self.refresh()
-        self.history_changed.emit()
