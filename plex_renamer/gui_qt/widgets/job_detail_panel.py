@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QAbstractItemView,
+    QGridLayout,
     QLabel,
     QHeaderView,
     QPushButton,
@@ -42,33 +43,104 @@ class _PreviewTreeWidget(QTreeWidget):
         self.resized.emit()
 
 
+class _ElidedPreviewLabel(QLabel):
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__("", parent)
+        self._full_text = text
+        self._display_text = ""
+        self.setWordWrap(False)
+        self.setMinimumWidth(0)
+        self._sync_display_text()
+
+    def setText(self, text: str) -> None:
+        self._full_text = text
+        self._sync_display_text()
+
+    def text(self) -> str:
+        return self._full_text
+
+    def is_elided(self) -> bool:
+        return self._display_text != self._full_text
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._sync_display_text()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._sync_display_text()
+
+    def _sync_display_text(self) -> None:
+        width = max(40, self.contentsRect().width() or self.width() or 40)
+        display = self.fontMetrics().elidedText(
+            self._full_text,
+            Qt.TextElideMode.ElideRight,
+            width,
+        )
+        self._display_text = display
+        super().setText(display)
+
+
 class _RenamePreviewWidget(QWidget):
-    """Compact stacked preview row that keeps long names readable."""
+    """Compact preview row with labeled original and renamed values."""
 
-    def __init__(self, *, before: str, after: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        before: str,
+        after: str,
+        before_label: str = "Original",
+        after_label: str = "New",
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
+        self._before_label_text = before_label
+        self._after_label_text = after_label
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 2, 0, 2)
-        layout.setSpacing(2)
+        layout = QGridLayout(self)
+        layout.setContentsMargins(0, 1, 0, 1)
+        layout.setHorizontalSpacing(8)
+        layout.setVerticalSpacing(2)
+        layout.setColumnMinimumWidth(0, 52)
+        layout.setColumnStretch(1, 1)
 
-        self._after = QLabel(after)
-        self._after.setProperty("cssClass", "row-target")
-        self._after.setWordWrap(True)
+        self._after_key = QLabel(after_label)
+        self._after_key.setProperty("cssClass", "caption")
+        self._after_key.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(self._after_key, 0, 0)
+
+        self._after = _ElidedPreviewLabel(after)
+        self._after.setProperty("cssClass", "job-preview-target")
         self._after.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._after.setMinimumWidth(0)
-        self._after.setToolTip(after)
-        self._after.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self._after)
+        layout.addWidget(self._after, 0, 1)
 
-        self._before = QLabel(before)
-        self._before.setProperty("cssClass", "caption")
-        self._before.setWordWrap(True)
+        self._before_key = QLabel(before_label)
+        self._before_key.setProperty("cssClass", "caption")
+        self._before_key.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(self._before_key, 1, 0)
+
+        self._before = _ElidedPreviewLabel(before)
+        self._before.setProperty("cssClass", "text-dim")
         self._before.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._before.setMinimumWidth(0)
-        self._before.setToolTip(before)
-        self._before.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self._before)
+        layout.addWidget(self._before, 1, 1)
+        self._sync_tooltip()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._sync_tooltip()
+
+    def _sync_tooltip(self) -> None:
+        tooltip = ""
+        if self._before.is_elided() or self._after.is_elided():
+            tooltip = (
+                f"{self._after_label_text}: {self._after.text()}\n"
+                f"{self._before_label_text}: {self._before.text()}"
+            )
+        self.setToolTip(tooltip)
+        self._before.setToolTip(tooltip)
+        self._after.setToolTip(tooltip)
+        self._before_key.setToolTip(tooltip)
+        self._after_key.setToolTip(tooltip)
 
 
 class JobDetailPanel(QFrame):
@@ -92,7 +164,7 @@ class JobDetailPanel(QFrame):
         self._bridge = _PosterBridge(self)
         self._bridge.poster_ready.connect(self._apply_poster)
         self.setProperty("cssClass", "panel")
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(400)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         shell = QVBoxLayout(self)
@@ -151,7 +223,7 @@ class JobDetailPanel(QFrame):
         self._poster.setFixedSize(160, 240)
         self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._poster.setProperty("cssClass", "card")
+        self._poster.setProperty("cssClass", "job-poster-card")
         self._poster.setText("No Poster")
         summary_row.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
 
@@ -204,7 +276,7 @@ class JobDetailPanel(QFrame):
         self._preview_tree.setProperty("cssClass", "job-preview-tree")
         self._preview_tree.setColumnCount(1)
         self._preview_tree.setHeaderHidden(True)
-        self._preview_tree.setRootIsDecorated(True)
+        self._preview_tree.setRootIsDecorated(False)
         self._preview_tree.setIndentation(12)
         self._preview_tree.setMinimumHeight(0)
         self._preview_tree.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -320,20 +392,29 @@ class JobDetailPanel(QFrame):
     def _populate_preview_tree(self, job: RenameJob) -> None:
         self._preview_tree.clear()
         ops = job.selected_ops or job.rename_ops
-        if not ops:
-            placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
-            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
-            return
+        has_preview_rows = False
 
-        # Folder rename banner
-        if job.show_folder_rename:
-            source_name = Path(job.source_folder).name or job.source_folder
-            if source_name and source_name != ".":
-                self._add_preview_row(
-                    self._preview_tree,
-                    before=source_name,
-                    after=job.show_folder_rename,
-                )
+        folder_preview = self._folder_preview_data(job)
+        if folder_preview is not None:
+            source_name, target_name = folder_preview
+            folder_header = self._make_group_header(self._preview_tree, "Folder Rename")
+            self._add_preview_row(
+                folder_header,
+                before=source_name,
+                after=target_name,
+                before_label="Source",
+                after_label="Target",
+            )
+            folder_header.setExpanded(True)
+            self._update_group_header_label(folder_header, expanded=True)
+            has_preview_rows = True
+
+        if not ops:
+            if not has_preview_rows:
+                placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
+                placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+            self._refresh_preview_item_sizes()
+            return
 
         video_ops = [op for op in ops if op.file_type == "video"]
         companion_ops = [op for op in ops if op.file_type != "video"]
@@ -356,10 +437,17 @@ class JobDetailPanel(QFrame):
                     original = Path(op.original_relative).name
                     self._add_preview_row(header, before=original, after=op.new_name)
                 header.setExpanded(False)
+                has_preview_rows = True
         else:
+            video_parent = self._preview_tree
+            if job.media_type == "movie" and video_ops:
+                video_parent = self._make_group_header(self._preview_tree, "File Rename")
+                video_parent.setExpanded(True)
+                self._update_group_header_label(video_parent, expanded=True)
             for op in video_ops:
                 original = Path(op.original_relative).name
-                self._add_preview_row(self._preview_tree, before=original, after=op.new_name)
+                self._add_preview_row(video_parent, before=original, after=op.new_name)
+                has_preview_rows = True
 
         # Companion files section
         if companion_ops:
@@ -371,13 +459,84 @@ class JobDetailPanel(QFrame):
                 original = Path(op.original_relative).name
                 self._add_preview_row(comp_header, before=original, after=op.new_name)
             comp_header.setExpanded(False)
+            has_preview_rows = True
+
+        if not has_preview_rows:
+            placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
 
         self._refresh_preview_item_sizes()
 
-    def _add_preview_row(self, parent, *, before: str, after: str) -> QTreeWidgetItem:
+    def _folder_preview_data(self, job: RenameJob) -> tuple[str, str] | None:
+        if job.show_folder_rename:
+            source_name = self._folder_preview_source_name(job, include_media_name=True)
+            if source_name:
+                return source_name, job.show_folder_rename
+            return None
+
+        if job.media_type != "movie":
+            return None
+
+        source_name = self._folder_preview_source_name(job, include_media_name=False)
+        target_name = self._movie_target_folder_name(job)
+        if not source_name or not target_name or source_name == target_name:
+            return None
+        return source_name, target_name
+
+    def _folder_preview_source_name(
+        self,
+        job: RenameJob,
+        *,
+        include_media_name: bool = True,
+    ) -> str | None:
+        source_name = Path(job.source_folder).name or job.source_folder
+        if source_name and source_name != ".":
+            return source_name
+
+        ops = job.selected_ops or job.rename_ops
+        for op in ops:
+            parent = Path(op.original_relative).parent
+            parts = [part for part in parent.parts if part not in {"", "."}]
+            if parts:
+                return parts[0]
+
+        library_root_name = Path(job.library_root).name
+        if library_root_name:
+            return library_root_name
+
+        if include_media_name and job.media_name:
+            return job.media_name
+        return None
+
+    def _movie_target_folder_name(self, job: RenameJob) -> str | None:
+        ops = job.selected_ops or job.rename_ops
+        candidate_ops = [op for op in ops if op.file_type == "video"] or ops
+        target_names: set[str] = set()
+        for op in candidate_ops:
+            parts = [part for part in Path(op.target_dir_relative).parts if part not in {"", "."}]
+            if parts:
+                target_names.add(parts[0])
+        if len(target_names) != 1:
+            return None
+        return next(iter(target_names))
+
+    def _add_preview_row(
+        self,
+        parent,
+        *,
+        before: str,
+        after: str,
+        before_label: str = "Original",
+        after_label: str = "New",
+    ) -> QTreeWidgetItem:
         item = QTreeWidgetItem(parent, [""])
-        item.setToolTip(0, f"New: {after}\nOriginal: {before}")
-        widget = _RenamePreviewWidget(before=before, after=after, parent=self._preview_tree)
+        widget = _RenamePreviewWidget(
+            before=before,
+            after=after,
+            before_label=before_label,
+            after_label=after_label,
+            parent=self._preview_tree,
+        )
         item.setSizeHint(0, widget.sizeHint())
         self._preview_tree.setItemWidget(item, 0, widget)
         return item
@@ -425,6 +584,8 @@ class JobDetailPanel(QFrame):
                     available_width = max(180, viewport_width - (depth * self._preview_tree.indentation()))
                     widget.setFixedWidth(available_width)
                     widget.adjustSize()
+                    if isinstance(widget, _RenamePreviewWidget):
+                        widget._sync_tooltip()
                     item.setSizeHint(0, widget.sizeHint())
                 _walk(item, depth + 1)
 
@@ -522,9 +683,15 @@ class JobDetailPanel(QFrame):
                     if self._persist_poster_path is not None:
                         self._persist_poster_path(job.job_id, poster_path)
             if image is None:
-                self._bridge.poster_ready.emit(None, job.job_id)
+                try:
+                    self._bridge.poster_ready.emit(None, job.job_id)
+                except RuntimeError:
+                    return
                 return
-            self._bridge.poster_ready.emit(pil_to_raw(image), job.job_id)
+            try:
+                self._bridge.poster_ready.emit(pil_to_raw(image), job.job_id)
+            except RuntimeError:
+                return
 
         threading.Thread(target=_worker, daemon=True, name="QtJobPoster").start()
 

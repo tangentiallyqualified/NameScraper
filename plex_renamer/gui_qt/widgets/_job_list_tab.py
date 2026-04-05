@@ -181,6 +181,7 @@ class _JobListTab(QWidget):
 
         self._toolbar = QFrame()
         self._toolbar.setProperty("cssClass", "panel")
+        self._toolbar.setProperty("panelVariant", "square")
         self._toolbar_layout = QHBoxLayout(self._toolbar)
         self._toolbar_layout.setContentsMargins(12, 12, 12, 12)
         self._root.addWidget(self._toolbar)
@@ -196,14 +197,14 @@ class _JobListTab(QWidget):
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
         self._table.setShowGrid(False)
-        self._header.setStretchLastSection(True)
+        self._header.setStretchLastSection(False)
         self._table.setMouseTracking(True)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self._header.resizeSection(0, 36)
         self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self._header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        self._header.resizeSection(7, 108)
+        self._header.resizeSection(7, 92)
         for column in (1, 3, 4, 5, 6, 7):
             if column == 7:
                 continue
@@ -221,11 +222,13 @@ class _JobListTab(QWidget):
         )
         self._detail.set_history_mode(history)
         self._detail.setProperty("cssClass", "panel")
+        self._detail.setProperty("panelVariant", "square")
         self._content_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._content_splitter.setChildrenCollapsible(False)
 
         self._list_pane = QFrame()
         self._list_pane.setProperty("cssClass", "panel")
+        self._list_pane.setProperty("panelVariant", "square")
         self._list_layout = QVBoxLayout(self._list_pane)
         self._list_layout.setContentsMargins(12, 12, 12, 12)
         self._list_layout.setSpacing(8)
@@ -233,7 +236,7 @@ class _JobListTab(QWidget):
         self._content_splitter.addWidget(self._detail)
         self._content_splitter.setStretchFactor(0, 1)
         self._content_splitter.setStretchFactor(1, 0)
-        self._content_splitter.setSizes([860, 400])
+        self._content_splitter.setSizes([820, 440])
         self._root.addWidget(self._content_splitter, stretch=1)
 
         self._table.customContextMenuRequested.connect(self._show_context_menu)

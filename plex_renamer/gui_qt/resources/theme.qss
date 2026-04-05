@@ -177,6 +177,7 @@ QTreeWidget[cssClass="job-preview-tree"] {
     border-radius: 6px;
     outline: none;
     padding: 0px;
+    show-decoration-selected: 0;
 }
 
 QTreeWidget[cssClass="job-preview-tree"]::item {
@@ -184,7 +185,18 @@ QTreeWidget[cssClass="job-preview-tree"]::item {
     margin: 0px;
 }
 
+QTreeWidget[cssClass="job-preview-tree"]::item:hover,
+QTreeWidget[cssClass="job-preview-tree"]::item:selected {
+    background-color: transparent;
+    color: #e0e0e0;
+}
+
 QTreeWidget[cssClass="job-preview-tree"]::branch {
+    background: transparent;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::branch:hover,
+QTreeWidget[cssClass="job-preview-tree"]::branch:selected {
     background: transparent;
 }
 
@@ -681,6 +693,11 @@ QLabel[cssClass="row-target"] {
     color: #e5a00d;
 }
 
+QLabel[cssClass="job-preview-target"] {
+    color: #e5a00d;
+    font-weight: 600;
+}
+
 QLabel[cssClass="status-pill"] {
     font-size: 10px;
     font-weight: 600;
@@ -722,6 +739,12 @@ QLabel[cssClass="status-pill"][tone="muted"] {
 /* ─── Cards (Level 2 panels) ─────────────────────────────────────── */
 
 QFrame[cssClass="card"] {
+    background-color: #1c1c1c;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+
+QLabel[cssClass="job-poster-card"] {
     background-color: #1c1c1c;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
@@ -802,6 +825,10 @@ QFrame[cssClass="panel"] {
     background-color: #151515;
     border: 1px solid #2a2a2a;
     border-radius: 6px;
+}
+
+QFrame[cssClass="panel"][panelVariant="square"] {
+    border-radius: 0px;
 }
 
 

@@ -180,6 +180,7 @@ class MediaWorkspace(QWidget):
 
         self._roster_panel = QFrame()
         self._roster_panel.setProperty("cssClass", "panel")
+        self._roster_panel.setProperty("panelVariant", "square")
         self._roster_panel.setMinimumWidth(320)
         roster_layout = QVBoxLayout(self._roster_panel)
         roster_layout.setContentsMargins(12, 12, 12, 12)
@@ -223,6 +224,7 @@ class MediaWorkspace(QWidget):
 
         self._preview_panel = QFrame()
         self._preview_panel.setProperty("cssClass", "panel")
+        self._preview_panel.setProperty("panelVariant", "square")
         self._preview_panel.setMinimumWidth(500)
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(12, 12, 12, 12)
@@ -287,6 +289,7 @@ class MediaWorkspace(QWidget):
             tmdb_provider=self._tmdb_provider,
             settings_service=self._settings,
         )
+        self._detail_panel.setProperty("panelVariant", "square")
         self._detail_panel.setMinimumWidth(340)
 
         self._splitter.addWidget(self._roster_panel)
@@ -1219,7 +1222,10 @@ class MediaWorkspace(QWidget):
                 image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=185)
                 if image is None:
                     return
-                self._poster_bridge.poster_ready.emit(key, pil_to_raw(image))
+                try:
+                    self._poster_bridge.poster_ready.emit(key, pil_to_raw(image))
+                except RuntimeError:
+                    return
             finally:
                 self._poster_inflight.discard(key)
 

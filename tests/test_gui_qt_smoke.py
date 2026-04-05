@@ -110,6 +110,22 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(menu.windowOpacity(), 1.0)
         menu.close()
 
+    def test_transient_popup_filter_allows_tooltip_events_and_windows(self):
+        from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QWidget
+        from plex_renamer.gui_qt.app import _SuppressTransientPopups
+
+        popup_filter = _SuppressTransientPopups(self._app)
+        tooltip_window = QWidget()
+        tooltip_window.setWindowFlags(Qt.WindowType.ToolTip)
+        tooltip_window.setWindowOpacity(1.0)
+
+        self.assertFalse(popup_filter.eventFilter(tooltip_window, QEvent(QEvent.Type.ToolTip)))
+        popup_filter.eventFilter(tooltip_window, QEvent(QEvent.Type.Show))
+
+        self.assertEqual(tooltip_window.windowOpacity(), 1.0)
+        tooltip_window.close()
+
     def test_main_window_undo_reverts_latest_job_and_switches_to_history(self):
         from PySide6.QtWidgets import QMessageBox
         from plex_renamer.constants import JobStatus
@@ -311,10 +327,15 @@ class QtSmokeTests(unittest.TestCase):
 
             self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
             folder_item = panel._preview_tree.topLevelItem(0)
+            folder_row = folder_item.child(0)
             rename_item = panel._preview_tree.topLevelItem(1)
-            folder_widget = panel._preview_tree.itemWidget(folder_item, 0)
+            folder_widget = panel._preview_tree.itemWidget(folder_row, 0)
             rename_widget = panel._preview_tree.itemWidget(rename_item, 0)
-            self.assertEqual(folder_item.text(0), "")
+            self.assertEqual(folder_item.text(0), "▾ Folder Rename")
+            self.assertTrue(folder_item.isExpanded())
+            self.assertEqual(folder_item.toolTip(0), "")
+            self.assertEqual(folder_widget._before_key.text(), "Source")
+            self.assertEqual(folder_widget._after_key.text(), "Target")
             self.assertEqual(folder_widget._before.text(), "Bleach")
             self.assertEqual(folder_widget._after.text(), "Bleach (2004)")
             self.assertEqual(rename_item.text(0), "")
@@ -323,6 +344,70 @@ class QtSmokeTests(unittest.TestCase):
             self.assertTrue(panel._open_source_btn.isEnabled())
             self.assertTrue(panel._open_target_btn.isEnabled())
             panel.close()
+
+    def test_job_detail_panel_shows_movie_folder_only_preview_with_source_target_labels(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Alien",
+            media_type="movie",
+            media_name="Alien",
+            show_folder_rename="Alien (1979)",
+            rename_ops=[],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._preview_tree.topLevelItemCount(), 1)
+        folder_item = panel._preview_tree.topLevelItem(0)
+        folder_row = folder_item.child(0)
+        folder_widget = panel._preview_tree.itemWidget(folder_row, 0)
+        self.assertEqual(folder_item.text(0), "▾ Folder Rename")
+        self.assertEqual(folder_item.toolTip(0), "")
+        self.assertTrue(folder_item.isExpanded())
+        self.assertEqual(folder_widget._before_key.text(), "Source")
+        self.assertEqual(folder_widget._after_key.text(), "Target")
+        self.assertEqual(folder_widget._before.text(), "Alien")
+        self.assertEqual(folder_widget._after.text(), "Alien (1979)")
+        panel.close()
+
+    def test_job_detail_panel_groups_movie_file_renames_under_file_rename_header(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Alien",
+            media_type="movie",
+            media_name="Alien",
+            show_folder_rename="Alien (1979)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
+        file_header = panel._preview_tree.topLevelItem(1)
+        file_row = file_header.child(0)
+        file_widget = panel._preview_tree.itemWidget(file_row, 0)
+        self.assertEqual(file_header.text(0), "▾ File Rename")
+        self.assertEqual(file_header.toolTip(0), "")
+        self.assertTrue(file_header.isExpanded())
+        self.assertEqual(file_widget._before.text(), "Alien.mkv")
+        self.assertEqual(file_widget._after.text(), "Alien (1979).mkv")
+        panel.close()
 
     def test_job_detail_panel_shows_placeholder_when_no_job_selected(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
@@ -359,11 +444,133 @@ class QtSmokeTests(unittest.TestCase):
         self.assertTrue(panel._open_target_btn.isHidden())
         panel.close()
 
-    def test_job_detail_panel_preview_rows_wrap_original_and_new_names(self):
+    def test_job_detail_panel_uses_local_non_hover_poster_style(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+
+        panel = JobDetailPanel()
+
+        self.assertEqual(panel._poster.property("cssClass"), "job-poster-card")
+        panel.close()
+
+    def test_job_detail_panel_recovers_movie_folder_source_name_when_source_folder_is_dot(self):
+        from plex_renamer.constants import JobStatus
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
         from plex_renamer.job_store import RenameJob, RenameOp
 
         panel = JobDetailPanel()
+        panel.set_history_mode(True)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder=".",
+            media_type="movie",
+            media_name="Alien",
+            status=JobStatus.COMPLETED,
+            show_folder_rename="Alien (1979)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        folder_item = panel._preview_tree.topLevelItem(0)
+        folder_row = folder_item.child(0)
+        folder_widget = panel._preview_tree.itemWidget(folder_row, 0)
+        self.assertEqual(folder_item.text(0), "▾ Folder Rename")
+        self.assertEqual(folder_widget._before_key.text(), "Source")
+        self.assertEqual(folder_widget._after_key.text(), "Target")
+        self.assertEqual(folder_widget._before.text(), "Alien")
+        self.assertEqual(folder_widget._after.text(), "Alien (1979)")
+        panel.close()
+
+    def test_job_detail_panel_inferrs_movie_history_folder_preview_without_show_folder_rename(self):
+        from plex_renamer.constants import JobStatus
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.set_history_mode(True)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder=".",
+            media_type="movie",
+            media_name="Alien",
+            status=JobStatus.COMPLETED,
+            show_folder_rename=None,
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
+        folder_item = panel._preview_tree.topLevelItem(0)
+        folder_row = folder_item.child(0)
+        folder_widget = panel._preview_tree.itemWidget(folder_row, 0)
+        self.assertEqual(folder_item.text(0), "▾ Folder Rename")
+        self.assertEqual(folder_widget._before_key.text(), "Source")
+        self.assertEqual(folder_widget._after_key.text(), "Target")
+        self.assertEqual(folder_widget._before.text(), "Alien")
+        self.assertEqual(folder_widget._after.text(), "Alien (1979)")
+        panel.close()
+
+    def test_job_detail_panel_inferrs_movie_history_folder_preview_from_library_root_files(self):
+        from plex_renamer.constants import JobStatus
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.set_history_mode(True)
+        job = RenameJob(
+            library_root="C:/library/Movies",
+            source_folder=".",
+            media_type="movie",
+            media_name="Legend of the Galactic Heroes: Overture to a New War (1993)",
+            status=JobStatus.COMPLETED,
+            show_folder_rename=None,
+            rename_ops=[
+                RenameOp(
+                    original_relative="Legend of the Galactic Heroes - Overture to a New War (1993) (BD 1080p HEVC FLAC).mkv",
+                    new_name="Legend of the Galactic Heroes - Overture to a New War (1993).mkv",
+                    target_dir_relative="Legend of the Galactic Heroes - Overture to a New War (1993)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._preview_tree.topLevelItemCount(), 2)
+        folder_item = panel._preview_tree.topLevelItem(0)
+        folder_row = folder_item.child(0)
+        folder_widget = panel._preview_tree.itemWidget(folder_row, 0)
+        self.assertEqual(folder_item.text(0), "▾ Folder Rename")
+        self.assertEqual(folder_widget._before_key.text(), "Source")
+        self.assertEqual(folder_widget._after_key.text(), "Target")
+        self.assertEqual(folder_widget._before.text(), "Movies")
+        self.assertEqual(folder_widget._after.text(), "Legend of the Galactic Heroes - Overture to a New War (1993)")
+        panel.close()
+
+    def test_job_detail_panel_preview_rows_use_compact_labeled_fields(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.resize(720, 640)
         long_original = "Legend of the Galactic Heroes - Overture to a New War [Extremely Long Source Name].mkv"
         long_new = "Legend of the Galactic Heroes - Overture to a New War (1993) - Director's Cut Restoration Edition.mkv"
         job = RenameJob(
@@ -386,10 +593,46 @@ class QtSmokeTests(unittest.TestCase):
         item = panel._preview_tree.topLevelItem(0)
         widget = panel._preview_tree.itemWidget(item, 0)
         self.assertEqual(item.text(0), "")
+        self.assertEqual(widget._after_key.text(), "New")
+        self.assertEqual(widget._before_key.text(), "Original")
         self.assertEqual(widget._before.text(), long_original)
         self.assertEqual(widget._after.text(), long_new)
-        self.assertTrue(widget._before.wordWrap())
-        self.assertTrue(widget._after.wordWrap())
+        self.assertFalse(widget._before.wordWrap())
+        self.assertFalse(widget._after.wordWrap())
+        expected_tooltip = f"New: {long_new}\nOriginal: {long_original}"
+        self.assertEqual(widget.toolTip(), expected_tooltip)
+        self.assertEqual(widget._before.toolTip(), expected_tooltip)
+        self.assertEqual(widget._after.toolTip(), expected_tooltip)
+        panel.close()
+
+    def test_job_detail_panel_short_preview_rows_do_not_show_tooltips(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.resize(900, 640)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Alien",
+            media_name="Alien",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        item = panel._preview_tree.topLevelItem(0)
+        widget = panel._preview_tree.itemWidget(item, 0)
+        self.assertEqual(widget.toolTip(), "")
+        self.assertEqual(widget._before.toolTip(), "")
+        self.assertEqual(widget._after.toolTip(), "")
         panel.close()
 
     def test_job_detail_panel_starts_season_groups_collapsed(self):
@@ -424,8 +667,10 @@ class QtSmokeTests(unittest.TestCase):
 
         panel.set_job(job)
 
+        self.assertFalse(panel._preview_tree.rootIsDecorated())
         season_header = panel._preview_tree.topLevelItem(0)
         self.assertEqual(season_header.text(0), "▸ Season 01 (2 files)")
+        self.assertEqual(season_header.toolTip(0), "")
         self.assertFalse(season_header.isExpanded())
         panel.close()
 
@@ -953,6 +1198,7 @@ class QtSmokeTests(unittest.TestCase):
             queue_ctrl.close()
 
     def test_queue_and_history_tabs_refresh(self):
+        from PySide6.QtWidgets import QHeaderView
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
         from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
@@ -995,6 +1241,16 @@ class QtSmokeTests(unittest.TestCase):
             self.assertIs(queue_tab._content_splitter.widget(1), queue_tab._detail)
             self.assertIs(history_tab._content_splitter.widget(0), history_tab._list_pane)
             self.assertIs(history_tab._content_splitter.widget(1), history_tab._detail)
+            self.assertEqual(queue_tab._detail.minimumWidth(), 400)
+            self.assertEqual(history_tab._detail.minimumWidth(), 400)
+            self.assertFalse(queue_tab._header.stretchLastSection())
+            self.assertFalse(history_tab._header.stretchLastSection())
+            self.assertEqual(queue_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
+            self.assertEqual(history_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
+            self.assertEqual(queue_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
+            self.assertEqual(history_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
+            self.assertLessEqual(queue_tab._header.sectionSize(7), 92)
+            self.assertLessEqual(history_tab._header.sectionSize(7), 92)
 
             self.assertEqual(queue_tab._model.rowCount(), 1)
             self.assertEqual(history_tab._model.rowCount(), 1)

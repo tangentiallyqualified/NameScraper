@@ -22,8 +22,7 @@ _DEBUG_TRANSIENT_WINDOWS = os.environ.get(
 
 # Window flags that identify transient platform helper windows.
 _TRANSIENT_FLAGS = (
-    Qt.WindowType.ToolTip
-    | Qt.WindowType.SplashScreen
+    Qt.WindowType.SplashScreen
     | Qt.WindowType.Tool
 )
 _DIAGNOSTIC_FLAGS = _TRANSIENT_FLAGS | Qt.WindowType.Popup
@@ -51,8 +50,8 @@ class _SuppressTransientPopups(QObject):
 
     Two suppression strategies:
 
-    1. **Event-type suppression** — ToolTip, WhatsThis, and StatusTip
-       events are consumed before Qt creates any window.  No flicker.
+     1. **Event-type suppression** — WhatsThis and StatusTip events are
+         consumed before Qt creates any helper window.  No flicker.
 
     2. **Transient-window suppression** — On Windows, Qt's platform
     integration and style engine create short-lived native helper
@@ -73,7 +72,6 @@ class _SuppressTransientPopups(QObject):
 
     def eventFilter(self, obj, event) -> bool:
         if event.type() in {
-            QEvent.Type.ToolTip,
             QEvent.Type.WhatsThis,
             QEvent.Type.QueryWhatsThis,
             QEvent.Type.StatusTip,
@@ -92,6 +90,8 @@ class _SuppressTransientPopups(QObject):
             if name in {"toastManager", "toastCard"}:
                 return False
             flags = obj.windowFlags()
+            if obj.windowType() == Qt.WindowType.ToolTip:
+                return False
             if _DEBUG_TRANSIENT_WINDOWS and flags & _DIAGNOSTIC_FLAGS:
                 _log.debug(
                     "Qt transient candidate: class=%s name=%r title=%r flags=%s size=%sx%s",
