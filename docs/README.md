@@ -10,6 +10,28 @@ If you are looking for implementation status and Qt migration detail, use the do
 
 ## Current Reference Docs
 
+### [ai-assistant-workflows.md](ai-assistant-workflows.md)
+
+User-facing guide for AI shorthand prompts, helper-script workflows, and future script documentation.
+
+Use this file for:
+
+- short prompt conventions for Copilot or Claude
+- AI-assisted commit/push workflow usage
+- Windows-specific helper-script guidance
+- future prompt/script workflow documentation
+
+### [ai-publish-workflow.md](ai-publish-workflow.md)
+
+Technical reference for the publish helper scripts and AI-driven commit/push flow.
+
+Use this file for:
+
+- exact publish behavior
+- shorthand token definitions
+- agent-facing workflow expectations
+- wrapper vs PowerShell implementation details
+
 ### [gui3-pyside6-migration-plan revised.md](gui3-pyside6-migration-plan%20revised.md)
 
 The canonical tracked migration plan for the PySide6 shell.
@@ -78,3 +100,4 @@ For GUI3 work specifically:
 - use the migration plan for current implementation status
 - use the UI design doc for visual and interaction intent
 - use the parity audit only as historical context
+- use the AI assistant workflow docs for shorthand prompts and helper-script behavior
