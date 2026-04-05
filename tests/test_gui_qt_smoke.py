@@ -8,6 +8,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
@@ -24,7 +26,6 @@ from plex_renamer.job_store import JobStore
 class QtSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PySide6.QtWidgets import QApplication
 
         cls._app = QApplication.instance() or QApplication([])
@@ -322,6 +323,20 @@ class QtSmokeTests(unittest.TestCase):
             self.assertTrue(panel._open_source_btn.isEnabled())
             self.assertTrue(panel._open_target_btn.isEnabled())
             panel.close()
+
+    def test_job_detail_panel_shows_placeholder_when_no_job_selected(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+
+        panel = JobDetailPanel()
+
+        self.assertIs(panel._stack.currentWidget(), panel._empty_page)
+        self.assertEqual(panel._empty_title.text(), "No Job Selected!")
+        self.assertIn("Queued jobs will appear here.", panel._empty_message.text())
+
+        panel.set_history_mode(True)
+
+        self.assertIn("History entries will appear here.", panel._empty_message.text())
+        panel.close()
 
     def test_job_detail_panel_hides_target_button_in_queue_mode(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
@@ -985,6 +1000,13 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(history_tab._model.rowCount(), 1)
             self.assertEqual(queue_tab._proxy.rowCount(), 1)
             self.assertEqual(history_tab._proxy.rowCount(), 1)
+            self.assertTrue(queue_tab._table.currentIndex().isValid())
+            self.assertTrue(history_tab._table.currentIndex().isValid())
+            self.assertIs(queue_tab._detail._stack.currentWidget(), queue_tab._detail._detail_page)
+            self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._detail_page)
+            self.assertEqual(queue_tab._remove_btn.text(), "Remove Selected")
+            self.assertFalse(queue_tab._remove_btn.isEnabled())
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
 
             queue_tab._filter_control.setCurrentText("Running")
             self.assertEqual(queue_tab._proxy.rowCount(), 0)
@@ -999,9 +1021,13 @@ class QtSmokeTests(unittest.TestCase):
             queue_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 1)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Checked)
+            self.assertTrue(queue_tab._remove_btn.isEnabled())
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger")
             queue_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 0)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Unchecked)
+            self.assertFalse(queue_tab._remove_btn.isEnabled())
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
 
             history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 1)
@@ -1009,6 +1035,30 @@ class QtSmokeTests(unittest.TestCase):
             history_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 0)
             self.assertEqual(history_tab._header.check_state(), Qt.CheckState.Unchecked)
+
+            queue_tab.close()
+            history_tab.close()
+            controller.close()
+
+    def test_queue_and_history_tabs_show_placeholder_when_empty(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import JobStore
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+
+            queue_tab = QueueTab(controller)
+            history_tab = HistoryTab(controller)
+
+            self.assertFalse(queue_tab._table.currentIndex().isValid())
+            self.assertFalse(history_tab._table.currentIndex().isValid())
+            self.assertIs(queue_tab._detail._stack.currentWidget(), queue_tab._detail._empty_page)
+            self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._empty_page)
+            self.assertEqual(queue_tab._detail._empty_title.text(), "No Job Selected!")
+            self.assertEqual(history_tab._detail._empty_title.text(), "No Job Selected!")
 
             queue_tab.close()
             history_tab.close()
@@ -1058,7 +1108,7 @@ class QtSmokeTests(unittest.TestCase):
                 action_text,
                 [
                     "Run Selected",
-                    "Remove Checked",
+                    "Remove Selected",
                     "Move to Top of Queue",
                     "Open Source Folder",
                 ],
@@ -2197,7 +2247,9 @@ class QtSmokeTests(unittest.TestCase):
 
         window._switch_to_tab(2)
         self._app.processEvents()
-        window._queue_tab.select_job(window.queue_ctrl.get_queue()[0].job_id)
+        job_id = window.queue_ctrl.get_queue()[0].job_id
+        window._queue_tab.select_job(job_id)
+        window._queue_tab._model.set_jobs_checked({job_id}, True)
 
         with patch(
             "plex_renamer.gui_qt.widgets.queue_tab.QMessageBox.question",

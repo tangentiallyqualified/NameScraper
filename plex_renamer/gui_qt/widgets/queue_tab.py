@@ -52,8 +52,8 @@ class QueueTab(_JobListTab):
         self._execute_btn.clicked.connect(self._execute_selected)
         self._toolbar_layout.addWidget(self._execute_btn)
 
-        self._remove_btn = QPushButton("Remove Checked")
-        self._remove_btn.setProperty("cssClass", "danger")
+        self._remove_btn = QPushButton("Remove Selected")
+        self._remove_btn.setProperty("cssClass", "secondary")
         self._remove_btn.clicked.connect(self._remove_selected)
         self._toolbar_layout.addWidget(self._remove_btn)
 
@@ -103,7 +103,7 @@ class QueueTab(_JobListTab):
             self._detail.set_job(focused)
         has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
         pending_checked = [job for job in checked_jobs if job.status == JobStatus.PENDING]
-        self._remove_btn.setEnabled(has_pending)
+        self._set_remove_button_enabled(has_pending)
         self._execute_btn.setEnabled(bool(pending_checked))
         self._execute_btn.setText("Run Selected")
 
@@ -115,7 +115,7 @@ class QueueTab(_JobListTab):
         execute_action.setEnabled(can_execute)
         execute_action.triggered.connect(self._execute_selected)
 
-        remove_action = menu.addAction("Remove Checked")
+        remove_action = menu.addAction("Remove Selected")
         remove_action.setEnabled(has_pending)
         remove_action.triggered.connect(self._remove_selected)
 
@@ -189,6 +189,15 @@ class QueueTab(_JobListTab):
     def remove_focused_checked(self) -> None:
         """Remove checked pending jobs (Delete shortcut)."""
         self._remove_selected()
+
+    def _set_remove_button_enabled(self, enabled: bool) -> None:
+        css_class = "danger" if enabled else "secondary"
+        if self._remove_btn.property("cssClass") != css_class:
+            self._remove_btn.setProperty("cssClass", css_class)
+            style = self._remove_btn.style()
+            style.unpolish(self._remove_btn)
+            style.polish(self._remove_btn)
+        self._remove_btn.setEnabled(enabled)
 
     def _switch_tab(self, index: int) -> None:
         if self._navigate_to_media is not None:

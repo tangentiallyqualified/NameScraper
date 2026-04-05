@@ -22,7 +22,7 @@ The goals are:
 
 ---
 
-## Current Supported Workflow
+## Current Supported Workflows
 
 ### Publish / Commit / Push
 
@@ -75,6 +75,25 @@ For `publish ... automessage=y`, the expected flow is:
 9. Report the resulting commit hash and push result.
 
 This approval step is intentional. It keeps the commit message AI-assisted without making it fully automatic.
+
+---
+
+### Smoke Test
+
+Recommended shorthand:
+
+```text
+smoke
+```
+
+What it means:
+
+- run [../scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
+- execute the full Qt smoke suite in [../tests/test_gui_qt_smoke.py](../tests/test_gui_qt_smoke.py)
+- capture the full pytest output to `.pytest_cache/smoke/latest.log`
+- print a short pass/fail summary instead of relying on integrated-terminal scrollback
+
+This should be preferred over calling raw `pytest tests/test_gui_qt_smoke.py` from chat when the goal is simply to verify the smoke suite result.
 
 Important: approval is a chat reply, not a terminal reply. Do not type `y` or `approve` into PowerShell unless a script explicitly prompts for terminal input.
 
@@ -158,7 +177,6 @@ Suggested future sections:
 
 - release workflow
 - changelog workflow
-- test-and-report workflow
 - packaging workflow
 
 ---

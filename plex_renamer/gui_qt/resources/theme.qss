@@ -727,6 +727,12 @@ QFrame[cssClass="card"] {
     border-radius: 6px;
 }
 
+QFrame[cssClass="job-detail-empty-card"] {
+    background-color: #1c1c1c;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+
 QFrame[cssClass="roster-row-card"] {
     background-color: #1c1c1c;
     border: 1px solid #2a2a2a;

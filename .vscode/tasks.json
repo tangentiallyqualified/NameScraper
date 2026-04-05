@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Smoke: GUI Qt",
+			"type": "process",
+			"command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+			"args": [
+				"${workspaceFolder}\\scripts\\test_smoke_runner.py"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [],
+			"isBackground": false,
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			}
+		}
+	]
+}

@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Qt smoke suite with concise reporting.")
+    parser.add_argument("--verbose-pytest", action="store_true", help="Do not pass -q to pytest.")
+    parser.add_argument("pytest_args", nargs="*", help="Additional arguments forwarded to pytest.")
+    return parser.parse_args()
+
+
+def _write_logs(log_dir: Path, stdout: str, stderr: str) -> None:
+    stdout_log = log_dir / "latest.stdout.log"
+    stderr_log = log_dir / "latest.stderr.log"
+    combined_log = log_dir / "latest.log"
+
+    stdout_log.write_text(stdout, encoding="utf-8")
+    stderr_log.write_text(stderr, encoding="utf-8")
+
+    combined_parts = []
+    if stdout:
+        combined_parts.append(stdout.rstrip())
+    if stderr:
+        combined_parts.append(stderr.rstrip())
+    combined_log.write_text("\n\n".join(combined_parts).strip() + ("\n" if combined_parts else ""), encoding="utf-8")
+
+
+def _parse_junit_summary(junit_path: Path) -> str | None:
+    if not junit_path.exists():
+        return None
+    try:
+        root = ET.fromstring(junit_path.read_text(encoding="utf-8"))
+    except ET.ParseError:
+        return None
+
+    suite = root.find("testsuite") if root.tag == "testsuites" else root
+    if suite is None:
+        return None
+
+    tests = int(suite.attrib.get("tests", 0))
+    failures = int(suite.attrib.get("failures", 0))
+    errors = int(suite.attrib.get("errors", 0))
+    skipped = int(suite.attrib.get("skipped", 0))
+    passed = tests - failures - errors - skipped
+    duration = float(suite.attrib.get("time", 0.0))
+    return f"{tests} tests: {passed} passed, {failures} failed, {errors} errors, {skipped} skipped in {duration:.2f}s"
+
+
+def _fallback_summary(stdout: str, stderr: str) -> str | None:
+    candidates = [line.strip() for line in (stdout + "\n" + stderr).splitlines() if line.strip()]
+    if not candidates:
+        return None
+    for line in reversed(candidates):
+        lowered = line.lower()
+        if any(token in lowered for token in (" passed", " failed", " skipped", " error", " deselected")):
+            return line
+    return candidates[-1]
+
+
+def main() -> int:
+    args = _parse_args()
+
+    repo_root = Path(__file__).resolve().parents[1]
+    python = repo_root / ".venv" / "Scripts" / "python.exe"
+    if not python.exists():
+        print(f"Python environment not found at {python}", file=sys.stderr)
+        return 1
+
+    log_dir = repo_root / ".pytest_cache" / "smoke"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    junit_log = log_dir / "latest.junit.xml"
+
+    command = [
+        str(python),
+        "-m",
+        "pytest",
+        "tests/test_gui_qt_smoke.py",
+        "--color=no",
+        f"--junitxml={junit_log}",
+    ]
+    if not args.verbose_pytest:
+        command.append("-q")
+    command.extend(args.pytest_args)
+
+    result = subprocess.run(
+        command,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    _write_logs(log_dir, result.stdout, result.stderr)
+
+    summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
+    combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]
+
+    if result.returncode == 0:
+        print("Qt smoke suite passed.")
+        if summary:
+            print(summary)
+        print("Log: .pytest_cache/smoke/latest.log")
+        return 0
+
+    print(f"Qt smoke suite failed (exit code {result.returncode}).")
+    if summary:
+        print(summary)
+    if combined_nonempty:
+        print("Recent pytest output:")
+        for line in combined_nonempty[-30:]:
+            print(line)
+    print("Log: .pytest_cache/smoke/latest.log")
+    return result.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

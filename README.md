@@ -180,8 +180,10 @@ Run the full test suite:
 Run the Qt smoke suite only:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_gui_qt_smoke.py
+.\scripts\test-smoke.cmd
 ```
+
+That wrapper captures the full pytest output to `.pytest_cache/smoke/latest.log` and prints a short pass/fail summary with the real exit code, which is more reliable than reading raw integrated-terminal output from PySide smoke runs.
 
 ---
 

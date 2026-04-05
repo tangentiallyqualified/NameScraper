@@ -343,7 +343,11 @@ class MainWindow(QMainWindow):
         self._job_poster_backfill_started = True
 
         def _worker() -> None:
-            updated = self.queue_ctrl.backfill_missing_job_poster_paths(tmdb)
+            try:
+                updated = self.queue_ctrl.backfill_missing_job_poster_paths(tmdb)
+            except Exception:
+                _log.debug("Job poster backfill aborted (store unavailable)")
+                return
             self._queue_bridge.on_poster_backfill_finished(updated)
 
         threading.Thread(target=_worker, daemon=True, name="QtJobPosterBackfill").start()
