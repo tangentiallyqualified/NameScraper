@@ -867,7 +867,7 @@ class BatchTVOrchestrator:
         """
         to_scan = [
             s for s in self.states
-            if not s.scanned and not s.queued and s.show_id is not None
+            if not s.scanned and s.show_id is not None
         ]
         total = len(to_scan)
 

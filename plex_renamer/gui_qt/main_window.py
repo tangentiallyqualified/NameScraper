@@ -636,7 +636,7 @@ class MainWindow(QMainWindow):
             self.media_ctrl.active_content_mode == "tv"
             and self.media_ctrl.batch_mode
             and any(
-                not state.scanned and not state.queued and state.show_id is not None
+                not state.scanned and state.show_id is not None
                 for state in self.media_ctrl.batch_states
             )
         ):
@@ -658,7 +658,7 @@ class MainWindow(QMainWindow):
             self.media_ctrl.active_content_mode == "tv"
             and self.media_ctrl.batch_mode
             and any(
-                not state.scanned and not state.queued and state.show_id is not None
+                not state.scanned and state.show_id is not None
                 for state in states
             )
         )

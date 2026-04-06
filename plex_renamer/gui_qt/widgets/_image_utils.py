@@ -20,16 +20,42 @@ def raw_to_pixmap(raw_data: tuple[bytes, int, int]) -> QPixmap:
     return QPixmap.fromImage(qimage)
 
 
+def scale_pixmap_for_device(
+    pixmap: QPixmap,
+    size: QSize,
+    *,
+    device_pixel_ratio: float = 1.0,
+    aspect_mode: Qt.AspectRatioMode = Qt.AspectRatioMode.KeepAspectRatio,
+) -> QPixmap:
+    """Return a pixmap scaled for the target logical size on a HiDPI display."""
+    if pixmap.isNull() or not size.isValid():
+        return QPixmap()
+    ratio = max(1.0, float(device_pixel_ratio or 1.0))
+    pixel_size = QSize(
+        max(1, int(round(size.width() * ratio))),
+        max(1, int(round(size.height() * ratio))),
+    )
+    scaled = pixmap.scaled(
+        pixel_size,
+        aspect_mode,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    scaled.setDevicePixelRatio(ratio)
+    return scaled
+
+
 def build_placeholder_pixmap(
     size: QSize,
     *,
     title: str,
     subtitle: str = "",
     accent: str = "#e5a00d",
+    device_pixel_ratio: float = 1.0,
 ) -> QPixmap:
     """Create a styled placeholder artwork card for empty poster slots."""
-    width = max(1, size.width())
-    height = max(1, size.height())
+    ratio = max(1.0, float(device_pixel_ratio or 1.0))
+    width = max(1, int(round(size.width() * ratio)))
+    height = max(1, int(round(size.height() * ratio)))
     pixmap = QPixmap(width, height)
     pixmap.fill(Qt.GlobalColor.transparent)
 
@@ -68,6 +94,7 @@ def build_placeholder_pixmap(
         painter.drawText(subtitle_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), subtitle)
 
     painter.end()
+    pixmap.setDevicePixelRatio(ratio)
     return pixmap
 
 

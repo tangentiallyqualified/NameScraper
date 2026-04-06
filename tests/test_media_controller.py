@@ -14,7 +14,7 @@ from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.constants import MediaType
-from plex_renamer.engine import PreviewItem, ScanCancelledError, ScanState, set_auto_accept_threshold
+from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, ScanCancelledError, ScanState, set_auto_accept_threshold
 from plex_renamer.job_store import JobStore, RenameJob
 
 
@@ -403,6 +403,60 @@ class TVBatchTests(_ControllerTestCase):
         self.assertTrue(self.ctrl.batch_states[0].scanned)
         self.assertFalse(self.ctrl.batch_states[1].scanned)
 
+    def test_scan_all_shows_includes_queued_unscanned_states(self):
+        state = ScanState(
+            folder=self.tmp / "QueuedShow",
+            media_info={"id": 11, "name": "Queued Show", "year": "2024"},
+            scanned=False,
+            queued=True,
+        )
+
+        class _QueuedPreviewOrchestrator:
+            def scan_all(self, progress_callback=None, cancel_event=None):
+                state.preview_items = [
+                    PreviewItem(
+                        original=Path("C:/library/tv/QueuedShow/Season 01/QueuedShow.S01E01.mkv"),
+                        new_name="Queued Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Queued Show (2024)/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ]
+                state.scanned = True
+                if progress_callback:
+                    progress_callback(1, 1)
+
+        self.set_tv_session([state], batch_orchestrator=_QueuedPreviewOrchestrator())
+
+        self.ctrl.scan_all_shows()
+
+        _wait_until(
+            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
+            description="queued TV batch state to finish scanning",
+        )
+
+        self.assertEqual(len(state.preview_items), 1)
+
+
+class BatchTVOrchestratorRegressionTests(unittest.TestCase):
+
+    def test_scan_all_includes_queued_unscanned_states(self):
+        state = ScanState(
+            folder=Path("C:/library/tv/QueuedShow"),
+            media_info={"id": 11, "name": "Queued Show", "year": "2024"},
+            scanned=False,
+            queued=True,
+        )
+        orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orchestrator.states = [state]
+        scanned: list[ScanState] = []
+        orchestrator.scan_show = lambda current_state, cancel_event=None: scanned.append(current_state)
+
+        orchestrator.scan_all()
+
+        self.assertEqual(scanned, [state])
+
 
 class MovieStateBuildTests(_ControllerTestCase):
 
@@ -683,6 +737,21 @@ class RematchStateTests(_ControllerTestCase):
         self.assertTrue(state.checked)
         self.assertEqual(state.match_origin, "manual")
         self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
+
+    def test_approve_match_ignores_duplicates(self):
+        state = ScanState(
+            folder=self.tmp / "Alien.Source",
+            media_info={"id": 42, "title": "Alien", "year": "1979"},
+            confidence=0.2,
+            checked=False,
+            duplicate_of="Alien (1979)",
+        )
+        self.set_movie_session([state])
+
+        self.ctrl.approve_match(state)
+
+        self.assertEqual(state.match_origin, "auto")
+        self.assertFalse(state.checked)
 
 
 class MovieBatchCancellationTests(_ControllerTestCase):

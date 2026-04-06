@@ -36,7 +36,13 @@ from ...engine import PreviewItem, ScanState
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ._formatting import clamped_percent
-from ._image_utils import ShimmerOverlay, build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
+from ._image_utils import (
+    ShimmerOverlay,
+    build_placeholder_pixmap,
+    pil_to_raw,
+    raw_to_pixmap,
+    scale_pixmap_for_device,
+)
 from ._media_helpers import (
     auto_accept_threshold as _auto_accept_threshold,
     band_color as _band_color,
@@ -97,6 +103,15 @@ class _MasterCheckBox(QCheckBox):
     Uses QSS for indicator styling — see theme.qss _MasterCheckBox selectors.
     """
 
+    _INDICATOR_SIZE = 18
+    _RADIUS = 4
+    _BG_OFF = QColor("#3a3a3a")
+    _BG_ON = QColor("#3ea463")
+    _BG_PARTIAL = QColor("#4a9eda")
+    _BORDER_OFF = QColor("#555555")
+    _BORDER_ON = QColor("#2d7a4a")
+    _CHECK_COLOR = QColor("#ffffff")
+
     def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setProperty("cssClass", "master-check")
@@ -109,6 +124,45 @@ class _MasterCheckBox(QCheckBox):
             if self.checkState() == Qt.CheckState.Checked
             else Qt.CheckState.Checked
         )
+
+    def sizeHint(self) -> QSize:
+        text_width = self.fontMetrics().horizontalAdvance(self.text())
+        return QSize(self._INDICATOR_SIZE + 12 + text_width, max(24, self._INDICATOR_SIZE + 6))
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        state = self.checkState()
+        if state == Qt.CheckState.Checked:
+            bg, border = self._BG_ON, self._BORDER_ON
+        elif state == Qt.CheckState.PartiallyChecked:
+            bg, border = self._BG_PARTIAL, self._BG_PARTIAL
+        else:
+            bg, border = self._BG_OFF, self._BORDER_OFF
+
+        indicator_y = (self.height() - self._INDICATOR_SIZE) / 2
+        rect_f = QRectF(1.5, indicator_y, self._INDICATOR_SIZE - 3.0, self._INDICATOR_SIZE - 3.0)
+        painter.setBrush(bg)
+        painter.setPen(QPen(border, 1.5))
+        painter.drawRoundedRect(rect_f, self._RADIUS, self._RADIUS)
+
+        pen = QPen(self._CHECK_COLOR, 2.0)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        size = self._INDICATOR_SIZE
+        if state == Qt.CheckState.Checked:
+            painter.drawLine(int(size * 0.25), int(indicator_y + size * 0.50), int(size * 0.43), int(indicator_y + size * 0.68))
+            painter.drawLine(int(size * 0.43), int(indicator_y + size * 0.68), int(size * 0.75), int(indicator_y + size * 0.32))
+        elif state == Qt.CheckState.PartiallyChecked:
+            y = int(indicator_y + size / 2)
+            painter.drawLine(int(size * 0.28), y, int(size * 0.72), y)
+
+        text_rect = self.rect().adjusted(self._INDICATOR_SIZE + 8, 0, 0, 0)
+        painter.setPen(QColor("#8d8d8d") if not self.isEnabled() else QColor("#e0e0e0"))
+        painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
+        painter.end()
 
 
 class MediaWorkspace(QWidget):
@@ -239,7 +293,7 @@ class MediaWorkspace(QWidget):
         self._fix_match_btn.setEnabled(False)
         self._fix_match_btn.clicked.connect(self._fix_match)
         preview_header.addWidget(self._fix_match_btn)
-        self._queue_inline_btn = QPushButton("Queue This Show")
+        self._queue_inline_btn = QPushButton(self._queue_selected_label())
         self._queue_inline_btn.setEnabled(False)
         self._queue_inline_btn.clicked.connect(self._queue_selected_state)
         preview_header.addWidget(self._queue_inline_btn)
@@ -460,7 +514,7 @@ class MediaWorkspace(QWidget):
             self._update_roster_selection_header([])
             self._fix_match_btn.setEnabled(False)
             self._queue_inline_btn.setEnabled(False)
-            self._queue_inline_btn.setText("Queue This Show")
+            self._queue_inline_btn.setText(self._queue_selected_label())
             return
 
         selected_index = self._media_ctrl.library_selected_index
@@ -987,15 +1041,15 @@ class MediaWorkspace(QWidget):
     def _queue_selected_state(self) -> None:
         state = self._selected_state()
         if state is None:
-            self.status_message.emit("Select a show before queueing.", 4000)
+            self.status_message.emit(f"Select a {self._media_noun()} before queueing.", 4000)
             return
         if not _is_state_queue_approvable(state, media_type=self._media_type):
-            self.status_message.emit("This item is not approved for queueing.", 4000)
+            self.status_message.emit(f"This {self._media_noun()} is not approved for queueing.", 4000)
             return
         original_checked = state.checked
         state.checked = True
         try:
-            self._queue_states([state], empty_message="Select a show before queueing.")
+            self._queue_states([state], empty_message=f"Select a {self._media_noun()} before queueing.")
         finally:
             if not state.queued:
                 state.checked = original_checked
@@ -1045,6 +1099,8 @@ class MediaWorkspace(QWidget):
             self.status_message.emit(empty_message, 4000)
             return
 
+        selected_key = _roster_selection_key(self._selected_state())
+
         eligibility = self._queue_eligibility(states)
         if not eligibility.enabled:
             self.status_message.emit(eligibility.reason or "The selected items cannot be queued right now.", 4000)
@@ -1069,12 +1125,16 @@ class MediaWorkspace(QWidget):
 
         self._media_ctrl.sync_queued_states()
         self.refresh_from_controller()
+        self._restore_roster_selection_by_key(selected_key)
         self.queue_changed.emit()
         self.status_message.emit(_format_batch_result(result), 5000)
 
     def _fix_match(self) -> None:
         state = self._selected_state()
         if state is None or self._media_ctrl is None or self._tmdb_provider is None:
+            return
+        if state.duplicate_of is not None:
+            self.status_message.emit("Duplicate items inherit the primary match. Resolve the duplicate before changing it.", 4000)
             return
         if state.queued:
             self.status_message.emit("Remove the item from the queue before changing its match.", 4000)
@@ -1143,8 +1203,13 @@ class MediaWorkspace(QWidget):
         checked = [state for state in states if state.checked]
         self._update_roster_selection_header(states)
         selected_state = self._selected_state()
-        self._fix_match_btn.setEnabled(bool(selected_state and not selected_state.queued and not selected_state.scanning))
-        self._queue_inline_btn.setText("Queue This Show")
+        can_fix = bool(selected_state and self._can_fix_match(selected_state))
+        self._fix_match_btn.setEnabled(can_fix)
+        if selected_state is not None and selected_state.duplicate_of is not None:
+            self._fix_match_btn.setToolTip("Duplicates inherit their primary match.")
+        else:
+            self._fix_match_btn.setToolTip("")
+        self._queue_inline_btn.setText(self._queue_selected_label())
         if selected_state is None:
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setToolTip("")
@@ -1216,10 +1281,11 @@ class MediaWorkspace(QWidget):
         if tmdb is None:
             return
         self._poster_inflight.add(key)
+        target_width = self._roster_poster_fetch_width(item)
 
         def _worker() -> None:
             try:
-                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=185)
+                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=target_width)
                 if image is None:
                     return
                 try:
@@ -1329,6 +1395,9 @@ class MediaWorkspace(QWidget):
     def _approve_match(self, state: ScanState) -> None:
         if self._media_ctrl is None:
             return
+        if state.duplicate_of is not None or state.queued or state.scanning:
+            self.status_message.emit("This item cannot be approved in its current state.", 3000)
+            return
         self._media_ctrl.approve_match(state)
         self.refresh_from_controller()
         self.status_message.emit("Match approved.", 3000)
@@ -1393,6 +1462,32 @@ class MediaWorkspace(QWidget):
                 state.media_info.get("year", ""),
             )
         return f"Folder rename plan: {source} -> {target}"
+
+    def _media_noun(self) -> str:
+        return "movie" if self._media_type == "movie" else "show"
+
+    def _queue_selected_label(self) -> str:
+        return f"Queue This {'Movie' if self._media_type == 'movie' else 'Show'}"
+
+    def _can_fix_match(self, state: ScanState) -> bool:
+        return not state.queued and not state.scanning and state.duplicate_of is None
+
+    def _restore_roster_selection_by_key(self, state_key: str | None) -> None:
+        if state_key is None:
+            return
+        for index, state in enumerate(self._current_states()):
+            if _roster_selection_key(state) != state_key:
+                continue
+            item = self._find_roster_item_by_index(index)
+            if item is not None:
+                self._roster_list.setCurrentItem(item)
+            return
+
+    def _roster_poster_fetch_width(self, item: QListWidgetItem) -> int:
+        widget = self._roster_list.itemWidget(item)
+        if isinstance(widget, _RosterRowWidget):
+            return widget.poster_request_width()
+        return 240
 
 class _CheckBinding:
     """Small checkbox binding used to reuse engine/controller helpers in Qt."""
@@ -1581,12 +1676,16 @@ class _RosterRowWidget(_ClickableRow):
             self._status,
             alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
         )
+        self._status.hide()
         body.addLayout(title_row)
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
         if state.season_assignment is not None:
             meta_parts.append(f"Season {state.season_assignment}")
-        if state.show_id is not None:
+        if state.duplicate_of is not None:
+            duplicate_target = state.duplicate_of_relative_folder or state.duplicate_of
+            meta_parts.append(f"Same match as {duplicate_target}")
+        elif state.show_id is not None:
             meta_parts.append(_state_match_summary(state, auto_accept_threshold))
         if state.needs_review and state.alternate_matches and not state.queued:
             n_alts = min(len(state.alternate_matches), 2)
@@ -1688,10 +1787,10 @@ class _RosterRowWidget(_ClickableRow):
             self._shimmer = None
         self._poster.setText("")
         self._poster.setPixmap(
-            pixmap.scaled(
+            scale_pixmap_for_device(
+                pixmap,
                 self._poster.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
+                device_pixel_ratio=self._poster_device_pixel_ratio(),
             )
         )
 
@@ -1702,9 +1801,19 @@ class _RosterRowWidget(_ClickableRow):
             title=title,
             subtitle="",
             accent=_state_status(self._state)[1].name(),
+            device_pixel_ratio=self._poster_device_pixel_ratio(),
         )
         self._poster.setPixmap(placeholder)
         self._poster.setText("")
+
+    def poster_request_width(self) -> int:
+        return max(220, min(420, int(round(self._poster_size.width() * self._poster_device_pixel_ratio() * 2.0))))
+
+    def _poster_device_pixel_ratio(self) -> float:
+        try:
+            return max(1.0, float(self._poster.devicePixelRatioF()))
+        except Exception:
+            return 1.0
 
     def _apply_style(self) -> None:
         self.setProperty("band", _confidence_band(self._state.confidence, state=self._state))

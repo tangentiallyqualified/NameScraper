@@ -431,7 +431,7 @@ class MediaController:
 
         unscanned = [
             s for s in self._batch_states
-            if not s.scanned and not s.queued and s.show_id is not None
+            if not s.scanned and s.show_id is not None
         ]
         if not unscanned:
             return
@@ -449,7 +449,7 @@ class MediaController:
             current_name = ""
             to_scan = [
                 s for s in self._batch_states
-                if not s.scanned and not s.queued and s.show_id is not None
+                if not s.scanned and s.show_id is not None
             ]
             if 0 < done <= len(to_scan):
                 current_name = to_scan[done - 1].display_name
@@ -733,7 +733,12 @@ class MediaController:
 
     def approve_match(self, state: ScanState) -> None:
         """Accept the current TMDB match as manually approved, clearing needs-review."""
-        if state.show_id is None:
+        if (
+            state.show_id is None
+            or state.queued
+            or state.scanning
+            or state.duplicate_of is not None
+        ):
             return
         state.match_origin = "manual"
         state.checked = True

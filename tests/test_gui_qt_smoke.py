@@ -856,26 +856,24 @@ class QtSmokeTests(unittest.TestCase):
             )
 
             panel = MediaDetailPanel(tmdb_provider=lambda: tmdb, settings_service=settings)
-            payload, _image = panel._build_payload(tmdb, state, preview, "", "")
+            payload, _image = panel._build_payload(tmdb, state, preview, "", "", 500)
 
             tmdb.fetch_poster.assert_called_once_with(
                 102,
                 media_type="tv",
-                season=1,
-                ep_still="/episode-still.jpg",
                 target_width=500,
             )
-            self.assertEqual(payload["artwork_mode"], "still")
-            self.assertIn(("Match", "42% confidence · below 60% threshold"), payload["rows"])
-            self.assertIn("Artwork: episode still", payload["extra"])
+            self.assertEqual(payload["artwork_mode"], "poster")
+            self.assertIn(("Match", "42% confidence · needs review"), payload["rows"])
+            self.assertIn(("Air Date", "2024-01-01"), payload["rows"])
 
             panel._current_token = "token"
             panel._apply_payload(payload, None, "token")
-            self.assertEqual(panel._artwork_mode, "still")
-            self.assertEqual(panel._poster.height(), 180)
+            self.assertEqual(panel._artwork_mode, "poster")
+            self.assertEqual(panel._poster.height(), 222)
             panel.close()
 
-    def test_media_detail_panel_uses_landscape_placeholder_for_episode_selection_without_tmdb(self):
+    def test_media_detail_panel_uses_series_poster_placeholder_for_episode_selection_without_tmdb(self):
         from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
 
         preview = PreviewItem(
@@ -897,10 +895,58 @@ class QtSmokeTests(unittest.TestCase):
         panel = MediaDetailPanel(tmdb_provider=lambda: None)
         panel.set_selection(state, preview=preview)
 
-        self.assertEqual(panel._artwork_mode, "still")
-        self.assertEqual(panel._poster.height(), 180)
+        self.assertEqual(panel._artwork_mode, "poster")
+        self.assertEqual(panel._poster.height(), 222)
         self.assertIsNotNone(panel._poster.pixmap())
         self.assertEqual(panel._poster.text(), "")
+        panel.close()
+
+    def test_media_detail_panel_places_facts_card_in_summary_column(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        body_layout = panel._body.layout()
+        summary_row = body_layout.itemAt(2).layout()
+        summary_body = summary_row.itemAt(1).layout()
+
+        self.assertGreater(body_layout.contentsMargins().left(), 0)
+        self.assertIs(body_layout.itemAt(0).widget(), panel._title)
+        self.assertIs(body_layout.itemAt(1).widget(), panel._subtitle)
+        self.assertIsNotNone(summary_row)
+        self.assertIs(summary_body.itemAt(0).widget(), panel._facts_card)
+        self.assertEqual(panel._facts_card.height(), panel._poster.height())
+
+        panel.close()
+
+    def test_media_detail_panel_omits_movie_queue_row(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        state = ScanState(
+            folder=Path("C:/library/movies/Arrival.2016"),
+            media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                    new_name="Arrival (2016).mkv",
+                    target_dir=Path("C:/library/movies/Arrival (2016)"),
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type="movie",
+                    media_id=22,
+                    media_name="Arrival",
+                )
+            ],
+            scanned=True,
+            confidence=0.91,
+        )
+
+        rows = panel._fallback_rows(state, state.preview_items[0], "Already queued", "Folder rename plan: Arrival.2016 -> Arrival (2016)")
+
+        self.assertNotIn(("Queue", "Already queued"), rows)
+        self.assertIn(("Match", "91% confidence"), rows)
+
         panel.close()
 
     def test_settings_tab_async_api_key_test_updates_ui_via_bridge(self):
@@ -978,7 +1024,7 @@ class QtSmokeTests(unittest.TestCase):
 
             workspace.close()
 
-    def test_media_workspace_hides_duplicate_movie_approve_button_and_refreshes_after_approval(self):
+    def test_media_workspace_blocks_duplicate_movie_approval(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -1023,9 +1069,24 @@ class QtSmokeTests(unittest.TestCase):
         with patch.object(workspace, "refresh_from_controller") as refresh_mock:
             workspace._approve_match(state)
 
-        self.assertEqual(media_ctrl.approved, [state])
-        refresh_mock.assert_called_once_with()
+        self.assertEqual(media_ctrl.approved, [])
+        refresh_mock.assert_not_called()
         workspace.close()
+
+    def test_build_placeholder_pixmap_scales_for_hidpi(self):
+        from PySide6.QtCore import QSize
+        from plex_renamer.gui_qt.widgets._image_utils import build_placeholder_pixmap
+
+        pixmap = build_placeholder_pixmap(
+            QSize(48, 70),
+            title="EX",
+            subtitle="Poster",
+            device_pixel_ratio=3.0,
+        )
+
+        self.assertEqual(pixmap.width(), 144)
+        self.assertEqual(pixmap.height(), 210)
+        self.assertEqual(pixmap.devicePixelRatio(), 3.0)
 
     def test_main_window_queue_shortcuts_trigger_selected_and_checked_actions(self):
         from plex_renamer.gui_qt.main_window import MainWindow
@@ -1112,6 +1173,35 @@ class QtSmokeTests(unittest.TestCase):
         window.media_ctrl._active_library_mode = "tv"
         window.media_ctrl._batch_mode = True
         window.media_ctrl._batch_states = [review_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.READY,
+            phase="Discovery complete",
+            message="Found 1 show",
+        )
+        window._tv_workspace.show_ready = MagicMock()
+        window.media_ctrl.scan_all_shows = MagicMock()
+
+        window._on_scan_complete()
+
+        window._tv_workspace.show_ready.assert_not_called()
+        window.media_ctrl.scan_all_shows.assert_called_once_with()
+        window.close()
+
+    def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes_for_queued_states(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        queued_state = ScanState(
+            folder=Path("C:/library/tv/Queued.Show.2024"),
+            media_info={"id": 10, "name": "Queued Show", "year": "2024"},
+            scanned=False,
+            queued=True,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [queued_state]
         window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
             lifecycle=ScanLifecycle.READY,
             phase="Discovery complete",
@@ -1671,6 +1761,90 @@ class QtSmokeTests(unittest.TestCase):
 
             workspace.close()
 
+    def test_media_workspace_groups_movie_duplicates_once(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            matched_state = ScanState(
+                folder=Path("C:/library/movies/Alien.1979"),
+                media_info={"id": 42, "title": "Alien", "year": "1979", "_media_type": "movie"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Alien.1979/Alien.1979.mkv"),
+                        new_name="Alien (1979).mkv",
+                        target_dir=Path("C:/library/movies/Alien (1979)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=42,
+                        media_name="Alien",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            duplicate_state = ScanState(
+                folder=Path("C:/library/movies/Alien.Source"),
+                media_info={"id": 42, "title": "Alien", "year": "1979", "_media_type": "movie"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Alien.Source/Alien.1979.1080p.mkv"),
+                        new_name="Alien (1979).mkv",
+                        target_dir=Path("C:/library/movies/Alien (1979)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=42,
+                        media_name="Alien",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=1.0,
+                duplicate_of="Alien (1979)",
+                duplicate_of_relative_folder="Alien (1979)",
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.movie_library_states = [matched_state, duplicate_state]
+
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=media_ctrl,
+                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertEqual(workspace._roster_list.count(), 4)
+            self._assert_roster_section_title(workspace, 0, "MATCHED")
+            self._assert_roster_section_title(workspace, 2, "DUPLICATES")
+            self.assertIsNotNone(self._roster_widget_for_index(workspace, 0))
+            self.assertIsNotNone(self._roster_widget_for_index(workspace, 1))
+
+            workspace.close()
+
     def test_media_workspace_applies_live_display_settings(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -1857,8 +2031,7 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(row_widget.styleSheet(), "")
             self.assertEqual(row_widget.property("band"), "low")
             self.assertEqual(row_widget.property("selectionState"), "selected")
-            self.assertEqual(row_widget._status.styleSheet(), "")
-            self.assertEqual(row_widget._status.property("tone"), "accent")
+            self.assertTrue(row_widget._status.isHidden())
 
             workspace.close()
 
@@ -2010,7 +2183,7 @@ class QtSmokeTests(unittest.TestCase):
             self._assert_roster_section_title(workspace, 0, "MATCHED")
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertEqual(row_widget._status.text(), "MATCHED")
+            self.assertTrue(row_widget._status.isHidden())
 
             workspace.close()
 
@@ -2320,7 +2493,7 @@ class QtSmokeTests(unittest.TestCase):
             self.assertIsInstance(row_widget, _RosterRowWidget)
             self.assertIn("42% confidence", row_widget._meta.text())
             self.assertIn("needs review", row_widget._meta.text())
-            self.assertEqual(row_widget._status.text(), "NEEDS REVIEW")
+            self.assertTrue(row_widget._status.isHidden())
 
             workspace.close()
 
@@ -2462,6 +2635,82 @@ class QtSmokeTests(unittest.TestCase):
 
             self.assertTrue(queue_ctrl.called)
             self._assert_roster_section_title(workspace, 0, "QUEUED")
+
+            workspace.close()
+
+    def test_media_workspace_preserves_movie_preview_after_queue_regroup(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def __init__(self):
+                self.called = False
+
+            def add_movie_batch(self, states, root, gating):
+                self.called = True
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            state = ScanState(
+                folder=Path("C:/library/movies/Arrival.2016"),
+                media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                        new_name="Arrival (2016).mkv",
+                        target_dir=Path("C:/library/movies/Arrival (2016)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=22,
+                        media_name="Arrival",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.movie_library_states = [state]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertEqual(workspace._preview_list.count(), 1)
+            workspace._queue_checked()
+            self._app.processEvents()
+
+            self.assertTrue(queue_ctrl.called)
+            self._assert_roster_section_title(workspace, 0, "QUEUED")
+            self.assertEqual(workspace._preview_list.count(), 1)
+            self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
 
             workspace.close()
 

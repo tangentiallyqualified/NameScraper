@@ -8,11 +8,17 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
-from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFormLayout, QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
 from ._formatting import clamped_percent
-from ._image_utils import ShimmerOverlay, build_placeholder_pixmap, pil_to_raw, raw_to_pixmap
+from ._image_utils import (
+    ShimmerOverlay,
+    build_placeholder_pixmap,
+    pil_to_raw,
+    raw_to_pixmap,
+    scale_pixmap_for_device,
+)
 
 
 def _format_rating(vote_average: float | None, vote_count: int = 0) -> str:
@@ -51,7 +57,6 @@ def _auto_accept_threshold(settings) -> float:
 
 def _state_match_summary(state: ScanState, threshold: float) -> str:
     pct = f"{clamped_percent(state.confidence)}%"
-    threshold_text = f"{clamped_percent(threshold)}%"
     if state.show_id is None:
         return "No confirmed TMDB match"
     if state.duplicate_of is not None:
@@ -59,13 +64,11 @@ def _state_match_summary(state: ScanState, threshold: float) -> str:
     if state.match_origin == "manual" and not state.needs_review:
         return f"{pct} confidence · manually approved"
     if state.needs_review:
-        return f"{pct} confidence · below {threshold_text} threshold"
-    return f"{pct} confidence · clears {threshold_text} threshold"
+        return f"{pct} confidence · needs review"
+    return f"{pct} confidence"
 
 
 def _selection_artwork_mode(preview: PreviewItem | None) -> str:
-    if preview is not None and preview.season is not None and preview.episodes:
-        return "still"
     return "poster"
 
 
@@ -128,8 +131,8 @@ class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
     _MAX_METADATA_CACHE_ENTRIES = 64
-    _PORTRAIT_ARTWORK_SIZE = QSize(280, 420)
-    _LANDSCAPE_ARTWORK_SIZE = QSize(320, 180)
+    _PORTRAIT_ARTWORK_SIZE = QSize(148, 222)
+    _LANDSCAPE_ARTWORK_SIZE = QSize(220, 124)
 
     def __init__(
         self,
@@ -157,20 +160,6 @@ class MediaDetailPanel(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        self._hero_frame = _PosterHeroFrame()
-        poster_layout = QVBoxLayout(self._hero_frame)
-        poster_layout.setContentsMargins(0, 0, 0, 0)
-        poster_layout.setSpacing(0)
-
-        self._poster = QLabel("No Poster")
-        self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._set_artwork_mode("poster")
-        self._poster.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._poster.setProperty("cssClass", "media-poster")
-        self._poster_shimmer: ShimmerOverlay | None = None
-        poster_layout.addWidget(self._poster)
-        layout.addWidget(self._hero_frame, stretch=0)
-
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -178,48 +167,94 @@ class MediaDetailPanel(QFrame):
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self._body = QWidget()
+        self._body = QFrame()
+        self._body.setProperty("cssClass", "media-detail-content-surface")
         body_layout = QVBoxLayout(self._body)
-        body_layout.setContentsMargins(0, 0, 4, 0)
-        body_layout.setSpacing(10)
+        body_layout.setContentsMargins(14, 12, 14, 14)
+        body_layout.setSpacing(12)
         self._scroll.setWidget(self._body)
         layout.addWidget(self._scroll, stretch=1)
 
         self._title = QLabel("Selection")
         self._title.setProperty("cssClass", "heading")
         self._title.setWordWrap(True)
+        self._title.setMargin(2)
+        self._title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._title)
 
         self._subtitle = QLabel("")
         self._subtitle.setProperty("cssClass", "text-dim")
         self._subtitle.setWordWrap(True)
+        self._subtitle.setMargin(2)
+        self._subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._subtitle)
 
+        summary_row = QHBoxLayout()
+        summary_row.setContentsMargins(0, 0, 0, 0)
+        summary_row.setSpacing(12)
+        body_layout.addLayout(summary_row)
+
+        self._poster = QLabel("No Poster")
+        self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._poster.setProperty("cssClass", "job-poster-card")
+        self._poster_shimmer: ShimmerOverlay | None = None
+        self._set_artwork_mode("poster")
+        summary_row.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self._summary_body = QVBoxLayout()
+        self._summary_body.setContentsMargins(0, 0, 0, 0)
+        self._summary_body.setSpacing(8)
+        summary_row.addLayout(self._summary_body, stretch=1)
+
+        self._facts_card = QFrame()
+        self._facts_card.setProperty("cssClass", "job-detail-facts-card")
+        self._facts_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self._facts_card.setMaximumWidth(280)
         self._meta_grid = QWidget()
-        meta_layout = QGridLayout(self._meta_grid)
+        meta_layout = QFormLayout(self._meta_grid)
         meta_layout.setContentsMargins(0, 0, 0, 0)
-        meta_layout.setHorizontalSpacing(10)
+        meta_layout.setHorizontalSpacing(6)
         meta_layout.setVerticalSpacing(6)
+        meta_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        meta_layout.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        meta_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._meta_rows: list[tuple[QLabel, QLabel]] = []
         for row in range(6):
             key_label = QLabel("")
             key_label.setProperty("cssClass", "caption")
+            key_label.setMargin(1)
+            key_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             value_label = QLabel("")
             value_label.setWordWrap(True)
-            meta_layout.addWidget(key_label, row, 0, alignment=Qt.AlignmentFlag.AlignTop)
-            meta_layout.addWidget(value_label, row, 1)
+            value_label.setMargin(2)
+            value_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            value_label.setMinimumWidth(0)
+            value_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            meta_layout.addRow(key_label, value_label)
             self._meta_rows.append((key_label, value_label))
-        body_layout.addWidget(self._meta_grid)
+        facts_layout = QVBoxLayout(self._facts_card)
+        facts_layout.setContentsMargins(12, 12, 12, 12)
+        facts_layout.setSpacing(0)
+        facts_layout.addWidget(self._meta_grid)
+        self._summary_body.addWidget(self._facts_card)
+        self._summary_body.addStretch(1)
+        self._sync_facts_card_height()
 
         self._overview = QLabel("")
         self._overview.setWordWrap(True)
-        self._overview.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self._overview.setMargin(2)
+        self._overview.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._overview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._overview)
 
         self._extra = QLabel("")
         self._extra.setProperty("cssClass", "caption")
         self._extra.setWordWrap(True)
-        self._extra.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self._extra.setMargin(2)
+        self._extra.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._extra)
 
         body_layout.addStretch()
@@ -301,9 +336,10 @@ class MediaDetailPanel(QFrame):
         if token in self._loading_tokens:
             return
         self._loading_tokens.add(token)
+        target_width = self._artwork_fetch_width(_selection_artwork_mode(preview))
 
         def _worker() -> None:
-            payload = self._build_payload(tmdb, state, preview, queue_reason, folder_plan)
+            payload = self._build_payload(tmdb, state, preview, queue_reason, folder_plan, target_width)
             try:
                 self._bridge.metadata_ready.emit(payload[0], payload[1], token)
             except RuntimeError:
@@ -331,7 +367,9 @@ class MediaDetailPanel(QFrame):
         folder_plan: str,
     ) -> list[tuple[str, str]]:
         threshold = _auto_accept_threshold(self._settings)
-        rows = [("Queue", queue_reason)] if queue_reason else []
+        rows: list[tuple[str, str]] = []
+        if queue_reason and _state_media_type(state) != "movie":
+            rows.append(("Queue", queue_reason))
         if folder_plan:
             rows.append(("Folder", folder_plan))
         rows.append(("Match", _state_match_summary(state, threshold)))
@@ -340,7 +378,15 @@ class MediaDetailPanel(QFrame):
             rows.append(("Status", preview.status))
         return rows
 
-    def _build_payload(self, tmdb, state: ScanState, preview: PreviewItem | None, queue_reason: str, folder_plan: str):
+    def _build_payload(
+        self,
+        tmdb,
+        state: ScanState,
+        preview: PreviewItem | None,
+        queue_reason: str,
+        folder_plan: str,
+        target_width: int,
+    ):
         media_type = _state_media_type(state)
         threshold = _auto_accept_threshold(self._settings)
         details = (
@@ -349,19 +395,14 @@ class MediaDetailPanel(QFrame):
             else tmdb.get_tv_details(state.show_id)
         ) or {}
 
-        season_num = None
         episode_meta = None
         if preview is not None and preview.season is not None and preview.episodes and state.scanner is not None:
-            season_num = preview.season
             episode_meta = state.scanner.episode_meta.get((preview.season, preview.episodes[0]))
-        ep_still = episode_meta.get("still_path") if episode_meta else None
 
         image = tmdb.fetch_poster(
             state.show_id,
             media_type=media_type,
-            season=season_num,
-            ep_still=ep_still,
-            target_width=500,
+            target_width=target_width,
         )
         raw_image = pil_to_raw(image) if image is not None else None
 
@@ -399,7 +440,7 @@ class MediaDetailPanel(QFrame):
                 rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
 
         rows.append(("Match", _state_match_summary(state, threshold)))
-        if queue_reason:
+        if queue_reason and media_type != "movie":
             rows.append(("Queue", queue_reason))
         if folder_plan:
             rows.append(("Folder", folder_plan))
@@ -419,8 +460,6 @@ class MediaDetailPanel(QFrame):
 
         extra_lines = []
         if episode_meta:
-            if ep_still:
-                extra_lines.append("Artwork: episode still")
             if episode_meta.get("directors"):
                 extra_lines.append("Directors: " + ", ".join(episode_meta["directors"]))
             if episode_meta.get("writers"):
@@ -446,7 +485,7 @@ class MediaDetailPanel(QFrame):
                 "rows": rows,
                 "overview": overview,
                 "extra": "\n".join(extra_lines),
-                "artwork_mode": "still" if ep_still else "poster",
+                "artwork_mode": "poster",
             },
             raw_image,
         )
@@ -495,36 +534,34 @@ class MediaDetailPanel(QFrame):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        self._sync_facts_card_height()
         self._render_poster()
 
     def _render_poster(self) -> None:
         if self._poster_pixmap is None or self._poster_pixmap.isNull():
-            self._hero_frame.clear_backdrop()
             return
         target = self._poster.contentsRect().size()
         if not target.isValid():
             target = self._LANDSCAPE_ARTWORK_SIZE if self._artwork_mode == "still" else self._PORTRAIT_ARTWORK_SIZE
-        scaled = self._poster_pixmap.scaled(
+        scaled = scale_pixmap_for_device(
+            self._poster_pixmap,
             target,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            device_pixel_ratio=self._artwork_device_pixel_ratio(),
         )
         self._poster.setPixmap(scaled)
-        self._hero_frame.set_backdrop(self._poster_pixmap)
 
     def _set_artwork_mode(self, mode: str) -> None:
         normalized = "still" if mode == "still" else "poster"
         self._artwork_mode = normalized
         size = self._LANDSCAPE_ARTWORK_SIZE if normalized == "still" else self._PORTRAIT_ARTWORK_SIZE
-        self._poster.setMinimumWidth(size.width())
-        self._poster.setFixedHeight(size.height())
+        self._poster.setFixedSize(size)
+        self._sync_facts_card_height()
 
     def _artwork_placeholder_text(self) -> str:
         return "No Episode Image" if self._artwork_mode == "still" else "No Poster"
 
     def _show_artwork_placeholder(self, label: str = "", *, loading: bool = False) -> None:
         self._poster_pixmap = None
-        self._hero_frame.clear_backdrop()
         subtitle = self._artwork_placeholder_text()
         title = "EPISODE" if self._artwork_mode == "still" else (label or "TMDB")
         if self._artwork_mode != "still" and label:
@@ -536,6 +573,7 @@ class MediaDetailPanel(QFrame):
             title=title,
             subtitle=subtitle,
             accent="#4a9eda" if self._artwork_mode == "still" else "#e5a00d",
+            device_pixel_ratio=self._artwork_device_pixel_ratio(),
         )
         self._poster.setPixmap(placeholder)
         self._poster.setText("")
@@ -549,6 +587,22 @@ class MediaDetailPanel(QFrame):
         if self._poster_shimmer is not None:
             self._poster_shimmer.stop()
             self._poster_shimmer = None
+
+    def _artwork_device_pixel_ratio(self) -> float:
+        try:
+            return max(1.0, float(self._poster.devicePixelRatioF()))
+        except Exception:
+            return 1.0
+
+    def _artwork_fetch_width(self, mode: str) -> int:
+        logical = self._LANDSCAPE_ARTWORK_SIZE if mode == "still" else self._PORTRAIT_ARTWORK_SIZE
+        ratio = self._artwork_device_pixel_ratio()
+        return max(500, min(1100, int(round(logical.width() * ratio * 1.6))))
+
+    def _sync_facts_card_height(self) -> None:
+        if not hasattr(self, "_facts_card"):
+            return
+        self._facts_card.setFixedHeight(self._poster.height())
 
     def _set_meta_rows(self, rows: list[tuple[str, str]]) -> None:
         for row_index, (key_label, value_label) in enumerate(self._meta_rows):

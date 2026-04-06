@@ -767,6 +767,12 @@ QFrame[cssClass="job-detail-facts-card"] {
     border-radius: 6px;
 }
 
+QFrame[cssClass="media-detail-content-surface"] {
+    background-color: #181818;
+    border: 1px solid #292929;
+    border-radius: 10px;
+}
+
 QFrame[cssClass="roster-row-card"] {
     background-color: #1c1c1c;
     border: 1px solid #2a2a2a;
