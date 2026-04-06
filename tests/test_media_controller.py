@@ -458,6 +458,66 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
         self.assertEqual(scanned, [state])
 
 
+class ScanShowRegressionTests(_ControllerTestCase):
+
+    def test_scan_show_uses_batch_scan_inputs_for_rematched_tv_state(self):
+        state = ScanState(
+            folder=self.tmp / "Merged.Show",
+            media_info={"id": 11, "name": "Merged Show", "year": "2024"},
+            scanned=False,
+            season_assignment=2,
+            season_folders={2: self.tmp / "Merged.Show" / "Season 02"},
+        )
+        created: dict[str, object] = {}
+
+        class _FakeScanner:
+            def __init__(self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None):
+                created["tmdb"] = tmdb
+                created["show_info"] = show_info
+                created["root_folder"] = root_folder
+                created["season_hint"] = season_hint
+                created["season_folders"] = season_folders
+
+            def scan(self):
+                created["scan_called"] = True
+                return ([], True)
+
+            def scan_consolidated(self):
+                created["scan_consolidated_called"] = True
+                return [
+                    PreviewItem(
+                        original=state.folder / "Season 02" / "Merged.Show.S02E01.mkv",
+                        new_name="Merged Show (2024) - S02E01 - Pilot.mkv",
+                        target_dir=state.folder / "Season 02",
+                        season=2,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ]
+
+            def get_completeness(self, items, checked_indices):
+                created["checked_indices"] = checked_indices
+                return None
+
+        self.set_tv_session([state], batch_mode=True)
+
+        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
+            self.ctrl.scan_show(state, _FakeTMDB())
+
+        _wait_until(
+            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
+            description="rematched TV state to finish scanning",
+        )
+
+        self.assertTrue(created.get("scan_called"))
+        self.assertTrue(created.get("scan_consolidated_called"))
+        self.assertEqual(created.get("season_hint"), 2)
+        self.assertEqual(created.get("season_folders"), state.season_folders)
+        self.assertEqual(created.get("checked_indices"), {0})
+        self.assertEqual(len(state.preview_items), 1)
+        self.assertEqual(state.preview_items[0].new_name, "Merged Show (2024) - S02E01 - Pilot.mkv")
+
+
 class MovieStateBuildTests(_ControllerTestCase):
 
     def test_build_movie_library_states_uses_scanner_metadata_and_skips_non_movies(self):

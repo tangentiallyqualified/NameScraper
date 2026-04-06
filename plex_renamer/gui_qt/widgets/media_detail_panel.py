@@ -40,6 +40,33 @@ class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
 
 
+class _FactsValueLabel(QLabel):
+    """Wrapped facts-card label with extra descent room for HiDPI text."""
+
+    _DESCENT_PADDING = 6
+
+    def hasHeightForWidth(self) -> bool:
+        return self.wordWrap() or super().hasHeightForWidth()
+
+    def heightForWidth(self, width: int) -> int:
+        base = super().heightForWidth(width)
+        if base < 0:
+            base = self.sizeHint().height()
+        return base + self._DESCENT_PADDING
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        if self.wordWrap():
+            hint.setHeight(hint.height() + self._DESCENT_PADDING)
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        if self.wordWrap():
+            hint.setHeight(hint.height() + self._DESCENT_PADDING)
+        return hint
+
+
 def _state_media_type(state: ScanState) -> str:
     media_type = state.media_info.get("_media_type")
     if media_type in {"movie", "tv"}:
@@ -49,23 +76,8 @@ def _state_media_type(state: ScanState) -> str:
     return "movie" if state.media_info.get("title") else "tv"
 
 
-def _auto_accept_threshold(settings) -> float:
-    if settings is None:
-        return 0.55
-    return settings.auto_accept_threshold
-
-
-def _state_match_summary(state: ScanState, threshold: float) -> str:
-    pct = f"{clamped_percent(state.confidence)}%"
-    if state.show_id is None:
-        return "No confirmed TMDB match"
-    if state.duplicate_of is not None:
-        return f"{pct} confidence · duplicate match"
-    if state.match_origin == "manual" and not state.needs_review:
-        return f"{pct} confidence · manually approved"
-    if state.needs_review:
-        return f"{pct} confidence · needs review"
-    return f"{pct} confidence"
+def _state_confidence_value(state: ScanState) -> str:
+    return f"{clamped_percent(state.confidence)}%"
 
 
 def _selection_artwork_mode(preview: PreviewItem | None) -> str:
@@ -226,7 +238,8 @@ class MediaDetailPanel(QFrame):
             key_label.setProperty("cssClass", "caption")
             key_label.setMargin(1)
             key_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            value_label = QLabel("")
+            value_label = _FactsValueLabel("")
+            value_label.setProperty("cssClass", "job-detail-fact-value")
             value_label.setWordWrap(True)
             value_label.setMargin(2)
             value_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
@@ -366,13 +379,10 @@ class MediaDetailPanel(QFrame):
         queue_reason: str,
         folder_plan: str,
     ) -> list[tuple[str, str]]:
-        threshold = _auto_accept_threshold(self._settings)
         rows: list[tuple[str, str]] = []
         if queue_reason and _state_media_type(state) != "movie":
             rows.append(("Queue", queue_reason))
-        if folder_plan:
-            rows.append(("Folder", folder_plan))
-        rows.append(("Match", _state_match_summary(state, threshold)))
+        rows.append(("Confidence", _state_confidence_value(state)))
         if preview is not None:
             rows.append(("File", preview.original.name))
             rows.append(("Status", preview.status))
@@ -388,7 +398,6 @@ class MediaDetailPanel(QFrame):
         target_width: int,
     ):
         media_type = _state_media_type(state)
-        threshold = _auto_accept_threshold(self._settings)
         details = (
             tmdb.get_movie_details(state.show_id)
             if media_type == "movie"
@@ -439,11 +448,9 @@ class MediaDetailPanel(QFrame):
             if state.completeness is not None:
                 rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
 
-        rows.append(("Match", _state_match_summary(state, threshold)))
+        rows.append(("Confidence", _state_confidence_value(state)))
         if queue_reason and media_type != "movie":
             rows.append(("Queue", queue_reason))
-        if folder_plan:
-            rows.append(("Folder", folder_plan))
         if preview is not None:
             rows.append(("File", preview.original.name))
             if preview.new_name:

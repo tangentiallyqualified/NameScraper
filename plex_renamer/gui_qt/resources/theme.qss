@@ -700,6 +700,7 @@ QLabel[cssClass="job-preview-target"] {
 
 QLabel[cssClass="job-detail-fact-value"] {
     color: #e0e0e0;
+    font-size: 12px;
     font-weight: 600;
 }
 

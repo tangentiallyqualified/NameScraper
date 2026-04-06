@@ -1373,7 +1373,8 @@ class TVScanner:
         dirs_with_season.sort(key=lambda x: x[1])
 
         if not dirs_with_season:
-            self._season_dirs = [(self.root, self._season_hint or 1)]
+            season_num = 1 if self._season_hint is None else self._season_hint
+            self._season_dirs = [(self.root, season_num)]
         else:
             self._season_dirs = dirs_with_season
         return self._season_dirs
@@ -1642,9 +1643,15 @@ class TVScanner:
                 episodes = s0_episodes
                 tmdb_title_lookup = s0_tmdb_title_lookup
 
+            explicit_season_folder = (
+                season_dir == self.root
+                or any(folder == season_dir for folder in (self._season_folders or {}).values())
+            )
+
             # Detect if this is an extras/featurettes folder (vs actual Season 00)
             extras_folder = (
                 season_num == 0
+                and not explicit_season_folder
                 and season_dir.name.lower().strip() not in (
                     "specials", "special", "season 00", "season 0",
                     "season00", "season0",
@@ -1842,10 +1849,11 @@ class TVScanner:
         matched_ep = None
         matched_title = None
 
-        # Try by episode number (only if from S##E## pattern, not bare numbers
-        # which could be "Season 3 - Bloopers" where 3 is the season not episode)
-        if eps and raw_title:
-            # If extract_episode found a number, check if it's a valid S0 episode
+        # In an actual Season 00 / Specials folder, a parsed episode number is
+        # strong enough evidence to bind directly to TMDB season 0. Extras
+        # folders stay on the title-based path because numbers there are often
+        # incidental labels rather than episode identifiers.
+        if not from_extras_folder and eps:
             for ep_num in eps:
                 if ep_num in titles:
                     matched_ep = ep_num

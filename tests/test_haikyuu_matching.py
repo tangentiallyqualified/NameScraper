@@ -296,6 +296,66 @@ class TMDBSeasonNameMatchingTests(unittest.TestCase):
         self.assertEqual(matched[0][1], 4)
 
 
+class SpecialsSeasonHintRegressionTests(unittest.TestCase):
+    """Explicit season 0 hints must stay season 0 for flat specials folders."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "Yuru Camp Specials"
+        self.root.mkdir()
+        (self.root / "Campfire Talk.mkv").write_text("x")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_flat_specials_folder_preserves_season_zero_hint(self):
+        from plex_renamer.engine import TVScanner
+
+        fake_tmdb = _FakeTMDB()
+        show_info = {"id": 46260, "name": "Haikyu!!", "year": "2014"}
+        scanner = TVScanner(fake_tmdb, show_info, self.root, season_hint=0)
+
+        self.assertEqual(scanner._get_season_dirs(), [(self.root, 0)])
+
+    def test_flat_specials_root_is_not_treated_as_extras_unmatched(self):
+        from plex_renamer.engine import TVScanner
+
+        fake_tmdb = _FakeTMDB()
+        show_info = {"id": 46260, "name": "Haikyu!!", "year": "2014"}
+        scanner = TVScanner(fake_tmdb, show_info, self.root, season_hint=0)
+
+        items, has_mismatch = scanner.scan()
+
+        self.assertFalse(has_mismatch)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].season, 0)
+        self.assertEqual(items[0].status, "OK")
+        self.assertEqual(items[0].target_dir, self.root / "Season 00")
+        self.assertEqual(items[0].new_name, "Campfire Talk.mkv")
+
+    def test_merged_specials_folder_keeps_ok_preview_status(self):
+        from plex_renamer.engine import TVScanner
+
+        parent = self.root.parent / "[UDF] Yuru Camp + Heya Camp"
+        parent.mkdir()
+        specials = parent / "Yuru Camp Specials"
+        specials.mkdir()
+        (specials / "01.mkv").write_text("x")
+
+        fake_tmdb = _FakeTMDB()
+        show_info = {"id": 46260, "name": "Haikyu!!", "year": "2014"}
+        scanner = TVScanner(fake_tmdb, show_info, parent, season_folders={0: specials})
+
+        items, has_mismatch = scanner.scan()
+
+        self.assertFalse(has_mismatch)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].season, 0)
+        self.assertEqual(items[0].status, "OK")
+        self.assertEqual(items[0].target_dir, parent / "Season 00")
+        self.assertIn("S00E01", items[0].new_name)
+
+
 class _FakeTMDB:
     """Minimal TMDB client stub with Haikyuu!! season data."""
     language = "en-US"

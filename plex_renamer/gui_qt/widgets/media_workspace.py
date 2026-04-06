@@ -295,7 +295,7 @@ class MediaWorkspace(QWidget):
         preview_header.addWidget(self._fix_match_btn)
         self._queue_inline_btn = QPushButton(self._queue_selected_label())
         self._queue_inline_btn.setEnabled(False)
-        self._queue_inline_btn.clicked.connect(self._queue_selected_state)
+        self._queue_inline_btn.clicked.connect(self._activate_selected_primary_action)
         preview_header.addWidget(self._queue_inline_btn)
         preview_layout.addLayout(preview_header)
         self._folder_plan_label = QLabel("Select a roster item to see the planned folder rename.")
@@ -419,7 +419,7 @@ class MediaWorkspace(QWidget):
         self._detail_panel.refresh_current()
 
     def queue_selected(self) -> None:
-        self._queue_selected_state()
+        self._activate_selected_primary_action()
 
     def queue_checked(self) -> None:
         self._queue_checked()
@@ -1054,6 +1054,19 @@ class MediaWorkspace(QWidget):
             if not state.queued:
                 state.checked = original_checked
 
+    def _activate_selected_primary_action(self) -> None:
+        state = self._selected_state()
+        if state is None:
+            self.status_message.emit(f"Select a {self._media_noun()} first.", 4000)
+            return
+        if self._can_inline_assign_season(state):
+            self._prompt_assign_season(state)
+            return
+        if self._can_inline_approve(state):
+            self._approve_match(state)
+            return
+        self._queue_selected_state()
+
     def _queue_checked(self) -> None:
         checked = [state for state in self._current_states() if state.checked]
         if not checked:
@@ -1133,9 +1146,7 @@ class MediaWorkspace(QWidget):
         state = self._selected_state()
         if state is None or self._media_ctrl is None or self._tmdb_provider is None:
             return
-        if state.duplicate_of is not None:
-            self.status_message.emit("Duplicate items inherit the primary match. Resolve the duplicate before changing it.", 4000)
-            return
+        selected_key = _roster_selection_key(state)
         if state.queued:
             self.status_message.emit("Remove the item from the queue before changing its match.", 4000)
             return
@@ -1178,13 +1189,18 @@ class MediaWorkspace(QWidget):
         try:
             if self._media_type == "movie":
                 self._media_ctrl.rematch_movie_state(state, chosen)
-                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
                 self.refresh_from_controller()
+                self._restore_roster_selection_by_key(selected_key)
+                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
                 return
 
             self._media_ctrl.rematch_tv_state(state, chosen)
             self.refresh_from_controller()
+            self._restore_roster_selection_by_key(selected_key)
             self._media_ctrl.scan_show(state, tmdb)
+            if state.scanned or state.preview_items:
+                self.refresh_from_controller()
+                self._restore_roster_selection_by_key(selected_key)
             self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
         except Exception as exc:
             QMessageBox.warning(self, "Fix Match Failed", str(exc))
@@ -1205,22 +1221,23 @@ class MediaWorkspace(QWidget):
         selected_state = self._selected_state()
         can_fix = bool(selected_state and self._can_fix_match(selected_state))
         self._fix_match_btn.setEnabled(can_fix)
-        if selected_state is not None and selected_state.duplicate_of is not None:
-            self._fix_match_btn.setToolTip("Duplicates inherit their primary match.")
-        else:
-            self._fix_match_btn.setToolTip("")
-        self._queue_inline_btn.setText(self._queue_selected_label())
+        self._fix_match_btn.setToolTip("")
+        self._queue_inline_btn.setText(self._primary_action_label(selected_state))
         if selected_state is None:
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setToolTip("")
         else:
-            approvable = _is_state_queue_approvable(selected_state, media_type=self._media_type)
-            self._queue_inline_btn.setEnabled(approvable)
-            if approvable:
+            if self._can_inline_assign_season(selected_state) or self._can_inline_approve(selected_state):
+                self._queue_inline_btn.setEnabled(True)
                 self._queue_inline_btn.setToolTip("")
             else:
-                inline_eligibility = self._queue_eligibility([selected_state])
-                self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
+                approvable = _is_state_queue_approvable(selected_state, media_type=self._media_type)
+                self._queue_inline_btn.setEnabled(approvable)
+                if approvable:
+                    self._queue_inline_btn.setToolTip("")
+                else:
+                    inline_eligibility = self._queue_eligibility([selected_state])
+                    self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
         if checked:
             eligibility = self._queue_eligibility(checked)
             self._roster_queue_btn.setText(f"Queue {len(checked)} Checked")
@@ -1330,12 +1347,6 @@ class MediaWorkspace(QWidget):
         widget.check_toggled.connect(
             lambda checked, item=item: self._set_item_check_state(item, checked, preview=False)
         )
-        widget.alternate_confirmed.connect(
-            lambda match, state=state: self._apply_alternate_match(state, match)
-        )
-        widget.approve_requested.connect(
-            lambda state=state: self._approve_match(state)
-        )
         widget.season_assign_requested.connect(
             lambda state=state: self._prompt_assign_season(state)
         )
@@ -1405,6 +1416,7 @@ class MediaWorkspace(QWidget):
     def _prompt_assign_season(self, state: ScanState) -> None:
         if self._media_ctrl is None:
             return
+        selected_key = _roster_selection_key(state)
         current = state.season_assignment or 1
         season_num, ok = QInputDialog.getInt(
             self, "Assign Season",
@@ -1414,17 +1426,21 @@ class MediaWorkspace(QWidget):
         if not ok:
             return
         self._media_ctrl.assign_season(state, season_num if season_num > 0 else None)
+        self.refresh_from_controller()
+        self._restore_roster_selection_by_key(selected_key)
         label = f"Season {season_num}" if season_num > 0 else "cleared"
         self.status_message.emit(f"Season assignment: {label}.", 3000)
 
     def _apply_alternate_match(self, state: ScanState, match: dict) -> None:
         if self._media_ctrl is None:
             return
+        selected_key = _roster_selection_key(state)
         try:
             if self._media_type == "movie":
                 self._media_ctrl.rematch_movie_state(state, match)
-                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
                 self.refresh_from_controller()
+                self._restore_roster_selection_by_key(selected_key)
+                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
                 return
 
             tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
@@ -1433,7 +1449,11 @@ class MediaWorkspace(QWidget):
                 return
             self._media_ctrl.rematch_tv_state(state, match)
             self.refresh_from_controller()
+            self._restore_roster_selection_by_key(selected_key)
             self._media_ctrl.scan_show(state, tmdb)
+            if state.scanned or state.preview_items:
+                self.refresh_from_controller()
+                self._restore_roster_selection_by_key(selected_key)
             self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
         except Exception as exc:
             QMessageBox.warning(self, "Fix Match Failed", str(exc))
@@ -1469,8 +1489,34 @@ class MediaWorkspace(QWidget):
     def _queue_selected_label(self) -> str:
         return f"Queue This {'Movie' if self._media_type == 'movie' else 'Show'}"
 
+    def _primary_action_label(self, state: ScanState | None) -> str:
+        if state is not None and self._can_inline_assign_season(state):
+            return "Assign Season"
+        if state is not None and self._can_inline_approve(state):
+            return "Approve Match"
+        return self._queue_selected_label()
+
+    def _can_inline_assign_season(self, state: ScanState) -> bool:
+        return (
+            self._media_type == "tv"
+            and state.show_id is not None
+            and state.duplicate_of is not None
+            and state.season_assignment is None
+            and not state.queued
+            and not state.scanning
+        )
+
+    def _can_inline_approve(self, state: ScanState) -> bool:
+        return (
+            state.show_id is not None
+            and state.needs_review
+            and not state.queued
+            and not state.scanning
+            and state.duplicate_of is None
+        )
+
     def _can_fix_match(self, state: ScanState) -> bool:
-        return not state.queued and not state.scanning and state.duplicate_of is None
+        return not state.queued and not state.scanning
 
     def _restore_roster_selection_by_key(self, state_key: str | None) -> None:
         if state_key is None:
@@ -1609,8 +1655,6 @@ class _MiniProgressBar(QWidget):
 
 class _RosterRowWidget(_ClickableRow):
     check_toggled = Signal(bool)
-    alternate_confirmed = Signal(object)
-    approve_requested = Signal()
     season_assign_requested = Signal()
     geometry_changed = Signal()
 
@@ -1632,7 +1676,6 @@ class _RosterRowWidget(_ClickableRow):
         self._media_type = media_type
         self._auto_accept_threshold = auto_accept_threshold
         self._selected = False
-        self._pending_alternate: dict | None = None
         self._poster = QLabel()
         self._poster_size = QSize(34, 50) if compact else QSize(48, 70)
         self._poster.setFixedSize(self._poster_size)
@@ -1704,67 +1747,12 @@ class _RosterRowWidget(_ClickableRow):
         body.addWidget(self._confidence)
 
         self._approve_btn = None
-        if state.needs_review and state.show_id is not None and not state.queued and state.duplicate_of is None:
-            self._approve_btn = QPushButton("Approve Match")
-            self._approve_btn.setProperty("cssClass", "primary")
-            self._approve_btn.setProperty("sizeVariant", "compact")
-            self._approve_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self._approve_btn.clicked.connect(self.approve_requested.emit)
-            body.addWidget(self._approve_btn)
 
         self._season_btn = None
-        if state.duplicate_of is not None and state.show_id is not None and self._media_type == "tv":
-            label = f"Assign Season ({state.season_assignment})" if state.season_assignment else "Assign Season"
-            self._season_btn = QPushButton(label)
-            self._season_btn.setProperty("cssClass", "secondary")
-            self._season_btn.setProperty("sizeVariant", "compact")
-            self._season_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self._season_btn.clicked.connect(self.season_assign_requested.emit)
-            body.addWidget(self._season_btn)
 
         self._alternates_layout = None
         self._alternates_widget = None
         self._confirm_row = None
-        if state.needs_review and state.alternate_matches and not state.queued:
-            self._alternates_widget = QWidget()
-            self._alternates_layout = QVBoxLayout()
-            self._alternates_layout.setSpacing(3)
-            self._alternates_layout.setContentsMargins(0, 0, 0, 0)
-            alt_matches = state.alternate_matches[:2]
-            for alt in alt_matches:
-                alt_btn = QPushButton(_match_label(alt, media_type=self._media_type))
-                alt_btn.setProperty("cssClass", "secondary")
-                alt_btn.setProperty("sizeVariant", "compact")
-                alt_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                alt_btn.clicked.connect(lambda _checked=False, alt=alt: self._begin_alternate_confirm(alt))
-                self._alternates_layout.addWidget(alt_btn)
-            self._alternates_widget.setLayout(self._alternates_layout)
-            body.addWidget(self._alternates_widget)
-
-            self._confirm_row = QWidget()
-            confirm_layout = QVBoxLayout(self._confirm_row)
-            confirm_layout.setContentsMargins(0, 0, 0, 0)
-            confirm_layout.setSpacing(4)
-            self._confirm_label = QLabel("")
-            self._confirm_label.setProperty("cssClass", "caption")
-            self._confirm_label.setWordWrap(True)
-            confirm_layout.addWidget(self._confirm_label)
-            confirm_actions = QHBoxLayout()
-            confirm_actions.setContentsMargins(0, 0, 0, 0)
-            confirm_actions.setSpacing(6)
-            self._confirm_accept = QPushButton("Accept")
-            self._confirm_accept.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self._confirm_accept.clicked.connect(self._confirm_alternate)
-            confirm_actions.addWidget(self._confirm_accept)
-            self._confirm_cancel = QPushButton("Cancel")
-            self._confirm_cancel.setProperty("cssClass", "secondary")
-            self._confirm_cancel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self._confirm_cancel.clicked.connect(self._cancel_alternate)
-            confirm_actions.addWidget(self._confirm_cancel)
-            confirm_actions.addStretch()
-            confirm_layout.addLayout(confirm_actions)
-            self._confirm_row.hide()
-            body.addWidget(self._confirm_row)
 
         self._apply_style()
 
@@ -1822,36 +1810,6 @@ class _RosterRowWidget(_ClickableRow):
         _repolish(self)
         _repolish(self._status)
         self._confidence.setColor(_confidence_fill_color(self._state.confidence, state=self._state))
-
-    def _begin_alternate_confirm(self, match: dict) -> None:
-        self._pending_alternate = match
-        if self._confirm_row is None:
-            return
-        self._confirm_label.setText(f"Switch match to {_match_label(match, media_type=self._media_type)}?")
-        if self._alternates_widget is not None:
-            self._alternates_widget.hide()
-        self._confirm_row.show()
-        self.geometry_changed.emit()
-
-    def _confirm_alternate(self) -> None:
-        if self._pending_alternate is None:
-            return
-        pending = self._pending_alternate
-        self._pending_alternate = None
-        if self._confirm_row is not None:
-            self._confirm_row.hide()
-        if self._alternates_widget is not None:
-            self._alternates_widget.show()
-        self.geometry_changed.emit()
-        self.alternate_confirmed.emit(pending)
-
-    def _cancel_alternate(self) -> None:
-        self._pending_alternate = None
-        if self._confirm_row is not None:
-            self._confirm_row.hide()
-        if self._alternates_widget is not None:
-            self._alternates_widget.show()
-        self.geometry_changed.emit()
 
 
 class _PreviewRowWidget(_ClickableRow):

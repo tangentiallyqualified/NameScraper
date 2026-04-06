@@ -23,6 +23,7 @@ from ...constants import MediaType
 from ...engine import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
+    check_duplicates,
     MovieScanner,
     pick_alternate_matches,
     PreviewItem,
@@ -516,8 +517,13 @@ class MediaController:
     def scan_show(self, state: ScanState, tmdb: Any) -> None:
         """Scan a single show's episodes in a background thread."""
         if state.scanner is None:
-            state.scanner = TVScanner(tmdb, state.media_info, state.folder,
-                                      season_hint=state.season_assignment)
+            state.scanner = TVScanner(
+                tmdb,
+                state.media_info,
+                state.folder,
+                season_hint=state.season_assignment,
+                season_folders=state.season_folders or None,
+            )
 
         self._set_progress(
             ScanLifecycle.SCANNING,
@@ -529,9 +535,26 @@ class MediaController:
             try:
                 state.scanning = True
                 self._notify("library_changed", self.library_states)
-                items, _need_review = state.scanner.scan()
+                scanner = state.scanner
+                if scanner is None:
+                    scanner = TVScanner(
+                        tmdb,
+                        state.media_info,
+                        state.folder,
+                        season_hint=state.season_assignment,
+                        season_folders=state.season_folders or None,
+                    )
+                    state.scanner = scanner
+                items, has_mismatch = scanner.scan()
+                if has_mismatch:
+                    items = scanner.scan_consolidated()
+                check_duplicates(items)
+                initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
                 state.preview_items = items
+                state.completeness = scanner.get_completeness(items, checked_indices=initial_checked)
                 state.scanned = True
+                if not any(item.is_actionable for item in items):
+                    state.checked = False
             except Exception as e:
                 _log.exception("Single-show scan failed: %s", e)
             finally:
