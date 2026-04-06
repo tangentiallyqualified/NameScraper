@@ -424,6 +424,7 @@ class QtSmokeTests(unittest.TestCase):
         panel.close()
 
     def test_job_detail_panel_hides_target_button_in_queue_mode(self):
+        from PySide6.QtWidgets import QSizePolicy
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
         from plex_renamer.job_store import RenameJob
 
@@ -441,7 +442,50 @@ class QtSmokeTests(unittest.TestCase):
         self.assertEqual(panel._open_source_btn.text(), "Open Source")
         self.assertEqual(panel._open_target_btn.text(), "Open Target")
         self.assertFalse(panel._open_source_btn.isHidden())
-        self.assertTrue(panel._open_target_btn.isHidden())
+        self.assertFalse(panel._open_target_btn.isHidden())
+        self.assertFalse(panel._open_target_btn.isEnabled())
+        self.assertEqual(
+            panel._open_source_btn.sizePolicy().horizontalPolicy(),
+            QSizePolicy.Policy.Expanding,
+        )
+        self.assertEqual(
+            panel._open_target_btn.sizePolicy().horizontalPolicy(),
+            QSizePolicy.Policy.Expanding,
+        )
+        panel.close()
+
+    def test_job_detail_panel_populates_compact_facts_card_without_duplicate_summary(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.set_history_mode(True)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Alien",
+            media_type="movie",
+            media_name="Alien",
+            show_folder_rename="Alien (1979)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._fact_values["media"].text(), "Movie")
+        self.assertEqual(panel._fact_values["action"].text(), "Rename")
+        self.assertEqual(panel._fact_values["files"].text(), "1 selected")
+        self.assertEqual(panel._fact_values["companions"].text(), "None")
+        self.assertEqual(set(panel._fact_values), {"media", "action", "files", "companions"})
+        self.assertFalse(panel._summary.isVisible())
+        self.assertTrue(panel._meta.text().startswith("Updated "))
         panel.close()
 
     def test_job_detail_panel_uses_local_non_hover_poster_style(self):
@@ -1263,6 +1307,8 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(queue_tab._remove_btn.text(), "Remove Selected")
             self.assertFalse(queue_tab._remove_btn.isEnabled())
             self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
+            self.assertFalse(hasattr(queue_tab, "_tv_btn"))
+            self.assertFalse(hasattr(queue_tab, "_movie_btn"))
 
             queue_tab._filter_control.setCurrentText("Running")
             self.assertEqual(queue_tab._proxy.rowCount(), 0)

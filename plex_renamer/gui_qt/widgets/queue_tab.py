@@ -57,18 +57,6 @@ class QueueTab(_JobListTab):
         self._remove_btn.clicked.connect(self._remove_selected)
         self._toolbar_layout.addWidget(self._remove_btn)
 
-        self._toolbar_layout.addSpacing(12)
-
-        self._tv_btn = QPushButton("TV Shows")
-        self._tv_btn.setProperty("cssClass", "secondary")
-        self._tv_btn.clicked.connect(lambda: self._switch_tab(0))
-        self._toolbar_layout.addWidget(self._tv_btn)
-
-        self._movie_btn = QPushButton("Movies")
-        self._movie_btn.setProperty("cssClass", "secondary")
-        self._movie_btn.clicked.connect(lambda: self._switch_tab(1))
-        self._toolbar_layout.addWidget(self._movie_btn)
-
         self._finish_toolbar(_QUEUE_FILTERS)
         self._finish_list_pane()
 
@@ -199,6 +187,3 @@ class QueueTab(_JobListTab):
             style.polish(self._remove_btn)
         self._remove_btn.setEnabled(enabled)
 
-    def _switch_tab(self, index: int) -> None:
-        if self._navigate_to_media is not None:
-            self._navigate_to_media(index)

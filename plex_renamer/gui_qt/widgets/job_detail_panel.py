@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal, QUrl
@@ -251,26 +252,59 @@ class JobDetailPanel(QFrame):
         self._summary.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         body.addWidget(self._summary)
 
+        self._facts_card = QFrame()
+        self._facts_card.setProperty("cssClass", "job-detail-facts-card")
+        facts_layout = QGridLayout(self._facts_card)
+        facts_layout.setContentsMargins(12, 12, 12, 12)
+        facts_layout.setHorizontalSpacing(14)
+        facts_layout.setVerticalSpacing(10)
+        facts_layout.setColumnStretch(0, 1)
+        facts_layout.setColumnStretch(1, 1)
+        self._fact_values: dict[str, QLabel] = {}
+        fact_specs = [
+            ("Media", "media"),
+            ("Action", "action"),
+            ("Files", "files"),
+            ("Companions", "companions"),
+        ]
+        for index, (label_text, key) in enumerate(fact_specs):
+            cell = QWidget()
+            cell_layout = QVBoxLayout(cell)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(2)
+
+            key_label = QLabel(label_text)
+            key_label.setProperty("cssClass", "caption")
+            cell_layout.addWidget(key_label)
+
+            value_label = QLabel("")
+            value_label.setProperty("cssClass", "job-detail-fact-value")
+            value_label.setWordWrap(True)
+            value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            cell_layout.addWidget(value_label)
+
+            self._fact_values[key] = value_label
+            facts_layout.addWidget(cell, index // 2, index % 2)
+
+        body.addWidget(self._facts_card)
+
         folder_actions = QHBoxLayout()
         folder_actions.setContentsMargins(0, 0, 0, 0)
         folder_actions.setSpacing(8)
         self._open_source_btn = QPushButton("Open Source")
         self._open_source_btn.setProperty("cssClass", "secondary")
         self._open_source_btn.setProperty("sizeVariant", "detail")
+        self._open_source_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._open_source_btn.clicked.connect(self.open_source_folder)
-        folder_actions.addWidget(self._open_source_btn)
+        folder_actions.addWidget(self._open_source_btn, stretch=1)
 
         self._open_target_btn = QPushButton("Open Target")
         self._open_target_btn.setProperty("cssClass", "secondary")
         self._open_target_btn.setProperty("sizeVariant", "detail")
+        self._open_target_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._open_target_btn.clicked.connect(self.open_target_folder)
-        folder_actions.addWidget(self._open_target_btn)
-        folder_actions.addStretch()
+        folder_actions.addWidget(self._open_target_btn, stretch=1)
         body.addLayout(folder_actions)
-
-        preview_heading = QLabel("Rename Preview")
-        preview_heading.setProperty("cssClass", "text-dim")
-        layout.addWidget(preview_heading)
 
         self._preview_tree = _PreviewTreeWidget()
         self._preview_tree.setProperty("cssClass", "job-preview-tree")
@@ -317,10 +351,16 @@ class JobDetailPanel(QFrame):
         self._title.setText(text)
         self._meta.setText("")
         self._summary.setText("")
+        self._summary.hide()
+        for label in self._fact_values.values():
+            label.setText("")
+            label.setToolTip("")
         self._preview_tree.clear()
         self._error.setText("")
         self._open_source_btn.hide()
         self._open_target_btn.hide()
+        self._open_source_btn.setEnabled(False)
+        self._open_target_btn.setEnabled(False)
         self._empty_title.setText(text)
         self._stack.setCurrentWidget(self._empty_page)
 
@@ -336,18 +376,19 @@ class JobDetailPanel(QFrame):
         self._poster.setPixmap(QPixmap())
         self._poster.setText("Loading...")
         self._title.setText(job.media_name or "Unnamed Job")
-        self._meta.setText(
-            f"{job.media_type.upper()} · {job.job_kind.title()} · {job.status.title()}"
-        )
-        self._summary.setText(self._build_summary(job))
+        self._meta.setText(self._build_meta_line(job))
+        summary_text = self._build_summary(job)
+        self._summary.setText(summary_text)
+        self._summary.setVisible(bool(summary_text))
+        self._populate_fact_values(job)
         self._populate_preview_tree(job)
         self._open_source_btn.show()
+        self._open_target_btn.show()
         self._open_source_btn.setEnabled(self.can_open_source_folder())
         if self._history_mode:
-            self._open_target_btn.show()
             self._open_target_btn.setEnabled(self.can_open_target_folder())
         else:
-            self._open_target_btn.hide()
+            self._open_target_btn.setEnabled(False)
         if job.error_message:
             self._error.setText(job.error_message)
             self._error.setStyleSheet("color: #d44040;")
@@ -376,9 +417,8 @@ class JobDetailPanel(QFrame):
         return self._open_path(target)
 
     def _build_summary(self, job: RenameJob) -> str:
-        renames = job.selected_count
         companion = len(job.companion_ops)
-        parts = [f"{renames} selected file(s)"]
+        parts: list[str] = []
         if companion:
             parts.append(f"{companion} companion file(s)")
         if job.depends_on:
@@ -388,6 +428,36 @@ class JobDetailPanel(QFrame):
         elif job.status == JobStatus.REVERT_FAILED:
             parts.append("Revert Failed")
         return " · ".join(parts)
+
+    def _build_meta_line(self, job: RenameJob) -> str:
+        primary_label = "Updated" if self._history_mode else "Queued"
+        primary_value = job.updated_at if self._history_mode else job.created_at
+        return f"{primary_label} {self._format_timestamp(primary_value)}"
+
+    @staticmethod
+    def _format_timestamp(value: str) -> str:
+        try:
+            dt = datetime.fromisoformat(value)
+            if dt.tzinfo is not None:
+                dt = dt.astimezone()
+            return dt.strftime("%b %d, %H:%M")
+        except (TypeError, ValueError):
+            return value[:16] if value else ""
+
+    def _populate_fact_values(self, job: RenameJob) -> None:
+        companions = len(job.companion_ops)
+        files_text = f"{job.selected_count} selected"
+        companions_text = str(companions) if companions else "None"
+        values = {
+            "media": {"tv": "TV Show", "movie": "Movie"}.get(job.media_type, job.media_type.title()),
+            "action": job.job_kind.title(),
+            "files": files_text,
+            "companions": companions_text,
+        }
+        for key, text in values.items():
+            label = self._fact_values[key]
+            label.setText(text)
+            label.setToolTip(text)
 
     def _populate_preview_tree(self, job: RenameJob) -> None:
         self._preview_tree.clear()

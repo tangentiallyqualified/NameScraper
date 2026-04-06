@@ -698,6 +698,11 @@ QLabel[cssClass="job-preview-target"] {
     font-weight: 600;
 }
 
+QLabel[cssClass="job-detail-fact-value"] {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
 QLabel[cssClass="status-pill"] {
     font-size: 10px;
     font-weight: 600;
@@ -753,6 +758,12 @@ QLabel[cssClass="job-poster-card"] {
 QFrame[cssClass="job-detail-empty-card"] {
     background-color: #1c1c1c;
     border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+
+QFrame[cssClass="job-detail-facts-card"] {
+    background-color: #181818;
+    border: 1px solid #292929;
     border-radius: 6px;
 }
 
