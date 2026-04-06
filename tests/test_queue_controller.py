@@ -464,6 +464,73 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         self.assertEqual(result.added, 2)
         self.assertTrue(all(s.queued for s in states))
 
+    def test_checked_movie_with_no_selected_files_is_not_queued(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        class _Binding:
+            def __init__(self, value):
+                self._value = value
+
+            def get(self):
+                return self._value
+
+            def set(self, value):
+                self._value = value
+
+        state = self._make_movie_state("Dune", 301, checked=True)
+        state.check_vars = {"0": _Binding(False)}
+
+        lib_root = self.tmp / "library"
+        result = self.ctrl.add_movie_batch(
+            states=[state],
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 0)
+        self.assertFalse(state.queued)
+        self.assertTrue(result.blocked)
+
+    def test_manual_approved_movie_job_snapshots_ok_status(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        lib_root = self.tmp / "library"
+        lib_root.mkdir(exist_ok=True)
+        movie_file = lib_root / "Evangelion.3.0.mkv"
+        movie_file.write_text("video")
+
+        item = PreviewItem(
+            original=movie_file,
+            new_name="Evangelion: 3.0 You Can (Not) Redo (2012).mkv",
+            target_dir=lib_root / "Evangelion: 3.0 You Can (Not) Redo (2012)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=75624,
+            media_name="Evangelion: 3.0 You Can (Not) Redo",
+        )
+        state = ScanState(
+            folder=lib_root,
+            media_info={"id": 75624, "title": "Evangelion: 3.0 You Can (Not) Redo", "year": "2012"},
+            preview_items=[item],
+            confidence=1.0,
+            match_origin="manual",
+            scanned=True,
+            checked=True,
+        )
+
+        result = self.ctrl.add_movie_batch(
+            states=[state],
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 1)
+        jobs = self.store.get_pending()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0].rename_ops[0].status, "OK")
+
     def test_root_level_movie_job_does_not_request_library_root_rename(self):
         from plex_renamer.app.services.command_gating_service import CommandGatingService
 

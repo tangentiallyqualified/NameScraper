@@ -28,6 +28,8 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStackedWidget,
+    QStyle,
+    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
@@ -260,8 +262,10 @@ class MediaWorkspace(QWidget):
         roster_select_row.addStretch()
         self._roster_queue_btn = QPushButton("Queue Checked")
         self._roster_queue_btn.setProperty("cssClass", "primary")
+        self._roster_queue_btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         self._roster_queue_btn.setEnabled(False)
         self._roster_queue_btn.clicked.connect(self._queue_checked)
+        self._set_roster_queue_button_text("Queue Checked")
         roster_select_row.addWidget(self._roster_queue_btn)
         roster_layout.addLayout(roster_select_row)
 
@@ -436,12 +440,7 @@ class MediaWorkspace(QWidget):
         if row is None or not (0 <= row < len(states)):
             return
         state = states[row]
-        state.checked = not state.checked
-        item.setData(_CHECKED_ROLE, state.checked)
-        widget = self._roster_list.itemWidget(item)
-        if isinstance(widget, _RosterRowWidget):
-            widget.set_checked(state.checked)
-        self._update_action_bar()
+        self._set_item_check_state(item, not state.checked, preview=False)
 
     def force_rematch(self) -> None:
         """Open the Fix Match dialog for the currently selected roster item (F5)."""
@@ -509,7 +508,7 @@ class MediaWorkspace(QWidget):
             self._preview_summary.setText("Preview items will appear here once a scan is ready.")
             self._detail_panel.clear()
             self._roster_queue_btn.setEnabled(False)
-            self._roster_queue_btn.setText("Queue Checked")
+            self._set_roster_queue_button_text("Queue Checked")
             self._roster_queue_btn.setToolTip("")
             self._update_roster_selection_header([])
             self._fix_match_btn.setEnabled(False)
@@ -542,17 +541,20 @@ class MediaWorkspace(QWidget):
         self._sync_row_selection(self._roster_list)
 
     def _sync_roster_items(self, states: list[ScanState]) -> None:
-        existing_items: dict[str, QListWidgetItem] = {}
+        existing_items: dict[str, list[QListWidgetItem]] = {}
         for row in range(self._roster_list.count()):
             item = self._roster_list.item(row)
             key = item.data(_ROSTER_ENTRY_KEY_ROLE)
             if isinstance(key, str):
-                existing_items[key] = item
+                existing_items.setdefault(key, []).append(item)
 
         desired_entries = list(self._desired_roster_entries(states))
         for target_row, entry in enumerate(desired_entries):
             key = entry["key"]
-            item = existing_items.pop(key, None)
+            items_for_key = existing_items.get(key)
+            item = items_for_key.pop(0) if items_for_key else None
+            if items_for_key == []:
+                existing_items.pop(key, None)
             if item is None:
                 item = QListWidgetItem()
             self._place_roster_item(item, target_row)
@@ -561,8 +563,9 @@ class MediaWorkspace(QWidget):
                 continue
             self._configure_roster_state_item(item, entry["index"], entry["state"])
 
-        for item in existing_items.values():
-            self._remove_roster_item(item)
+        for items in existing_items.values():
+            for item in items:
+                self._remove_roster_item(item)
 
     def _desired_roster_entries(self, states: list[ScanState]):
         groups = [
@@ -689,21 +692,29 @@ class MediaWorkspace(QWidget):
             key = str(index)
             if key not in state.check_vars:
                 state.check_vars[key] = _CheckBinding(
-                    item.is_actionable and _is_state_queue_approvable(state, media_type=self._media_type)
+                    bool(
+                        state.checked
+                        and item.is_actionable
+                        and _is_state_queue_approvable(state, media_type=self._media_type)
+                    )
                 )
 
     def _normalize_queue_selection(self, states: list[ScanState]) -> None:
         for state in states:
             if _is_state_queue_approvable(state, media_type=self._media_type):
-                # Re-enable check bindings for items that became approvable
-                # again (e.g. after unqueueing).
+                self._ensure_check_bindings(state)
+                actionable_values: list[bool] = []
                 for index, item in enumerate(state.preview_items):
+                    if not item.is_actionable:
+                        continue
                     key = str(index)
                     binding = state.check_vars.get(key)
-                    if binding is not None and hasattr(binding, "set") and item.is_actionable:
-                        binding.set(True)
-                if state.preview_items and not state.checked:
-                    state.checked = True
+                    if binding is not None:
+                        actionable_values.append(binding.get())
+                if actionable_values:
+                    state.checked = any(actionable_values)
+                elif state.preview_items:
+                    state.checked = False
                 continue
             state.checked = False
             for binding in state.check_vars.values():
@@ -751,13 +762,28 @@ class MediaWorkspace(QWidget):
         if row is None or not (0 <= row < len(states)):
             return
         state = states[row]
-        state.checked = bool(item.data(_CHECKED_ROLE))
+        checked = bool(item.data(_CHECKED_ROLE))
+        self._set_state_checked(state, checked)
         widget = self._roster_list.itemWidget(item)
         if isinstance(widget, _RosterRowWidget):
             widget.set_checked(state.checked)
         self._update_action_bar()
         if row == self._roster_list.currentRow():
             self._render_detail(state)
+
+    def _set_state_checked(self, state: ScanState, checked: bool) -> None:
+        state.checked = checked
+        self._ensure_check_bindings(state)
+        can_queue = _is_state_queue_approvable(state, media_type=self._media_type)
+        for index, preview in enumerate(state.preview_items):
+            binding = state.check_vars.get(str(index))
+            if binding is None or not hasattr(binding, "set"):
+                continue
+            binding.set(bool(checked and can_queue and preview.is_actionable))
+
+        if self._selected_state() is not state:
+            return
+        self._populate_preview(state)
 
     def _populate_preview(self, state: ScanState) -> None:
         self._preview_syncing = True
@@ -1240,15 +1266,28 @@ class MediaWorkspace(QWidget):
                     self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
         if checked:
             eligibility = self._queue_eligibility(checked)
-            self._roster_queue_btn.setText(f"Queue {len(checked)} Checked")
+            self._set_roster_queue_button_text(f"Queue {len(checked)} Checked")
             self._roster_queue_btn.setEnabled(eligibility.enabled)
             self._roster_queue_btn.setToolTip("" if eligibility.enabled else (eligibility.reason or ""))
         else:
-            self._roster_queue_btn.setText("Queue Checked")
+            self._set_roster_queue_button_text("Queue Checked")
             self._roster_queue_btn.setEnabled(False)
             self._roster_queue_btn.setToolTip("Check at least one item to queue.")
         if selected_state is not None:
             self._render_detail(selected_state, self._selected_preview())
+
+    def _set_roster_queue_button_text(self, text: str) -> None:
+        self._roster_queue_btn.setText(text)
+        option = QStyleOptionButton()
+        option.initFrom(self._roster_queue_btn)
+        option.text = text
+        size = self._roster_queue_btn.style().sizeFromContents(
+            QStyle.ContentsType.CT_PushButton,
+            option,
+            QSize(),
+            self._roster_queue_btn,
+        )
+        self._roster_queue_btn.setMinimumWidth(max(self._roster_queue_btn.minimumWidth(), size.width() + 8))
 
     def _update_roster_selection_header(self, states: list[ScanState]) -> None:
         eligible_states = [

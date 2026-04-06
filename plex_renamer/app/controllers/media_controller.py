@@ -19,7 +19,7 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ...constants import MediaType
+from ...constants import JobStatus, MediaType
 from ...engine import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
@@ -688,6 +688,7 @@ class MediaController:
                 confidence = 0.5 if media_id else 0.0
             state = ScanState(
                 folder=item.original.parent,
+                source_file=item.original,
                 media_info=media_info,
                 preview_items=[item],
                 confidence=confidence,
@@ -754,6 +755,31 @@ class MediaController:
         except ValueError:
             return state.folder.as_posix()
 
+    @staticmethod
+    def _set_actionable_preview_checks(state: ScanState, checked: bool) -> None:
+        state.checked = checked
+        for index, item in enumerate(state.preview_items):
+            binding = state.check_vars.get(str(index))
+            if binding is None or not hasattr(binding, "set"):
+                continue
+            binding.set(bool(checked and item.is_actionable))
+
+    def _resolve_movie_preview_review(self, state: ScanState) -> None:
+        """Convert an approved movie preview from REVIEW to OK."""
+        if len(state.preview_items) != 1:
+            return
+        item = state.preview_items[0]
+        if item.media_type != MediaType.MOVIE or not item.status.startswith("REVIEW"):
+            return
+
+        item.status = "OK"
+        state.confidence = max(state.confidence, 1.0)
+
+        for candidate in self._movie_preview_items:
+            if candidate.original == item.original:
+                candidate.status = "OK"
+                break
+
     def approve_match(self, state: ScanState) -> None:
         """Accept the current TMDB match as manually approved, clearing needs-review."""
         if (
@@ -764,7 +790,8 @@ class MediaController:
         ):
             return
         state.match_origin = "manual"
-        state.checked = True
+        self._resolve_movie_preview_review(state)
+        self._set_actionable_preview_checks(state, True)
         self._notify("library_changed", self.library_states)
 
     def assign_season(self, state: ScanState, season_num: int | None) -> None:
@@ -827,6 +854,8 @@ class MediaController:
             "_media_type": MediaType.MOVIE,
         }
         state.match_origin = "manual"
+        state.reset_gui_state()
+        state.source_file = new_item.original
         state.preview_items = [new_item]
         state.search_results = scanner.get_search_results(preview.original)
         state.alternate_matches = [
@@ -907,15 +936,21 @@ class MediaController:
             for job in self._job_store.get_queue()
             if job.tmdb_id
         }
+        completed_keys = {
+            (job.media_type, job.tmdb_id)
+            for job in self._job_store.get_history()
+            if job.tmdb_id and job.status == JobStatus.COMPLETED
+        }
+        protected_keys = queued_keys | completed_keys
 
         for state in self._batch_states:
             if state.duplicate_of is not None:
                 state.queued = False
                 continue
-            state.queued = (MediaType.TV, state.show_id or 0) in queued_keys
+            state.queued = (MediaType.TV, state.show_id or 0) in protected_keys
 
         for state in self._movie_library_states:
             if state.duplicate_of is not None:
                 state.queued = False
                 continue
-            state.queued = (MediaType.MOVIE, state.show_id or 0) in queued_keys
+            state.queued = (MediaType.MOVIE, state.show_id or 0) in protected_keys

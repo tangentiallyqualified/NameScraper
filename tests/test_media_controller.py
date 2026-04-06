@@ -13,7 +13,7 @@ from plex_renamer.app.services.command_gating_service import CommandGatingServic
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
-from plex_renamer.constants import MediaType
+from plex_renamer.constants import JobStatus, MediaType
 from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, ScanCancelledError, ScanState, set_auto_accept_threshold
 from plex_renamer.job_store import JobStore, RenameJob
 
@@ -813,6 +813,38 @@ class RematchStateTests(_ControllerTestCase):
         self.assertEqual(state.match_origin, "auto")
         self.assertFalse(state.checked)
 
+    def test_approve_match_resolves_movie_preview_review_status(self):
+        movie_file = self.tmp / "Evangelion 3.0.mkv"
+        preview = PreviewItem(
+            original=movie_file,
+            new_name="Evangelion: 3.0 You Can (Not) Redo (2012).mkv",
+            target_dir=self.tmp / "Evangelion: 3.0 You Can (Not) Redo (2012)",
+            season=None,
+            episodes=[],
+            status='REVIEW: best match "Evangelion: 3.0 You Can (Not) Redo" scored 0.53',
+            media_type=MediaType.MOVIE,
+            media_id=75624,
+            media_name="Evangelion: 3.0 You Can (Not) Redo",
+        )
+        state = ScanState(
+            folder=self.tmp,
+            source_file=movie_file,
+            media_info={"id": 75624, "title": "Evangelion: 3.0 You Can (Not) Redo", "year": "2012"},
+            preview_items=[preview],
+            confidence=0.53,
+            scanned=True,
+            checked=False,
+        )
+        self.set_movie_session([state], preview_items=[preview])
+
+        self.ctrl.approve_match(state)
+
+        self.assertEqual(state.match_origin, "manual")
+        self.assertEqual(state.preview_items[0].status, "OK")
+        self.assertEqual(self.ctrl.movie_preview_items[0].status, "OK")
+        self.assertTrue(state.checked)
+        self.assertEqual(state.confidence, 1.0)
+
 
 class MovieBatchCancellationTests(_ControllerTestCase):
 
@@ -986,6 +1018,25 @@ class SyncQueuedStatesTests(_ControllerTestCase):
 
         self.ctrl.sync_queued_states()
         self.assertFalse(state.queued)
+
+    def test_sync_marks_completed_tv_states_as_queued(self):
+        state = ScanState(
+            folder=self.tmp / "DoneShow",
+            media_info={"id": 444, "name": "Done Show"},
+        )
+        self.set_tv_session([state], batch_mode=False)
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="DoneShow",
+            media_type=MediaType.TV,
+            tmdb_id=444,
+            status=JobStatus.COMPLETED,
+        )
+        self.store.add_job(job)
+
+        self.ctrl.sync_queued_states()
+        self.assertTrue(state.queued)
 
 
 class ListenerTests(_ControllerTestCase):

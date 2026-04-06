@@ -158,6 +158,9 @@ class QueueController:
                 continue
 
             checked = set(eligibility.selected_indices)
+            if not checked and any(command_gating.is_actionable_item(item) for item in state.preview_items):
+                result.blocked.append(f"{state.display_name}: Select at least one file before queueing")
+                continue
             show_folder = build_show_folder_name(
                 state.media_info.get("name", ""),
                 state.media_info.get("year", ""),
@@ -202,6 +205,13 @@ class QueueController:
             if not eligibility.enabled:
                 if eligibility.command_state.value == "disabled_already_queued":
                     result.skipped_queued += 1
+                else:
+                    result.blocked.append(f"{state.display_name}: {eligibility.reason}")
+                continue
+
+            checked = set(eligibility.selected_indices)
+            if not checked:
+                result.blocked.append(f"{state.display_name}: Select at least one file before queueing")
                 continue
 
             if not state.preview_items:
@@ -217,7 +227,7 @@ class QueueController:
 
             job = build_rename_job_from_items(
                 items=[item],
-                checked_indices={0},
+                checked_indices=checked,
                 media_type=MediaType.MOVIE,
                 tmdb_id=state.show_id or 0,
                 media_name=state.display_name,

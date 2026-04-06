@@ -10,6 +10,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
+from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
 from ...app.services.command_gating_service import CommandGatingService
 from ._formatting import percent_text
@@ -58,14 +59,14 @@ def band_color(band: str) -> str:
 def state_status(state: ScanState) -> tuple[str, QColor]:
     if state.queued:
         return "Queued", QColor("#4a9eda")
-    if state.duplicate_of is not None:
-        return "Duplicate", QColor("#777777")
     if state.scanning:
         return "Scanning", QColor("#e5a00d")
     if state.show_id is None:
         return "Unmatched", QColor("#d44040")
     if state.needs_review:
         return "Needs Review", QColor("#e5a00d")
+    if state.duplicate_of is not None:
+        return "Duplicate", QColor("#777777")
     if state.match_origin == "manual":
         return "Approved", QColor("#4a9eda")
     if is_plex_ready_state(state):
@@ -76,14 +77,14 @@ def state_status(state: ScanState) -> tuple[str, QColor]:
 def state_status_tone(state: ScanState) -> str:
     if state.queued:
         return "info"
-    if state.duplicate_of is not None:
-        return "muted"
     if state.scanning:
         return "accent"
     if state.show_id is None:
         return "error"
     if state.needs_review:
         return "accent"
+    if state.duplicate_of is not None:
+        return "muted"
     if is_plex_ready_state(state):
         return "success"
     return "info"
@@ -108,12 +109,12 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
 def roster_group(state: ScanState) -> str:
     if state.queued:
         return "queued"
-    if state.duplicate_of is not None:
-        return "duplicate"
     if state.show_id is None:
         return "unmatched"
     if state.needs_review:
         return "review"
+    if state.duplicate_of is not None:
+        return "duplicate"
     if is_plex_ready_state(state):
         return "plex-ready"
     return "matched"
@@ -146,6 +147,12 @@ def state_key(state: ScanState) -> str:
 
 
 def roster_item_key(state: ScanState) -> str:
+    media_type = state.media_info.get("_media_type")
+    if media_type == MediaType.MOVIE:
+        if state.source_file is not None:
+            return f"state:{state.source_file}"
+        if state.preview_items:
+            return f"state:{state.preview_items[0].original}"
     return f"state:{state.folder}"
 
 
@@ -277,8 +284,12 @@ def companion_summary(preview: PreviewItem) -> str:
 def season_label(season_num: int | None, *, name: str = "") -> str:
     if season_num is None:
         return "Other Files"
+    if season_num == 0:
+        if name:
+            return f"Specials - {name}"
+        return "Specials"
     if name:
-        return f"Season {season_num} — {name}"
+        return f"Season {season_num} - {name}"
     return f"Season {season_num}"
 
 
