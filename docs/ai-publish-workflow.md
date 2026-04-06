@@ -74,6 +74,8 @@ Publish to the current branch:
 
 - Do not rely on a reused shared shell for commands where exact stdout matters after a noisy command has already run.
 - Use fresh/background terminal sessions for git-critical operations, publish flows, and any test command whose captured output will be summarized back to the user.
+- In chat-driven environments that require manual terminal approval, run publish commands in a self-terminating PowerShell session so the shell exits immediately after the command finishes.
+- For PowerShell-based assistant tooling, prefer a command form that ends with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` completes.
 - After a publish prep or proposal run, close that temporary terminal session once the needed output is captured before waiting for a chat approval reply.
 - Prefer direct tools such as changed-file and error inspectors over terminal output when those tools can answer the question.
 - Keep the shared shell for lightweight exploration only.
@@ -176,6 +178,7 @@ Do not include unrelated changes.
 - If the user says "commit and push" without naming files, verify the changed file set before staging.
 - If the user does not provide a commit message, run the script without `-Message`, use the staged summary to draft a commit message, and ask the user to approve or replace it before the final publish run.
 - After drafting a commit message, rerun the script with `-ProposedMessage` so the same proposal is visible in the terminal before asking for approval in chat.
+- When operating through chat or Claude Code approval prompts, invoke publish commands in a self-terminating shell command so the approval text cannot be pasted into an idle PowerShell prompt.
 - After capturing output from a prep or `-ProposedMessage` publish run, close that temporary terminal session before waiting for the user's chat reply so the reply cannot land in PowerShell.
 - Do not tell the user to inspect the terminal for the proposed message or to answer in PowerShell. Present the proposal in chat and wait for a chat reply.
 - Avoid the shared shell for output-sensitive commands once a long or noisy command has already run in it.

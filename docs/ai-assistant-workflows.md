@@ -157,6 +157,8 @@ To reduce noisy output and wasted retries:
 
 - use the shared terminal only for lightweight exploration
 - use fresh/background terminal sessions for git-critical commands and output-sensitive commands
+- in chat-driven tools that require manual command approval, run publish commands in a self-terminating PowerShell session
+- for PowerShell assistant tooling, prefer commands that end with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` finishes
 - avoid relying on shared-terminal output after long or noisy test runs
 - after a publish prep or proposal run, close that temporary terminal before waiting for a chat approval reply
 - prefer direct repo tools for changed files and errors when those tools are available
