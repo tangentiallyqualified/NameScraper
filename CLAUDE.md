@@ -10,6 +10,7 @@ For Windows git publish workflows in this repository, use the instructions in [d
 - The script commits staged changes by default.
 - If no commit message is provided, run the script once without `-Message`, use its staged summary to propose a commit message, and ask the user to approve or replace it before rerunning the script.
 - After drafting the proposed message, rerun the script with `-ProposedMessage` so the same proposal is visible in the terminal before asking for chat approval.
+- After capturing output from a publish prep or `-ProposedMessage` run, close that temporary terminal session before waiting for the user's chat reply.
 - Present the proposed commit message in chat, not as a terminal prompt. The expected user replies are `approve` or `use this message: ...`.
 - Recognize shorthand publish prompts documented in [docs/ai-publish-workflow.md](docs/ai-publish-workflow.md), for example `publish branch=dev/GUI3 automessage=y stage=task`.
 - Use `-StageAll` only when the user explicitly wants all current changes staged.

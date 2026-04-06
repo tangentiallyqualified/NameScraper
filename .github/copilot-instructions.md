@@ -10,6 +10,7 @@
 - Prefer `scripts/git-publish.cmd` for Windows commit/push flows, with `scripts/git-publish.ps1` as the underlying implementation.
 - If the user does not supply a commit message, run `scripts/git-publish.cmd` without `-Message`, use its staged summary to draft a commit message, and ask the user to approve it or provide a replacement before the final publish run.
 - After drafting the proposed message, rerun `scripts/git-publish.cmd` with `-ProposedMessage` so the same proposal is visible in the terminal before asking for chat approval.
+- After capturing output from a publish prep or `-ProposedMessage` run, close that temporary terminal session before waiting for the user's chat reply.
 - Present the proposed commit message in chat, not in terminal instructions. The expected user replies are `approve` or `use this message: ...`.
 - Recognize shorthand publish prompts documented in `docs/ai-publish-workflow.md`, for example `publish branch=dev/GUI3 automessage=y stage=task`.
 - When pushing, prefer a fresh/background terminal session and wait for the explicit completion result before reporting success.

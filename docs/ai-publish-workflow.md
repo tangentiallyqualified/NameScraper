@@ -28,11 +28,13 @@ This script makes commit/push steps more reliable on Windows by running the git-
 1. Verify the changed file set.
 2. Stage only the files intended for the commit, unless the user explicitly wants everything staged.
 3. If no approved message exists yet, run the publish script without `-Message` to print the staged summary.
-4. Have the AI assistant propose a commit message from that summary.
-5. Rerun the publish script with `-ProposedMessage` so the proposed message is visible in the terminal.
-6. Present that same proposed message in chat and ask the user to approve it or provide a substitute.
-7. Rerun the publish script with the approved commit message and target branch.
-8. Report the resulting commit hash and push result.
+4. Capture that output, then close the temporary terminal session before asking for approval in chat.
+5. Have the AI assistant propose a commit message from that summary.
+6. Rerun the publish script with `-ProposedMessage` so the proposed message is visible in the terminal.
+7. Capture that output, then close the temporary terminal session before waiting for the user's chat reply.
+8. Present that same proposed message in chat and ask the user to approve it or provide a substitute.
+9. Rerun the publish script with the approved commit message and target branch.
+10. Report the resulting commit hash and push result.
 
 ## Commands
 
@@ -72,6 +74,7 @@ Publish to the current branch:
 
 - Do not rely on a reused shared shell for commands where exact stdout matters after a noisy command has already run.
 - Use fresh/background terminal sessions for git-critical operations, publish flows, and any test command whose captured output will be summarized back to the user.
+- After a publish prep or proposal run, close that temporary terminal session once the needed output is captured before waiting for a chat approval reply.
 - Prefer direct tools such as changed-file and error inspectors over terminal output when those tools can answer the question.
 - Keep the shared shell for lightweight exploration only.
 
@@ -173,6 +176,7 @@ Do not include unrelated changes.
 - If the user says "commit and push" without naming files, verify the changed file set before staging.
 - If the user does not provide a commit message, run the script without `-Message`, use the staged summary to draft a commit message, and ask the user to approve or replace it before the final publish run.
 - After drafting a commit message, rerun the script with `-ProposedMessage` so the same proposal is visible in the terminal before asking for approval in chat.
+- After capturing output from a prep or `-ProposedMessage` publish run, close that temporary terminal session before waiting for the user's chat reply so the reply cannot land in PowerShell.
 - Do not tell the user to inspect the terminal for the proposed message or to answer in PowerShell. Present the proposal in chat and wait for a chat reply.
 - Avoid the shared shell for output-sensitive commands once a long or noisy command has already run in it.
 - Recognize shorthand prompts such as `publish branch=dev/GUI3 automessage=y stage=task` using the meanings defined above.

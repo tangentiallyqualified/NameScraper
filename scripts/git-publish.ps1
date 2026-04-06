@@ -88,9 +88,10 @@ try {
             Write-Host "- CHAT REPLACEMENT: use this message: <your preferred commit message>"
             Write-Host ""
             Write-Host "AI assistant next step:"
-            Write-Host "1. Present this same proposed message in chat."
-            Write-Host "2. Ask the user to approve it or provide a replacement."
-            Write-Host "3. Rerun this script with -Message <approved message>."
+            Write-Host "1. Capture this output, then close this temporary terminal session."
+            Write-Host "2. Present this same proposed message in chat."
+            Write-Host "3. Ask the user to approve it or provide a replacement."
+            Write-Host "4. Rerun this script with -Message <approved message>."
             return
         }
 
@@ -102,11 +103,13 @@ try {
         Write-Host "- CHAT REPLACEMENT: use this message: <your preferred commit message>"
         Write-Host ""
         Write-Host "AI assistant next step:"
-        Write-Host "1. Summarize the staged changes."
-        Write-Host "2. Propose a commit message."
-        Write-Host "3. Rerun this script with -ProposedMessage <suggested message> so the proposal is visible in terminal."
-        Write-Host "4. Present the same proposed message in chat and ask the user to approve it or provide a replacement."
-        Write-Host "5. Rerun this script with -Message <approved message>."
+        Write-Host "1. Capture this output, then close this temporary terminal session."
+        Write-Host "2. Summarize the staged changes."
+        Write-Host "3. Propose a commit message."
+        Write-Host "4. Rerun this script with -ProposedMessage <suggested message> so the proposal is visible in terminal."
+        Write-Host "5. Close that temporary terminal session after capturing the proposal output."
+        Write-Host "6. Present the same proposed message in chat and ask the user to approve it or provide a replacement."
+        Write-Host "7. Rerun this script with -Message <approved message>."
         return
     }
 

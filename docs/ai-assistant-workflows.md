@@ -68,11 +68,13 @@ For `publish ... automessage=y`, the expected flow is:
 2. Stage files according to the requested stage mode.
 3. Run [../scripts/git-publish.cmd](../scripts/git-publish.cmd) without `-Message`.
 4. Read the staged summary printed by the script.
-5. Propose a commit message.
-6. Rerun [../scripts/git-publish.cmd](../scripts/git-publish.cmd) with `-ProposedMessage "..."` so the same proposed message is visible in the terminal.
-7. Present that same proposed message in chat and ask you to approve it or provide a replacement.
-8. Rerun the publish flow with the approved message.
-9. Report the resulting commit hash and push result.
+5. Close that temporary terminal session after capturing the summary.
+6. Propose a commit message.
+7. Rerun [../scripts/git-publish.cmd](../scripts/git-publish.cmd) with `-ProposedMessage "..."` so the same proposed message is visible in the terminal.
+8. Close that temporary terminal session after capturing the proposal output.
+9. Present that same proposed message in chat and ask you to approve it or provide a replacement.
+10. Rerun the publish flow with the approved message.
+11. Report the resulting commit hash and push result.
 
 This approval step is intentional. It keeps the commit message AI-assisted without making it fully automatic.
 
@@ -156,6 +158,7 @@ To reduce noisy output and wasted retries:
 - use the shared terminal only for lightweight exploration
 - use fresh/background terminal sessions for git-critical commands and output-sensitive commands
 - avoid relying on shared-terminal output after long or noisy test runs
+- after a publish prep or proposal run, close that temporary terminal before waiting for a chat approval reply
 - prefer direct repo tools for changed files and errors when those tools are available
 
 ---
