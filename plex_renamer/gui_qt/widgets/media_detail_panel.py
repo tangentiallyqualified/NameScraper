@@ -40,13 +40,29 @@ class _DetailBridge(QObject):
     metadata_ready = Signal(object, object, str)
 
 
-class _FactsValueLabel(QLabel):
-    """Wrapped facts-card label with extra descent room for HiDPI text."""
-
-    _DESCENT_PADDING = 6
+class _WrappingDetailLabel(QLabel):
+    """Wrapped label that can shrink horizontally inside narrow panels."""
 
     def hasHeightForWidth(self) -> bool:
         return self.wordWrap() or super().hasHeightForWidth()
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        if self.wordWrap():
+            hint.setWidth(0)
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        if self.wordWrap():
+            hint.setWidth(0)
+        return hint
+
+
+class _FactsValueLabel(_WrappingDetailLabel):
+    """Wrapped facts-card label with extra descent room for HiDPI text."""
+
+    _DESCENT_PADDING = 6
 
     def heightForWidth(self, width: int) -> int:
         base = super().heightForWidth(width)
@@ -187,19 +203,21 @@ class MediaDetailPanel(QFrame):
         self._scroll.setWidget(self._body)
         layout.addWidget(self._scroll, stretch=1)
 
-        self._title = QLabel("Selection")
+        self._title = _WrappingDetailLabel("Selection")
         self._title.setProperty("cssClass", "heading")
         self._title.setWordWrap(True)
         self._title.setMargin(2)
-        self._title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._title.setMinimumWidth(0)
+        self._title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._title)
 
-        self._subtitle = QLabel("")
+        self._subtitle = _WrappingDetailLabel("")
         self._subtitle.setProperty("cssClass", "text-dim")
         self._subtitle.setWordWrap(True)
         self._subtitle.setMargin(2)
         self._subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._subtitle.setMinimumWidth(0)
+        self._subtitle.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._subtitle)
 
         summary_row = QHBoxLayout()
@@ -255,19 +273,21 @@ class MediaDetailPanel(QFrame):
         self._summary_body.addStretch(1)
         self._sync_facts_card_height()
 
-        self._overview = QLabel("")
+        self._overview = _WrappingDetailLabel("")
         self._overview.setWordWrap(True)
         self._overview.setMargin(2)
         self._overview.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._overview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._overview.setMinimumWidth(0)
+        self._overview.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._overview)
 
-        self._extra = QLabel("")
+        self._extra = _WrappingDetailLabel("")
         self._extra.setProperty("cssClass", "caption")
         self._extra.setWordWrap(True)
         self._extra.setMargin(2)
         self._extra.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._extra.setMinimumWidth(0)
+        self._extra.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._extra)
 
         body_layout.addStretch()

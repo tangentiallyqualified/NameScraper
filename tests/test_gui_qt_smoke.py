@@ -985,6 +985,44 @@ class QtSmokeTests(unittest.TestCase):
 
         panel.close()
 
+    def test_media_detail_panel_long_title_does_not_widen_panel_minimum(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        short_payload = {
+            "title": "Arrival (2016)",
+            "subtitle": "Movie",
+            "overview": "First contact changes everything.",
+            "extra": "",
+            "rows": [("Confidence", "97%")],
+            "artwork_mode": "poster",
+        }
+        long_payload = {
+            **short_payload,
+            "title": "Indiana Jones and the Kingdom of the Crystal Skull (2008)",
+        }
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        panel.resize(520, 640)
+        panel.show()
+        self._app.processEvents()
+
+        panel._current_token = "short"
+        panel._apply_payload(short_payload, None, "short")
+        self._app.processEvents()
+        baseline_width = panel.sizeHint().width()
+
+        panel._current_token = "long"
+        panel._apply_payload(long_payload, None, "long")
+        self._app.processEvents()
+
+        self.assertLessEqual(panel.sizeHint().width(), baseline_width)
+        self.assertLessEqual(panel.minimumSizeHint().width(), 520)
+        self.assertEqual(panel._body.width(), panel._scroll.viewport().width())
+        self.assertLessEqual(panel._title.geometry().right(), panel._body.contentsRect().right())
+        self.assertGreater(panel._title.height(), panel._title.fontMetrics().lineSpacing())
+
+        panel.close()
+
     def test_settings_tab_async_api_key_test_updates_ui_via_bridge(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 

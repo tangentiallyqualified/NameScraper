@@ -2377,6 +2377,47 @@ class MovieScanner:
             if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
         )
 
+    def _filter_tv_show_root_files(
+        self,
+        files: list[Path],
+    ) -> tuple[list[Path], list[PreviewItem]]:
+        """Skip files that live under detected TV show roots in folder mode."""
+        if self._explicit_files is not None or not files:
+            return files, []
+
+        from .app.services import TVLibraryDiscoveryService
+
+        show_roots = TVLibraryDiscoveryService().discover_show_roots(self.root)
+        if not show_roots:
+            return files, []
+
+        tv_root_paths = [
+            Path(candidate.folder)
+            for candidate in show_roots
+            if Path(candidate.folder) != self.root
+        ]
+        if not tv_root_paths:
+            return files, []
+
+        remaining: list[Path] = []
+        skipped: list[PreviewItem] = []
+
+        for file_path in files:
+            if any(tv_root == file_path.parent or tv_root in file_path.parents for tv_root in tv_root_paths):
+                skipped.append(PreviewItem(
+                    original=file_path,
+                    new_name=None,
+                    target_dir=None,
+                    season=None,
+                    episodes=[],
+                    status="SKIP: inside detected TV show folder",
+                    media_type=MediaType.OTHER,
+                ))
+                continue
+            remaining.append(file_path)
+
+        return remaining, skipped
+
     @staticmethod
     def _filter_sequential_batches(
         files: list[Path],
@@ -2466,6 +2507,8 @@ class MovieScanner:
 
         # Phase 1: Collect and filter files
         all_video_files = self._get_video_files()
+        all_video_files, tv_root_skipped = self._filter_tv_show_root_files(all_video_files)
+        items.extend(tv_root_skipped)
         video_files: list[Path] = []
 
         for f in all_video_files:

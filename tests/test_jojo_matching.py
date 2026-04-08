@@ -225,6 +225,34 @@ class MovieScannerCompanionVideoTests(unittest.TestCase):
             )
             self.assertEqual(by_name[movie_file.name].media_type, "movie")
 
+    def test_movie_scanner_skips_files_nested_under_detected_tv_show_roots(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            movie_file = root / "The.Matrix.1999.1080p.BluRay.mkv"
+            movie_file.write_text("x")
+
+            show_root = root / "Dexter (2006) S01-S08 (1080p BluRay x265 10bit EAC3 5.1 Silence)"
+            (show_root / "Season 01").mkdir(parents=True)
+            (show_root / "Season 01" / "Dexter.S01E01.mkv").write_text("x")
+            (show_root / "Extras").mkdir()
+            extra_file = show_root / "Extras" / "Deleted Scene.mkv"
+            extra_file.write_text("x")
+
+            tmdb = _FakeMovieTMDB()
+            scanner = MovieScanner(tmdb, root)
+
+            items = scanner.scan()
+
+            self.assertEqual(tmdb.queries, [("The Matrix", "1999")])
+            by_name = {item.original.name: item for item in items}
+            self.assertIn(movie_file.name, by_name)
+            self.assertIn(extra_file.name, by_name)
+            self.assertEqual(
+                by_name[extra_file.name].status,
+                "SKIP: inside detected TV show folder",
+            )
+            self.assertEqual(by_name[movie_file.name].media_type, "movie")
+
 
 class TVDiscoveryOVATests(unittest.TestCase):
     """OVA folders with bare-number files SHOULD be found by TV discovery."""
