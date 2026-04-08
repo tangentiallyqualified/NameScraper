@@ -744,6 +744,7 @@ class MainWindow(QMainWindow):
             self._success_toast_timer.stop()
 
     def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
+        self.media_ctrl.apply_completed_job_to_state(job, result)
         self._queue_completed_count += 1
         renamed = result.renamed_count
         if not self._queue_run_started:

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
 from plex_renamer.app.controllers.queue_controller import BatchQueueResult
@@ -18,7 +18,7 @@ from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.constants import JobStatus
-from plex_renamer.engine import CompanionFile, PreviewItem, ScanState
+from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
 from plex_renamer.job_store import JobStore
 
 
@@ -65,6 +65,22 @@ class QtSmokeTests(unittest.TestCase):
             if item.data(Qt.ItemDataRole.UserRole) == index:
                 return workspace._roster_list.itemWidget(item)
         return None
+
+    def _preview_widget_for_index(self, workspace, index: int):
+        for row in range(workspace._preview_list.count()):
+            item = workspace._preview_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == index:
+                return workspace._preview_list.itemWidget(item)
+        return None
+
+    def _preview_header_texts(self, workspace) -> list[str]:
+        headers: list[str] = []
+        for row in range(workspace._preview_list.count()):
+            item = workspace._preview_list.item(row)
+            text = item.text().strip()
+            if text:
+                headers.append(text)
+        return headers
 
     def _assert_roster_section_title(self, workspace, row: int, expected: str) -> None:
         text = workspace._roster_list.item(row).text().strip()
@@ -1037,10 +1053,20 @@ class QtSmokeTests(unittest.TestCase):
                 queue_controller=_FakeQueueController(),
                 settings_service=settings,
             )
+            workspace.resize(1200, 700)
+            workspace.show()
             workspace.show_ready()
+            self._app.processEvents()
 
             self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
             self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
+            roster_top = workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y()
+            preview_top = workspace._queue_inline_btn.mapTo(workspace, QPoint(0, 0)).y()
+            self.assertLessEqual(abs(roster_top - preview_top), 6)
+            self.assertGreaterEqual(
+                workspace._roster_queue_btn.minimumWidth(),
+                workspace._queue_inline_btn.sizeHint().width() + 20,
+            )
 
             workspace.close()
 
@@ -1132,6 +1158,100 @@ class QtSmokeTests(unittest.TestCase):
 
         workspace.close()
 
+    def test_media_workspace_uses_choose_match_labels_for_tied_review_items(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Tied.Show.2024"),
+            media_info={"id": 101, "name": "Tied Show", "year": "2024"},
+            preview_items=[],
+            scanned=True,
+            checked=False,
+            confidence=0.42,
+            tie_detected=True,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        self.assertEqual(workspace._fix_match_btn.text(), "Choose Match")
+        self.assertEqual(workspace._queue_inline_btn.text(), "Choose Match")
+
+        workspace.close()
+
+    def test_media_workspace_hides_single_season_badge_for_multi_season_preview(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                ),
+                PreviewItem(
+                    original=Path("C:/library/tv/Example.Show.2024/Season 02/Example.Show.S02E01.mkv"),
+                    new_name="Example Show (2024) - S02E01 - Return.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 02"),
+                    season=2,
+                    episodes=[1],
+                    status="OK",
+                ),
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+            season_assignment=1,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        row_widget = self._roster_widget_for_index(workspace, 0)
+        self.assertIsInstance(row_widget, _RosterRowWidget)
+        self.assertNotIn("Season 1", row_widget._meta.text())
+
+        workspace.close()
+
     def test_media_workspace_roster_check_syncs_preview_file_checks(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _PreviewRowWidget
 
@@ -1178,7 +1298,7 @@ class QtSmokeTests(unittest.TestCase):
 
         self.assertTrue(state.checked)
         self.assertTrue(state.check_vars["0"].get())
-        preview_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(1))
+        preview_widget = self._preview_widget_for_index(workspace, 0)
         self.assertIsInstance(preview_widget, _PreviewRowWidget)
         self.assertTrue(preview_widget._check.isChecked())
 
@@ -1521,7 +1641,7 @@ class QtSmokeTests(unittest.TestCase):
         )
         workspace.show_ready()
 
-        before_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(1))
+        before_widget = self._preview_widget_for_index(workspace, 0)
         self.assertIsInstance(before_widget, _PreviewRowWidget)
         self.assertIn("Original Show (2024)", before_widget._target.text())
 
@@ -1529,7 +1649,7 @@ class QtSmokeTests(unittest.TestCase):
         with patch("plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick", return_value=chosen):
             workspace._fix_match()
 
-        after_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(1))
+        after_widget = self._preview_widget_for_index(workspace, 0)
         self.assertIsInstance(after_widget, _PreviewRowWidget)
         self.assertIn("Replacement Show (2024)", after_widget._target.text())
         self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
@@ -1699,7 +1819,7 @@ class QtSmokeTests(unittest.TestCase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertIn("SPECIALS", workspace._preview_list.item(0).text())
+        self.assertTrue(any("SPECIALS" in text for text in self._preview_header_texts(workspace)))
 
         workspace.close()
 
@@ -2129,6 +2249,7 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(
                 action_text,
                 [
+                    "Run This Job",
                     "Run Selected",
                     "Remove Selected",
                     "Move to Top of Queue",
@@ -2539,7 +2660,7 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            preview_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(0))
+            preview_widget = self._preview_widget_for_index(workspace, 0)
             self.assertIsNotNone(preview_widget)
             self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
 
@@ -2547,7 +2668,7 @@ class QtSmokeTests(unittest.TestCase):
             settings.show_companion_files = True
             workspace.apply_settings()
 
-            preview_widget = workspace._preview_list.itemWidget(workspace._preview_list.item(0))
+            preview_widget = self._preview_widget_for_index(workspace, 0)
             self.assertIsNotNone(preview_widget)
             self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
             self.assertIsNotNone(preview_widget._companions)
@@ -2759,6 +2880,75 @@ class QtSmokeTests(unittest.TestCase):
             self.assertEqual(preview_row_widget._status.property("tone"), "success")
 
             workspace.close()
+
+    def test_media_workspace_uses_expected_episode_count_in_season_headers(self):
+        from plex_renamer.engine import CompletenessReport, SeasonCompleteness
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example Show"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Episode 1.mkv",
+                    target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                ),
+                PreviewItem(
+                    original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E02.mkv"),
+                    new_name="Example Show (2024) - S01E02 - Episode 2.mkv",
+                    target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                    season=1,
+                    episodes=[2],
+                    status="SKIP: sample",
+                ),
+                PreviewItem(
+                    original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E03.mkv"),
+                    new_name="Example Show (2024) - S01E03 - Episode 3.mkv",
+                    target_dir=Path("C:/library/tv/Example Show/Season 01"),
+                    season=1,
+                    episodes=[3],
+                    status="UNMATCHED: extras",
+                ),
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+            completeness=CompletenessReport(
+                seasons={1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[])},
+                specials=None,
+                total_expected=2,
+                total_matched=1,
+                total_missing=[],
+            ),
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        self.assertTrue(any("SEASON 1 — 3/2" in text for text in self._preview_header_texts(workspace)))
+
+        workspace.close()
 
     def test_media_workspace_keeps_folder_rename_states_out_of_plex_ready(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
@@ -3335,13 +3525,14 @@ class QtSmokeTests(unittest.TestCase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._preview_list.count(), 1)
+            self.assertEqual(workspace._preview_list.count(), 3)
             workspace._queue_checked()
             self._app.processEvents()
 
             self.assertTrue(queue_ctrl.called)
             self._assert_roster_section_title(workspace, 0, "QUEUED")
-            self.assertEqual(workspace._preview_list.count(), 1)
+            self.assertEqual(workspace._preview_list.count(), 3)
+            self.assertTrue(any("FOLDER" in text for text in self._preview_header_texts(workspace)))
             self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
 
             workspace.close()
@@ -3559,6 +3750,60 @@ class QtSmokeTests(unittest.TestCase):
 
         self.assertFalse(state.queued)
         self.assertTrue(window._tv_workspace._queue_inline_btn.isEnabled())
+
+        window.close()
+
+    def test_completed_queue_job_projects_tv_state_back_to_plex_ready_on_tab_return(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        self._reset_main_window_queue(window)
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        window.media_ctrl._batch_states = [state]
+        window.media_ctrl._tv_root_folder = Path("C:/library/tv")
+        window.media_ctrl.library_selected_index = 0
+
+        window._tv_workspace.show_ready()
+        window._tv_workspace._queue_checked()
+        self._app.processEvents()
+
+        job = window.queue_ctrl.get_queue()[0]
+        window.queue_ctrl.job_store.update_status(job.job_id, JobStatus.COMPLETED)
+        window.queue_ctrl.job_store.set_undo_data(job.job_id, {"renames": [], "created_dirs": [], "removed_dirs": [], "renamed_dirs": []})
+        job.status = JobStatus.COMPLETED
+
+        window._switch_to_tab(2)
+        self._app.processEvents()
+
+        window._on_job_completed(job, RenameResult(renamed_count=1))
+        window._on_queue_changed()
+
+        window._switch_to_tab(0)
+        self._app.processEvents()
+        window._tv_workspace._roster_collapsed["plex-ready"] = False
+        window._tv_workspace.refresh_from_controller()
+
+        self.assertEqual(state.folder, Path("C:/library/tv/Example Show (2024)"))
+        self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
+        self.assertFalse(state.preview_items[0].is_actionable)
+        self._assert_roster_section_title(window._tv_workspace, 0, "PLEX READY")
 
         window.close()
 

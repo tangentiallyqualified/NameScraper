@@ -92,11 +92,25 @@ _CHECKED_ROLE = Qt.ItemDataRole.UserRole + 10
 _ROSTER_ENTRY_KEY_ROLE = Qt.ItemDataRole.UserRole + 11
 _ROSTER_ENTRY_KIND_ROLE = Qt.ItemDataRole.UserRole + 12
 _ROSTER_SIGNATURE_ROLE = Qt.ItemDataRole.UserRole + 13
+_PREVIEW_ENTRY_KIND_ROLE = Qt.ItemDataRole.UserRole + 14
+_PREVIEW_SECTION_ROLE = Qt.ItemDataRole.UserRole + 15
 _MAX_ROSTER_POSTER_CACHE = 128
+_FOLDER_SECTION_KEY = "folder"
 
 
 class _RosterPosterBridge(QObject):
     poster_ready = Signal(object, object)
+
+
+def _state_spans_multiple_seasons(state: ScanState) -> bool:
+    if len(state.season_folders) > 1:
+        return True
+    preview_seasons = {
+        preview.season
+        for preview in state.preview_items
+        if preview.season not in (None, 0)
+    }
+    return len(preview_seasons) > 1
 
 
 class _MasterCheckBox(QCheckBox):
@@ -195,7 +209,7 @@ class MediaWorkspace(QWidget):
         self._preview_syncing = False
         self._roster_poster_cache: OrderedDict[tuple[str, int], QPixmap] = OrderedDict()
         self._poster_inflight: set[tuple[str, int]] = set()
-        self._preview_group_state: dict[str, set[int]] = {}
+        self._preview_group_state: dict[str, set[int | str]] = {}
         self._roster_master_syncing = False
         self._roster_collapsed: dict[str, bool] = {"plex-ready": True}
         self._poster_bridge = _RosterPosterBridge(self)
@@ -241,12 +255,23 @@ class MediaWorkspace(QWidget):
         roster_layout = QVBoxLayout(self._roster_panel)
         roster_layout.setContentsMargins(12, 12, 12, 12)
         roster_layout.setSpacing(8)
+
+        roster_header = QHBoxLayout()
+        roster_header.setContentsMargins(0, 0, 0, 0)
+        roster_header.setSpacing(8)
         self._roster_title = QLabel("Library")
         self._roster_title.setProperty("cssClass", "heading")
-        roster_layout.addWidget(self._roster_title)
-        self._roster_hint = QLabel("Scanned items appear here.")
-        self._roster_hint.setProperty("cssClass", "caption")
-        roster_layout.addWidget(self._roster_hint)
+        roster_header.addWidget(self._roster_title)
+        roster_header.addStretch()
+
+        self._roster_queue_btn = QPushButton("Queue Checked")
+        self._roster_queue_btn.setProperty("cssClass", "primary")
+        self._roster_queue_btn.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        self._roster_queue_btn.setEnabled(False)
+        self._roster_queue_btn.clicked.connect(self._queue_checked)
+        self._set_roster_queue_button_text("Queue Checked")
+        roster_header.addWidget(self._roster_queue_btn)
+        roster_layout.addLayout(roster_header)
 
         roster_select_row = QHBoxLayout()
         roster_select_row.setContentsMargins(0, 0, 0, 0)
@@ -260,13 +285,6 @@ class MediaWorkspace(QWidget):
         self._roster_selection_summary.setProperty("cssClass", "caption")
         roster_select_row.addWidget(self._roster_selection_summary)
         roster_select_row.addStretch()
-        self._roster_queue_btn = QPushButton("Queue Checked")
-        self._roster_queue_btn.setProperty("cssClass", "primary")
-        self._roster_queue_btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-        self._roster_queue_btn.setEnabled(False)
-        self._roster_queue_btn.clicked.connect(self._queue_checked)
-        self._set_roster_queue_button_text("Queue Checked")
-        roster_select_row.addWidget(self._roster_queue_btn)
         roster_layout.addLayout(roster_select_row)
 
         self._roster_list = QListWidget()
@@ -305,11 +323,13 @@ class MediaWorkspace(QWidget):
         self._folder_plan_label = QLabel("Select a roster item to see the planned folder rename.")
         self._folder_plan_label.setProperty("cssClass", "caption")
         self._folder_plan_label.setWordWrap(True)
+        self._folder_plan_label.hide()
         preview_layout.addWidget(self._folder_plan_label)
         self._preview_summary = QLabel("Preview items will appear here once a scan is ready.")
         self._preview_summary.setProperty("cssClass", "text-dim")
         self._preview_summary.setWordWrap(True)
         preview_layout.addWidget(self._preview_summary)
+        self._sync_action_button_metrics()
 
         preview_check_row = QHBoxLayout()
         preview_check_row.setContentsMargins(0, 0, 0, 0)
@@ -504,14 +524,15 @@ class MediaWorkspace(QWidget):
 
         if not states:
             self._preview_list.clear()
-            self._folder_plan_label.setText("Select a roster item to see the planned folder rename.")
-            self._preview_summary.setText("Preview items will appear here once a scan is ready.")
+            self._folder_plan_label.setText("")
+            self._set_preview_summary("Preview items will appear here once a scan is ready.")
             self._detail_panel.clear()
             self._roster_queue_btn.setEnabled(False)
             self._set_roster_queue_button_text("Queue Checked")
             self._roster_queue_btn.setToolTip("")
             self._update_roster_selection_header([])
             self._fix_match_btn.setEnabled(False)
+            self._fix_match_btn.setText("Fix Match")
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setText(self._queue_selected_label())
             return
@@ -789,23 +810,25 @@ class MediaWorkspace(QWidget):
         self._preview_syncing = True
         self._preview_list.setUpdatesEnabled(False)
         self._preview_list.clear()
-        self._folder_plan_label.setText(self._folder_plan_text(state))
+        folder_preview = self._folder_preview_data(state)
+        self._folder_plan_label.setText(self._folder_plan_text(state) if folder_preview is not None else "")
+        if folder_preview is not None:
+            self._add_folder_preview_section(state, folder_preview)
 
         if not state.preview_items:
             if state.scanning:
-                self._preview_summary.setText("Preview is still scanning for this item.")
+                self._set_preview_summary("Preview is still scanning for this item.")
             elif not state.scanned and state.show_id is not None:
-                self._preview_summary.setText("Preview will appear once scanning completes.")
+                self._set_preview_summary("Preview will appear once scanning completes.")
             else:
-                self._preview_summary.setText("No preview items available for this selection.")
+                self._set_preview_summary("No preview items available for this selection.")
             self._preview_syncing = False
             self._preview_list.setUpdatesEnabled(True)
+            self._update_preview_master_state(state)
             return
 
         self._ensure_check_bindings(state)
-        self._preview_summary.setText(
-            f"{len(state.preview_items)} preview item(s) · {_state_status(state)[0]}"
-        )
+        self._set_preview_summary("")
 
         if self._media_type == "tv":
             collapsed = self._preview_group_state.setdefault(_state_key(state), set())
@@ -818,15 +841,12 @@ class MediaWorkspace(QWidget):
                 key=lambda entry: (entry[0] is None, entry[0] or 0),
             ):
                 is_collapsed = season_num in collapsed
-                matched = sum(1 for i in indices if state.preview_items[i].status == "OK")
-                ratio_text = f" — {matched}/{len(indices)}"
+                ratio_text = self._season_ratio_text(state, season_num, len(indices))
                 sn_name = state.season_names.get(season_num, "") if season_num is not None else ""
-                header = _make_section_header(
+                self._add_preview_header(
                     ("▸ " if is_collapsed else "▾ ") + _season_label(season_num, name=sn_name) + ratio_text,
-                    selectable=True,
+                    season_num,
                 )
-                header.setData(Qt.ItemDataRole.UserRole + 1, season_num)
-                self._preview_list.addItem(header)
                 if is_collapsed:
                     continue
                 ordered_indices = sorted(
@@ -863,26 +883,55 @@ class MediaWorkspace(QWidget):
     def _build_preview_row(self, state: ScanState, index: int, preview: PreviewItem) -> QListWidgetItem:
         row = QListWidgetItem()
         row.setData(Qt.ItemDataRole.UserRole, index)
+        row.setData(_PREVIEW_ENTRY_KIND_ROLE, "preview")
         flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         if preview.is_actionable and _is_state_queue_approvable(state, media_type=self._media_type):
             row.setData(_CHECKED_ROLE, state.check_vars[str(index)].get())
         row.setFlags(flags)
         return row
 
+    def _build_folder_preview_row(self) -> QListWidgetItem:
+        row = QListWidgetItem()
+        row.setData(Qt.ItemDataRole.UserRole, None)
+        row.setData(_PREVIEW_ENTRY_KIND_ROLE, "folder")
+        row.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        return row
+
+    def _add_preview_header(self, text: str, section_key: int | str) -> None:
+        header = _make_section_header(text, selectable=True)
+        header.setData(_PREVIEW_ENTRY_KIND_ROLE, "header")
+        header.setData(_PREVIEW_SECTION_ROLE, section_key)
+        self._preview_list.addItem(header)
+
+    def _add_folder_preview_section(self, state: ScanState, folder_preview: tuple[str, str]) -> None:
+        collapsed = self._preview_group_state.setdefault(_state_key(state), set())
+        is_collapsed = _FOLDER_SECTION_KEY in collapsed
+        self._add_preview_header(
+            ("▸ " if is_collapsed else "▾ ") + "Folder",
+            _FOLDER_SECTION_KEY,
+        )
+        if is_collapsed:
+            return
+        item = self._build_folder_preview_row()
+        self._preview_list.addItem(item)
+        self._attach_folder_preview_widget(item, *folder_preview)
+
     def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
-        if self._preview_syncing or self._media_type != "tv":
+        if self._preview_syncing:
             return
         state = self._selected_state()
         if state is None:
             return
-        season_num = item.data(Qt.ItemDataRole.UserRole + 1)
-        if season_num is None or item.data(Qt.ItemDataRole.UserRole) is not None:
+        if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "header":
+            return
+        section_key = item.data(_PREVIEW_SECTION_ROLE)
+        if section_key is None:
             return
         collapsed = self._preview_group_state.setdefault(_state_key(state), set())
-        if season_num in collapsed:
-            collapsed.remove(season_num)
+        if section_key in collapsed:
+            collapsed.remove(section_key)
         else:
-            collapsed.add(season_num)
+            collapsed.add(section_key)
         self._populate_preview(state)
 
     def _update_sticky_header(self) -> None:
@@ -899,7 +948,7 @@ class MediaWorkspace(QWidget):
         header_text = ""
         for row in range(top_row, -1, -1):
             item = self._preview_list.item(row)
-            if item is not None and item.data(Qt.ItemDataRole.UserRole + 1) is not None:
+            if item is not None and item.data(_PREVIEW_ENTRY_KIND_ROLE) == "header":
                 header_text = item.text()
                 break
         if not header_text or top_row == 0:
@@ -1088,6 +1137,9 @@ class MediaWorkspace(QWidget):
         if self._can_inline_assign_season(state):
             self._prompt_assign_season(state)
             return
+        if self._needs_inline_match_choice(state):
+            self._fix_match()
+            return
         if self._can_inline_approve(state):
             self._approve_match(state)
             return
@@ -1186,12 +1238,12 @@ class MediaWorkspace(QWidget):
             query_source = state.preview_items[0].original.stem if state.preview_items else state.folder.name
             title_key = "title"
             search_callback = tmdb.search_movie
-            dialog_title = f"Fix Match: {query_source}"
+            dialog_title = f"{self._fix_match_label(state)}: {query_source}"
         else:
             query_source = state.folder.name
             title_key = "name"
             search_callback = tmdb.search_tv
-            dialog_title = f"Fix Match: {state.folder.name}"
+            dialog_title = f"{self._fix_match_label(state)}: {state.folder.name}"
 
         query = (
             best_tv_match_title(state.folder, include_year=False)
@@ -1247,13 +1299,18 @@ class MediaWorkspace(QWidget):
         selected_state = self._selected_state()
         can_fix = bool(selected_state and self._can_fix_match(selected_state))
         self._fix_match_btn.setEnabled(can_fix)
+        self._fix_match_btn.setText(self._fix_match_label(selected_state))
         self._fix_match_btn.setToolTip("")
         self._queue_inline_btn.setText(self._primary_action_label(selected_state))
         if selected_state is None:
             self._queue_inline_btn.setEnabled(False)
             self._queue_inline_btn.setToolTip("")
         else:
-            if self._can_inline_assign_season(selected_state) or self._can_inline_approve(selected_state):
+            if (
+                self._can_inline_assign_season(selected_state)
+                or self._needs_inline_match_choice(selected_state)
+                or self._can_inline_approve(selected_state)
+            ):
                 self._queue_inline_btn.setEnabled(True)
                 self._queue_inline_btn.setToolTip("")
             else:
@@ -1287,7 +1344,24 @@ class MediaWorkspace(QWidget):
             QSize(),
             self._roster_queue_btn,
         )
-        self._roster_queue_btn.setMinimumWidth(max(self._roster_queue_btn.minimumWidth(), size.width() + 8))
+        self._roster_queue_btn.setMinimumWidth(max(self._roster_queue_btn.minimumWidth(), 180, size.width() + 28))
+        self._sync_action_button_metrics()
+
+    def _sync_action_button_metrics(self) -> None:
+        if not hasattr(self, "_queue_inline_btn"):
+            return
+        button_height = max(self._queue_inline_btn.sizeHint().height(), self._roster_queue_btn.sizeHint().height())
+        button_width = max(
+            self._roster_queue_btn.minimumWidth(),
+            self._queue_inline_btn.sizeHint().width() + 20,
+        )
+        self._queue_inline_btn.setMinimumHeight(button_height)
+        self._roster_queue_btn.setMinimumHeight(button_height)
+        self._roster_queue_btn.setMinimumWidth(button_width)
+
+    def _set_preview_summary(self, text: str) -> None:
+        self._preview_summary.setText(text)
+        self._preview_summary.setVisible(bool(text))
 
     def _update_roster_selection_header(self, states: list[ScanState]) -> None:
         eligible_states = [
@@ -1416,6 +1490,11 @@ class MediaWorkspace(QWidget):
         self._sync_item_height(item, widget)
         self._preview_list.setItemWidget(item, widget)
 
+    def _attach_folder_preview_widget(self, item: QListWidgetItem, source_name: str, target_name: str) -> None:
+        widget = _FolderPreviewRowWidget(source_name, target_name, parent=self._preview_list)
+        self._sync_item_height(item, widget)
+        self._preview_list.setItemWidget(item, widget)
+
     def _sync_item_height(self, item: QListWidgetItem, widget: QWidget) -> None:
         item.setSizeHint(QSize(0, widget.sizeHint().height()))
 
@@ -1508,6 +1587,13 @@ class MediaWorkspace(QWidget):
         return state.preview_items[index]
 
     def _folder_plan_text(self, state: ScanState) -> str:
+        folder_preview = self._folder_preview_data(state)
+        if folder_preview is None:
+            return ""
+        source, target = folder_preview
+        return f"Folder rename plan: {source} -> {target}"
+
+    def _folder_preview_data(self, state: ScanState) -> tuple[str, str] | None:
         source = state.folder.name
         if self._media_type == "movie":
             target = build_movie_name(
@@ -1520,7 +1606,9 @@ class MediaWorkspace(QWidget):
                 state.media_info.get("name", state.display_name),
                 state.media_info.get("year", ""),
             )
-        return f"Folder rename plan: {source} -> {target}"
+        if not source or not target:
+            return None
+        return source, target
 
     def _media_noun(self) -> str:
         return "movie" if self._media_type == "movie" else "show"
@@ -1531,9 +1619,26 @@ class MediaWorkspace(QWidget):
     def _primary_action_label(self, state: ScanState | None) -> str:
         if state is not None and self._can_inline_assign_season(state):
             return "Assign Season"
+        if state is not None and self._needs_inline_match_choice(state):
+            return "Choose Match"
         if state is not None and self._can_inline_approve(state):
             return "Approve Match"
         return self._queue_selected_label()
+
+    def _fix_match_label(self, state: ScanState | None) -> str:
+        if state is not None and self._needs_inline_match_choice(state):
+            return "Choose Match"
+        return "Fix Match"
+
+    def _needs_inline_match_choice(self, state: ScanState) -> bool:
+        return (
+            state.show_id is not None
+            and state.tie_detected
+            and state.needs_review
+            and not state.queued
+            and not state.scanning
+            and state.duplicate_of is None
+        )
 
     def _can_inline_assign_season(self, state: ScanState) -> bool:
         return (
@@ -1549,6 +1654,7 @@ class MediaWorkspace(QWidget):
         return (
             state.show_id is not None
             and state.needs_review
+            and not state.tie_detected
             and not state.queued
             and not state.scanning
             and state.duplicate_of is None
@@ -1566,7 +1672,39 @@ class MediaWorkspace(QWidget):
             item = self._find_roster_item_by_index(index)
             if item is not None:
                 self._roster_list.setCurrentItem(item)
+                self._scroll_roster_item_into_context(item)
             return
+
+    def _scroll_roster_item_into_context(self, item: QListWidgetItem) -> None:
+        row = self._roster_list.row(item)
+        if row < 0:
+            return
+        anchor = item
+        for index in range(row - 1, -1, -1):
+            header = self._roster_list.item(index)
+            if header is not None and header.data(_ROSTER_ENTRY_KIND_ROLE) == "header":
+                anchor = header
+                break
+        self._roster_list.scrollToItem(anchor, QAbstractItemView.ScrollHint.PositionAtTop)
+
+    def _season_ratio_text(self, state: ScanState, season_num: int | None, item_count: int) -> str:
+        expected = self._season_expected_count(state, season_num)
+        if expected <= 0:
+            expected = item_count
+        return f" — {item_count}/{expected}"
+
+    def _season_expected_count(self, state: ScanState, season_num: int | None) -> int:
+        completeness = state.completeness
+        if completeness is None:
+            return 0
+        if season_num == 0:
+            return completeness.specials.expected if completeness.specials is not None else 0
+        if season_num is None:
+            return 0
+        season = completeness.seasons.get(season_num)
+        if season is None:
+            return 0
+        return season.expected
 
     def _roster_poster_fetch_width(self, item: QListWidgetItem) -> int:
         widget = self._roster_list.itemWidget(item)
@@ -1762,7 +1900,7 @@ class _RosterRowWidget(_ClickableRow):
         body.addLayout(title_row)
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
-        if state.season_assignment is not None:
+        if state.season_assignment is not None and not _state_spans_multiple_seasons(state):
             meta_parts.append(f"Season {state.season_assignment}")
         if state.duplicate_of is not None:
             duplicate_target = state.duplicate_of_relative_folder or state.duplicate_of
@@ -1943,5 +2081,36 @@ class _PreviewRowWidget(_ClickableRow):
         _repolish(self._status)
         if self._confidence is not None:
             self._confidence.setColor(_preview_band(self._preview))
+
+
+class _FolderPreviewRowWidget(QFrame):
+    def __init__(self, source_name: str, target_name: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setProperty("cssClass", "preview-row-card")
+        self.setProperty("band", "muted")
+        self.setProperty("selectionState", "normal")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+
+        body = QVBoxLayout()
+        body.setSpacing(4)
+        layout.addLayout(body, stretch=1)
+
+        self._original = QLabel(source_name)
+        self._original.setProperty("cssClass", "row-title")
+        self._original.setWordWrap(True)
+        self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        body.addWidget(self._original)
+
+        self._target = QLabel(f"-> {target_name}")
+        self._target.setProperty("cssClass", "row-target")
+        self._target.setWordWrap(True)
+        self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        body.addWidget(self._target)
+
+        _repolish(self)
 
 

@@ -98,6 +98,11 @@ class QueueTab(_JobListTab):
     def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
         has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
         can_execute = any(job.status == JobStatus.PENDING for job in checked_jobs)
+        can_execute_focused = focused_job is not None and focused_job.status == JobStatus.PENDING
+
+        focused_action = menu.addAction("Run This Job")
+        focused_action.setEnabled(can_execute_focused)
+        focused_action.triggered.connect(self.execute_focused)
 
         execute_action = menu.addAction("Run Selected")
         execute_action.setEnabled(can_execute)
@@ -113,7 +118,6 @@ class QueueTab(_JobListTab):
 
         menu.addSeparator()
         self._add_folder_context_actions(menu, include_target=False)
-        del focused_job
 
     def _toggle_queue(self) -> None:
         if self._queue_ctrl.is_running:

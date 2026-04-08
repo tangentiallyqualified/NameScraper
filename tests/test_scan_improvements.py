@@ -473,6 +473,41 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertFalse((library_root.parent / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists())
             self.assertTrue(library_root.exists(), "Library root should not be renamed")
 
+    def test_queue_execute_normalizes_season_folder_case_only_names(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        with TemporaryDirectory() as tmp:
+            library_root = Path(tmp) / "TV Root"
+            source_root = library_root / "Show"
+            season_dir = source_root / "season 01"
+            season_dir.mkdir(parents=True)
+            episode = season_dir / "Show.S01E01.mkv"
+            episode.write_text("ep1")
+
+            job = RenameJob(
+                library_root=str(library_root),
+                source_folder="Show",
+                media_name="Show",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Show/season 01/Show.S01E01.mkv",
+                        new_name="Show - S01E01.mkv",
+                        target_dir_relative="Show/season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.errors, [])
+            self.assertTrue((source_root / "Season 01" / "Show - S01E01.mkv").exists())
+            self.assertEqual(sorted(child.name for child in source_root.iterdir()), ["Season 01"])
+
 
     def test_score_results_prefers_exact_year_over_adjacent_year(self):
         """When two TMDB results share an identical title, the one whose

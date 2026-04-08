@@ -219,7 +219,8 @@ def _execute_rename(job: RenameJob) -> RenameResult:
         if season_dir.name == proper_name:
             continue
         proper_path = season_dir.parent / proper_name
-        if proper_path.exists():
+        same_dir = os.path.normcase(str(season_dir)) == os.path.normcase(str(proper_path))
+        if proper_path.exists() and not same_dir:
             continue
         try:
             season_dir.rename(proper_path)
