@@ -19,22 +19,18 @@ This script makes commit/push steps more reliable on Windows by running the git-
 - The script commits only staged changes by default.
 - It pushes `HEAD` to the target branch.
 - It does not stage unrelated files unless `-StageAll` is passed.
-- If `-Message` is omitted, the script enters a preparation mode: it prints a staged-change summary and stops so the AI assistant can propose a commit message and ask the user to approve or replace it.
-- If `-ProposedMessage` is supplied without `-Message`, the script prints the staged summary and the proposed commit message, then stops for chat-based approval.
-- Approval happens in chat after the assistant returns with the proposed message. The script is not waiting for a terminal response.
+- If `-Message` is omitted, the script prints a staged-change summary and stops without committing or pushing.
+- Approval happens in chat. The recommended AI workflow is to inspect the intended publish scope first and run the script only after the user has approved a commit message.
 
 ## Recommended AI Workflow
 
 1. Verify the changed file set.
 2. Stage only the files intended for the commit, unless the user explicitly wants everything staged.
-3. If no approved message exists yet, run the publish script without `-Message` to print the staged summary.
-4. Capture that output, then close the temporary terminal session before asking for approval in chat.
-5. Have the AI assistant propose a commit message from that summary.
-6. Rerun the publish script with `-ProposedMessage` so the proposed message is visible in the terminal.
-7. Capture that output, then close the temporary terminal session before waiting for the user's chat reply.
-8. Present that same proposed message in chat and ask the user to approve it or provide a substitute.
-9. Rerun the publish script with the approved commit message and target branch.
-10. Report the resulting commit hash and push result.
+3. Inspect the staged or selected diff directly using repo tools or git diff output.
+4. Have the AI assistant propose a commit message in chat from that diff.
+5. Wait for the user to reply with `approve` or `use this message: ...`.
+6. Run the publish script once with the approved commit message and target branch.
+7. Report the resulting commit hash and push result.
 
 ## Commands
 
@@ -49,13 +45,9 @@ Stage selected files, ask the AI to propose a message, then publish:
 
 ```powershell
 git add -- path/to/file1 path/to/file2
-.\scripts\git-publish.cmd -Branch dev/GUI3
-```
-
-Show a proposed message in terminal before approval:
-
-```powershell
-.\scripts\git-publish.cmd -Branch dev/GUI3 -ProposedMessage "Proposed commit message"
+git diff --cached --stat
+git diff --cached --name-status
+.\scripts\git-publish.cmd -Message "Approved commit message" -Branch dev/GUI3
 ```
 
 Stage everything, then publish:
@@ -76,7 +68,7 @@ Publish to the current branch:
 - Use fresh/background terminal sessions for git-critical operations, publish flows, and any test command whose captured output will be summarized back to the user.
 - In chat-driven environments that require manual terminal approval, run publish commands in a self-terminating PowerShell session so the shell exits immediately after the command finishes.
 - For PowerShell-based assistant tooling, prefer a command form that ends with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` completes.
-- After a publish prep or proposal run, close that temporary terminal session once the needed output is captured before waiting for a chat approval reply.
+- Do not leave an idle PowerShell publish session open while waiting for a chat approval reply.
 - Prefer direct tools such as changed-file and error inspectors over terminal output when those tools can answer the question.
 - Keep the shared shell for lightweight exploration only.
 
@@ -98,7 +90,7 @@ Meaning:
 
 - `publish`: use the repo publish workflow via [scripts/git-publish.cmd](scripts/git-publish.cmd)
 - `branch=dev/GUI3`: push `HEAD` to `dev/GUI3`
-- `automessage=y`: run the publish flow without `-Message`, summarize staged changes, propose a commit message, show that same proposal in terminal and chat, ask for approval or replacement, then rerun with the approved message
+- `automessage=y`: inspect what will be pushed, propose a commit message in chat, ask for approval or replacement, then run the publish flow once with the approved message
 - `stage=task`: stage only files related to the current task; if the correct file set is ambiguous, stop and ask before staging unrelated changes
 
 Other supported staging modes:
@@ -121,16 +113,15 @@ Stage only these files:
 - path/to/file1
 - path/to/file2
 
-Then run scripts/git-publish.cmd without a commit message so it shows the staged summary.
-Use that summary to suggest a commit message, ask me to approve it or replace it, and then rerun the script with the approved message to push to dev/GUI3.
+Inspect the staged diff.
+Use that diff to suggest a commit message in chat, ask me to approve it or replace it, and then run the script once with the approved message to push to dev/GUI3.
 Before committing, verify the changed file set and do not stage unrelated files.
 ```
 
 ### Publish all current changes
 
 ```text
-Use scripts/git-publish.cmd with -StageAll and no commit message first.
-Show me the staged summary, suggest an AI-generated commit message, ask me to approve or replace it, and then rerun the script with the approved message to push all current changes to dev/GUI3.
+Stage all current changes, inspect what will be pushed, suggest an AI-generated commit message in chat, ask me to approve or replace it, and then run scripts/git-publish.cmd once with the approved message to push all current changes to dev/GUI3.
 Before pushing, confirm what files will be included.
 ```
 
@@ -154,9 +145,9 @@ If there are unrelated changes, stage only these files:
 - path/to/file1
 - path/to/file2
 
-Then run scripts/git-publish.cmd without a commit message so it prints the staged summary.
-Suggest a commit message from that summary and ask me to approve it or provide a replacement.
-After I approve it, rerun scripts/git-publish.cmd with the approved message and push to dev/GUI3.
+Then inspect the staged diff.
+Suggest a commit message from that diff and ask me to approve it or provide a replacement.
+After I approve it, run scripts/git-publish.cmd with the approved message and push to dev/GUI3.
 If the staged file set does not match this list, stop and tell me.
 ```
 
@@ -164,9 +155,9 @@ If the staged file set does not match this list, stop and tell me.
 
 ```text
 Stage only the files for this task.
-Run scripts/git-publish.cmd without -Message so it prints the staged summary.
-Suggest a commit message based on that summary and ask me to approve it or replace it.
-Once I approve, rerun scripts/git-publish.cmd with the approved message and push to dev/GUI3.
+Inspect the staged diff.
+Suggest a commit message based on that diff and ask me to approve it or replace it.
+Once I approve, run scripts/git-publish.cmd with the approved message and push to dev/GUI3.
 Do not include unrelated changes.
 ```
 
@@ -176,10 +167,10 @@ Do not include unrelated changes.
 - Prefer the staged-only flow unless the user explicitly asks for `-StageAll`.
 - Confirm the branch target in the prompt when it matters.
 - If the user says "commit and push" without naming files, verify the changed file set before staging.
-- If the user does not provide a commit message, run the script without `-Message`, use the staged summary to draft a commit message, and ask the user to approve or replace it before the final publish run.
-- After drafting a commit message, rerun the script with `-ProposedMessage` so the same proposal is visible in the terminal before asking for approval in chat.
+- If the user does not provide a commit message, inspect the intended publish scope directly, draft a commit message in chat, and ask the user to approve or replace it before the final publish run.
+- Do not use the publish script as a preview step for `automessage=y`; reserve it for the final commit/push run after approval.
 - When operating through chat or Claude Code approval prompts, invoke publish commands in a self-terminating shell command so the approval text cannot be pasted into an idle PowerShell prompt.
-- After capturing output from a prep or `-ProposedMessage` publish run, close that temporary terminal session before waiting for the user's chat reply so the reply cannot land in PowerShell.
+- Do not leave an idle PowerShell publish session open while waiting for the user's chat reply so the reply cannot land in PowerShell.
 - Do not tell the user to inspect the terminal for the proposed message or to answer in PowerShell. Present the proposal in chat and wait for a chat reply.
 - Avoid the shared shell for output-sensitive commands once a long or noisy command has already run in it.
 - Recognize shorthand prompts such as `publish branch=dev/GUI3 automessage=y stage=task` using the meanings defined above.

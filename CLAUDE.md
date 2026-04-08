@@ -9,9 +9,9 @@ For Windows git publish workflows in this repository, use the instructions in [d
 - Prefer [scripts/git-publish.cmd](scripts/git-publish.cmd) for commit/push flows, with [scripts/git-publish.ps1](scripts/git-publish.ps1) as the implementation.
 - In chat-driven terminal approval UIs, run publish commands in a self-terminating PowerShell session, for example by ending the command with `exit $LASTEXITCODE`.
 - The script commits staged changes by default.
-- If no commit message is provided, run the script once without `-Message`, use its staged summary to propose a commit message, and ask the user to approve or replace it before rerunning the script.
-- After drafting the proposed message, rerun the script with `-ProposedMessage` so the same proposal is visible in the terminal before asking for chat approval.
-- After capturing output from a publish prep or `-ProposedMessage` run, close that temporary terminal session before waiting for the user's chat reply.
+- If no commit message is provided, inspect the intended publish scope directly, propose a commit message in chat, and ask the user to approve or replace it before running the script once with the final message.
+- Do not use `scripts/git-publish.cmd` as a preview step for `automessage=y`; reserve it for the final commit/push run after chat approval.
+- Do not leave an idle publish terminal open while waiting for the user's chat reply.
 - Present the proposed commit message in chat, not as a terminal prompt. The expected user replies are `approve` or `use this message: ...`.
 - Recognize shorthand publish prompts documented in [docs/ai-publish-workflow.md](docs/ai-publish-workflow.md), for example `publish branch=dev/GUI3 automessage=y stage=task`.
 - Use `-StageAll` only when the user explicitly wants all current changes staged.

@@ -2,8 +2,6 @@
 param(
     [string]$Message,
 
-    [string]$ProposedMessage,
-
     [string]$Remote = "origin",
 
     [string]$Branch,
@@ -75,41 +73,14 @@ try {
         Write-Host ""
         Write-Host "No commit message was provided."
         Write-Host ""
-
-        if (-not [string]::IsNullOrWhiteSpace($ProposedMessage)) {
-            Write-Host "Proposed commit message:"
-            Write-Host "  $ProposedMessage"
-            Write-Host ""
-            Write-Host "Approval does not happen in this terminal."
-            Write-Host "Use the same proposed message shown by the AI assistant in chat."
-            Write-Host ""
-            Write-Host "Reply in chat using one of these formats:"
-            Write-Host "- CHAT APPROVAL: approve"
-            Write-Host "- CHAT REPLACEMENT: use this message: <your preferred commit message>"
-            Write-Host ""
-            Write-Host "AI assistant next step:"
-            Write-Host "1. Capture this output, then close this temporary terminal session."
-            Write-Host "2. Present this same proposed message in chat."
-            Write-Host "3. Ask the user to approve it or provide a replacement."
-            Write-Host "4. Rerun this script with -Message <approved message>."
-            return
-        }
-
         Write-Host "Approval does not happen in this terminal."
-        Write-Host "Wait for the AI assistant to return to chat with a proposed commit message."
+        Write-Host "For AI-assisted publish flows, inspect the staged changes directly in chat,"
+        Write-Host "propose a commit message there, wait for approval, and then run this script"
+        Write-Host "once with -Message <approved message>."
         Write-Host ""
         Write-Host "Reply in chat using one of these formats:"
         Write-Host "- CHAT APPROVAL: approve"
         Write-Host "- CHAT REPLACEMENT: use this message: <your preferred commit message>"
-        Write-Host ""
-        Write-Host "AI assistant next step:"
-        Write-Host "1. Capture this output, then close this temporary terminal session."
-        Write-Host "2. Summarize the staged changes."
-        Write-Host "3. Propose a commit message."
-        Write-Host "4. Rerun this script with -ProposedMessage <suggested message> so the proposal is visible in terminal."
-        Write-Host "5. Close that temporary terminal session after capturing the proposal output."
-        Write-Host "6. Present the same proposed message in chat and ask the user to approve it or provide a replacement."
-        Write-Host "7. Rerun this script with -Message <approved message>."
         return
     }
 

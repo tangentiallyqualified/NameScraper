@@ -9,9 +9,9 @@
 - Before committing, verify the changed file set with tooling such as `get_changed_files` when available.
 - Prefer `scripts/git-publish.cmd` for Windows commit/push flows, with `scripts/git-publish.ps1` as the underlying implementation.
 - In chat-driven terminal approval UIs, run publish commands in a self-terminating PowerShell session, for example by ending the command with `exit $LASTEXITCODE`.
-- If the user does not supply a commit message, run `scripts/git-publish.cmd` without `-Message`, use its staged summary to draft a commit message, and ask the user to approve it or provide a replacement before the final publish run.
-- After drafting the proposed message, rerun `scripts/git-publish.cmd` with `-ProposedMessage` so the same proposal is visible in the terminal before asking for chat approval.
-- After capturing output from a publish prep or `-ProposedMessage` run, close that temporary terminal session before waiting for the user's chat reply.
+- If the user does not supply a commit message, inspect the intended publish scope directly, draft a commit message in chat, and ask the user to approve it or provide a replacement before the final publish run.
+- Do not use `scripts/git-publish.cmd` as a preview step for `automessage=y`; reserve it for the final commit/push run after chat approval.
+- Do not leave an idle publish terminal open while waiting for the user's chat reply.
 - Present the proposed commit message in chat, not in terminal instructions. The expected user replies are `approve` or `use this message: ...`.
 - Recognize shorthand publish prompts documented in `docs/ai-publish-workflow.md`, for example `publish branch=dev/GUI3 automessage=y stage=task`.
 - When pushing, prefer a fresh/background terminal session and wait for the explicit completion result before reporting success.

@@ -36,7 +36,7 @@ What it means:
 
 - `publish`: use the repo publish workflow via [../scripts/git-publish.cmd](../scripts/git-publish.cmd)
 - `branch=dev/GUI3`: push `HEAD` to `dev/GUI3`
-- `automessage=y`: do not require you to write a commit message first; instead, summarize the staged changes, generate a proposed commit message, and ask you to approve or replace it
+- `automessage=y`: do not require you to write a commit message first; instead, inspect what will be pushed, generate a proposed commit message in chat, and ask you to approve or replace it before the publish script is run
 - `stage=task`: stage only the files related to the current task
 
 Other stage modes:
@@ -66,15 +66,11 @@ For `publish ... automessage=y`, the expected flow is:
 
 1. Check the changed file set.
 2. Stage files according to the requested stage mode.
-3. Run [../scripts/git-publish.cmd](../scripts/git-publish.cmd) without `-Message`.
-4. Read the staged summary printed by the script.
-5. Close that temporary terminal session after capturing the summary.
-6. Propose a commit message.
-7. Rerun [../scripts/git-publish.cmd](../scripts/git-publish.cmd) with `-ProposedMessage "..."` so the same proposed message is visible in the terminal.
-8. Close that temporary terminal session after capturing the proposal output.
-9. Present that same proposed message in chat and ask you to approve it or provide a replacement.
-10. Rerun the publish flow with the approved message.
-11. Report the resulting commit hash and push result.
+3. Assess the staged or selected changes using repo tools or git diff output.
+4. Propose a commit message in chat.
+5. Wait for you to reply with `approve` or `use this message: ...`.
+6. Run [../scripts/git-publish.cmd](../scripts/git-publish.cmd) one time with the approved message.
+7. Report the resulting commit hash and push result.
 
 This approval step is intentional. It keeps the commit message AI-assisted without making it fully automatic.
 
@@ -146,8 +142,8 @@ use this message: Your replacement commit message
 - The Windows-friendly entry point is [../scripts/git-publish.cmd](../scripts/git-publish.cmd).
 - That wrapper calls the PowerShell implementation with an execution-policy bypass for the current process, so you should not need to change your machine-wide PowerShell policy.
 - The PowerShell implementation lives in [../scripts/git-publish.ps1](../scripts/git-publish.ps1).
-- When the script runs without `-Message`, it stops after printing the staged summary. The assistant should then continue in chat. It is not waiting for terminal input.
-- When the script runs without `-Message` but with `-ProposedMessage`, it prints the proposed commit message in the terminal and still waits for approval in chat.
+- For `automessage=y`, the assistant should inspect the intended publish scope before calling the script, then run the script once after you approve a message in chat.
+- If the script is ever run without `-Message`, it only prints a staged summary and stops. It is not waiting for terminal input.
 
 ---
 
@@ -160,7 +156,7 @@ To reduce noisy output and wasted retries:
 - in chat-driven tools that require manual command approval, run publish commands in a self-terminating PowerShell session
 - for PowerShell assistant tooling, prefer commands that end with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` finishes
 - avoid relying on shared-terminal output after long or noisy test runs
-- after a publish prep or proposal run, close that temporary terminal before waiting for a chat approval reply
+- do not leave an idle PowerShell publish session open while waiting for a chat approval reply
 - prefer direct repo tools for changed files and errors when those tools are available
 
 ---
