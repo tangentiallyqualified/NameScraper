@@ -74,6 +74,12 @@ For `publish ... automessage=y`, the expected flow is:
 
 This approval step is intentional. It keeps the commit message AI-assisted without making it fully automatic.
 
+Happy-path chat output should be minimal:
+
+- for the proposal step, show only the proposed commit message and the approval prompt
+- do not include a scope summary, change summary, or reasoning unless the user asked for it or the staged set is ambiguous
+- after publish, report only the commit hash and push result unless the user asked for more detail
+
 ---
 
 ### Smoke Test
@@ -158,6 +164,7 @@ To reduce noisy output and wasted retries:
 - avoid relying on shared-terminal output after long or noisy test runs
 - do not leave an idle PowerShell publish session open while waiting for a chat approval reply
 - prefer direct repo tools for changed files and errors when those tools are available
+- after a background publish command, check terminal output explicitly before reporting success because the terminal wrapper may not include full stdout in its initial response
 
 ---
 

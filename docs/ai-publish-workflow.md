@@ -32,6 +32,15 @@ This script makes commit/push steps more reliable on Windows by running the git-
 6. Run the publish script once with the approved commit message and target branch.
 7. Report the resulting commit hash and push result.
 
+## Happy-Path Token Budget
+
+When the publish request is straightforward and the staged file set is already clear:
+
+- propose only the commit message and the approval prompt in chat
+- do not include a scope summary, diff summary, or reasoning unless the user asked for it
+- after publish, report only the commit hash and push result unless the user asked for more detail
+- expand only when there is ambiguity, risk of staging unrelated files, or a publish failure
+
 ## Commands
 
 Stage selected files first, then publish:
@@ -69,6 +78,7 @@ Publish to the current branch:
 - In chat-driven environments that require manual terminal approval, run publish commands in a self-terminating PowerShell session so the shell exits immediately after the command finishes.
 - For PowerShell-based assistant tooling, prefer a command form that ends with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` completes.
 - Do not leave an idle PowerShell publish session open while waiting for a chat approval reply.
+- For background publish commands, do not trust the initial terminal-wrapper response as the complete result. Retrieve the full stdout with terminal-output tooling before reporting success or failure.
 - Prefer direct tools such as changed-file and error inspectors over terminal output when those tools can answer the question.
 - Keep the shared shell for lightweight exploration only.
 
@@ -168,9 +178,12 @@ Do not include unrelated changes.
 - Confirm the branch target in the prompt when it matters.
 - If the user says "commit and push" without naming files, verify the changed file set before staging.
 - If the user does not provide a commit message, inspect the intended publish scope directly, draft a commit message in chat, and ask the user to approve or replace it before the final publish run.
+- In the happy path, keep the chat output minimal: proposed commit message only, then approval prompt only.
+- Do not add a scope summary or reasoning unless the user asked for it or the staged file set needs clarification.
 - Do not use the publish script as a preview step for `automessage=y`; reserve it for the final commit/push run after approval.
 - When operating through chat or Claude Code approval prompts, invoke publish commands in a self-terminating shell command so the approval text cannot be pasted into an idle PowerShell prompt.
 - Do not leave an idle PowerShell publish session open while waiting for the user's chat reply so the reply cannot land in PowerShell.
+- After starting a background publish command, fetch the full terminal output before reporting the result because the initial background terminal response may omit stdout.
 - Do not tell the user to inspect the terminal for the proposed message or to answer in PowerShell. Present the proposal in chat and wait for a chat reply.
 - Avoid the shared shell for output-sensitive commands once a long or noisy command has already run in it.
 - Recognize shorthand prompts such as `publish branch=dev/GUI3 automessage=y stage=task` using the meanings defined above.
