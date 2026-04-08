@@ -419,6 +419,10 @@ QPushButton:focus {
     outline: none;
 }
 
+QPushButton[cssClass="primary"][sizeVariant="compact"] {
+    padding: 6px 4px;
+}
+
 /* Secondary / outline button */
 QPushButton[cssClass="secondary"] {
     background-color: transparent;

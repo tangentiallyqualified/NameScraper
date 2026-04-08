@@ -1063,10 +1063,13 @@ class QtSmokeTests(unittest.TestCase):
             roster_top = workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y()
             preview_top = workspace._queue_inline_btn.mapTo(workspace, QPoint(0, 0)).y()
             self.assertLessEqual(abs(roster_top - preview_top), 6)
-            self.assertGreaterEqual(
+            self.assertLess(
                 workspace._roster_queue_btn.minimumWidth(),
                 workspace._queue_inline_btn.sizeHint().width() + 20,
             )
+            roster_panel_right = workspace._roster_panel.mapTo(workspace, QPoint(0, 0)).x() + workspace._roster_panel.width()
+            queue_button_right = workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).x() + workspace._roster_queue_btn.width()
+            self.assertLessEqual(queue_button_right, roster_panel_right)
 
             workspace.close()
 
@@ -3147,6 +3150,99 @@ class QtSmokeTests(unittest.TestCase):
             self.assertIsInstance(plex_ready_widget, _RosterRowWidget)
             self.assertFalse(plex_ready_state.checked)
             self.assertTrue(plex_ready_widget._check.isHidden())
+
+            workspace.close()
+
+    def test_media_workspace_prefers_matched_when_auto_selection_lands_on_plex_ready(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, states):
+                self.command_gating = CommandGatingService()
+                self.batch_states = list(states)
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            plex_ready_root = "C:/library/tv/Auto Selected Show (2024)"
+            plex_ready_state = ScanState(
+                folder=Path(plex_ready_root),
+                media_info={"id": 101, "name": "Auto Selected Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"{plex_ready_root}/Season 01/Auto Selected Show (2024) - S01E01 - Pilot.mkv"),
+                        new_name="Auto Selected Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"{plex_ready_root}/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=1.0,
+            )
+            matched_state = ScanState(
+                folder=Path("C:/library/tv/Matched.Show.2024"),
+                media_info={"id": 102, "name": "Matched Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                        new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Matched.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=0.93,
+            )
+            review_state = ScanState(
+                folder=Path("C:/library/tv/Review.Show.2024"),
+                media_info={"id": 103, "name": "Review Show", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="REVIEW",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=0.54,
+                alternate_matches=[{"id": 203, "name": "Review Show", "year": "2024"}],
+            )
+
+            media_ctrl = _FakeMediaController([plex_ready_state, matched_state, review_state])
+            workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl, settings_service=settings)
+
+            workspace.show_ready()
+            self.assertEqual(media_ctrl.library_selected_index, 1)
+            self.assertEqual(workspace._selected_state(), matched_state)
+
+            media_ctrl.library_selected_index = 0
+            workspace._roster_selection_is_auto = True
+            workspace.refresh_from_controller()
+
+            self.assertEqual(media_ctrl.library_selected_index, 1)
+            self.assertEqual(workspace._selected_state(), matched_state)
 
             workspace.close()
 

@@ -181,6 +181,52 @@ class _MasterCheckBox(QCheckBox):
         painter.end()
 
 
+class _ElidedLabel(QLabel):
+    def __init__(
+        self,
+        text: str = "",
+        *,
+        elide_mode: Qt.TextElideMode = Qt.TextElideMode.ElideMiddle,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._full_text = text
+        self._elide_mode = elide_mode
+        self.setWordWrap(False)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self._apply_elision()
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        self._full_text = text
+        self._apply_elision()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_elision()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._apply_elision()
+
+    def _apply_elision(self) -> None:
+        if not self._full_text:
+            super().setText("")
+            self.setToolTip("")
+            return
+        available_width = max(0, self.contentsRect().width())
+        if available_width <= 0:
+            display_text = self._full_text
+        else:
+            display_text = self.fontMetrics().elidedText(
+                self._full_text,
+                self._elide_mode,
+                available_width,
+            )
+        super().setText(display_text)
+        self.setToolTip(self._full_text if display_text != self._full_text else "")
+
+
 class MediaWorkspace(QWidget):
     """TV or Movie tab workspace with state-driven content switching."""
 
@@ -212,6 +258,8 @@ class MediaWorkspace(QWidget):
         self._preview_group_state: dict[str, set[int | str]] = {}
         self._roster_master_syncing = False
         self._roster_collapsed: dict[str, bool] = {"plex-ready": True}
+        self._roster_selection_is_auto = False
+        self._pending_roster_selection_auto: bool | None = None
         self._poster_bridge = _RosterPosterBridge(self)
         self._poster_bridge.poster_ready.connect(self._apply_roster_poster)
         self._build_ui()
@@ -258,34 +306,28 @@ class MediaWorkspace(QWidget):
 
         roster_header = QHBoxLayout()
         roster_header.setContentsMargins(0, 0, 0, 0)
-        roster_header.setSpacing(8)
-        self._roster_title = QLabel("Library")
-        self._roster_title.setProperty("cssClass", "heading")
-        roster_header.addWidget(self._roster_title)
+        roster_header.setSpacing(4)
+
+        self._roster_master_check = _MasterCheckBox("Select All")
+        self._roster_master_check.setTristate(True)
+        self._roster_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._roster_master_check.stateChanged.connect(self._on_roster_master_changed)
+        roster_header.addWidget(self._roster_master_check)
+
+        self._roster_selection_summary = QLabel("0 checked")
+        self._roster_selection_summary.setProperty("cssClass", "caption")
+        roster_header.addWidget(self._roster_selection_summary)
         roster_header.addStretch()
 
         self._roster_queue_btn = QPushButton("Queue Checked")
         self._roster_queue_btn.setProperty("cssClass", "primary")
-        self._roster_queue_btn.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        self._roster_queue_btn.setProperty("sizeVariant", "compact")
+        self._roster_queue_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._roster_queue_btn.setEnabled(False)
         self._roster_queue_btn.clicked.connect(self._queue_checked)
         self._set_roster_queue_button_text("Queue Checked")
         roster_header.addWidget(self._roster_queue_btn)
         roster_layout.addLayout(roster_header)
-
-        roster_select_row = QHBoxLayout()
-        roster_select_row.setContentsMargins(0, 0, 0, 0)
-        roster_select_row.setSpacing(8)
-        self._roster_master_check = _MasterCheckBox("Select All")
-        self._roster_master_check.setTristate(True)
-        self._roster_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._roster_master_check.stateChanged.connect(self._on_roster_master_changed)
-        roster_select_row.addWidget(self._roster_master_check)
-        self._roster_selection_summary = QLabel("0 checked")
-        self._roster_selection_summary.setProperty("cssClass", "caption")
-        roster_select_row.addWidget(self._roster_selection_summary)
-        roster_select_row.addStretch()
-        roster_layout.addLayout(roster_select_row)
 
         self._roster_list = QListWidget()
         self._roster_list.setProperty("cssClass", "row-host-list")
@@ -306,9 +348,16 @@ class MediaWorkspace(QWidget):
         preview_layout.setContentsMargins(12, 12, 12, 12)
         preview_layout.setSpacing(8)
         preview_header = QHBoxLayout()
-        self._preview_title = QLabel("Preview")
-        self._preview_title.setProperty("cssClass", "heading")
-        preview_header.addWidget(self._preview_title)
+
+        self._preview_master_check = _MasterCheckBox("Select All")
+        self._preview_master_check.setTristate(True)
+        self._preview_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._preview_master_check.stateChanged.connect(self._on_preview_master_changed)
+        preview_header.addWidget(self._preview_master_check)
+
+        self._preview_check_summary = QLabel("")
+        self._preview_check_summary.setProperty("cssClass", "caption")
+        preview_header.addWidget(self._preview_check_summary)
         preview_header.addStretch()
         self._fix_match_btn = QPushButton("Fix Match")
         self._fix_match_btn.setProperty("cssClass", "secondary")
@@ -330,20 +379,6 @@ class MediaWorkspace(QWidget):
         self._preview_summary.setWordWrap(True)
         preview_layout.addWidget(self._preview_summary)
         self._sync_action_button_metrics()
-
-        preview_check_row = QHBoxLayout()
-        preview_check_row.setContentsMargins(0, 0, 0, 0)
-        preview_check_row.setSpacing(8)
-        self._preview_master_check = _MasterCheckBox("Select All Files")
-        self._preview_master_check.setTristate(True)
-        self._preview_master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._preview_master_check.stateChanged.connect(self._on_preview_master_changed)
-        preview_check_row.addWidget(self._preview_master_check)
-        self._preview_check_summary = QLabel("")
-        self._preview_check_summary.setProperty("cssClass", "caption")
-        preview_check_row.addWidget(self._preview_check_summary)
-        preview_check_row.addStretch()
-        preview_layout.addLayout(preview_check_row)
         self._preview_master_syncing = False
 
         self._preview_list = QListWidget()
@@ -527,6 +562,8 @@ class MediaWorkspace(QWidget):
             self._folder_plan_label.setText("")
             self._set_preview_summary("Preview items will appear here once a scan is ready.")
             self._detail_panel.clear()
+            self._roster_selection_is_auto = False
+            self._pending_roster_selection_auto = None
             self._roster_queue_btn.setEnabled(False)
             self._set_roster_queue_button_text("Queue Checked")
             self._roster_queue_btn.setToolTip("")
@@ -538,6 +575,7 @@ class MediaWorkspace(QWidget):
             return
 
         selected_index = self._media_ctrl.library_selected_index
+        selection_is_auto = self._roster_selection_is_auto
         if selected_state_key is not None:
             matched_index = next(
                 (index for index, state in enumerate(states) if _roster_selection_key(state) == selected_state_key),
@@ -546,13 +584,28 @@ class MediaWorkspace(QWidget):
             if matched_index is not None:
                 selected_index = matched_index
 
+        preferred_focus_index = self._preferred_batch_focus_index(states)
+        if preferred_focus_index is not None:
+            if selected_state_key is None:
+                selected_index = preferred_focus_index
+                selection_is_auto = True
+            elif (
+                selection_is_auto
+                and selected_index is not None
+                and 0 <= selected_index < len(states)
+                and _roster_group(states[selected_index]) not in {"matched", "review"}
+            ):
+                selected_index = preferred_focus_index
+                selection_is_auto = True
+
         if selected_index is None or not (0 <= selected_index < len(states)):
-            selected_index = 0
+            selected_index = preferred_focus_index if preferred_focus_index is not None else 0
+            selection_is_auto = True
         selected_state = self._media_ctrl.select_show(selected_index)
 
         selected_item = self._find_roster_item_by_index(selected_index)
         if selected_item is not None:
-            self._roster_list.setCurrentItem(selected_item)
+            self._set_roster_current_item(selected_item, auto_selected=selection_is_auto)
 
         if selected_state is not None:
             self._ensure_check_bindings(selected_state)
@@ -688,6 +741,26 @@ class MediaWorkspace(QWidget):
                 return item
         return None
 
+    def _set_roster_current_item(self, item: QListWidgetItem, *, auto_selected: bool) -> None:
+        if self._roster_list.currentItem() is item:
+            self._roster_selection_is_auto = auto_selected
+            self._pending_roster_selection_auto = None
+            return
+        self._pending_roster_selection_auto = auto_selected
+        self._roster_list.setCurrentItem(item)
+        if self._pending_roster_selection_auto is not None:
+            self._roster_selection_is_auto = auto_selected
+            self._pending_roster_selection_auto = None
+
+    def _preferred_batch_focus_index(self, states: list[ScanState]) -> int | None:
+        if len(states) <= 1:
+            return None
+        for group in ("matched", "review"):
+            for index, state in enumerate(states):
+                if _roster_group(state) == group:
+                    return index
+        return None
+
     def _is_compact_mode(self) -> bool:
         return self._settings is not None and self._settings.view_mode == "compact"
 
@@ -759,6 +832,11 @@ class MediaWorkspace(QWidget):
                 self._roster_syncing = False
 
     def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        if self._pending_roster_selection_auto is not None:
+            self._roster_selection_is_auto = self._pending_roster_selection_auto
+            self._pending_roster_selection_auto = None
+        elif current is not None:
+            self._roster_selection_is_auto = False
         if self._roster_syncing or self._media_ctrl is None:
             return
         if current is None:
@@ -1072,14 +1150,14 @@ class MediaWorkspace(QWidget):
         try:
             if checked == 0:
                 self._preview_master_check.setCheckState(Qt.CheckState.Unchecked)
-                self._preview_master_check.setText("Select All Files")
+                self._preview_master_check.setText("Select All")
             elif checked == total:
                 self._preview_master_check.setCheckState(Qt.CheckState.Checked)
-                self._preview_master_check.setText("Deselect All Files")
+                self._preview_master_check.setText("Deselect All")
             else:
                 self._preview_master_check.setCheckState(Qt.CheckState.PartiallyChecked)
-                self._preview_master_check.setText("Select All Files")
-            self._preview_check_summary.setText(f"{checked} of {total} files checked")
+                self._preview_master_check.setText("Select All")
+            self._preview_check_summary.setText(f"{checked} of {total} checked")
         finally:
             self._preview_master_syncing = False
 
@@ -1344,20 +1422,15 @@ class MediaWorkspace(QWidget):
             QSize(),
             self._roster_queue_btn,
         )
-        self._roster_queue_btn.setMinimumWidth(max(self._roster_queue_btn.minimumWidth(), 180, size.width() + 28))
+        self._roster_queue_btn.setMinimumWidth(max(108, size.width()))
         self._sync_action_button_metrics()
 
     def _sync_action_button_metrics(self) -> None:
         if not hasattr(self, "_queue_inline_btn"):
             return
         button_height = max(self._queue_inline_btn.sizeHint().height(), self._roster_queue_btn.sizeHint().height())
-        button_width = max(
-            self._roster_queue_btn.minimumWidth(),
-            self._queue_inline_btn.sizeHint().width() + 20,
-        )
         self._queue_inline_btn.setMinimumHeight(button_height)
         self._roster_queue_btn.setMinimumHeight(button_height)
-        self._roster_queue_btn.setMinimumWidth(button_width)
 
     def _set_preview_summary(self, text: str) -> None:
         self._preview_summary.setText(text)
@@ -1371,8 +1444,7 @@ class MediaWorkspace(QWidget):
         checked_count = sum(1 for state in eligible_states if state.checked)
         total_eligible = len(eligible_states)
         if total_eligible:
-            noun = "item" if total_eligible == 1 else "items"
-            self._roster_selection_summary.setText(f"{checked_count} of {total_eligible} eligible {noun} checked")
+            self._roster_selection_summary.setText(f"{checked_count} of {total_eligible} checked")
         else:
             self._roster_selection_summary.setText("No eligible items")
 
@@ -1671,7 +1743,7 @@ class MediaWorkspace(QWidget):
                 continue
             item = self._find_roster_item_by_index(index)
             if item is not None:
-                self._roster_list.setCurrentItem(item)
+                self._set_roster_current_item(item, auto_selected=self._roster_selection_is_auto)
                 self._scroll_roster_item_into_context(item)
             return
 
@@ -2092,24 +2164,31 @@ class _FolderPreviewRowWidget(QFrame):
         self.setProperty("selectionState", "normal")
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
+        layout.setContentsMargins(6, 5, 6, 5)
+        layout.setSpacing(6)
 
-        body = QVBoxLayout()
-        body.setSpacing(4)
-        layout.addLayout(body, stretch=1)
-
-        self._original = QLabel(source_name)
+        self._original = _ElidedLabel(
+            source_name,
+            elide_mode=Qt.TextElideMode.ElideRight,
+            parent=self,
+        )
         self._original.setProperty("cssClass", "row-title")
-        self._original.setWordWrap(True)
         self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        body.addWidget(self._original)
+        layout.addWidget(self._original, stretch=1)
 
-        self._target = QLabel(f"-> {target_name}")
+        self._arrow = QLabel("->")
+        self._arrow.setProperty("cssClass", "caption")
+        self._arrow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._arrow.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self._arrow, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self._target = QLabel(target_name)
         self._target.setProperty("cssClass", "row-target")
-        self._target.setWordWrap(True)
+        self._target.setWordWrap(False)
         self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        body.addWidget(self._target)
+        self._target.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self._target.setToolTip(target_name)
+        layout.addWidget(self._target)
 
         _repolish(self)
 
