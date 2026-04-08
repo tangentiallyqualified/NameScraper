@@ -78,7 +78,7 @@ Publish to the current branch:
 - In chat-driven environments that require manual terminal approval, run publish commands in a self-terminating PowerShell session so the shell exits immediately after the command finishes.
 - For PowerShell-based assistant tooling, prefer a command form that ends with `exit $LASTEXITCODE` after `scripts/git-publish.cmd` completes.
 - Do not leave an idle PowerShell publish session open while waiting for a chat approval reply.
-- For background publish commands, do not trust the initial terminal-wrapper response as the complete result. Retrieve the full stdout with terminal-output tooling before reporting success or failure.
+- For background publish commands, do not trust the initial terminal-wrapper response as the complete result. Prefer waiting for terminal completion with terminal-await tooling, and fall back to terminal-output retrieval if needed, before reporting success or failure.
 - Prefer direct tools such as changed-file and error inspectors over terminal output when those tools can answer the question.
 - Keep the shared shell for lightweight exploration only.
 
@@ -183,7 +183,7 @@ Do not include unrelated changes.
 - Do not use the publish script as a preview step for `automessage=y`; reserve it for the final commit/push run after approval.
 - When operating through chat or Claude Code approval prompts, invoke publish commands in a self-terminating shell command so the approval text cannot be pasted into an idle PowerShell prompt.
 - Do not leave an idle PowerShell publish session open while waiting for the user's chat reply so the reply cannot land in PowerShell.
-- After starting a background publish command, fetch the full terminal output before reporting the result because the initial background terminal response may omit stdout.
+- After starting a background publish command, prefer terminal-await tooling to capture the full output before reporting the result, and use terminal-output retrieval as a fallback because the initial background terminal response may omit stdout.
 - Do not tell the user to inspect the terminal for the proposed message or to answer in PowerShell. Present the proposal in chat and wait for a chat reply.
 - Avoid the shared shell for output-sensitive commands once a long or noisy command has already run in it.
 - Recognize shorthand prompts such as `publish branch=dev/GUI3 automessage=y stage=task` using the meanings defined above.

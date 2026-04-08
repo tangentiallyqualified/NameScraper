@@ -164,7 +164,7 @@ To reduce noisy output and wasted retries:
 - avoid relying on shared-terminal output after long or noisy test runs
 - do not leave an idle PowerShell publish session open while waiting for a chat approval reply
 - prefer direct repo tools for changed files and errors when those tools are available
-- after a background publish command, check terminal output explicitly before reporting success because the terminal wrapper may not include full stdout in its initial response
+- after a background publish command, use terminal-await/output tooling before reporting success because the initial terminal-wrapper response may not include full stdout
 
 ---
 

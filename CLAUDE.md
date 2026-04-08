@@ -16,5 +16,5 @@ For Windows git publish workflows in this repository, use the instructions in [d
 - Do not leave an idle publish terminal open while waiting for the user's chat reply.
 - Present the proposed commit message in chat, not as a terminal prompt. The expected user replies are `approve` or `use this message: ...`.
 - Recognize shorthand publish prompts documented in [docs/ai-publish-workflow.md](docs/ai-publish-workflow.md), for example `publish branch=dev/GUI3 automessage=y stage=task`.
-- After starting a background publish command, fetch the terminal's full output before reporting the result because the initial terminal-wrapper response may not include complete stdout.
+- After starting a background publish command, prefer `await_terminal` to capture full stdout before reporting the result, and use `get_terminal_output` as a fallback because the initial terminal-wrapper response may not include complete stdout.
 - Use `-StageAll` only when the user explicitly wants all current changes staged.
