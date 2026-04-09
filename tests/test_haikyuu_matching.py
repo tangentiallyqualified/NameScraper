@@ -355,6 +355,36 @@ class SpecialsSeasonHintRegressionTests(unittest.TestCase):
         self.assertEqual(items[0].target_dir, parent / "Season 00")
         self.assertIn("S00E01", items[0].new_name)
 
+    def test_nested_titled_specials_folder_is_treated_as_season_zero(self):
+        from plex_renamer.engine import TVScanner
+
+        parent = self.root.parent / "[UDF] Yuru Camp + Heya Camp"
+        parent.mkdir()
+        specials = parent / "Yuru Camp Specials"
+        specials.mkdir()
+        for episode in range(1, 4):
+            (specials / f"{episode:02d}.mkv").write_text("x")
+
+        fake_tmdb = _FakeTMDB()
+        show_info = {"id": 46260, "name": "Haikyu!!", "year": "2014"}
+        scanner = TVScanner(fake_tmdb, show_info, parent)
+
+        items, has_mismatch = scanner.scan()
+
+        self.assertFalse(has_mismatch)
+        self.assertEqual(len(items), 3)
+        self.assertTrue(all(item.status == "OK" for item in items))
+        self.assertTrue(all(item.season == 0 for item in items))
+        self.assertTrue(all(item.target_dir == parent / "Season 00" for item in items))
+        self.assertEqual(
+            [item.new_name for item in items],
+            [
+                "Haikyu!! (2014) - S00E01 - Episode 1.mkv",
+                "Haikyu!! (2014) - S00E02 - Episode 2.mkv",
+                "Haikyu!! (2014) - S00E03 - Episode 3.mkv",
+            ],
+        )
+
 
 class _FakeTMDB:
     """Minimal TMDB client stub with Haikyuu!! season data."""

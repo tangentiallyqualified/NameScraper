@@ -1647,11 +1647,19 @@ class TVScanner:
                 season_dir == self.root
                 or any(folder == season_dir for folder in (self._season_folders or {}).values())
             )
+            nested_specials_folder = bool(
+                re.search(
+                    r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",
+                    season_dir.name,
+                    re.IGNORECASE,
+                )
+            )
 
             # Detect if this is an extras/featurettes folder (vs actual Season 00)
             extras_folder = (
                 season_num == 0
                 and not explicit_season_folder
+                and not nested_specials_folder
                 and season_dir.name.lower().strip() not in (
                     "specials", "special", "season 00", "season 0",
                     "season00", "season0",

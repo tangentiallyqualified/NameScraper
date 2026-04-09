@@ -292,12 +292,14 @@ class MediaController:
         self._tv_root_folder = folder
 
         from ...parsing import get_season
-        scanner = TVScanner(tmdb, show_info, folder, season_hint=get_season(folder))
+        season_hint = get_season(folder)
+        scanner = TVScanner(tmdb, show_info, folder, season_hint=season_hint)
         state = ScanState(
             folder=folder,
             media_info=show_info,
             scanner=scanner,
             confidence=1.0,
+            season_assignment=season_hint,
             scanned=False,
         )
         self._active_scan = state

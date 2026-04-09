@@ -240,6 +240,18 @@ class MediaControllerInitTests(_ControllerTestCase):
         self.set_movie_session([state])
         self.assertEqual(self.ctrl.library_states, [state])
 
+    def test_accept_tv_show_preserves_detected_season_assignment(self):
+        folder = self.tmp / "Yuru Camp Specials"
+        folder.mkdir()
+
+        state = self.ctrl.accept_tv_show(
+            folder,
+            _FakeTMDB(),
+            {"id": 101, "name": "Yuru Camp", "year": "2018"},
+        )
+
+        self.assertEqual(state.season_assignment, 0)
+
 
 class AcceptTVShowTests(_ControllerTestCase):
 
@@ -459,6 +471,48 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
 
 
 class ScanShowRegressionTests(_ControllerTestCase):
+
+    def test_scan_show_uses_preserved_single_show_season_hint_after_rematch(self):
+        folder = self.tmp / "Yuru Camp Specials"
+        folder.mkdir()
+        state = self.ctrl.accept_tv_show(
+            folder,
+            _FakeTMDB(),
+            {"id": 101, "name": "Yuru Camp", "year": "2018"},
+        )
+        created: dict[str, object] = {}
+
+        class _FakeScanner:
+            def __init__(self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None):
+                created["tmdb"] = tmdb
+                created["show_info"] = show_info
+                created["root_folder"] = root_folder
+                created["season_hint"] = season_hint
+                created["season_folders"] = season_folders
+
+            def scan(self):
+                created["scan_called"] = True
+                return ([], False)
+
+            def get_completeness(self, items, checked_indices):
+                created["checked_indices"] = checked_indices
+                return None
+
+        self.ctrl.rematch_tv_state(state, {"id": 202, "name": "Yuru Camp", "year": "2018"})
+
+        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
+            self.ctrl.scan_show(state, _FakeTMDB())
+
+        _wait_until(
+            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
+            description="single-show rematch rescan to finish",
+        )
+
+        self.assertTrue(created.get("scan_called"))
+        self.assertEqual(created.get("season_hint"), 0)
+        self.assertIsNone(created.get("season_folders"))
+        self.assertEqual(created.get("root_folder"), folder)
+        self.assertEqual(created.get("checked_indices"), set())
 
     def test_scan_show_uses_batch_scan_inputs_for_rematched_tv_state(self):
         state = ScanState(
