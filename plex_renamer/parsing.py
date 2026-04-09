@@ -555,6 +555,15 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     return [], None, False
 
 
+def extract_season_number(filename: str) -> int | None:
+    """Extract the explicit season number from an ``S##E##`` filename pattern."""
+    name = clean_name(Path(filename).stem)
+    match = re.search(r"S(\d+)E\d+(?:[E-]?E?\d+)?", name, re.IGNORECASE)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
 # ─── Season detection ────────────────────────────────────────────────────────
 
 _SPECIALS_PATTERN = re.compile(

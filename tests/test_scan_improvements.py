@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
-from plex_renamer.engine import BatchTVOrchestrator
+from plex_renamer.engine import BatchTVOrchestrator, score_tv_results, TVScanner
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 from plex_renamer.parsing import best_tv_match_title
@@ -39,6 +39,16 @@ class _FakeTMDB:
 
     def get_tv_details(self, show_id):
         return {"number_of_seasons": 1, "number_of_episodes": 12}
+
+    def get_season(self, show_id, season_num):
+        details = self.get_tv_details(show_id)
+        count = details.get("number_of_episodes", 0) if season_num == 1 else 0
+        titles = {episode: f"Episode {episode}" for episode in range(1, count + 1)}
+        return {"titles": titles, "posters": {}, "episodes": {}, "count": count}
+
+    def get_season_map(self, show_id):
+        season = self.get_season(show_id, 1)
+        return ({1: season}, season["count"])
 
 
 class _RecordingTVTMDB(_FakeTMDB):
@@ -86,7 +96,208 @@ class _RecordingTVTMDB(_FakeTMDB):
         return details.get(show_id, super().get_tv_details(show_id))
 
 
+class _FakeYuruCampTMDB(_FakeTMDB):
+    language = "en-US"
+
+    ANIME = {
+        "id": 101,
+        "name": "Laid-Back Camp",
+        "year": "2018",
+        "poster_path": None,
+        "overview": "Anime series",
+    }
+    DRAMA = {
+        "id": 202,
+        "name": "Yuru Camp△",
+        "year": "2020",
+        "poster_path": None,
+        "overview": "Live-action drama",
+    }
+
+    _SEASON_MAPS = {
+        101: {
+            0: {"titles": {1: "Heya Camp"}, "posters": {}, "episodes": {}, "count": 1},
+            1: {"titles": {1: "Mount Fuji and Curry Noodles"}, "posters": {}, "episodes": {}, "count": 1},
+            2: {
+                "titles": {
+                    1: "Curry Noodles Are the Best Travel Companion",
+                    2: "New Year's Solo Camper Girl",
+                },
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+            3: {
+                "titles": {1: "Where Should We Go Next"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            },
+        },
+        202: {
+            1: {"titles": {1: "First Day Camping", 2: "Club Meeting"}, "posters": {}, "episodes": {}, "count": 2},
+            2: {"titles": {1: "A New Semester", 2: "Rainy Camp"}, "posters": {}, "episodes": {}, "count": 2},
+        },
+        303: {
+            1: {"titles": {1: "Episode One", 2: "Episode Two"}, "posters": {}, "episodes": {}, "count": 2},
+            2: {"titles": {1: "Episode Three", 2: "Episode Four"}, "posters": {}, "episodes": {}, "count": 2},
+            3: {"titles": {1: "Episode Five", 2: "Episode Six"}, "posters": {}, "episodes": {}, "count": 2},
+        },
+    }
+
+    def search_tv_batch(self, queries, progress_callback=None):
+        results = []
+        total = len(queries)
+        for index, (_name, _year) in enumerate(queries, start=1):
+            if progress_callback:
+                progress_callback(index, total)
+            results.append([self.DRAMA, self.ANIME])
+        return results
+
+    def get_alternative_titles(self, media_id, media_type="tv"):
+        if media_id == 101:
+            return [("Yuru Camp△", "JP")]
+        return []
+
+    def get_tv_details(self, show_id):
+        seasons = self._SEASON_MAPS.get(show_id, {})
+        return {
+            "number_of_seasons": len([sn for sn in seasons if sn > 0]),
+            "number_of_episodes": sum(data["count"] for sn, data in seasons.items() if sn > 0),
+            "seasons": [
+                {"season_number": sn, "name": f"Season {sn}", "episode_count": data["count"]}
+                for sn, data in sorted(seasons.items())
+            ],
+        }
+
+    def get_season_map(self, show_id):
+        seasons = self._SEASON_MAPS.get(show_id, {})
+        total = sum(data["count"] for sn, data in seasons.items() if sn > 0)
+        return seasons, total
+
+    def get_season(self, show_id, season_num):
+        return self._SEASON_MAPS.get(show_id, {}).get(
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
 class ScanImprovementTests(unittest.TestCase):
+    def test_specials_only_bundle_is_treated_as_container_and_discovers_nested_children(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "[UDF] Yuru Camp△ + Heya Camp△ (BDRip 1080p x264 FLAC)"
+            season_one = bundle / "Yuru Camp△"
+            specials = bundle / "Yuru Camp△ Specials"
+            season_one.mkdir(parents=True)
+            specials.mkdir()
+            (season_one / "Yuru Camp△ - S01E01 - Pilot.mkv").write_text("x")
+            (specials / "01.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+            relative_paths = {candidate.relative_folder for candidate in candidates}
+
+            self.assertNotIn(bundle.name, relative_paths)
+            self.assertIn(f"{bundle.name}/Yuru Camp△", relative_paths)
+            self.assertIn(f"{bundle.name}/Yuru Camp△ Specials", relative_paths)
+
+    def test_tv_discovery_infers_season_assignment_from_explicit_episode_files(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            season_one = root / "Yuru Camp△"
+            season_one.mkdir()
+            (season_one / "Yuru Camp△ - S01E01 - Pilot.mkv").write_text("x")
+            (season_one / "Yuru Camp△ - S01E02 - Second.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeYuruCampTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_shows()
+
+            self.assertEqual(len(states), 1)
+            self.assertEqual(states[0].season_assignment, 1)
+
+    def test_score_tv_results_matches_episode_evidence_ranking(self):
+        with TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "[UDF] Yuru Camp△ + Heya Camp△ (BDRip 1080p x264 FLAC)"
+            folder.mkdir()
+            for name in [
+                "Yuru Camp△ - S02E01 - Curry Noodles Are the Best Travel Companion.mkv",
+                "Yuru Camp△ - S03E01 - Where Should We Go Next.mkv",
+                "Yuru Camp△ - S02E02 - New Year's Solo Camper Girl.mkv",
+            ]:
+                (folder / name).write_text("x")
+
+            tmdb = _FakeYuruCampTMDB()
+            scored = score_tv_results(
+                [tmdb.DRAMA, tmdb.ANIME],
+                "Yuru Camp△",
+                None,
+                tmdb,
+                folder=folder,
+            )
+
+            self.assertEqual(scored[0][0]["id"], tmdb.ANIME["id"])
+            self.assertGreater(scored[0][1], scored[1][1])
+
+    def test_tv_discovery_prefers_episode_evidence_over_exact_wrong_primary_title(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "[UDF] Yuru Camp△ + Heya Camp△ (BDRip 1080p x264 FLAC)"
+            show.mkdir()
+            (show / "Yuru Camp△ Specials").mkdir()
+            for name in [
+                "Yuru Camp△ - S02E01 - Curry Noodles Are the Best Travel Companion.mkv",
+                "Yuru Camp△ - S03E01 - Where Should We Go Next.mkv",
+                "Yuru Camp△ - S02E02 - New Year's Solo Camper Girl.mkv",
+            ]:
+                (show / name).write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeYuruCampTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_shows()
+
+            self.assertEqual(len(states), 1)
+            self.assertEqual(states[0].show_id, 101)
+            self.assertEqual(states[0].media_info["name"], "Laid-Back Camp")
+
+    def test_consolidated_preview_keeps_explicit_season_numbers_when_titles_do_not_match(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "[UDF] Yuru Camp△ + Heya Camp△ (BDRip 1080p x264 FLAC)"
+            root.mkdir()
+            filenames = [
+                "Yuru Camp△ - S02E01 - Curry Noodles Are the Best Travel Companion.mkv",
+                "Yuru Camp△ - S03E01 - Where Should We Go Next.mkv",
+                "Yuru Camp△ - S02E02 - New Year's Solo Camper Girl.mkv",
+            ]
+            for name in filenames:
+                (root / name).write_text("x")
+
+            scanner = TVScanner(
+                _FakeYuruCampTMDB(),
+                {"id": 303, "name": "Other Camp", "year": "2020"},
+                root,
+            )
+
+            items, has_mismatch = scanner.scan()
+            by_name = {item.original.name: item for item in items}
+
+            self.assertFalse(has_mismatch)
+            self.assertEqual(by_name[filenames[0]].season, 2)
+            self.assertEqual(by_name[filenames[0]].episodes, [1])
+            self.assertEqual(by_name[filenames[1]].season, 3)
+            self.assertEqual(by_name[filenames[1]].episodes, [1])
+            self.assertEqual(by_name[filenames[2]].season, 2)
+            self.assertEqual(by_name[filenames[2]].episodes, [2])
+
     def test_tv_discovery_uses_consistent_episode_title_over_noisy_folder_suffix(self):
         with TemporaryDirectory() as tmp:
             show = Path(tmp) / "chernobyl framestor"

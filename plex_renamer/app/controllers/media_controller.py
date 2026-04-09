@@ -32,6 +32,7 @@ from ...engine import (
     ScanCancelledError,
     set_auto_accept_threshold,
     score_results,
+    score_tv_results,
     TVScanner,
 )
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
@@ -806,30 +807,49 @@ class MediaController:
             self._apply_movie_duplicate_labels(self._movie_library_states)
         self._notify("library_changed", self.library_states)
 
-    def rematch_tv_state(self, state: ScanState, new_match: dict) -> None:
+    def rematch_tv_state(self, state: ScanState, new_match: dict, tmdb: Any | None = None) -> ScanState:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
         state.match_origin = "manual"
         orchestrator = self._batch_orchestrator
+        effective_state = state
         if orchestrator is not None:
-            orchestrator.rematch_show(state, new_match)
+            # Keep the controller-visible batch list and the orchestrator's
+            # working set aligned so post-rematch merges remove stale rows
+            # from the roster source of truth as well.
+            orchestrator.states = self._batch_states
+            effective_state = orchestrator.rematch_show(state, new_match)
+            self._batch_states = orchestrator.states
         else:
             state.media_info = new_match
             raw_name = best_tv_match_title(state.folder)
             year_hint = extract_year(state.folder.name)
-            scored = score_results([new_match], raw_name, year_hint, title_key="name")
+            if tmdb is not None:
+                scored = score_tv_results([new_match], raw_name, year_hint, tmdb, folder=state.folder)
+            else:
+                scored = score_results([new_match], raw_name, year_hint, title_key="name")
             state.confidence = scored[0][1] if scored else 0.0
             state.reset_scan()
 
         raw_name = best_tv_match_title(state.folder)
         year_hint = extract_year(state.folder.name)
-        scored = score_results(state.search_results, raw_name, year_hint, title_key="name")
-        state.alternate_matches = pick_alternate_matches(
+        if tmdb is not None:
+            scored = score_tv_results(
+                effective_state.search_results,
+                raw_name,
+                year_hint,
+                tmdb,
+                folder=state.folder,
+            )
+        else:
+            scored = score_results(effective_state.search_results, raw_name, year_hint, title_key="name")
+        effective_state.alternate_matches = pick_alternate_matches(
             scored,
-            selected_id=state.media_info.get("id"),
+            selected_id=effective_state.media_info.get("id"),
             limit=3,
         )
-        state.checked = state.show_id is not None and not state.needs_review
+        effective_state.checked = effective_state.show_id is not None and not effective_state.needs_review
         self._notify("library_changed", self.library_states)
+        return effective_state
 
     def rematch_movie_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a movie scan state and rebuild its preview."""

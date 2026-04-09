@@ -29,6 +29,7 @@ from .parsing import (
     clean_folder_name,
     clean_name,
     extract_episode,
+    extract_season_number,
     extract_year,
     get_season,
     find_companion_subtitles,
@@ -317,6 +318,186 @@ class ScanState:
         self.reset_gui_state()
 
 
+@dataclass(frozen=True)
+class DirectEpisodeEvidence:
+    """Direct child file evidence for TMDB TV disambiguation."""
+
+    season_num: int
+    episode_num: int
+    raw_title: str | None = None
+
+
+def collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]:
+    """Collect explicit ``S##E##`` evidence from direct child video files."""
+    evidence: list[DirectEpisodeEvidence] = []
+    try:
+        entries = sorted(folder.iterdir())
+    except OSError:
+        return evidence
+
+    for entry in entries:
+        if not entry.is_file() or entry.suffix.lower() not in VIDEO_EXTENSIONS:
+            continue
+        if not looks_like_tv_episode(entry):
+            continue
+
+        eps, raw_title, is_season_relative = extract_episode(entry.name)
+        season_num = extract_season_number(entry.name)
+        if not is_season_relative or season_num is None or not eps:
+            continue
+
+        for episode_num in eps:
+            evidence.append(DirectEpisodeEvidence(season_num, episode_num, raw_title))
+
+    return evidence
+
+
+def infer_explicit_season_assignment(
+    folder: Path,
+    evidence: list[DirectEpisodeEvidence] | None = None,
+) -> int | None:
+    """Infer a season assignment from folder name or consistent S##E## files."""
+    season_num = get_season(folder)
+    if season_num is not None:
+        return season_num
+
+    direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
+    explicit_seasons = {item.season_num for item in direct_evidence if item.season_num > 0}
+    if len(explicit_seasons) == 1:
+        return next(iter(explicit_seasons))
+    return None
+
+
+def _best_episode_title_similarity(
+    raw_title: str | None,
+    season_titles: dict[int, str],
+) -> float:
+    if not raw_title or not season_titles:
+        return 0.0
+
+    query_norm = normalize_for_match(raw_title)
+    if not query_norm:
+        return 0.0
+
+    best = 0.0
+    for title in season_titles.values():
+        title_norm = normalize_for_match(title)
+        if not title_norm:
+            continue
+        score = title_similarity(query_norm, title_norm)
+        if len(query_norm) >= 8 and (query_norm in title_norm or title_norm in query_norm):
+            score = max(score, 0.95)
+        best = max(best, score)
+        if best >= 0.999:
+            break
+
+    return best
+
+
+def _tv_episode_evidence_adjustment(
+    tmdb: TMDBClient,
+    show_id: int,
+    evidence: list[DirectEpisodeEvidence],
+) -> float:
+    tmdb_seasons, _ = tmdb.get_season_map(show_id)
+    if not tmdb_seasons:
+        return 0.0
+
+    adjustment = 0.0
+    explicit_seasons = {item.season_num for item in evidence if item.season_num > 0}
+    if explicit_seasons:
+        tmdb_regular_seasons = {sn for sn in tmdb_seasons if sn > 0}
+        coverage = len(explicit_seasons & tmdb_regular_seasons) / len(explicit_seasons)
+        adjustment += (coverage - 0.5) * 0.24
+
+    exact_episode_hits = 0
+    title_scores: list[float] = []
+    limited_evidence = evidence[:8]
+    for item in limited_evidence:
+        season_data = tmdb_seasons.get(item.season_num)
+        if not season_data:
+            continue
+        season_titles = season_data.get("titles", {})
+        if item.episode_num in season_titles:
+            exact_episode_hits += 1
+        title_scores.append(_best_episode_title_similarity(item.raw_title, season_titles))
+
+    if limited_evidence:
+        adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10
+
+    title_scores = [score for score in title_scores if score > 0.0]
+    if title_scores:
+        average_title_score = sum(title_scores) / len(title_scores)
+        adjustment += average_title_score * 0.24
+        if len(title_scores) >= 2 and average_title_score < 0.35:
+            adjustment -= 0.12
+
+    return adjustment
+
+
+def boost_tv_scores_with_episode_evidence(
+    tmdb: TMDBClient,
+    scored: list[tuple[dict, float]],
+    evidence: list[DirectEpisodeEvidence],
+) -> list[tuple[dict, float]]:
+    if not scored or not evidence:
+        return scored
+
+    updated: list[tuple[dict, float]] = []
+    for index, (result, score) in enumerate(scored):
+        show_id = result.get("id")
+        if index >= _ALT_TITLE_CANDIDATES or show_id is None:
+            updated.append((result, score))
+            continue
+
+        adjustment = _tv_episode_evidence_adjustment(tmdb, show_id, evidence)
+        updated.append((result, score + adjustment))
+
+    updated.sort(key=lambda item: item[1], reverse=True)
+    return updated
+
+
+def score_tv_results(
+    results: list[dict],
+    raw_name: str,
+    year_hint: str | None,
+    tmdb: TMDBClient,
+    *,
+    folder: Path | None = None,
+    folder_score_name: str | None = None,
+    episode_evidence: list[DirectEpisodeEvidence] | None = None,
+) -> list[tuple[dict, float]]:
+    """Score TV search results using the same logic as batch discovery."""
+    scored = score_results(results, raw_name, year_hint, title_key="name")
+    if folder is not None and folder_score_name is None:
+        folder_score_name = clean_folder_name(folder.name)
+    if folder_score_name and folder_score_name != raw_name:
+        folder_scored = score_results(results, folder_score_name, year_hint, title_key="name")
+        folder_map = {result.get("id"): score for result, score in folder_scored}
+        scored = [
+            (result, max(score, folder_map.get(result.get("id"), 0.0)))
+            for result, score in scored
+        ]
+        scored.sort(key=lambda item: item[1], reverse=True)
+
+    direct_evidence = episode_evidence
+    if direct_evidence is None and folder is not None:
+        direct_evidence = collect_direct_episode_evidence(folder)
+    direct_evidence = direct_evidence or []
+
+    scored = boost_scores_with_alt_titles(
+        scored,
+        raw_name,
+        year_hint,
+        tmdb,
+        title_key="name",
+        media_type="tv",
+        preferred_country=_country_from_language(tmdb.language),
+        force=bool(direct_evidence),
+    )
+    return boost_tv_scores_with_episode_evidence(tmdb, scored, direct_evidence)
+
+
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
     """
     Return indices of checked, actionable items from a ScanState.
@@ -364,6 +545,41 @@ class BatchTVOrchestrator:
     def _normalized_relative_folder(relative_folder: str, fallback: Path) -> str:
         text = relative_folder or fallback.as_posix()
         return text.replace("\\", "/").casefold()
+
+    @staticmethod
+    def _represented_seasons(state: ScanState) -> set[int]:
+        seasons = set(state.season_folders.keys())
+        if state.season_assignment is not None:
+            seasons.add(state.season_assignment)
+        return seasons
+
+    @classmethod
+    def _expanded_season_folders(cls, state: ScanState) -> dict[int, Path]:
+        if state.season_folders:
+            return dict(state.season_folders)
+        if state.season_assignment is None:
+            return {}
+        return {
+            state.season_assignment: cls._resolve_season_folder(
+                state.folder,
+                state.season_assignment,
+            )
+        }
+
+    @classmethod
+    def _season_merge_priority(cls, state: ScanState) -> tuple[int, float, int, str]:
+        represented = cls._represented_seasons(state)
+        normalized_relative = cls._normalized_relative_folder(
+            state.relative_folder,
+            state.folder,
+        )
+        manual_rank = 0 if state.match_origin == "manual" else 1
+        return (
+            len(represented),
+            state.confidence,
+            -manual_rank,
+            normalized_relative,
+        )
 
     @classmethod
     def _duplicate_priority(cls, state: ScanState) -> tuple[float, int, int, str]:
@@ -482,6 +698,32 @@ class BatchTVOrchestrator:
         )
         return best[0], best[1]
 
+    @staticmethod
+    def _collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]:
+        """Collect explicit ``S##E##`` evidence from direct child video files."""
+        return collect_direct_episode_evidence(folder)
+
+    @staticmethod
+    def _best_episode_title_similarity(
+        raw_title: str | None,
+        season_titles: dict[int, str],
+    ) -> float:
+        return _best_episode_title_similarity(raw_title, season_titles)
+
+    def _tv_episode_evidence_adjustment(
+        self,
+        show_id: int,
+        evidence: list[DirectEpisodeEvidence],
+    ) -> float:
+        return _tv_episode_evidence_adjustment(self.tmdb, show_id, evidence)
+
+    def _boost_tv_scores_with_episode_evidence(
+        self,
+        scored: list[tuple[dict, float]],
+        evidence: list[DirectEpisodeEvidence],
+    ) -> list[tuple[dict, float]]:
+        return boost_tv_scores_with_episode_evidence(self.tmdb, scored, evidence)
+
     def _get_discovery_service(self):
         if self.discovery_service is None:
             from .app.services import TVLibraryDiscoveryService
@@ -507,7 +749,7 @@ class BatchTVOrchestrator:
         """
         discovery_service = self._get_discovery_service()
         discovered = discovery_service.discover_show_roots(self.root)
-        candidates: list[tuple[object, str, str, str, str | None]] = []
+        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
             cleaned = best_tv_match_title(candidate.folder, include_year=False)
@@ -518,7 +760,15 @@ class BatchTVOrchestrator:
             # filenames vs "Neon Genesis Evangelion" from the folder).
             folder_score_name = clean_folder_name(candidate.folder.name)
             year_hint = extract_year(candidate.folder.name)
-            candidates.append((candidate, cleaned, score_name, folder_score_name, year_hint))
+            episode_evidence = self._collect_direct_episode_evidence(candidate.folder)
+            candidates.append((
+                candidate,
+                cleaned,
+                score_name,
+                folder_score_name,
+                year_hint,
+                episode_evidence,
+            ))
 
         if not candidates:
             return []
@@ -526,7 +776,7 @@ class BatchTVOrchestrator:
         _log.info("Discovered %d candidate show folders", len(candidates))
 
         # Parallel TMDB search
-        queries = [(name, year) for _, name, _, _, year in candidates]
+        queries = [(name, year) for _, name, _, _, year, _ in candidates]
         all_results = self.tmdb.search_tv_batch(
             queries,
             progress_callback=progress_callback,
@@ -534,7 +784,7 @@ class BatchTVOrchestrator:
 
         # Build ScanState for each candidate
         states: list[ScanState] = []
-        for (candidate, cleaned_name, score_name, folder_score_name, year_hint), results in zip(candidates, all_results):
+        for (candidate, cleaned_name, score_name, folder_score_name, year_hint, episode_evidence), results in zip(candidates, all_results):
             _raise_if_cancelled(cancel_event)
             folder = candidate.folder
             if not results:
@@ -557,7 +807,7 @@ class BatchTVOrchestrator:
                     direct_episode_file_count=candidate.direct_episode_file_count,
                     direct_video_file_count=candidate.direct_video_file_count,
                     discovered_via_symlink=candidate.discovered_via_symlink,
-                    season_assignment=get_season(folder),
+                    season_assignment=infer_explicit_season_assignment(folder, episode_evidence),
                 )
                 states.append(state)
                 continue
@@ -569,19 +819,14 @@ class BatchTVOrchestrator:
             # episode filenames vs "Neon Genesis Evangelion" from the
             # folder name).
             raw_name = score_name
-            scored = score_results(results, raw_name, year_hint, title_key="name")
-            if folder_score_name and folder_score_name != score_name:
-                folder_scored = score_results(results, folder_score_name, year_hint, title_key="name")
-                folder_map = {r.get("id"): s for r, s in folder_scored}
-                scored = [
-                    (r, max(s, folder_map.get(r.get("id"), 0.0)))
-                    for r, s in scored
-                ]
-                scored.sort(key=lambda x: x[1], reverse=True)
-            scored = boost_scores_with_alt_titles(
-                scored, raw_name, year_hint, self.tmdb,
-                title_key="name", media_type="tv",
-                preferred_country=_country_from_language(self.tmdb.language),
+            scored = score_tv_results(
+                results,
+                raw_name,
+                year_hint,
+                self.tmdb,
+                folder=folder,
+                folder_score_name=folder_score_name,
+                episode_evidence=episode_evidence,
             )
 
             best, best_score = scored[0]
@@ -674,7 +919,7 @@ class BatchTVOrchestrator:
                 discovered_via_symlink=candidate.discovered_via_symlink,
                 tie_detected=tie_detected,
                 season_names=season_names,
-                season_assignment=get_season(folder),
+                season_assignment=infer_explicit_season_assignment(folder, episode_evidence),
             )
             states.append(state)
 
@@ -702,6 +947,70 @@ class BatchTVOrchestrator:
         self._apply_duplicate_labels()
         self.states.sort(key=_sort_key)
         return states
+
+    def merge_rematched_state(self, state: ScanState) -> ScanState:
+        """Merge a rematched season/special state into existing show siblings."""
+        show_id = state.show_id
+        state_seasons = self._represented_seasons(state)
+        if show_id is None or not state_seasons:
+            self._apply_duplicate_labels()
+            return state
+
+        merge_group: list[ScanState] = [state]
+        covered_seasons = set(state_seasons)
+        for other in self.states:
+            if other is state or other.show_id != show_id:
+                continue
+            other_seasons = self._represented_seasons(other)
+            if not other_seasons or covered_seasons & other_seasons:
+                continue
+            merge_group.append(other)
+            covered_seasons.update(other_seasons)
+
+        if len(merge_group) == 1:
+            self._apply_duplicate_labels()
+            return state
+
+        target = max(merge_group, key=self._season_merge_priority)
+        season_map: dict[int, Path] = {}
+        total_files = 0
+        total_episode_files = 0
+        merged_search_results = target.search_results
+        merged_alternates = target.alternate_matches
+        merged_tie_detected = target.tie_detected
+        merged_checked = False
+
+        for member in merge_group:
+            total_files += member.direct_video_file_count
+            total_episode_files += member.direct_episode_file_count
+            for season_num, folder in self._expanded_season_folders(member).items():
+                season_map[season_num] = folder
+            for season_num, name in member.season_names.items():
+                target.season_names.setdefault(season_num, name)
+            if member is state:
+                merged_search_results = member.search_results
+                merged_alternates = member.alternate_matches
+                merged_tie_detected = member.tie_detected
+            merged_checked = merged_checked or member.checked
+
+        target.media_info = state.media_info
+        target.confidence = max(member.confidence for member in merge_group)
+        target.match_origin = state.match_origin
+        target.search_results = merged_search_results
+        target.alternate_matches = merged_alternates
+        target.tie_detected = merged_tie_detected
+        target.checked = merged_checked
+        target.season_folders = season_map
+        target.season_assignment = None
+        target.direct_video_file_count = total_files
+        target.direct_episode_file_count = total_episode_files
+        target.duplicate_of = None
+        target.duplicate_of_relative_folder = None
+        target.reset_scan()
+
+        self.states[:] = [member for member in self.states if member not in merge_group or member is target]
+        self._apply_duplicate_labels()
+        return target
 
     @staticmethod
     def _merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
@@ -882,17 +1191,18 @@ class BatchTVOrchestrator:
             if progress_callback:
                 progress_callback(i + 1, total)
 
-    def rematch_show(self, state: ScanState, new_match: dict) -> None:
+    def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:
         """Swap a show's TMDB match and invalidate its scan data."""
         state.media_info = new_match
         # Rescore confidence against the original search results
         raw_name = best_tv_match_title(state.folder)
         year_hint = extract_year(state.folder.name)
-        scored = score_results(
-            [new_match], raw_name, year_hint, title_key="name")
+        scored = score_tv_results([new_match], raw_name, year_hint, self.tmdb, folder=state.folder)
         state.confidence = scored[0][1] if scored else 0.0
         state.reset_scan()
+        merged_state = self.merge_rematched_state(state)
         self._apply_duplicate_labels()
+        return merged_state
 
     @staticmethod
     def is_tv_library(folder: Path) -> bool:
@@ -1974,7 +2284,7 @@ class TVScanner:
         title_matches = self._try_title_based_matching(all_files, tmdb_seasons)
         if title_matches is not None:
             items: list[PreviewItem] = []
-            for i, (f, abs_num, raw_title, eps, is_sr) in enumerate(all_files):
+            for i, (f, abs_num, raw_title, eps, is_sr, season_hint) in enumerate(all_files):
                 match = title_matches[i]
                 if match is None:
                     items.append(PreviewItem(
@@ -2003,7 +2313,7 @@ class TVScanner:
         items: list[PreviewItem] = []
         tmdb_idx = 0
 
-        for f, abs_num, raw_title, eps, is_sr in all_files:
+        for f, abs_num, raw_title, eps, is_sr, season_hint in all_files:
             num_eps = max(1, len(eps))
 
             if tmdb_idx >= len(tmdb_list):
@@ -2044,7 +2354,7 @@ class TVScanner:
 
     def _try_title_based_matching(
         self,
-        all_files: list[tuple[Path, int, str | None, list[int], bool]],
+        all_files: list[tuple[Path, int, str | None, list[int], bool, int | None]],
         tmdb_seasons: dict,
     ) -> list[tuple[int, int, str] | None] | None:
         """Try to match files to TMDB episodes by title or absolute number.
@@ -2096,7 +2406,18 @@ class TVScanner:
         matches: list[tuple[int, int, str] | None] = []
         used: set[tuple[int, int]] = set()
 
-        for f, abs_num, raw_title, eps, is_sr in all_files:
+        for f, abs_num, raw_title, eps, is_sr, season_hint in all_files:
+            if is_sr and season_hint is not None and eps:
+                season_data = tmdb_seasons.get(season_hint)
+                if season_data:
+                    episode_num = eps[0]
+                    title = season_data["titles"].get(episode_num)
+                    if title and (season_hint, episode_num) not in used:
+                        match = (season_hint, episode_num, title)
+                        used.add((match[0], match[1]))
+                        matches.append(match)
+                        continue
+
             match = self._match_file_title_to_tmdb(
                 raw_title, title_lookup, number_lookup, used,
             )
@@ -2178,7 +2499,7 @@ class TVScanner:
 
     def _collect_absolute_files(
         self, season_dirs: list[tuple[Path, int]],
-    ) -> list[tuple[Path, int, str | None, list[int], bool]]:
+    ) -> list[tuple[Path, int, str | None, list[int], bool, int | None]]:
         """Collect all video files sorted by absolute episode number."""
         all_files = []
         for season_dir, season_num in season_dirs:
@@ -2186,8 +2507,9 @@ class TVScanner:
                 if not f.is_file() or f.suffix.lower() not in VIDEO_EXTENSIONS:
                     continue
                 eps, raw_title, is_sr = extract_episode(f.name)
+                season_hint = extract_season_number(f.name) if is_sr else None
                 abs_num = eps[0] if eps else 9999
-                all_files.append((f, abs_num, raw_title, eps, is_sr))
+                all_files.append((f, abs_num, raw_title, eps, is_sr, season_hint))
         all_files.sort(key=lambda x: x[1])
         return all_files
 
@@ -2866,6 +3188,7 @@ def boost_scores_with_alt_titles(
     title_key: str = "title",
     media_type: str = "movie",
     preferred_country: str | None = None,
+    force: bool = False,
 ) -> list[tuple[dict, float]]:
     """
     Re-score top candidates using TMDB alternative titles.
@@ -2893,7 +3216,7 @@ def boost_scores_with_alt_titles(
         return scored
 
     best_score = scored[0][1]
-    if best_score >= AUTO_ACCEPT_THRESHOLD:
+    if best_score >= AUTO_ACCEPT_THRESHOLD and not force:
         _log.debug(
             "Alt title boost skipped — top result already at %.2f "
             "(threshold %.2f) for %r",
@@ -2902,9 +3225,9 @@ def boost_scores_with_alt_titles(
         return scored
 
     _log.info(
-        "Alt title boost: top score %.2f < %.2f for %r — "
-        "checking alt titles (preferred_country=%s)",
-        best_score, AUTO_ACCEPT_THRESHOLD, raw_name, preferred_country,
+        "Alt title boost: top score %.2f for %r — checking alt titles "
+        "(preferred_country=%s, force=%s)",
+        best_score, raw_name, preferred_country, force,
     )
 
     query_norm = normalize_for_match(raw_name)

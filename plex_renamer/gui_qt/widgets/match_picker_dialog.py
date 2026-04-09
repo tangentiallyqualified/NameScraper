@@ -53,6 +53,7 @@ class MatchPickerDialog(QDialog):
         initial_query: str,
         initial_results: list[dict],
         search_callback: Callable[[str, str | None], list[dict]],
+        score_results_callback: Callable[[list[dict]], list[tuple[dict, float]]] | None = None,
         year_hint: str | None = None,
         raw_name: str | None = None,
         parent: QWidget | None = None,
@@ -62,6 +63,7 @@ class MatchPickerDialog(QDialog):
         self.resize(520, 520)
         self._title_key = title_key
         self._search_callback = search_callback
+        self._score_results_callback = score_results_callback
         self._year_hint = year_hint
         self._raw_name = raw_name or initial_query
         self._selected: dict | None = None
@@ -183,7 +185,10 @@ class MatchPickerDialog(QDialog):
             self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
             return
 
-        scored = score_results(results, self._raw_name, self._year_hint, title_key=self._title_key)
+        if self._score_results_callback is not None:
+            scored = self._score_results_callback(results)
+        else:
+            scored = score_results(results, self._raw_name, self._year_hint, title_key=self._title_key)
         score_map = {id(r): s for r, s in scored}
 
         for index, result in enumerate(results):
@@ -224,6 +229,7 @@ class MatchPickerDialog(QDialog):
         initial_query: str,
         initial_results: list[dict],
         search_callback: Callable[[str, str | None], list[dict]],
+        score_results_callback: Callable[[list[dict]], list[tuple[dict, float]]] | None = None,
         year_hint: str | None = None,
         raw_name: str | None = None,
         parent: QWidget | None = None,
@@ -234,6 +240,7 @@ class MatchPickerDialog(QDialog):
             initial_query=initial_query,
             initial_results=initial_results,
             search_callback=search_callback,
+            score_results_callback=score_results_callback,
             year_hint=year_hint,
             raw_name=raw_name,
             parent=parent,

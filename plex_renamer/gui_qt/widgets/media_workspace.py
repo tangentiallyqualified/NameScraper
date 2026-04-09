@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...engine import PreviewItem, ScanState
+from ...engine import PreviewItem, ScanState, score_tv_results
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...parsing import build_movie_name, build_show_folder_name
 from ._formatting import clamped_percent
@@ -1317,11 +1317,13 @@ class MediaWorkspace(QWidget):
             title_key = "title"
             search_callback = tmdb.search_movie
             dialog_title = f"{self._fix_match_label(state)}: {query_source}"
+            score_results_callback = None
         else:
             query_source = state.folder.name
             title_key = "name"
             search_callback = tmdb.search_tv
             dialog_title = f"{self._fix_match_label(state)}: {state.folder.name}"
+            score_results_callback = None
 
         query = (
             best_tv_match_title(state.folder, include_year=False)
@@ -1329,12 +1331,21 @@ class MediaWorkspace(QWidget):
             else clean_folder_name(query_source, include_year=False)
         )
         year_hint = extract_year(query_source)
+        if self._media_type == "tv":
+            score_results_callback = lambda results: score_tv_results(
+                results,
+                query,
+                year_hint,
+                tmdb,
+                folder=state.folder,
+            )
         chosen = MatchPickerDialog.pick(
             title=dialog_title,
             title_key=title_key,
             initial_query=query,
             initial_results=state.search_results,
             search_callback=search_callback,
+            score_results_callback=score_results_callback,
             year_hint=year_hint,
             raw_name=query,
             parent=self,
@@ -1350,14 +1361,14 @@ class MediaWorkspace(QWidget):
                 self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
                 return
 
-            self._media_ctrl.rematch_tv_state(state, chosen)
+            updated_state = self._media_ctrl.rematch_tv_state(state, chosen, tmdb)
             self.refresh_from_controller()
-            self._restore_roster_selection_by_key(selected_key)
-            self._media_ctrl.scan_show(state, tmdb)
-            if state.scanned or state.preview_items:
+            self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
+            self._media_ctrl.scan_show(updated_state, tmdb)
+            if updated_state.scanned or updated_state.preview_items:
                 self.refresh_from_controller()
-                self._restore_roster_selection_by_key(selected_key)
-            self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
+                self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
+            self.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)
         except Exception as exc:
             QMessageBox.warning(self, "Fix Match Failed", str(exc))
 
@@ -1637,14 +1648,14 @@ class MediaWorkspace(QWidget):
             if tmdb is None:
                 self.status_message.emit("TMDB is unavailable.", 4000)
                 return
-            self._media_ctrl.rematch_tv_state(state, match)
+            updated_state = self._media_ctrl.rematch_tv_state(state, match, tmdb)
             self.refresh_from_controller()
-            self._restore_roster_selection_by_key(selected_key)
-            self._media_ctrl.scan_show(state, tmdb)
-            if state.scanned or state.preview_items:
+            self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
+            self._media_ctrl.scan_show(updated_state, tmdb)
+            if updated_state.scanned or updated_state.preview_items:
                 self.refresh_from_controller()
-                self._restore_roster_selection_by_key(selected_key)
-            self.status_message.emit(f"Re-matching {state.display_name}...", 4000)
+                self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
+            self.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)
         except Exception as exc:
             QMessageBox.warning(self, "Fix Match Failed", str(exc))
 

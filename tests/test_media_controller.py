@@ -781,6 +781,169 @@ class RematchStateTests(_ControllerTestCase):
         self.assertEqual(state.media_info["id"], 20)
         self.assertEqual([match["id"] for match in state.alternate_matches], [10, 30])
 
+    def test_rematch_tv_state_merges_single_season_into_existing_multi_season_card(self):
+        (self.tmp / "Yuru Camp S02").mkdir()
+        (self.tmp / "Yuru Camp S03").mkdir()
+        (self.tmp / "Yuru Camp").mkdir()
+        merged_state = ScanState(
+            folder=self.tmp / "Yuru Camp S02",
+            media_info={"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            confidence=0.88,
+            season_folders={
+                2: self.tmp / "Yuru Camp S02",
+                3: self.tmp / "Yuru Camp S03",
+            },
+            search_results=[
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            ],
+            scanned=True,
+            checked=True,
+        )
+        season_one_state = ScanState(
+            folder=self.tmp / "Yuru Camp",
+            media_info={"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            confidence=0.49,
+            season_assignment=1,
+            search_results=[
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            ],
+            scanned=True,
+            checked=False,
+        )
+        orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orchestrator.tmdb = _FakeTMDB()
+        orchestrator.root = self.tmp
+
+        self.set_tv_session(
+            [merged_state, season_one_state],
+            batch_mode=True,
+            batch_orchestrator=orchestrator,
+        )
+        orchestrator.states = self.ctrl.batch_states
+
+        effective_state = self.ctrl.rematch_tv_state(
+            season_one_state,
+            {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            orchestrator.tmdb,
+        )
+
+        self.assertIs(effective_state, merged_state)
+        self.assertEqual(self.ctrl.batch_states, [merged_state])
+        self.assertEqual(set(merged_state.season_folders.keys()), {1, 2, 3})
+        self.assertIsNone(merged_state.duplicate_of)
+        self.assertFalse(merged_state.scanned)
+
+    def test_rematch_tv_state_merges_specials_into_existing_multi_season_card(self):
+        (self.tmp / "Yuru Camp S01").mkdir()
+        (self.tmp / "Yuru Camp S02").mkdir()
+        (self.tmp / "Yuru Camp S03").mkdir()
+        (self.tmp / "Yuru Camp Specials").mkdir()
+        merged_state = ScanState(
+            folder=self.tmp / "Yuru Camp S01",
+            media_info={"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            confidence=0.93,
+            season_folders={
+                1: self.tmp / "Yuru Camp S01",
+                2: self.tmp / "Yuru Camp S02",
+                3: self.tmp / "Yuru Camp S03",
+            },
+            search_results=[
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            ],
+            scanned=True,
+            checked=True,
+        )
+        specials_state = ScanState(
+            folder=self.tmp / "Yuru Camp Specials",
+            media_info={"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            confidence=0.32,
+            season_assignment=0,
+            search_results=[
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            ],
+            scanned=True,
+            checked=False,
+        )
+        orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orchestrator.tmdb = _FakeTMDB()
+        orchestrator.root = self.tmp
+
+        self.set_tv_session(
+            [merged_state, specials_state],
+            batch_mode=True,
+            batch_orchestrator=orchestrator,
+        )
+        orchestrator.states = self.ctrl.batch_states
+
+        effective_state = self.ctrl.rematch_tv_state(
+            specials_state,
+            {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            orchestrator.tmdb,
+        )
+
+        self.assertIs(effective_state, merged_state)
+        self.assertEqual(self.ctrl.batch_states, [merged_state])
+        self.assertEqual(set(merged_state.season_folders.keys()), {0, 1, 2, 3})
+
+    def test_rematch_tv_state_resyncs_controller_batch_states_when_orchestrator_list_drifted(self):
+        (self.tmp / "Yuru Camp S02").mkdir()
+        (self.tmp / "Yuru Camp S03").mkdir()
+        (self.tmp / "Yuru Camp").mkdir()
+        merged_state = ScanState(
+            folder=self.tmp / "Yuru Camp S02",
+            media_info={"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            confidence=0.88,
+            season_folders={
+                2: self.tmp / "Yuru Camp S02",
+                3: self.tmp / "Yuru Camp S03",
+            },
+            search_results=[
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            ],
+            scanned=True,
+            checked=True,
+        )
+        season_one_state = ScanState(
+            folder=self.tmp / "Yuru Camp",
+            media_info={"id": 202, "name": "Yuru Camp△", "year": "2020"},
+            confidence=0.49,
+            season_assignment=1,
+            search_results=[
+                {"id": 202, "name": "Yuru Camp△", "year": "2020"},
+                {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            ],
+            scanned=True,
+            checked=False,
+        )
+        orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orchestrator.tmdb = _FakeTMDB()
+        orchestrator.root = self.tmp
+
+        self.set_tv_session(
+            [merged_state, season_one_state],
+            batch_mode=True,
+            batch_orchestrator=orchestrator,
+        )
+        orchestrator.states = list(self.ctrl.batch_states)
+
+        effective_state = self.ctrl.rematch_tv_state(
+            season_one_state,
+            {"id": 101, "name": "Laid-Back Camp", "year": "2018"},
+            orchestrator.tmdb,
+        )
+
+        self.assertIs(effective_state, merged_state)
+        self.assertIs(self.ctrl.batch_states, orchestrator.states)
+        self.assertEqual(self.ctrl.batch_states, [merged_state])
+        self.assertEqual(set(merged_state.season_folders.keys()), {1, 2, 3})
+        self.assertEqual(merged_state.match_origin, "manual")
+        self.assertFalse(merged_state.scanned)
+
     def test_rematch_movie_state_rebuilds_preview(self):
         movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
         old_item = PreviewItem(

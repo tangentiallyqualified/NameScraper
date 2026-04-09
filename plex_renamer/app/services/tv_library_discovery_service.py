@@ -212,6 +212,10 @@ class TVLibraryDiscoveryService:
             # than a bare season folder.  Scan children first; if no episode
             # content is found, fall back to SEASON_FOLDER.
             child_entries = self._scan_children(directory)
+            has_direct_video_files = any(
+                child.is_file and child.path.suffix.lower() in VIDEO_EXTENSIONS
+                for child in child_entries
+            )
             has_direct_episodes = any(
                 child.is_file
                 and child.path.suffix.lower() in VIDEO_EXTENSIONS
@@ -224,7 +228,9 @@ class TVLibraryDiscoveryService:
                 and not is_extras_folder(child.path.name)
                 for child in child_entries
             )
-            if not has_direct_episodes and not has_non_extras_child_dirs:
+            if season_num == 0 and has_direct_video_files:
+                pass
+            elif not has_direct_episodes and not has_non_extras_child_dirs:
                 return _ClassifiedDirectory(
                     role=TVDirectoryRole.SEASON_FOLDER,
                     child_dirs=[],
@@ -239,8 +245,10 @@ class TVLibraryDiscoveryService:
         else:
             child_entries = self._scan_children(directory)
         child_dirs: list[Path] = []
+        specials_dirs: list[Path] = []
         direct_video_files: list[Path] = []
         has_direct_season_subdirs = False
+        has_regular_season_subdirs = False
 
         for child in child_entries:
             if child.is_dir:
@@ -248,6 +256,10 @@ class TVLibraryDiscoveryService:
                     continue
                 if self._counts_as_season_subdir(child):
                     has_direct_season_subdirs = True
+                    if child.season_num == 0:
+                        specials_dirs.append(child.path)
+                    else:
+                        has_regular_season_subdirs = True
                 else:
                     child_dirs.append(child.path)
                 continue
@@ -260,7 +272,7 @@ class TVLibraryDiscoveryService:
             if looks_like_tv_episode(video_path)
         )
 
-        if has_direct_season_subdirs:
+        if has_regular_season_subdirs or (specials_dirs and direct_episode_file_count > 0):
             return _ClassifiedDirectory(
                 role=TVDirectoryRole.SHOW_ROOT,
                 child_dirs=[],
@@ -282,6 +294,17 @@ class TVLibraryDiscoveryService:
                 discovered_via_symlink=directory.is_symlink(),
             )
 
+        if season_num == 0 and direct_video_files:
+            return _ClassifiedDirectory(
+                role=TVDirectoryRole.SHOW_ROOT,
+                child_dirs=[],
+                discovery_reason="specials_video_files",
+                has_direct_season_subdirs=False,
+                direct_episode_file_count=0,
+                direct_video_file_count=len(direct_video_files),
+                discovered_via_symlink=directory.is_symlink(),
+            )
+
         if len(direct_video_files) > 2:
             return _ClassifiedDirectory(
                 role=TVDirectoryRole.SHOW_ROOT,
@@ -292,6 +315,9 @@ class TVLibraryDiscoveryService:
                 direct_video_file_count=len(direct_video_files),
                 discovered_via_symlink=directory.is_symlink(),
             )
+
+        if specials_dirs and not has_regular_season_subdirs and direct_episode_file_count == 0:
+            child_dirs = [*child_dirs, *specials_dirs]
 
         if child_dirs:
             return _ClassifiedDirectory(

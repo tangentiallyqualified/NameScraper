@@ -1634,13 +1634,14 @@ class QtSmokeTests(unittest.TestCase):
             def sync_queued_states(self):
                 return None
 
-            def rematch_tv_state(self, state, chosen):
+            def rematch_tv_state(self, state, chosen, tmdb=None):
                 state.media_info = chosen
                 state.duplicate_of = None
                 state.duplicate_of_relative_folder = None
                 state.preview_items = []
                 state.scanned = False
                 state.checked = True
+                return state
 
             def scan_show(self, state, _tmdb):
                 state.preview_items = [
