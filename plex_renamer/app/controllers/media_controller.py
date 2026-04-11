@@ -836,9 +836,17 @@ class MediaController:
         orchestrator = self._batch_orchestrator
         if orchestrator is not None:
             if season_num is not None and state.show_id is not None:
+                # User-driven season assignment counts as a manual
+                # confirmation of the match, so lift the state out of the
+                # needs-review bucket on the next roster recompute.
+                state.match_origin = "manual"
                 orchestrator.states = self._batch_states
                 effective_state = orchestrator.merge_rematched_state(state)
                 self._batch_states = orchestrator.states
+                if effective_state is state:
+                    # No consolidation happened — the existing preview was
+                    # built with the old season hint and is now stale.
+                    state.reset_scan()
             else:
                 orchestrator._apply_duplicate_labels()
         elif self._movie_library_states:

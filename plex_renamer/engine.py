@@ -547,24 +547,53 @@ class BatchTVOrchestrator:
         return text.replace("\\", "/").casefold()
 
     @staticmethod
-    def _represented_seasons(state: ScanState) -> set[int]:
+    def _preview_single_season(state: ScanState) -> int | None:
+        """Return the one season covered by ``preview_items``, or ``None``.
+
+        Used as a fallback for states whose folder carries no explicit
+        season hint but whose scanned preview unambiguously resolves to a
+        single TMDB season.  Multi-season previews are deliberately
+        rejected so we never merge a show-root folder into a sibling on
+        partial evidence.
+        """
+        if not state.preview_items:
+            return None
+        detected = {
+            item.season for item in state.preview_items
+            if item.season is not None
+        }
+        if len(detected) != 1:
+            return None
+        return next(iter(detected))
+
+    @classmethod
+    def _represented_seasons(cls, state: ScanState) -> set[int]:
         seasons = set(state.season_folders.keys())
         if state.season_assignment is not None:
             seasons.add(state.season_assignment)
+        if not seasons:
+            inferred = cls._preview_single_season(state)
+            if inferred is not None:
+                seasons.add(inferred)
         return seasons
 
     @classmethod
     def _expanded_season_folders(cls, state: ScanState) -> dict[int, Path]:
         if state.season_folders:
             return dict(state.season_folders)
-        if state.season_assignment is None:
-            return {}
-        return {
-            state.season_assignment: cls._resolve_season_folder(
-                state.folder,
-                state.season_assignment,
-            )
-        }
+        if state.season_assignment is not None:
+            return {
+                state.season_assignment: cls._resolve_season_folder(
+                    state.folder,
+                    state.season_assignment,
+                )
+            }
+        inferred = cls._preview_single_season(state)
+        if inferred is not None:
+            return {
+                inferred: cls._resolve_season_folder(state.folder, inferred),
+            }
+        return {}
 
     @classmethod
     def _season_merge_priority(cls, state: ScanState) -> tuple[int, float, int, str]:
