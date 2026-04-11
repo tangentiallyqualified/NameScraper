@@ -425,8 +425,8 @@ class ScanImprovementTests(unittest.TestCase):
                 ({"id": 3, "name": "Dok Ngew", "year": "2017"}, 0.18),
             ]
 
-            with patch("plex_renamer.engine._core.score_results", return_value=scored), patch(
-                "plex_renamer.engine._core.boost_scores_with_alt_titles",
+            with patch("plex_renamer.engine.matching.score_results", return_value=scored), patch(
+                "plex_renamer.engine.matching.boost_scores_with_alt_titles",
                 side_effect=lambda scored, *args, **kwargs: scored,
             ):
                 states = orchestrator.discover_shows()
