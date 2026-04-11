@@ -128,7 +128,16 @@ def _execute_rename(job: RenameJob) -> RenameResult:
         and not (job.media_type == MediaType.MOVIE and root_is_library)
         and root_folder.name != job.show_folder_rename
     ):
-        candidate_root = root_folder.parent / job.show_folder_rename
+        # TV shows always belong directly under the library root, even when
+        # the source was discovered inside a multi-show release directory
+        # (e.g. "[UDF] Yuru Camp△ + Heya Camp△/Heya Camp△").  Movies keep
+        # the historical "rename release folder in place" behavior so a
+        # sibling-of-root placement is preserved for release directories.
+        if job.media_type == MediaType.TV:
+            candidate_parent = library_root
+        else:
+            candidate_parent = root_folder.parent
+        candidate_root = candidate_parent / job.show_folder_rename
         same_dir = (
             os.path.normcase(str(root_folder))
             == os.path.normcase(str(candidate_root))
