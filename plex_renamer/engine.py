@@ -328,26 +328,51 @@ class DirectEpisodeEvidence:
 
 
 def collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]:
-    """Collect explicit ``S##E##`` evidence from direct child video files."""
+    """Collect explicit ``S##E##`` evidence for a show folder.
+
+    Walks direct child video files first.  When the folder is a
+    Plex-ready show root (no direct videos but one or more
+    ``Season ##`` subdirs), falls back to the first level of those
+    subdirs so TMDB scoring can still exploit episode-title evidence
+    to break candidate ties.
+    """
     evidence: list[DirectEpisodeEvidence] = []
+
+    def _collect_from(directory: Path) -> int:
+        count = 0
+        try:
+            entries = sorted(directory.iterdir())
+        except OSError:
+            return count
+        for entry in entries:
+            if not entry.is_file() or entry.suffix.lower() not in VIDEO_EXTENSIONS:
+                continue
+            if not looks_like_tv_episode(entry):
+                continue
+            eps, raw_title, is_season_relative = extract_episode(entry.name)
+            season_num = extract_season_number(entry.name)
+            if not is_season_relative or season_num is None or not eps:
+                continue
+            for episode_num in eps:
+                evidence.append(DirectEpisodeEvidence(season_num, episode_num, raw_title))
+            count += 1
+        return count
+
+    direct_count = _collect_from(folder)
+    if direct_count > 0:
+        return evidence
+
     try:
-        entries = sorted(folder.iterdir())
+        child_dirs = sorted(folder.iterdir())
     except OSError:
         return evidence
 
-    for entry in entries:
-        if not entry.is_file() or entry.suffix.lower() not in VIDEO_EXTENSIONS:
+    for child in child_dirs:
+        if not child.is_dir():
             continue
-        if not looks_like_tv_episode(entry):
+        if get_season(child) is None:
             continue
-
-        eps, raw_title, is_season_relative = extract_episode(entry.name)
-        season_num = extract_season_number(entry.name)
-        if not is_season_relative or season_num is None or not eps:
-            continue
-
-        for episode_num in eps:
-            evidence.append(DirectEpisodeEvidence(season_num, episode_num, raw_title))
+        _collect_from(child)
 
     return evidence
 

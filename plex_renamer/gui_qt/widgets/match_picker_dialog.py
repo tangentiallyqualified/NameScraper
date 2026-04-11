@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...engine import score_results
+from ._formatting import percent_text
 
 _AUTO_ACCEPT_THRESHOLD = 0.70
 _SUCCESS_COLOR = QColor("#3ea463")
@@ -32,7 +33,7 @@ def _label_for_result(result: dict, title_key: str, score: float | None = None) 
     year = result.get("year", "")
     label = f"{title} ({year})" if year else title
     if score is not None:
-        label += f" \u2014 {score:.0%}"
+        label += f" \u2014 {percent_text(score)}"
     return label
 
 
@@ -191,11 +192,15 @@ class MatchPickerDialog(QDialog):
             scored = score_results(results, self._raw_name, self._year_hint, title_key=self._title_key)
         score_map = {id(r): s for r, s in scored}
 
+        max_score = max((s for s in score_map.values() if s is not None), default=0.0)
+        rescale = 1.0 / max_score if max_score > 1.0 else 1.0
+
         for index, result in enumerate(results):
-            score = score_map.get(id(result))
-            item = QListWidgetItem(_label_for_result(result, self._title_key, score))
+            raw_score = score_map.get(id(result))
+            display_score = raw_score * rescale if raw_score is not None else None
+            item = QListWidgetItem(_label_for_result(result, self._title_key, display_score))
             item.setData(Qt.ItemDataRole.UserRole, index)
-            if score is not None and score >= _AUTO_ACCEPT_THRESHOLD:
+            if raw_score is not None and raw_score >= _AUTO_ACCEPT_THRESHOLD:
                 item.setForeground(_SUCCESS_COLOR)
             overview = result.get("overview", "")
             if overview:
