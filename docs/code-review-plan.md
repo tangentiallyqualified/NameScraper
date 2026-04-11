@@ -2,6 +2,14 @@
 
 Stats snapshot: ~18.6k LOC source, ~13.1k LOC tests across 10 files, 12 manual `threading.Thread` sites across 8 files.
 
+## Progress
+
+- [x] **#4** cache/policy consolidation — `PersistentCacheService` delegates freshness to `RefreshPolicyService` via DI.
+- [x] **#5** TMDB persistence — `TMDBClient` now reads/writes L2 via the persistent cache; wired in `main_window`.
+- [x] **#1** engine.py split — converted to `engine/` package (`_core.py`, `models.py`, `_state.py`, `matching.py`), public API preserved via `__init__.py`.
+- [x] **#3** matching consolidation — 9 scoring functions extracted to [plex_renamer/engine/matching.py](../plex_renamer/engine/matching.py).
+- [x] **#10** fast vs smoke split — added [scripts/test-fast.cmd](../scripts/test-fast.cmd) / [test-fast.ps1](../scripts/test-fast.ps1) / [test_fast_runner.py](../scripts/test_fast_runner.py); runs the non-Qt suite (244 tests, ~2.7s) with the same concise-summary format as `test-smoke`.
+
 ## High Value
 
 ### 1. Split `engine.py` (3,710 lines)
