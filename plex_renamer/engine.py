@@ -2016,6 +2016,22 @@ class TVScanner:
                 if entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS:
                     f = entry
                     eps, raw_title, is_season_relative = extract_episode(f.name)
+                    file_season = (
+                        extract_season_number(f.name) if is_season_relative else None
+                    )
+
+                    # Filename explicitly tags this as a special (S00E##) even
+                    # though it lives in a main-season folder — route through
+                    # specials matching so it doesn't consume a regular
+                    # episode slot or inflate the folder's match count.
+                    if file_season == 0 and season_num != 0:
+                        ensure_specials_data()
+                        item = self._match_special(
+                            f, eps, raw_title, s0_titles, s0_tmdb_title_lookup,
+                            specials_target, from_extras_folder=False,
+                        )
+                        items.append(item)
+                        continue
 
                     # Season 0 special handling
                     if season_num == 0:
