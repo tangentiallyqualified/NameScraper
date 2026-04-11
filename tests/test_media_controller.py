@@ -48,6 +48,9 @@ class _FakeTMDB:
     def get_tv_details(self, show_id):
         return {"number_of_seasons": 1, "number_of_episodes": 12}
 
+    def get_season_map(self, show_id):
+        return {}, 0
+
     def get_episode_list(self, show_id, season_number):
         return [
             {"episode_number": i, "name": f"Episode {i}"}

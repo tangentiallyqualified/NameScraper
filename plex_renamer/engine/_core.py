@@ -16,10 +16,9 @@ import threading
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from dataclasses import dataclass, field
 
-from .constants import VIDEO_EXTENSIONS, MediaType
-from .parsing import (
+from ..constants import VIDEO_EXTENSIONS, MediaType
+from ..parsing import (
     EXTRAS_FOLDER_PATTERN,
     best_tv_match_title,
     is_extras_folder,
@@ -39,358 +38,22 @@ from .parsing import (
     normalize_for_match,
     normalize_for_specials,
 )
-from .tmdb import TMDBClient
+from ..tmdb import TMDBClient
+from ._state import get_auto_accept_threshold
+from .models import (
+    CompanionFile,
+    CompletenessReport,
+    DirectEpisodeEvidence,
+    PreviewItem,
+    RenameResult,
+    ScanState,
+    SeasonCompleteness,
+    collect_direct_episode_evidence,
+    infer_explicit_season_assignment,
+)
 
 
-# ─── Data structures ─────────────────────────────────────────────────────────
 
-@dataclass
-class CompanionFile:
-    """
-    A non-video file renamed alongside its parent media file.
-
-    Carries a fully-computed rename plan so every consumer — the GUI,
-    the job builder, the snapshot service — can read it directly without
-    reconstructing names from intermediate data.
-
-    ``file_type`` is an open string enum.  Current values:
-      ``"subtitle"``  — SRT, ASS, SSA, VTT, SUP, etc.
-
-    Future values (not yet implemented):
-      ``"poster"``    — cover art (.jpg/.png) inside the movie folder
-      ``"nfo"``       — metadata sidecar files (.nfo)
-
-    Adding a new companion type requires only producing ``CompanionFile``
-    objects with the appropriate ``file_type``; no changes to ``PreviewItem``,
-    ``_build_rename_ops``, the job executor, or the snapshot service.
-    """
-    original: Path      # Absolute source path
-    new_name: str       # Target filename (already computed — no reconstruction needed)
-    file_type: str      # "subtitle" | "poster" | "nfo" | …
-
-
-@dataclass
-class PreviewItem:
-    """One file's rename plan.  The GUI reads these to build the preview."""
-    original: Path
-    new_name: str | None
-    target_dir: Path | None
-    season: int | None          # None for movies
-    episodes: list[int]         # Empty for movies
-    status: str                 # "OK", "SKIP: ...", "CONFLICT: ..."
-    media_type: str = MediaType.TV
-    media_id: int | None = None      # TMDB ID — for grouping in batch mode
-    media_name: str | None = None    # Display name — for grouping in batch mode
-    # Non-video files renamed alongside this item (subtitles, and future types).
-    # Each entry carries a fully-computed (original, new_name, file_type) plan.
-    # Persisted in scan snapshots so restored sessions retain pairing.
-    companions: list[CompanionFile] = field(default_factory=list)
-    # Episode-level match confidence: 1.0 = strong S##E## match, 0.0 = positional
-    # guess from an unstructured filename.  Low values flag items for user review.
-    episode_confidence: float = 1.0
-
-    def is_move(self) -> bool:
-        """True if this rename also moves the file to a different folder."""
-        return (
-            self.target_dir is not None
-            and self.target_dir != self.original.parent
-        )
-
-    @property
-    def is_conflict(self) -> bool:
-        """True when this item collides with another planned target."""
-        return self.status.startswith("CONFLICT")
-
-    @property
-    def is_skipped(self) -> bool:
-        """True when this item is intentionally non-actionable."""
-        return self.status.startswith("SKIP")
-
-    @property
-    def is_review(self) -> bool:
-        """True when this item needs manual attention before trust."""
-        return self.status.startswith("REVIEW")
-
-    @property
-    def is_unmatched(self) -> bool:
-        """True when this item is routed through the unmatched flow."""
-        return "UNMATCHED" in self.status
-
-    @property
-    def is_actionable(self) -> bool:
-        """True when this item can produce a concrete rename operation.
-
-        Items with OK, UNMATCHED, or REVIEW status are actionable
-        (REVIEW items have a valid rename plan computed from the
-        best-available TMDB match — the user confirms the match by
-        checking the item).  SKIP and CONFLICT items are never
-        actionable.
-        """
-        if self.new_name is None:
-            return False
-        if self.status != "OK" and not self.is_unmatched and "REVIEW" not in self.status:
-            return False
-        target_dir = self.target_dir or self.original.parent
-        return not (
-            self.new_name == self.original.name
-            and target_dir == self.original.parent
-        )
-
-
-@dataclass
-class RenameResult:
-    """Outcome of an execute_rename call."""
-    renamed_count: int = 0
-    errors: list[str] = field(default_factory=list)
-    log_entry: dict = field(default_factory=dict)
-    new_root: Path | None = None  # Set if the root show folder was renamed
-
-
-@dataclass
-class SeasonCompleteness:
-    """Completeness info for a single season."""
-    season: int
-    expected: int
-    matched: int
-    missing: list[tuple[int, str]]  # [(ep_num, title), ...]
-    matched_episodes: list[tuple[int, str]] = field(default_factory=list)  # [(ep_num, title), ...]
-
-    @property
-    def is_complete(self) -> bool:
-        return self.expected > 0 and self.matched >= self.expected
-
-    @property
-    def pct(self) -> float:
-        return (self.matched / self.expected * 100) if self.expected else 0.0
-
-
-@dataclass
-class CompletenessReport:
-    """Full completeness report for a TV series."""
-    seasons: dict[int, SeasonCompleteness]       # keyed by season num (>0)
-    specials: SeasonCompleteness | None           # season 0, or None
-    total_expected: int
-    total_matched: int
-    total_missing: list[tuple[int, int, str]]     # [(season, ep_num, title), ...]
-
-    @property
-    def is_complete(self) -> bool:
-        return self.total_expected > 0 and self.total_matched >= self.total_expected
-
-    @property
-    def pct(self) -> float:
-        return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
-
-
-@dataclass
-class ScanState:
-    """
-    Per-show scan state — decouples show-level data from the GUI.
-
-    In single-show mode, one ScanState is created and assigned to
-    app.active_scan.  In batch TV mode, each detected show gets
-    its own ScanState stored in app.batch_states.
-
-    GUI-side fields (check_vars, selected_index, etc.) use ``Any``
-    type hints because they hold tkinter objects that the engine
-    module deliberately doesn't import.
-    """
-    folder: Path
-    media_info: dict                                    # TMDB show/movie dict
-    scanner: TVScanner | None = None
-    source_file: Path | None = None
-    preview_items: list[PreviewItem] = field(default_factory=list)
-    completeness: CompletenessReport | None = None
-
-    # Match metadata
-    confidence: float = 0.0
-    match_origin: str = "auto"
-    alternate_matches: list[dict] = field(default_factory=list)
-    search_results: list[dict] = field(default_factory=list)
-    relative_folder: str = ""
-    parent_relative_folder: str | None = None
-    duplicate_of_relative_folder: str | None = None
-    discovery_reason: str = ""
-    has_direct_season_subdirs: bool = False
-    direct_episode_file_count: int = 0
-    direct_video_file_count: int = 0
-    discovered_via_symlink: bool = False
-
-    # GUI-side state (populated by preview_canvas, not by engine)
-    check_vars: dict = field(default_factory=dict)
-    selected_index: int | None = None
-    card_positions: list[tuple[int, int, int]] = field(default_factory=list)
-    season_header_positions: list[tuple[int, int, int]] = field(default_factory=list)
-    display_order: list[int] = field(default_factory=list)
-    collapsed_seasons: set[int] = field(default_factory=set)
-
-    # Season metadata (populated during TV scan)
-    season_names: dict[int, str] = field(default_factory=dict)  # season_num -> TMDB season name
-    season_assignment: int | None = None  # detected or manually assigned season number
-    # Extra season folders merged from sibling discoveries (season_num -> Path)
-    season_folders: dict[int, "Path"] = field(default_factory=dict)
-
-    # Flags
-    scanned: bool = False                               # True after Phase 2 scan
-    scanning: bool = False                              # True while Phase 2 scan is in progress
-    checked: bool = True                                # Master show-level checkbox
-    duplicate_of: str | None = None                     # Display name of the primary match (if this is a dup)
-    queued: bool = False                                # True after added to job queue
-    tie_detected: bool = False                          # True when top matches tied in confidence
-
-    @property
-    def show_id(self) -> int | None:
-        return self.media_info.get("id")
-
-    @property
-    def display_name(self) -> str:
-        name = (self.media_info.get("name")
-                or self.media_info.get("title")
-                or self.folder.name)
-        year = self.media_info.get("year", "")
-        return f"{name} ({year})" if year else name
-
-    @property
-    def needs_review(self) -> bool:
-        if self.show_id is not None and self.match_origin == "manual":
-            return False
-        if self.tie_detected:
-            return True
-        return self.confidence < AUTO_ACCEPT_THRESHOLD
-
-    @property
-    def file_count(self) -> int:
-        return len(self.preview_items)
-
-    @property
-    def total_expected(self) -> int:
-        if self.completeness:
-            return self.completeness.total_expected
-        return 0
-
-    @property
-    def total_matched(self) -> int:
-        if self.completeness:
-            return self.completeness.total_matched
-        return 0
-
-    @property
-    def match_pct(self) -> float:
-        if self.completeness:
-            return self.completeness.pct
-        return 0.0
-
-    @property
-    def all_skipped(self) -> bool:
-        """True if scanned but every file was SKIP (nothing actionable)."""
-        if not self.scanned or not self.preview_items:
-            return False
-        return all(it.status.startswith("SKIP") for it in self.preview_items)
-
-    @property
-    def actionable_indices(self) -> set[int]:
-        """Return indices of preview items that can produce rename ops."""
-        return {
-            index for index, item in enumerate(self.preview_items)
-            if item.is_actionable
-        }
-
-    @property
-    def actionable_file_count(self) -> int:
-        """Return the number of actionable files in the current preview."""
-        return len(self.actionable_indices)
-
-    def reset_gui_state(self) -> None:
-        """Clear GUI-side state (e.g. when switching shows)."""
-        self.check_vars.clear()
-        self.selected_index = None
-        self.card_positions.clear()
-        self.season_header_positions.clear()
-        self.display_order.clear()
-        self.collapsed_seasons.clear()
-
-    def reset_scan(self) -> None:
-        """Clear scan data to force a rescan."""
-        self.scanner = None
-        self.preview_items.clear()
-        self.completeness = None
-        self.scanned = False
-        self.reset_gui_state()
-
-
-@dataclass(frozen=True)
-class DirectEpisodeEvidence:
-    """Direct child file evidence for TMDB TV disambiguation."""
-
-    season_num: int
-    episode_num: int
-    raw_title: str | None = None
-
-
-def collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]:
-    """Collect explicit ``S##E##`` evidence for a show folder.
-
-    Walks direct child video files first.  When the folder is a
-    Plex-ready show root (no direct videos but one or more
-    ``Season ##`` subdirs), falls back to the first level of those
-    subdirs so TMDB scoring can still exploit episode-title evidence
-    to break candidate ties.
-    """
-    evidence: list[DirectEpisodeEvidence] = []
-
-    def _collect_from(directory: Path) -> int:
-        count = 0
-        try:
-            entries = sorted(directory.iterdir())
-        except OSError:
-            return count
-        for entry in entries:
-            if not entry.is_file() or entry.suffix.lower() not in VIDEO_EXTENSIONS:
-                continue
-            if not looks_like_tv_episode(entry):
-                continue
-            eps, raw_title, is_season_relative = extract_episode(entry.name)
-            season_num = extract_season_number(entry.name)
-            if not is_season_relative or season_num is None or not eps:
-                continue
-            for episode_num in eps:
-                evidence.append(DirectEpisodeEvidence(season_num, episode_num, raw_title))
-            count += 1
-        return count
-
-    direct_count = _collect_from(folder)
-    if direct_count > 0:
-        return evidence
-
-    try:
-        child_dirs = sorted(folder.iterdir())
-    except OSError:
-        return evidence
-
-    for child in child_dirs:
-        if not child.is_dir():
-            continue
-        if get_season(child) is None:
-            continue
-        _collect_from(child)
-
-    return evidence
-
-
-def infer_explicit_season_assignment(
-    folder: Path,
-    evidence: list[DirectEpisodeEvidence] | None = None,
-) -> int | None:
-    """Infer a season assignment from folder name or consistent S##E## files."""
-    season_num = get_season(folder)
-    if season_num is not None:
-        return season_num
-
-    direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
-    explicit_seasons = {item.season_num for item in direct_evidence if item.season_num > 0}
-    if len(explicit_seasons) == 1:
-        return next(iter(explicit_seasons))
-    return None
 
 
 def _best_episode_title_similarity(
@@ -780,7 +443,7 @@ class BatchTVOrchestrator:
 
     def _get_discovery_service(self):
         if self.discovery_service is None:
-            from .app.services import TVLibraryDiscoveryService
+            from ..app.services import TVLibraryDiscoveryService
 
             self.discovery_service = TVLibraryDiscoveryService()
         return self.discovery_service
@@ -936,12 +599,12 @@ class BatchTVOrchestrator:
             if len(scored) >= 2:
                 for r, s in scored:
                     if r.get("id") != best.get("id"):
-                        if best_score - s <= 0.02 and best_score >= AUTO_ACCEPT_THRESHOLD:
+                        if best_score - s <= 0.02 and best_score >= get_auto_accept_threshold():
                             tie_detected = True
                         break
 
             # Only auto-check shows with confident matches (and no ties)
-            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD and not tie_detected
+            auto_check = best_score >= get_auto_accept_threshold() and not tie_detected
 
             # Populate season names from TMDB details (may already be cached
             # from tiebreak or episode count bonus).
@@ -1444,7 +1107,7 @@ class BatchMovieOrchestrator:
 
     def _get_discovery_service(self):
         if self.discovery_service is None:
-            from .app.services import MovieLibraryDiscoveryService
+            from ..app.services import MovieLibraryDiscoveryService
 
             self.discovery_service = MovieLibraryDiscoveryService()
         return self.discovery_service
@@ -1464,7 +1127,7 @@ class BatchMovieOrchestrator:
         Returns ScanState instances with media_info populated but
         preview_items empty (Phase 2 hasn't run yet).
         """
-        from .app.models import MovieDirectoryRole
+        from ..app.models import MovieDirectoryRole
 
         discovery_service = self._get_discovery_service()
         discovered = discovery_service.discover_movie_roots(self.root)
@@ -1552,11 +1215,11 @@ class BatchMovieOrchestrator:
             if len(scored) >= 2:
                 for r, s in scored:
                     if r.get("id") != best.get("id"):
-                        if best_score - s <= 0.02 and best_score >= AUTO_ACCEPT_THRESHOLD:
+                        if best_score - s <= 0.02 and best_score >= get_auto_accept_threshold():
                             tie_detected = True
                         break
 
-            auto_check = best_score >= AUTO_ACCEPT_THRESHOLD and not tie_detected
+            auto_check = best_score >= get_auto_accept_threshold() and not tie_detected
 
             state = ScanState(
                 folder=folder,
@@ -1633,7 +1296,7 @@ class BatchMovieOrchestrator:
             for f in video_files:
                 item = _build_movie_preview_item(f, chosen, self.root)
                 item.companions = _build_subtitle_companions(f, item.new_name)
-                if state.confidence < AUTO_ACCEPT_THRESHOLD:
+                if state.confidence < get_auto_accept_threshold():
                     item.status = (
                         f"REVIEW: best match \"{chosen.get('title', '')}\" "
                         f"(confidence {state.confidence:.0%}) — click to verify"
@@ -2820,7 +2483,7 @@ class MovieScanner:
         if self._explicit_files is not None or not files:
             return files, []
 
-        from .app.services import TVLibraryDiscoveryService
+        from ..app.services import TVLibraryDiscoveryService
 
         show_roots = TVLibraryDiscoveryService().discover_show_roots(self.root)
         if not show_roots:
@@ -3019,7 +2682,7 @@ class MovieScanner:
 
             item = _build_movie_preview_item(f, chosen, self.root)
             item.companions = _build_subtitle_companions(f, item.new_name)
-            if confidence < AUTO_ACCEPT_THRESHOLD:
+            if confidence < get_auto_accept_threshold():
                 # Low confidence — flag for user review instead of auto-accepting
                 item.status = (
                     f"REVIEW: best match \"{chosen['title']}\" "
@@ -3152,22 +2815,6 @@ def title_similarity(a: str, b: str) -> float:
 
     lcs_len = prev[n]
     return (2.0 * lcs_len) / (m + n)  # Dice-like coefficient
-
-
-# Minimum confidence for auto-accepting a match without review
-DEFAULT_AUTO_ACCEPT_THRESHOLD = 0.55
-AUTO_ACCEPT_THRESHOLD = DEFAULT_AUTO_ACCEPT_THRESHOLD
-
-
-def set_auto_accept_threshold(value: float) -> float:
-    """Update the runtime auto-accept threshold used by scan/review logic."""
-    global AUTO_ACCEPT_THRESHOLD
-    try:
-        threshold = float(value)
-    except (TypeError, ValueError):
-        threshold = DEFAULT_AUTO_ACCEPT_THRESHOLD
-    AUTO_ACCEPT_THRESHOLD = max(0.50, min(1.00, threshold))
-    return AUTO_ACCEPT_THRESHOLD
 
 
 # Sentinel value returned by the pick callback to cancel the entire scan.
@@ -3321,11 +2968,11 @@ def boost_scores_with_alt_titles(
         return scored
 
     best_score = scored[0][1]
-    if best_score >= AUTO_ACCEPT_THRESHOLD and not force:
+    if best_score >= get_auto_accept_threshold() and not force:
         _log.debug(
             "Alt title boost skipped — top result already at %.2f "
             "(threshold %.2f) for %r",
-            best_score, AUTO_ACCEPT_THRESHOLD, raw_name,
+            best_score, get_auto_accept_threshold(), raw_name,
         )
         return scored
 
@@ -3572,7 +3219,7 @@ def _build_rename_ops(
     Skips items that are already properly named (same name, same
     directory) since queuing those would be a no-op.
     """
-    from .job_store import RenameOp
+    from ..job_store import RenameOp
 
     ops = []
     for i, item in enumerate(items):
@@ -3638,7 +3285,7 @@ def build_rename_job_from_state(
     Snapshots the checked PreviewItems as RenameOp instances with
     paths relative to library_root.
     """
-    from .job_store import RenameJob
+    from ..job_store import RenameJob
 
     checked_indices = checked_indices or get_checked_indices_from_state(state)
     ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
@@ -3677,7 +3324,7 @@ def build_rename_job_from_items(
     """
     Create a RenameJob from raw PreviewItems (single-show TV or movie mode).
     """
-    from .job_store import RenameJob
+    from ..job_store import RenameJob
 
     ops = _build_rename_ops(items, checked_indices, library_root)
 

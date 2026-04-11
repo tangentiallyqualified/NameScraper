@@ -10,16 +10,11 @@ from typing import Any
 
 from ...constants import CACHE_DB_FILE, ensure_log_dir
 from ..models import CacheEntry, CacheLookup, RefreshState
+from .refresh_policy_service import RefreshPolicyService
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _parse_dt(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    return datetime.fromisoformat(value)
 
 
 class PersistentCacheService:
@@ -31,10 +26,12 @@ class PersistentCacheService:
         *,
         max_size_bytes: int = 64 * 1024 * 1024,
         max_items: int = 4000,
+        refresh_policy: RefreshPolicyService | None = None,
     ):
         self._db_path = db_path or CACHE_DB_FILE
         self._max_size_bytes = max_size_bytes
         self._max_items = max_items
+        self._refresh_policy = refresh_policy or RefreshPolicyService()
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
@@ -218,17 +215,12 @@ class PersistentCacheService:
             }
 
     def _resolve_state(self, entry: CacheEntry, *, now: datetime) -> RefreshState:
-        if entry.is_refreshing:
-            return RefreshState.REFRESHING
-        expires_at = _parse_dt(entry.expires_at)
-        refreshed_at = _parse_dt(entry.refreshed_at)
-        if expires_at is None:
-            return RefreshState.FRESH
-        if expires_at > now:
-            if refreshed_at is not None and (now - refreshed_at).total_seconds() <= 300:
-                return RefreshState.RECENTLY_REFRESHED
-            return RefreshState.FRESH
-        return RefreshState.STALE
+        return self._refresh_policy.get_refresh_state(
+            refreshed_at=entry.refreshed_at,
+            expires_at=entry.expires_at,
+            is_refreshing=entry.is_refreshing,
+            now=now,
+        )
 
     def _prune_locked(self, conn: sqlite3.Connection) -> None:
         row = conn.execute(

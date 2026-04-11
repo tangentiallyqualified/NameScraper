@@ -133,8 +133,8 @@ class MainWindow(QMainWindow):
         self.settings_service = SettingsService()
         self._job_store = JobStore()
         self._command_gating = CommandGatingService()
-        self._cache_service = PersistentCacheService()
         self._refresh_policy = RefreshPolicyService()
+        self._cache_service = PersistentCacheService(refresh_policy=self._refresh_policy)
 
         self.queue_ctrl = QueueController(self._job_store)
         self.media_ctrl = MediaController(
@@ -282,6 +282,7 @@ class MainWindow(QMainWindow):
             api_key,
             language=self.settings_service.match_language,
             cache_service=self._cache_service,
+            refresh_policy=self._refresh_policy,
         )
         self._restore_tmdb_cache_snapshot()
         return self._tmdb

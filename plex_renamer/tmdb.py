@@ -37,6 +37,9 @@ _HTTP_POOL_CONNECTIONS = 16
 _HTTP_POOL_MAXSIZE = 32
 _POSTER_CACHE_NAMESPACE = "tmdb.poster_image"
 _SOURCE_IMAGE_CACHE_NAMESPACE = "tmdb.source_image"
+_TV_DETAILS_NAMESPACE = "tmdb.tv_details"
+_SEASON_NAMESPACE = "tmdb.season"
+_MOVIE_DETAILS_NAMESPACE = "tmdb.movie_details"
 
 log = logging.getLogger(__name__)
 
@@ -153,10 +156,12 @@ class TMDBClient:
     def __init__(self, api_key: str, rate_limit: float = 35.0,
                  max_retries: int = 2, image_cache_size: int = 200,
                  language: str = "en-US",
-                 cache_service: Any | None = None):
+                 cache_service: Any | None = None,
+                 refresh_policy: Any | None = None):
         self.api_key = api_key
         self.language = language
         self._cache_service = cache_service
+        self._refresh_policy = refresh_policy
         self._session = requests.Session()
         adapter = HTTPAdapter(
             pool_connections=_HTTP_POOL_CONNECTIONS,
@@ -458,13 +463,51 @@ class TMDBClient:
             })
         return results
 
+    def _persistent_get(self, namespace: str, key: str) -> Any | None:
+        if self._cache_service is None:
+            return None
+        lookup = self._cache_service.get(namespace, key, allow_stale=False)
+        if not lookup.is_hit:
+            return None
+        return lookup.value
+
+    def _persistent_put(
+        self,
+        namespace: str,
+        key: str,
+        value: Any,
+        *,
+        media_type: str,
+        show_status: str | None = None,
+    ) -> None:
+        if self._cache_service is None or self._refresh_policy is None:
+            return
+        expires_at = self._refresh_policy.build_expiry(
+            refreshed_at=None,
+            media_type=media_type,
+            show_status=show_status,
+        )
+        self._cache_service.put(namespace, key, value, expires_at=expires_at)
+
     def get_tv_details(self, show_id: int) -> dict | None:
         """Fetch full show details (seasons list, etc.). Cached."""
         if show_id in self._show_cache:
             return self._show_cache[show_id]
+        key = str(show_id)
+        persisted = self._persistent_get(_TV_DETAILS_NAMESPACE, key)
+        if persisted is not None:
+            self._show_cache[show_id] = persisted
+            return persisted
         data = self._get_safe(f"/tv/{show_id}")
         if data:
             self._show_cache[show_id] = data
+            self._persistent_put(
+                _TV_DETAILS_NAMESPACE,
+                key,
+                data,
+                media_type="tv",
+                show_status=data.get("status"),
+            )
         return data
 
     def get_season(self, show_id: int, season_num: int) -> dict:
@@ -481,6 +524,19 @@ class TMDBClient:
         cache_key = (show_id, season_num)
         if cache_key in self._season_cache:
             return self._season_cache[cache_key]
+
+        persistent_key = f"{show_id}::{season_num}"
+        persisted = self._persistent_get(_SEASON_NAMESPACE, persistent_key)
+        if persisted is not None:
+            # JSON round-trip stringifies int keys — restore them.
+            restored = {
+                "titles": {int(k): v for k, v in persisted.get("titles", {}).items()},
+                "posters": {int(k): v for k, v in persisted.get("posters", {}).items()},
+                "episodes": {int(k): v for k, v in persisted.get("episodes", {}).items()},
+                "season_poster_path": persisted.get("season_poster_path"),
+            }
+            self._season_cache[cache_key] = restored
+            return restored
 
         data = self._get_safe(f"/tv/{show_id}/season/{season_num}")
         if not data:
@@ -520,6 +576,12 @@ class TMDBClient:
         result = {"titles": titles, "posters": posters, "episodes": episodes,
                   "season_poster_path": data.get("poster_path")}
         self._season_cache[cache_key] = result
+        self._persistent_put(
+            _SEASON_NAMESPACE,
+            persistent_key,
+            result,
+            media_type="tv",
+        )
         return result
 
     def get_season_map(self, show_id: int) -> tuple[dict, int]:
@@ -591,9 +653,20 @@ class TMDBClient:
         """Fetch full movie details. Cached."""
         if movie_id in self._movie_cache:
             return self._movie_cache[movie_id]
+        key = str(movie_id)
+        persisted = self._persistent_get(_MOVIE_DETAILS_NAMESPACE, key)
+        if persisted is not None:
+            self._movie_cache[movie_id] = persisted
+            return persisted
         data = self._get_safe(f"/movie/{movie_id}")
         if data:
             self._movie_cache[movie_id] = data
+            self._persistent_put(
+                _MOVIE_DETAILS_NAMESPACE,
+                key,
+                data,
+                media_type="movie",
+            )
         return data
 
     def get_alternative_titles(

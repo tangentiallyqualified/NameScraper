@@ -1,0 +1,78 @@
+"""Rename engine package — re-exports the public API of the old ``engine`` module.
+
+Previously this was a single 3700-line ``engine.py``.  The package split
+preserves every existing ``from plex_renamer.engine import X`` call site
+while letting internals live in focused submodules.
+"""
+
+from __future__ import annotations
+
+from ._state import (
+    AUTO_ACCEPT_THRESHOLD,
+    DEFAULT_AUTO_ACCEPT_THRESHOLD,
+    get_auto_accept_threshold,
+    set_auto_accept_threshold,
+)
+from .models import (
+    CompanionFile,
+    CompletenessReport,
+    DirectEpisodeEvidence,
+    PreviewItem,
+    RenameResult,
+    ScanState,
+    SeasonCompleteness,
+    collect_direct_episode_evidence,
+    infer_explicit_season_assignment,
+)
+from ._core import (
+    BatchMovieOrchestrator,
+    BatchTVOrchestrator,
+    CANCEL_SCAN,
+    MovieScanner,
+    ScanCancelledError,
+    TVScanner,
+    boost_scores_with_alt_titles,
+    boost_tv_scores_with_episode_evidence,
+    build_rename_job_from_items,
+    build_rename_job_from_state,
+    check_duplicates,
+    execute_rename,
+    get_checked_indices_from_state,
+    pick_alternate_matches,
+    score_results,
+    score_tv_results,
+    title_similarity,
+)
+
+__all__ = [
+    "AUTO_ACCEPT_THRESHOLD",
+    "BatchMovieOrchestrator",
+    "BatchTVOrchestrator",
+    "CANCEL_SCAN",
+    "CompanionFile",
+    "CompletenessReport",
+    "DEFAULT_AUTO_ACCEPT_THRESHOLD",
+    "DirectEpisodeEvidence",
+    "MovieScanner",
+    "PreviewItem",
+    "RenameResult",
+    "ScanCancelledError",
+    "ScanState",
+    "SeasonCompleteness",
+    "TVScanner",
+    "boost_scores_with_alt_titles",
+    "boost_tv_scores_with_episode_evidence",
+    "build_rename_job_from_items",
+    "build_rename_job_from_state",
+    "check_duplicates",
+    "collect_direct_episode_evidence",
+    "execute_rename",
+    "get_auto_accept_threshold",
+    "get_checked_indices_from_state",
+    "infer_explicit_season_assignment",
+    "pick_alternate_matches",
+    "score_results",
+    "score_tv_results",
+    "set_auto_accept_threshold",
+    "title_similarity",
+]

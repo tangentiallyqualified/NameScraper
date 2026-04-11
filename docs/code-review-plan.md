@@ -1,0 +1,82 @@
+# Code Review & Refactor Plan
+
+Stats snapshot: ~18.6k LOC source, ~13.1k LOC tests across 10 files, 12 manual `threading.Thread` sites across 8 files.
+
+## High Value
+
+### 1. Split `engine.py` (3,710 lines)
+[plex_renamer/engine.py](../plex_renamer/engine.py) holds `BatchTVOrchestrator`, `BatchMovieOrchestrator`, `TVScanner`, `MovieScanner`, scoring, normalization, companion-file logic, and preview dataclasses in one module. Hard to navigate, hard to test in isolation.
+
+**Action:** Split into:
+- `engine/orchestrators.py` — BatchTVOrchestrator, BatchMovieOrchestrator
+- `engine/scanners.py` — TVScanner, MovieScanner
+- `engine/matching.py` — scoring + normalization
+- `engine/models.py` — PreviewItem, ScanState, CompanionFile
+
+### 2. Break up `media_workspace.py` (2,228 lines)
+[plex_renamer/gui_qt/widgets/media_workspace.py](../plex_renamer/gui_qt/widgets/media_workspace.py) is a single widget handling roster, preview list, detail panel, poster requests, batch queue, and action-bar gating.
+
+**Action:** Extract `RosterPanel`, `PreviewPanel`, and a small state/event coordinator. Once separated, [_media_helpers.py](../plex_renamer/gui_qt/widgets/_media_helpers.py) can stop being a dumping ground.
+
+### 3. Consolidate matching / normalization
+Title cleaning, similarity, and folder-name normalization exist in both [parsing.py](../plex_renamer/parsing.py) (`normalize_for_match`, `best_tv_match_title`) and [engine.py](../plex_renamer/engine.py) (TV scanner re-cleans inline while scoring).
+
+**Action:** Single `matching` module that both parsing and engine call, so scoring and display stay consistent.
+
+### 4. Merge cache_service / refresh_policy_service freshness logic
+[cache_service.py](../plex_renamer/app/services/cache_service.py) and [refresh_policy_service.py](../plex_renamer/app/services/refresh_policy_service.py) independently implement "is this entry fresh / recently refreshed / currently refreshing" logic. `cache_service` hardcodes a 300s window; `refresh_policy_service` accepts it as a parameter. TTL drift here is a silent correctness bug.
+
+**Action:** Pick one as authoritative; have the other delegate.
+
+### 5. Persist TMDB cache across sessions
+[tmdb.py](../plex_renamer/tmdb.py) keeps in-memory `_show_cache` / `_season_cache` dicts, lost every launch, while [cache_service.py](../plex_renamer/app/services/cache_service.py) already persists to disk.
+
+**Action:** Wire TMDB lookups through the persistent cache; drop the ad-hoc dicts. Audit `get_tv_details` / `get_season_details` call sites in engine scanners for duplicate hits within a single batch while there.
+
+## Medium
+
+### 6. Centralize threading
+12 `threading.Thread(target=...)` sites across 8 files with Events for cancellation and no shared pool.
+
+**Action:** Small `ThreadPoolExecutor` wrapper in `media_controller` with a single cancellation token.
+
+### 7. Move magic numbers to constants
+Year range `1900..2099`, resolution set `{480,720,1080,2160}`, auto-accept thresholds — scattered across [parsing.py](../plex_renamer/parsing.py) and [engine.py](../plex_renamer/engine.py).
+
+**Action:** Move to [constants.py](../plex_renamer/constants.py).
+
+### 8. Validate settings schema
+[settings_service.py](../plex_renamer/app/services/settings_service.py) loads JSON and silently falls back to defaults on missing/typo keys.
+
+**Action:** Pydantic model (or dataclass with explicit validation) to surface bad config immediately.
+
+### 9. Rebalance test shape
+[test_gui_qt_smoke.py](../tests/test_gui_qt_smoke.py) is 3,946 lines — almost a third of the test suite in one file. `cache_service`, `command_gating_service`, `refresh_policy_service`, and `job_executor` have no dedicated unit tests.
+
+**Action:** Split the smoke file by feature area; backfill service-level unit tests.
+
+## Workflow / DX
+
+### 10. Fast vs smoke test split
+[scripts/test-smoke.cmd](../scripts/test-smoke.cmd) hardcodes the venv path and always boots a full Qt app.
+
+**Action:** Split into `test-fast` (engine + controllers + services, no Qt) and `test-smoke` (Qt integration). Local loop gets quicker; smoke stays for pre-publish.
+
+### 11. Automate release steps
+[docs/ai-publish-workflow.md](ai-publish-workflow.md) + [git-publish.ps1](../scripts/git-publish.ps1) handle commit/push but there's no version bump, tag, or changelog step.
+
+**Action:** Minimal `bump + tag + CHANGELOG append` add-on.
+
+### 12. Add CI
+No `.github/workflows` found.
+
+**Action:** Single "fast tests on PR" job to catch regressions the smoke script exists to find.
+
+## Suggested Order
+
+1. **#4** (cache/policy consolidation) and **#5** (TMDB persistence) — small, high-leverage, do first.
+2. **#1** (engine.py split) — unblocks everything else, including the shared matching module.
+3. **#3** (matching consolidation) — falls out naturally from #1.
+4. **#9** / **#10** (test split) — slot alongside #1 so the refactor has guardrails.
+5. **#2** (media_workspace) — biggest GUI win but can wait until the backend is tidier.
+6. Remaining medium / DX items as capacity allows.

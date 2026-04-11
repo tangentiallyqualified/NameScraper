@@ -314,6 +314,9 @@ class _FakeTMDBWithEpisodeCounts:
     def get_tv_details(self, show_id):
         return self.DETAILS.get(show_id)
 
+    def get_season_map(self, show_id):
+        return {}, 0
+
     def get_alternative_titles(self, media_id, media_type="tv"):
         return []
 
