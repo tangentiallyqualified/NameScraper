@@ -535,42 +535,66 @@ class MediaController:
             message=f"Scanning {state.display_name}...",
         )
 
+        def _run_scan(target: ScanState) -> None:
+            scanner = target.scanner
+            if scanner is None:
+                scanner = TVScanner(
+                    tmdb,
+                    target.media_info,
+                    target.folder,
+                    season_hint=target.season_assignment,
+                    season_folders=target.season_folders or None,
+                )
+                target.scanner = scanner
+            items, has_mismatch = scanner.scan()
+            if has_mismatch:
+                items = scanner.scan_consolidated()
+            check_duplicates(items)
+            initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
+            target.preview_items = items
+            target.completeness = scanner.get_completeness(items, checked_indices=initial_checked)
+            target.scanned = True
+            if not any(item.is_actionable for item in items):
+                target.checked = False
+
         def _worker() -> None:
+            final_state = state
             try:
                 state.scanning = True
                 self._notify("library_changed", self.library_states)
-                scanner = state.scanner
-                if scanner is None:
-                    scanner = TVScanner(
-                        tmdb,
-                        state.media_info,
-                        state.folder,
-                        season_hint=state.season_assignment,
-                        season_folders=state.season_folders or None,
-                    )
-                    state.scanner = scanner
-                items, has_mismatch = scanner.scan()
-                if has_mismatch:
-                    items = scanner.scan_consolidated()
-                check_duplicates(items)
-                initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
-                state.preview_items = items
-                state.completeness = scanner.get_completeness(items, checked_indices=initial_checked)
-                state.scanned = True
-                if not any(item.is_actionable for item in items):
-                    state.checked = False
+                _run_scan(state)
+                state.scanning = False
+
+                # Post-scan consolidation: a show-root rematch may only have
+                # revealed its real season(s) once TVScanner resolved the
+                # episodes against the new TMDB show.  If so, fold the state
+                # into an existing sibling card and rescan the merged target
+                # so its preview reflects the combined season layout.
+                orchestrator = self._batch_orchestrator
+                if orchestrator is not None:
+                    orchestrator.states = self._batch_states
+                    reconciled = orchestrator.reconcile_scanned_state(state)
+                    self._batch_states = orchestrator.states
+                    if reconciled is not state:
+                        final_state = reconciled
+                        reconciled.scanning = True
+                        self._notify("library_changed", self.library_states)
+                        _run_scan(reconciled)
+                        reconciled.scanning = False
             except Exception as e:
                 _log.exception("Single-show scan failed: %s", e)
             finally:
                 state.scanning = False
+                if final_state is not state:
+                    final_state.scanning = False
 
             self._set_progress(
                 ScanLifecycle.READY,
                 phase="TV scan complete",
-                message=f"Preview ready — {len(state.preview_items)} file(s)",
+                message=f"Preview ready — {len(final_state.preview_items)} file(s)",
             )
             self._notify("library_changed", self.library_states)
-            self._notify("scan_complete", state)
+            self._notify("scan_complete", final_state)
 
         threading.Thread(target=_worker, daemon=True, name="TVShowScan").start()
 
@@ -798,14 +822,29 @@ class MediaController:
         self._set_actionable_preview_checks(state, True)
         self._notify("library_changed", self.library_states)
 
-    def assign_season(self, state: ScanState, season_num: int | None) -> None:
-        """Assign (or clear) a season number on a state and recompute duplicates."""
+    def assign_season(self, state: ScanState, season_num: int | None) -> ScanState:
+        """Assign (or clear) a season number on a state and recompute duplicates.
+
+        In batch TV mode, an assignment that gives the state a concrete season
+        triggers consolidation into any sibling ScanState matching the same
+        show — so a user who rematches a show-root folder and then assigns a
+        season sees that folder absorbed into the existing show card rather
+        than left as a parallel entry.
+        """
         state.season_assignment = season_num
-        if self._batch_orchestrator is not None:
-            self._batch_orchestrator._apply_duplicate_labels()
+        effective_state = state
+        orchestrator = self._batch_orchestrator
+        if orchestrator is not None:
+            if season_num is not None and state.show_id is not None:
+                orchestrator.states = self._batch_states
+                effective_state = orchestrator.merge_rematched_state(state)
+                self._batch_states = orchestrator.states
+            else:
+                orchestrator._apply_duplicate_labels()
         elif self._movie_library_states:
             self._apply_movie_duplicate_labels(self._movie_library_states)
         self._notify("library_changed", self.library_states)
+        return effective_state
 
     def rematch_tv_state(self, state: ScanState, new_match: dict, tmdb: Any | None = None) -> ScanState:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""

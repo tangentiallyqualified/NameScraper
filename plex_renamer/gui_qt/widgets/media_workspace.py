@@ -1626,9 +1626,28 @@ class MediaWorkspace(QWidget):
         )
         if not ok:
             return
-        self._media_ctrl.assign_season(state, season_num if season_num > 0 else None)
+        effective_state = self._media_ctrl.assign_season(
+            state, season_num if season_num > 0 else None,
+        )
         self.refresh_from_controller()
-        self._restore_roster_selection_by_key(selected_key)
+        merged = effective_state is not None and effective_state is not state
+        if merged:
+            self._restore_roster_selection_by_key(_roster_selection_key(effective_state))
+            # merge_rematched_state resets scan data on the surviving target,
+            # so re-scan to repopulate the preview the user is about to look at.
+            tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
+            if tmdb is not None and effective_state.show_id is not None:
+                try:
+                    self._media_ctrl.scan_show(effective_state, tmdb)
+                except Exception as exc:
+                    QMessageBox.warning(self, "Scan Failed", str(exc))
+                if effective_state.scanned or effective_state.preview_items:
+                    self.refresh_from_controller()
+                    self._restore_roster_selection_by_key(
+                        _roster_selection_key(effective_state)
+                    )
+        else:
+            self._restore_roster_selection_by_key(selected_key)
         label = f"Season {season_num}" if season_num > 0 else "cleared"
         self.status_message.emit(f"Season assignment: {label}.", 3000)
 

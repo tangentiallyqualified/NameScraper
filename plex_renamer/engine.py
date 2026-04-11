@@ -1191,6 +1191,41 @@ class BatchTVOrchestrator:
             if progress_callback:
                 progress_callback(i + 1, total)
 
+    def reconcile_scanned_state(self, state: ScanState) -> ScanState:
+        """Try to merge a freshly-scanned state into a same-show sibling.
+
+        Used after a show-root rematch when ``season_assignment`` was empty
+        at rematch time: TVScanner has now resolved episodes against the new
+        TMDB show, so the folder's real season(s) are visible in
+        ``preview_items``.  If those seasons don't overlap with a sibling
+        holding the same ``show_id``, fold this folder into that sibling's
+        ``season_folders`` map so the user sees a single consolidated card
+        instead of a duplicate stub that still needs a manual assign-season.
+        Only acts when we can unambiguously attribute the folder to one
+        season — multi-season show-roots stay as-is.
+        """
+        if state.show_id is None or not state.preview_items:
+            return state
+        if state.season_folders or state.season_assignment is not None:
+            return state
+        detected = {
+            item.season for item in state.preview_items
+            if item.season is not None
+        }
+        if len(detected) != 1:
+            return state
+        season_num = next(iter(detected))
+        has_sibling = any(
+            other is not state and other.show_id == state.show_id
+            for other in self.states
+        )
+        if not has_sibling:
+            return state
+        state.season_folders = {
+            season_num: self._resolve_season_folder(state.folder, season_num),
+        }
+        return self.merge_rematched_state(state)
+
     def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:
         """Swap a show's TMDB match and invalidate its scan data."""
         state.media_info = new_match
