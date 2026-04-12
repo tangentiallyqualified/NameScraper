@@ -28,6 +28,15 @@ from ._batch_orchestrators import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
 )
+from .matching import (
+    boost_scores_with_alt_titles,
+    boost_tv_scores_with_episode_evidence,
+    pick_alternate_matches,
+    score_results,
+    score_tv_results,
+    title_similarity,
+)
+from ._movie_scanner import MovieScanner
 from ._queue_bridge import (
     build_rename_job_from_items,
     build_rename_job_from_state,
@@ -41,16 +50,7 @@ from ._scan_runtime import (
     CANCEL_SCAN,
     ScanCancelledError,
 )
-from ._movie_scanner import MovieScanner
-from ._core import (
-    TVScanner,
-    boost_scores_with_alt_titles,
-    boost_tv_scores_with_episode_evidence,
-    pick_alternate_matches,
-    score_results,
-    score_tv_results,
-    title_similarity,
-)
+from ._tv_scanner import TVScanner
 
 __all__ = [
     "AUTO_ACCEPT_THRESHOLD",

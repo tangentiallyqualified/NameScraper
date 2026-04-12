@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from ...constants import JobStatus, MediaType
@@ -24,7 +24,6 @@ from ...engine import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
     check_duplicates,
-    CompanionFile,
     MovieScanner,
     pick_alternate_matches,
     PreviewItem,
@@ -37,6 +36,15 @@ from ...engine import (
 )
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
+from ._job_projection_helpers import apply_completed_job_projection, sync_queued_state_flags
+from ._movie_state_helpers import (
+    apply_movie_duplicate_labels,
+    build_movie_library_states,
+    resolve_movie_preview_review,
+    set_actionable_preview_checks,
+)
+from ._tv_batch_helpers import scan_all_tv_batch_shows, start_tv_batch_session
+from ._tv_state_helpers import build_accepted_tv_state, ensure_tv_scanner, run_tv_scan
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
@@ -293,17 +301,7 @@ class MediaController:
         self._active_library_mode = MediaType.TV
         self._tv_root_folder = folder
 
-        from ...parsing import get_season
-        season_hint = get_season(folder)
-        scanner = TVScanner(tmdb, show_info, folder, season_hint=season_hint)
-        state = ScanState(
-            folder=folder,
-            media_info=show_info,
-            scanner=scanner,
-            confidence=1.0,
-            season_assignment=season_hint,
-            scanned=False,
-        )
+        state = build_accepted_tv_state(folder, tmdb, show_info, TVScanner)
         self._active_scan = state
         self._batch_states = [state]
         self._library_selected_index = 0
@@ -329,101 +327,7 @@ class MediaController:
         populated.  Fires ``on_scan_complete(None)`` when discovery
         finishes (before episode scanning starts).
         """
-        self._batch_mode = True
-        self._active_content_mode = MediaType.TV
-        self._active_library_mode = MediaType.TV
-        self._tv_root_folder = folder
-        self._batch_orchestrator = BatchTVOrchestrator(
-            tmdb, folder, discovery_service=self._tv_discovery,
-        )
-        self._batch_states = []
-        self._active_scan = None
-        self._library_selected_index = None
-
-        self._set_progress(
-            ScanLifecycle.DISCOVERING,
-            phase="Discovering shows...",
-            message="Discovering shows...",
-        )
-        self._notify("mode_changed", self._active_content_mode, self._active_library_mode)
-
-        orchestrator = self._batch_orchestrator
-        cancel_event = self._begin_scan_operation()
-
-        def _progress(done: int, total: int) -> None:
-            if cancel_event.is_set():
-                raise ScanCancelledError("Scan cancelled")
-            self._set_progress(
-                ScanLifecycle.MATCHING,
-                phase="Matching shows...",
-                done=done,
-                total=total,
-                message=f"Matching shows... {done}/{total}",
-            )
-
-        def _worker() -> None:
-            try:
-                states = orchestrator.discover_shows(
-                    progress_callback=_progress,
-                    cancel_event=cancel_event,
-                )
-            except ScanCancelledError:
-                if not self._is_current_scan_operation(cancel_event):
-                    return
-                self._batch_states = []
-                self._active_scan = None
-                self._library_selected_index = None
-                self._set_progress(
-                    ScanLifecycle.CANCELLED,
-                    phase="TV discovery cancelled",
-                    message="TV discovery cancelled.",
-                )
-                self._notify("library_changed", self._batch_states)
-                self._finish_scan_operation(cancel_event)
-                return
-            except Exception as e:
-                if not self._is_current_scan_operation(cancel_event):
-                    return
-                _log.exception("TV batch discovery failed: %s", e)
-                self._set_progress(
-                    ScanLifecycle.FAILED,
-                    phase="Discovery failed.",
-                    message=f"Discovery failed: {e}",
-                )
-                self._finish_scan_operation(cancel_event)
-                return
-
-            if not self._is_current_scan_operation(cancel_event):
-                return
-
-            self._batch_states = states or []
-            if not self._batch_states:
-                self._set_progress(
-                    ScanLifecycle.WARNING,
-                    phase="No TV shows found in this folder.",
-                    message="No TV shows found in this folder.",
-                )
-                self._notify("library_changed", self._batch_states)
-                self._finish_scan_operation(cancel_event)
-                return
-
-            self.sync_queued_states()
-
-            needs_review = sum(1 for s in self._batch_states if s.needs_review)
-            self._set_progress(
-                ScanLifecycle.READY,
-                phase="Discovery complete",
-                message=(
-                    f"Found {len(self._batch_states)} shows"
-                    + (f" — {needs_review} need review" if needs_review else "")
-                    + " — scanning episodes..."
-                ),
-            )
-            self._notify("library_changed", self._batch_states)
-            self._notify("scan_complete", None)
-            self._finish_scan_operation(cancel_event)
-
-        _submit_bg(_worker)
+        start_tv_batch_session(self, folder, tmdb, self._tv_discovery)
 
     def scan_all_shows(self) -> None:
         """Phase 2: scan episodes for all unscanned shows in batch mode.
@@ -431,104 +335,11 @@ class MediaController:
         Spawns a background thread.  Fires ``on_progress`` per show and
         ``on_library_changed`` on completion.
         """
-        orchestrator = self._batch_orchestrator
-        if orchestrator is None:
-            return
-
-        unscanned = [
-            s for s in self._batch_states
-            if not s.scanned and s.show_id is not None
-        ]
-        if not unscanned:
-            return
-
-        self._set_progress(
-            ScanLifecycle.SCANNING,
-            phase="Scanning episodes...",
-            message="Scanning episodes...",
-        )
-        cancel_event = self._begin_scan_operation()
-
-        def _progress(done: int, total: int) -> None:
-            if cancel_event.is_set():
-                raise ScanCancelledError("Scan cancelled")
-            current_name = ""
-            to_scan = [
-                s for s in self._batch_states
-                if not s.scanned and s.show_id is not None
-            ]
-            if 0 < done <= len(to_scan):
-                current_name = to_scan[done - 1].display_name
-            self._set_progress(
-                ScanLifecycle.SCANNING,
-                phase="Scanning episodes...",
-                done=done,
-                total=total,
-                current_item=current_name or None,
-                message=f"Scanning episodes... {done}/{total}"
-                        + (f" — {current_name}" if current_name else ""),
-            )
-
-        def _worker() -> None:
-            try:
-                orchestrator.scan_all(
-                    progress_callback=_progress,
-                    cancel_event=cancel_event,
-                )
-            except ScanCancelledError:
-                if not self._is_current_scan_operation(cancel_event):
-                    return
-                for state in self._batch_states:
-                    if self._command_gating.is_plex_ready_state(state):
-                        state.checked = False
-
-                scanned = sum(1 for s in self._batch_states if s.scanned)
-                total_files = sum(s.file_count for s in self._batch_states if s.scanned)
-                self._set_progress(
-                    ScanLifecycle.CANCELLED,
-                    phase="Batch scan cancelled",
-                    message=f"Cancelled after scanning {scanned} show(s) — {total_files} total files",
-                )
-                self._notify("library_changed", self._batch_states)
-                self._finish_scan_operation(cancel_event)
-                return
-            except Exception as e:
-                if not self._is_current_scan_operation(cancel_event):
-                    return
-                _log.exception("Batch scan failed: %s", e)
-                self._finish_scan_operation(cancel_event)
-                return
-
-            if not self._is_current_scan_operation(cancel_event):
-                return
-
-            # Mark Plex-ready shows as unchecked
-            for state in self._batch_states:
-                if self._command_gating.is_plex_ready_state(state):
-                    state.checked = False
-
-            scanned = sum(1 for s in self._batch_states if s.scanned)
-            total_files = sum(s.file_count for s in self._batch_states if s.scanned)
-            self._set_progress(
-                ScanLifecycle.READY,
-                phase="Batch scan complete",
-                message=f"Scanned {scanned} shows — {total_files} total files",
-            )
-            self._notify("library_changed", self._batch_states)
-            self._finish_scan_operation(cancel_event)
-
-        _submit_bg(_worker)
+        scan_all_tv_batch_shows(self)
 
     def scan_show(self, state: ScanState, tmdb: Any) -> None:
         """Scan a single show's episodes in a background thread."""
-        if state.scanner is None:
-            state.scanner = TVScanner(
-                tmdb,
-                state.media_info,
-                state.folder,
-                season_hint=state.season_assignment,
-                season_folders=state.season_folders or None,
-            )
+        ensure_tv_scanner(state, tmdb, TVScanner)
 
         self._set_progress(
             ScanLifecycle.SCANNING,
@@ -537,26 +348,7 @@ class MediaController:
         )
 
         def _run_scan(target: ScanState) -> None:
-            scanner = target.scanner
-            if scanner is None:
-                scanner = TVScanner(
-                    tmdb,
-                    target.media_info,
-                    target.folder,
-                    season_hint=target.season_assignment,
-                    season_folders=target.season_folders or None,
-                )
-                target.scanner = scanner
-            items, has_mismatch = scanner.scan()
-            if has_mismatch:
-                items = scanner.scan_consolidated()
-            check_duplicates(items)
-            initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
-            target.preview_items = items
-            target.completeness = scanner.get_completeness(items, checked_indices=initial_checked)
-            target.scanned = True
-            if not any(item.is_actionable for item in items):
-                target.checked = False
+            run_tv_scan(target, tmdb, TVScanner, check_duplicates)
 
         def _worker() -> None:
             final_state = state
@@ -697,117 +489,22 @@ class MediaController:
 
     def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:
         """Build per-movie ScanState entries from a flat list of PreviewItems."""
-        states: list[ScanState] = []
-        for item in items:
-            if item.media_type != MediaType.MOVIE:
-                continue
-
-            chosen = scanner.movie_info.get(item.original, {})
-            media_id = chosen.get("id", item.media_id)
-            media_info = {
-                "id": media_id,
-                "title": chosen.get("title") or item.media_name or item.original.stem,
-                "year": chosen.get("year", ""),
-                "poster_path": chosen.get("poster_path"),
-                "overview": chosen.get("overview", ""),
-                "_media_type": MediaType.MOVIE,
-            }
-            confidence = 1.0 if media_id else 0.0
-            if item.status.startswith("REVIEW"):
-                confidence = 0.5 if media_id else 0.0
-            state = ScanState(
-                folder=item.original.parent,
-                source_file=item.original,
-                media_info=media_info,
-                preview_items=[item],
-                confidence=confidence,
-                search_results=scanner.get_search_results(item.original),
-                alternate_matches=scanner.get_search_results(item.original)[1:4],
-                scanned=True,
-                checked=item.is_actionable,
-                scanner=scanner,
-            )
-            states.append(state)
-        self._apply_movie_duplicate_labels(states)
-        self._movie_library_states = states
-
-    def _apply_movie_duplicate_labels(self, states: list[ScanState]) -> None:
-        for state in states:
-            state.duplicate_of = None
-            state.duplicate_of_relative_folder = None
-
-        groups: dict[int, list[ScanState]] = {}
-        for state in states:
-            media_id = state.show_id
-            if media_id is None:
-                continue
-            groups.setdefault(media_id, []).append(state)
-
-        for group in groups.values():
-            if len(group) < 2:
-                continue
-            group.sort(key=self._movie_duplicate_priority)
-            primaries: dict[int | None, ScanState] = {}
-            for state in group:
-                sa = state.season_assignment
-                if sa is not None:
-                    existing = primaries.get(sa)
-                    if existing is None:
-                        primaries[sa] = state
-                        continue
-                else:
-                    existing = next(iter(primaries.values()), None) if primaries else None
-                    if existing is None:
-                        primaries[None] = state
-                        continue
-                state.duplicate_of = existing.display_name
-                state.duplicate_of_relative_folder = self._movie_state_relative_folder(existing)
-                state.checked = False
-
-    def _movie_duplicate_priority(self, state: ScanState) -> tuple[int, float, int, str, str]:
-        item = state.preview_items[0] if state.preview_items else None
-        ready_rank = 0 if item is not None and not item.is_actionable else 1
-        relative_folder = self._movie_state_relative_folder(state)
-        depth = len(PurePosixPath(relative_folder.replace("\\", "/")).parts)
-        original_name = item.original.name.casefold() if item is not None else state.folder.name.casefold()
-        return (
-            ready_rank,
-            -state.confidence,
-            depth,
-            relative_folder.replace("\\", "/").casefold(),
-            original_name,
+        self._movie_library_states = build_movie_library_states(
+            items,
+            scanner,
+            self._movie_folder,
         )
 
-    def _movie_state_relative_folder(self, state: ScanState) -> str:
-        try:
-            return state.folder.relative_to(self._movie_folder).as_posix() if self._movie_folder is not None else state.folder.as_posix()
-        except ValueError:
-            return state.folder.as_posix()
+    def _apply_movie_duplicate_labels(self, states: list[ScanState]) -> None:
+        apply_movie_duplicate_labels(states, self._movie_folder)
 
     @staticmethod
     def _set_actionable_preview_checks(state: ScanState, checked: bool) -> None:
-        state.checked = checked
-        for index, item in enumerate(state.preview_items):
-            binding = state.check_vars.get(str(index))
-            if binding is None or not hasattr(binding, "set"):
-                continue
-            binding.set(bool(checked and item.is_actionable))
+        set_actionable_preview_checks(state, checked)
 
     def _resolve_movie_preview_review(self, state: ScanState) -> None:
         """Convert an approved movie preview from REVIEW to OK."""
-        if len(state.preview_items) != 1:
-            return
-        item = state.preview_items[0]
-        if item.media_type != MediaType.MOVIE or not item.status.startswith("REVIEW"):
-            return
-
-        item.status = "OK"
-        state.confidence = max(state.confidence, 1.0)
-
-        for candidate in self._movie_preview_items:
-            if candidate.original == item.original:
-                candidate.status = "OK"
-                break
+        resolve_movie_preview_review(state, self._movie_preview_items)
 
     def approve_match(self, state: ScanState) -> None:
         """Accept the current TMDB match as manually approved, clearing needs-review."""
@@ -1001,179 +698,17 @@ class MediaController:
     def apply_completed_job_to_state(self, job, result) -> bool:
         """Project a completed rename job back into the in-memory scan state."""
         states = self._movie_library_states if job.media_type == MediaType.MOVIE else self._batch_states
-        if not states or not job.tmdb_id:
-            return False
-
-        state = self._find_state_for_job(states, job)
-        if state is None:
-            return False
-
-        library_root = Path(job.library_root)
-        preview_lookup: dict[str, PreviewItem] = {}
-        for preview in state.preview_items:
-            key = self._normalized_preview_relative(preview, library_root)
-            if key:
-                preview_lookup[key] = preview
-
-        companion_lookup: dict[str, CompanionFile] = {}
-        for preview in state.preview_items:
-            for companion in preview.companions:
-                key = self._normalized_relative_path(companion.original, library_root)
-                if key:
-                    companion_lookup[key] = companion
-
-        changed = False
-        for op in job.rename_ops:
-            if not op.selected:
-                continue
-            final_dir_relative = self._final_target_dir_relative(job, op)
-            final_dir = library_root / Path(final_dir_relative)
-            final_path = final_dir / op.new_name
-            normalized_original = self._normalized_relative_string(op.original_relative)
-
-            if op.file_type == "video":
-                preview = preview_lookup.get(normalized_original)
-                if preview is None and len(state.preview_items) == 1:
-                    preview = state.preview_items[0]
-                if preview is None:
-                    continue
-                preview.original = final_path
-                preview.new_name = op.new_name
-                preview.target_dir = final_dir
-                preview.status = "OK"
-                changed = True
-            else:
-                companion = companion_lookup.get(normalized_original)
-                if companion is None:
-                    continue
-                companion.original = final_path
-                companion.new_name = op.new_name
-                changed = True
-
-        if not changed:
-            return False
-
-        root_relative = self._job_completed_root_relative(job)
-        if root_relative is not None:
-            state.folder = library_root / Path(root_relative)
-            state.relative_folder = root_relative
-            parent_relative = PurePosixPath(root_relative).parent
-            state.parent_relative_folder = None if str(parent_relative) in {"", "."} else parent_relative.as_posix()
-
-        season_folders: dict[int, Path] = {}
-        for preview in state.preview_items:
-            if preview.season is None or preview.target_dir is None:
-                continue
-            season_folders[preview.season] = preview.target_dir
-        state.season_folders = season_folders
-        state.scanned = True
-        state.scanning = False
-        state.queued = False
-        state.checked = False
-        state.reset_gui_state()
-        state.selected_index = 0 if state.preview_items else None
-
-        if job.media_type == MediaType.MOVIE:
-            self._movie_preview_items = [
-                state.preview_items[0] if item.media_id == job.tmdb_id else item
-                for item in self._movie_preview_items
-            ]
-
-        return True
-
-    @staticmethod
-    def _normalized_relative_string(value: str) -> str:
-        text = value.replace("\\", "/") if value else ""
-        normalized = PurePosixPath(text)
-        return "" if str(normalized) == "." else normalized.as_posix()
-
-    def _normalized_relative_path(self, path: Path, library_root: Path) -> str:
-        try:
-            relative = path.relative_to(library_root)
-        except ValueError:
-            return self._normalized_relative_string(str(path))
-        return self._normalized_relative_string(relative.as_posix())
-
-    def _normalized_preview_relative(self, preview: PreviewItem, library_root: Path) -> str:
-        return self._normalized_relative_path(preview.original, library_root)
-
-    def _find_state_for_job(self, states: list[ScanState], job) -> ScanState | None:
-        candidates = [
-            state
-            for state in states
-            if state.show_id == job.tmdb_id and state.duplicate_of is None
-        ]
-        if not candidates:
-            return None
-
-        job_source = self._normalized_relative_string(job.source_folder)
-        library_root = Path(job.library_root)
-        for state in candidates:
-            state_source = state.relative_folder
-            if not state_source:
-                try:
-                    state_source = str(state.folder.relative_to(library_root))
-                except ValueError:
-                    state_source = state.folder.name
-            if self._normalized_relative_string(state_source) == job_source:
-                return state
-        return candidates[0]
-
-    def _job_completed_root_relative(self, job) -> str | None:
-        selected_video_ops = [op for op in job.video_ops if op.selected]
-        if not selected_video_ops:
-            return None
-
-        source_folder = self._normalized_relative_string(job.source_folder)
-        if job.show_folder_rename and source_folder not in {"", "."}:
-            source_path = PurePosixPath(source_folder)
-            parent = source_path.parent
-            base = PurePosixPath(job.show_folder_rename)
-            if str(parent) in {"", "."}:
-                return base.as_posix()
-            return (parent / base).as_posix()
-
-        root_path = PurePosixPath(self._final_target_dir_relative(job, selected_video_ops[0]))
-        parts = root_path.parts
-        if not parts:
-            return None
-        if job.media_type == MediaType.MOVIE:
-            return root_path.as_posix()
-        if len(parts) >= 2 and parts[-1].lower().startswith("season "):
-            return PurePosixPath(*parts[:-1]).as_posix()
-        return root_path.as_posix()
-
-    def _final_target_dir_relative(self, job, op) -> str:
-        target_dir = PurePosixPath(self._normalized_relative_string(op.target_dir_relative) or ".")
-        source_folder = self._normalized_relative_string(job.source_folder)
-        if not job.show_folder_rename or source_folder in {"", "."}:
-            return target_dir.as_posix()
-
-        source_parts = PurePosixPath(source_folder).parts
-        target_parts = target_dir.parts
-        if len(target_parts) >= len(source_parts) and tuple(target_parts[: len(source_parts)]) == source_parts:
-            replacement = (*source_parts[:-1], job.show_folder_rename, *target_parts[len(source_parts):])
-            return PurePosixPath(*replacement).as_posix()
-        return target_dir.as_posix()
+        projection = apply_completed_job_projection(job, states, self._movie_preview_items)
+        if projection.movie_preview_items is not None:
+            self._movie_preview_items = projection.movie_preview_items
+        return projection.changed
 
     # ── Query methods ───────────────────────────────────────────────
 
     def sync_queued_states(self) -> None:
         """Refresh queued flags for TV and movie rosters from the job store."""
-        queued_keys = {
-            (job.media_type, job.tmdb_id)
-            for job in self._job_store.get_queue()
-            if job.tmdb_id
-        }
-
-        for state in self._batch_states:
-            if state.duplicate_of is not None:
-                state.queued = False
-                continue
-            state.queued = (MediaType.TV, state.show_id or 0) in queued_keys
-
-        for state in self._movie_library_states:
-            if state.duplicate_of is not None:
-                state.queued = False
-                continue
-            state.queued = (MediaType.MOVIE, state.show_id or 0) in queued_keys
+        sync_queued_state_flags(
+            self._job_store.get_queue(),
+            self._batch_states,
+            self._movie_library_states,
+        )

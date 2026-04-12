@@ -20,7 +20,7 @@ from ..parsing import (
 from ._state import get_auto_accept_threshold
 
 if TYPE_CHECKING:
-    from ._core import TVScanner  # noqa: F401
+    from ._tv_scanner import TVScanner  # noqa: F401
 
 
 @dataclass

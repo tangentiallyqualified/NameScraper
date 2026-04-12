@@ -580,7 +580,7 @@ class BatchTVOrchestrator:
             _log.warning("Cannot scan %s — no TMDB match", state.folder.name)
             return
 
-        from ._core import TVScanner
+        from ._tv_scanner import TVScanner
 
         _raise_if_cancelled(cancel_event)
 
