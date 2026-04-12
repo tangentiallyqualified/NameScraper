@@ -11,24 +11,18 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QFrame,
-    QHBoxLayout,
     QInputDialog,
-    QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QPushButton,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from ...engine import PreviewItem, ScanState, score_tv_results
-from ...parsing import best_tv_match_title, clean_folder_name, extract_year
-from ...parsing import build_movie_name, build_show_folder_name
+from ...engine import PreviewItem, ScanState
+from ._media_workspace_actions import MediaWorkspaceActionCoordinator
 from ._media_workspace_roster import (
     _CHECKED_ROLE,
     _ROSTER_ENTRY_KEY_ROLE,
@@ -41,14 +35,13 @@ from ._media_workspace_preview import (
     MediaWorkspacePreviewPanel,
 )
 from ._media_helpers import (
-    format_batch_result as _format_batch_result,
-    is_plex_ready_state as _is_plex_ready_state,
     is_state_queue_approvable as _is_state_queue_approvable,
     roster_group as _roster_group,
     roster_selection_key as _roster_selection_key,
     state_key as _state_key,
 )
 from ._media_workspace_sync import MediaWorkspaceSyncCoordinator
+from ._media_workspace_view import MediaWorkspaceViewCoordinator
 from ._workspace_widgets import (
     _CheckBinding,
     PreviewRowWidget as _PreviewRowWidget,
@@ -99,6 +92,8 @@ class MediaWorkspace(QWidget):
         self._roster_collapsed: dict[str, bool] = {"plex-ready": True}
         self._roster_selection_is_auto = False
         self._pending_roster_selection_auto: bool | None = None
+        self._action_coordinator = MediaWorkspaceActionCoordinator(self)
+        self._view_coordinator = MediaWorkspaceViewCoordinator(self)
         self._build_ui()
         self._sync_coordinator = MediaWorkspaceSyncCoordinator(self)
 
@@ -554,17 +549,7 @@ class MediaWorkspace(QWidget):
         self._preview_panel.update_master_state(state)
 
     def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
-        if state is None:
-            self._detail_panel.clear()
-            return
-
-        eligibility = self._queue_eligibility([state])
-        self._detail_panel.set_selection(
-            state,
-            preview=preview,
-            queue_reason=eligibility.reason,
-            folder_plan=self._folder_plan_text(state),
-        )
+        self._view_coordinator.render_detail(state, preview)
 
     def _check_all(self) -> None:
         for state in self._current_states():
@@ -584,246 +569,41 @@ class MediaWorkspace(QWidget):
         self.refresh_from_controller()
 
     def _queue_selected_state(self) -> None:
-        state = self._selected_state()
-        if state is None:
-            self.status_message.emit(f"Select a {self._media_noun()} before queueing.", 4000)
-            return
-        if not _is_state_queue_approvable(state, media_type=self._media_type):
-            self.status_message.emit(f"This {self._media_noun()} is not approved for queueing.", 4000)
-            return
-        original_checked = state.checked
-        state.checked = True
-        try:
-            self._queue_states([state], empty_message=f"Select a {self._media_noun()} before queueing.")
-        finally:
-            if not state.queued:
-                state.checked = original_checked
+        self._action_coordinator.queue_selected_state()
 
     def _activate_selected_primary_action(self) -> None:
-        state = self._selected_state()
-        if state is None:
-            self.status_message.emit(f"Select a {self._media_noun()} first.", 4000)
-            return
-        if self._can_inline_assign_season(state):
-            self._prompt_assign_season(state)
-            return
-        if self._needs_inline_match_choice(state):
-            self._fix_match()
-            return
-        if self._can_inline_approve(state):
-            self._approve_match(state)
-            return
-        self._queue_selected_state()
+        self._action_coordinator.activate_selected_primary_action()
 
     def _queue_checked(self) -> None:
-        checked = [state for state in self._current_states() if state.checked]
-        if not checked:
-            self.status_message.emit("Select at least one actionable item before queueing.", 4000)
-            return
-        eligible = [s for s in checked if _is_state_queue_approvable(s, media_type=self._media_type)]
-        skipped = len(checked) - len(eligible)
-        if skipped and eligible:
-            skip_reasons = self._summarize_skip_reasons(checked)
-            detail = ", ".join(f"{count} {reason}" for reason, count in skip_reasons.items())
-            answer = QMessageBox.question(
-                self,
-                "Queue Checked Items",
-                f"Queueing {len(eligible)} of {len(checked)} checked — {detail} will be skipped.\n\nProceed?",
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-        self._queue_states(checked, empty_message="Select at least one actionable item before queueing.")
+        self._action_coordinator.queue_checked(question_box=QMessageBox)
 
     def _summarize_skip_reasons(self, states: list[ScanState]) -> dict[str, int]:
-        reasons: dict[str, int] = {}
-        for state in states:
-            if _is_state_queue_approvable(state, media_type=self._media_type):
-                continue
-            if state.queued:
-                reasons["already queued"] = reasons.get("already queued", 0) + 1
-            elif state.scanning:
-                reasons["still scanning"] = reasons.get("still scanning", 0) + 1
-            elif state.needs_review:
-                reasons["needs review"] = reasons.get("needs review", 0) + 1
-            elif state.duplicate_of is not None:
-                reasons["duplicate"] = reasons.get("duplicate", 0) + 1
-            elif _is_plex_ready_state(state):
-                reasons["already Plex-ready"] = reasons.get("already Plex-ready", 0) + 1
-            else:
-                reasons["ineligible"] = reasons.get("ineligible", 0) + 1
-        return reasons
+        return self._action_coordinator.summarize_skip_reasons(states)
 
     def _queue_states(self, states: list[ScanState], *, empty_message: str) -> None:
-        if self._media_ctrl is None or self._queue_ctrl is None:
-            return
-        if not states:
-            self.status_message.emit(empty_message, 4000)
-            return
-
-        selected_key = _roster_selection_key(self._selected_state())
-
-        eligibility = self._queue_eligibility(states)
-        if not eligibility.enabled:
-            self.status_message.emit(eligibility.reason or "The selected items cannot be queued right now.", 4000)
-            return
-
-        try:
-            if self._media_type == "movie":
-                root = self._media_ctrl.movie_folder
-                if root is None:
-                    self.status_message.emit("No movie folder is loaded.", 4000)
-                    return
-                result = self._queue_ctrl.add_movie_batch(states, root, self._media_ctrl.command_gating)
-            else:
-                root = self._media_ctrl.tv_root_folder
-                if root is None:
-                    self.status_message.emit("No TV folder is loaded.", 4000)
-                    return
-                result = self._queue_ctrl.add_tv_batch(states, root, self._media_ctrl.command_gating)
-        except Exception as exc:
-            QMessageBox.warning(self, "Queue Failed", str(exc))
-            return
-
-        self._media_ctrl.sync_queued_states()
-        self.refresh_from_controller()
-        self._restore_roster_selection_by_key(selected_key)
-        self.queue_changed.emit()
-        self.status_message.emit(_format_batch_result(result), 5000)
+        self._action_coordinator.queue_states(
+            states,
+            empty_message=empty_message,
+            warning_box=QMessageBox,
+        )
 
     def _fix_match(self) -> None:
-        state = self._selected_state()
-        if state is None or self._media_ctrl is None or self._tmdb_provider is None:
-            return
-        selected_key = _roster_selection_key(state)
-        if state.queued:
-            self.status_message.emit("Remove the item from the queue before changing its match.", 4000)
-            return
-
-        tmdb = self._tmdb_provider()
-        if tmdb is None:
-            self.status_message.emit("TMDB is unavailable.", 4000)
-            return
-
-        if self._media_type == "movie":
-            query_source = state.preview_items[0].original.stem if state.preview_items else state.folder.name
-            title_key = "title"
-            search_callback = tmdb.search_movie
-            dialog_title = f"{self._fix_match_label(state)}: {query_source}"
-            score_results_callback = None
-        else:
-            query_source = state.folder.name
-            title_key = "name"
-            search_callback = tmdb.search_tv
-            dialog_title = f"{self._fix_match_label(state)}: {state.folder.name}"
-            score_results_callback = None
-
-        query = (
-            best_tv_match_title(state.folder, include_year=False)
-            if self._media_type == "tv"
-            else clean_folder_name(query_source, include_year=False)
+        self._action_coordinator.fix_match(
+            match_picker_dialog=MatchPickerDialog,
+            warning_box=QMessageBox,
         )
-        year_hint = extract_year(query_source)
-        if self._media_type == "tv":
-            score_results_callback = lambda results: score_tv_results(
-                results,
-                query,
-                year_hint,
-                tmdb,
-                folder=state.folder,
-            )
-        chosen = MatchPickerDialog.pick(
-            title=dialog_title,
-            title_key=title_key,
-            initial_query=query,
-            initial_results=state.search_results,
-            search_callback=search_callback,
-            score_results_callback=score_results_callback,
-            year_hint=year_hint,
-            raw_name=query,
-            parent=self,
-        )
-        if not chosen:
-            return
-
-        try:
-            if self._media_type == "movie":
-                self._media_ctrl.rematch_movie_state(state, chosen)
-                self.refresh_from_controller()
-                self._restore_roster_selection_by_key(selected_key)
-                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
-                return
-
-            updated_state = self._media_ctrl.rematch_tv_state(state, chosen, tmdb)
-            self.refresh_from_controller()
-            self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
-            self._media_ctrl.scan_show(updated_state, tmdb)
-            if updated_state.scanned or updated_state.preview_items:
-                self.refresh_from_controller()
-                self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
-            self.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)
-        except Exception as exc:
-            QMessageBox.warning(self, "Fix Match Failed", str(exc))
 
     def _queue_eligibility(self, states: list[ScanState]):
-        if not states:
-            return self._media_ctrl.command_gating.summarize_scan_states([], require_resolved_review=True)
-        return self._media_ctrl.command_gating.summarize_scan_states(
-            states,
-            require_resolved_review=True,
-            allow_show_level_queue=self._media_type == "tv",
-        )
+        return self._action_coordinator.queue_eligibility(states)
 
     def _update_action_bar(self) -> None:
-        states = self._current_states()
-        checked = [state for state in states if state.checked]
-        self._update_roster_selection_header(states)
-        selected_state = self._selected_state()
-        can_fix = bool(selected_state and self._can_fix_match(selected_state))
-        self._fix_match_btn.setEnabled(can_fix)
-        self._fix_match_btn.setText(self._fix_match_label(selected_state))
-        self._fix_match_btn.setToolTip("")
-        self._queue_inline_btn.setText(self._primary_action_label(selected_state))
-        if selected_state is None:
-            self._queue_inline_btn.setEnabled(False)
-            self._queue_inline_btn.setToolTip("")
-        else:
-            if (
-                self._can_inline_assign_season(selected_state)
-                or self._needs_inline_match_choice(selected_state)
-                or self._can_inline_approve(selected_state)
-            ):
-                self._queue_inline_btn.setEnabled(True)
-                self._queue_inline_btn.setToolTip("")
-            else:
-                approvable = _is_state_queue_approvable(selected_state, media_type=self._media_type)
-                self._queue_inline_btn.setEnabled(approvable)
-                if approvable:
-                    self._queue_inline_btn.setToolTip("")
-                else:
-                    inline_eligibility = self._queue_eligibility([selected_state])
-                    self._queue_inline_btn.setToolTip(inline_eligibility.reason or "")
-        if checked:
-            eligibility = self._queue_eligibility(checked)
-            self._set_roster_queue_button_text(f"Queue {len(checked)} Checked")
-            self._roster_queue_btn.setEnabled(eligibility.enabled)
-            self._roster_queue_btn.setToolTip("" if eligibility.enabled else (eligibility.reason or ""))
-        else:
-            self._set_roster_queue_button_text("Queue Checked")
-            self._roster_queue_btn.setEnabled(False)
-            self._roster_queue_btn.setToolTip("Check at least one item to queue.")
-        if selected_state is not None:
-            self._render_detail(selected_state, self._selected_preview())
+        self._action_coordinator.update_action_bar()
 
     def _set_roster_queue_button_text(self, text: str) -> None:
-        self._roster_panel.set_queue_button_text(text)
-        self._sync_action_button_metrics()
+        self._action_coordinator.set_roster_queue_button_text(text)
 
     def _sync_action_button_metrics(self) -> None:
-        if not hasattr(self, "_queue_inline_btn"):
-            return
-        button_height = max(self._queue_inline_btn.sizeHint().height(), self._roster_queue_btn.sizeHint().height())
-        self._queue_inline_btn.setMinimumHeight(button_height)
-        self._roster_queue_btn.setMinimumHeight(button_height)
+        self._action_coordinator.sync_action_button_metrics()
 
     def _set_preview_summary(self, text: str) -> None:
         self._preview_panel.set_summary(text)
@@ -844,210 +624,65 @@ class MediaWorkspace(QWidget):
         self._sync_coordinator.sync_row_selection(list_widget)
 
     def _approve_match(self, state: ScanState) -> None:
-        if self._media_ctrl is None:
-            return
-        if state.duplicate_of is not None or state.queued or state.scanning:
-            self.status_message.emit("This item cannot be approved in its current state.", 3000)
-            return
-        self._media_ctrl.approve_match(state)
-        self.refresh_from_controller()
-        self.status_message.emit("Match approved.", 3000)
+        self._action_coordinator.approve_match(state)
 
     def _prompt_assign_season(self, state: ScanState) -> None:
-        if self._media_ctrl is None:
-            return
-        selected_key = _roster_selection_key(state)
-        current = state.season_assignment or 1
-        season_num, ok = QInputDialog.getInt(
-            self, "Assign Season",
-            f"Season number for \"{state.display_name}\":",
-            current, 0, 99,
+        self._action_coordinator.prompt_assign_season(
+            state,
+            input_dialog=QInputDialog,
+            warning_box=QMessageBox,
         )
-        if not ok:
-            return
-        effective_state = self._media_ctrl.assign_season(
-            state, season_num if season_num > 0 else None,
-        )
-        self.refresh_from_controller()
-        follow_up_state = effective_state if effective_state is not None else state
-        self._restore_roster_selection_by_key(_roster_selection_key(follow_up_state))
-        # In batch TV, assign_season either merged siblings (target was
-        # reset_scan'd) or invalidated its own scan data; in both cases the
-        # preview needs to be rebuilt with the new season hint.
-        if (
-            self._media_type == "tv"
-            and season_num > 0
-            and follow_up_state.show_id is not None
-        ):
-            tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
-            if tmdb is not None:
-                try:
-                    self._media_ctrl.scan_show(follow_up_state, tmdb)
-                except Exception as exc:
-                    QMessageBox.warning(self, "Scan Failed", str(exc))
-                if follow_up_state.scanned or follow_up_state.preview_items:
-                    self.refresh_from_controller()
-                    self._restore_roster_selection_by_key(
-                        _roster_selection_key(follow_up_state)
-                    )
-        label = f"Season {season_num}" if season_num > 0 else "cleared"
-        self.status_message.emit(f"Season assignment: {label}.", 3000)
 
     def _apply_alternate_match(self, state: ScanState, match: dict) -> None:
-        if self._media_ctrl is None:
-            return
-        selected_key = _roster_selection_key(state)
-        try:
-            if self._media_type == "movie":
-                self._media_ctrl.rematch_movie_state(state, match)
-                self.refresh_from_controller()
-                self._restore_roster_selection_by_key(selected_key)
-                self.status_message.emit(f"Updated match to {state.display_name}.", 4000)
-                return
-
-            tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
-            if tmdb is None:
-                self.status_message.emit("TMDB is unavailable.", 4000)
-                return
-            updated_state = self._media_ctrl.rematch_tv_state(state, match, tmdb)
-            self.refresh_from_controller()
-            self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
-            self._media_ctrl.scan_show(updated_state, tmdb)
-            if updated_state.scanned or updated_state.preview_items:
-                self.refresh_from_controller()
-                self._restore_roster_selection_by_key(_roster_selection_key(updated_state))
-            self.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)
-        except Exception as exc:
-            QMessageBox.warning(self, "Fix Match Failed", str(exc))
+        self._action_coordinator.apply_alternate_match(
+            state,
+            match,
+            warning_box=QMessageBox,
+        )
 
     def _selected_preview(self) -> PreviewItem | None:
-        state = self._selected_state()
-        current = self._preview_list.currentItem()
-        if state is None or current is None:
-            return None
-        index = current.data(Qt.ItemDataRole.UserRole)
-        if index is None or not (0 <= index < len(state.preview_items)):
-            return None
-        return state.preview_items[index]
+        return self._view_coordinator.selected_preview()
 
     def _folder_plan_text(self, state: ScanState) -> str:
-        folder_preview = self._folder_preview_data(state)
-        if folder_preview is None:
-            return ""
-        source, target = folder_preview
-        return f"Folder rename plan: {source} -> {target}"
+        return self._view_coordinator.folder_plan_text(state)
 
     def _folder_preview_data(self, state: ScanState) -> tuple[str, str] | None:
-        source = state.folder.name
-        if self._media_type == "movie":
-            target = build_movie_name(
-                state.media_info.get("title", state.display_name),
-                state.media_info.get("year", ""),
-                "",
-            )
-        else:
-            target = build_show_folder_name(
-                state.media_info.get("name", state.display_name),
-                state.media_info.get("year", ""),
-            )
-        if not source or not target:
-            return None
-        return source, target
+        return self._view_coordinator.folder_preview_data(state)
 
     def _media_noun(self) -> str:
-        return "movie" if self._media_type == "movie" else "show"
+        return self._action_coordinator.media_noun()
 
     def _queue_selected_label(self) -> str:
-        return f"Queue This {'Movie' if self._media_type == 'movie' else 'Show'}"
+        return self._action_coordinator.queue_selected_label()
 
     def _primary_action_label(self, state: ScanState | None) -> str:
-        if state is not None and self._can_inline_assign_season(state):
-            return "Assign Season"
-        if state is not None and self._needs_inline_match_choice(state):
-            return "Choose Match"
-        if state is not None and self._can_inline_approve(state):
-            return "Approve Match"
-        return self._queue_selected_label()
+        return self._action_coordinator.primary_action_label(state)
 
     def _fix_match_label(self, state: ScanState | None) -> str:
-        if state is not None and self._needs_inline_match_choice(state):
-            return "Choose Match"
-        return "Fix Match"
+        return self._action_coordinator.fix_match_label(state)
 
     def _needs_inline_match_choice(self, state: ScanState) -> bool:
-        return (
-            state.show_id is not None
-            and state.tie_detected
-            and state.needs_review
-            and not state.queued
-            and not state.scanning
-            and state.duplicate_of is None
-        )
+        return self._action_coordinator.needs_inline_match_choice(state)
 
     def _can_inline_assign_season(self, state: ScanState) -> bool:
-        return (
-            self._media_type == "tv"
-            and state.show_id is not None
-            and state.duplicate_of is not None
-            and state.season_assignment is None
-            and not state.queued
-            and not state.scanning
-        )
+        return self._action_coordinator.can_inline_assign_season(state)
 
     def _can_inline_approve(self, state: ScanState) -> bool:
-        return (
-            state.show_id is not None
-            and state.needs_review
-            and not state.tie_detected
-            and not state.queued
-            and not state.scanning
-            and state.duplicate_of is None
-        )
+        return self._action_coordinator.can_inline_approve(state)
 
     def _can_fix_match(self, state: ScanState) -> bool:
-        return not state.queued and not state.scanning
+        return self._action_coordinator.can_fix_match(state)
 
     def _restore_roster_selection_by_key(self, state_key: str | None) -> None:
-        if state_key is None:
-            return
-        for index, state in enumerate(self._current_states()):
-            if _roster_selection_key(state) != state_key:
-                continue
-            item = self._find_roster_item_by_index(index)
-            if item is not None:
-                self._set_roster_current_item(item, auto_selected=self._roster_selection_is_auto)
-                self._scroll_roster_item_into_context(item)
-            return
+        self._view_coordinator.restore_roster_selection_by_key(state_key)
 
     def _scroll_roster_item_into_context(self, item: QListWidgetItem) -> None:
-        row = self._roster_list.row(item)
-        if row < 0:
-            return
-        anchor = item
-        for index in range(row - 1, -1, -1):
-            header = self._roster_list.item(index)
-            if header is not None and header.data(_ROSTER_ENTRY_KIND_ROLE) == "header":
-                anchor = header
-                break
-        self._roster_list.scrollToItem(anchor, QAbstractItemView.ScrollHint.PositionAtTop)
+        self._view_coordinator.scroll_roster_item_into_context(item)
 
     def _season_ratio_text(self, state: ScanState, season_num: int | None, item_count: int) -> str:
-        expected = self._season_expected_count(state, season_num)
-        if expected <= 0:
-            expected = item_count
-        return f" — {item_count}/{expected}"
+        return self._view_coordinator.season_ratio_text(state, season_num, item_count)
 
     def _season_expected_count(self, state: ScanState, season_num: int | None) -> int:
-        completeness = state.completeness
-        if completeness is None:
-            return 0
-        if season_num == 0:
-            return completeness.specials.expected if completeness.specials is not None else 0
-        if season_num is None:
-            return 0
-        season = completeness.seasons.get(season_num)
-        if season is None:
-            return 0
-        return season.expected
+        return self._view_coordinator.season_expected_count(state, season_num)
 
 
