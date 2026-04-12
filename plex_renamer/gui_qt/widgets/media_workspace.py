@@ -16,8 +16,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QSplitter,
-    QStackedWidget,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -25,17 +23,15 @@ from ...engine import PreviewItem, ScanState
 from ._media_workspace_actions import MediaWorkspaceActionCoordinator
 from ._media_workspace_lifecycle import MediaWorkspaceLifecycleCoordinator
 from ._media_workspace_refresh import MediaWorkspaceRefreshCoordinator
-from ._media_workspace_roster import _ROSTER_ENTRY_KIND_ROLE, MediaWorkspaceRosterPanel
-from ._media_workspace_preview import MediaWorkspacePreviewPanel
+from ._media_workspace_roster import _ROSTER_ENTRY_KIND_ROLE
 from ._media_workspace_state import MediaWorkspaceStateCoordinator
 from ._media_workspace_sync import MediaWorkspaceSyncCoordinator
+from ._media_workspace_ui import MediaWorkspaceUiCoordinator
 from ._media_workspace_view import MediaWorkspaceViewCoordinator
 from ._workspace_widgets import (
     PreviewRowWidget as _PreviewRowWidget,
     RosterRowWidget as _RosterRowWidget,
 )
-from .media_detail_panel import MediaDetailPanel
-from .empty_state import EmptyStateWidget
 from .match_picker_dialog import MatchPickerDialog
 from .scan_progress import ScanProgressWidget
 
@@ -88,122 +84,13 @@ class MediaWorkspace(QWidget):
         )
         self._refresh_coordinator = MediaWorkspaceRefreshCoordinator(self)
         self._state_coordinator = MediaWorkspaceStateCoordinator(self, folder_section_key=_FOLDER_SECTION_KEY)
+        self._ui_coordinator = MediaWorkspaceUiCoordinator(self, empty_index=_EMPTY)
         self._view_coordinator = MediaWorkspaceViewCoordinator(self)
         self._build_ui()
         self._sync_coordinator = MediaWorkspaceSyncCoordinator(self)
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        self._stack = QStackedWidget()
-        layout.addWidget(self._stack)
-
-        # ── Page 0: Empty state ──────────────────────────────────
-        self._empty_state = EmptyStateWidget(
-            media_type=self._media_type,
-            settings_service=self._settings,
-        )
-        self._empty_state.folder_selected.connect(self._on_folder_selected)
-        self._stack.addWidget(self._empty_state)
-
-        # ── Page 1: Scanning state ───────────────────────────────
-        self._scan_progress = ScanProgressWidget(
-            media_type=self._media_type,
-        )
-        self._scan_progress.cancel_requested.connect(self._on_cancel_scan)
-        self._stack.addWidget(self._scan_progress)
-
-        # ── Page 2: Ready state (3-panel + action bar) ───────────
-        ready_container = QWidget()
-        ready_layout = QVBoxLayout(ready_container)
-        ready_layout.setContentsMargins(0, 0, 0, 0)
-        ready_layout.setSpacing(0)
-
-        # 3-panel splitter
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        self._roster_panel = MediaWorkspaceRosterPanel(
-            media_type=self._media_type,
-            settings_service=self._settings,
-            tmdb_provider=self._tmdb_provider,
-            set_item_check_state_callback=lambda item, checked: self._set_item_check_state(
-                item,
-                checked,
-                preview=False,
-            ),
-            prompt_assign_season_callback=self._prompt_assign_season,
-        )
-        self._roster_list = self._roster_panel.list_widget
-        self._roster_master_check = self._roster_panel.master_check
-        self._roster_selection_summary = self._roster_panel.selection_summary
-        self._roster_queue_btn = self._roster_panel.queue_button
-        self._roster_master_check.stateChanged.connect(self._on_roster_master_changed)
-        self._roster_queue_btn.clicked.connect(self._queue_checked)
-        self._roster_list.itemChanged.connect(self._on_roster_item_changed)
-        self._roster_list.itemClicked.connect(self._on_roster_item_clicked)
-        self._roster_list.currentItemChanged.connect(self._on_roster_current_item_changed)
-        self._set_roster_queue_button_text("Queue Checked")
-
-        self._preview_panel = MediaWorkspacePreviewPanel(
-            media_type=self._media_type,
-            settings_service=self._settings,
-            set_item_check_state_callback=lambda item, checked: self._set_item_check_state(
-                item,
-                checked,
-                preview=True,
-            ),
-        )
-        self._preview_list = self._preview_panel.list_widget
-        self._preview_master_check = self._preview_panel.master_check
-        self._preview_check_summary = self._preview_panel.check_summary
-        self._fix_match_btn = self._preview_panel.fix_match_button
-        self._queue_inline_btn = self._preview_panel.primary_action_button
-        self._folder_plan_label = self._preview_panel.folder_plan_label
-        self._preview_summary = self._preview_panel.summary_label
-        self._sticky_header = self._preview_panel.sticky_header
-        self._preview_master_check.stateChanged.connect(self._on_preview_master_changed)
-        self._fix_match_btn.clicked.connect(self._fix_match)
-        self._queue_inline_btn.clicked.connect(self._activate_selected_primary_action)
-        self._queue_inline_btn.setText(self._queue_selected_label())
-        self._sync_action_button_metrics()
-        self._preview_list.itemChanged.connect(self._on_preview_item_changed)
-        self._preview_list.currentItemChanged.connect(self._on_preview_current_item_changed)
-        self._preview_list.itemClicked.connect(self._on_preview_item_clicked)
-
-        self._detail_panel = MediaDetailPanel(
-            tmdb_provider=self._tmdb_provider,
-            settings_service=self._settings,
-        )
-        self._detail_panel.setProperty("panelVariant", "square")
-        self._detail_panel.setMinimumWidth(340)
-
-        self._splitter.addWidget(self._roster_panel)
-        self._splitter.addWidget(self._preview_panel)
-        self._splitter.addWidget(self._detail_panel)
-
-        # Default proportions: ~20% roster, ~50% preview, ~30% detail
-        self._splitter.setSizes([320, 540, 380])
-        self._splitter.setChildrenCollapsible(False)
-
-        ready_layout.addWidget(self._splitter, stretch=1)
-
-        # Bottom action bar
-        # Bottom action bar removed — queue button is now in the roster panel header.
-
-        self._stack.addWidget(ready_container)
-
-        # ── Restore splitter positions ───────────────────────────
-        if self._settings:
-            positions = self._settings.splitter_positions
-            if positions and len(positions) == 3:
-                self._splitter.setSizes(positions)
-
-        self._splitter.splitterMoved.connect(self._on_splitter_moved)
-
-        # Start in empty state
-        self._stack.setCurrentIndex(_EMPTY)
+        self._ui_coordinator.build_ui()
 
     # ── Public API ───────────────────────────────────────────────
 
