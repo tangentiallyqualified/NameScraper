@@ -16,12 +16,10 @@ Performance features:
 
 from __future__ import annotations
 
-import base64
 import io
 import logging
 import threading
 import time
-from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -30,13 +28,13 @@ import requests
 from requests.adapters import HTTPAdapter
 from PIL import Image
 
+from ._tmdb_image_cache import _TMDBImageCacheStore
+
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
 _HTTP_POOL_CONNECTIONS = 16
 _HTTP_POOL_MAXSIZE = 32
-_POSTER_CACHE_NAMESPACE = "tmdb.poster_image"
-_SOURCE_IMAGE_CACHE_NAMESPACE = "tmdb.source_image"
 _TV_DETAILS_NAMESPACE = "tmdb.tv_details"
 _SEASON_NAMESPACE = "tmdb.season"
 _MOVIE_DETAILS_NAMESPACE = "tmdb.movie_details"
@@ -99,44 +97,6 @@ class _TokenBucket:
                     return
             # Sleep briefly and retry
             time.sleep(0.02)
-
-
-# ─── LRU image cache ────────────────────────────────────────────────────────
-
-class _LRUImageCache:
-    """
-    Bounded LRU cache for PIL Images.
-
-    Evicts the least-recently-used entry when *max_size* is exceeded.
-    Thread-safe.
-    """
-
-    def __init__(self, max_size: int = 200):
-        self._max_size = max_size
-        self._cache: OrderedDict[tuple, Image.Image] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def get(self, key: tuple) -> Image.Image | None:
-        with self._lock:
-            if key in self._cache:
-                self._cache.move_to_end(key)
-                return self._cache[key]
-        return None
-
-    def put(self, key: tuple, value: Image.Image) -> None:
-        with self._lock:
-            if key in self._cache:
-                self._cache.move_to_end(key)
-            else:
-                if len(self._cache) >= self._max_size:
-                    self._cache.popitem(last=False)
-            self._cache[key] = value
-
-    def clear(self) -> None:
-        with self._lock:
-            self._cache.clear()
-
-
 # ─── Client ──────────────────────────────────────────────────────────────────
 
 class TMDBClient:
@@ -181,183 +141,12 @@ class TMDBClient:
         self._movie_cache: dict[int, dict] = {}
         self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
 
-        # LRU-bounded image cache keyed by (image_path, target_width)
-        self._image_cache = _LRUImageCache(max_size=image_cache_size)
-        self._poster_cache: dict[tuple[str, int, int | None, str | None, int], Image.Image] = {}
-        self._source_image_cache: dict[str, Image.Image] = {}
+        self._image_cache_store = _TMDBImageCacheStore(
+            image_cache_size=image_cache_size,
+            cache_service=cache_service,
+        )
 
     # ─── Helpers ──────────────────────────────────────────────────────
-
-    def _poster_cache_key(
-        self,
-        *,
-        media_id: int,
-        media_type: str,
-        season: int | None,
-        ep_still: str | None,
-        target_width: int,
-    ) -> tuple[str, int, int | None, str | None, int]:
-        return (media_type, media_id, season, ep_still, target_width)
-
-    def _persistent_poster_cache_key(
-        self,
-        *,
-        media_id: int,
-        media_type: str,
-        season: int | None,
-        ep_still: str | None,
-        target_width: int,
-    ) -> str:
-        variant = "default"
-        if season is not None:
-            variant = f"season:{season}"
-        if ep_still:
-            variant = f"still:{ep_still}"
-        return "::".join(str(part).strip().replace("\\", "/") for part in (media_type, media_id, variant, target_width))
-
-    @staticmethod
-    def _serialize_image(image: Image.Image) -> dict[str, Any]:
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return {"png_base64": base64.b64encode(buffer.getvalue()).decode("ascii")}
-
-    @staticmethod
-    def _deserialize_image(payload: dict[str, Any] | None) -> Image.Image | None:
-        if not payload:
-            return None
-        encoded = payload.get("png_base64")
-        if not encoded:
-            return None
-        try:
-            raw = base64.b64decode(encoded)
-            image = Image.open(io.BytesIO(raw))
-            image.load()
-            return image
-        except (ValueError, OSError):
-            return None
-
-    def _get_cached_poster(
-        self,
-        *,
-        media_id: int,
-        media_type: str,
-        season: int | None,
-        ep_still: str | None,
-        target_width: int,
-    ) -> Image.Image | None:
-        key = self._poster_cache_key(
-            media_id=media_id,
-            media_type=media_type,
-            season=season,
-            ep_still=ep_still,
-            target_width=target_width,
-        )
-        cached = self._poster_cache.get(key)
-        if cached is not None:
-            return cached
-        if self._cache_service is None:
-            return None
-
-        persistent_key = self._persistent_poster_cache_key(
-            media_id=media_id,
-            media_type=media_type,
-            season=season,
-            ep_still=ep_still,
-            target_width=target_width,
-        )
-        lookup = self._cache_service.get(_POSTER_CACHE_NAMESPACE, persistent_key)
-        if not lookup.is_hit or not lookup.value:
-            return None
-
-        image = self._deserialize_image(lookup.value)
-        if image is None:
-            self._cache_service.invalidate(_POSTER_CACHE_NAMESPACE, persistent_key)
-            return None
-
-        self._poster_cache[key] = image
-        return image
-
-    def _store_cached_poster(
-        self,
-        *,
-        media_id: int,
-        media_type: str,
-        season: int | None,
-        ep_still: str | None,
-        target_width: int,
-        image: Image.Image,
-    ) -> None:
-        key = self._poster_cache_key(
-            media_id=media_id,
-            media_type=media_type,
-            season=season,
-            ep_still=ep_still,
-            target_width=target_width,
-        )
-        self._poster_cache[key] = image
-        if self._cache_service is None:
-            return
-
-        persistent_key = self._persistent_poster_cache_key(
-            media_id=media_id,
-            media_type=media_type,
-            season=season,
-            ep_still=ep_still,
-            target_width=target_width,
-        )
-        self._cache_service.put(
-            _POSTER_CACHE_NAMESPACE,
-            persistent_key,
-            self._serialize_image(image),
-            metadata={
-                "kind": "tmdb_poster_image",
-                "media_type": media_type,
-                "media_id": media_id,
-                "season": season,
-                "ep_still": ep_still,
-                "target_width": target_width,
-            },
-        )
-
-    @staticmethod
-    def _persistent_source_image_key(image_path: str) -> str:
-        return str(image_path).strip().replace("\\", "/")
-
-    def _get_cached_source_image(self, image_path: str) -> Image.Image | None:
-        cached = self._source_image_cache.get(image_path)
-        if cached is not None:
-            return cached
-        if self._cache_service is None:
-            return None
-
-        persistent_key = self._persistent_source_image_key(image_path)
-        lookup = self._cache_service.get(_SOURCE_IMAGE_CACHE_NAMESPACE, persistent_key)
-        if not lookup.is_hit or not lookup.value:
-            return None
-
-        image = self._deserialize_image(lookup.value)
-        if image is None:
-            self._cache_service.invalidate(_SOURCE_IMAGE_CACHE_NAMESPACE, persistent_key)
-            return None
-
-        self._source_image_cache[image_path] = image
-        return image
-
-    def _store_cached_source_image(self, image_path: str, image: Image.Image) -> None:
-        self._source_image_cache[image_path] = image
-        if self._cache_service is None:
-            return
-
-        persistent_key = self._persistent_source_image_key(image_path)
-        self._cache_service.put(
-            _SOURCE_IMAGE_CACHE_NAMESPACE,
-            persistent_key,
-            self._serialize_image(image),
-            metadata={
-                "kind": "tmdb_source_image",
-                "image_path": image_path,
-            },
-        )
 
     def _get(self, path: str, params: dict | None = None) -> dict | None:
         """
@@ -868,18 +657,17 @@ class TMDBClient:
         """
         if not image_path:
             return None
-        cache_key = (image_path, target_width)
-        cached = self._image_cache.get(cache_key)
+        cached = self._image_cache_store.get_image(image_path, target_width)
         if cached is not None:
             return cached
-        source = self._get_cached_source_image(image_path)
+        source = self._image_cache_store.get_source_image(image_path)
         if source is None:
             try:
                 self._rate_limiter.acquire()
                 r = self._session.get(IMAGE_BASE_URL + image_path, timeout=10)
                 source = Image.open(io.BytesIO(r.content))
                 source.load()
-                self._store_cached_source_image(image_path, source)
+                self._image_cache_store.store_source_image(image_path, source)
             except (requests.RequestException, OSError, ValueError) as e:
                 log.debug("Failed to fetch image %s: %s", image_path, e)
                 return None
@@ -888,7 +676,7 @@ class TMDBClient:
             scale = target_width / source.width
             new_h = int(source.height * scale)
             img = source.resize((target_width, new_h), Image.LANCZOS)
-            self._image_cache.put(cache_key, img)
+            self._image_cache_store.store_image(image_path, target_width, img)
             return img
         except (OSError, ValueError) as e:
             log.debug("Failed to fetch image %s: %s", image_path, e)
@@ -908,7 +696,7 @@ class TMDBClient:
         Priority: ep_still → season poster → show/movie poster.
         Uses cached data where available to avoid extra API calls.
         """
-        cached = self._get_cached_poster(
+        cached = self._image_cache_store.get_poster(
             media_id=media_id,
             media_type=media_type,
             season=season,
@@ -922,7 +710,7 @@ class TMDBClient:
         if ep_still:
             img = self.fetch_image(ep_still, target_width)
             if img:
-                self._store_cached_poster(
+                self._image_cache_store.store_poster(
                     media_id=media_id,
                     media_type=media_type,
                     season=season,
@@ -941,7 +729,7 @@ class TMDBClient:
             if cached and cached.get("season_poster_path"):
                 img = self.fetch_image(cached["season_poster_path"], target_width)
                 if img:
-                    self._store_cached_poster(
+                    self._image_cache_store.store_poster(
                         media_id=media_id,
                         media_type=media_type,
                         season=season,
@@ -961,7 +749,7 @@ class TMDBClient:
         if data and data.get("poster_path"):
             img = self.fetch_image(data["poster_path"], target_width)
             if img:
-                self._store_cached_poster(
+                self._image_cache_store.store_poster(
                     media_id=media_id,
                     media_type=media_type,
                     season=season,
@@ -990,8 +778,7 @@ class TMDBClient:
         self._season_cache.clear()
         self._season_map_cache.clear()
         self._movie_cache.clear()
-        self._image_cache.clear()
-        self._poster_cache.clear()
+        self._image_cache_store.clear_runtime_caches()
 
     def export_cache_snapshot(self) -> dict[str, dict]:
         """Return a serializable snapshot of the in-memory metadata caches."""
