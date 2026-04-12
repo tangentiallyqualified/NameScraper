@@ -9,6 +9,8 @@ Stats snapshot: ~18.6k LOC source, ~13.1k LOC tests across 10 files, 12 manual `
 - [x] **#1** engine.py split — converted to `engine/` package (`_core.py`, `models.py`, `_state.py`, `matching.py`), public API preserved via `__init__.py`.
 - [x] **#3** matching consolidation — 9 scoring functions extracted to [plex_renamer/engine/matching.py](../plex_renamer/engine/matching.py).
 - [x] **#10** fast vs smoke split — added [scripts/test-fast.cmd](../scripts/test-fast.cmd) / [test-fast.ps1](../scripts/test-fast.ps1) / [test_fast_runner.py](../scripts/test_fast_runner.py); runs the non-Qt suite (244 tests, ~2.7s) with the same concise-summary format as `test-smoke`.
+- [x] **#9** test shape rebalance — split 3,946-line `test_gui_qt_smoke.py` (85 tests) into 5 feature-area files + shared [conftest_qt.py](../tests/conftest_qt.py); backfilled unit tests for `cache_service` (18), `command_gating_service` (21), `refresh_policy_service` (24). Fast suite: 244 → 307 tests.
+- [x] **#2** media_workspace split — extracted 11 widget classes (~590 lines) to [_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py); `media_workspace.py` reduced from 2,228 → 1,673 lines. Backward-compatible alias imports preserved for tests.
 
 ## High Value
 

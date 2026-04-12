@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
+
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtTest import QTest
+
+from plex_renamer.app.controllers.queue_controller import BatchQueueResult
+from plex_renamer.app.services.cache_service import PersistentCacheService
+from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.app.services.settings_service import SettingsService
+from plex_renamer.constants import JobStatus
+from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
+from plex_renamer.job_store import JobStore
+
+from conftest_qt import QtSmokeBase
+
+
+class QtMediaDetailPanelTests(QtSmokeBase):
+    def test_media_detail_panel_caps_metadata_cache_and_can_clear_it(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        max_entries = panel._MAX_METADATA_CACHE_ENTRIES
+
+        for index in range(max_entries + 5):
+            panel._apply_payload({"title": f"Item {index}"}, None, f"token-{index}")
+
+        self.assertEqual(len(panel._metadata_cache), max_entries)
+        self.assertNotIn("token-0", panel._metadata_cache)
+        self.assertIn(f"token-{max_entries + 4}", panel._metadata_cache)
+
+        panel.clear_metadata_cache()
+
+        self.assertEqual(len(panel._metadata_cache), 0)
+        self.assertEqual(len(panel._loading_tokens), 0)
+        panel.close()
+
+    def test_media_detail_panel_uses_episode_still_and_threshold_match_text(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            settings.auto_accept_threshold = 0.6
+            tmdb = MagicMock()
+            tmdb.get_tv_details.return_value = {"status": "Returning Series"}
+            tmdb.fetch_poster.return_value = None
+
+            preview = PreviewItem(
+                original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+                season=1,
+                episodes=[1],
+                status="REVIEW",
+            )
+            state = ScanState(
+                folder=Path("C:/library/tv/Review.Show.2024"),
+                media_info={"id": 102, "name": "Review Show", "year": "2024"},
+                preview_items=[preview],
+                scanner=type(
+                    "Scanner",
+                    (),
+                    {
+                        "episode_meta": {
+                            (1, 1): {
+                                "still_path": "/episode-still.jpg",
+                                "overview": "Episode overview",
+                                "air_date": "2024-01-01",
+                                "directors": [],
+                                "writers": [],
+                                "guest_stars": [],
+                            }
+                        }
+                    },
+                )(),
+                scanned=True,
+                confidence=0.42,
+            )
+
+            panel = MediaDetailPanel(tmdb_provider=lambda: tmdb, settings_service=settings)
+            payload, _image = panel._build_payload(tmdb, state, preview, "", "", 500)
+
+            tmdb.fetch_poster.assert_called_once_with(
+                102,
+                media_type="tv",
+                target_width=500,
+            )
+            self.assertEqual(payload["artwork_mode"], "poster")
+            self.assertIn(("Confidence", "42%"), payload["rows"])
+            self.assertIn(("Air Date", "2024-01-01"), payload["rows"])
+
+            panel._current_token = "token"
+            panel._apply_payload(payload, None, "token")
+            self.assertEqual(panel._artwork_mode, "poster")
+            self.assertEqual(panel._poster.height(), 222)
+            panel.close()
+
+    def test_media_detail_panel_uses_series_poster_placeholder_for_episode_selection_without_tmdb(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        preview = PreviewItem(
+            original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+            new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW",
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Review.Show.2024"),
+            media_info={"id": 102, "name": "Review Show", "year": "2024"},
+            preview_items=[preview],
+            scanned=True,
+            confidence=0.42,
+        )
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        panel.set_selection(state, preview=preview)
+
+        self.assertEqual(panel._artwork_mode, "poster")
+        self.assertEqual(panel._poster.height(), 222)
+        self.assertIsNotNone(panel._poster.pixmap())
+        self.assertEqual(panel._poster.text(), "")
+        panel.close()
+
+    def test_media_detail_panel_places_facts_card_in_summary_column(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        body_layout = panel._body.layout()
+        summary_row = body_layout.itemAt(2).layout()
+        summary_body = summary_row.itemAt(1).layout()
+
+        self.assertGreater(body_layout.contentsMargins().left(), 0)
+        self.assertIs(body_layout.itemAt(0).widget(), panel._title)
+        self.assertIs(body_layout.itemAt(1).widget(), panel._subtitle)
+        self.assertIsNotNone(summary_row)
+        self.assertIs(summary_body.itemAt(0).widget(), panel._facts_card)
+        self.assertEqual(panel._facts_card.height(), panel._poster.height())
+
+        panel.close()
+
+    def test_media_detail_panel_omits_movie_queue_row(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        state = ScanState(
+            folder=Path("C:/library/movies/Arrival.2016"),
+            media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                    new_name="Arrival (2016).mkv",
+                    target_dir=Path("C:/library/movies/Arrival (2016)"),
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type="movie",
+                    media_id=22,
+                    media_name="Arrival",
+                )
+            ],
+            scanned=True,
+            confidence=0.91,
+        )
+
+        rows = panel._fallback_rows(state, state.preview_items[0], "Already queued", "Folder rename plan: Arrival.2016 -> Arrival (2016)")
+
+        self.assertNotIn(("Queue", "Already queued"), rows)
+        self.assertNotIn(("Folder", "Folder rename plan: Arrival.2016 -> Arrival (2016)"), rows)
+        self.assertIn(("Confidence", "91%"), rows)
+
+        panel.close()
+
+    def test_media_detail_panel_facts_values_add_wrap_padding(self):
+        from PySide6.QtWidgets import QLabel
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        _key_label, value_label = panel._meta_rows[0]
+        text = "Science Fiction, Adventure, Mystery, Thriller"
+        value_label.setText(text)
+
+        base_label = QLabel("")
+        base_label.setFont(value_label.font())
+        base_label.setWordWrap(True)
+        base_label.setMargin(value_label.margin())
+        base_label.setText(text)
+
+        self.assertGreater(value_label.heightForWidth(120), base_label.heightForWidth(120))
+
+        panel.close()
+
+    def test_media_detail_panel_long_title_does_not_widen_panel_minimum(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        short_payload = {
+            "title": "Arrival (2016)",
+            "subtitle": "Movie",
+            "overview": "First contact changes everything.",
+            "extra": "",
+            "rows": [("Confidence", "97%")],
+            "artwork_mode": "poster",
+        }
+        long_payload = {
+            **short_payload,
+            "title": "Indiana Jones and the Kingdom of the Crystal Skull (2008)",
+        }
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: None)
+        panel.resize(520, 640)
+        panel.show()
+        self._app.processEvents()
+
+        panel._current_token = "short"
+        panel._apply_payload(short_payload, None, "short")
+        self._app.processEvents()
+        baseline_width = panel.sizeHint().width()
+
+        panel._current_token = "long"
+        panel._apply_payload(long_payload, None, "long")
+        self._app.processEvents()
+
+        self.assertLessEqual(panel.sizeHint().width(), baseline_width)
+        self.assertLessEqual(panel.minimumSizeHint().width(), 520)
+        self.assertEqual(panel._body.width(), panel._scroll.viewport().width())
+        self.assertLessEqual(panel._title.geometry().right(), panel._body.contentsRect().right())
+        self.assertGreater(panel._title.height(), panel._title.fontMetrics().lineSpacing())
+
+        panel.close()
+

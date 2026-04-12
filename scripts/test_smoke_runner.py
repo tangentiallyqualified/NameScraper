@@ -79,7 +79,11 @@ def main() -> int:
         str(python),
         "-m",
         "pytest",
-        "tests/test_gui_qt_smoke.py",
+        "tests/test_qt_main_window.py",
+        "tests/test_qt_job_detail_panel.py",
+        "tests/test_qt_media_detail_panel.py",
+        "tests/test_qt_media_workspace.py",
+        "tests/test_qt_queue_history.py",
         "--color=no",
         f"--junitxml={junit_log}",
     ]
