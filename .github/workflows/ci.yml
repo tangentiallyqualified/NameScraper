@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  fast-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run fast tests (non-Qt)
+        run: |
+          python -m pytest \
+            --ignore=tests/test_qt_main_window.py \
+            --ignore=tests/test_qt_job_detail_panel.py \
+            --ignore=tests/test_qt_media_detail_panel.py \
+            --ignore=tests/test_qt_media_workspace.py \
+            --ignore=tests/test_qt_queue_history.py \
+            --ignore=tests/conftest_qt.py \
+            -q --tb=short

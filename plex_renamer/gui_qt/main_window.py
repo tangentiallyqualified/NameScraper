@@ -12,7 +12,6 @@ workspace widget.
 from __future__ import annotations
 
 import logging
-import threading
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
@@ -40,6 +39,7 @@ from ..job_store import JobStore
 from ..job_store import RenameJob
 from ..tmdb import TMDBClient
 from ..keys import get_api_key
+from ..thread_pool import submit as _submit_bg
 
 from .widgets.media_workspace import MediaWorkspace
 from .widgets.queue_tab import QueueTab
@@ -351,7 +351,7 @@ class MainWindow(QMainWindow):
                 return
             self._queue_bridge.on_poster_backfill_finished(updated)
 
-        threading.Thread(target=_worker, daemon=True, name="QtJobPosterBackfill").start()
+        _submit_bg(_worker)
 
     def _on_poster_backfill_finished(self, updated: int) -> None:
         if updated <= 0:

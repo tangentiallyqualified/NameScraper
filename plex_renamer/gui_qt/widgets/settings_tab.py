@@ -7,7 +7,7 @@ SettingsService.
 
 from __future__ import annotations
 
-import threading
+from ...thread_pool import submit as _submit_bg
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -429,7 +429,7 @@ class SettingsTab(QScrollArea):
             except RuntimeError:
                 pass
 
-        threading.Thread(target=_test_worker, daemon=True).start()
+        _submit_bg(_test_worker)
 
     def _show_test_result(self, success: bool, detail: str) -> None:
         self._test_key_btn.setEnabled(True)

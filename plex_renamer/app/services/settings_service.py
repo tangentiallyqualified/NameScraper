@@ -12,12 +12,34 @@ be shared across worker threads and the UI thread.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from pathlib import Path
 
 from ...constants import LOG_DIR, ensure_log_dir
 
+_log = logging.getLogger(__name__)
+
 _SETTINGS_FILE = LOG_DIR / "settings.json"
+
+# ── Schema ───────────────────────────────────────────────────────────────────
+# Maps each known key to the set of acceptable Python types.  ``_validate``
+# uses this to warn about unknown keys and silently reset values whose type
+# doesn't match (falling back to the default).
+
+_SCHEMA: dict[str, tuple[type, ...]] = {
+    "match_language":        (str,),
+    "hide_already_named":    (bool,),
+    "view_mode":             (str,),
+    "show_companion_files":  (bool,),
+    "show_discovery_info":   (bool,),
+    "auto_accept_threshold": (int, float),
+    "show_confidence_bars":  (bool,),
+    "window_geometry":       (list, type(None)),
+    "splitter_positions":    (list, type(None)),
+    "recent_tv_folders":     (list,),
+    "recent_movie_folders":  (list,),
+}
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 
@@ -251,8 +273,34 @@ class SettingsService:
                 stored = json.load(f)
             if isinstance(stored, dict):
                 self._data.update(stored)
+                self._validate()
         except (json.JSONDecodeError, OSError):
             pass  # Corrupt file — use defaults
+
+    def _validate(self) -> None:
+        """Check loaded data against ``_SCHEMA``.
+
+        * Unknown keys are logged and removed.
+        * Values whose type doesn't match the schema are logged and reset
+          to the default.
+        """
+        unknown = [k for k in self._data if k not in _SCHEMA]
+        for key in unknown:
+            _log.warning("settings: unknown key %r (ignored)", key)
+            del self._data[key]
+
+        for key, allowed in _SCHEMA.items():
+            if key not in self._data:
+                continue
+            val = self._data[key]
+            if not isinstance(val, allowed):
+                _log.warning(
+                    "settings: bad type for %r — expected %s, got %s (reset to default)",
+                    key,
+                    "/".join(t.__name__ for t in allowed),
+                    type(val).__name__,
+                )
+                self._data[key] = _DEFAULTS[key]
 
     def _save(self) -> None:
         ensure_log_dir()

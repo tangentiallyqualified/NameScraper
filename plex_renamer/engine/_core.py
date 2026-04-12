@@ -17,7 +17,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
-from ..constants import VIDEO_EXTENSIONS, MediaType
+from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS, YEAR_MIN, YEAR_MAX, MediaType
 from ..parsing import (
     EXTRAS_FOLDER_PATTERN,
     best_tv_match_title,
@@ -492,7 +492,7 @@ class BatchTVOrchestrator:
             if len(scored) >= 2:
                 for r, s in scored:
                     if r.get("id") != best.get("id"):
-                        if best_score - s <= 0.02 and best_score >= get_auto_accept_threshold():
+                        if best_score - s <= SCORE_TIE_MARGIN and best_score >= get_auto_accept_threshold():
                             tie_detected = True
                         break
 
@@ -1108,7 +1108,7 @@ class BatchMovieOrchestrator:
             if len(scored) >= 2:
                 for r, s in scored:
                     if r.get("id") != best.get("id"):
-                        if best_score - s <= 0.02 and best_score >= get_auto_accept_threshold():
+                        if best_score - s <= SCORE_TIE_MARGIN and best_score >= get_auto_accept_threshold():
                             tie_detected = True
                         break
 
@@ -2436,7 +2436,7 @@ class MovieScanner:
                 prefix = m.group(1).strip().lower()
                 num = int(m.group(2))
                 # Skip numbers that look like years
-                if 1900 <= num <= 2099:
+                if YEAR_MIN <= num <= YEAR_MAX:
                     continue
                 by_folder[f.parent].append((f, prefix, num))
 

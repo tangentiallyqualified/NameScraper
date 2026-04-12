@@ -186,5 +186,59 @@ class TestRecentFolders(unittest.TestCase):
         self.assertEqual(svc2.recent_movie_folders, ["/media/movies"])
 
 
+class TestSettingsValidation(unittest.TestCase):
+    """Schema validation on load — unknown keys, wrong types."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "settings.json"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _write(self, data: dict) -> None:
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+
+    def test_unknown_key_stripped_on_load(self):
+        self._write({"match_language": "ja-JP", "typo_key": True})
+        svc = SettingsService(path=self.path)
+        self.assertEqual(svc.match_language, "ja-JP")
+        self.assertIsNone(svc.get("typo_key"))
+
+    def test_wrong_type_reset_to_default(self):
+        self._write({"auto_accept_threshold": "not a number"})
+        svc = SettingsService(path=self.path)
+        self.assertAlmostEqual(svc.auto_accept_threshold, 0.55)
+
+    def test_correct_types_preserved(self):
+        self._write({
+            "match_language": "fr-FR",
+            "hide_already_named": False,
+            "auto_accept_threshold": 0.75,
+            "window_geometry": [10, 20, 800, 600],
+        })
+        svc = SettingsService(path=self.path)
+        self.assertEqual(svc.match_language, "fr-FR")
+        self.assertFalse(svc.hide_already_named)
+        self.assertAlmostEqual(svc.auto_accept_threshold, 0.75)
+        self.assertEqual(svc.window_geometry, [10, 20, 800, 600])
+
+    def test_int_threshold_accepted(self):
+        self._write({"auto_accept_threshold": 1})
+        svc = SettingsService(path=self.path)
+        self.assertAlmostEqual(svc.auto_accept_threshold, 1.00)
+
+    def test_none_geometry_accepted(self):
+        self._write({"window_geometry": None})
+        svc = SettingsService(path=self.path)
+        self.assertIsNone(svc.window_geometry)
+
+    def test_bool_where_string_expected_reset(self):
+        self._write({"match_language": True})
+        svc = SettingsService(path=self.path)
+        self.assertEqual(svc.match_language, "en-US")
+
+
 if __name__ == "__main__":
     unittest.main()

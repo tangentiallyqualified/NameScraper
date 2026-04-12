@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import threading
+from ...thread_pool import submit as _submit_bg
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -763,7 +763,7 @@ class JobDetailPanel(QFrame):
             except RuntimeError:
                 return
 
-        threading.Thread(target=_worker, daemon=True, name="QtJobPoster").start()
+        _submit_bg(_worker)
 
     def _apply_poster(self, image_data, job_id: str) -> None:
         if job_id != self._current_job_id:

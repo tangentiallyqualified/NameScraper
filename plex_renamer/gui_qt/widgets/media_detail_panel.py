@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import threading
+from ...thread_pool import submit as _submit_bg
 from collections import OrderedDict
 from collections.abc import Callable
 
@@ -378,7 +378,7 @@ class MediaDetailPanel(QFrame):
             except RuntimeError:
                 pass
 
-        threading.Thread(target=_worker, daemon=True, name="QtMediaDetail").start()
+        _submit_bg(_worker)
 
     def _make_token(
         self,

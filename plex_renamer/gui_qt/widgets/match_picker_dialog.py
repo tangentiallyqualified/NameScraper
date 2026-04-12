@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import threading
+from ...thread_pool import submit as _submit_bg
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Qt, Signal
@@ -160,7 +160,7 @@ class MatchPickerDialog(QDialog):
             except RuntimeError:
                 pass  # Dialog closed before search finished
 
-        threading.Thread(target=_worker, daemon=True, name="QtMatchSearch").start()
+        _submit_bg(_worker)
 
     def _on_search_results(self, results: list[dict]) -> None:
         self._search_in_progress = False

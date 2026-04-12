@@ -8,6 +8,22 @@ from pathlib import Path
 
 # ─── File types ───────────────────────────────────────────────────────────────
 
+# ─── Year / resolution guards ────────────────────────────────────────────────
+# Used by parsing and engine modules to distinguish episode numbers from years
+# and resolution tags embedded in filenames.
+
+YEAR_MIN = 1900
+YEAR_MAX = 2099
+YEAR_MIN_EXTRACT = 1920  # stricter lower bound for extract_year()
+
+RESOLUTION_NUMBERS = frozenset({480, 720, 1080, 2160})
+
+# ─── Scoring ─────────────────────────────────────────────────────────────────
+
+SCORE_TIE_MARGIN = 0.02  # runner-up within this delta → flag for review
+
+# ─── File types ───────────────────────────────────────────────────────────────
+
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v"}
 
 # Subtitle/caption formats — renamed alongside their paired video file.

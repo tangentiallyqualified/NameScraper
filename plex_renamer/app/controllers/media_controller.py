@@ -44,6 +44,7 @@ from ..services.refresh_policy_service import RefreshPolicyService
 from ..services.settings_service import SettingsService
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
 from ..services.movie_library_discovery_service import MovieLibraryDiscoveryService
+from ...thread_pool import submit as _submit_bg
 
 _log = logging.getLogger(__name__)
 
@@ -422,7 +423,7 @@ class MediaController:
             self._notify("scan_complete", None)
             self._finish_scan_operation(cancel_event)
 
-        threading.Thread(target=_worker, daemon=True, name="TVBatchDiscovery").start()
+        _submit_bg(_worker)
 
     def scan_all_shows(self) -> None:
         """Phase 2: scan episodes for all unscanned shows in batch mode.
@@ -516,7 +517,7 @@ class MediaController:
             self._notify("library_changed", self._batch_states)
             self._finish_scan_operation(cancel_event)
 
-        threading.Thread(target=_worker, daemon=True, name="TVBatchScan").start()
+        _submit_bg(_worker)
 
     def scan_show(self, state: ScanState, tmdb: Any) -> None:
         """Scan a single show's episodes in a background thread."""
@@ -596,7 +597,7 @@ class MediaController:
             self._notify("library_changed", self.library_states)
             self._notify("scan_complete", final_state)
 
-        threading.Thread(target=_worker, daemon=True, name="TVShowScan").start()
+        _submit_bg(_worker)
 
     def select_show(self, index: int) -> ScanState | None:
         """Change the selected show in the roster.  Returns the state."""
@@ -692,7 +693,7 @@ class MediaController:
             self._notify("scan_complete", None)
             self._finish_scan_operation(cancel_event)
 
-        threading.Thread(target=_worker, daemon=True, name="MovieBatchScan").start()
+        _submit_bg(_worker)
 
     def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:
         """Build per-movie ScanState entries from a flat list of PreviewItems."""

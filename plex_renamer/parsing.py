@@ -10,8 +10,9 @@ import re
 from pathlib import Path
 
 from .constants import (
-    RELEASE_NOISE, TRAILING_GROUP, UNSAFE_FILENAME_CHARS,
+    RELEASE_NOISE, RESOLUTION_NUMBERS, TRAILING_GROUP, UNSAFE_FILENAME_CHARS,
     SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS,
+    YEAR_MIN, YEAR_MAX, YEAR_MIN_EXTRACT,
 )
 
 
@@ -153,7 +154,7 @@ def extract_year(text: str) -> str | None:
     """
     all_years = [
         m for m in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
-        if 1920 <= int(m.group(1)) <= 2099
+        if YEAR_MIN_EXTRACT <= int(m.group(1)) <= YEAR_MAX
     ]
     if not all_years:
         return None
@@ -511,9 +512,9 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     if m:
         start_num = int(m.group(1))
         end_num = int(m.group(2)) if m.group(2) else None
-        if start_num not in (480, 720, 1080, 2160) and not (1900 <= start_num <= 2099):
+        if start_num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= start_num <= YEAR_MAX):
             episodes = [start_num]
-            if end_num is not None and end_num not in (480, 720, 1080, 2160):
+            if end_num is not None and end_num not in RESOLUTION_NUMBERS:
                 if end_num >= start_num and end_num - start_num <= 3:
                     episodes = list(range(start_num, end_num + 1))
                 else:
@@ -527,7 +528,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     bare_m = re.match(r"(\d{1,3})\.\s+(.*)", raw_stem)
     if bare_m:
         num = int(bare_m.group(1))
-        if num not in (480, 720, 1080, 2160) and not (1900 <= num <= 2099):
+        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
             title_text = bare_m.group(2).strip()
             # Strip trailing parenthesized year
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
@@ -541,7 +542,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     )
     if m:
         num = int(m.group(1))
-        if num not in (480, 720, 1080, 2160) and not (1900 <= num <= 2099):
+        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
             # Double-check: reject if the digit sequence was part of a codec tag
             # by examining the characters immediately before the match
             start = m.start()

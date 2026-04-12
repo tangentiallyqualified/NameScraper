@@ -7,7 +7,7 @@ workspace with roster, preview, and selection/detail summaries.
 
 from __future__ import annotations
 
-import threading
+from ...thread_pool import submit as _submit_bg
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
@@ -1361,7 +1361,7 @@ class MediaWorkspace(QWidget):
             finally:
                 self._poster_inflight.discard(key)
 
-        threading.Thread(target=_worker, daemon=True, name="QtRosterPoster").start()
+        _submit_bg(_worker)
 
     def _apply_roster_poster(self, key, raw_data) -> None:
         pixmap = raw_to_pixmap(raw_data)
