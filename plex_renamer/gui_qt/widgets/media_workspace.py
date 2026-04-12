@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QInputDialog,
     QListWidget,
@@ -23,27 +23,14 @@ from PySide6.QtWidgets import (
 
 from ...engine import PreviewItem, ScanState
 from ._media_workspace_actions import MediaWorkspaceActionCoordinator
-from ._media_workspace_roster import (
-    _CHECKED_ROLE,
-    _ROSTER_ENTRY_KEY_ROLE,
-    _ROSTER_ENTRY_KIND_ROLE,
-    MediaWorkspaceRosterPanel,
-)
-from ._media_workspace_preview import (
-    _PREVIEW_ENTRY_KIND_ROLE,
-    _PREVIEW_SECTION_ROLE,
-    MediaWorkspacePreviewPanel,
-)
-from ._media_helpers import (
-    is_state_queue_approvable as _is_state_queue_approvable,
-    roster_group as _roster_group,
-    roster_selection_key as _roster_selection_key,
-    state_key as _state_key,
-)
+from ._media_workspace_lifecycle import MediaWorkspaceLifecycleCoordinator
+from ._media_workspace_refresh import MediaWorkspaceRefreshCoordinator
+from ._media_workspace_roster import _ROSTER_ENTRY_KIND_ROLE, MediaWorkspaceRosterPanel
+from ._media_workspace_preview import MediaWorkspacePreviewPanel
+from ._media_workspace_state import MediaWorkspaceStateCoordinator
 from ._media_workspace_sync import MediaWorkspaceSyncCoordinator
 from ._media_workspace_view import MediaWorkspaceViewCoordinator
 from ._workspace_widgets import (
-    _CheckBinding,
     PreviewRowWidget as _PreviewRowWidget,
     RosterRowWidget as _RosterRowWidget,
 )
@@ -93,6 +80,14 @@ class MediaWorkspace(QWidget):
         self._roster_selection_is_auto = False
         self._pending_roster_selection_auto: bool | None = None
         self._action_coordinator = MediaWorkspaceActionCoordinator(self)
+        self._lifecycle_coordinator = MediaWorkspaceLifecycleCoordinator(
+            self,
+            empty_index=_EMPTY,
+            scanning_index=_SCANNING,
+            ready_index=_READY,
+        )
+        self._refresh_coordinator = MediaWorkspaceRefreshCoordinator(self)
+        self._state_coordinator = MediaWorkspaceStateCoordinator(self, folder_section_key=_FOLDER_SECTION_KEY)
         self._view_coordinator = MediaWorkspaceViewCoordinator(self)
         self._build_ui()
         self._sync_coordinator = MediaWorkspaceSyncCoordinator(self)
@@ -222,22 +217,15 @@ class MediaWorkspace(QWidget):
 
     def show_empty(self) -> None:
         """Switch to the empty state."""
-        self._scan_progress.stop()
-        self._detail_panel.clear_metadata_cache()
-        self._stack.setCurrentIndex(_EMPTY)
-        self._empty_state.refresh_recent_folders()
+        self._lifecycle_coordinator.show_empty()
 
     def show_scanning(self) -> None:
         """Switch to the scanning state and start the timer."""
-        self._scan_progress.start()
-        self._detail_panel.clear_metadata_cache()
-        self._stack.setCurrentIndex(_SCANNING)
+        self._lifecycle_coordinator.show_scanning()
 
     def show_ready(self) -> None:
         """Switch to the 3-panel ready state."""
-        self._scan_progress.stop()
-        self._stack.setCurrentIndex(_READY)
-        self.refresh_from_controller()
+        self._lifecycle_coordinator.show_ready()
 
     def is_showing_ready(self) -> bool:
         return self._stack.currentIndex() == _READY
@@ -251,10 +239,7 @@ class MediaWorkspace(QWidget):
         return self._splitter
 
     def apply_settings(self) -> None:
-        compact = self._settings is not None and self._settings.view_mode == "compact"
-        self._roster_list.setIconSize(QSize(32, 46) if compact else QSize(42, 60))
-        self.refresh_from_controller()
-        self._detail_panel.refresh_current()
+        self._lifecycle_coordinator.apply_settings()
 
     def queue_selected(self) -> None:
         self._activate_selected_primary_action()
@@ -292,25 +277,13 @@ class MediaWorkspace(QWidget):
     # ── Internals ────────────────────────────────────────────────
 
     def _on_folder_selected(self, path: str) -> None:
-        # Emit the signal — MainWindow will call the controller and
-        # transition us to scanning via show_scanning().
-        self.folder_selected.emit(path)
-        # Transition to scanning immediately.  If the controller
-        # cannot start (e.g. no API key), MainWindow calls show_empty().
-        self.show_scanning()
+        self._lifecycle_coordinator.on_folder_selected(path)
 
     def _on_cancel_scan(self) -> None:
-        if self._media_ctrl is None:
-            self.show_empty()
-            return
-        if self._media_ctrl.cancel_scan():
-            self.status_message.emit("Cancelling scan...", 3000)
-            return
-        self.status_message.emit("No active scan to cancel.", 3000)
+        self._lifecycle_coordinator.on_cancel_scan()
 
     def _on_splitter_moved(self) -> None:
-        if self._settings:
-            self._settings.splitter_positions = list(self._splitter.sizes())
+        self._lifecycle_coordinator.on_splitter_moved()
 
     def _on_roster_master_changed(self, state: int) -> None:
         if self._roster_panel.master_syncing:
@@ -324,170 +297,34 @@ class MediaWorkspace(QWidget):
 
     def refresh_from_controller(self) -> None:
         """Synchronize the ready-state roster and preview from controller state."""
-        if self._media_ctrl is None:
-            return
-
-        states = self._current_states()
-        self._normalize_queue_selection(states)
-        selected_state_key = _roster_selection_key(self._selected_state())
-        self._roster_syncing = True
-        self._roster_list.setUpdatesEnabled(False)
-        self._sync_roster_items(states)
-        self._roster_syncing = False
-        self._roster_list.setUpdatesEnabled(True)
-
-        if not states:
-            self._preview_list.clear()
-            self._folder_plan_label.setText("")
-            self._set_preview_summary("Preview items will appear here once a scan is ready.")
-            self._detail_panel.clear()
-            self._roster_selection_is_auto = False
-            self._pending_roster_selection_auto = None
-            self._roster_queue_btn.setEnabled(False)
-            self._set_roster_queue_button_text("Queue Checked")
-            self._roster_queue_btn.setToolTip("")
-            self._update_roster_selection_header([])
-            self._fix_match_btn.setEnabled(False)
-            self._fix_match_btn.setText("Fix Match")
-            self._queue_inline_btn.setEnabled(False)
-            self._queue_inline_btn.setText(self._queue_selected_label())
-            return
-
-        selected_index = self._media_ctrl.library_selected_index
-        selection_is_auto = self._roster_selection_is_auto
-        if selected_state_key is not None:
-            matched_index = next(
-                (index for index, state in enumerate(states) if _roster_selection_key(state) == selected_state_key),
-                None,
-            )
-            if matched_index is not None:
-                selected_index = matched_index
-
-        preferred_focus_index = self._preferred_batch_focus_index(states)
-        if preferred_focus_index is not None:
-            if selected_state_key is None:
-                selected_index = preferred_focus_index
-                selection_is_auto = True
-            elif (
-                selection_is_auto
-                and selected_index is not None
-                and 0 <= selected_index < len(states)
-                and _roster_group(states[selected_index]) not in {"matched", "review"}
-            ):
-                selected_index = preferred_focus_index
-                selection_is_auto = True
-
-        if selected_index is None or not (0 <= selected_index < len(states)):
-            selected_index = preferred_focus_index if preferred_focus_index is not None else 0
-            selection_is_auto = True
-        selected_state = self._media_ctrl.select_show(selected_index)
-
-        selected_item = self._find_roster_item_by_index(selected_index)
-        if selected_item is not None:
-            self._set_roster_current_item(selected_item, auto_selected=selection_is_auto)
-
-        if selected_state is not None:
-            self._ensure_check_bindings(selected_state)
-            self._populate_preview(selected_state)
-            self._render_detail(selected_state, self._selected_preview())
-        self._update_action_bar()
-        self._sync_row_selection(self._roster_list)
+        self._refresh_coordinator.refresh_from_controller()
 
     def _sync_roster_items(self, states: list[ScanState]) -> None:
-        self._roster_panel.sync_items(states, collapsed_groups=self._roster_collapsed)
+        self._state_coordinator.sync_roster_items(states)
 
     def _find_roster_item_by_index(self, index: int) -> QListWidgetItem | None:
-        return self._roster_panel.find_item_by_index(index)
+        return self._state_coordinator.find_roster_item_by_index(index)
 
     def _set_roster_current_item(self, item: QListWidgetItem, *, auto_selected: bool) -> None:
-        if self._roster_list.currentItem() is item:
-            self._roster_selection_is_auto = auto_selected
-            self._pending_roster_selection_auto = None
-            return
-        self._pending_roster_selection_auto = auto_selected
-        self._roster_list.setCurrentItem(item)
-        if self._pending_roster_selection_auto is not None:
-            self._roster_selection_is_auto = auto_selected
-            self._pending_roster_selection_auto = None
+        self._state_coordinator.set_roster_current_item(item, auto_selected=auto_selected)
 
     def _preferred_batch_focus_index(self, states: list[ScanState]) -> int | None:
-        if len(states) <= 1:
-            return None
-        for group in ("matched", "review"):
-            for index, state in enumerate(states):
-                if _roster_group(state) == group:
-                    return index
-        return None
-
-    def _is_compact_mode(self) -> bool:
-        return self._settings is not None and self._settings.view_mode == "compact"
+        return self._refresh_coordinator.preferred_batch_focus_index(states)
 
     def _current_states(self) -> list[ScanState]:
-        if self._media_ctrl is None:
-            return []
-        if self._media_type == "movie":
-            return list(self._media_ctrl.movie_library_states)
-        return list(self._media_ctrl.batch_states)
+        return self._state_coordinator.current_states()
 
     def _selected_state(self) -> ScanState | None:
-        states = self._current_states()
-        item = self._roster_list.currentItem()
-        if item is None:
-            return None
-        index = item.data(Qt.ItemDataRole.UserRole)
-        if index is not None and 0 <= index < len(states):
-            return states[index]
-        return None
+        return self._state_coordinator.selected_state()
 
     def _ensure_check_bindings(self, state: ScanState) -> None:
-        for index, item in enumerate(state.preview_items):
-            key = str(index)
-            if key not in state.check_vars:
-                state.check_vars[key] = _CheckBinding(
-                    bool(
-                        state.checked
-                        and item.is_actionable
-                        and _is_state_queue_approvable(state, media_type=self._media_type)
-                    )
-                )
+        self._refresh_coordinator.ensure_check_bindings(state)
 
     def _normalize_queue_selection(self, states: list[ScanState]) -> None:
-        for state in states:
-            if _is_state_queue_approvable(state, media_type=self._media_type):
-                self._ensure_check_bindings(state)
-                actionable_values: list[bool] = []
-                for index, item in enumerate(state.preview_items):
-                    if not item.is_actionable:
-                        continue
-                    key = str(index)
-                    binding = state.check_vars.get(key)
-                    if binding is not None:
-                        actionable_values.append(binding.get())
-                if actionable_values:
-                    state.checked = any(actionable_values)
-                elif state.preview_items:
-                    state.checked = False
-                continue
-            state.checked = False
-            for binding in state.check_vars.values():
-                if hasattr(binding, "set"):
-                    binding.set(False)
+        self._refresh_coordinator.normalize_queue_selection(states)
 
     def _on_roster_item_clicked(self, item: QListWidgetItem) -> None:
-        if item.data(_ROSTER_ENTRY_KIND_ROLE) != "header":
-            return
-        key = item.data(_ROSTER_ENTRY_KEY_ROLE) or ""
-        group = key.removeprefix("header:")
-        if not group:
-            return
-        self._roster_collapsed[group] = not self._roster_collapsed.get(group, False)
-        states = self._current_states()
-        if states:
-            self._roster_syncing = True
-            try:
-                self._sync_roster_items(states)
-            finally:
-                self._roster_syncing = False
+        self._state_coordinator.on_roster_item_clicked(item)
 
     def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         self._sync_coordinator.on_roster_current_item_changed(current)
@@ -499,42 +336,13 @@ class MediaWorkspace(QWidget):
         self._sync_coordinator.set_state_checked(state, checked)
 
     def _populate_preview(self, state: ScanState) -> None:
-        self._preview_syncing = True
-        self._preview_list.setUpdatesEnabled(False)
-        self._preview_panel.populate_from_state(
-            state,
-            preview_group_state=self._preview_group_state,
-            folder_section_key=_FOLDER_SECTION_KEY,
-            ensure_check_bindings=self._ensure_check_bindings,
-            folder_plan_text=self._folder_plan_text,
-            folder_preview_data=self._folder_preview_data,
-            season_ratio_text=self._season_ratio_text,
-        )
-        self._preview_syncing = False
-        self._preview_list.setUpdatesEnabled(True)
-        self._sync_row_selection(self._preview_list)
-        self._update_preview_master_state(state)
+        self._state_coordinator.populate_preview(state)
 
     def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
-        if self._preview_syncing:
-            return
-        state = self._selected_state()
-        if state is None:
-            return
-        if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "header":
-            return
-        section_key = item.data(_PREVIEW_SECTION_ROLE)
-        if section_key is None:
-            return
-        collapsed = self._preview_group_state.setdefault(_state_key(state), set())
-        if section_key in collapsed:
-            collapsed.remove(section_key)
-        else:
-            collapsed.add(section_key)
-        self._populate_preview(state)
+        self._state_coordinator.on_preview_item_clicked(item)
 
     def _update_sticky_header(self) -> None:
-        self._preview_panel.update_sticky_header()
+        self._state_coordinator.update_sticky_header()
 
     def _on_preview_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         self._sync_coordinator.on_preview_current_item_changed(current)
@@ -546,27 +354,16 @@ class MediaWorkspace(QWidget):
         self._sync_coordinator.on_preview_master_changed(check_state)
 
     def _update_preview_master_state(self, state: ScanState | None) -> None:
-        self._preview_panel.update_master_state(state)
+        self._state_coordinator.update_preview_master_state(state)
 
     def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
         self._view_coordinator.render_detail(state, preview)
 
     def _check_all(self) -> None:
-        for state in self._current_states():
-            state.checked = _is_state_queue_approvable(state, media_type=self._media_type)
-            self._ensure_check_bindings(state)
-            for index, preview in enumerate(state.preview_items):
-                state.check_vars[str(index)].set(bool(state.checked and preview.is_actionable))
-        self.refresh_from_controller()
+        self._refresh_coordinator.check_all()
 
     def _uncheck_all(self) -> None:
-        for state in self._current_states():
-            state.checked = False
-            for index in range(len(state.preview_items)):
-                binding = state.check_vars.get(str(index))
-                if binding is not None:
-                    binding.set(False)
-        self.refresh_from_controller()
+        self._refresh_coordinator.uncheck_all()
 
     def _queue_selected_state(self) -> None:
         self._action_coordinator.queue_selected_state()
