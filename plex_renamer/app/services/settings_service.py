@@ -17,68 +17,15 @@ import threading
 from pathlib import Path
 
 from ...constants import LOG_DIR, ensure_log_dir
+from ._settings_schema import (
+    DEFAULT_SETTINGS,
+    MAX_RECENT_FOLDERS,
+    build_valid_settings_data,
+)
 
 _log = logging.getLogger(__name__)
 
 _SETTINGS_FILE = LOG_DIR / "settings.json"
-
-# ── Schema ───────────────────────────────────────────────────────────────────
-# Maps each known key to the set of acceptable Python types.  ``_validate``
-# uses this to warn about unknown keys and silently reset values whose type
-# doesn't match (falling back to the default).
-
-_SCHEMA: dict[str, tuple[type, ...]] = {
-    "match_language":        (str,),
-    "hide_already_named":    (bool,),
-    "view_mode":             (str,),
-    "show_companion_files":  (bool,),
-    "show_discovery_info":   (bool,),
-    "auto_accept_threshold": (int, float),
-    "show_confidence_bars":  (bool,),
-    "window_geometry":       (list, type(None)),
-    "splitter_positions":    (list, type(None)),
-    "recent_tv_folders":     (list,),
-    "recent_movie_folders":  (list,),
-}
-
-# ── Defaults ─────────────────────────────────────────────────────────────────
-
-_MAX_RECENT_FOLDERS = 10
-
-_DEFAULTS: dict[str, object] = {
-    # ISO 639-1 language + ISO 3166-1 country code used for TMDB API requests
-    # and alternative-title prioritisation.  "en-US" is the TMDB default.
-    "match_language": "en-US",
-    # Hide shows/movies that are already properly named ("Plex Ready") from
-    # the library roster.  True by default so the user focuses on items that
-    # actually need action.
-    "hide_already_named": True,
-
-    # ── Display ────────────────────────────────────────────────────────
-    # "normal" or "compact".
-    "view_mode": "normal",
-    # Show companion files (subtitles, etc.) in the preview panel.
-    "show_companion_files": True,
-    # Show discovery info section in the detail panel.
-    "show_discovery_info": False,
-
-    # ── Matching ───────────────────────────────────────────────────────
-    # Confidence threshold for auto-accepting a TMDB match (0.50–1.00).
-    "auto_accept_threshold": 0.55,
-    # Show per-episode confidence bars in the preview panel.
-    "show_confidence_bars": True,
-
-    # ── Window state ───────────────────────────────────────────────────
-    # Persisted across restarts so the window reopens where the user left it.
-    # Each value is None until the user moves/resizes the window.
-    "window_geometry": None,       # [x, y, width, height]
-    "splitter_positions": None,    # [roster_width, preview_width, detail_width]
-
-    # ── Recent folders ─────────────────────────────────────────────────
-    # MRU lists for the empty-state "recent folders" display.
-    "recent_tv_folders": [],       # list of path strings, newest first
-    "recent_movie_folders": [],    # list of path strings, newest first
-}
 
 
 class SettingsService:
@@ -87,7 +34,7 @@ class SettingsService:
     def __init__(self, path: Path = _SETTINGS_FILE):
         self._path = path
         self._lock = threading.Lock()
-        self._data: dict[str, object] = dict(_DEFAULTS)
+        self._data: dict[str, object] = dict(DEFAULT_SETTINGS)
         self._load()
 
     # ── Public API ────────────────────────────────────────────────────
@@ -95,7 +42,7 @@ class SettingsService:
     def get(self, key: str) -> object:
         """Return a setting value, falling back to the built-in default."""
         with self._lock:
-            return self._data.get(key, _DEFAULTS.get(key))
+            return self._data.get(key, DEFAULT_SETTINGS.get(key))
 
     def set(self, key: str, value: object) -> None:
         """Update a setting and persist to disk."""
@@ -235,7 +182,7 @@ class SettingsService:
         """Most-recently-used TV library folders, newest first."""
         val = self.get("recent_tv_folders")
         if isinstance(val, list):
-            return [str(v) for v in val[:_MAX_RECENT_FOLDERS]]
+            return [str(v) for v in val[:MAX_RECENT_FOLDERS]]
         return []
 
     @property
@@ -243,7 +190,7 @@ class SettingsService:
         """Most-recently-used movie folders, newest first."""
         val = self.get("recent_movie_folders")
         if isinstance(val, list):
-            return [str(v) for v in val[:_MAX_RECENT_FOLDERS]]
+            return [str(v) for v in val[:MAX_RECENT_FOLDERS]]
         return []
 
     def add_recent_tv_folder(self, path: str) -> None:
@@ -261,7 +208,7 @@ class SettingsService:
         current = [p for p in current
                    if p.replace("\\", "/").lower() != normalized]
         current.insert(0, path)
-        self.set(key, current[:_MAX_RECENT_FOLDERS])
+        self.set(key, current[:MAX_RECENT_FOLDERS])
 
     # ── Persistence ───────────────────────────────────────────────────
 
@@ -272,35 +219,9 @@ class SettingsService:
             with open(self._path, "r", encoding="utf-8") as f:
                 stored = json.load(f)
             if isinstance(stored, dict):
-                self._data.update(stored)
-                self._validate()
+                self._data = build_valid_settings_data(stored, logger=_log)
         except (json.JSONDecodeError, OSError):
             pass  # Corrupt file — use defaults
-
-    def _validate(self) -> None:
-        """Check loaded data against ``_SCHEMA``.
-
-        * Unknown keys are logged and removed.
-        * Values whose type doesn't match the schema are logged and reset
-          to the default.
-        """
-        unknown = [k for k in self._data if k not in _SCHEMA]
-        for key in unknown:
-            _log.warning("settings: unknown key %r (ignored)", key)
-            del self._data[key]
-
-        for key, allowed in _SCHEMA.items():
-            if key not in self._data:
-                continue
-            val = self._data[key]
-            if not isinstance(val, allowed):
-                _log.warning(
-                    "settings: bad type for %r — expected %s, got %s (reset to default)",
-                    key,
-                    "/".join(t.__name__ for t in allowed),
-                    type(val).__name__,
-                )
-                self._data[key] = _DEFAULTS[key]
 
     def _save(self) -> None:
         ensure_log_dir()

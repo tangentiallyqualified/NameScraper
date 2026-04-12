@@ -7,41 +7,25 @@ these methods and handles user-facing dialogs and UI refresh itself.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ...constants import JobKind, JobStatus, MediaType
+from ...constants import JobStatus
 from ...engine import (
     PreviewItem,
     RenameResult,
     ScanState,
-    build_rename_job_from_items,
-    build_rename_job_from_state,
 )
 from ...job_executor import QueueExecutor, revert_job
-from ...job_store import DuplicateJobError, JobStore, RenameJob
-from ...parsing import build_movie_name, build_show_folder_name
+from ...job_store import JobStore, RenameJob
+from ._queue_submission_helpers import (
+    BatchQueueResult,
+    add_movie_batch_jobs,
+    add_single_queue_job,
+    add_tv_batch_jobs,
+)
 from ..services.command_gating_service import CommandGatingService
-
-_log = logging.getLogger(__name__)
-
-
-@dataclass
-class BatchQueueResult:
-    """Summary of a batch queue submission."""
-
-    added: int = 0
-    skipped_duplicate: int = 0
-    skipped_queued: int = 0
-    blocked: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-
-    @property
-    def total_skipped(self) -> int:
-        return self.skipped_duplicate + self.skipped_queued
 
 
 class QueueController:
@@ -112,7 +96,8 @@ class QueueController:
         Returns the created job on success.
         Raises ``DuplicateJobError`` if the job already exists.
         """
-        job = build_rename_job_from_items(
+        return add_single_queue_job(
+            self.job_store,
             items=items,
             checked_indices=checked_indices,
             media_type=media_type,
@@ -123,8 +108,6 @@ class QueueController:
             show_folder_rename=show_folder_rename,
             poster_path=poster_path,
         )
-        self.job_store.add_job(job)
-        return job
 
     def add_tv_batch(
         self,
@@ -138,51 +121,12 @@ class QueueController:
         builds jobs, and returns a structured summary.  States are
         marked ``queued = True`` on successful submission.
         """
-        result = BatchQueueResult()
-
-        for state in states:
-            if not state.checked:
-                continue
-
-            eligibility = command_gating.evaluate_scan_state(
-                state,
-                require_resolved_review=True,
-                allow_show_level_queue=True,
-            )
-            if not eligibility.enabled:
-                if eligibility.command_state.value == "disabled_already_queued":
-                    result.skipped_queued += 1
-                else:
-                    result.blocked.append(
-                        f"{state.display_name}: {eligibility.reason}")
-                continue
-
-            checked = set(eligibility.selected_indices)
-            if not checked and any(command_gating.is_actionable_item(item) for item in state.preview_items):
-                result.blocked.append(f"{state.display_name}: Select at least one file before queueing")
-                continue
-            show_folder = build_show_folder_name(
-                state.media_info.get("name", ""),
-                state.media_info.get("year", ""),
-            )
-
-            job = build_rename_job_from_state(
-                state=state,
-                library_root=library_root,
-                show_folder_rename=show_folder,
-                checked_indices=checked,
-            )
-
-            try:
-                self.job_store.add_job(job)
-                state.queued = True
-                result.added += 1
-            except DuplicateJobError:
-                result.skipped_duplicate += 1
-            except Exception as e:
-                result.errors.append(f"{state.display_name}: {e}")
-
-        return result
+        return add_tv_batch_jobs(
+            self.job_store,
+            states=states,
+            library_root=library_root,
+            command_gating=command_gating,
+        )
 
     def add_movie_batch(
         self,
@@ -195,56 +139,12 @@ class QueueController:
         Each movie becomes its own job.  States are marked
         ``queued = True`` on successful submission.
         """
-        result = BatchQueueResult()
-
-        for state in states:
-            if not state.checked:
-                continue
-
-            eligibility = command_gating.evaluate_scan_state(state, require_resolved_review=True)
-            if not eligibility.enabled:
-                if eligibility.command_state.value == "disabled_already_queued":
-                    result.skipped_queued += 1
-                else:
-                    result.blocked.append(f"{state.display_name}: {eligibility.reason}")
-                continue
-
-            checked = set(eligibility.selected_indices)
-            if not checked:
-                result.blocked.append(f"{state.display_name}: Select at least one file before queueing")
-                continue
-
-            if not state.preview_items:
-                result.skipped_queued += 1
-                continue
-
-            item = state.preview_items[0]
-            movie_folder = build_movie_name(
-                state.media_info.get("title", ""),
-                state.media_info.get("year", ""),
-                "",
-            )
-
-            job = build_rename_job_from_items(
-                items=[item],
-                checked_indices=checked,
-                media_type=MediaType.MOVIE,
-                tmdb_id=state.show_id or 0,
-                media_name=state.display_name,
-                library_root=library_root,
-                source_folder=item.original.parent,
-                show_folder_rename=movie_folder,
-                poster_path=state.media_info.get("poster_path"),
-            )
-
-            try:
-                self.job_store.add_job(job)
-                state.queued = True
-                result.added += 1
-            except DuplicateJobError:
-                result.skipped_duplicate += 1
-
-        return result
+        return add_movie_batch_jobs(
+            self.job_store,
+            states=states,
+            library_root=library_root,
+            command_gating=command_gating,
+        )
 
     # ── Direct rename recording ────────────────────────────────────
 

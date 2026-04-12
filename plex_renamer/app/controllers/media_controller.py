@@ -35,25 +35,28 @@ from ...engine import (
 )
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
+from ._controller_match_helpers import (
+    approve_controller_match,
+    assign_controller_season,
+    rematch_controller_movie_state,
+    rematch_controller_tv_state,
+)
+from ._controller_state_helpers import (
+    accept_tv_show_session,
+    apply_completed_job_to_session,
+    routed_library_states,
+    select_library_show,
+    sync_controller_queued_states,
+)
 from ._controller_event_helpers import (
     ListenerEntry,
     add_controller_listener,
     apply_runtime_settings_to_states,
     notify_controller_listeners,
 )
-from ._job_projection_helpers import apply_completed_job_projection, sync_queued_state_flags
-from ._match_state_helpers import (
-    approve_scan_match,
-    assign_state_season,
-    rematch_movie_scan_state,
-    rematch_tv_scan_state,
-)
 from ._movie_batch_helpers import start_movie_batch_session
 from ._movie_state_helpers import (
-    apply_movie_duplicate_labels,
     build_movie_library_states,
-    resolve_movie_preview_review,
-    set_actionable_preview_checks,
 )
 from ._scan_operation_helpers import ScanOperationTracker, update_scan_progress
 from ._single_show_scan_helpers import start_single_show_scan
@@ -64,7 +67,6 @@ from ._tab_session_helpers import (
     snapshot_tv_session,
 )
 from ._tv_batch_helpers import scan_all_tv_batch_shows, start_tv_batch_session
-from ._tv_state_helpers import build_accepted_tv_state
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
@@ -169,9 +171,7 @@ class MediaController:
     @property
     def library_states(self) -> list[ScanState]:
         """Routed roster: returns TV batch_states or movie_library_states."""
-        if self._active_library_mode == MediaType.MOVIE:
-            return self._movie_library_states
-        return self._batch_states
+        return routed_library_states(self)
 
     @property
     def active_scan(self) -> ScanState | None:
@@ -292,25 +292,13 @@ class MediaController:
         Creates a ``ScanState``, sets mode flags, and returns the state.
         Does NOT start scanning — the widget calls ``scan_show()`` next.
         """
-        self._batch_mode = False
-        self._batch_orchestrator = None
-        self._active_content_mode = MediaType.TV
-        self._active_library_mode = MediaType.TV
-        self._tv_root_folder = folder
-
-        state = build_accepted_tv_state(folder, tmdb, show_info, TVScanner)
-        self._active_scan = state
-        self._batch_states = [state]
-        self._library_selected_index = 0
-
-        self._set_progress(
-            ScanLifecycle.SCANNING,
-            phase="Scanning TV files...",
-            message="Scanning TV files...",
+        return accept_tv_show_session(
+            self,
+            folder,
+            tmdb,
+            show_info,
+            scanner_factory=TVScanner,
         )
-        self._notify("mode_changed", self._active_content_mode, self._active_library_mode)
-        self._notify("library_changed", self._batch_states)
-        return state
 
     def start_tv_batch(
         self,
@@ -346,13 +334,7 @@ class MediaController:
 
     def select_show(self, index: int) -> ScanState | None:
         """Change the selected show in the roster.  Returns the state."""
-        states = self.library_states
-        if index < 0 or index >= len(states):
-            return None
-        self._library_selected_index = index
-        if self._active_content_mode == MediaType.TV:
-            self._active_scan = states[index]
-        return states[index]
+        return select_library_show(self, index)
 
     # ── Movie session methods ───────────────────────────────────────
 
@@ -376,26 +358,9 @@ class MediaController:
             self._movie_folder,
         )
 
-    def _apply_movie_duplicate_labels(self, states: list[ScanState]) -> None:
-        apply_movie_duplicate_labels(states, self._movie_folder)
-
-    @staticmethod
-    def _set_actionable_preview_checks(state: ScanState, checked: bool) -> None:
-        set_actionable_preview_checks(state, checked)
-
-    def _resolve_movie_preview_review(self, state: ScanState) -> None:
-        """Convert an approved movie preview from REVIEW to OK."""
-        resolve_movie_preview_review(state, self._movie_preview_items)
-
     def approve_match(self, state: ScanState) -> None:
         """Accept the current TMDB match as manually approved, clearing needs-review."""
-        if not approve_scan_match(
-            state,
-            resolve_movie_preview_review=self._resolve_movie_preview_review,
-            set_actionable_preview_checks=self._set_actionable_preview_checks,
-        ):
-            return
-        self._notify("library_changed", self.library_states)
+        approve_controller_match(self, state)
 
     def assign_season(self, state: ScanState, season_num: int | None) -> ScanState:
         """Assign (or clear) a season number on a state and recompute duplicates.
@@ -406,25 +371,14 @@ class MediaController:
         season sees that folder absorbed into the existing show card rather
         than left as a parallel entry.
         """
-        result = assign_state_season(
-            state,
-            season_num,
-            batch_states=self._batch_states,
-            batch_orchestrator=self._batch_orchestrator,
-            movie_library_states=self._movie_library_states,
-            apply_movie_duplicate_labels=self._apply_movie_duplicate_labels,
-        )
-        self._batch_states = result.batch_states
-        self._notify("library_changed", self.library_states)
-        return result.effective_state
+        return assign_controller_season(self, state, season_num)
 
     def rematch_tv_state(self, state: ScanState, new_match: dict, tmdb: Any | None = None) -> ScanState:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
-        result = rematch_tv_scan_state(
+        return rematch_controller_tv_state(
+            self,
             state,
             new_match,
-            batch_states=self._batch_states,
-            batch_orchestrator=self._batch_orchestrator,
             tmdb=tmdb,
             best_tv_match_title=best_tv_match_title,
             extract_year=extract_year,
@@ -432,24 +386,17 @@ class MediaController:
             score_results=score_results,
             pick_alternate_matches=pick_alternate_matches,
         )
-        self._batch_states = result.batch_states
-        self._notify("library_changed", self.library_states)
-        return result.effective_state
 
     def rematch_movie_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a movie scan state and rebuild its preview."""
-        result = rematch_movie_scan_state(
+        rematch_controller_movie_state(
+            self,
             state,
             new_match,
-            movie_preview_items=self._movie_preview_items,
-            movie_scanner=self._movie_scanner,
             clean_folder_name=clean_folder_name,
             extract_year=extract_year,
             score_results=score_results,
         )
-        self._movie_preview_items = result.movie_preview_items
-
-        self._notify("library_changed", self.library_states)
 
     # ── Session save/restore ────────────────────────────────────────
 
@@ -485,18 +432,10 @@ class MediaController:
 
     def apply_completed_job_to_state(self, job, result) -> bool:
         """Project a completed rename job back into the in-memory scan state."""
-        states = self._movie_library_states if job.media_type == MediaType.MOVIE else self._batch_states
-        projection = apply_completed_job_projection(job, states, self._movie_preview_items)
-        if projection.movie_preview_items is not None:
-            self._movie_preview_items = projection.movie_preview_items
-        return projection.changed
+        return apply_completed_job_to_session(self, job)
 
     # ── Query methods ───────────────────────────────────────────────
 
     def sync_queued_states(self) -> None:
         """Refresh queued flags for TV and movie rosters from the job store."""
-        sync_queued_state_flags(
-            self._job_store.get_queue(),
-            self._batch_states,
-            self._movie_library_states,
-        )
+        sync_controller_queued_states(self, self._job_store.get_queue())
