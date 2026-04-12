@@ -14,16 +14,12 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal, QObject
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QLineEdit,
     QMainWindow,
-    QMenuBar,
     QMessageBox,
-    QTabBar,
-    QTabWidget,
     QTextEdit,
 )
 
@@ -41,11 +37,14 @@ from ..tmdb import TMDBClient
 from ..keys import get_api_key
 from ..thread_pool import submit as _submit_bg
 
+from ._main_window_bridges import install_controller_bridge, install_queue_bridge
+from ._main_window_chrome import MainWindowChromeCoordinator
+from ._main_window_feedback import MainWindowFeedbackCoordinator
+from ._main_window_shell import MainWindowShellCoordinator
+from ._main_window_state import MainWindowStateCoordinator
+from ._main_window_tabs import MainWindowTabsCoordinator
+from ._main_window_tmdb import MainWindowTmdbCoordinator
 from .widgets.media_workspace import MediaWorkspace
-from .widgets.queue_tab import QueueTab
-from .widgets.history_tab import HistoryTab
-from .widgets.settings_tab import SettingsTab
-from .widgets.tab_badge import TabBadge
 from .widgets.toast_manager import ToastManager
 
 _log = logging.getLogger(__name__)
@@ -58,60 +57,6 @@ _HISTORY = 3
 _SETTINGS = 4
 TMDB_CACHE_NAMESPACE = "tmdb"
 TMDB_CACHE_SNAPSHOT_KEY = "client_snapshot"
-
-
-class _ControllerBridge(QObject):
-    """Thread-safe bridge from MediaController callbacks to Qt signals.
-
-    MediaController fires callbacks from background threads.  This bridge
-    converts them into Qt signals that are dispatched on the main thread.
-    """
-
-    progress_received = Signal(object)   # ScanProgress
-    scan_complete = Signal()
-    library_changed = Signal()
-
-    def on_progress(self, progress: ScanProgress) -> None:
-        self.progress_received.emit(progress)
-
-    def on_scan_complete(self, _state) -> None:
-        self.scan_complete.emit()
-
-    def on_library_changed(self, _states) -> None:
-        self.library_changed.emit()
-
-
-class _QueueBridge(QObject):
-    """Thread-safe bridge from QueueController callbacks to Qt signals."""
-
-    changed = Signal(object)
-    job_started = Signal(object)
-    job_completed = Signal(object, object)
-    job_failed = Signal(object, object)
-    queue_finished = Signal()
-    poster_backfill_finished = Signal(int)
-
-    def on_job_started(self, job) -> None:
-        self.job_started.emit(job)
-        self.changed.emit(None)
-
-    def on_job_completed(self, job, result) -> None:
-        self.job_completed.emit(job, result)
-        self.changed.emit(None)
-
-    def on_job_failed(self, job, error) -> None:
-        self.job_failed.emit(job, error)
-        self.changed.emit(None)
-
-    def on_queue_finished(self) -> None:
-        self.queue_finished.emit()
-        self.changed.emit(None)
-
-    def on_poster_backfill_finished(self, updated: int) -> None:
-        try:
-            self.poster_backfill_finished.emit(updated)
-        except RuntimeError:
-            pass  # Window closed before backfill thread finished
 
 
 class MainWindow(QMainWindow):
@@ -128,6 +73,41 @@ class MainWindow(QMainWindow):
         self._tmdb: TMDBClient | None = None
         self._tv_snapshot: dict | None = None
         self._movie_snapshot: dict | None = None
+        self._tmdb_coordinator = MainWindowTmdbCoordinator(
+            self,
+            cache_namespace=TMDB_CACHE_NAMESPACE,
+            snapshot_key=TMDB_CACHE_SNAPSHOT_KEY,
+        )
+        self._chrome_coordinator = MainWindowChromeCoordinator(
+            self,
+            settings_index=_SETTINGS,
+        )
+        self._feedback_coordinator = MainWindowFeedbackCoordinator(
+            self,
+            queue_index=_QUEUE,
+            history_index=_HISTORY,
+        )
+        self._shell_coordinator = MainWindowShellCoordinator(
+            self,
+            tv_index=_TV,
+            movies_index=_MOVIES,
+            history_index=_HISTORY,
+        )
+        self._state_coordinator = MainWindowStateCoordinator(
+            self,
+            tv_index=_TV,
+            movies_index=_MOVIES,
+            queue_index=_QUEUE,
+            history_index=_HISTORY,
+            logger=_log,
+        )
+        self._tabs_coordinator = MainWindowTabsCoordinator(
+            self,
+            tv_index=_TV,
+            movies_index=_MOVIES,
+            queue_index=_QUEUE,
+            history_index=_HISTORY,
+        )
 
         # ── Services and controllers ─────────────────────────────
         self.settings_service = SettingsService()
@@ -146,34 +126,11 @@ class MainWindow(QMainWindow):
         )
 
         # ── Controller → Qt bridge ───────────────────────────────
-        self._bridge = _ControllerBridge(self)
-        self.media_ctrl.add_listener(
-            on_progress=self._bridge.on_progress,
-            on_scan_complete=self._bridge.on_scan_complete,
-            on_library_changed=self._bridge.on_library_changed,
-        )
-        self._bridge.progress_received.connect(self._on_scan_progress)
-        self._bridge.scan_complete.connect(self._on_scan_complete)
-        self._bridge.library_changed.connect(self._on_library_changed)
-
-        self._queue_bridge = _QueueBridge(self)
-        self.queue_ctrl.add_listener(
-            on_job_started=self._queue_bridge.on_job_started,
-            on_job_completed=self._queue_bridge.on_job_completed,
-            on_job_failed=self._queue_bridge.on_job_failed,
-            on_queue_finished=self._queue_bridge.on_queue_finished,
-        )
-        self._queue_bridge.changed.connect(self._on_queue_changed)
-        self._queue_bridge.job_started.connect(self._on_job_started)
-        self._queue_bridge.job_completed.connect(self._on_job_completed)
-        self._queue_bridge.job_failed.connect(self._on_job_failed)
-        self._queue_bridge.queue_finished.connect(self._on_queue_finished)
-        self._queue_bridge.poster_backfill_finished.connect(self._on_poster_backfill_finished)
+        self._bridge = install_controller_bridge(self)
+        self._queue_bridge = install_queue_bridge(self)
 
         # ── Tab widget ───────────────────────────────────────────
-        self._tabs = QTabWidget()
-        self._tabs.setDocumentMode(True)
-        self.setCentralWidget(self._tabs)
+        self._tabs_coordinator.build_tab_widget()
         self._toast_manager = ToastManager(self)
         self._queue_run_started = False
         self._queue_completed_count = 0
@@ -190,49 +147,7 @@ class MainWindow(QMainWindow):
         self._success_toast_timer.timeout.connect(self._flush_success_toast_batch)
 
         # ── Tab content ──────────────────────────────────────────
-        self._tv_workspace = MediaWorkspace(
-            media_type="tv",
-            media_controller=self.media_ctrl,
-            queue_controller=self.queue_ctrl,
-            tmdb_provider=self._ensure_tmdb,
-            settings_service=self.settings_service,
-        )
-        self._movie_workspace = MediaWorkspace(
-            media_type="movie",
-            media_controller=self.media_ctrl,
-            queue_controller=self.queue_ctrl,
-            tmdb_provider=self._ensure_tmdb,
-            settings_service=self.settings_service,
-        )
-        self._queue_tab = QueueTab(
-            self.queue_ctrl,
-            tmdb_provider=self._ensure_tmdb,
-            navigate_to_media=self._switch_to_tab,
-        )
-        self._history_tab = HistoryTab(
-            self.queue_ctrl,
-            tmdb_provider=self._ensure_tmdb,
-        )
-        self._settings_tab = SettingsTab(
-            settings_service=self.settings_service,
-            cache_service=self._cache_service,
-            clear_tmdb_callback=self._drop_tmdb_client,
-            clear_history_callback=self._clear_history_from_settings,
-        )
-
-        self._tabs.addTab(self._tv_workspace, "TV Shows")
-        self._tabs.addTab(self._movie_workspace, "Movies")
-        self._tabs.addTab(self._queue_tab, "Queue")
-        self._tabs.addTab(self._history_tab, "History")
-        self._tabs.addTab(self._settings_tab, "Settings")
-        self._tv_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
-        self._movie_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
-        self._queue_badge = TabBadge(show_failure_pip=True, parent=self._tabs)
-        self._history_badge = TabBadge(parent=self._tabs)
-        self._tabs.tabBar().setTabButton(_TV, QTabBar.ButtonPosition.RightSide, self._tv_badge)
-        self._tabs.tabBar().setTabButton(_MOVIES, QTabBar.ButtonPosition.RightSide, self._movie_badge)
-        self._tabs.tabBar().setTabButton(_QUEUE, QTabBar.ButtonPosition.RightSide, self._queue_badge)
-        self._tabs.tabBar().setTabButton(_HISTORY, QTabBar.ButtonPosition.RightSide, self._history_badge)
+        self._tabs_coordinator.build_tab_content()
 
         # ── Menu bar ─────────────────────────────────────────────
         self._build_menu_bar()
@@ -241,89 +156,30 @@ class MainWindow(QMainWindow):
         self._build_shortcuts()
 
         # ── Signals ──────────────────────────────────────────────
-        self._tabs.currentChanged.connect(self._on_tab_changed)
-        self._tv_workspace.folder_selected.connect(self._on_tv_folder_selected)
-        self._movie_workspace.folder_selected.connect(self._on_movie_folder_selected)
-        self._tv_workspace.queue_changed.connect(self._on_queue_changed)
-        self._movie_workspace.queue_changed.connect(self._on_queue_changed)
-        self._queue_tab.queue_changed.connect(self._on_queue_changed)
-        self._tv_workspace.status_message.connect(self.statusBar().showMessage)
-        self._movie_workspace.status_message.connect(self.statusBar().showMessage)
-        self._history_tab.history_changed.connect(self._on_queue_changed)
-        self._settings_tab.view_mode_changed.connect(self._apply_view_mode)
-        self._settings_tab.companion_visibility_changed.connect(self._apply_companion_visibility)
-        self._settings_tab.discovery_visibility_changed.connect(self._apply_discovery_visibility)
-        self._settings_tab.language_changed.connect(self._on_language_changed)
-        self._settings_tab.threshold_changed.connect(self._on_threshold_changed)
-        self._settings_tab.api_key_saved.connect(self._invalidate_tmdb)
-        self._settings_tab.history_cleared.connect(self._on_queue_changed)
+        self._tabs_coordinator.connect_signals()
 
         # ── Restore geometry ─────────────────────────────────────
-        self._restore_window_state()
-        self._refresh_job_views()
-        self._apply_view_mode(self.settings_service.view_mode)
-        self._apply_companion_visibility(self.settings_service.show_companion_files)
-        self._apply_discovery_visibility(self.settings_service.show_discovery_info)
-        QTimer.singleShot(0, self._start_job_poster_backfill)
+        self._tabs_coordinator.apply_initial_state(schedule_single_shot=QTimer.singleShot)
 
     # ── TMDB client ──────────────────────────────────────────────
 
     def _ensure_tmdb(self) -> TMDBClient | None:
-        """Get or lazily create the shared TMDB client."""
-        if self._tmdb is not None:
-            return self._tmdb
-        api_key = get_api_key("TMDB")
-        if not api_key:
-            self.statusBar().showMessage(
-                "No TMDB API key — set one in Settings first.", 5000,
-            )
-            return None
-        self._tmdb = TMDBClient(
-            api_key,
-            language=self.settings_service.match_language,
-            cache_service=self._cache_service,
-            refresh_policy=self._refresh_policy,
+        return self._tmdb_coordinator.ensure_tmdb(
+            api_key_lookup=get_api_key,
+            tmdb_client_factory=TMDBClient,
         )
-        self._restore_tmdb_cache_snapshot()
-        return self._tmdb
 
     def _restore_tmdb_cache_snapshot(self) -> None:
-        if self._tmdb is None:
-            return
-        cached_snapshot = self._cache_service.get(
-            TMDB_CACHE_NAMESPACE,
-            TMDB_CACHE_SNAPSHOT_KEY,
-        )
-        if not cached_snapshot.is_hit or not cached_snapshot.value:
-            return
-        try:
-            self._tmdb.import_cache_snapshot(
-                cached_snapshot.value,
-                clear_existing=True,
-            )
-        except Exception:
-            self._cache_service.invalidate(
-                TMDB_CACHE_NAMESPACE,
-                TMDB_CACHE_SNAPSHOT_KEY,
-            )
+        self._tmdb_coordinator.restore_tmdb_cache_snapshot()
 
     def _persist_tmdb_cache_snapshot(self) -> None:
-        if self._tmdb is None:
-            return
-        snapshot = self._tmdb.export_cache_snapshot()
-        self._cache_service.put(
-            TMDB_CACHE_NAMESPACE,
-            TMDB_CACHE_SNAPSHOT_KEY,
-            snapshot,
-            metadata={"kind": "tmdb_cache_snapshot"},
-        )
+        self._tmdb_coordinator.persist_tmdb_cache_snapshot()
 
     def _invalidate_tmdb(self) -> None:
-        self._persist_tmdb_cache_snapshot()
-        self._tmdb = None
+        self._tmdb_coordinator.invalidate_tmdb()
 
     def _drop_tmdb_client(self) -> None:
-        self._tmdb = None
+        self._tmdb_coordinator.drop_tmdb_client()
 
     def _clear_history_from_settings(self) -> tuple[int, int]:
         """Clear job history; returns (total_cleared, revertible_count)."""
@@ -334,182 +190,41 @@ class MainWindow(QMainWindow):
         return count, revertible
 
     def _start_job_poster_backfill(self) -> None:
-        if self._job_poster_backfill_started:
-            return
-        if not get_api_key("TMDB"):
-            return
-        tmdb = self._ensure_tmdb()
-        if tmdb is None:
-            return
-        self._job_poster_backfill_started = True
-
-        def _worker() -> None:
-            try:
-                updated = self.queue_ctrl.backfill_missing_job_poster_paths(tmdb)
-            except Exception:
-                _log.debug("Job poster backfill aborted (store unavailable)")
-                return
-            self._queue_bridge.on_poster_backfill_finished(updated)
-
-        _submit_bg(_worker)
+        self._feedback_coordinator.start_job_poster_backfill(
+            api_key_lookup=get_api_key,
+            submit_bg=_submit_bg,
+            logger=_log,
+        )
 
     def _on_poster_backfill_finished(self, updated: int) -> None:
-        if updated <= 0:
-            return
-        self._refresh_job_views()
+        self._feedback_coordinator.on_poster_backfill_finished(updated)
 
     def _refresh_media_workspaces(self) -> None:
-        self._tv_workspace.apply_settings()
-        self._movie_workspace.apply_settings()
+        self._state_coordinator.refresh_media_workspaces()
 
     def _apply_view_mode(self, mode: str) -> None:
-        checked = mode == "compact"
-        self.settings_service.view_mode = mode
-        self._compact_action.blockSignals(True)
-        self._compact_action.setChecked(checked)
-        self._compact_action.blockSignals(False)
-        self._settings_tab.sync_view_mode(mode)
-        self._refresh_media_workspaces()
+        self._state_coordinator.apply_view_mode(mode)
 
     def _apply_companion_visibility(self, checked: bool) -> None:
-        self.settings_service.show_companion_files = checked
-        self._companion_action.blockSignals(True)
-        self._companion_action.setChecked(checked)
-        self._companion_action.blockSignals(False)
-        self._settings_tab.sync_companion_visibility(checked)
-        self._refresh_media_workspaces()
+        self._state_coordinator.apply_companion_visibility(checked)
 
     def _apply_discovery_visibility(self, checked: bool) -> None:
-        self.settings_service.show_discovery_info = checked
-        self._settings_tab.sync_discovery_visibility(checked)
-        self._refresh_media_workspaces()
+        self._state_coordinator.apply_discovery_visibility(checked)
 
     def _on_language_changed(self, tag: str) -> None:
-        self.settings_service.match_language = tag
-        self._settings_tab.sync_language(tag)
-        self._invalidate_tmdb()
-        self._refresh_media_workspaces()
-        self.statusBar().showMessage(f"TMDB language updated to {tag}.", 3000)
+        self._state_coordinator.on_language_changed(tag)
 
     def _on_threshold_changed(self, value: float) -> None:
-        self.settings_service.auto_accept_threshold = value
-        self.media_ctrl.apply_runtime_settings()
-        self._refresh_media_workspaces()
-        self.statusBar().showMessage(f"Auto-accept threshold updated to {value:.2f}.", 3000)
+        self._state_coordinator.on_threshold_changed(value)
 
     # ── Menu bar ─────────────────────────────────────────────────
 
     def _build_menu_bar(self) -> None:
-        mb = self.menuBar()
-
-        # File
-        file_menu = mb.addMenu("&File")
-
-        open_tv = file_menu.addAction("Open TV Folder...")
-        open_tv.setShortcut(QKeySequence("Ctrl+O"))
-        open_tv.triggered.connect(lambda: self._open_folder("tv"))
-
-        open_movie = file_menu.addAction("Open Movie Folder...")
-        open_movie.triggered.connect(lambda: self._open_folder("movie"))
-
-        file_menu.addSeparator()
-
-        # Recent TV folders submenu
-        self._recent_tv_menu = file_menu.addMenu("Recent TV Folders")
-        self._recent_movie_menu = file_menu.addMenu("Recent Movie Folders")
-        self._rebuild_recent_menus()
-
-        file_menu.addSeparator()
-
-        exit_action = file_menu.addAction("E&xit")
-        exit_action.setShortcut(QKeySequence("Alt+F4"))
-        exit_action.triggered.connect(self.close)
-
-        # Edit
-        edit_menu = mb.addMenu("&Edit")
-
-        undo_action = edit_menu.addAction("&Undo Last Rename")
-        undo_action.setShortcut(QKeySequence("Ctrl+Z"))
-        undo_action.triggered.connect(self._on_undo)
-
-        edit_menu.addSeparator()
-
-        settings_action = edit_menu.addAction("&Settings")
-        settings_action.setShortcut(QKeySequence("Ctrl+,"))
-        settings_action.triggered.connect(
-            lambda: self._tabs.setCurrentIndex(_SETTINGS)
-        )
-
-        # View
-        view_menu = mb.addMenu("&View")
-
-        self._compact_action = view_menu.addAction("Compact Mode")
-        self._compact_action.setCheckable(True)
-        self._compact_action.setChecked(
-            self.settings_service.view_mode == "compact"
-        )
-        self._compact_action.toggled.connect(self._on_compact_toggled)
-
-        self._companion_action = view_menu.addAction("Show Companion Files")
-        self._companion_action.setCheckable(True)
-        self._companion_action.setChecked(
-            self.settings_service.show_companion_files
-        )
-        self._companion_action.toggled.connect(self._on_companion_toggled)
-
-        # Help
-        help_menu = mb.addMenu("&Help")
-        about_action = help_menu.addAction("&About")
-        about_action.triggered.connect(self._on_about)
+        self._chrome_coordinator.build_menu_bar()
 
     def _build_shortcuts(self) -> None:
         """Register keyboard shortcuts that aren't menu-bound."""
-        for i in range(5):
-            action = QAction(self)
-            action.setShortcut(QKeySequence(f"Ctrl+{i + 1}"))
-            idx = i
-            action.triggered.connect(lambda _=False, n=idx: self._tabs.setCurrentIndex(n))
-            self.addAction(action)
-
-        queue_selected = QAction(self)
-        queue_selected.setShortcut(QKeySequence("Ctrl+Q"))
-        queue_selected.triggered.connect(self._queue_selected_from_shortcut)
-        self.addAction(queue_selected)
-
-        queue_checked = QAction(self)
-        queue_checked.setShortcut(QKeySequence("Ctrl+Shift+Q"))
-        queue_checked.triggered.connect(self._queue_checked_from_shortcut)
-        self.addAction(queue_checked)
-
-        # Space — toggle checkbox on focused roster item
-        toggle_check = QAction(self)
-        toggle_check.setShortcut(QKeySequence(Qt.Key.Key_Space))
-        toggle_check.triggered.connect(self._toggle_focused_check)
-        self.addAction(toggle_check)
-
-        # Escape — cancel scan or dismiss topmost toast
-        escape_action = QAction(self)
-        escape_action.setShortcut(QKeySequence(Qt.Key.Key_Escape))
-        escape_action.triggered.connect(self._on_escape)
-        self.addAction(escape_action)
-
-        # F5 — force rematch on selected roster item
-        force_rematch = QAction(self)
-        force_rematch.setShortcut(QKeySequence(Qt.Key.Key_F5))
-        force_rematch.triggered.connect(self._force_rematch_from_shortcut)
-        self.addAction(force_rematch)
-
-        # Delete — remove checked pending queue jobs
-        delete_action = QAction(self)
-        delete_action.setShortcut(QKeySequence(Qt.Key.Key_Delete))
-        delete_action.triggered.connect(self._delete_from_shortcut)
-        self.addAction(delete_action)
-
-        # Enter — execute focused pending queue job
-        enter_action = QAction(self)
-        enter_action.setShortcut(QKeySequence(Qt.Key.Key_Return))
-        enter_action.triggered.connect(self._enter_from_shortcut)
-        self.addAction(enter_action)
+        self._chrome_coordinator.build_shortcuts()
 
     # ── Folder selection → controller scan ───────────────────────
 
@@ -688,15 +403,10 @@ class MainWindow(QMainWindow):
             ws.refresh_from_controller()
 
     def _show_scan_feedback(self, *, title: str, message: str, tone: str) -> None:
-        token = (title, message)
-        if self._scan_feedback_token == token:
-            return
-        self._scan_feedback_token = token
-        self._toast_manager.show_toast(
+        self._feedback_coordinator.show_scan_feedback(
             title=title,
             message=message,
             tone=tone,
-            duration_ms=4000,
         )
 
     def _on_queue_changed(self, _unused=None) -> None:
@@ -716,198 +426,49 @@ class MainWindow(QMainWindow):
         self._movie_needs_queue_refresh = active != _MOVIES
 
     def _update_media_badges(self, states) -> None:
-        mode = self.media_ctrl.active_content_mode
-        needs_action = sum(1 for s in states if s.needs_review or s.show_id is None)
-        has_issues = needs_action > 0
-        badge = self._tv_badge if mode == "tv" else self._movie_badge
-        badge.set_count(needs_action)
-        badge.set_failure_visible(has_issues)
+        self._feedback_coordinator.update_media_badges(states)
 
     def _refresh_job_views(self) -> None:
-        self._queue_tab.refresh()
-        self._history_tab.refresh()
-        counts = self.queue_ctrl.count_by_status()
-        pending = counts.get("pending", 0) + counts.get("running", 0)
-        history = sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled", "reverted", "revert_failed"))
-        self._tabs.setTabText(_QUEUE, "Queue")
-        self._tabs.setTabText(_HISTORY, "History")
-        self._queue_badge.set_count(pending)
-        self._queue_badge.set_failure_visible(bool(counts.get("failed", 0)))
-        self._history_badge.set_count(history)
+        self._feedback_coordinator.refresh_job_views()
 
     def _on_job_started(self, _job: RenameJob) -> None:
-        if not self._queue_run_started:
-            self._queue_run_started = True
-            self._queue_completed_count = 0
-            self._queue_failed_count = 0
-            self._pending_success_jobs = 0
-            self._pending_success_files = 0
-            self._success_toast_timer.stop()
+        self._feedback_coordinator.on_job_started(_job)
 
     def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
-        self.media_ctrl.apply_completed_job_to_state(job, result)
-        self._queue_completed_count += 1
-        renamed = result.renamed_count
-        if not self._queue_run_started:
-            noun = "file" if renamed == 1 else "files"
-            self._toast_manager.show_toast(
-                title=f"Job completed: {job.media_name}",
-                message=f"{renamed} {noun} renamed.",
-                tone="success",
-                duration_ms=3000,
-            )
-            return
-        self._pending_success_jobs += 1
-        self._pending_success_files += renamed
-        self._success_toast_timer.start()
+        self._feedback_coordinator.on_job_completed(job, result)
 
     def _flush_success_toast_batch(self) -> None:
-        if self._pending_success_jobs <= 0 or not self._queue_run_started:
-            return
-        jobs = self._pending_success_jobs
-        files = self._pending_success_files
-        self._pending_success_jobs = 0
-        self._pending_success_files = 0
-        job_noun = "job" if jobs == 1 else "jobs"
-        file_noun = "file" if files == 1 else "files"
-        self._toast_manager.show_toast(
-            title=f"{jobs} {job_noun} completed",
-            message=f"{files} {file_noun} renamed.",
-            tone="success",
-            duration_ms=3000,
-        )
+        self._feedback_coordinator.flush_success_toast_batch()
 
     def _show_history_job(self, job_id: str) -> None:
         self._switch_to_tab(_HISTORY)
         self._history_tab.select_job(job_id)
 
     def _on_job_failed(self, job: RenameJob, error: str) -> None:
-        self._queue_failed_count += 1
-        detail = error or job.error_message or "Unknown error"
-        self._toast_manager.show_toast(
-            title=f"Job failed: {job.media_name}",
-            message=detail,
-            tone="error",
-            duration_ms=0,
-            action_text="Show in History",
-            action_callback=lambda job_id=job.job_id: self._show_history_job(job_id),
-        )
+        self._feedback_coordinator.on_job_failed(job, error)
 
     def _on_queue_finished(self) -> None:
-        if not self._queue_run_started:
-            return
-        self._success_toast_timer.stop()
-        self._pending_success_jobs = 0
-        self._pending_success_files = 0
-        summary = f"{self._queue_completed_count} completed"
-        if self._queue_failed_count:
-            summary += f", {self._queue_failed_count} failed"
-        self._toast_manager.show_toast(
-            title="Queue finished",
-            message=summary,
-            tone="accent",
-            duration_ms=5000,
-        )
-        self._queue_run_started = False
-        self._queue_completed_count = 0
-        self._queue_failed_count = 0
+        self._feedback_coordinator.on_queue_finished()
 
     # ── Other actions ────────────────────────────────────────────
 
     def _open_folder(self, media_type: str) -> None:
-        """Switch to the appropriate tab and trigger its folder picker."""
-        if media_type == "tv":
-            self._switch_to_tab(_TV)
-            self._tv_workspace.open_folder_dialog()
-        else:
-            self._switch_to_tab(_MOVIES)
-            self._movie_workspace.open_folder_dialog()
+        self._shell_coordinator.open_folder(media_type)
 
     def _switch_to_tab(self, index: int) -> None:
-        self._tabs.setCurrentIndex(index)
+        self._state_coordinator.switch_to_tab(index)
 
     def _rebuild_recent_menus(self) -> None:
-        self._recent_tv_menu.clear()
-        for folder in self.settings_service.recent_tv_folders:
-            p = Path(folder)
-            action = self._recent_tv_menu.addAction(f"{p.name}  ({p})")
-            action.triggered.connect(
-                lambda _=False, f=folder: self._tv_workspace.load_folder(f)
-            )
-        self._recent_tv_menu.setEnabled(bool(self.settings_service.recent_tv_folders))
-
-        self._recent_movie_menu.clear()
-        for folder in self.settings_service.recent_movie_folders:
-            p = Path(folder)
-            action = self._recent_movie_menu.addAction(f"{p.name}  ({p})")
-            action.triggered.connect(
-                lambda _=False, f=folder: self._movie_workspace.load_folder(f)
-            )
-        self._recent_movie_menu.setEnabled(bool(self.settings_service.recent_movie_folders))
+        self._state_coordinator.rebuild_recent_menus()
 
     def _on_tab_changed(self, index: int) -> None:
-        self._capture_active_snapshot()
-
-        if index == _QUEUE:
-            self._queue_tab._model.clear_checked()
-            self._queue_tab.refresh()
-        elif index == _HISTORY:
-            self._history_tab._model.clear_checked()
-            self._history_tab.refresh()
-        elif index == _TV:
-            if self._tv_snapshot is not None:
-                self.media_ctrl.restore_tv_from_tab_switch(self._tv_snapshot)
-                self._tv_workspace.refresh_from_controller()
-            elif self._tv_needs_queue_refresh and self._tv_workspace.is_showing_ready():
-                self._tv_workspace.refresh_from_controller()
-            self._tv_needs_queue_refresh = False
-        elif index == _MOVIES:
-            if self._movie_snapshot is not None:
-                self.media_ctrl.restore_movie_from_tab_switch(self._movie_snapshot)
-                self._movie_workspace.refresh_from_controller()
-            elif self._movie_needs_queue_refresh and self._movie_workspace.is_showing_ready():
-                self._movie_workspace.refresh_from_controller()
-            self._movie_needs_queue_refresh = False
-
-        _log.debug("Tab switched to %d", index)
+        self._state_coordinator.on_tab_changed(index)
 
     def _capture_active_snapshot(self) -> None:
-        if self.media_ctrl.active_content_mode == "tv":
-            self._tv_snapshot = self.media_ctrl.snapshot_tv_for_tab_switch()
-        elif self.media_ctrl.active_content_mode == "movie":
-            self._movie_snapshot = self.media_ctrl.snapshot_movie_for_tab_switch()
+        self._state_coordinator.capture_active_snapshot()
 
     def _on_undo(self) -> None:
-        job = self.queue_ctrl.get_latest_revertible_job()
-        if job is None:
-            self.statusBar().showMessage("Nothing to undo", 3000)
-            return
-
-        undo_data = job.undo_data or {}
-        rename_count = len(undo_data.get("renames", []))
-        desc = f"Undo {rename_count} rename(s) for '{job.media_name}'?"
-        removed_dirs = undo_data.get("removed_dirs") or []
-        if removed_dirs:
-            desc += "\n\nRemoved folders will also be restored where possible."
-
-        if QMessageBox.question(
-            self,
-            "Undo Last Rename",
-            desc,
-        ) != QMessageBox.StandardButton.Yes:
-            return
-
-        success, errors = self.queue_ctrl.revert_job(job.job_id)
-        self._on_queue_changed()
-        self._history_tab.select_job(job.job_id)
-        self._switch_to_tab(_HISTORY)
-
-        if errors:
-            QMessageBox.warning(self, "Partial Undo", "\n".join(errors[:8]))
-        elif success:
-            self.statusBar().showMessage(f"Reverted '{job.media_name}'", 4000)
-        else:
-            QMessageBox.warning(self, "Undo Failed", "Unable to revert the selected rename job.")
+        self._shell_coordinator.undo_last_rename(message_box_api=QMessageBox)
 
     def _on_compact_toggled(self, checked: bool) -> None:
         self._apply_view_mode("compact" if checked else "normal")
@@ -916,38 +477,22 @@ class MainWindow(QMainWindow):
         self._apply_companion_visibility(checked)
 
     def _on_about(self) -> None:
-        QMessageBox.about(
-            self,
-            "About Plex Renamer",
-            "Plex Renamer — GUI3 (PySide6)\n\n"
-            "Automatically rename and organize media files\n"
-            "into Plex-compatible naming conventions.\n\n"
-            "Metadata provided by TMDB.",
-        )
+        self._shell_coordinator.show_about(message_box_api=QMessageBox)
 
     # ── Window state persistence ─────────────────────────────────
 
     def _restore_window_state(self) -> None:
-        geo = self.settings_service.window_geometry
-        if geo and len(geo) == 4:
-            self.setGeometry(*geo)
-        else:
-            self.resize(1440, 900)
+        self._shell_coordinator.restore_window_state()
 
     def _save_window_state(self) -> None:
-        g = self.geometry()
-        self.settings_service.window_geometry = [g.x(), g.y(), g.width(), g.height()]
+        self._shell_coordinator.save_window_state()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._toast_manager._reposition()
+        self._shell_coordinator.handle_resize()
 
     # ── Close ────────────────────────────────────────────────────
 
     def closeEvent(self, event) -> None:
-        self._save_window_state()
-        self._persist_tmdb_cache_snapshot()
-        self.media_ctrl.clear_listeners()
-        self.queue_ctrl.clear_listeners()
-        self.queue_ctrl.close()
+        self._shell_coordinator.prepare_close()
         super().closeEvent(event)
