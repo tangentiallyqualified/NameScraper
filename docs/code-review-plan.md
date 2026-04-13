@@ -320,6 +320,28 @@ Phase 5 done means:
 - `media_workspace.py` wrapper methods and dialog patch points stayed stable for the existing Qt tests.
 - The remaining action coordinator code is a thin routing layer over extracted workflows and button-state helpers.
 
+### Phase 6: Clean up movie discovery service
+
+Refactor [plex_renamer/app/services/movie_library_discovery_service.py](../plex_renamer/app/services/movie_library_discovery_service.py) using the same traversal-versus-classification split that already worked for TV discovery.
+
+Status: completed on 2026-04-12.
+
+Goals:
+- Separate folder classification from recursive traversal.
+- Keep current multi-movie, extras, and TV-exclusion behavior intact.
+- Add direct classification coverage for movie-specific heuristics before or during extraction.
+
+Completed in the current slice:
+- Extracted movie folder-classification heuristics to [plex_renamer/app/services/_movie_library_classification.py](../plex_renamer/app/services/_movie_library_classification.py).
+- Kept [plex_renamer/app/services/movie_library_discovery_service.py](../plex_renamer/app/services/movie_library_discovery_service.py) focused on traversal, candidate construction, and compatibility wrappers.
+- Added direct classification coverage for multi-movie folders and majority-TV-content folders in [tests/test_movie_discovery.py](../tests/test_movie_discovery.py).
+
+Phase 6 done means:
+
+- Movie discovery heuristics can evolve without touching recursive traversal.
+- The public service entry point and result shape stay stable for orchestrators and tests.
+- Movie discovery now follows the same internal pattern as TV discovery, which makes future maintenance less ad hoc.
+
 ## Working Rules for the Refactor
 
 - Keep public APIs stable where possible; prefer internal extraction over surface redesign.

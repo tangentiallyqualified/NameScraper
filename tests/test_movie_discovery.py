@@ -208,6 +208,34 @@ class MovieDiscoveryTests(unittest.TestCase):
 
             self.assertEqual(role, MovieDirectoryRole.MOVIE_ROOT)
 
+    def test_classify_directory_detects_multi_movie_folder(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "Unsorted"
+            folder.mkdir()
+            (folder / "Movie.A.2020.mkv").write_text("x")
+            (folder / "Movie.B.2019.mkv").write_text("x")
+            (folder / "Movie.C.2021.mkv").write_text("x")
+
+            service = MovieLibraryDiscoveryService()
+            role = service.classify_directory(folder)
+
+            self.assertEqual(role, MovieDirectoryRole.MULTI_MOVIE_FOLDER)
+
+    def test_classify_directory_rejects_majority_tv_content_folder(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "Mixed"
+            folder.mkdir()
+            (folder / "Show.S01E01.mkv").write_text("x")
+            (folder / "Show.S01E02.mkv").write_text("x")
+            (folder / "Bonus Movie 2020.mkv").write_text("x")
+
+            service = MovieLibraryDiscoveryService()
+            role = service.classify_directory(folder)
+
+            self.assertEqual(role, MovieDirectoryRole.NON_MOVIE_LEAF)
+
     def test_deterministic_sort_order(self):
         """Results should be sorted by normalized relative path."""
         with TemporaryDirectory() as tmp:
