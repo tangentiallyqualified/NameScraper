@@ -87,15 +87,18 @@ def match_special(
     matched_ep = None
     matched_title = None
 
-    if not from_extras_folder and episode_numbers:
+    # Title match first — specials numbering varies across sources, so the
+    # episode title embedded in the filename is a more reliable signal than
+    # the S00E## number when both are present.
+    if raw_title:
+        matched_ep, matched_title = fuzzy_match_special(raw_title, tmdb_title_lookup)
+
+    if not matched_ep and not from_extras_folder and episode_numbers:
         for episode_num in episode_numbers:
             if episode_num in titles:
                 matched_ep = episode_num
                 matched_title = titles[episode_num]
                 break
-
-    if not matched_ep and raw_title:
-        matched_ep, matched_title = fuzzy_match_special(raw_title, tmdb_title_lookup)
 
     if not matched_ep:
         stem = file_path.stem
