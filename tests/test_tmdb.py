@@ -4,10 +4,12 @@ import io
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import requests
 from PIL import Image
 
+from plex_renamer._tmdb_transport import TMDBAPIError
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.tmdb import TMDBClient, _HTTP_POOL_CONNECTIONS, _HTTP_POOL_MAXSIZE
@@ -81,6 +83,54 @@ class TMDBClientTests(unittest.TestCase):
             self.assertIsNotNone(second_result)
             self.assertEqual(second_result.size, (42, 63))
             second_client._session.close()
+
+    def test_get_returns_none_for_404(self):
+        client = TMDBClient("dummy-api-key")
+        response = MagicMock()
+        response.ok = False
+        response.status_code = 404
+        client._rate_limiter.acquire = MagicMock()
+        client._session.get = MagicMock(return_value=response)
+
+        result = client._get("/tv/123")
+
+        self.assertIsNone(result)
+        client._session.get.assert_called_once_with(
+            "https://api.themoviedb.org/3/tv/123",
+            params={"api_key": "dummy-api-key", "language": "en-US"},
+            timeout=10,
+        )
+        client._session.close()
+
+    def test_get_retries_transient_network_failure_then_succeeds(self):
+        client = TMDBClient("dummy-api-key", max_retries=1)
+        response = MagicMock()
+        response.ok = True
+        response.json.return_value = {"id": 123}
+        client._rate_limiter.acquire = MagicMock()
+        client._session.get = MagicMock(side_effect=[requests.RequestException("boom"), response])
+
+        with patch("plex_renamer._tmdb_transport.time.sleep") as sleep_mock:
+            result = client._get("/tv/123")
+
+        self.assertEqual(result, {"id": 123})
+        self.assertEqual(client._session.get.call_count, 2)
+        sleep_mock.assert_called_once_with(1.0)
+        client._session.close()
+
+    def test_get_raises_api_error_for_non_retryable_client_failure(self):
+        client = TMDBClient("dummy-api-key")
+        response = MagicMock()
+        response.ok = False
+        response.status_code = 400
+        response.text = "bad request"
+        client._rate_limiter.acquire = MagicMock()
+        client._session.get = MagicMock(return_value=response)
+
+        with self.assertRaises(TMDBAPIError):
+            client._get("/tv/123")
+
+        client._session.close()
 
     def test_get_tv_details_reuses_persisted_details_across_client_instances(self):
         with TemporaryDirectory(ignore_cleanup_errors=True) as tmp:

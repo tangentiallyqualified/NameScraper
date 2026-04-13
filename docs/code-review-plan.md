@@ -342,6 +342,28 @@ Phase 6 done means:
 - The public service entry point and result shape stay stable for orchestrators and tests.
 - Movie discovery now follows the same internal pattern as TV discovery, which makes future maintenance less ad hoc.
 
+### Phase 7: Clean up TMDB client transport
+
+Refactor [plex_renamer/tmdb.py](../plex_renamer/tmdb.py) so the public client remains the stable facade while the HTTP session, rate limiter, retry loop, and raw download logic move into a dedicated transport helper.
+
+Status: completed on 2026-04-12.
+
+Goals:
+- Separate transport concerns from metadata and image orchestration.
+- Keep `TMDBClient` attributes and method behavior stable for existing callers and tests.
+- Add direct coverage for the extracted retry and error-handling behavior.
+
+Completed in the current slice:
+- Extracted HTTP session setup, token-bucket rate limiting, retry policy, and raw byte download helpers to [plex_renamer/_tmdb_transport.py](../plex_renamer/_tmdb_transport.py).
+- Kept [plex_renamer/tmdb.py](../plex_renamer/tmdb.py) as the public facade over batch search, metadata caches, poster orchestration, and fallback search helpers.
+- Added direct transport-behavior coverage for 404 handling, transient network retry, and non-retryable API errors in [tests/test_tmdb.py](../tests/test_tmdb.py).
+
+Phase 7 done means:
+
+- TMDB transport mechanics can evolve without tangling the higher-level client methods.
+- `TMDBClient` still exposes the same top-level session and rate-limiter attributes expected by the current tests.
+- Future TMDB work can target transport, metadata shaping, and image caching as separate concerns instead of one large client file.
+
 ## Working Rules for the Refactor
 
 - Keep public APIs stable where possible; prefer internal extraction over surface redesign.

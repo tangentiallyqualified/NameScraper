@@ -18,15 +18,18 @@ from __future__ import annotations
 
 import io
 import logging
-import threading
-import time
 from collections.abc import Callable
 from typing import Any
 
-import requests
-from requests.adapters import HTTPAdapter
 from PIL import Image
 
+from ._tmdb_transport import (
+    TMDBAPIError,
+    TMDBError,
+    TMDBNetworkError,
+    TMDBRateLimitError,
+    TMDBTransport,
+)
 from ._tmdb_batch_search import (
     resolve_movie_batch_query,
     resolve_tv_batch_query,
@@ -49,63 +52,6 @@ _HTTP_POOL_CONNECTIONS = 16
 _HTTP_POOL_MAXSIZE = 32
 
 log = logging.getLogger(__name__)
-
-
-# ─── Error types ─────────────────────────────────────────────────────────────
-
-class TMDBError(Exception):
-    """Base class for TMDB client errors."""
-
-
-class TMDBNetworkError(TMDBError):
-    """Network or connection failure — transient, may be retried."""
-
-
-class TMDBRateLimitError(TMDBError):
-    """API rate limit hit (HTTP 429)."""
-
-
-class TMDBAPIError(TMDBError):
-    """Non-retryable API error (4xx other than 429)."""
-
-    def __init__(self, status_code: int, message: str = ""):
-        self.status_code = status_code
-        super().__init__(f"TMDB API error {status_code}: {message}")
-
-
-# ─── Rate limiter ────────────────────────────────────────────────────────────
-
-class _TokenBucket:
-    """
-    Simple token-bucket rate limiter.
-
-    Allows up to *rate* requests per second with a burst capacity
-    equal to *rate*.  Thread-safe.
-    """
-
-    def __init__(self, rate: float = 35.0):
-        self._rate = rate
-        self._tokens = rate
-        self._max_tokens = rate
-        self._last_refill = time.monotonic()
-        self._lock = threading.Lock()
-
-    def acquire(self) -> None:
-        """Block until a token is available."""
-        while True:
-            with self._lock:
-                now = time.monotonic()
-                elapsed = now - self._last_refill
-                self._tokens = min(
-                    self._max_tokens,
-                    self._tokens + elapsed * self._rate,
-                )
-                self._last_refill = now
-                if self._tokens >= 1.0:
-                    self._tokens -= 1.0
-                    return
-            # Sleep briefly and retry
-            time.sleep(0.02)
 # ─── Client ──────────────────────────────────────────────────────────────────
 
 class TMDBClient:
@@ -131,16 +77,18 @@ class TMDBClient:
         self.language = language
         self._cache_service = cache_service
         self._refresh_policy = refresh_policy
-        self._session = requests.Session()
-        adapter = HTTPAdapter(
+        self._transport = TMDBTransport(
+            api_key=api_key,
+            language=language,
+            api_base=API_BASE,
+            rate_limit=rate_limit,
+            max_retries=max_retries,
             pool_connections=_HTTP_POOL_CONNECTIONS,
             pool_maxsize=_HTTP_POOL_MAXSIZE,
+            logger=log,
         )
-        # This only raises the number of reusable keep-alive connections.
-        # Request rate is still enforced by the token bucket in _get()/fetch_image().
-        self._session.mount("https://api.themoviedb.org", adapter)
-        self._session.mount("https://image.tmdb.org", adapter)
-        self._rate_limiter = _TokenBucket(rate_limit)
+        self._session = self._transport.session
+        self._rate_limiter = self._transport.rate_limiter
         self._max_retries = max_retries
 
         self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
@@ -157,74 +105,12 @@ class TMDBClient:
     # ─── Helpers ──────────────────────────────────────────────────────
 
     def _get(self, path: str, params: dict | None = None) -> dict | None:
-        """
-        Make a GET request to the TMDB API with rate limiting and retry.
-
-        Returns JSON dict on success, None if the resource was not found
-        (404).  Raises TMDBError subclasses for other failures so callers
-        can distinguish transient vs permanent errors.
-        """
-        url = f"{API_BASE}{path}"
-        all_params = {"api_key": self.api_key, "language": self.language}
-        if params:
-            all_params.update(params)
-
-        last_exc: Exception | None = None
-
-        for attempt in range(1 + self._max_retries):
-            self._rate_limiter.acquire()
-
-            try:
-                r = self._session.get(url, params=all_params, timeout=10)
-            except requests.RequestException as e:
-                last_exc = TMDBNetworkError(str(e))
-                if attempt < self._max_retries:
-                    time.sleep(1.0 * (2 ** attempt))
-                    continue
-                raise last_exc from e
-
-            if r.ok:
-                return r.json()
-
-            if r.status_code == 404:
-                return None
-
-            if r.status_code == 429:
-                retry_after = float(r.headers.get("Retry-After", 1.5))
-                log.warning("TMDB rate limit hit, waiting %.1fs", retry_after)
-                last_exc = TMDBRateLimitError(
-                    f"Rate limited (attempt {attempt + 1})")
-                time.sleep(retry_after)
-                continue
-
-            if r.status_code >= 500:
-                last_exc = TMDBNetworkError(
-                    f"Server error {r.status_code} (attempt {attempt + 1})")
-                if attempt < self._max_retries:
-                    time.sleep(1.0 * (2 ** attempt))
-                    continue
-                raise last_exc
-
-            raise TMDBAPIError(r.status_code, r.text[:200])
-
-        if last_exc:
-            raise last_exc
-        return None
+        """Make a GET request to the TMDB API with rate limiting and retry."""
+        return self._transport.get_json(path, params)
 
     def _get_safe(self, path: str, params: dict | None = None) -> dict | None:
-        """
-        Like _get() but catches TMDBError and returns None.
-
-        Use this for non-critical paths (images, supplementary data)
-        where a failure shouldn't crash the operation.  For critical
-        paths (search, season fetch), prefer _get() and handle errors
-        explicitly.
-        """
-        try:
-            return self._get(path, params)
-        except TMDBError as e:
-            log.warning("TMDB request failed for %s: %s", path, e)
-            return None
+        """Like _get() but catches TMDBError and returns None."""
+        return self._transport.get_json_safe(path, params)
 
     # ─── TV Series ────────────────────────────────────────────────────
 
@@ -517,12 +403,11 @@ class TMDBClient:
         source = self._image_cache_store.get_source_image(image_path)
         if source is None:
             try:
-                self._rate_limiter.acquire()
-                r = self._session.get(IMAGE_BASE_URL + image_path, timeout=10)
-                source = Image.open(io.BytesIO(r.content))
+                payload = self._transport.fetch_bytes(IMAGE_BASE_URL + image_path)
+                source = Image.open(io.BytesIO(payload))
                 source.load()
                 self._image_cache_store.store_source_image(image_path, source)
-            except (requests.RequestException, OSError, ValueError) as e:
+            except (TMDBNetworkError, OSError, ValueError) as e:
                 log.debug("Failed to fetch image %s: %s", image_path, e)
                 return None
 
