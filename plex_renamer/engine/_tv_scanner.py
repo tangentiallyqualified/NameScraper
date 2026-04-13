@@ -20,6 +20,10 @@ from ..parsing import (
 )
 from ..tmdb import TMDBClient
 from ._movie_scanner import _build_subtitle_companions
+from ._tv_scanner_seasons import (
+    match_tv_dirs_to_tmdb_seasons,
+    resolve_tv_season_dirs,
+)
 from .models import CompletenessReport, PreviewItem, SeasonCompleteness
 
 _log = logging.getLogger(__name__)
@@ -64,38 +68,13 @@ class TVScanner:
         if self._season_dirs is not None:
             return self._season_dirs
 
-        if self._season_folders:
-            self._season_dirs = sorted(
-                [(folder, season_num) for season_num, folder in self._season_folders.items()],
-                key=lambda item: item[1],
-            )
-            return self._season_dirs
-
-        dirs_with_season: list[tuple[Path, int]] = []
-        unmatched_dirs: list[Path] = []
-        for directory in self.root.iterdir():
-            if not directory.is_dir():
-                continue
-            season_num = get_season(directory)
-            if season_num is not None:
-                dirs_with_season.append((directory, season_num))
-            else:
-                unmatched_dirs.append(directory)
-
-        if dirs_with_season and unmatched_dirs:
-            matched_via_tmdb = self._match_dirs_to_tmdb_seasons(
-                unmatched_dirs,
-                {season_num for _, season_num in dirs_with_season},
-            )
-            dirs_with_season.extend(matched_via_tmdb)
-
-        dirs_with_season.sort(key=lambda item: item[1])
-
-        if not dirs_with_season:
-            season_num = 1 if self._season_hint is None else self._season_hint
-            self._season_dirs = [(self.root, season_num)]
-        else:
-            self._season_dirs = dirs_with_season
+        self._season_dirs = resolve_tv_season_dirs(
+            self.root,
+            season_hint=self._season_hint,
+            season_folders=self._season_folders,
+            get_season=get_season,
+            match_dirs_to_tmdb_seasons=self._match_dirs_to_tmdb_seasons,
+        )
         return self._season_dirs
 
     def _match_dirs_to_tmdb_seasons(
@@ -104,84 +83,14 @@ class TVScanner:
         already_matched: set[int],
     ) -> list[tuple[Path, int]]:
         """Try to match directories against TMDB season names."""
-        show_id = self.show_info.get("id")
-        if not show_id:
-            return []
-
-        show_data = self.tmdb.get_tv_details(show_id)
-        if not show_data:
-            return []
-
-        tmdb_season_names: dict[int, str] = {}
-        for season_info in show_data.get("seasons", []):
-            season_num = season_info.get("season_number", 0)
-            name = season_info.get("name", "")
-            if season_num > 0 and name and season_num not in already_matched:
-                tmdb_season_names[season_num] = name
-
-        if not tmdb_season_names:
-            return []
-
-        show_title = clean_folder_name(
-            self.show_info.get("name", ""),
-            include_year=False,
-        ).lower()
-
-        results: list[tuple[Path, int]] = []
-        used_seasons: set[int] = set()
-
-        for directory in dirs:
-            folder_cleaned = clean_folder_name(
-                directory.name,
-                include_year=False,
-            ).lower()
-
-            best_season_num: int | None = None
-            best_score = 0.0
-
-            for season_num, tmdb_name in tmdb_season_names.items():
-                if season_num in used_seasons:
-                    continue
-                tmdb_cleaned = tmdb_name.lower()
-
-                if tmdb_cleaned in folder_cleaned or folder_cleaned in tmdb_cleaned:
-                    score = 1.0
-                else:
-                    folder_suffix = folder_cleaned
-                    tmdb_suffix = tmdb_cleaned
-                    if folder_suffix.startswith(show_title):
-                        folder_suffix = folder_suffix[len(show_title):].strip()
-                    if tmdb_suffix.startswith(show_title):
-                        tmdb_suffix = tmdb_suffix[len(show_title):].strip()
-
-                    if not folder_suffix or not tmdb_suffix:
-                        continue
-
-                    if tmdb_suffix in folder_suffix or folder_suffix in tmdb_suffix:
-                        score = 0.9
-                    else:
-                        folder_tokens = {token for token in folder_suffix.split() if len(token) > 2}
-                        tmdb_tokens = {token for token in tmdb_suffix.split() if len(token) > 2}
-                        if not tmdb_tokens:
-                            continue
-                        overlap = len(folder_tokens & tmdb_tokens)
-                        score = overlap / max(len(tmdb_tokens), 1)
-
-                if score > best_score and score >= 0.5:
-                    best_score = score
-                    best_season_num = season_num
-
-            if best_season_num is not None:
-                _log.info(
-                    "Matched folder '%s' to TMDB season %d via name similarity (score=%.2f)",
-                    directory.name,
-                    best_season_num,
-                    best_score,
-                )
-                results.append((directory, best_season_num))
-                used_seasons.add(best_season_num)
-
-        return results
+        return match_tv_dirs_to_tmdb_seasons(
+            dirs,
+            already_matched,
+            show_info=self.show_info,
+            tmdb=self.tmdb,
+            clean_folder_name=clean_folder_name,
+            logger=_log,
+        )
 
     def _get_tmdb_seasons(self) -> dict:
         """Fetch TMDB season map. Cached after first call."""

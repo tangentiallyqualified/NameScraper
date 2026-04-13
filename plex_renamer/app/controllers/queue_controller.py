@@ -19,6 +19,12 @@ from ...engine import (
 )
 from ...job_executor import QueueExecutor, revert_job
 from ...job_store import JobStore, RenameJob
+from ._queue_history_helpers import (
+    backfill_missing_queue_job_poster_paths,
+    close_queue_resources,
+    record_completed_queue_job,
+    revert_queue_job,
+)
 from ._queue_submission_helpers import (
     BatchQueueResult,
     add_movie_batch_jobs,
@@ -156,14 +162,7 @@ class QueueController:
         instead, so this method exists to keep the tkinter shell routed
         through the controller rather than accessing JobStore directly.
         """
-        if result.renamed_count == 0:
-            return
-
-        job.status = JobStatus.COMPLETED
-        job.undo_data = result.log_entry
-        if result.errors:
-            job.error_message = "; ".join(result.errors[:5])
-        self.job_store.add_job(job)
+        record_completed_queue_job(self.job_store, job, result)
 
     def set_job_poster_path(self, job_id: str, poster_path: str | None) -> None:
         """Persist a resolved poster path for an existing job."""
@@ -214,19 +213,11 @@ class QueueController:
         are marked ``REVERT_FAILED`` so history reflects that the undo did
         not complete cleanly.
         """
-        job = self.job_store.get_job(job_id)
-        if job is None:
-            return False, [f"Job {job_id} not found."]
-        if not job.undo_data:
-            return False, ["No undo data stored for this job."]
-
-        success, errors = revert_job(job)
-        self.job_store.update_status(
+        return revert_queue_job(
+            self.job_store,
             job_id,
-            JobStatus.REVERTED if success else JobStatus.REVERT_FAILED,
-            error_message="; ".join(errors[:3]) if errors else None,
+            revert_runner=revert_job,
         )
-        return success, errors
 
     # ── Query ───────────────────────────────────────────────────────
 
@@ -250,27 +241,8 @@ class QueueController:
 
     def backfill_missing_job_poster_paths(self, tmdb: Any) -> int:
         """Resolve and persist missing poster paths for queued/history jobs using cached TMDB metadata only."""
-        cache: dict[tuple[str, int], str | None] = {}
-        updated = 0
-
-        for job in self.job_store.get_all():
-            if job.poster_path or not job.tmdb_id:
-                continue
-
-            key = (job.media_type, job.tmdb_id)
-            poster_path = cache.get(key)
-            if key not in cache:
-                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
-                cache[key] = poster_path
-
-            if poster_path:
-                self.job_store.set_poster_path(job.job_id, poster_path)
-                updated += 1
-
-        return updated
+        return backfill_missing_queue_job_poster_paths(self.job_store, tmdb)
 
     def close(self) -> None:
         """Clean shutdown: stop executor and close the store."""
-        if self.executor.is_running:
-            self.executor.stop()
-        self.job_store.close()
+        close_queue_resources(self.executor, self.job_store)
