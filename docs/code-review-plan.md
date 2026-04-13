@@ -24,6 +24,11 @@ Verification snapshot:
 - [x] **#13** batch TV orchestration policy split — extracted duplicate labeling, season-merge helpers, and near-tie match policy from [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py) into private engine modules; `discover_shows()` now reads as workflow orchestration.
 - [x] **#14** TVScanner helper split — extracted specials matching and consolidated-preview logic from [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py) into private helper modules while keeping `TVScanner` as the public facade.
 - [x] **#15** TVScanner normal-preview and postprocess split — extracted the normal preview builder plus duplicate-episode resolution and completeness reporting from [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py); `TVScanner` remains the cache-owning facade.
+- [x] **#16** JobStore path-propagation split — extracted queued-job path rewrite logic from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_path_propagation.py](../plex_renamer/_job_path_propagation.py); `JobStore` remains the persistence facade and now has focused coverage for downstream path updates.
+- [x] **#17** job executor filesystem split — extracted queued rename move/cleanup helpers from [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) into [plex_renamer/_job_execution_filesystem.py](../plex_renamer/_job_execution_filesystem.py); `QueueExecutor`, `_execute_rename()`, and `revert_job()` remain stable entry points.
+- [x] **#18** JobStore bootstrap split — extracted SQLite connection setup, schema initialization, and migration helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_db.py](../plex_renamer/_job_store_db.py); `_get_conn()` and `_migrate_db()` remain as compatibility wrappers on the facade.
+- [x] **#19** JobStore codec split — extracted JSON serialization and row-mapping helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_codec.py](../plex_renamer/_job_store_codec.py); `_row_to_job()` remains as the compatibility wrapper on the facade.
+- [x] **#20** JobStore ordering split — extracted queue position compaction and pending-job reorder helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_ordering.py](../plex_renamer/_job_store_ordering.py); the facade still owns locking and commit boundaries.
 
 ## Current Assessment
 
@@ -236,6 +241,8 @@ Phase 2 done means:
 
 Address [plex_renamer/job_store.py](../plex_renamer/job_store.py) and [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) together, but in two small passes rather than one big rewrite.
 
+Status: in progress on 2026-04-12.
+
 Goals:
 - First split `JobStore` into facade + extracted persistence/path-propagation helpers.
 - Then split `job_executor.py` into queue orchestration + filesystem operation helpers.
@@ -244,6 +251,23 @@ Goals:
 Success criteria:
 - Queue-domain rules are no longer buried inside persistence plumbing.
 - Rename/revert logic becomes easier to reason about independently from queue sequencing.
+
+Completed in the current slice:
+- Extracted queued-job path rewrite logic to [plex_renamer/_job_path_propagation.py](../plex_renamer/_job_path_propagation.py).
+- Kept [plex_renamer/job_store.py](../plex_renamer/job_store.py) as the caller-facing facade and compatibility home for `_rebase_path()`.
+- Added explicit store-level coverage for downstream path propagation so future queue refactors can move faster without relying on indirect executor behavior.
+- Extracted queued rename move/cleanup helpers to [plex_renamer/_job_execution_filesystem.py](../plex_renamer/_job_execution_filesystem.py).
+- Kept [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) focused on job lifecycle, rename-plan construction, and public queue/revert entry points.
+- Extracted SQLite connection setup, schema initialization, and migration helpers to [plex_renamer/_job_store_db.py](../plex_renamer/_job_store_db.py).
+- Kept [plex_renamer/job_store.py](../plex_renamer/job_store.py) as the queue/persistence facade so existing tests and controller call sites still go through `_get_conn()` and `JobStore` methods.
+- Extracted JSON serialization and row-mapping helpers to [plex_renamer/_job_store_codec.py](../plex_renamer/_job_store_codec.py).
+- Added explicit round-trip coverage for companion-file rename ops and stored undo payloads so future persistence refactors do not regress queue history and detail views.
+- Extracted queue ordering helpers to [plex_renamer/_job_store_ordering.py](../plex_renamer/_job_store_ordering.py).
+- Added direct coverage for reorder, block-move, and move-to-top behavior so the remaining store facade can be treated as stable orchestration glue.
+
+Next slice:
+- Phase 3 is now in a reasonable stopping state; the remaining `JobStore` methods are mostly facade-level queries and simple writes.
+- Consider a follow-on executor slice only if `revert_job()` or final-root routing starts to grow again; the move/cleanup path is no longer the primary hotspot.
 
 ### Phase 4: Clean up discovery services
 

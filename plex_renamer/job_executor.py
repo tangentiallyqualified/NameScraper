@@ -29,12 +29,21 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ._job_execution_filesystem import (
+    UNMATCHED_FILES_DIR,
+    apply_rename_plan,
+    cleanup_source_directories,
+    normalize_season_directories,
+    remap_target_into_final_root,
+)
 from .constants import JobKind, JobStatus, MediaType
-from .job_store import JobStore, RenameJob, RenameOp
+from .job_store import JobStore, RenameJob
 from .engine import RenameResult
-from .parsing import get_season
 
 _log = logging.getLogger(__name__)
+
+
+_UNMATCHED_FILES_DIR = UNMATCHED_FILES_DIR
 
 
 # ─── Pre-execution validation ────────────────────────────────────────────────
@@ -71,11 +80,6 @@ def _validate_sources(job: RenameJob) -> list[str]:
     return missing
 
 
-# Subdirectory name used inside a renamed target folder for files that were
-# present in the source directory but not part of any rename operation.
-_UNMATCHED_FILES_DIR = "Unmatched Files"
-
-
 def _remap_target_into_final_root(
     target_dir: Path,
     root_folder: Path,
@@ -88,13 +92,7 @@ def _remap_target_into_final_root(
     directories remained, that pulled stale structure into the finished
     Plex folder. Remapping root-relative targets avoids that coupling.
     """
-    if final_root is None:
-        return target_dir
-    try:
-        relative = target_dir.relative_to(root_folder)
-    except ValueError:
-        return target_dir
-    return final_root / relative
+    return remap_target_into_final_root(target_dir, root_folder, final_root)
 
 
 # ─── Job kind executor registry ──────────────────────────────────────────────
@@ -185,60 +183,14 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     # Track successful destination paths so the cleanup phase doesn't
     # treat them as leftovers (important when source and target dirs
     # resolve to the same NTFS directory with different casing).
-    successful_destinations: set[str] = set()
+    successful_destinations = apply_rename_plan(renames, result)
 
-    for src, dst, target_dir in renames:
-        try:
-            if not target_dir.exists():
-                target_dir.mkdir(parents=True, exist_ok=True)
-                if str(target_dir) not in result.log_entry["created_dirs"]:
-                    result.log_entry["created_dirs"].append(str(target_dir))
-
-            if src.parent != target_dir:
-                shutil.move(str(src), str(dst))
-            else:
-                src.rename(dst)
-
-            result.log_entry["renames"].append({
-                "old": str(src), "new": str(dst),
-            })
-            result.renamed_count += 1
-            successful_destinations.add(os.path.normcase(str(dst)))
-        except (OSError, shutil.Error) as e:
-            result.errors.append(f"{src.name}: {e}")
-
-    # Normalize season folder names (TV only)
-    unmatched_dir = root_folder / "Unmatched"
-    all_dirs = source_dirs.copy()
-    for _, dst, td in renames:
-        all_dirs.add(td)
-
-    for season_dir in all_dirs:
-        if not season_dir.exists() or season_dir == root_folder:
-            continue
-        try:
-            season_dir.relative_to(unmatched_dir)
-            continue
-        except ValueError:
-            pass
-        season_num = get_season(season_dir)
-        if season_num is None:
-            continue
-        proper_name = f"Season {season_num:02d}"
-        if season_dir.name == proper_name:
-            continue
-        proper_path = season_dir.parent / proper_name
-        same_dir = os.path.normcase(str(season_dir)) == os.path.normcase(str(proper_path))
-        if proper_path.exists() and not same_dir:
-            continue
-        try:
-            season_dir.rename(proper_path)
-            result.log_entry["renamed_dirs"].append({
-                "old": str(season_dir), "new": str(proper_path),
-            })
-        except OSError as e:
-            _log.warning("Could not normalize season dir %s: %s",
-                         season_dir.name, e)
+    normalize_season_directories(
+        root_folder=root_folder,
+        source_dirs=source_dirs,
+        renames=renames,
+        result=result,
+    )
 
     # Clean up source directories after renames.
     #
@@ -261,69 +213,15 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     # Revert: leftover moves are appended to ``renames``, so revert_job
     # restores them automatically alongside the primary media files — no
     # special handling required.
-    for src_dir in source_dirs:
-        try:
-            # Never clean up the library root — it is shared across jobs
-            # and is not a release directory for any single item.
-            if os.path.normcase(str(src_dir)) == os.path.normcase(str(library_root)):
-                continue
-            if src_dir == root_folder and job.media_type != MediaType.MOVIE:
-                continue
-            if not src_dir.exists():
-                continue
-
-            remaining = list(src_dir.iterdir())
-
-            if not remaining:
-                src_dir.rmdir()
-                result.log_entry["removed_dirs"].append(str(src_dir))
-                continue
-
-            # Separate files from subdirectories.  Only files are relocated;
-            # subdirectories are left in place (safe default).
-            # Exclude files that were just renamed — on NTFS a case-only
-            # folder difference means source and target dirs resolve to the
-            # same directory, so renamed files still appear in src_dir.
-            leftover_files = [
-                f for f in remaining
-                if f.is_file()
-                and os.path.normcase(str(f)) not in successful_destinations
-            ]
-            if not leftover_files:
-                continue  # Only subdirs remain — leave the directory alone
-
-            target_dir = source_to_target.get(src_dir)
-            if target_dir is None:
-                continue  # No known target — leave it alone
-
-            unmatched_dir = target_dir / _UNMATCHED_FILES_DIR
-            moved_all = True
-
-            for leftover in leftover_files:
-                try:
-                    if not unmatched_dir.exists():
-                        unmatched_dir.mkdir(parents=True, exist_ok=True)
-                        result.log_entry["created_dirs"].append(
-                            str(unmatched_dir))
-                    dst = unmatched_dir / leftover.name
-                    shutil.move(str(leftover), str(dst))
-                    result.log_entry["renames"].append(
-                        {"old": str(leftover), "new": str(dst)})
-                    _log.info("Moved leftover to Unmatched Files: %s",
-                              leftover.name)
-                except (OSError, shutil.Error) as e:
-                    _log.warning("Could not move leftover %s: %s",
-                                 leftover.name, e)
-                    moved_all = False
-
-            # Remove source dir only when it is now completely empty
-            if moved_all and not list(src_dir.iterdir()):
-                src_dir.rmdir()
-                result.log_entry["removed_dirs"].append(str(src_dir))
-
-        except OSError as e:
-            _log.warning("Could not clean up source dir %s: %s",
-                         src_dir.name, e)
+    cleanup_source_directories(
+        media_type=job.media_type,
+        library_root=library_root,
+        root_folder=root_folder,
+        source_dirs=source_dirs,
+        source_to_target=source_to_target,
+        successful_destinations=successful_destinations,
+        result=result,
+    )
 
     # Rename root show/movie folder to match TMDB naming.
     # Skip this when targets were already routed into the final root.
