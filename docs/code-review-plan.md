@@ -21,6 +21,8 @@ Verification snapshot:
 - [x] **#8** settings schema validation — added explicit schema validation to [plex_renamer/app/services/settings_service.py](../plex_renamer/app/services/settings_service.py).
 - [x] **#11** automate release steps — added [scripts/release.ps1](../scripts/release.ps1) + [scripts/release.cmd](../scripts/release.cmd).
 - [x] **#12** add CI — added [.github/workflows/ci.yml](../.github/workflows/ci.yml) for fast-suite coverage on PRs and pushes.
+- [x] **#13** batch TV orchestration policy split — extracted duplicate labeling, season-merge helpers, and near-tie match policy from [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py) into private engine modules; `discover_shows()` now reads as workflow orchestration.
+- [x] **#14** TVScanner helper split — extracted specials matching and consolidated-preview logic from [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py) into private helper modules while keeping `TVScanner` as the public facade.
 
 ## Current Assessment
 
@@ -140,6 +142,8 @@ Verification snapshot:
 
 ### Phase 1: Extract engine policy from orchestration
 
+Status: completed on 2026-04-12.
+
 Start with [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py).
 
 Goals:
@@ -200,6 +204,8 @@ Phase 1 done means:
 
 ### Phase 2: Split TV scanner builders
 
+Status: in progress on 2026-04-12.
+
 Move next to [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py).
 
 Goals:
@@ -210,6 +216,16 @@ Goals:
 Success criteria:
 - The scanner reads as an orchestrator instead of a large implementation blob.
 - Preview-building behavior is covered by narrower tests with less fixture setup.
+
+Completed in the current slice:
+- Extracted specials and extras matching to [plex_renamer/engine/_tv_scanner_specials.py](../plex_renamer/engine/_tv_scanner_specials.py).
+- Extracted consolidated-preview and title-based absolute matching to [plex_renamer/engine/_tv_scanner_consolidated.py](../plex_renamer/engine/_tv_scanner_consolidated.py).
+- Preserved `TVScanner` public APIs and existing scanner-focused tests.
+
+Remaining Phase 2 work:
+- Extract the normal preview builder into a dedicated helper or builder module.
+- Decide whether duplicate-episode resolution and completeness calculation should stay on `TVScanner` or move to separate helpers.
+- Revisit whether TMDB-season cache ownership should remain entirely on `TVScanner` after the normal builder moves out.
 
 ### Phase 3: Untangle queue persistence and execution
 

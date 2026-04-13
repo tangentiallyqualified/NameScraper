@@ -16,13 +16,24 @@ from ..parsing import (
     extract_season_number,
     get_season,
     is_extras_folder,
-    normalize_for_specials,
 )
 from ..tmdb import TMDBClient
 from ._movie_scanner import _build_subtitle_companions
+from ._tv_scanner_consolidated import (
+    build_consolidated_preview as _build_consolidated_preview,
+    collect_absolute_files as _collect_absolute_files,
+    match_file_title_to_tmdb as _match_file_title_to_tmdb,
+    try_title_based_matching as _try_title_based_matching,
+)
 from ._tv_scanner_seasons import (
     match_tv_dirs_to_tmdb_seasons,
     resolve_tv_season_dirs,
+)
+from ._tv_scanner_specials import (
+    fuzzy_match_special as _fuzzy_match_special,
+    load_specials_context,
+    match_special as _match_special,
+    scan_nested_extras as _scan_nested_extras,
 )
 from .models import CompletenessReport, PreviewItem, SeasonCompleteness
 
@@ -188,34 +199,18 @@ class TVScanner:
     ) -> list[PreviewItem]:
         items: list[PreviewItem] = []
 
-        s0_titles: dict = {}
-        s0_posters: dict = {}
-        s0_episodes: dict = {}
-        s0_tmdb_title_lookup: dict = {}
-        s0_loaded = False
+        specials_context = None
 
-        def ensure_specials_data() -> None:
-            nonlocal s0_titles, s0_posters, s0_episodes, s0_tmdb_title_lookup, s0_loaded
-            if s0_loaded:
-                return
-            s0_loaded = True
-
-            if 0 in tmdb_seasons:
-                s0_titles = tmdb_seasons[0]["titles"]
-                s0_posters = tmdb_seasons[0]["posters"]
-                s0_episodes = tmdb_seasons[0].get("episodes", {})
-            else:
-                s0_data = self.tmdb.get_season(self.show_info["id"], 0)
-                s0_titles = s0_data["titles"]
-                s0_posters = s0_data["posters"]
-                s0_episodes = s0_data.get("episodes", {})
-
-            if s0_titles:
-                self._store_tmdb_data(0, s0_titles, s0_posters, s0_episodes)
-                s0_tmdb_title_lookup = {
-                    normalize_for_specials(title): (episode_num, title)
-                    for episode_num, title in s0_titles.items()
-                }
+        def ensure_specials_data():
+            nonlocal specials_context
+            if specials_context is None:
+                specials_context = load_specials_context(
+                    tmdb=self.tmdb,
+                    show_info=self.show_info,
+                    tmdb_seasons=tmdb_seasons,
+                    store_tmdb_data=self._store_tmdb_data,
+                )
+            return specials_context
 
         specials_target = self.root / "Season 00"
 
@@ -233,15 +228,12 @@ class TVScanner:
             self._store_tmdb_data(season_num, titles, posters, episodes)
 
             tmdb_title_lookup = {}
-            if season_num == 0 and titles:
-                for episode_num, title in titles.items():
-                    normalized = normalize_for_specials(title)
-                    tmdb_title_lookup[normalized] = (episode_num, title)
-                ensure_specials_data()
-                titles = s0_titles
-                posters = s0_posters
-                episodes = s0_episodes
-                tmdb_title_lookup = s0_tmdb_title_lookup
+            if season_num == 0:
+                context = ensure_specials_data()
+                titles = context.titles
+                posters = context.posters
+                episodes = context.episodes
+                tmdb_title_lookup = context.title_lookup
 
             explicit_season_folder = (
                 season_dir == self.root
@@ -272,13 +264,13 @@ class TVScanner:
                     file_season = extract_season_number(file_path.name) if is_season_relative else None
 
                     if file_season == 0 and season_num != 0:
-                        ensure_specials_data()
+                        context = ensure_specials_data()
                         item = self._match_special(
                             file_path,
                             episode_numbers,
                             raw_title,
-                            s0_titles,
-                            s0_tmdb_title_lookup,
+                            context.titles,
+                            context.title_lookup,
                             specials_target,
                             from_extras_folder=False,
                         )
@@ -368,11 +360,11 @@ class TVScanner:
                     items.append(item)
 
                 elif entry.is_dir() and season_num != 0 and is_extras_folder(entry.name):
-                    ensure_specials_data()
+                    context = ensure_specials_data()
                     items.extend(self._scan_nested_extras(
                         entry,
-                        s0_titles,
-                        s0_tmdb_title_lookup,
+                        context.titles,
+                        context.title_lookup,
                         specials_target,
                     ))
 
@@ -426,23 +418,15 @@ class TVScanner:
         s0_tmdb_title_lookup: dict,
         specials_target: Path,
     ) -> list[PreviewItem]:
-        """Scan a nested extras folder and match its files against TMDB Season 0 specials."""
-        items: list[PreviewItem] = []
-        for file_path in sorted(extras_dir.iterdir()):
-            if not file_path.is_file() or file_path.suffix.lower() not in VIDEO_EXTENSIONS:
-                continue
-            episode_numbers, raw_title, _is_season_relative = extract_episode(file_path.name)
-            item = self._match_special(
-                file_path,
-                episode_numbers,
-                raw_title,
-                s0_titles,
-                s0_tmdb_title_lookup,
-                specials_target,
-                from_extras_folder=True,
-            )
-            items.append(item)
-        return items
+        return _scan_nested_extras(
+            extras_dir=extras_dir,
+            titles=s0_titles,
+            tmdb_title_lookup=s0_tmdb_title_lookup,
+            specials_target=specials_target,
+            media_fields=self._media_fields,
+            show_info=self.show_info,
+            root=self.root,
+        )
 
     def _match_special(
         self,
@@ -454,73 +438,17 @@ class TVScanner:
         specials_target: Path,
         from_extras_folder: bool = False,
     ) -> PreviewItem:
-        """Try to match a specials/extras file to a TMDB Season 0 episode."""
-        matched_ep = None
-        matched_title = None
-
-        if not from_extras_folder and episode_numbers:
-            for episode_num in episode_numbers:
-                if episode_num in titles:
-                    matched_ep = episode_num
-                    matched_title = titles[episode_num]
-                    break
-
-        if not matched_ep and raw_title:
-            matched_ep, matched_title = self._fuzzy_match_special(raw_title, tmdb_title_lookup)
-
-        if not matched_ep:
-            stem = file_path.stem
-            cleaned_stem = re.sub(
-                r"^(?:Season|S)\s*\d+\s*[-._]\s*",
-                "",
-                stem,
-                flags=re.IGNORECASE,
-            ).strip()
-            if cleaned_stem:
-                matched_ep, matched_title = self._fuzzy_match_special(
-                    cleaned_stem,
-                    tmdb_title_lookup,
-                )
-
-        if matched_ep is not None:
-            new_name = build_tv_name(
-                self.show_info["name"],
-                self.show_info["year"],
-                0,
-                [matched_ep],
-                [matched_title],
-                file_path.suffix,
-            )
-            return PreviewItem(
-                original=file_path,
-                new_name=new_name,
-                target_dir=specials_target,
-                season=0,
-                episodes=[matched_ep],
-                status="OK",
-                **self._media_fields,
-            )
-
-        if from_extras_folder:
-            unmatched_target = self.root / "Unmatched" / file_path.parent.name
-            return PreviewItem(
-                original=file_path,
-                new_name=file_path.name,
-                target_dir=unmatched_target,
-                season=0,
-                episodes=episode_numbers,
-                status="UNMATCHED: no TMDB special found - moving to Unmatched",
-                **self._media_fields,
-            )
-
-        return PreviewItem(
-            original=file_path,
-            new_name=file_path.name,
-            target_dir=specials_target,
-            season=0,
-            episodes=episode_numbers,
-            status="OK",
-            **self._media_fields,
+        return _match_special(
+            file_path=file_path,
+            episode_numbers=episode_numbers,
+            raw_title=raw_title,
+            titles=titles,
+            tmdb_title_lookup=tmdb_title_lookup,
+            specials_target=specials_target,
+            media_fields=self._media_fields,
+            show_info=self.show_info,
+            root=self.root,
+            from_extras_folder=from_extras_folder,
         )
 
     @staticmethod
@@ -528,194 +456,29 @@ class TVScanner:
         text: str,
         tmdb_title_lookup: dict,
     ) -> tuple[int | None, str | None]:
-        """Try to fuzzy-match a text string against TMDB Season 0 titles."""
-        normalized = normalize_for_specials(text)
-        if not normalized:
-            return None, None
-
-        if normalized in tmdb_title_lookup:
-            episode_num, title = tmdb_title_lookup[normalized]
-            return episode_num, title
-
-        for norm_key, (episode_num, original_title) in tmdb_title_lookup.items():
-            if norm_key and (normalized in norm_key or norm_key in normalized):
-                return episode_num, original_title
-
-        return None, None
+        return _fuzzy_match_special(text, tmdb_title_lookup)
 
     def _build_consolidated_preview(
         self,
         season_dirs: list[tuple[Path, int]],
         tmdb_seasons: dict,
     ) -> list[PreviewItem]:
-        """Build preview mapping files in absolute order to TMDB structure."""
-        all_files = self._collect_absolute_files(season_dirs)
-
-        tmdb_list: list[tuple[int, int, str]] = []
-        for season_num in sorted(tmdb_seasons.keys()):
-            if season_num == 0:
-                continue
-            season_data = tmdb_seasons[season_num]
-            for episode_num in sorted(season_data["titles"].keys()):
-                tmdb_list.append((season_num, episode_num, season_data["titles"][episode_num]))
-
-        for season_num, season_data in tmdb_seasons.items():
-            self._store_tmdb_data(
-                season_num,
-                season_data["titles"],
-                season_data["posters"],
-                season_data.get("episodes", {}),
-            )
-
-        title_matches = self._try_title_based_matching(all_files, tmdb_seasons)
-        if title_matches is not None:
-            items: list[PreviewItem] = []
-            for index, (file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, _season_hint) in enumerate(all_files):
-                match = title_matches[index]
-                if match is None:
-                    items.append(PreviewItem(
-                        original=file_path,
-                        new_name=None,
-                        target_dir=None,
-                        season=0,
-                        episodes=episode_numbers,
-                        status="SKIP: could not match episode title to TMDB",
-                        **self._media_fields,
-                    ))
-                    continue
-                season_num, episode_num, title = match
-                target_dir = self.root / f"Season {season_num:02d}"
-                new_name = build_tv_name(
-                    self.show_info["name"],
-                    self.show_info["year"],
-                    season_num,
-                    [episode_num],
-                    [title],
-                    file_path.suffix,
-                )
-                items.append(PreviewItem(
-                    original=file_path,
-                    new_name=new_name,
-                    target_dir=target_dir,
-                    season=season_num,
-                    episodes=[episode_num],
-                    status="OK",
-                    episode_confidence=0.7,
-                    **self._media_fields,
-                ))
-            self._resolve_duplicate_episodes(items)
-            return items
-
-        items: list[PreviewItem] = []
-        tmdb_index = 0
-
-        for file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, _season_hint in all_files:
-            num_eps = max(1, len(episode_numbers))
-
-            if tmdb_index >= len(tmdb_list):
-                items.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=0,
-                    episodes=episode_numbers,
-                    status="SKIP: no matching TMDB episode (extra file?)",
-                    **self._media_fields,
-                ))
-                continue
-
-            file_eps = []
-            file_titles = []
-            target_season = tmdb_list[tmdb_index][0]
-            for offset in range(num_eps):
-                if tmdb_index + offset < len(tmdb_list):
-                    season_num, episode_num, title = tmdb_list[tmdb_index + offset]
-                    file_eps.append(episode_num)
-                    file_titles.append(title)
-                    target_season = season_num
-            tmdb_index += num_eps
-
-            target_dir = self.root / f"Season {target_season:02d}"
-            new_name = build_tv_name(
-                self.show_info["name"],
-                self.show_info["year"],
-                target_season,
-                file_eps,
-                file_titles,
-                file_path.suffix,
-            )
-
-            items.append(PreviewItem(
-                original=file_path,
-                new_name=new_name,
-                target_dir=target_dir,
-                season=target_season,
-                episodes=file_eps,
-                status="OK",
-                episode_confidence=0.5 if is_season_relative else 0.3,
-                **self._media_fields,
-            ))
-
-        self._resolve_duplicate_episodes(items)
-        return items
+        return _build_consolidated_preview(
+            season_dirs=season_dirs,
+            tmdb_seasons=tmdb_seasons,
+            root=self.root,
+            show_info=self.show_info,
+            media_fields=self._media_fields,
+            store_tmdb_data=self._store_tmdb_data,
+            resolve_duplicate_episodes=self._resolve_duplicate_episodes,
+        )
 
     def _try_title_based_matching(
         self,
         all_files: list[tuple[Path, int, str | None, list[int], bool, int | None]],
         tmdb_seasons: dict,
     ) -> list[tuple[int, int, str] | None] | None:
-        """Try to match files to TMDB episodes by title or absolute number."""
-        title_lookup: dict[str, tuple[int, int, str]] = {}
-        file_count = len(all_files)
-        qualifying_seasons = [
-            season_num for season_num, season_data in tmdb_seasons.items()
-            if season_num != 0 and season_data["count"] >= file_count
-        ]
-        number_lookup: dict[int, tuple[int, int, str]] = {}
-        for season_num in sorted(tmdb_seasons.keys()):
-            if season_num == 0:
-                continue
-            for episode_num, title in tmdb_seasons[season_num]["titles"].items():
-                normalized = normalize_for_specials(title)
-                if normalized and normalized not in title_lookup:
-                    title_lookup[normalized] = (season_num, episode_num, title)
-                if (
-                    len(qualifying_seasons) == 1
-                    and season_num == qualifying_seasons[0]
-                    and episode_num not in number_lookup
-                ):
-                    number_lookup[episode_num] = (season_num, episode_num, title)
-
-        if not title_lookup:
-            return None
-
-        matches: list[tuple[int, int, str] | None] = []
-        used: set[tuple[int, int]] = set()
-
-        for _file_path, _abs_num, raw_title, episode_numbers, is_season_relative, season_hint in all_files:
-            if is_season_relative and season_hint is not None and episode_numbers:
-                season_data = tmdb_seasons.get(season_hint)
-                if season_data:
-                    episode_num = episode_numbers[0]
-                    title = season_data["titles"].get(episode_num)
-                    if title and (season_hint, episode_num) not in used:
-                        match = (season_hint, episode_num, title)
-                        used.add((match[0], match[1]))
-                        matches.append(match)
-                        continue
-
-            match = self._match_file_title_to_tmdb(raw_title, title_lookup, number_lookup, used)
-            if match is not None:
-                used.add((match[0], match[1]))
-            matches.append(match)
-
-        matched_count = sum(1 for match in matches if match is not None)
-        if matched_count < len(all_files) * 0.5:
-            return None
-
-        return matches
-
-    _RE_LEADING_ABS_NUM = re.compile("^(\\d{1,4})\\s*[-–]\\s*")
+        return _try_title_based_matching(all_files, tmdb_seasons)
 
     @classmethod
     def _match_file_title_to_tmdb(
@@ -725,63 +488,13 @@ class TVScanner:
         number_lookup: dict[int, tuple[int, int, str]],
         used: set[tuple[int, int]],
     ) -> tuple[int, int, str] | None:
-        """Match a file's title against the cross-season TMDB title lookup."""
-        if not raw_title:
-            return None
-
-        cleaned_title = raw_title
-        abs_match = cls._RE_LEADING_ABS_NUM.match(raw_title)
-        if abs_match:
-            abs_ep = int(abs_match.group(1))
-            cleaned_title = raw_title[abs_match.end():]
-            if abs_ep in number_lookup:
-                result = number_lookup[abs_ep]
-                if (result[0], result[1]) not in used:
-                    return result
-
-        normalized = normalize_for_specials(cleaned_title)
-        if not normalized:
-            return None
-
-        if normalized in title_lookup:
-            result = title_lookup[normalized]
-            if (result[0], result[1]) not in used:
-                return result
-
-        minimum_substring_len = 8
-        if len(normalized) < minimum_substring_len:
-            return None
-
-        best: tuple[int, int, str] | None = None
-        best_len = 0
-        for key, value in title_lookup.items():
-            if len(key) < minimum_substring_len:
-                continue
-            if (value[0], value[1]) in used:
-                continue
-            if normalized in key or key in normalized:
-                if len(key) > best_len:
-                    best = value
-                    best_len = len(key)
-
-        return best
+        return _match_file_title_to_tmdb(raw_title, title_lookup, number_lookup, used)
 
     def _collect_absolute_files(
         self,
         season_dirs: list[tuple[Path, int]],
     ) -> list[tuple[Path, int, str | None, list[int], bool, int | None]]:
-        """Collect all video files sorted by absolute episode number."""
-        all_files = []
-        for season_dir, _season_num in season_dirs:
-            for file_path in sorted(season_dir.iterdir()):
-                if not file_path.is_file() or file_path.suffix.lower() not in VIDEO_EXTENSIONS:
-                    continue
-                episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
-                season_hint = extract_season_number(file_path.name) if is_season_relative else None
-                abs_num = episode_numbers[0] if episode_numbers else 9999
-                all_files.append((file_path, abs_num, raw_title, episode_numbers, is_season_relative, season_hint))
-        all_files.sort(key=lambda item: item[1])
-        return all_files
+        return _collect_absolute_files(season_dirs)
 
     def get_completeness(
         self,
