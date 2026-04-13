@@ -16,6 +16,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ._toast_manager_layout import (
+    count_direct_toasts,
+    plan_toast_manager_geometry,
+    summary_toast_copy,
+)
+
 _BORDER_COLORS = {
     "success": "#3ea463",
     "error": "#d44040",
@@ -180,7 +186,7 @@ class ToastManager(QWidget):
         return False
 
     def toast_count(self) -> int:
-        return sum(1 for index in range(self._layout.count()) if self._layout.itemAt(index).widget() is not None)
+        return len(self._toast_widgets())
 
     def _remove_toast(self, toast: _ToastCard) -> None:
         self._layout.removeWidget(toast)
@@ -194,19 +200,13 @@ class ToastManager(QWidget):
             self._reposition()
 
     def _direct_toast_count(self) -> int:
-        count = 0
-        for index in range(self._layout.count()):
-            item = self._layout.itemAt(index)
-            toast = item.widget() if item is not None else None
-            if toast is None or toast is self._summary_toast:
-                continue
-            count += 1
-        return count
+        return count_direct_toasts(
+            self._toast_widgets(),
+            summary_toast=self._summary_toast,
+        )
 
     def _show_or_update_summary(self) -> None:
-        title = "More notifications"
-        noun = "notification" if self._overflow_count == 1 else "notifications"
-        message = f"{self._overflow_count} more {noun} collapsed."
+        title, message = summary_toast_copy(self._overflow_count)
         if self._summary_toast is None:
             self._summary_toast = _ToastCard(
                 title=title,
@@ -227,20 +227,32 @@ class ToastManager(QWidget):
         parent = self.parentWidget()
         if parent is None:
             return
-        width = min(380, max(280, parent.width() // 3))
-        height = 0
+        toast_heights: list[int] = []
         spacing = self._layout.spacing()
-        visible_toasts = 0
+        geometry = plan_toast_manager_geometry(
+            parent.width(),
+            parent.height(),
+            toast_heights=[],
+            spacing=spacing,
+        )
+        for toast in self._toast_widgets():
+            toast.setFixedWidth(geometry.width)
+            toast.layout().activate()
+            toast_heights.append(toast.sizeHint().height())
+        geometry = plan_toast_manager_geometry(
+            parent.width(),
+            parent.height(),
+            toast_heights=toast_heights,
+            spacing=spacing,
+        )
+        self.setGeometry(geometry.x, geometry.y, geometry.width, geometry.height)
+
+    def _toast_widgets(self) -> list[_ToastCard]:
+        toasts: list[_ToastCard] = []
         for index in range(self._layout.count()):
             item = self._layout.itemAt(index)
             toast = item.widget() if item is not None else None
             if toast is None:
                 continue
-            toast.setFixedWidth(width)
-            toast.layout().activate()
-            height += toast.sizeHint().height()
-            visible_toasts += 1
-        if visible_toasts > 1:
-            height += spacing * (visible_toasts - 1)
-        margin = 16
-        self.setGeometry(parent.width() - width - margin, parent.height() - height - margin, width, height)
+            toasts.append(toast)
+        return toasts

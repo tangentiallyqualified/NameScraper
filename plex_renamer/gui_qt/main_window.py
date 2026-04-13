@@ -12,18 +12,14 @@ workspace widget.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
-    QApplication,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
-    QTextEdit,
 )
 
-from ..app.models import ScanLifecycle, ScanProgress
+from ..app.models import ScanProgress
 from ..app.services.cache_service import PersistentCacheService
 from ..app.services.command_gating_service import CommandGatingService
 from ..app.services.refresh_policy_service import RefreshPolicyService
@@ -40,7 +36,9 @@ from ..thread_pool import submit as _submit_bg
 from ._main_window_bridges import install_controller_bridge, install_queue_bridge
 from ._main_window_chrome import MainWindowChromeCoordinator
 from ._main_window_feedback import MainWindowFeedbackCoordinator
+from ._main_window_scan import MainWindowScanCoordinator
 from ._main_window_shell import MainWindowShellCoordinator
+from ._main_window_shortcuts import MainWindowShortcutCoordinator
 from ._main_window_state import MainWindowStateCoordinator
 from ._main_window_tabs import MainWindowTabsCoordinator
 from ._main_window_tmdb import MainWindowTmdbCoordinator
@@ -100,6 +98,17 @@ class MainWindow(QMainWindow):
             queue_index=_QUEUE,
             history_index=_HISTORY,
             logger=_log,
+        )
+        self._scan_coordinator = MainWindowScanCoordinator(
+            self,
+            tv_index=_TV,
+            movies_index=_MOVIES,
+        )
+        self._shortcut_coordinator = MainWindowShortcutCoordinator(
+            self,
+            tv_index=_TV,
+            movies_index=_MOVIES,
+            queue_index=_QUEUE,
         )
         self._tabs_coordinator = MainWindowTabsCoordinator(
             self,
@@ -239,168 +248,54 @@ class MainWindow(QMainWindow):
         self._start_movie_scan(path)
 
     def _start_tv_scan(self, path: str) -> None:
-        self._scan_feedback_token = None
-        tmdb = self._ensure_tmdb()
-        if tmdb is None:
-            self._tv_workspace.show_empty()
-            return
-        self.media_ctrl.start_tv_batch(Path(path), tmdb)
+        self._scan_coordinator.start_tv_scan(path)
 
     def _start_movie_scan(self, path: str) -> None:
-        self._scan_feedback_token = None
-        tmdb = self._ensure_tmdb()
-        if tmdb is None:
-            self._movie_workspace.show_empty()
-            return
-        self.media_ctrl.start_movie_batch(Path(path), tmdb)
+        self._scan_coordinator.start_movie_scan(path)
 
     def _active_media_workspace_for_shortcuts(self) -> MediaWorkspace | None:
-        current = self._tabs.currentIndex()
-        if current == _TV:
-            return self._tv_workspace
-        if current == _MOVIES:
-            return self._movie_workspace
-        return None
+        return self._shortcut_coordinator.active_media_workspace()
 
     def _queue_selected_from_shortcut(self) -> None:
-        workspace = self._active_media_workspace_for_shortcuts()
-        if workspace is not None:
-            workspace.queue_selected()
+        self._shortcut_coordinator.queue_selected()
 
     def _queue_checked_from_shortcut(self) -> None:
-        workspace = self._active_media_workspace_for_shortcuts()
-        if workspace is not None:
-            workspace.queue_checked()
+        self._shortcut_coordinator.queue_checked()
 
     @staticmethod
     def _text_input_focused() -> bool:
         """Return True if a text input widget currently has focus."""
-        focused = QApplication.focusWidget()
-        return isinstance(focused, (QLineEdit, QTextEdit))
+        return MainWindowShortcutCoordinator.text_input_focused()
 
     def _toggle_focused_check(self) -> None:
-        if self._text_input_focused():
-            return
-        workspace = self._active_media_workspace_for_shortcuts()
-        if workspace is not None:
-            workspace.toggle_focused_check()
+        self._shortcut_coordinator.toggle_focused_check()
 
     def _on_escape(self) -> None:
-        # First try to cancel a running scan on the active workspace
-        workspace = self._active_media_workspace_for_shortcuts()
-        if workspace is not None and workspace.cancel_scan():
-            return
-        # Otherwise dismiss the topmost toast
-        self._toast_manager.dismiss_topmost()
+        self._shortcut_coordinator.on_escape()
 
     def _force_rematch_from_shortcut(self) -> None:
-        if self._text_input_focused():
-            return
-        workspace = self._active_media_workspace_for_shortcuts()
-        if workspace is not None:
-            workspace.force_rematch()
+        self._shortcut_coordinator.force_rematch()
 
     def _delete_from_shortcut(self) -> None:
-        if self._text_input_focused():
-            return
-        if self._tabs.currentIndex() == _QUEUE:
-            self._queue_tab.remove_focused_checked()
+        self._shortcut_coordinator.delete_from_shortcut()
 
     def _enter_from_shortcut(self) -> None:
-        if self._text_input_focused():
-            return
-        if self._tabs.currentIndex() == _QUEUE:
-            self._queue_tab.execute_focused()
+        self._shortcut_coordinator.enter_from_shortcut()
 
     # ── Controller callback handlers (main thread via bridge) ────
 
     def _active_workspace(self) -> MediaWorkspace:
         """Return the workspace matching the controller's active mode."""
-        mode = self.media_ctrl.active_content_mode
-        if mode == "movie":
-            return self._movie_workspace
-        return self._tv_workspace
+        return self._scan_coordinator.active_workspace()
 
     def _on_scan_progress(self, progress: ScanProgress) -> None:
-        ws = self._active_workspace()
-        ws.scan_progress_widget.update_progress(
-            lifecycle=progress.lifecycle,
-            phase=progress.phase,
-            done=progress.done,
-            total=progress.total,
-            current_item=progress.current_item or "",
-            message=progress.message,
-        )
-        self.statusBar().showMessage(progress.message, 2000)
+        self._scan_coordinator.on_scan_progress(progress)
 
     def _on_scan_complete(self) -> None:
-        ws = self._active_workspace()
-        if self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
-            ws.scan_progress_widget.stop()
-            if self.media_ctrl.library_states:
-                ws.show_ready()
-            else:
-                ws.show_empty()
-                self._show_scan_feedback(
-                    title="Scan cancelled",
-                    message="The scan was cancelled before any results were produced.",
-                    tone="accent",
-                )
-            self.statusBar().showMessage("Scan cancelled", 3000)
-            return
-        if (
-            self.media_ctrl.active_content_mode == "tv"
-            and self.media_ctrl.batch_mode
-            and any(
-                not state.scanned and state.show_id is not None
-                for state in self.media_ctrl.batch_states
-            )
-        ):
-            self.media_ctrl.scan_all_shows()
-            return
-
-        ws.scan_progress_widget.finish()
-        if not ws.is_showing_ready():
-            ws.show_ready()
-        self._scan_feedback_token = None
-        self.statusBar().showMessage("Scan complete", 3000)
+        self._scan_coordinator.on_scan_complete()
 
     def _on_library_changed(self) -> None:
-        ws = self._active_workspace()
-
-        states = self.media_ctrl.library_states
-        self._update_media_badges(states)
-        needs_tv_bulk_scan = (
-            self.media_ctrl.active_content_mode == "tv"
-            and self.media_ctrl.batch_mode
-            and any(
-                not state.scanned and state.show_id is not None
-                for state in states
-            )
-        )
-
-        if self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states and not needs_tv_bulk_scan:
-            ws.scan_progress_widget.finish()
-            ws.show_ready()
-        elif self.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
-            ws.scan_progress_widget.stop()
-            if states:
-                ws.show_ready()
-            else:
-                ws.show_empty()
-        elif self.media_ctrl.scan_progress.lifecycle in {
-            ScanLifecycle.WARNING,
-            ScanLifecycle.FAILED,
-        } and not states:
-            ws.show_empty()
-            message = self.media_ctrl.scan_progress.message or "The scan ended before any results were produced."
-            self._show_scan_feedback(
-                title="Scan did not finish cleanly",
-                message=message,
-                tone="error",
-            )
-        elif ws.is_showing_ready():
-            ws.refresh_from_controller()
+        self._scan_coordinator.on_library_changed()
 
     def _show_scan_feedback(self, *, title: str, message: str, tone: str) -> None:
         self._feedback_coordinator.show_scan_feedback(
@@ -410,20 +305,7 @@ class MainWindow(QMainWindow):
         )
 
     def _on_queue_changed(self, _unused=None) -> None:
-        self._refresh_job_views()
-        # Only refresh media workspaces that are in the READY state and
-        # currently visible.  Full roster rebuilds are expensive — avoid
-        # doing them on both workspaces for every queue event.  The
-        # non-visible workspace will refresh via _on_tab_changed when the
-        # user switches back to it.
-        active = self._tabs.currentIndex()
-        if active == _TV and self._tv_workspace.is_showing_ready():
-            self._tv_workspace.refresh_from_controller()
-        elif active == _MOVIES and self._movie_workspace.is_showing_ready():
-            self._movie_workspace.refresh_from_controller()
-        # Mark the other workspace as needing a refresh on next tab switch.
-        self._tv_needs_queue_refresh = active != _TV
-        self._movie_needs_queue_refresh = active != _MOVIES
+        self._scan_coordinator.on_queue_changed()
 
     def _update_media_badges(self, states) -> None:
         self._feedback_coordinator.update_media_badges(states)
