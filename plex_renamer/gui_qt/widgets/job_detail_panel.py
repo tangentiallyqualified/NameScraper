@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from ...thread_pool import submit as _submit_bg
 from collections.abc import Callable
-from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal, QUrl
@@ -25,9 +23,23 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...constants import JobStatus
 from ...job_store import RenameJob
-from ._image_utils import pil_to_raw, raw_to_pixmap
+from ._job_detail_data import (
+    build_job_fact_values,
+    build_job_meta_line,
+    build_job_summary,
+    primary_target_path,
+    resolve_openable_path,
+)
+from ._job_detail_poster import JobDetailPosterWorkflow
+from ._job_detail_preview import JobPreviewGroup, JobPreviewRow, build_job_preview_entries
+from ._job_detail_tree import (
+    create_preview_group_header,
+    job_detail_empty_message,
+    refresh_preview_item_sizes,
+    set_preview_group_header_label,
+    toggle_preview_group_item,
+)
 
 
 class _PosterBridge(QObject):
@@ -163,6 +175,7 @@ class JobDetailPanel(QFrame):
         self._current_job: RenameJob | None = None
         self._poster_pixmap: QPixmap | None = None
         self._bridge = _PosterBridge(self)
+        self._poster_workflow = JobDetailPosterWorkflow(self)
         self._bridge.poster_ready.connect(self._apply_poster)
         self.setProperty("cssClass", "panel")
         self.setMinimumWidth(400)
@@ -417,43 +430,13 @@ class JobDetailPanel(QFrame):
         return self._open_path(target)
 
     def _build_summary(self, job: RenameJob) -> str:
-        companion = len(job.companion_ops)
-        parts: list[str] = []
-        if companion:
-            parts.append(f"{companion} companion file(s)")
-        if job.depends_on:
-            parts.append(f"Depends on {job.depends_on[:8]}...")
-        if job.status == JobStatus.REVERTED:
-            parts.append("Reverted")
-        elif job.status == JobStatus.REVERT_FAILED:
-            parts.append("Revert Failed")
-        return " · ".join(parts)
+        return build_job_summary(job)
 
     def _build_meta_line(self, job: RenameJob) -> str:
-        primary_label = "Updated" if self._history_mode else "Queued"
-        primary_value = job.updated_at if self._history_mode else job.created_at
-        return f"{primary_label} {self._format_timestamp(primary_value)}"
-
-    @staticmethod
-    def _format_timestamp(value: str) -> str:
-        try:
-            dt = datetime.fromisoformat(value)
-            if dt.tzinfo is not None:
-                dt = dt.astimezone()
-            return dt.strftime("%b %d, %H:%M")
-        except (TypeError, ValueError):
-            return value[:16] if value else ""
+        return build_job_meta_line(job, history_mode=self._history_mode)
 
     def _populate_fact_values(self, job: RenameJob) -> None:
-        companions = len(job.companion_ops)
-        files_text = f"{job.selected_count} selected"
-        companions_text = str(companions) if companions else "None"
-        values = {
-            "media": {"tv": "TV Show", "movie": "Movie"}.get(job.media_type, job.media_type.title()),
-            "action": job.job_kind.title(),
-            "files": files_text,
-            "companions": companions_text,
-        }
+        values = build_job_fact_values(job)
         for key, text in values.items():
             label = self._fact_values[key]
             label.setText(text)
@@ -461,134 +444,40 @@ class JobDetailPanel(QFrame):
 
     def _populate_preview_tree(self, job: RenameJob) -> None:
         self._preview_tree.clear()
-        ops = job.selected_ops or job.rename_ops
-        has_preview_rows = False
-
-        folder_preview = self._folder_preview_data(job)
-        if folder_preview is not None:
-            source_name, target_name = folder_preview
-            folder_header = self._make_group_header(self._preview_tree, "Folder Rename")
-            self._add_preview_row(
-                folder_header,
-                before=source_name,
-                after=target_name,
-                before_label="Source",
-                after_label="Target",
-            )
-            folder_header.setExpanded(True)
-            self._update_group_header_label(folder_header, expanded=True)
-            has_preview_rows = True
-
-        if not ops:
-            if not has_preview_rows:
-                placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
-                placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+        entries = build_job_preview_entries(job)
+        if not entries:
+            placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
             self._refresh_preview_item_sizes()
             return
 
-        video_ops = [op for op in ops if op.file_type == "video"]
-        companion_ops = [op for op in ops if op.file_type != "video"]
-
-        # Group video ops by season
-        is_tv = job.media_type == "tv"
-        if is_tv and any(op.season is not None for op in video_ops):
-            from collections import defaultdict
-            by_season: dict[int | None, list] = defaultdict(list)
-            for op in video_ops:
-                by_season[op.season].append(op)
-            for season_num in sorted(by_season, key=lambda s: (s is None, s or 0)):
-                season_ops = by_season[season_num]
-                if season_num is not None:
-                    label = f"Season {season_num:02d} ({len(season_ops)} files)"
-                else:
-                    label = f"Other Files ({len(season_ops)} files)"
-                header = self._make_group_header(self._preview_tree, label)
-                for op in season_ops:
-                    original = Path(op.original_relative).name
-                    self._add_preview_row(header, before=original, after=op.new_name)
-                header.setExpanded(False)
-                has_preview_rows = True
-        else:
-            video_parent = self._preview_tree
-            if job.media_type == "movie" and video_ops:
-                video_parent = self._make_group_header(self._preview_tree, "File Rename")
-                video_parent.setExpanded(True)
-                self._update_group_header_label(video_parent, expanded=True)
-            for op in video_ops:
-                original = Path(op.original_relative).name
-                self._add_preview_row(video_parent, before=original, after=op.new_name)
-                has_preview_rows = True
-
-        # Companion files section
-        if companion_ops:
-            comp_header = self._make_group_header(
-                self._preview_tree,
-                f"Companion Files ({len(companion_ops)})",
-            )
-            for op in companion_ops:
-                original = Path(op.original_relative).name
-                self._add_preview_row(comp_header, before=original, after=op.new_name)
-            comp_header.setExpanded(False)
-            has_preview_rows = True
-
-        if not has_preview_rows:
-            placeholder = QTreeWidgetItem(self._preview_tree, ["No rename operations recorded."])
-            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+        for entry in entries:
+            self._add_preview_entry(entry)
 
         self._refresh_preview_item_sizes()
 
-    def _folder_preview_data(self, job: RenameJob) -> tuple[str, str] | None:
-        if job.show_folder_rename:
-            source_name = self._folder_preview_source_name(job, include_media_name=True)
-            if source_name:
-                return source_name, job.show_folder_rename
-            return None
+    def _add_preview_entry(self, entry: JobPreviewRow | JobPreviewGroup) -> None:
+        if isinstance(entry, JobPreviewGroup):
+            header = self._make_group_header(self._preview_tree, entry.label)
+            for row in entry.rows:
+                self._add_preview_row(
+                    header,
+                    before=row.before,
+                    after=row.after,
+                    before_label=row.before_label,
+                    after_label=row.after_label,
+                )
+            header.setExpanded(entry.expanded)
+            self._update_group_header_label(header, expanded=entry.expanded)
+            return
 
-        if job.media_type != "movie":
-            return None
-
-        source_name = self._folder_preview_source_name(job, include_media_name=False)
-        target_name = self._movie_target_folder_name(job)
-        if not source_name or not target_name or source_name == target_name:
-            return None
-        return source_name, target_name
-
-    def _folder_preview_source_name(
-        self,
-        job: RenameJob,
-        *,
-        include_media_name: bool = True,
-    ) -> str | None:
-        source_name = Path(job.source_folder).name or job.source_folder
-        if source_name and source_name != ".":
-            return source_name
-
-        ops = job.selected_ops or job.rename_ops
-        for op in ops:
-            parent = Path(op.original_relative).parent
-            parts = [part for part in parent.parts if part not in {"", "."}]
-            if parts:
-                return parts[0]
-
-        library_root_name = Path(job.library_root).name
-        if library_root_name:
-            return library_root_name
-
-        if include_media_name and job.media_name:
-            return job.media_name
-        return None
-
-    def _movie_target_folder_name(self, job: RenameJob) -> str | None:
-        ops = job.selected_ops or job.rename_ops
-        candidate_ops = [op for op in ops if op.file_type == "video"] or ops
-        target_names: set[str] = set()
-        for op in candidate_ops:
-            parts = [part for part in Path(op.target_dir_relative).parts if part not in {"", "."}]
-            if parts:
-                target_names.add(parts[0])
-        if len(target_names) != 1:
-            return None
-        return next(iter(target_names))
+        self._add_preview_row(
+            self._preview_tree,
+            before=entry.before,
+            after=entry.after,
+            before_label=entry.before_label,
+            after_label=entry.after_label,
+        )
 
     def _add_preview_row(
         self,
@@ -612,24 +501,13 @@ class JobDetailPanel(QFrame):
         return item
 
     def _make_group_header(self, parent, label: str) -> QTreeWidgetItem:
-        item = QTreeWidgetItem(parent, [""])
-        item.setData(0, Qt.ItemDataRole.UserRole, label)
-        item.setFirstColumnSpanned(True)
-        font = item.font(0)
-        font.setBold(True)
-        item.setFont(0, font)
-        self._update_group_header_label(item, expanded=False)
-        return item
+        return create_preview_group_header(parent, label)
 
     def _update_group_header_label(self, item: QTreeWidgetItem, *, expanded: bool) -> None:
-        base_label = item.data(0, Qt.ItemDataRole.UserRole) or item.text(0)
-        prefix = "▾ " if expanded else "▸ "
-        item.setText(0, f"{prefix}{base_label}")
+        set_preview_group_header_label(item, expanded=expanded)
 
     def _on_preview_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
-        if item.childCount() <= 0:
-            return
-        item.setExpanded(not item.isExpanded())
+        toggle_preview_group_item(item)
 
     def _on_preview_group_expanded(self, item: QTreeWidgetItem) -> None:
         if item.childCount() <= 0:
@@ -642,81 +520,16 @@ class JobDetailPanel(QFrame):
         self._update_group_header_label(item, expanded=False)
 
     def _refresh_preview_item_sizes(self, *_args) -> None:
-        reserved_scrollbar = self._preview_tree.verticalScrollBar().sizeHint().width() + 6
-        viewport_width = max(220, self._preview_tree.viewport().width() - reserved_scrollbar)
-
-        def _walk(parent: QTreeWidgetItem | None, depth: int) -> None:
-            count = parent.childCount() if parent is not None else self._preview_tree.topLevelItemCount()
-            for row in range(count):
-                item = parent.child(row) if parent is not None else self._preview_tree.topLevelItem(row)
-                widget = self._preview_tree.itemWidget(item, 0)
-                if widget is not None:
-                    available_width = max(180, viewport_width - (depth * self._preview_tree.indentation()))
-                    widget.setFixedWidth(available_width)
-                    widget.adjustSize()
-                    if isinstance(widget, _RenamePreviewWidget):
-                        widget._sync_tooltip()
-                    item.setSizeHint(0, widget.sizeHint())
-                _walk(item, depth + 1)
-
-        _walk(None, 0)
+        refresh_preview_item_sizes(self._preview_tree)
 
     def _update_empty_message(self) -> None:
-        if self._history_mode:
-            self._empty_message.setText(
-                "History entries will appear here. Select one to review its rename preview, poster, and file locations."
-            )
-            return
-        self._empty_message.setText(
-            "Queued jobs will appear here. Select one to review its rename preview, poster, and file locations."
-        )
-
-
-    def _target_paths(self, job: RenameJob) -> list[Path]:
-        paths: list[Path] = []
-        seen: set[Path] = set()
-        ops = job.selected_ops or job.rename_ops
-        for op in ops:
-            target = Path(job.library_root) / self._final_target_dir_relative(job, op)
-            if target not in seen:
-                seen.add(target)
-                paths.append(target)
-        if not paths and job.show_folder_rename:
-            source_folder = Path(job.source_folder)
-            if job.source_folder in ("", "."):
-                fallback = Path(job.library_root) / job.show_folder_rename
-            else:
-                fallback = Path(job.library_root) / source_folder.parent / job.show_folder_rename
-            paths.append(fallback)
-        return paths
+        self._empty_message.setText(job_detail_empty_message(history_mode=self._history_mode))
 
     def _primary_target_path(self, job: RenameJob) -> Path | None:
-        targets = self._target_paths(job)
-        if not targets:
-            return None
-        return targets[0]
-
-    def _final_target_dir_relative(self, job: RenameJob, op) -> Path:
-        target_dir = Path(op.target_dir_relative)
-        if not job.show_folder_rename or job.source_folder in ("", "."):
-            return target_dir
-        source_parts = Path(job.source_folder).parts
-        target_parts = target_dir.parts
-        if len(target_parts) >= len(source_parts) and tuple(target_parts[: len(source_parts)]) == source_parts:
-            replacement = (*source_parts[:-1], job.show_folder_rename, *target_parts[len(source_parts):])
-            return Path(*replacement)
-        return target_dir
+        return primary_target_path(job)
 
     def _resolve_openable_path(self, path: Path | None) -> Path | None:
-        candidate = path
-        while candidate is not None:
-            if candidate.exists():
-                return candidate
-            parent = candidate.parent
-            if parent == candidate:
-                break
-            candidate = parent
-        return None
+        return resolve_openable_path(path)
 
     def _open_path(self, path: Path) -> bool:
         resolved = self._resolve_openable_path(path)
@@ -725,65 +538,7 @@ class JobDetailPanel(QFrame):
         return QDesktopServices.openUrl(QUrl.fromLocalFile(str(resolved)))
 
     def _request_poster(self, job: RenameJob) -> None:
-        if self._tmdb_provider is None:
-            self._poster.setText("No Poster")
-            return
-        tmdb = self._tmdb_provider()
-        if tmdb is None:
-            self._poster.setText("No Poster")
-            return
-
-        def _worker() -> None:
-            image = None
-            poster_path = job.poster_path
-            if not poster_path and job.tmdb_id:
-                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
-                if poster_path:
-                    job.poster_path = poster_path
-                    if self._persist_poster_path is not None:
-                        self._persist_poster_path(job.job_id, poster_path)
-
-            if poster_path:
-                image = tmdb.fetch_image(poster_path, target_width=200)
-            elif job.tmdb_id:
-                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=200)
-                poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
-                if poster_path:
-                    job.poster_path = poster_path
-                    if self._persist_poster_path is not None:
-                        self._persist_poster_path(job.job_id, poster_path)
-            if image is None:
-                try:
-                    self._bridge.poster_ready.emit(None, job.job_id)
-                except RuntimeError:
-                    return
-                return
-            try:
-                self._bridge.poster_ready.emit(pil_to_raw(image), job.job_id)
-            except RuntimeError:
-                return
-
-        _submit_bg(_worker)
+        self._poster_workflow.request(job)
 
     def _apply_poster(self, image_data, job_id: str) -> None:
-        if job_id != self._current_job_id:
-            return
-        if image_data is None:
-            self._poster_pixmap = None
-            self._poster.setPixmap(QPixmap())
-            self._poster.setText("No Poster")
-            return
-        pixmap = raw_to_pixmap(image_data)
-        if pixmap.isNull():
-            self._poster_pixmap = None
-            self._poster.setPixmap(QPixmap())
-            self._poster.setText("No Poster")
-            return
-        self._poster_pixmap = pixmap
-        self._poster.setText("")
-        scaled = pixmap.scaled(
-            self._poster.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self._poster.setPixmap(scaled)
+        self._poster_workflow.apply(image_data, job_id)

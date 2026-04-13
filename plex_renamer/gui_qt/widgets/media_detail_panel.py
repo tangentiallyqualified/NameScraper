@@ -2,25 +2,29 @@
 
 from __future__ import annotations
 
-from ...thread_pool import submit as _submit_bg
 from collections import OrderedDict
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFormLayout, QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ...engine import PreviewItem, ScanState
+from ._media_detail_artwork import (
+    detail_artwork_fetch_width,
+    render_detail_artwork,
+    set_detail_artwork_mode,
+    show_detail_artwork_placeholder,
+    stop_detail_shimmer,
+)
 from ._image_utils import (
     ShimmerOverlay,
-    build_placeholder_pixmap,
-    raw_to_pixmap,
-    scale_pixmap_for_device,
 )
 from ._media_detail_payloads import (
     build_detail_fallback_rows,
     build_detail_payload,
 )
+from ._media_detail_workflow import MediaDetailWorkflowCoordinator
 
 
 class _DetailBridge(QObject):
@@ -68,67 +72,6 @@ class _FactsValueLabel(_WrappingDetailLabel):
         if self.wordWrap():
             hint.setHeight(hint.height() + self._DESCENT_PADDING)
         return hint
-
-
-def _selection_artwork_mode(preview: PreviewItem | None) -> str:
-    return "poster"
-
-
-def _blur_and_darken(source: QPixmap, radius: int = 12, darkness: float = 0.70) -> QPixmap:
-    """Return a blurred, darkened copy of *source* for backdrop use.
-
-    Uses a simple box-blur approximation by scaling down then back up,
-    then overlays a dark tint.  This avoids a dependency on
-    QGraphicsBlurEffect (which requires a scene/view) and is fast enough
-    for the single poster-sized image we need.
-    """
-    if source.isNull():
-        return QPixmap()
-    # Scale down to ~1/radius then back up for a fast blur approximation
-    w, h = source.width(), source.height()
-    tiny = source.scaled(
-        max(1, w // radius),
-        max(1, h // radius),
-        Qt.AspectRatioMode.IgnoreAspectRatio,
-        Qt.TransformationMode.SmoothTransformation,
-    )
-    blurred = tiny.scaled(w, h, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-    # Darken with a semi-transparent overlay
-    result = QPixmap(blurred)
-    painter = QPainter(result)
-    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceAtop)
-    painter.fillRect(result.rect(), QColor(0, 0, 0, int(255 * darkness)))
-    painter.end()
-    return result
-
-
-class _PosterHeroFrame(QFrame):
-    """Poster with an optional blurred backdrop that extends behind it."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._backdrop: QPixmap | None = None
-
-    def set_backdrop(self, source: QPixmap | None) -> None:
-        if source is None or source.isNull():
-            self._backdrop = None
-        else:
-            self._backdrop = _blur_and_darken(source)
-        self.update()
-
-    def clear_backdrop(self) -> None:
-        self._backdrop = None
-        self.update()
-
-    def paintEvent(self, event) -> None:
-        if self._backdrop is not None and not self._backdrop.isNull():
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-            painter.drawPixmap(self.rect(), self._backdrop)
-            painter.end()
-        super().paintEvent(event)
-
-
 class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
@@ -155,6 +98,7 @@ class MediaDetailPanel(QFrame):
         self._metadata_cache: OrderedDict[str, tuple[dict, QPixmap | None]] = OrderedDict()
         self._loading_tokens: set[str] = set()
         self._bridge = _DetailBridge(self)
+        self._workflow = MediaDetailWorkflowCoordinator(self)
         self._bridge.metadata_ready.connect(self._apply_payload)
         self.setProperty("cssClass", "panel")
 
@@ -286,8 +230,7 @@ class MediaDetailPanel(QFrame):
         self._extra.setText("")
 
     def clear_metadata_cache(self) -> None:
-        self._metadata_cache.clear()
-        self._loading_tokens.clear()
+        self._workflow.clear_metadata_cache()
 
     def set_selection(
         self,
@@ -296,75 +239,12 @@ class MediaDetailPanel(QFrame):
         queue_reason: str = "",
         folder_plan: str = "",
     ) -> None:
-        if state is None:
-            self.clear()
-            return
-
-        self._current_state = state
-        self._current_preview = preview
-        self._current_queue_reason = queue_reason
-        self._current_folder_plan = folder_plan
-        token = self._make_token(state, preview, queue_reason, folder_plan)
-        self._current_token = token
-        self._title.setText(state.display_name)
-
-        tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
-        if tmdb is None or not state.show_id:
-            self._poster_pixmap = None
-            self._set_artwork_mode(_selection_artwork_mode(preview))
-            self._overview.setText("")
-            self._extra.setText("")
-            self._subtitle.setText(queue_reason or "TMDB metadata unavailable.")
-            self._show_artwork_placeholder(state.display_name)
-            self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
-            return
-
-        preview_pending = state.scanning or (not state.scanned and preview is None and not state.preview_items)
-        if preview_pending:
-            self._poster_pixmap = None
-            self._set_artwork_mode(_selection_artwork_mode(preview))
-            self._overview.setText("")
-            self._extra.setText("")
-            self._subtitle.setText("Preview is still loading...")
-            self._show_artwork_placeholder(state.display_name)
-            self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
-            return
-
-        cached = self._metadata_cache.get(token)
-        if cached is not None:
-            self._metadata_cache.move_to_end(token)
-            self._apply_payload(cached[0], cached[1], token)
-            return
-
-        self._subtitle.setText(queue_reason or "Fetching metadata...")
-        self._set_artwork_mode(_selection_artwork_mode(preview))
-        self._show_artwork_placeholder(state.display_name, loading=True)
-        self._set_meta_rows(self._fallback_rows(state, preview, queue_reason, folder_plan))
-        if token in self._loading_tokens:
-            return
-        self._loading_tokens.add(token)
-        target_width = self._artwork_fetch_width(_selection_artwork_mode(preview))
-
-        def _worker() -> None:
-            payload = self._build_payload(tmdb, state, preview, queue_reason, folder_plan, target_width)
-            try:
-                self._bridge.metadata_ready.emit(payload[0], payload[1], token)
-            except RuntimeError:
-                pass
-
-        _submit_bg(_worker)
-
-    def _make_token(
-        self,
-        state: ScanState,
-        preview: PreviewItem | None,
-        queue_reason: str,
-        folder_plan: str,
-    ) -> str:
-        preview_part = ""
-        if preview is not None:
-            preview_part = f":{preview.original}"
-        return f"{state.show_id}:{state.folder}{preview_part}:{queue_reason}:{folder_plan}"
+        self._workflow.set_selection(
+            state,
+            preview=preview,
+            queue_reason=queue_reason,
+            folder_plan=folder_plan,
+        )
 
     def _fallback_rows(
         self,
@@ -400,46 +280,10 @@ class MediaDetailPanel(QFrame):
         )
 
     def refresh_current(self) -> None:
-        if self._current_state is None:
-            return
-        self.set_selection(
-            self._current_state,
-            preview=self._current_preview,
-            queue_reason=self._current_queue_reason,
-            folder_plan=self._current_folder_plan,
-        )
+        self._workflow.refresh_current()
 
     def _apply_payload(self, payload: dict | None, image_data, token: str) -> None:
-        self._loading_tokens.discard(token)
-        if payload is None:
-            return
-        if isinstance(image_data, QPixmap):
-            pixmap = image_data
-        elif image_data is not None:
-            pixmap = raw_to_pixmap(image_data)
-        else:
-            pixmap = None
-        self._metadata_cache[token] = (payload, pixmap)
-        self._metadata_cache.move_to_end(token)
-        while len(self._metadata_cache) > self._MAX_METADATA_CACHE_ENTRIES:
-            self._metadata_cache.popitem(last=False)
-        if token != self._current_token:
-            return
-        self._stop_shimmer()
-        self._title.setText(payload.get("title", "Selection"))
-        self._subtitle.setText(payload.get("subtitle", ""))
-        self._overview.setText(payload.get("overview", ""))
-        self._extra.setText(payload.get("extra", ""))
-        self._set_artwork_mode(payload.get("artwork_mode", "poster"))
-        self._set_meta_rows(payload.get("rows", []))
-        if pixmap is None or pixmap.isNull():
-            self._poster_pixmap = None
-            title = payload.get("title", "Selection")
-            self._show_artwork_placeholder(title)
-        else:
-            self._poster_pixmap = pixmap
-            self._poster.setText("")
-            self._render_poster()
+        self._workflow.apply_payload(payload, image_data, token)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -447,66 +291,47 @@ class MediaDetailPanel(QFrame):
         self._render_poster()
 
     def _render_poster(self) -> None:
-        if self._poster_pixmap is None or self._poster_pixmap.isNull():
-            return
-        target = self._poster.contentsRect().size()
-        if not target.isValid():
-            target = self._LANDSCAPE_ARTWORK_SIZE if self._artwork_mode == "still" else self._PORTRAIT_ARTWORK_SIZE
-        scaled = scale_pixmap_for_device(
+        render_detail_artwork(
+            self._poster,
             self._poster_pixmap,
-            target,
-            device_pixel_ratio=self._artwork_device_pixel_ratio(),
+            self._artwork_mode,
+            portrait_size=self._PORTRAIT_ARTWORK_SIZE,
+            landscape_size=self._LANDSCAPE_ARTWORK_SIZE,
         )
-        self._poster.setPixmap(scaled)
 
     def _set_artwork_mode(self, mode: str) -> None:
-        normalized = "still" if mode == "still" else "poster"
-        self._artwork_mode = normalized
-        size = self._LANDSCAPE_ARTWORK_SIZE if normalized == "still" else self._PORTRAIT_ARTWORK_SIZE
-        self._poster.setFixedSize(size)
-        self._sync_facts_card_height()
-
-    def _artwork_placeholder_text(self) -> str:
-        return "No Episode Image" if self._artwork_mode == "still" else "No Poster"
+        facts_card = self._facts_card if hasattr(self, "_facts_card") else None
+        self._artwork_mode = set_detail_artwork_mode(
+            self._poster,
+            facts_card,
+            mode,
+            portrait_size=self._PORTRAIT_ARTWORK_SIZE,
+            landscape_size=self._LANDSCAPE_ARTWORK_SIZE,
+        )
 
     def _show_artwork_placeholder(self, label: str = "", *, loading: bool = False) -> None:
         self._poster_pixmap = None
-        subtitle = self._artwork_placeholder_text()
-        title = "EPISODE" if self._artwork_mode == "still" else (label or "TMDB")
-        if self._artwork_mode != "still" and label:
-            title = label.split(" (", 1)[0]
-        placeholder = build_placeholder_pixmap(
-            self._poster.size() if self._poster.size().isValid() else (
-                self._LANDSCAPE_ARTWORK_SIZE if self._artwork_mode == "still" else self._PORTRAIT_ARTWORK_SIZE
-            ),
-            title=title,
-            subtitle=subtitle,
-            accent="#4a9eda" if self._artwork_mode == "still" else "#e5a00d",
-            device_pixel_ratio=self._artwork_device_pixel_ratio(),
+        self._poster_shimmer = show_detail_artwork_placeholder(
+            self._poster,
+            self._poster_shimmer,
+            self._artwork_mode,
+            label=label,
+            loading=loading,
+            portrait_size=self._PORTRAIT_ARTWORK_SIZE,
+            landscape_size=self._LANDSCAPE_ARTWORK_SIZE,
         )
-        self._poster.setPixmap(placeholder)
-        self._poster.setText("")
-        if loading:
-            if self._poster_shimmer is None:
-                self._poster_shimmer = ShimmerOverlay(self._poster)
-        else:
-            self._stop_shimmer()
 
     def _stop_shimmer(self) -> None:
-        if self._poster_shimmer is not None:
-            self._poster_shimmer.stop()
-            self._poster_shimmer = None
-
-    def _artwork_device_pixel_ratio(self) -> float:
-        try:
-            return max(1.0, float(self._poster.devicePixelRatioF()))
-        except Exception:
-            return 1.0
+        stop_detail_shimmer(self._poster_shimmer)
+        self._poster_shimmer = None
 
     def _artwork_fetch_width(self, mode: str) -> int:
-        logical = self._LANDSCAPE_ARTWORK_SIZE if mode == "still" else self._PORTRAIT_ARTWORK_SIZE
-        ratio = self._artwork_device_pixel_ratio()
-        return max(500, min(1100, int(round(logical.width() * ratio * 1.6))))
+        return detail_artwork_fetch_width(
+            self._poster,
+            mode,
+            portrait_size=self._PORTRAIT_ARTWORK_SIZE,
+            landscape_size=self._LANDSCAPE_ARTWORK_SIZE,
+        )
 
     def _sync_facts_card_height(self) -> None:
         if not hasattr(self, "_facts_card"):
