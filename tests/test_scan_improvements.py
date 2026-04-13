@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
+from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.engine import BatchTVOrchestrator, score_tv_results, TVScanner
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
@@ -183,6 +184,17 @@ class _FakeYuruCampTMDB(_FakeTMDB):
 
 
 class ScanImprovementTests(unittest.TestCase):
+    def test_tv_classify_directory_marks_explicit_episode_folder_as_show_root(self):
+        with TemporaryDirectory() as tmp:
+            show = Path(tmp) / "Yuru Camp△"
+            show.mkdir()
+            (show / "Yuru Camp△ - S01E01 - Pilot.mkv").write_text("x")
+            (show / "Yuru Camp△ - S01E02 - Second.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+
+            self.assertEqual(service.classify_directory(show), TVDirectoryRole.SHOW_ROOT)
+
     def test_specials_only_bundle_is_treated_as_container_and_discovers_nested_children(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -195,6 +207,9 @@ class ScanImprovementTests(unittest.TestCase):
             (specials / "01.mkv").write_text("x")
 
             service = TVLibraryDiscoveryService()
+
+            self.assertEqual(service.classify_directory(bundle), TVDirectoryRole.CONTAINER)
+
             candidates = service.discover_show_roots(root)
             relative_paths = {candidate.relative_folder for candidate in candidates}
 

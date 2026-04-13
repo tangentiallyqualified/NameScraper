@@ -29,6 +29,7 @@ Verification snapshot:
 - [x] **#18** JobStore bootstrap split — extracted SQLite connection setup, schema initialization, and migration helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_db.py](../plex_renamer/_job_store_db.py); `_get_conn()` and `_migrate_db()` remain as compatibility wrappers on the facade.
 - [x] **#19** JobStore codec split — extracted JSON serialization and row-mapping helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_codec.py](../plex_renamer/_job_store_codec.py); `_row_to_job()` remains as the compatibility wrapper on the facade.
 - [x] **#20** JobStore ordering split — extracted queue position compaction and pending-job reorder helpers from [plex_renamer/job_store.py](../plex_renamer/job_store.py) into [plex_renamer/_job_store_ordering.py](../plex_renamer/_job_store_ordering.py); the facade still owns locking and commit boundaries.
+- [x] **#21** TV discovery classifier split — extracted TV folder-classification heuristics from [plex_renamer/app/services/tv_library_discovery_service.py](../plex_renamer/app/services/tv_library_discovery_service.py) into [plex_renamer/app/services/_tv_library_classification.py](../plex_renamer/app/services/_tv_library_classification.py); the service now reads primarily as traversal and candidate construction.
 
 ## Current Assessment
 
@@ -273,6 +274,8 @@ Next slice:
 
 Then refactor [plex_renamer/app/services/tv_library_discovery_service.py](../plex_renamer/app/services/tv_library_discovery_service.py).
 
+Status: completed on 2026-04-12.
+
 Goals:
 - Separate folder classification from recursive traversal.
 - Keep current discovery behavior and symlink guards intact.
@@ -281,6 +284,17 @@ Goals:
 Success criteria:
 - Discovery heuristics are easier to evolve without touching traversal logic.
 - The service entry point remains stable while the internal responsibilities become clearer.
+
+Completed in the current slice:
+- Extracted TV folder-classification heuristics to [plex_renamer/app/services/_tv_library_classification.py](../plex_renamer/app/services/_tv_library_classification.py).
+- Kept [plex_renamer/app/services/tv_library_discovery_service.py](../plex_renamer/app/services/tv_library_discovery_service.py) as the traversal and candidate-building facade.
+- Added direct classification coverage for explicit-episode roots and specials-only container bundles so discovery behavior is not protected only through orchestrator-level tests.
+
+Phase 4 done means:
+
+- Folder classification is no longer implemented inline with recursive traversal.
+- TV discovery behavior is covered both directly at the service layer and indirectly through orchestrator discovery tests.
+- The remaining service code is mostly traversal orchestration, candidate construction, and compatibility wrappers.
 
 ### Phase 5: Re-evaluate GUI hotspots after backend simplification
 
