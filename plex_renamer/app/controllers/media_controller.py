@@ -18,17 +18,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ...constants import JobStatus, MediaType
+from ...constants import MediaType
 from ...engine import (
-    BatchMovieOrchestrator,
     BatchTVOrchestrator,
     check_duplicates,
     MovieScanner,
-    pick_alternate_matches,
     PreviewItem,
     ScanState,
-    ScanCancelledError,
     set_auto_accept_threshold,
+    pick_alternate_matches,
     score_results,
     score_tv_results,
     TVScanner,
@@ -37,12 +35,15 @@ from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
 from ._controller_match_helpers import (
     approve_controller_match,
-    assign_controller_season,
-    rematch_controller_movie_state,
-    rematch_controller_tv_state,
 )
+from ._controller_movie_workflows import MediaControllerMovieWorkflow
+from ._controller_session_models import (
+    ControllerModeState,
+    MovieControllerSession,
+    TVControllerSession,
+)
+from ._controller_tv_workflows import MediaControllerTVWorkflow
 from ._controller_state_helpers import (
-    accept_tv_show_session,
     apply_completed_job_to_session,
     routed_library_states,
     select_library_show,
@@ -54,19 +55,7 @@ from ._controller_event_helpers import (
     apply_runtime_settings_to_states,
     notify_controller_listeners,
 )
-from ._movie_batch_helpers import start_movie_batch_session
-from ._movie_state_helpers import (
-    build_movie_library_states,
-)
 from ._scan_operation_helpers import ScanOperationTracker, update_scan_progress
-from ._single_show_scan_helpers import start_single_show_scan
-from ._tab_session_helpers import (
-    restore_movie_session,
-    restore_tv_session,
-    snapshot_movie_session,
-    snapshot_tv_session,
-)
-from ._tv_batch_helpers import scan_all_tv_batch_shows, start_tv_batch_session
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
@@ -106,33 +95,122 @@ class MediaController:
         self._movie_discovery = movie_discovery or MovieLibraryDiscoveryService()
         set_auto_accept_threshold(self._settings.auto_accept_threshold)
 
-        # ── Mode flags ──────────────────────────────────────────────
-        self._active_content_mode: MediaType = MediaType.TV
-        self._active_library_mode: MediaType | None = None
-
-        # ── TV session state ────────────────────────────────────────
-        self._batch_mode: bool = False
-        self._batch_states: list[ScanState] = []
-        self._active_scan: ScanState | None = None
-        self._batch_orchestrator: BatchTVOrchestrator | None = None
-        self._tv_root_folder: Path | None = None
-
-        # ── Movie session state ─────────────────────────────────────
-        self._movie_library_states: list[ScanState] = []
-        self._movie_preview_items: list[PreviewItem] = []
-        self._movie_scanner: MovieScanner | None = None
-        self._movie_folder: Path | None = None
-        self._movie_media_info: dict | None = None
+        self._mode_state = ControllerModeState()
+        self._tv_session = TVControllerSession()
+        self._movie_session = MovieControllerSession()
+        self._tv_workflow = MediaControllerTVWorkflow(self)
+        self._movie_workflow = MediaControllerMovieWorkflow(self)
 
         # ── Progress ────────────────────────────────────────────────
         self._scan_progress = ScanProgress(lifecycle=ScanLifecycle.IDLE)
         self._scan_operation = ScanOperationTracker()
 
-        # ── Selection ───────────────────────────────────────────────
-        self._library_selected_index: int | None = None
-
         # ── Listeners ───────────────────────────────────────────────
         self._listeners: list[ListenerEntry] = []
+
+    @property
+    def _active_content_mode(self) -> MediaType:
+        return self._mode_state.active_content_mode
+
+    @_active_content_mode.setter
+    def _active_content_mode(self, value: MediaType) -> None:
+        self._mode_state.active_content_mode = value
+
+    @property
+    def _active_library_mode(self) -> MediaType | None:
+        return self._mode_state.active_library_mode
+
+    @_active_library_mode.setter
+    def _active_library_mode(self, value: MediaType | None) -> None:
+        self._mode_state.active_library_mode = value
+
+    @property
+    def _library_selected_index(self) -> int | None:
+        return self._mode_state.library_selected_index
+
+    @_library_selected_index.setter
+    def _library_selected_index(self, value: int | None) -> None:
+        self._mode_state.library_selected_index = value
+
+    @property
+    def _batch_mode(self) -> bool:
+        return self._tv_session.batch_mode
+
+    @_batch_mode.setter
+    def _batch_mode(self, value: bool) -> None:
+        self._tv_session.batch_mode = value
+
+    @property
+    def _batch_states(self) -> list[ScanState]:
+        return self._tv_session.batch_states
+
+    @_batch_states.setter
+    def _batch_states(self, value: list[ScanState]) -> None:
+        self._tv_session.batch_states = value
+
+    @property
+    def _active_scan(self) -> ScanState | None:
+        return self._tv_session.active_scan
+
+    @_active_scan.setter
+    def _active_scan(self, value: ScanState | None) -> None:
+        self._tv_session.active_scan = value
+
+    @property
+    def _batch_orchestrator(self) -> BatchTVOrchestrator | None:
+        return self._tv_session.batch_orchestrator
+
+    @_batch_orchestrator.setter
+    def _batch_orchestrator(self, value: BatchTVOrchestrator | None) -> None:
+        self._tv_session.batch_orchestrator = value
+
+    @property
+    def _tv_root_folder(self) -> Path | None:
+        return self._tv_session.root_folder
+
+    @_tv_root_folder.setter
+    def _tv_root_folder(self, value: Path | None) -> None:
+        self._tv_session.root_folder = value
+
+    @property
+    def _movie_library_states(self) -> list[ScanState]:
+        return self._movie_session.library_states
+
+    @_movie_library_states.setter
+    def _movie_library_states(self, value: list[ScanState]) -> None:
+        self._movie_session.library_states = value
+
+    @property
+    def _movie_preview_items(self) -> list[PreviewItem]:
+        return self._movie_session.preview_items
+
+    @_movie_preview_items.setter
+    def _movie_preview_items(self, value: list[PreviewItem]) -> None:
+        self._movie_session.preview_items = value
+
+    @property
+    def _movie_scanner(self) -> MovieScanner | None:
+        return self._movie_session.scanner
+
+    @_movie_scanner.setter
+    def _movie_scanner(self, value: MovieScanner | None) -> None:
+        self._movie_session.scanner = value
+
+    @property
+    def _movie_folder(self) -> Path | None:
+        return self._movie_session.folder
+
+    @_movie_folder.setter
+    def _movie_folder(self, value: Path | None) -> None:
+        self._movie_session.folder = value
+
+    @property
+    def _movie_media_info(self) -> dict[str, Any] | None:
+        return self._movie_session.media_info
+
+    @_movie_media_info.setter
+    def _movie_media_info(self, value: dict[str, Any] | None) -> None:
+        self._movie_session.media_info = value
 
     # ── Listener management ─────────────────────────────────────────
 
@@ -162,11 +240,11 @@ class MediaController:
 
     @property
     def active_content_mode(self) -> MediaType:
-        return self._active_content_mode
+        return self._mode_state.active_content_mode
 
     @property
     def active_library_mode(self) -> MediaType | None:
-        return self._active_library_mode
+        return self._mode_state.active_library_mode
 
     @property
     def library_states(self) -> list[ScanState]:
@@ -175,11 +253,11 @@ class MediaController:
 
     @property
     def active_scan(self) -> ScanState | None:
-        return self._active_scan
+        return self._tv_session.active_scan
 
     @active_scan.setter
     def active_scan(self, value: ScanState | None) -> None:
-        self._active_scan = value
+        self._tv_session.active_scan = value
 
     @property
     def scan_progress(self) -> ScanProgress:
@@ -187,47 +265,47 @@ class MediaController:
 
     @property
     def batch_mode(self) -> bool:
-        return self._batch_mode
+        return self._tv_session.batch_mode
 
     @property
     def batch_states(self) -> list[ScanState]:
-        return self._batch_states
+        return self._tv_session.batch_states
 
     @property
     def batch_orchestrator(self) -> BatchTVOrchestrator | None:
-        return self._batch_orchestrator
+        return self._tv_session.batch_orchestrator
 
     @property
     def tv_root_folder(self) -> Path | None:
-        return self._tv_root_folder
+        return self._tv_session.root_folder
 
     @property
     def movie_folder(self) -> Path | None:
-        return self._movie_folder
+        return self._movie_session.folder
 
     @property
     def movie_library_states(self) -> list[ScanState]:
-        return self._movie_library_states
+        return self._movie_session.library_states
 
     @property
     def movie_preview_items(self) -> list[PreviewItem]:
-        return self._movie_preview_items
+        return self._movie_session.preview_items
 
     @property
     def movie_scanner(self) -> MovieScanner | None:
-        return self._movie_scanner
+        return self._movie_session.scanner
 
     @property
     def movie_media_info(self) -> dict | None:
-        return self._movie_media_info
+        return self._movie_session.media_info
 
     @property
     def library_selected_index(self) -> int | None:
-        return self._library_selected_index
+        return self._mode_state.library_selected_index
 
     @library_selected_index.setter
     def library_selected_index(self, value: int | None) -> None:
-        self._library_selected_index = value
+        self._mode_state.library_selected_index = value
 
     @property
     def command_gating(self) -> CommandGatingService:
@@ -292,8 +370,7 @@ class MediaController:
         Creates a ``ScanState``, sets mode flags, and returns the state.
         Does NOT start scanning — the widget calls ``scan_show()`` next.
         """
-        return accept_tv_show_session(
-            self,
+        return self._tv_workflow.accept_show(
             folder,
             tmdb,
             show_info,
@@ -312,7 +389,7 @@ class MediaController:
         populated.  Fires ``on_scan_complete(None)`` when discovery
         finishes (before episode scanning starts).
         """
-        start_tv_batch_session(self, folder, tmdb, self._tv_discovery)
+        self._tv_workflow.start_batch(folder, tmdb)
 
     def scan_all_shows(self) -> None:
         """Phase 2: scan episodes for all unscanned shows in batch mode.
@@ -320,12 +397,11 @@ class MediaController:
         Spawns a background thread.  Fires ``on_progress`` per show and
         ``on_library_changed`` on completion.
         """
-        scan_all_tv_batch_shows(self)
+        self._tv_workflow.scan_all_shows()
 
     def scan_show(self, state: ScanState, tmdb: Any) -> None:
         """Scan a single show's episodes in a background thread."""
-        start_single_show_scan(
-            self,
+        self._tv_workflow.scan_show(
             state,
             tmdb,
             scanner_factory=TVScanner,
@@ -348,15 +424,15 @@ class MediaController:
         Fires ``on_progress`` during scanning and ``on_library_changed``
         when items are populated.
         """
-        start_movie_batch_session(self, folder, tmdb, MovieScanner)
+        self._movie_workflow.start_batch(
+            folder,
+            tmdb,
+            scanner_factory=MovieScanner,
+        )
 
     def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:
         """Build per-movie ScanState entries from a flat list of PreviewItems."""
-        self._movie_library_states = build_movie_library_states(
-            items,
-            scanner,
-            self._movie_folder,
-        )
+        self._movie_workflow.build_library_states(items, scanner)
 
     def approve_match(self, state: ScanState) -> None:
         """Accept the current TMDB match as manually approved, clearing needs-review."""
@@ -371,12 +447,11 @@ class MediaController:
         season sees that folder absorbed into the existing show card rather
         than left as a parallel entry.
         """
-        return assign_controller_season(self, state, season_num)
+        return self._tv_workflow.assign_season(state, season_num)
 
     def rematch_tv_state(self, state: ScanState, new_match: dict, tmdb: Any | None = None) -> ScanState:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
-        return rematch_controller_tv_state(
-            self,
+        return self._tv_workflow.rematch_state(
             state,
             new_match,
             tmdb=tmdb,
@@ -389,8 +464,7 @@ class MediaController:
 
     def rematch_movie_state(self, state: ScanState, new_match: dict) -> None:
         """Apply a new TMDB match to a movie scan state and rebuild its preview."""
-        rematch_controller_movie_state(
-            self,
+        self._movie_workflow.rematch_state(
             state,
             new_match,
             clean_folder_name=clean_folder_name,
@@ -402,33 +476,19 @@ class MediaController:
 
     def snapshot_tv_for_tab_switch(self) -> dict:
         """Snapshot current TV session state for tab switching (in-memory only)."""
-        return snapshot_tv_session(
-            self._batch_mode,
-            self._batch_states,
-            self._active_scan,
-            self._batch_orchestrator,
-            self._tv_root_folder,
-            self._library_selected_index,
-        )
+        return self._tv_workflow.snapshot_for_tab_switch()
 
     def restore_tv_from_tab_switch(self, snapshot: dict) -> None:
         """Restore TV session from an in-memory tab-switch snapshot."""
-        restore_tv_session(self, snapshot)
+        self._tv_workflow.restore_from_tab_switch(snapshot)
 
     def snapshot_movie_for_tab_switch(self) -> dict:
         """Snapshot current movie session state for tab switching (in-memory only)."""
-        return snapshot_movie_session(
-            self._movie_library_states,
-            self._movie_preview_items,
-            self._movie_scanner,
-            self._movie_folder,
-            self._movie_media_info,
-            self._library_selected_index,
-        )
+        return self._movie_workflow.snapshot_for_tab_switch()
 
     def restore_movie_from_tab_switch(self, snapshot: dict) -> None:
         """Restore movie session from an in-memory tab-switch snapshot."""
-        restore_movie_session(self, snapshot)
+        self._movie_workflow.restore_from_tab_switch(snapshot)
 
     def apply_completed_job_to_state(self, job, result) -> bool:
         """Project a completed rename job back into the in-memory scan state."""

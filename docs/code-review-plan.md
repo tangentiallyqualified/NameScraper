@@ -3,8 +3,8 @@
 Last reviewed: 2026-04-12
 
 Verification snapshot:
-- Full suite: 377 passed in 8.82s via `python -m pytest`
-- Qt smoke: 85 passed in 5.41s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
+- Full suite: 392 passed in 9.17s via `python -m pytest`
+- Qt smoke: 85 passed in 8.30s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
 - Current repo state is stable enough to prioritize structural refactors over test triage.
 
 ## Progress
@@ -35,115 +35,41 @@ Verification snapshot:
 
 ### What changed
 
-- The original GUI/controller hotspots have been reduced substantially through coordinators and helper modules.
-- The remaining structural debt is now concentrated in engine scanning/orchestration and the queue persistence/execution path.
-- File size is no longer the main signal by itself. The stronger signal is responsibility spread: files that still combine orchestration, heuristics, state mutation, and I/O should move first.
-
-### Large-file snapshot worth tracking
-
-- [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py) — 920 lines
-- [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py) — 746 lines
-- [plex_renamer/job_store.py](../plex_renamer/job_store.py) — 658 lines
-- [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) — 567 lines
-- [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) — 492 lines
-- [plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) — 460 lines
-- [plex_renamer/app/services/tv_library_discovery_service.py](../plex_renamer/app/services/tv_library_discovery_service.py) — 425 lines
-- [plex_renamer/gui_qt/widgets/_media_workspace_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_actions.py) — 389 lines
-- [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) — 369 lines
-- [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) — 295 lines
-- [plex_renamer/gui_qt/widgets/media_workspace.py](../plex_renamer/gui_qt/widgets/media_workspace.py) — 281 lines
+- The original engine, queue, discovery-service, TMDB transport, media-workspace action, and widget hotspots have been reduced substantially through helper modules and thin facades.
+- The remaining structural debt has moved upward into controller coordination and other cross-session glue, where projection, state-sync, and service bootstrap boundaries matter more than raw line count.
+- File size is now a weaker signal than mixed ownership. The better signal is whether one file or helper cluster still owns unrelated responsibilities such as job projection, queue-sync, lifecycle tracking, and UI/service bootstrap at the same time.
 
 ## Current High-Value Targets
 
-### 1. Split batch orchestration policy from batch workflow
+### 1. Isolate controller job projection and queued-state sync
 
-[plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py) is the clearest current hotspot. It mixes filesystem discovery, TMDB matching, confidence/tiebreak policy, duplicate labeling, season merging, and batch scan workflow in one place.
-
-**Why now:**
-- The file still owns too many policy decisions for one module.
-- Duplicate handling and season merging are subtle, high-risk behaviors that deserve isolated tests and smaller review surfaces.
-- This is now the main place where engine complexity remains concentrated after the earlier engine package split.
-
-**Refactor direction:**
-- Extract duplicate labeling logic into a focused helper or strategy module.
-- Extract season merge/consolidation logic into its own module.
-- Extract match ranking and tiebreak policy into a smaller scoring/policy helper.
-- Keep the public `BatchTVOrchestrator` and `BatchMovieOrchestrator` entry points stable while moving internals out.
-
-### 2. Break TV preview building into smaller builders
-
-[plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py) still combines mismatch detection, season-dir resolution, normal preview building, consolidated preview building, specials matching, and TMDB season caching in one class.
+[plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) is no longer the main raw-state hotspot, but the controller/helper cluster still owns a shared projection domain: applying completed jobs back into active scan state and syncing queued flags across TV and movie sessions.
 
 **Why now:**
-- The large preview-building methods are hard to reason about and hard to regression-test surgically.
-- Specials and consolidated-preview logic are policy-heavy enough to justify their own units.
-- This file is the other major engine module where complexity remains centralized.
+- The controller's raw storage and media-type workflow routing are already separated, so the next dense seam is the remaining shared state-projection logic.
+- Job-to-state projection and queued-state sync are distinct behaviors that cut across TV and movie sessions and deserve a more explicit boundary.
+- This is a narrower follow-on than another broad controller rewrite.
 
 **Refactor direction:**
-- Extract a normal-preview builder.
-- Extract a consolidated-preview builder.
-- Extract specials matching / episode-title resolution into a dedicated helper.
-- Leave `TVScanner` as the thin orchestration facade and cache owner.
+- Keep `MediaController` as the stable public entry point.
+- Pull completed-job projection and queued-state synchronization behind a dedicated private helper/service boundary.
+- Preserve `apply_completed_job_to_state()` and `sync_queued_states()` as the stable wrapper methods the rest of the app calls.
 
-### 3. Separate job persistence plumbing from queue-domain rules
+### 2. Reassess main-window flow only if more cross-tab glue lands there
 
-[plex_renamer/job_store.py](../plex_renamer/job_store.py) currently owns SQLite connection lifecycle, schema and migration setup, job CRUD, queue ordering, and path propagation behavior.
+[plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) is no longer a general modularization target by default. It already delegates most responsibilities to coordinators, but it is still the place to watch if navigation, queue feedback, or startup orchestration begin to accumulate again.
 
-**Why now:**
-- Persistence concerns and queue-domain behavior are coupled together.
-- Path propagation is domain logic and should not be buried inside the same class that manages schema and connections.
-- This file is large for a reason, but the split line is now clear enough to act on safely.
+### 3. Reassess detail panels only when new behavior lands
 
-**Refactor direction:**
-- Extract database/bootstrap concerns behind a smaller persistence helper.
-- Extract path propagation / downstream-job update behavior into a dedicated helper.
-- Keep `JobStore` as the user-facing facade so callers do not churn.
-
-### 4. Thin queue execution into orchestration plus filesystem operations
-
-[plex_renamer/job_executor.py](../plex_renamer/job_executor.py) still combines queue worker lifecycle, rename execution, target remapping, cleanup, leftover-file handling, and revert behavior.
-
-**Why now:**
-- `_execute_rename()` is doing too much at once.
-- Filesystem move logic and post-rename cleanup are coupled to queue orchestration even though they are separable concerns.
-- Undo/revert behavior becomes easier to reason about once operation execution and queue sequencing are not intertwined.
-
-**Refactor direction:**
-- Extract file-move execution helpers.
-- Extract directory cleanup / leftover relocation helpers.
-- Keep `QueueExecutor` focused on job lifecycle, listener dispatch, and sequencing.
-
-### 5. Split TV discovery walking from folder classification
-
-[plex_renamer/app/services/tv_library_discovery_service.py](../plex_renamer/app/services/tv_library_discovery_service.py) is a medium-priority target. It blends recursive walking, symlink handling, folder-role classification, and TV-specific heuristics.
-
-**Why now:**
-- The service has a coherent domain, but too many sub-responsibilities.
-- Discovery heuristics are easier to evolve when the classifier and recursive walker are separate.
-- This is a good follow-on refactor after the engine and queue work.
-
-**Refactor direction:**
-- Extract a directory-classification helper.
-- Extract recursive walking / visited-path management.
-- Keep the service entry point stable for callers and tests.
-
-## Secondary / Watch List
-
-### 6. Keep an eye on job detail panel growth
-
-[plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) mixes panel layout, preview-tree behavior, poster workflow integration, and presentation logic. It is not the first file to modularize, but it is the first GUI file likely to tip into unnecessary complexity if more behavior lands there.
-
-### 7. Keep media workspace action policy from becoming a second controller
-
-[plex_renamer/gui_qt/widgets/_media_workspace_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_actions.py) centralizes queueing, approval, rematch, season assignment, and action-bar state. It is still manageable, but it should not accumulate more controller-grade business logic.
+[plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) and [plex_renamer/gui_qt/widgets/media_detail_panel.py](../plex_renamer/gui_qt/widgets/media_detail_panel.py) are no longer urgent hotspots. They should only move again if new poster, preview-tree, or metadata behavior starts rebuilding dense logic in those facades.
 
 ## Do Not Prioritize Yet
 
-- [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) — already coordinator-driven; still central, but no longer a monolith.
-- [plex_renamer/gui_qt/widgets/media_workspace.py](../plex_renamer/gui_qt/widgets/media_workspace.py) — now a wrapper over workspace coordinators rather than the original God widget.
-- [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) — still important, but helper extraction has already reduced the pressure here.
-- [plex_renamer/tmdb.py](../plex_renamer/tmdb.py) — large but relatively cohesive after cache and batch-search extraction.
-- [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) — large because it contains multiple focused widget classes, not because it mixes unrelated domains.
+- [plex_renamer/gui_qt/widgets/media_workspace.py](../plex_renamer/gui_qt/widgets/media_workspace.py) — now a thin wrapper over workspace coordinators rather than the old monolithic widget.
+- [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) — coordinator-driven shell; watch it, but do not force another split without a fresh mixed-responsibility seam.
+- [plex_renamer/tmdb.py](../plex_renamer/tmdb.py) — transport is already extracted, and the remaining facade is cohesive enough for now.
+- [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) — row widgets are now intentionally separated from low-level primitives.
+- [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py), [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py), [plex_renamer/job_store.py](../plex_renamer/job_store.py), and [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) — recent helper splits mean the main refactor pressure has moved elsewhere.
 
 ## Plan of Attack
 
@@ -385,6 +311,67 @@ Phase 8 done means:
 - Shared workspace controls can evolve without forcing churn in the row-widget file.
 - Existing media-workspace imports and `isinstance` checks for row widgets stay stable.
 - The workspace widget layer now has a clearer split between reusable primitives and media-specific row composition.
+
+### Phase 9: Split controller session storage
+
+Refactor [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) so TV session state, movie session state, and mode-selection state live in dedicated private containers instead of one controller file owning every raw field directly.
+
+Status: completed on 2026-04-12.
+
+Goals:
+- Separate raw controller storage from the wrapper methods and helper-module entry points.
+- Keep `MediaController` public methods and the existing private helper attribute surface stable.
+- Make a later TV-vs-movie controller split easier without forcing that bigger redesign now.
+
+Completed in the current slice:
+- Extracted TV, movie, and mode-selection state containers to [plex_renamer/app/controllers/_controller_session_models.py](../plex_renamer/app/controllers/_controller_session_models.py).
+- Kept [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) as the stable facade, with compatibility properties preserving the `_batch_*`, `_movie_*`, and mode fields used by current helper modules.
+- Left the controller's public wrapper methods and current test-facing API unchanged while reducing direct state ownership in the facade.
+
+Phase 9 done means:
+
+- `MediaController` no longer stores every TV, movie, and selection field inline in its constructor.
+- Existing helper modules can keep routing through the controller's current private attribute surface while the real storage lives in dedicated session containers.
+- A future controller split can target TV/movie behavior rather than first untangling raw state ownership.
+
+### Phase 10: Separate MediaController behavior by media type
+
+Refactor [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) further so the stable facade delegates TV-specific and movie-specific workflow behavior through dedicated private helpers.
+
+Status: completed on 2026-04-12.
+
+Goals:
+- Keep `MediaController` as the stable public wrapper surface used by tests and Qt wiring.
+- Separate TV-specific workflow routing from movie-specific workflow routing.
+- Preserve listener semantics, scan-progress updates, and current wrapper-method names.
+
+Completed in the current slice:
+- Extracted TV-specific workflow routing to [plex_renamer/app/controllers/_controller_tv_workflows.py](../plex_renamer/app/controllers/_controller_tv_workflows.py).
+- Extracted movie-specific workflow routing to [plex_renamer/app/controllers/_controller_movie_workflows.py](../plex_renamer/app/controllers/_controller_movie_workflows.py).
+- Kept [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) as the stable wrapper surface, including the module-level patch points used by controller tests.
+
+Phase 10 done means:
+
+- TV and movie workflow behavior no longer share one dense facade implementation.
+- The controller facade mostly owns listener dispatch, progress routing, and mode selection.
+- Future controller work can target one media type at a time instead of touching one cross-cutting file.
+
+### Phase 11: Isolate controller projection and queue sync
+
+Refactor the remaining shared controller state-projection logic so [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) delegates completed-job projection and queued-state synchronization through a dedicated private helper boundary.
+
+Status: next candidate.
+
+Goals:
+- Keep `MediaController` wrapper methods stable.
+- Separate job-to-state projection from general controller orchestration.
+- Keep TV and movie queued-state synchronization behavior unchanged.
+
+Phase 11 done means:
+
+- Completed-job projection no longer lives as an incidental helper path on the main controller facade.
+- Queue-sync logic has an explicit home separate from listener and scan-lifecycle concerns.
+- The next controller refactor can focus on orchestration polish rather than state-projection plumbing.
 
 ## Working Rules for the Refactor
 
