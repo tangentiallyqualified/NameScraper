@@ -14,6 +14,19 @@ from PySide6.QtWidgets import (
 
 from ...constants import JobStatus
 from ._job_list_tab import _JobListTab
+from ._queue_tab_actions import (
+    build_remove_confirmation_message,
+    execute_focused_pending_job,
+    execute_pending_jobs,
+    pending_job_ids,
+    toggle_queue_running,
+)
+from ._queue_tab_presentation import apply_remove_button_state
+from ._queue_tab_state import (
+    build_queue_action_state,
+    build_queue_toolbar_state,
+    checked_pending_jobs,
+)
 
 _QUEUE_FILTERS: dict[str, set[str] | None] = {
     "All": None,
@@ -65,20 +78,16 @@ class QueueTab(_JobListTab):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_queue()
         self._model.set_jobs(jobs)
-        shown = self._proxy.rowCount()
-        pending = sum(1 for job in jobs if job.status == JobStatus.PENDING)
-        running = sum(1 for job in jobs if job.status == JobStatus.RUNNING)
-        parts = []
-        if running:
-            parts.append(f"{running} running")
-        if pending:
-            parts.append(f"{pending} pending")
-        if jobs and shown != len(jobs):
-            parts.append(f"showing {shown}/{len(jobs)}")
-        self._status.setText(" · ".join(parts) if parts else "Queue empty")
-        self._start_btn.setText("Stop Queue" if self._queue_ctrl.is_running else "Start Queue")
+        toolbar_state = build_queue_toolbar_state(
+            jobs,
+            shown_count=self._proxy.rowCount(),
+            has_current_selection=self._table.currentIndex().isValid(),
+            is_running=self._queue_ctrl.is_running,
+        )
+        self._status.setText(toolbar_state.status_text)
+        self._start_btn.setText(toolbar_state.start_button_text)
         self._sync_selection_widgets()
-        if not self._table.currentIndex().isValid() and self._proxy.rowCount():
+        if toolbar_state.should_select_first_row:
             self._table.selectRow(0)
         self._update_job_controls()
 
@@ -89,52 +98,43 @@ class QueueTab(_JobListTab):
             self._detail.clear()
         else:
             self._detail.set_job(focused)
-        has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
-        pending_checked = [job for job in checked_jobs if job.status == JobStatus.PENDING]
-        self._set_remove_button_enabled(has_pending)
-        self._execute_btn.setEnabled(bool(pending_checked))
+        action_state = build_queue_action_state(focused, checked_jobs)
+        self._set_remove_button_enabled(action_state.has_pending_checked)
+        self._execute_btn.setEnabled(bool(action_state.pending_checked_count))
         self._execute_btn.setText("Run Selected")
 
     def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
-        has_pending = any(job.status == JobStatus.PENDING for job in checked_jobs)
-        can_execute = any(job.status == JobStatus.PENDING for job in checked_jobs)
-        can_execute_focused = focused_job is not None and focused_job.status == JobStatus.PENDING
+        action_state = build_queue_action_state(focused_job, checked_jobs)
 
         focused_action = menu.addAction("Run This Job")
-        focused_action.setEnabled(can_execute_focused)
+        focused_action.setEnabled(action_state.can_execute_focused)
         focused_action.triggered.connect(self.execute_focused)
 
         execute_action = menu.addAction("Run Selected")
-        execute_action.setEnabled(can_execute)
+        execute_action.setEnabled(action_state.has_pending_checked)
         execute_action.triggered.connect(self._execute_selected)
 
         remove_action = menu.addAction("Remove Selected")
-        remove_action.setEnabled(has_pending)
+        remove_action.setEnabled(action_state.has_pending_checked)
         remove_action.triggered.connect(self._remove_selected)
 
         move_top_action = menu.addAction("Move to Top of Queue")
-        move_top_action.setEnabled(has_pending)
+        move_top_action.setEnabled(action_state.has_pending_checked)
         move_top_action.triggered.connect(self._move_to_top)
 
         menu.addSeparator()
         self._add_folder_context_actions(menu, include_target=False)
 
     def _toggle_queue(self) -> None:
-        if self._queue_ctrl.is_running:
-            self._queue_ctrl.stop()
-        else:
-            self._queue_ctrl.start()
+        toggle_queue_running(self._queue_ctrl)
         self.refresh()
         self.queue_changed.emit()
 
     def _execute_selected(self) -> None:
-        jobs = [job for job in self._selected_jobs() if job.status == JobStatus.PENDING]
+        jobs = checked_pending_jobs(self._selected_jobs())
         if not jobs:
             return
-        failed: list[str] = []
-        for job in jobs:
-            if not self._queue_ctrl.execute_single(job.job_id):
-                failed.append(job.media_name or job.job_id[:8])
+        failed = execute_pending_jobs(self._queue_ctrl, jobs)
         self.refresh()
         self.queue_changed.emit()
         if failed:
@@ -146,22 +146,19 @@ class QueueTab(_JobListTab):
 
     def _remove_selected(self) -> None:
         jobs = self._selected_jobs()
-        pending = [job for job in jobs if job.status == JobStatus.PENDING]
+        pending = checked_pending_jobs(jobs)
         if not pending:
             QMessageBox.information(self, "Cannot Remove", "Only checked pending jobs can be removed.")
             return
-        total_files = sum(job.selected_count for job in pending)
-        message = f"Remove {len(pending)} checked pending job(s) from the queue?"
-        if len(pending) >= 10:
-            message += f"\n\nThis will discard rename plans for {total_files} file(s)."
+        message = build_remove_confirmation_message(pending)
         if QMessageBox.question(self, "Remove Jobs", message) != QMessageBox.StandardButton.Yes:
             return
-        self._queue_ctrl.remove_jobs([job.job_id for job in pending])
+        self._queue_ctrl.remove_jobs(pending_job_ids(pending))
         self.refresh()
         self.queue_changed.emit()
 
     def _move_to_top(self) -> None:
-        pending_ids = [job.job_id for job in self._selected_jobs() if job.status == JobStatus.PENDING]
+        pending_ids = pending_job_ids(checked_pending_jobs(self._selected_jobs()))
         if not pending_ids:
             return
         self._queue_ctrl.move_jobs_to_top(pending_ids)
@@ -171,9 +168,10 @@ class QueueTab(_JobListTab):
     def execute_focused(self) -> None:
         """Execute the currently focused pending job (Enter shortcut)."""
         focused = self._focused_job()
-        if focused is None or focused.status != JobStatus.PENDING:
+        success = execute_focused_pending_job(self._queue_ctrl, focused)
+        if success is None:
             return
-        if not self._queue_ctrl.execute_single(focused.job_id):
+        if not success:
             QMessageBox.warning(self, "Cannot Run Job", "The focused job could not be executed right now.")
         self.refresh()
         self.queue_changed.emit()
@@ -183,11 +181,5 @@ class QueueTab(_JobListTab):
         self._remove_selected()
 
     def _set_remove_button_enabled(self, enabled: bool) -> None:
-        css_class = "danger" if enabled else "secondary"
-        if self._remove_btn.property("cssClass") != css_class:
-            self._remove_btn.setProperty("cssClass", css_class)
-            style = self._remove_btn.style()
-            style.unpolish(self._remove_btn)
-            style.polish(self._remove_btn)
-        self._remove_btn.setEnabled(enabled)
+        apply_remove_button_state(self._remove_btn, enabled=enabled)
 

@@ -13,7 +13,17 @@ from PySide6.QtWidgets import (
 )
 
 from ...constants import JobStatus
+from ._history_tab_banner import hide_revert_banner, show_revert_banner
 from ._job_list_tab import _JobListTab
+from ._history_tab_state import (
+    begin_revert_banner_state,
+    build_history_toolbar_state,
+    can_revert_checked_jobs,
+    collect_confirm_revert_jobs,
+    pending_revert_selection_changed,
+    revert_jobs,
+    sync_pending_revert_job_ids,
+)
 
 _HISTORY_FILTERS: dict[str, set[str] | None] = {
     "All": None,
@@ -57,13 +67,18 @@ class HistoryTab(_JobListTab):
         self._cancel_revert_btn = QPushButton("Cancel")
         self._cancel_revert_btn.setProperty("cssClass", "secondary")
         self._cancel_revert_btn.clicked.connect(self._cancel_revert)
-        self._cancel_revert_btn.hide()
         self._toolbar_layout.addWidget(self._cancel_revert_btn)
 
         self._revert_info = QLabel("")
         self._revert_info.setProperty("cssClass", "text-dim")
-        self._revert_info.hide()
         self._toolbar_layout.addWidget(self._revert_info)
+
+        hide_revert_banner(
+            self._revert_btn,
+            self._confirm_revert_btn,
+            self._cancel_revert_btn,
+            self._revert_info,
+        )
 
         self._finish_toolbar(_HISTORY_FILTERS)
         self._finish_list_pane()
@@ -72,38 +87,34 @@ class HistoryTab(_JobListTab):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_history()
         self._model.set_jobs(jobs)
-        shown = self._proxy.rowCount()
-        status = f"{len(jobs)} historical job(s)" if jobs else "No history yet"
-        if jobs and shown != len(jobs):
-            status += f" · showing {shown}/{len(jobs)}"
-        self._status.setText(status)
+        toolbar_state = build_history_toolbar_state(
+            jobs,
+            shown_count=self._proxy.rowCount(),
+            has_current_selection=self._table.currentIndex().isValid(),
+        )
+        self._status.setText(toolbar_state.status_text)
         if self._pending_revert_job_ids:
-            available_job_ids = {job.job_id for job in jobs}
-            self._pending_revert_job_ids = [
-                job_id for job_id in self._pending_revert_job_ids if job_id in available_job_ids
-            ]
+            self._pending_revert_job_ids = sync_pending_revert_job_ids(self._pending_revert_job_ids, jobs)
             if not self._pending_revert_job_ids:
                 self._cancel_revert()
         self._sync_selection_widgets()
-        if not self._table.currentIndex().isValid() and self._proxy.rowCount():
+        if toolbar_state.should_select_first_row:
             self._table.selectRow(0)
         self._update_job_controls()
 
     def _update_job_controls(self) -> None:
         jobs = self._selected_jobs()
         focused = self._focused_job()
-        valid_selected_ids = {job.job_id for job in jobs}
-        if self._pending_revert_job_ids and set(self._pending_revert_job_ids) != valid_selected_ids:
+        if pending_revert_selection_changed(self._pending_revert_job_ids, jobs):
             self._cancel_revert()
         if focused is None:
             self._detail.clear()
         else:
             self._detail.set_job(focused)
-        can_revert = any(job.status == JobStatus.COMPLETED and job.undo_data for job in jobs)
-        self._revert_btn.setEnabled(can_revert)
+        self._revert_btn.setEnabled(can_revert_checked_jobs(jobs))
 
     def _populate_context_menu(self, menu: QMenu, focused_job, checked_jobs) -> None:
-        can_revert = any(job.status == JobStatus.COMPLETED and job.undo_data for job in checked_jobs)
+        can_revert = can_revert_checked_jobs(checked_jobs)
 
         revert_action = menu.addAction("Revert Selected")
         revert_action.setEnabled(can_revert)
@@ -114,41 +125,31 @@ class HistoryTab(_JobListTab):
         del focused_job
 
     def _revert_selected(self) -> None:
-        jobs = [job for job in self._selected_jobs() if job.status == JobStatus.COMPLETED and job.undo_data]
-        if not jobs:
+        banner_state = begin_revert_banner_state(self._selected_jobs())
+        if banner_state is None:
             QMessageBox.information(self, "Cannot Revert", "Only selected completed jobs with undo data can be reverted.")
             return
-        self._pending_revert_job_ids = [job.job_id for job in jobs]
-        total_renames = sum(len((job.undo_data or {}).get("renames", [])) for job in jobs)
-        job_noun = "job" if len(jobs) == 1 else "jobs"
-        file_noun = "file" if total_renames == 1 else "files"
-        self._revert_info.setText(f"{len(jobs)} {job_noun}, {total_renames} {file_noun}")
-        self._revert_btn.hide()
-        self._confirm_revert_btn.show()
-        self._cancel_revert_btn.show()
-        self._revert_info.show()
+        self._pending_revert_job_ids = banner_state.pending_job_ids
+        show_revert_banner(
+            self._revert_btn,
+            self._confirm_revert_btn,
+            self._cancel_revert_btn,
+            self._revert_info,
+            info_text=banner_state.info_text,
+        )
 
     def _confirm_revert(self) -> None:
         if not self._pending_revert_job_ids:
             self._cancel_revert()
             return
 
-        pending = set(self._pending_revert_job_ids)
-        jobs = [
-            job
-            for job in self._queue_ctrl.get_history()
-            if job.job_id in pending and job.status == JobStatus.COMPLETED and job.undo_data
-        ]
+        jobs = collect_confirm_revert_jobs(self._queue_ctrl.get_history(), self._pending_revert_job_ids)
         if not jobs:
             self._cancel_revert()
             QMessageBox.information(self, "Cannot Revert", "The selected jobs are no longer revertible.")
             return
 
-        errors: list[str] = []
-        for job in jobs:
-            success, revert_errors = self._queue_ctrl.revert_job(job.job_id)
-            if not success:
-                errors.extend(revert_errors)
+        errors = revert_jobs(self._queue_ctrl, jobs)
         self._cancel_revert()
         self.refresh()
         self.history_changed.emit()
@@ -157,8 +158,10 @@ class HistoryTab(_JobListTab):
 
     def _cancel_revert(self) -> None:
         self._pending_revert_job_ids = []
-        self._confirm_revert_btn.hide()
-        self._cancel_revert_btn.hide()
-        self._revert_info.hide()
-        self._revert_btn.show()
+        hide_revert_banner(
+            self._revert_btn,
+            self._confirm_revert_btn,
+            self._cancel_revert_btn,
+            self._revert_info,
+        )
 
