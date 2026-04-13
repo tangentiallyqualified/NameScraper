@@ -147,6 +147,7 @@ class MainWindow(QMainWindow):
         self._pending_success_jobs = 0
         self._pending_success_files = 0
         self._job_poster_backfill_started = False
+        self._job_poster_backfill_future = None
         self._tv_needs_queue_refresh = False
         self._movie_needs_queue_refresh = False
         self._scan_feedback_token: tuple[str, str] | None = None
@@ -198,8 +199,8 @@ class MainWindow(QMainWindow):
         self._history_tab.refresh()
         return count, revertible
 
-    def _start_job_poster_backfill(self) -> None:
-        self._feedback_coordinator.start_job_poster_backfill(
+    def _start_job_poster_backfill(self):
+        return self._feedback_coordinator.start_job_poster_backfill(
             api_key_lookup=get_api_key,
             submit_bg=_submit_bg,
             logger=_log,

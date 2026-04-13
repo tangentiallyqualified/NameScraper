@@ -300,9 +300,25 @@ Phase 4 done means:
 
 Once engine and queue debt are reduced, reassess [plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) and [plex_renamer/gui_qt/widgets/_media_workspace_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_actions.py).
 
+Status: completed on 2026-04-12.
+
 Goals:
 - Avoid premature GUI churn while backend contracts are still moving.
 - Only split GUI files where the resulting boundaries are obvious and stable.
+
+Completed in the current slice:
+- Reassessed both GUI hotspots after the backend simplification work.
+- Left [plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) alone because it is already mostly a shell over extracted data, poster, preview, and tree helpers.
+- Extracted media-workspace queue workflows to [plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py).
+- Extracted rematch/approval workflows to [plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py).
+- Extracted label and predicate helpers to [plex_renamer/gui_qt/widgets/_media_workspace_action_state.py](../plex_renamer/gui_qt/widgets/_media_workspace_action_state.py), leaving [plex_renamer/gui_qt/widgets/_media_workspace_actions.py](../plex_renamer/gui_qt/widgets/_media_workspace_actions.py) as a thinner coordinator.
+- Extracted action-bar/button-state orchestration to [plex_renamer/gui_qt/widgets/_media_workspace_action_bar.py](../plex_renamer/gui_qt/widgets/_media_workspace_action_bar.py), leaving the coordinator as a wrapper over queue, match, and UI-state helpers.
+
+Phase 5 done means:
+
+- The next GUI split followed an already-stable boundary instead of forcing churn into a panel that had already been decomposed.
+- `media_workspace.py` wrapper methods and dialog patch points stayed stable for the existing Qt tests.
+- The remaining action coordinator code is a thin routing layer over extracted workflows and button-state helpers.
 
 ## Working Rules for the Refactor
 

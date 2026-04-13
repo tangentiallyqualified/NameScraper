@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import Future
 from logging import Logger
 from typing import Any, Callable
 
@@ -25,17 +26,17 @@ class MainWindowFeedbackCoordinator:
         self,
         *,
         api_key_lookup: Callable[[str], str | None],
-        submit_bg: Callable[[Callable[[], None]], Any],
+        submit_bg: Callable[[Callable[[], None]], Future[Any]],
         logger: Logger,
-    ) -> None:
+    ) -> Future[Any] | None:
         window = self._window
         if window._job_poster_backfill_started:
-            return
+            return window._job_poster_backfill_future
         if not api_key_lookup("TMDB"):
-            return
+            return None
         tmdb = window._ensure_tmdb()
         if tmdb is None:
-            return
+            return None
         window._job_poster_backfill_started = True
 
         def _worker() -> None:
@@ -46,7 +47,8 @@ class MainWindowFeedbackCoordinator:
                 return
             window._queue_bridge.on_poster_backfill_finished(updated)
 
-        submit_bg(_worker)
+        window._job_poster_backfill_future = submit_bg(_worker)
+        return window._job_poster_backfill_future
 
     def on_poster_backfill_finished(self, updated: int) -> None:
         if updated <= 0:

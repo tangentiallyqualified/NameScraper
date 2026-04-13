@@ -401,9 +401,14 @@ class QtMainWindowTests(QtSmokeBase):
             tmdb = MagicMock()
             window._ensure_tmdb = MagicMock(return_value=tmdb)
 
-            window._start_job_poster_backfill()
-            QTest.qWait(20)
-            self._app.processEvents()
+            future = window._start_job_poster_backfill()
+            if future is not None:
+                future.result(timeout=1)
+            for _ in range(20):
+                self._app.processEvents()
+                if window._refresh_job_views.call_count:
+                    break
+                QTest.qWait(10)
 
         window.queue_ctrl.backfill_missing_job_poster_paths.assert_called_once_with(tmdb)
         window._refresh_job_views.assert_called_once()
