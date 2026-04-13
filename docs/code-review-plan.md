@@ -364,6 +364,28 @@ Phase 7 done means:
 - `TMDBClient` still exposes the same top-level session and rate-limiter attributes expected by the current tests.
 - Future TMDB work can target transport, metadata shaping, and image caching as separate concerns instead of one large client file.
 
+### Phase 8: Clean up workspace widget primitives
+
+Refactor [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) so shared checkbox, label, and progress controls live separately from the roster and preview row widgets that the media workspace uses directly.
+
+Status: completed on 2026-04-12.
+
+Goals:
+- Separate low-level reusable Qt controls from the higher-level row widgets.
+- Keep the row widget classes and their import surface stable for existing media-workspace tests.
+- Add direct Qt coverage for the extracted primitive controls.
+
+Completed in the current slice:
+- Extracted shared checkbox, elision, click-row, progress-bar, and poster-bridge primitives to [plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py](../plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py).
+- Kept [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) focused on roster, preview, and folder-preview row widgets while re-exporting the shared primitives.
+- Added direct Qt coverage for the extracted controls in [tests/test_qt_workspace_widgets.py](../tests/test_qt_workspace_widgets.py).
+
+Phase 8 done means:
+
+- Shared workspace controls can evolve without forcing churn in the row-widget file.
+- Existing media-workspace imports and `isinstance` checks for row widgets stay stable.
+- The workspace widget layer now has a clearer split between reusable primitives and media-specific row composition.
+
 ## Working Rules for the Refactor
 
 - Keep public APIs stable where possible; prefer internal extraction over surface redesign.
