@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from ...thread_pool import submit as _submit_bg
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -14,27 +13,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
-    QListWidgetItem,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from ...engine import score_results
-from ._formatting import percent_text
-
-_AUTO_ACCEPT_THRESHOLD = 0.70
-_SUCCESS_COLOR = QColor("#3ea463")
-
-
-def _label_for_result(result: dict, title_key: str, score: float | None = None) -> str:
-    title = result.get(title_key) or result.get("name") or result.get("title") or "Unknown"
-    year = result.get("year", "")
-    label = f"{title} ({year})" if year else title
-    if score is not None:
-        label += f" \u2014 {percent_text(score)}"
-    return label
+from ._match_picker_search import MatchPickerSearchCoordinator
+from ._match_picker_selection import MatchPickerSelectionCoordinator
 
 
 class _SearchBridge(QObject):
@@ -71,6 +56,8 @@ class MatchPickerDialog(QDialog):
         self._results: list[dict] = []
         self._search_in_progress = False
         self._search_bridge = _SearchBridge(self)
+        self._search_workflow = MatchPickerSearchCoordinator(self)
+        self._selection_workflow = MatchPickerSelectionCoordinator(self)
         self._search_bridge.results_ready.connect(self._on_search_results)
 
         layout = QVBoxLayout(self)
@@ -126,48 +113,10 @@ class MatchPickerDialog(QDialog):
         super().keyPressEvent(event)
 
     def _run_search(self) -> None:
-        query = self._query.text().strip()
-        if not query:
-            QMessageBox.information(self, "Search Required", "Enter a title to search TMDB.")
-            return
-        self._search_in_progress = True
-        self._search_button.setEnabled(False)
-        self._query.setEnabled(False)
-        self._result_list.setEnabled(False)
-
-        if self._selected is None:
-            self._result_list.clear()
-            self._result_list.addItem("Searching...")
-            self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
-            self._overview.setText("")
-            self._ok_button.setEnabled(False)
-        else:
-            self._overview.setText("Searching...")
-
-        callback = self._search_callback
-        year_hint = self._year_hint
-        bridge = self._search_bridge
-
-        def _worker() -> None:
-            try:
-                results = callback(query, year_hint)
-                if not results and year_hint:
-                    results = callback(query, None)
-            except Exception:
-                results = []
-            try:
-                bridge.results_ready.emit(results)
-            except RuntimeError:
-                pass  # Dialog closed before search finished
-
-        _submit_bg(_worker)
+        self._search_workflow.run_search()
 
     def _on_search_results(self, results: list[dict]) -> None:
-        self._search_in_progress = False
-        self._search_button.setEnabled(True)
-        self._query.setEnabled(True)
-        self._result_list.setEnabled(True)
-        self._set_results(results)
+        self._search_workflow.apply_search_results(results)
 
     def accept(self) -> None:
         if self._search_in_progress:
@@ -175,55 +124,10 @@ class MatchPickerDialog(QDialog):
         super().accept()
 
     def _set_results(self, results: list[dict]) -> None:
-        self._results = list(results)
-        self._selected = None
-        self._result_list.clear()
-        self._overview.setText("")
-        self._ok_button.setEnabled(False)
+        self._selection_workflow.set_results(results)
 
-        if not results:
-            self._result_list.addItem("No results")
-            self._result_list.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
-            return
-
-        if self._score_results_callback is not None:
-            scored = self._score_results_callback(results)
-        else:
-            scored = score_results(results, self._raw_name, self._year_hint, title_key=self._title_key)
-        score_map = {id(r): s for r, s in scored}
-
-        max_score = max((s for s in score_map.values() if s is not None), default=0.0)
-        rescale = 1.0 / max_score if max_score > 1.0 else 1.0
-
-        for index, result in enumerate(results):
-            raw_score = score_map.get(id(result))
-            display_score = raw_score * rescale if raw_score is not None else None
-            item = QListWidgetItem(_label_for_result(result, self._title_key, display_score))
-            item.setData(Qt.ItemDataRole.UserRole, index)
-            if raw_score is not None and raw_score >= _AUTO_ACCEPT_THRESHOLD:
-                item.setForeground(_SUCCESS_COLOR)
-            overview = result.get("overview", "")
-            if overview:
-                item.setToolTip(overview)
-            self._result_list.addItem(item)
-
-        self._result_list.setCurrentRow(0)
-
-    def _on_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
-        if current is None:
-            self._selected = None
-            self._overview.setText("")
-            self._ok_button.setEnabled(False)
-            return
-        index = current.data(Qt.ItemDataRole.UserRole)
-        if index is None or not (0 <= index < len(self._results)):
-            self._selected = None
-            self._overview.setText("")
-            self._ok_button.setEnabled(False)
-            return
-        self._selected = self._results[index]
-        self._overview.setText(self._selected.get("overview", "No synopsis available."))
-        self._ok_button.setEnabled(True)
+    def _on_current_item_changed(self, current, _previous) -> None:
+        self._selection_workflow.apply_current_item(current)
 
     @classmethod
     def pick(
