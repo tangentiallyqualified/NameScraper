@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ...constants import MediaType
-from ...engine import PreviewItem, ScanState
-from ._job_projection_helpers import apply_completed_job_projection, sync_queued_state_flags
+from ...engine import ScanState
 from ._tv_state_helpers import build_accepted_tv_state
 from ..models import ScanLifecycle
 
@@ -20,7 +19,6 @@ class _ControllerSessionState(Protocol):
     _batch_orchestrator: Any
     _tv_root_folder: Path | None
     _movie_library_states: list[ScanState]
-    _movie_preview_items: list[PreviewItem]
     _active_content_mode: MediaType
     _active_library_mode: MediaType | None
     _library_selected_index: int | None
@@ -86,25 +84,3 @@ def select_library_show(
     if controller._active_content_mode == MediaType.TV:
         controller._active_scan = states[index]
     return states[index]
-
-
-def apply_completed_job_to_session(
-    controller: _ControllerSessionState,
-    job: Any,
-) -> bool:
-    states = controller._movie_library_states if job.media_type == MediaType.MOVIE else controller._batch_states
-    projection = apply_completed_job_projection(job, states, controller._movie_preview_items)
-    if projection.movie_preview_items is not None:
-        controller._movie_preview_items = projection.movie_preview_items
-    return projection.changed
-
-
-def sync_controller_queued_states(
-    controller: _ControllerSessionState,
-    queue_jobs: list[Any],
-) -> None:
-    sync_queued_state_flags(
-        queue_jobs,
-        controller._batch_states,
-        controller._movie_library_states,
-    )

@@ -3,8 +3,8 @@
 Last reviewed: 2026-04-12
 
 Verification snapshot:
-- Full suite: 392 passed in 9.17s via `python -m pytest`
-- Qt smoke: 85 passed in 8.30s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
+- Full suite: 392 passed in 15.91s via `python -m pytest`
+- Qt smoke: 85 passed in 9.04s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
 - Current repo state is stable enough to prioritize structural refactors over test triage.
 
 ## Progress
@@ -36,24 +36,24 @@ Verification snapshot:
 ### What changed
 
 - The original engine, queue, discovery-service, TMDB transport, media-workspace action, and widget hotspots have been reduced substantially through helper modules and thin facades.
-- The remaining structural debt has moved upward into controller coordination and other cross-session glue, where projection, state-sync, and service bootstrap boundaries matter more than raw line count.
-- File size is now a weaker signal than mixed ownership. The better signal is whether one file or helper cluster still owns unrelated responsibilities such as job projection, queue-sync, lifecycle tracking, and UI/service bootstrap at the same time.
+- The remaining structural debt has moved upward into UI shell/bootstrap coordination and other cross-session glue, where service construction, cross-tab wiring, and global feedback boundaries matter more than raw line count.
+- File size is now a weaker signal than mixed ownership. The better signal is whether one file or helper cluster still owns unrelated responsibilities such as service bootstrap, global UI feedback, cross-tab wiring, and application-shell state persistence at the same time.
 
 ## Current High-Value Targets
 
-### 1. Isolate controller job projection and queued-state sync
+### 1. Reassess MainWindow service/bootstrap coordination
 
-[plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) is no longer the main raw-state hotspot, but the controller/helper cluster still owns a shared projection domain: applying completed jobs back into active scan state and syncing queued flags across TV and movie sessions.
+[plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) is now the clearest remaining coordination hotspot. It already delegates heavily, but it still owns top-level service construction, controller creation, bridge setup, and cross-tab/global feedback wiring in one shell.
 
 **Why now:**
-- The controller's raw storage and media-type workflow routing are already separated, so the next dense seam is the remaining shared state-projection logic.
-- Job-to-state projection and queued-state sync are distinct behaviors that cut across TV and movie sessions and deserve a more explicit boundary.
-- This is a narrower follow-on than another broad controller rewrite.
+- The controller seam is now materially cleaner, so the next remaining mixed-responsibility area is the app shell rather than another controller helper.
+- `MainWindow` still concentrates service bootstrap, bridge installation, queue-feedback batching, and app-wide tab orchestration.
+- This is now a safer next cut than chasing smaller controller polish slices.
 
 **Refactor direction:**
-- Keep `MediaController` as the stable public entry point.
-- Pull completed-job projection and queued-state synchronization behind a dedicated private helper/service boundary.
-- Preserve `apply_completed_job_to_state()` and `sync_queued_states()` as the stable wrapper methods the rest of the app calls.
+- Keep `MainWindow` as the stable top-level Qt shell and current patch point for tests.
+- Pull service/controller bootstrap or global app-flow wiring behind a narrower helper boundary.
+- Preserve existing `main_window.py` patch points used by Qt tests.
 
 ### 2. Reassess main-window flow only if more cross-tab glue lands there
 
@@ -360,18 +360,61 @@ Phase 10 done means:
 
 Refactor the remaining shared controller state-projection logic so [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) delegates completed-job projection and queued-state synchronization through a dedicated private helper boundary.
 
-Status: next candidate.
+Status: completed on 2026-04-13.
 
 Goals:
 - Keep `MediaController` wrapper methods stable.
 - Separate job-to-state projection from general controller orchestration.
 - Keep TV and movie queued-state synchronization behavior unchanged.
 
+Completed in the current slice:
+- Extracted completed-job projection and queued-state synchronization to [plex_renamer/app/controllers/_controller_projection_workflow.py](../plex_renamer/app/controllers/_controller_projection_workflow.py).
+- Slimmed [plex_renamer/app/controllers/_controller_state_helpers.py](../plex_renamer/app/controllers/_controller_state_helpers.py) back to session-routing responsibilities.
+- Kept [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) as the stable wrapper surface for `apply_completed_job_to_state()` and `sync_queued_states()`.
+
 Phase 11 done means:
 
 - Completed-job projection no longer lives as an incidental helper path on the main controller facade.
 - Queue-sync logic has an explicit home separate from listener and scan-lifecycle concerns.
 - The next controller refactor can focus on orchestration polish rather than state-projection plumbing.
+
+### Phase 12: Separate MediaController lifecycle coordination
+
+Refactor [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) so scan-operation tracking, progress updates, and related lifecycle wiring delegate through a dedicated private coordinator.
+
+Status: completed on 2026-04-13.
+
+Goals:
+- Keep `MediaController` wrapper methods and listener semantics stable.
+- Separate scan lifecycle and cancellation management from session routing and workflow delegation.
+- Preserve current progress payloads used by controller and Qt tests.
+
+Completed in the current slice:
+- Extracted scan-progress and cancellation coordination to [plex_renamer/app/controllers/_controller_lifecycle_workflow.py](../plex_renamer/app/controllers/_controller_lifecycle_workflow.py).
+- Kept [plex_renamer/app/controllers/media_controller.py](../plex_renamer/app/controllers/media_controller.py) as the stable wrapper surface for `_set_progress()`, `cancel_scan()`, and the direct `_scan_progress` compatibility path used by current tests.
+
+Phase 12 done means:
+
+- `MediaController` no longer owns raw scan-operation lifecycle mechanics inline.
+- Progress updates and cancel-token coordination have an explicit home separate from session and workflow routing.
+- The next remaining large seams will be in UI shell/bootstrap code rather than controller internals.
+
+### Phase 13: Reassess MainWindow bootstrap and app-flow wiring
+
+Refactor [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) only if the current service/bootstrap and app-flow wiring can be isolated behind another stable coordinator boundary without disturbing the existing test patch points.
+
+Status: next candidate.
+
+Goals:
+- Keep `main_window.py` as the stable shell and current patch point for Qt tests.
+- Reduce the amount of service/bootstrap and global app-flow wiring that still lives in the top-level window class.
+- Preserve current queue feedback, undo, startup, and tab-switch behavior.
+
+Phase 13 done means:
+
+- The app shell no longer owns as much bootstrap and cross-tab wiring inline.
+- MainWindow remains a stable test-facing shell while more of the app-flow setup lives behind dedicated helpers.
+- The remaining refactor pressure shifts from structural cleanup toward incremental polish.
 
 ## Working Rules for the Refactor
 

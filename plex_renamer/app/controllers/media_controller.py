@@ -33,9 +33,11 @@ from ...engine import (
 )
 from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
+from ._controller_lifecycle_workflow import MediaControllerLifecycleWorkflow
 from ._controller_match_helpers import (
     approve_controller_match,
 )
+from ._controller_projection_workflow import MediaControllerProjectionWorkflow
 from ._controller_movie_workflows import MediaControllerMovieWorkflow
 from ._controller_session_models import (
     ControllerModeState,
@@ -44,10 +46,8 @@ from ._controller_session_models import (
 )
 from ._controller_tv_workflows import MediaControllerTVWorkflow
 from ._controller_state_helpers import (
-    apply_completed_job_to_session,
     routed_library_states,
     select_library_show,
-    sync_controller_queued_states,
 )
 from ._controller_event_helpers import (
     ListenerEntry,
@@ -55,7 +55,6 @@ from ._controller_event_helpers import (
     apply_runtime_settings_to_states,
     notify_controller_listeners,
 )
-from ._scan_operation_helpers import ScanOperationTracker, update_scan_progress
 from ..models import ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
@@ -100,13 +99,11 @@ class MediaController:
         self._movie_session = MovieControllerSession()
         self._tv_workflow = MediaControllerTVWorkflow(self)
         self._movie_workflow = MediaControllerMovieWorkflow(self)
-
-        # ── Progress ────────────────────────────────────────────────
-        self._scan_progress = ScanProgress(lifecycle=ScanLifecycle.IDLE)
-        self._scan_operation = ScanOperationTracker()
+        self._projection_workflow = MediaControllerProjectionWorkflow(self)
 
         # ── Listeners ───────────────────────────────────────────────
         self._listeners: list[ListenerEntry] = []
+        self._lifecycle_workflow = MediaControllerLifecycleWorkflow(self)
 
     @property
     def _active_content_mode(self) -> MediaType:
@@ -212,6 +209,14 @@ class MediaController:
     def _movie_media_info(self, value: dict[str, Any] | None) -> None:
         self._movie_session.media_info = value
 
+    @property
+    def _scan_progress(self) -> ScanProgress:
+        return self._lifecycle_workflow.scan_progress
+
+    @_scan_progress.setter
+    def _scan_progress(self, value: ScanProgress) -> None:
+        self._lifecycle_workflow.scan_progress = value
+
     # ── Listener management ─────────────────────────────────────────
 
     def add_listener(
@@ -261,7 +266,7 @@ class MediaController:
 
     @property
     def scan_progress(self) -> ScanProgress:
-        return self._scan_progress
+        return self._lifecycle_workflow.scan_progress
 
     @property
     def batch_mode(self) -> bool:
@@ -335,8 +340,7 @@ class MediaController:
         current_item: str | None = None,
         message: str = "",
     ) -> None:
-        self._scan_progress = update_scan_progress(
-            self._notify,
+        self._lifecycle_workflow.set_progress(
             lifecycle,
             phase=phase,
             done=done,
@@ -346,16 +350,16 @@ class MediaController:
         )
 
     def _begin_scan_operation(self) -> threading.Event:
-        return self._scan_operation.begin()
+        return self._lifecycle_workflow.begin_scan_operation()
 
     def _is_current_scan_operation(self, event: threading.Event) -> bool:
-        return self._scan_operation.is_current(event)
+        return self._lifecycle_workflow.is_current_scan_operation(event)
 
     def _finish_scan_operation(self, event: threading.Event) -> None:
-        self._scan_operation.finish(event)
+        self._lifecycle_workflow.finish_scan_operation(event)
 
     def cancel_scan(self) -> bool:
-        return self._scan_operation.cancel()
+        return self._lifecycle_workflow.cancel_scan()
 
     # ── TV session methods ──────────────────────────────────────────
 
@@ -492,10 +496,11 @@ class MediaController:
 
     def apply_completed_job_to_state(self, job, result) -> bool:
         """Project a completed rename job back into the in-memory scan state."""
-        return apply_completed_job_to_session(self, job)
+        del result
+        return self._projection_workflow.apply_completed_job_to_state(job)
 
     # ── Query methods ───────────────────────────────────────────────
 
     def sync_queued_states(self) -> None:
         """Refresh queued flags for TV and movie rosters from the job store."""
-        sync_controller_queued_states(self, self._job_store.get_queue())
+        self._projection_workflow.sync_queued_states()
