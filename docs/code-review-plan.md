@@ -1,10 +1,10 @@
 # Code Review & Refactor Plan
 
-Last reviewed: 2026-04-12
+Last reviewed: 2026-04-13
 
 Verification snapshot:
-- Full suite: 392 passed in 15.91s via `python -m pytest`
-- Qt smoke: 85 passed in 9.04s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
+- Full suite: 392 passed in 15.92s via `python -m pytest`
+- Qt smoke: 85 passed in 9.13s via [scripts/test-smoke.cmd](../scripts/test-smoke.cmd)
 - Current repo state is stable enough to prioritize structural refactors over test triage.
 
 ## Progress
@@ -35,38 +35,34 @@ Verification snapshot:
 
 ### What changed
 
-- The original engine, queue, discovery-service, TMDB transport, media-workspace action, and widget hotspots have been reduced substantially through helper modules and thin facades.
-- The remaining structural debt has moved upward into UI shell/bootstrap coordination and other cross-session glue, where service construction, cross-tab wiring, and global feedback boundaries matter more than raw line count.
-- File size is now a weaker signal than mixed ownership. The better signal is whether one file or helper cluster still owns unrelated responsibilities such as service bootstrap, global UI feedback, cross-tab wiring, and application-shell state persistence at the same time.
+- The original engine, queue, discovery-service, TMDB transport, media-workspace action, widget, controller, and MainWindow bootstrap hotspots have been reduced substantially through helper modules and thin facades.
+- The remaining structural debt is now spread across smaller UI coordination seams, where new behavior landing in detail panels or cross-tab glue matters more than raw line count.
+- File size is now a weaker signal than mixed ownership. The better signal is whether new features start rebuilding unrelated responsibilities inside otherwise-thin facades.
 
 ## Current High-Value Targets
 
-### 1. Reassess MainWindow service/bootstrap coordination
+### 1. Monitor MainWindow flow only if more cross-tab glue lands there
 
-[plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) is now the clearest remaining coordination hotspot. It already delegates heavily, but it still owns top-level service construction, controller creation, bridge setup, and cross-tab/global feedback wiring in one shell.
+[plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) is no longer the main structural hotspot after the bootstrap split. It should still be watched if future work starts rebuilding startup orchestration, queue-feedback wiring, or tab-coordination logic inline.
 
 **Why now:**
-- The controller seam is now materially cleaner, so the next remaining mixed-responsibility area is the app shell rather than another controller helper.
-- `MainWindow` still concentrates service bootstrap, bridge installation, queue-feedback batching, and app-wide tab orchestration.
-- This is now a safer next cut than chasing smaller controller polish slices.
+- Phase 13 moved service/controller bootstrap and startup feedback state behind a dedicated helper boundary.
+- The shell is now closer to its intended role as a thin test-facing facade over coordinators.
+- Another MainWindow split is only worth doing if new behavior starts re-concentrating mixed responsibilities there.
 
 **Refactor direction:**
 - Keep `MainWindow` as the stable top-level Qt shell and current patch point for tests.
-- Pull service/controller bootstrap or global app-flow wiring behind a narrower helper boundary.
-- Preserve existing `main_window.py` patch points used by Qt tests.
+- Prefer small follow-on helper extractions only when new glue accumulates.
+- Preserve existing `main_window.py` patch points used by Qt tests and isolated Qt fixtures.
 
-### 2. Reassess main-window flow only if more cross-tab glue lands there
-
-[plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) is no longer a general modularization target by default. It already delegates most responsibilities to coordinators, but it is still the place to watch if navigation, queue feedback, or startup orchestration begin to accumulate again.
-
-### 3. Reassess detail panels only when new behavior lands
+### 2. Reassess detail panels only when new behavior lands
 
 [plex_renamer/gui_qt/widgets/job_detail_panel.py](../plex_renamer/gui_qt/widgets/job_detail_panel.py) and [plex_renamer/gui_qt/widgets/media_detail_panel.py](../plex_renamer/gui_qt/widgets/media_detail_panel.py) are no longer urgent hotspots. They should only move again if new poster, preview-tree, or metadata behavior starts rebuilding dense logic in those facades.
 
 ## Do Not Prioritize Yet
 
 - [plex_renamer/gui_qt/widgets/media_workspace.py](../plex_renamer/gui_qt/widgets/media_workspace.py) — now a thin wrapper over workspace coordinators rather than the old monolithic widget.
-- [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) — coordinator-driven shell; watch it, but do not force another split without a fresh mixed-responsibility seam.
+- [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) — bootstrap and startup feedback initialization now live in [plex_renamer/gui_qt/_main_window_bootstrap.py](../plex_renamer/gui_qt/_main_window_bootstrap.py); watch the shell, but do not force another split without a fresh mixed-responsibility seam.
 - [plex_renamer/tmdb.py](../plex_renamer/tmdb.py) — transport is already extracted, and the remaining facade is cohesive enough for now.
 - [plex_renamer/gui_qt/widgets/_workspace_widgets.py](../plex_renamer/gui_qt/widgets/_workspace_widgets.py) — row widgets are now intentionally separated from low-level primitives.
 - [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py), [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py), [plex_renamer/job_store.py](../plex_renamer/job_store.py), and [plex_renamer/job_executor.py](../plex_renamer/job_executor.py) — recent helper splits mean the main refactor pressure has moved elsewhere.
@@ -403,18 +399,23 @@ Phase 12 done means:
 
 Refactor [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py) only if the current service/bootstrap and app-flow wiring can be isolated behind another stable coordinator boundary without disturbing the existing test patch points.
 
-Status: next candidate.
+Status: completed on 2026-04-13.
 
 Goals:
 - Keep `main_window.py` as the stable shell and current patch point for Qt tests.
 - Reduce the amount of service/bootstrap and global app-flow wiring that still lives in the top-level window class.
 - Preserve current queue feedback, undo, startup, and tab-switch behavior.
 
+Completed in the current slice:
+- Extracted service/controller bootstrap and bridge installation to [plex_renamer/gui_qt/_main_window_bootstrap.py](../plex_renamer/gui_qt/_main_window_bootstrap.py).
+- Moved startup queue-feedback state and success-toast timer initialization behind the bootstrap coordinator instead of keeping that setup inline in [plex_renamer/gui_qt/main_window.py](../plex_renamer/gui_qt/main_window.py).
+- Kept `main_window.py` as the stable patch point for `SettingsService`, `PersistentCacheService`, `JobStore`, `QTimer.singleShot`, and `QMessageBox.question`, which current Qt fixtures and tests patch directly.
+
 Phase 13 done means:
 
 - The app shell no longer owns as much bootstrap and cross-tab wiring inline.
 - MainWindow remains a stable test-facing shell while more of the app-flow setup lives behind dedicated helpers.
-- The remaining refactor pressure shifts from structural cleanup toward incremental polish.
+- The remaining refactor pressure shifts from broad structural cleanup toward incremental polish and only narrow follow-on extractions.
 
 ## Working Rules for the Refactor
 

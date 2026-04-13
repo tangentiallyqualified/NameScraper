@@ -33,6 +33,7 @@ from ..tmdb import TMDBClient
 from ..keys import get_api_key
 from ..thread_pool import submit as _submit_bg
 
+from ._main_window_bootstrap import MainWindowBootstrapCoordinator
 from ._main_window_bridges import install_controller_bridge, install_queue_bridge
 from ._main_window_chrome import MainWindowChromeCoordinator
 from ._main_window_feedback import MainWindowFeedbackCoordinator
@@ -110,6 +111,7 @@ class MainWindow(QMainWindow):
             movies_index=_MOVIES,
             queue_index=_QUEUE,
         )
+        self._bootstrap_coordinator = MainWindowBootstrapCoordinator(self)
         self._tabs_coordinator = MainWindowTabsCoordinator(
             self,
             tv_index=_TV,
@@ -119,42 +121,24 @@ class MainWindow(QMainWindow):
         )
 
         # ── Services and controllers ─────────────────────────────
-        self.settings_service = SettingsService()
-        self._job_store = JobStore()
-        self._command_gating = CommandGatingService()
-        self._refresh_policy = RefreshPolicyService()
-        self._cache_service = PersistentCacheService(refresh_policy=self._refresh_policy)
-
-        self.queue_ctrl = QueueController(self._job_store)
-        self.media_ctrl = MediaController(
-            job_store=self._job_store,
-            command_gating=self._command_gating,
-            settings=self.settings_service,
-            cache_service=self._cache_service,
-            refresh_policy=self._refresh_policy,
+        self._bootstrap_coordinator.initialize_backend(
+            settings_factory=SettingsService,
+            job_store_factory=JobStore,
+            command_gating_factory=CommandGatingService,
+            refresh_policy_factory=RefreshPolicyService,
+            cache_service_factory=PersistentCacheService,
+            queue_controller_factory=QueueController,
+            media_controller_factory=MediaController,
+            controller_bridge_installer=install_controller_bridge,
+            queue_bridge_installer=install_queue_bridge,
         )
-
-        # ── Controller → Qt bridge ───────────────────────────────
-        self._bridge = install_controller_bridge(self)
-        self._queue_bridge = install_queue_bridge(self)
 
         # ── Tab widget ───────────────────────────────────────────
         self._tabs_coordinator.build_tab_widget()
-        self._toast_manager = ToastManager(self)
-        self._queue_run_started = False
-        self._queue_completed_count = 0
-        self._queue_failed_count = 0
-        self._pending_success_jobs = 0
-        self._pending_success_files = 0
-        self._job_poster_backfill_started = False
-        self._job_poster_backfill_future = None
-        self._tv_needs_queue_refresh = False
-        self._movie_needs_queue_refresh = False
-        self._scan_feedback_token: tuple[str, str] | None = None
-        self._success_toast_timer = QTimer(self)
-        self._success_toast_timer.setSingleShot(True)
-        self._success_toast_timer.setInterval(350)
-        self._success_toast_timer.timeout.connect(self._flush_success_toast_batch)
+        self._bootstrap_coordinator.initialize_feedback_state(
+            toast_manager_factory=ToastManager,
+            timer_factory=QTimer,
+        )
 
         # ── Tab content ──────────────────────────────────────────
         self._tabs_coordinator.build_tab_content()
