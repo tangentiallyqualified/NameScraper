@@ -23,6 +23,7 @@ Verification snapshot:
 - [x] **#12** add CI — added [.github/workflows/ci.yml](../.github/workflows/ci.yml) for fast-suite coverage on PRs and pushes.
 - [x] **#13** batch TV orchestration policy split — extracted duplicate labeling, season-merge helpers, and near-tie match policy from [plex_renamer/engine/_batch_orchestrators.py](../plex_renamer/engine/_batch_orchestrators.py) into private engine modules; `discover_shows()` now reads as workflow orchestration.
 - [x] **#14** TVScanner helper split — extracted specials matching and consolidated-preview logic from [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py) into private helper modules while keeping `TVScanner` as the public facade.
+- [x] **#15** TVScanner normal-preview and postprocess split — extracted the normal preview builder plus duplicate-episode resolution and completeness reporting from [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py); `TVScanner` remains the cache-owning facade.
 
 ## Current Assessment
 
@@ -204,7 +205,7 @@ Phase 1 done means:
 
 ### Phase 2: Split TV scanner builders
 
-Status: in progress on 2026-04-12.
+Status: completed on 2026-04-12.
 
 Move next to [plex_renamer/engine/_tv_scanner.py](../plex_renamer/engine/_tv_scanner.py).
 
@@ -220,12 +221,16 @@ Success criteria:
 Completed in the current slice:
 - Extracted specials and extras matching to [plex_renamer/engine/_tv_scanner_specials.py](../plex_renamer/engine/_tv_scanner_specials.py).
 - Extracted consolidated-preview and title-based absolute matching to [plex_renamer/engine/_tv_scanner_consolidated.py](../plex_renamer/engine/_tv_scanner_consolidated.py).
+- Extracted the normal preview builder to [plex_renamer/engine/_tv_scanner_normal.py](../plex_renamer/engine/_tv_scanner_normal.py).
+- Extracted duplicate-episode resolution and completeness reporting to [plex_renamer/engine/_tv_scanner_postprocess.py](../plex_renamer/engine/_tv_scanner_postprocess.py).
 - Preserved `TVScanner` public APIs and existing scanner-focused tests.
+- Kept TMDB season-cache ownership on `TVScanner` so helper modules stay stateless and the facade still owns cache invalidation.
 
-Remaining Phase 2 work:
-- Extract the normal preview builder into a dedicated helper or builder module.
-- Decide whether duplicate-episode resolution and completeness calculation should stay on `TVScanner` or move to separate helpers.
-- Revisit whether TMDB-season cache ownership should remain entirely on `TVScanner` after the normal builder moves out.
+Phase 2 done means:
+
+- The scanner no longer embeds specials, consolidated-preview, and normal-preview logic inline in one file.
+- Duplicate-episode resolution and completeness reporting are isolated from the core scan workflow.
+- `TVScanner` acts primarily as the public facade, cache owner, and workflow entry point.
 
 ### Phase 3: Untangle queue persistence and execution
 
