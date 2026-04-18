@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from ..constants import VIDEO_EXTENSIONS, MediaType
 from ..parsing import (
+    clean_folder_name,
     extract_episode,
     extract_season_number,
     get_season,
@@ -320,6 +321,7 @@ def collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]
 def infer_explicit_season_assignment(
     folder: Path,
     evidence: list[DirectEpisodeEvidence] | None = None,
+    show_name: str | None = None,
 ) -> int | None:
     """Infer a season assignment from folder name or consistent S##E## files."""
     season_num = get_season(folder)
@@ -330,4 +332,15 @@ def infer_explicit_season_assignment(
     explicit_seasons = {item.season_num for item in direct_evidence if item.season_num > 0}
     if len(explicit_seasons) == 1:
         return next(iter(explicit_seasons))
+
+    if show_name:
+        folder_cleaned = clean_folder_name(folder.name, include_year=False).lower().strip()
+        show_cleaned = clean_folder_name(show_name, include_year=False).lower().strip()
+        if show_cleaned and folder_cleaned.startswith(show_cleaned):
+            suffix = folder_cleaned[len(show_cleaned):].strip()
+            if suffix.isdigit():
+                season = int(suffix)
+                if 1 <= season <= 50:
+                    return season
+
     return None

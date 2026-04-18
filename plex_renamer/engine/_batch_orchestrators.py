@@ -315,7 +315,11 @@ class BatchTVOrchestrator:
             discovered_via_symlink=candidate.discovered_via_symlink,
             tie_detected=tie_detected,
             season_names=season_names,
-            season_assignment=infer_explicit_season_assignment(folder, episode_evidence),
+            season_assignment=infer_explicit_season_assignment(
+                folder,
+                episode_evidence,
+                show_name=best.get("name"),
+            ),
         )
 
     @staticmethod
@@ -538,6 +542,8 @@ class BatchTVOrchestrator:
             if progress_callback:
                 progress_callback(index + 1, total)
 
+        self._reconcile_scanned_siblings(cancel_event=cancel_event)
+
     def reconcile_scanned_state(self, state: ScanState) -> ScanState:
         """Try to merge a freshly-scanned state into a same-show sibling."""
         if state.show_id is None or not state.preview_items:
@@ -561,6 +567,38 @@ class BatchTVOrchestrator:
             season_num: _resolve_tv_season_folder(state.folder, season_num),
         }
         return self.merge_rematched_state(state)
+
+    def _reconcile_scanned_siblings(
+        self,
+        cancel_event: threading.Event | None = None,
+    ) -> None:
+        """Post-scan pass: merge same-show siblings into multi-season cards."""
+        groups: dict[int, list[ScanState]] = {}
+        for state in self.states:
+            if state.show_id is None:
+                continue
+            groups.setdefault(state.show_id, []).append(state)
+
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            for state in list(group):
+                _raise_if_cancelled(cancel_event)
+                if state not in self.states:
+                    continue
+                reconciled = self.reconcile_scanned_state(state)
+                if reconciled.scanned:
+                    continue
+                try:
+                    self.scan_show(reconciled, cancel_event=cancel_event)
+                except ScanCancelledError:
+                    raise
+                except Exception as error:
+                    _log.error(
+                        "Failed to re-scan merged %s: %s",
+                        reconciled.display_name,
+                        error,
+                    )
 
     def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:
         """Swap a show's TMDB match and invalidate its scan data."""

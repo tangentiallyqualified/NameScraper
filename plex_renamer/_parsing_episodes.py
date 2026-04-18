@@ -36,7 +36,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         return episodes, title, True
 
     match = re.search(
-        r"-\s*(\d{1,3})['\u2032]?(?:\s*-\s*(\d{1,3})['\u2032]?)?(?:\s*-\s*(.*))?$",
+        r"-\s*(\d{1,3})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,3})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
     )
     if match:
@@ -59,6 +59,17 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             title_text = bare_match.group(2).strip()
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
             return [num], title_text or None, False
+
+    match = re.search(
+        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        name,
+        re.IGNORECASE,
+    )
+    if match:
+        num = int(match.group(1))
+        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
+            title = match.group(2).strip() if match.group(2) else None
+            return [num], title, False
 
     match = re.search(
         r"(?<![xXhH\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
