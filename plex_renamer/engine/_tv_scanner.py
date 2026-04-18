@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from ..constants import VIDEO_EXTENSIONS
 from ..parsing import (
     clean_folder_name,
     get_season,
@@ -34,6 +35,19 @@ from ._tv_scanner_specials import (
 from .models import CompletenessReport, PreviewItem, SeasonCompleteness
 
 _log = logging.getLogger(__name__)
+
+_HINT_OVERFLOW_MARGIN = 4
+
+
+def _count_video_files(folder: Path) -> int:
+    try:
+        return sum(
+            1
+            for entry in folder.iterdir()
+            if entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS
+        )
+    except OSError:
+        return 0
 
 
 class TVScanner:
@@ -130,11 +144,25 @@ class TVScanner:
 
         is_flat_folder = len(season_dirs) == 1 and season_dirs[0][0] == self.root
         non_special_tmdb_seasons = {season_num for season_num in tmdb_seasons if season_num != 0}
-        if is_flat_folder and len(non_special_tmdb_seasons) > 1 and self._season_hint is None:
-            return (
-                self._build_consolidated_preview(season_dirs, tmdb_seasons),
-                False,
-            )
+        if is_flat_folder and len(non_special_tmdb_seasons) > 1:
+            use_consolidated = self._season_hint is None
+            if not use_consolidated:
+                # Absolute-numbering sources (common for anime) often label every
+                # file with a single S## that TMDB has split across seasons. If
+                # the video count overflows the hinted season's capacity by more
+                # than the margin, treat the hint as unreliable and fall back to
+                # consolidated mapping.
+                hinted_season = tmdb_seasons.get(self._season_hint)
+                if hinted_season:
+                    hinted_count = hinted_season.get("count", 0)
+                    video_count = _count_video_files(season_dirs[0][0])
+                    if hinted_count > 0 and video_count > hinted_count + _HINT_OVERFLOW_MARGIN:
+                        use_consolidated = True
+            if use_consolidated:
+                return (
+                    self._build_consolidated_preview(season_dirs, tmdb_seasons),
+                    False,
+                )
 
         mismatched, _, _ = self._detect_mismatch(season_dirs, tmdb_seasons)
 
