@@ -16,6 +16,8 @@ from ..parsing import (
 )
 from ._movie_scanner import _build_subtitle_companions
 from ._tv_scanner_specials import (
+    build_title_lookup,
+    fuzzy_match_special,
     load_specials_context,
     match_special,
     scan_nested_extras,
@@ -65,11 +67,12 @@ def build_normal_preview(
 
         store_tmdb_data(season_num, titles, posters, episodes)
 
-        tmdb_title_lookup = {}
         if season_num == 0:
             context = ensure_specials_data()
             titles = context.titles
             tmdb_title_lookup = context.title_lookup
+        else:
+            tmdb_title_lookup = build_title_lookup(titles)
 
         explicit_season_folder = (
             season_dir == root
@@ -167,6 +170,17 @@ def build_normal_preview(
                         **media_fields,
                     ))
                     continue
+
+                # If the filename has a title, check whether it matches a
+                # different TMDB episode than the parsed number.  Episode
+                # numbering across sources can drift (especially for older
+                # shows), but the embedded title is usually reliable.
+                if raw_title and len(episode_numbers) == 1:
+                    title_ep, title_name = fuzzy_match_special(
+                        raw_title, tmdb_title_lookup,
+                    )
+                    if title_ep is not None and title_ep != episode_numbers[0]:
+                        episode_numbers = [title_ep]
 
                 episode_titles = [
                     titles.get(episode_num, raw_title or f"Episode {episode_num}")

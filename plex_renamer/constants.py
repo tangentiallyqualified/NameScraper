@@ -65,7 +65,7 @@ class JobKind(StrEnum):
 # ─── Filename sanitization ────────────────────────────────────────────────────
 
 # Characters illegal in filenames on Windows (and problematic elsewhere).
-UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]')
+UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?]')
 
 # ─── Release-group noise patterns ────────────────────────────────────────────
 # Tokens commonly found in release-group folder/file names that are NOT part

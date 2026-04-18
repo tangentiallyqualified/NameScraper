@@ -90,10 +90,11 @@ def clean_name(name: str) -> str:
     Normalize a filename for pattern matching.
 
     Strips square-bracketed tags (fansub groups, quality tags) but preserves
-    parenthesized years like (2023).  Dots and underscores become spaces.
+    parenthesized years like (2023) and part numbers like (1), (2).
+    Dots and underscores become spaces.
     """
     name = re.sub(r"\[.*?\]", "", name)
-    name = re.sub(r"\((?!\d{4}\))[^)]*\)", "", name)
+    name = re.sub(r"\((?!(?:\d{4}|\d{1,2})\))[^)]*\)", "", name)
     name = name.replace(".", " ").replace("_", " ")
     return re.sub(r"\s+", " ", name).strip()
 
@@ -104,6 +105,7 @@ def sanitize_filename(name: str) -> str:
     Windows and potentially problematic on other operating systems.
     """
     name = name.replace(":", " -")
+    name = name.replace("*", "\uFF0A")
     name = UNSAFE_FILENAME_CHARS.sub("", name)
     name = re.sub(r"\s+", " ", name).strip()
     name = name.rstrip(". ")
