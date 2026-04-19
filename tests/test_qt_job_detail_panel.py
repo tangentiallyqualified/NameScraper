@@ -41,7 +41,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         QTest.qWait(10)
         self._app.processEvents()
 
-        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=200)
+        tmdb.fetch_image.assert_called_once()
+        call_args = tmdb.fetch_image.call_args
+        self.assertEqual(call_args.args, ("/poster.jpg",))
+        self.assertGreaterEqual(call_args.kwargs["target_width"], 200)
         panel.close()
 
     def test_job_detail_panel_backfills_poster_path_from_cached_tmdb_metadata(self):
@@ -72,7 +75,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self._app.processEvents()
 
         tmdb.get_cached_poster_path.assert_called_once_with(123, media_type=job.media_type)
-        tmdb.fetch_image.assert_called_once_with("/poster.jpg", target_width=200)
+        tmdb.fetch_image.assert_called_once()
+        call_args = tmdb.fetch_image.call_args
+        self.assertEqual(call_args.args, ("/poster.jpg",))
+        self.assertGreaterEqual(call_args.kwargs["target_width"], 200)
         self.assertEqual(job.poster_path, "/poster.jpg")
         self.assertEqual(persisted, [(job.job_id, "/poster.jpg")])
         panel.close()

@@ -20,6 +20,17 @@ _STATUS_TEXT = {
     JobStatus.REVERTED: "Reverted",
     JobStatus.REVERT_FAILED: "Revert Failed",
 }
+_STATUS_SORT_ORDER = {
+    JobStatus.RUNNING: 0,
+    JobStatus.PENDING: 1,
+    JobStatus.FAILED: 2,
+    JobStatus.REVERT_FAILED: 3,
+    JobStatus.COMPLETED: 4,
+    JobStatus.REVERTED: 5,
+    JobStatus.CANCELLED: 6,
+}
+
+SORT_ROLE = Qt.ItemDataRole.UserRole + 1
 _STATUS_COLOR = {
     JobStatus.PENDING: QColor("#777777"),
     JobStatus.RUNNING: QColor("#e5a00d"),
@@ -195,6 +206,24 @@ class JobTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.UserRole:
             return job
+
+        if role == SORT_ROLE:
+            if column == 0:
+                return 0
+            if value_column == 0:
+                return _STATUS_SORT_ORDER.get(job.status, 99)
+            if value_column == 1:
+                return (job.media_name or "").casefold()
+            if value_column == 2:
+                return (job.media_type or "").casefold()
+            if value_column == 3:
+                return (job.job_kind or "").casefold()
+            if value_column == 4:
+                return int(job.selected_count or 0)
+            if value_column == 5:
+                return len(job.companion_ops)
+            if value_column == 6:
+                return job.updated_at if self._history else job.created_at
 
         return None
 

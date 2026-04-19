@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSortFilterProxyModel, QModelIndex
 
+from .job_table_model import SORT_ROLE
+
 
 class JobStatusFilterProxyModel(QSortFilterProxyModel):
     """Filter RenameJob rows by a set of allowed status strings."""
@@ -11,6 +13,7 @@ class JobStatusFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._allowed_statuses: set[str] | None = None
+        self.setSortRole(SORT_ROLE)
 
     def set_allowed_statuses(self, statuses: set[str] | None) -> None:
         self._allowed_statuses = None if not statuses else set(statuses)

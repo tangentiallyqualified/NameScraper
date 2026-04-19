@@ -213,6 +213,11 @@ class _JobListTab(QWidget):
         self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)
         self._table.setItemDelegate(self._hover_delegate)
 
+        self._table.setSortingEnabled(True)
+        self._header.setSectionsClickable(True)
+        self._header.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
+        self._header.sortIndicatorChanged.connect(self._on_sort_indicator_changed)
+
         self._selection_status = QLabel("0 checked")
         self._selection_status.setProperty("cssClass", "text-dim")
 
@@ -327,6 +332,10 @@ class _JobListTab(QWidget):
 
     def _on_cell_entered(self, index: QModelIndex) -> None:
         self._hover_delegate.set_hover_row(index.row() if index.isValid() else -1)
+
+    def _on_sort_indicator_changed(self, logical_index: int, order: Qt.SortOrder) -> None:
+        if logical_index == 0:
+            self._header.setSortIndicator(-1, order)
 
     def eventFilter(self, obj, event) -> bool:
         if obj is not self._table.viewport():

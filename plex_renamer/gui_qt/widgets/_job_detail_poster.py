@@ -5,12 +5,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
 from ...job_store import RenameJob
 from ...thread_pool import submit as _submit_bg
-from ._image_utils import pil_to_raw, raw_to_pixmap
+from ._image_utils import pil_to_raw, raw_to_pixmap, scale_pixmap_for_device
+
+
+def _poster_device_pixel_ratio(poster) -> float:
+    try:
+        return max(1.0, float(poster.devicePixelRatioF()))
+    except Exception:
+        return 1.0
+
+
+def _poster_fetch_width(poster) -> int:
+    logical_width = poster.width() or 160
+    ratio = _poster_device_pixel_ratio(poster)
+    return max(400, min(900, int(round(logical_width * ratio * 1.6))))
 
 
 class _JobDetailPosterPanel(Protocol):
@@ -37,6 +49,8 @@ class JobDetailPosterWorkflow:
             self._show_no_poster()
             return
 
+        fetch_width = _poster_fetch_width(panel._poster)
+
         def _worker() -> None:
             image = None
             poster_path = job.poster_path
@@ -46,9 +60,9 @@ class JobDetailPosterWorkflow:
                     self._persist_poster_path(job, poster_path)
 
             if poster_path:
-                image = tmdb.fetch_image(poster_path, target_width=200)
+                image = tmdb.fetch_image(poster_path, target_width=fetch_width)
             elif job.tmdb_id:
-                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=200)
+                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=fetch_width)
                 poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
                 if poster_path:
                     self._persist_poster_path(job, poster_path)
@@ -75,13 +89,15 @@ class JobDetailPosterWorkflow:
 
         panel._poster_pixmap = pixmap
         panel._poster.setText("")
-        panel._poster.setPixmap(
-            pixmap.scaled(
-                panel._poster.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+        target = panel._poster.contentsRect().size()
+        if not target.isValid() or target.width() <= 0 or target.height() <= 0:
+            target = panel._poster.size()
+        scaled = scale_pixmap_for_device(
+            pixmap,
+            target,
+            device_pixel_ratio=_poster_device_pixel_ratio(panel._poster),
         )
+        panel._poster.setPixmap(scaled)
 
     def _persist_poster_path(self, job: RenameJob, poster_path: str) -> None:
         panel = self._panel
