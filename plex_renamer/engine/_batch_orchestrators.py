@@ -29,6 +29,7 @@ from ._batch_tv_match_policy import (
 from ._batch_tv_season_merge import (
     expanded_season_folders as _expanded_tv_season_folders,
     merge_season_siblings as _merge_tv_season_siblings,
+    merge_umbrella_siblings as _merge_tv_umbrella_siblings,
     represented_seasons as _represented_tv_seasons,
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
@@ -375,6 +376,7 @@ class BatchTVOrchestrator:
             )
 
         states = _merge_tv_season_siblings(states)
+        states = _merge_tv_umbrella_siblings(states)
         states.sort(key=self._sort_discovered_show_state)
 
         self.states = states
