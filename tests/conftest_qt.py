@@ -47,6 +47,9 @@ class QtSmokeBase(unittest.TestCase):
         self._main_window_stack.enter_context(
             patch("plex_renamer.gui_qt.main_window.JobStore", return_value=isolated_store)
         )
+        self._main_window_stack.enter_context(
+            patch("plex_renamer.gui_qt.main_window.get_api_key", return_value=None)
+        )
 
     # -- Shared helpers --------------------------------------------------
 

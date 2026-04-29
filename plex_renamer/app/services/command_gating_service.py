@@ -119,7 +119,12 @@ class CommandGatingService:
     ) -> QueueEligibility:
         """Return queue command state for a ScanState."""
         selected: set[int] = set()
-        if state.check_vars:
+        if allow_show_level_queue and state.checked:
+            selected = {
+                index for index, item in enumerate(state.preview_items)
+                if self.is_actionable_item(item)
+            }
+        elif state.check_vars:
             selected = get_checked_indices_from_state(state)
         elif state.checked:
             selected = {
@@ -132,29 +137,6 @@ class CommandGatingService:
                 command_state=QueueCommandState.DISABLED_NO_SELECTION,
                 reason="Scan and review files before queueing.",
             )
-
-        if (
-            allow_show_level_queue
-            and state.checked
-            and state.scanned
-            and not state.scanning
-            and not state.queued
-            and state.duplicate_of is None
-            and not self.is_plex_ready_state(state)
-            and state.show_id is not None
-            and not selected
-        ):
-            actionable = [
-                index for index, item in enumerate(state.preview_items)
-                if self.is_actionable_item(item)
-            ]
-            if not actionable:
-                return QueueEligibility(
-                    command_state=QueueCommandState.ENABLED,
-                    reason="Show is eligible for queueing.",
-                    eligible_file_count=0,
-                    eligible_job_count=1,
-                )
 
         return self.evaluate_preview_items(
             state.preview_items,

@@ -49,11 +49,11 @@ from .widgets.toast_manager import ToastManager
 _log = logging.getLogger(__name__)
 
 # Tab indices
-_TV = 0
-_MOVIES = 1
-_QUEUE = 2
-_HISTORY = 3
-_SETTINGS = 4
+_SETTINGS = 0
+_TV = 1
+_MOVIES = 2
+_QUEUE = 3
+_HISTORY = 4
 TMDB_CACHE_NAMESPACE = "tmdb"
 TMDB_CACHE_SNAPSHOT_KEY = "client_snapshot"
 
@@ -114,6 +114,7 @@ class MainWindow(QMainWindow):
         self._bootstrap_coordinator = MainWindowBootstrapCoordinator(self)
         self._tabs_coordinator = MainWindowTabsCoordinator(
             self,
+            settings_index=_SETTINGS,
             tv_index=_TV,
             movies_index=_MOVIES,
             queue_index=_QUEUE,

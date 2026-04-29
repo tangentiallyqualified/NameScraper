@@ -58,17 +58,17 @@ class QueueTab(_JobListTab):
 
         self._start_btn = QPushButton("Start Queue")
         self._start_btn.clicked.connect(self._toggle_queue)
-        self._toolbar_layout.addWidget(self._start_btn)
+        self._actions_layout.addWidget(self._start_btn)
 
         self._execute_btn = QPushButton("Run Selected")
         self._execute_btn.setProperty("cssClass", "secondary")
         self._execute_btn.clicked.connect(self._execute_selected)
-        self._toolbar_layout.addWidget(self._execute_btn)
+        self._actions_layout.addWidget(self._execute_btn)
 
         self._remove_btn = QPushButton("Remove Selected")
         self._remove_btn.setProperty("cssClass", "secondary")
         self._remove_btn.clicked.connect(self._remove_selected)
-        self._toolbar_layout.addWidget(self._remove_btn)
+        self._actions_layout.addWidget(self._remove_btn)
 
         self._finish_toolbar(_QUEUE_FILTERS)
         self._finish_list_pane()
@@ -182,4 +182,3 @@ class QueueTab(_JobListTab):
 
     def _set_remove_button_enabled(self, enabled: bool) -> None:
         apply_remove_button_state(self._remove_btn, enabled=enabled)
-

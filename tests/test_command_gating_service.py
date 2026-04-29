@@ -194,6 +194,32 @@ class CommandGatingServiceTests(unittest.TestCase):
         result = self.svc.summarize_scan_states(states)
         self.assertEqual(result.command_state, QueueCommandState.DISABLED_SCANNING)
 
+    def test_tv_show_level_queue_uses_all_actionable_files(self):
+        class _Binding:
+            def __init__(self, value):
+                self._value = value
+
+            def get(self):
+                return self._value
+
+            def set(self, value):
+                self._value = value
+
+        state = _state(
+            items=[
+                _item(original="ep01.mkv", new_name="Show - S01E01.mkv"),
+                _item(original="ep02.mkv", new_name="Show - S01E02.mkv"),
+            ],
+            checked=True,
+        )
+        state.check_vars = {"0": _Binding(False), "1": _Binding(False)}
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertTrue(result.enabled)
+        self.assertEqual(result.selected_indices, [0, 1])
+        self.assertEqual(result.eligible_file_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

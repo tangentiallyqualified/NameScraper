@@ -41,7 +41,6 @@ def approve_scan_match(
         return False
     state.match_origin = "manual"
     resolve_movie_preview_review(state)
-    set_actionable_preview_checks(state, True)
     return True
 
 
@@ -128,7 +127,7 @@ def rematch_tv_scan_state(
         selected_id=effective_state.media_info.get("id"),
         limit=3,
     )
-    effective_state.checked = effective_state.show_id is not None and not effective_state.needs_review
+    effective_state.checked = False
     return TVRematchResult(effective_state, updated_batch_states)
 
 
@@ -182,7 +181,7 @@ def rematch_movie_scan_state(
         else 1.0
     )
     state.scanned = True
-    state.checked = new_item.is_actionable
+    state.checked = False
     state.selected_index = 0 if state.preview_items else None
 
     updated_movie_preview_items = list(movie_preview_items)

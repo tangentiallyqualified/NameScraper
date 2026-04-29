@@ -18,16 +18,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import PreviewItem, ScanState
 from ._media_helpers import (
     is_state_queue_approvable as _is_state_queue_approvable,
     make_section_header as _make_section_header,
     season_label as _season_label,
     state_key as _state_key,
-    tv_preview_sort_key as _tv_preview_sort_key,
 )
 from ._workspace_widgets import (
     _CheckBinding,
+    EpisodeGuideRowWidget as _EpisodeGuideRowWidget,
     FolderPreviewRowWidget as _FolderPreviewRowWidget,
     MasterCheckBox as _MasterCheckBox,
     PreviewRowWidget as _PreviewRowWidget,
@@ -49,13 +50,17 @@ class MediaWorkspacePreviewPanel(QFrame):
         media_type: str,
         settings_service: "SettingsService | None" = None,
         set_item_check_state_callback=None,
+        episode_filter_changed_callback=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._media_type = media_type
         self._settings = settings_service
         self._set_item_check_state = set_item_check_state_callback
+        self._episode_filter_changed = episode_filter_changed_callback
+        self._episode_filter = "all"
         self._master_syncing = False
+        self._episode_mapping = EpisodeMappingService()
         self._build_ui()
 
     @property
@@ -113,6 +118,17 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._check_summary = QLabel("")
         self._check_summary.setProperty("cssClass", "caption")
         header.addWidget(self._check_summary)
+
+        self._episode_filter_buttons: dict[str, QPushButton] = {}
+        for key, label in (("all", "All"), ("problems", "Problems"), ("unmapped", "Unmapped")):
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setProperty("cssClass", "secondary")
+            button.setProperty("sizeVariant", "compact")
+            button.hide()
+            button.clicked.connect(lambda _checked=False, value=key: self._set_episode_filter(value))
+            self._episode_filter_buttons[key] = button
+            header.addWidget(button)
         header.addStretch()
 
         self._fix_match_button = QPushButton("Fix Match")
@@ -162,7 +178,6 @@ class MediaWorkspacePreviewPanel(QFrame):
         ensure_check_bindings: Callable[[ScanState], None],
         folder_plan_text: Callable[[ScanState], str],
         folder_preview_data: Callable[[ScanState], tuple[str, str] | None],
-        season_ratio_text: Callable[[ScanState, int | None, int], str],
     ) -> None:
         self._list_widget.clear()
         folder_preview = folder_preview_data(state)
@@ -176,6 +191,7 @@ class MediaWorkspacePreviewPanel(QFrame):
             )
 
         if not state.preview_items:
+            self._set_episode_filters_visible(False)
             if state.scanning:
                 self.set_summary("Preview is still scanning for this item.")
             elif not state.scanned and state.show_id is not None:
@@ -184,37 +200,22 @@ class MediaWorkspacePreviewPanel(QFrame):
                 self.set_summary("No preview items available for this selection.")
             return
 
+        if self._media_type == "tv":
+            self._populate_episode_guide(
+                state,
+                preview_group_state=preview_group_state,
+                ensure_check_bindings=ensure_check_bindings,
+            )
+            return
+
+        self._set_episode_filters_visible(False)
         ensure_check_bindings(state)
         self.set_summary("")
 
-        if self._media_type == "tv":
-            collapsed = preview_group_state.setdefault(_state_key(state), set())
-            season_groups: dict[int | None, list[int]] = {}
-            for index, preview in enumerate(state.preview_items):
-                season_groups.setdefault(preview.season, []).append(index)
-
-            for season_num, indices in sorted(
-                season_groups.items(),
-                key=lambda entry: (entry[0] is None, entry[0] or 0),
-            ):
-                is_collapsed = season_num in collapsed
-                ratio = season_ratio_text(state, season_num, len(indices))
-                season_name = state.season_names.get(season_num, "") if season_num is not None else ""
-                self.add_header(
-                    ("▸ " if is_collapsed else "▾ ") + _season_label(season_num, name=season_name) + ratio,
-                    season_num,
-                )
-                if is_collapsed:
-                    continue
-                for index in sorted(indices, key=lambda index: _tv_preview_sort_key(state.preview_items[index], index)):
-                    item = self.build_preview_row(state, index, state.preview_items[index])
-                    self._list_widget.addItem(item)
-                    self.attach_preview_widget(item, state, index, state.preview_items[index])
-        else:
-            for index, preview in enumerate(state.preview_items):
-                item = self.build_preview_row(state, index, preview)
-                self._list_widget.addItem(item)
-                self.attach_preview_widget(item, state, index, preview)
+        for index, preview in enumerate(state.preview_items):
+            item = self.build_preview_row(state, index, preview)
+            self._list_widget.addItem(item)
+            self.attach_preview_widget(item, state, index, preview)
 
         self._restore_current_preview_row(state)
 
@@ -239,6 +240,162 @@ class MediaWorkspacePreviewPanel(QFrame):
         header.setData(_PREVIEW_ENTRY_KIND_ROLE, "header")
         header.setData(_PREVIEW_SECTION_ROLE, section_key)
         self._list_widget.addItem(header)
+
+    def add_static_header(self, text: str) -> None:
+        header = _make_section_header(text, selectable=False)
+        header.setData(_PREVIEW_ENTRY_KIND_ROLE, "label")
+        header.setData(_PREVIEW_SECTION_ROLE, None)
+        self._list_widget.addItem(header)
+
+    def _populate_episode_guide(
+        self,
+        state: ScanState,
+        *,
+        preview_group_state: dict[str, set[int | str]],
+        ensure_check_bindings: Callable[[ScanState], None],
+    ) -> None:
+        ensure_check_bindings(state)
+        self._master_check.hide()
+        self._check_summary.hide()
+        self._set_episode_filters_visible(True)
+        self._sync_episode_filter_buttons()
+        guide = self._episode_mapping.build_episode_guide(state)
+        self.set_summary(self._episode_summary_text(guide.summary))
+        self.add_static_header(f"Episode Guide: {guide.source_label}")
+
+        collapsed = preview_group_state.setdefault(_state_key(state), set())
+        rows_by_season: dict[int, list] = {}
+        for row in guide.rows:
+            if self._episode_filter == "unmapped":
+                continue
+            if self._episode_filter == "problems" and row.status == "Mapped":
+                continue
+            rows_by_season.setdefault(row.season, []).append(row)
+
+        for season_num, rows in sorted(rows_by_season.items()):
+            section_key = f"episode-guide-season:{season_num}"
+            is_collapsed = section_key in collapsed
+            season_name = state.season_names.get(season_num, "")
+            season_title = _season_label(season_num, name=season_name)
+            season_title += self._episode_guide_season_ratio(state, season_num, rows)
+            self.add_header(("â–¸ " if is_collapsed else "â–¾ ") + season_title, section_key)
+            if is_collapsed:
+                continue
+            for row in rows:
+                item = self._build_episode_guide_item(state, row)
+                self._list_widget.addItem(item)
+                self._attach_episode_guide_widget(item, row)
+
+        if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
+            self.add_static_header(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
+            for unmapped in guide.unmapped_primary_files:
+                index = state.preview_items.index(unmapped.preview) if unmapped.preview in state.preview_items else None
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self._list_widget.addItem(item)
+                widget = _EpisodeGuideRowWidget(
+                    title=unmapped.original.name,
+                    status="Unmapped",
+                    original=unmapped.reason,
+                    parent=self._list_widget,
+                )
+                widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
+                self._sync_item_height(item, widget)
+                self._list_widget.setItemWidget(item, widget)
+
+        if self._episode_filter in {"all", "problems", "unmapped"} and guide.orphan_companion_files:
+            self.add_static_header(f"Orphan Companion Files ({len(guide.orphan_companion_files)})")
+            for companion in guide.orphan_companion_files:
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, None)
+                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "orphan-companion")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                self._list_widget.addItem(item)
+                widget = _EpisodeGuideRowWidget(
+                    title=companion.original.name,
+                    status="Orphan Companion",
+                    original=companion.file_type,
+                    parent=self._list_widget,
+                )
+                self._sync_item_height(item, widget)
+                self._list_widget.setItemWidget(item, widget)
+
+        self._restore_current_preview_row(state)
+
+    def _set_episode_filters_visible(self, visible: bool) -> None:
+        for button in self._episode_filter_buttons.values():
+            button.setVisible(visible)
+
+    def _sync_episode_filter_buttons(self) -> None:
+        for key, button in self._episode_filter_buttons.items():
+            blocked = button.blockSignals(True)
+            button.setChecked(key == self._episode_filter)
+            button.blockSignals(blocked)
+
+    def _set_episode_filter(self, value: str) -> None:
+        if value == self._episode_filter:
+            self._sync_episode_filter_buttons()
+            return
+        self._episode_filter = value
+        self._sync_episode_filter_buttons()
+        if self._episode_filter_changed is not None:
+            self._episode_filter_changed()
+
+    @staticmethod
+    def _episode_summary_text(summary) -> str:
+        total_files = summary.mapped_primary_files + summary.companion_files
+        return (
+            f"{summary.mapped_episodes} mapped - "
+            f"{total_files} files incl. companions - "
+            f"{summary.missing_episodes} missing - "
+            f"{summary.unmapped_primary_files} unmapped - "
+            f"{summary.orphan_companion_files} orphan companion"
+            f"{'s' if summary.orphan_companion_files != 1 else ''} - "
+            f"{summary.conflicts} conflicts"
+        )
+
+    @staticmethod
+    def _episode_guide_season_ratio(state: ScanState, season_num: int, rows) -> str:
+        completeness = state.completeness
+        if completeness is None:
+            return ""
+        season = completeness.specials if season_num == 0 else completeness.seasons.get(season_num)
+        if season is None or season.expected <= 0:
+            return ""
+        mapped = sum(1 for row in rows if row.primary_file is not None and row.status != "Conflict")
+        return f" - {mapped}/{season.expected}"
+
+    @staticmethod
+    def _build_episode_guide_item(state: ScanState, row) -> QListWidgetItem:
+        item = QListWidgetItem()
+        index = None
+        if row.primary_file in state.preview_items:
+            index = state.preview_items.index(row.primary_file)
+        item.setData(Qt.ItemDataRole.UserRole, index)
+        item.setData(_PREVIEW_ENTRY_KIND_ROLE, "episode")
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        return item
+
+    def _attach_episode_guide_widget(self, item: QListWidgetItem, row) -> None:
+        original = row.primary_file.original.name if row.primary_file is not None else ""
+        companions = [companion.original.name for companion in row.companions]
+        title = f"S{row.season:02d}E{row.episode:02d}"
+        if row.title:
+            title = f"{title} - {row.title}"
+        widget = _EpisodeGuideRowWidget(
+            title=title,
+            status=row.status,
+            original=original,
+            target=row.target_rename,
+            confidence=row.confidence_label,
+            companions=companions,
+            parent=self._list_widget,
+        )
+        widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
+        self._sync_item_height(item, widget)
+        self._list_widget.setItemWidget(item, widget)
 
     def _add_folder_preview_section(
         self,
@@ -314,6 +471,11 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._sticky_header.raise_()
 
     def update_master_state(self, state: ScanState | None) -> None:
+        if self._media_type == "tv":
+            self._master_check.setEnabled(False)
+            self._master_check.hide()
+            self._check_summary.hide()
+            return
         if state is None:
             self._master_check.setEnabled(False)
             self._check_summary.setText("")

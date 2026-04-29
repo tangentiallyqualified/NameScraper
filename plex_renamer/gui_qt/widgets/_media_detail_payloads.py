@@ -34,7 +34,20 @@ def detail_state_media_type(state: ScanState) -> str:
 
 
 def detail_state_confidence_value(state: ScanState) -> str:
-    return f"{clamped_percent(state.confidence)}%"
+    label = "High" if state.confidence >= 0.85 else "Review"
+    return f"{label} {clamped_percent(state.confidence)}%"
+
+
+def detail_match_status(state: ScanState) -> str:
+    if state.duplicate_of is not None:
+        return "Duplicate"
+    if state.show_id is None:
+        return "No Match Found"
+    if state.needs_review:
+        return "Needs Review"
+    if state.match_origin == "manual":
+        return "Approved"
+    return "Matched"
 
 
 def build_detail_fallback_rows(
@@ -86,9 +99,23 @@ def build_detail_payload(
         subtitle_parts.append(details["tagline"])
     subtitle = " · ".join(part for part in subtitle_parts if part)
 
-    rows: list[tuple[str, str]] = []
+    rows: list[tuple[str, str]] = [
+        ("Source", (state.active_episode_source or "tmdb").upper()),
+        ("Match", detail_match_status(state)),
+        ("Confidence", detail_state_confidence_value(state)),
+    ]
+    if queue_reason and media_type != "movie":
+        rows.append(("Queue", queue_reason))
+    if preview is not None:
+        if preview.new_name:
+            rows.append(("Rename", preview.new_name))
+        rows.append(("File", preview.original.name))
+        rows.append(("Preview", preview.status))
+        if episode_meta and episode_meta.get("air_date"):
+            rows.append(("Air Date", episode_meta["air_date"]))
+
     rating = format_detail_rating(details.get("vote_average", 0), details.get("vote_count", 0))
-    if rating:
+    if rating and media_type == "movie":
         rows.append(("Rating", rating))
     if media_type == "movie":
         runtime = format_detail_runtime(details.get("runtime"))
@@ -100,29 +127,12 @@ def build_detail_payload(
         if genres:
             rows.append(("Genres", genres))
     else:
-        if details.get("status"):
-            rows.append(("Status", details["status"]))
-        networks = ", ".join(n.get("name", "") for n in details.get("networks", []) if n.get("name"))
-        if networks:
-            rows.append(("Network", networks))
         season_count = details.get("number_of_seasons")
         episode_count = details.get("number_of_episodes")
         if season_count and episode_count:
             rows.append(("Seasons", f"{season_count} seasons · {episode_count} episodes"))
         if state.completeness is not None:
             rows.append(("Matched", f"{state.total_matched}/{state.total_expected} ({state.match_pct:.0f}%)"))
-
-    rows.append(("Confidence", detail_state_confidence_value(state)))
-    if queue_reason and media_type != "movie":
-        rows.append(("Queue", queue_reason))
-    if preview is not None:
-        rows.append(("File", preview.original.name))
-        if preview.new_name:
-            rows.append(("Rename", preview.new_name))
-        rows.append(("Preview", preview.status))
-        if episode_meta and episode_meta.get("air_date"):
-            rows.append(("Air Date", episode_meta["air_date"]))
-
     if episode_meta and episode_meta.get("overview"):
         overview = episode_meta["overview"]
     else:
@@ -130,21 +140,12 @@ def build_detail_payload(
 
     extra_lines: list[str] = []
     if episode_meta:
-        if episode_meta.get("directors"):
-            extra_lines.append("Directors: " + ", ".join(episode_meta["directors"]))
-        if episode_meta.get("writers"):
-            extra_lines.append("Writers: " + ", ".join(episode_meta["writers"]))
-        guest_names = [guest.get("name", "") for guest in episode_meta.get("guest_stars", []) if guest.get("name")]
-        if guest_names:
-            extra_lines.append("Guests: " + ", ".join(guest_names[:4]))
+        pass
     elif media_type == "movie":
         companies = [company.get("name", "") for company in details.get("production_companies", []) if company.get("name")]
         if companies:
             extra_lines.append("Companies: " + ", ".join(companies[:3]))
     else:
-        creators = [creator.get("name", "") for creator in details.get("created_by", []) if creator.get("name")]
-        if creators:
-            extra_lines.append("Creators: " + ", ".join(creators[:3]))
         if show_discovery_info and state.discovery_reason:
             extra_lines.append(f"Discovery: {state.discovery_reason}")
 

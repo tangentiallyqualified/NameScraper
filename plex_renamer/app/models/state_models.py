@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 
@@ -139,6 +140,66 @@ class QueueEligibility:
     @property
     def enabled(self) -> bool:
         return self.command_state == QueueCommandState.ENABLED
+
+
+@dataclass(slots=True)
+class EpisodeGuideSummary:
+    mapped_episodes: int = 0
+    mapped_primary_files: int = 0
+    companion_files: int = 0
+    missing_episodes: int = 0
+    unmapped_primary_files: int = 0
+    orphan_companion_files: int = 0
+    conflicts: int = 0
+
+
+@dataclass(slots=True)
+class EpisodeGuideRow:
+    season: int
+    episode: int
+    title: str = ""
+    source_id: str = "tmdb"
+    primary_file: Any | None = None
+    companions: list[Any] = field(default_factory=list)
+    target_rename: str = ""
+    status: str = ""
+    confidence_label: str = ""
+    overview: str = ""
+    air_date: str = ""
+
+    @property
+    def episode_key(self) -> tuple[int, int]:
+        return (self.season, self.episode)
+
+
+@dataclass(slots=True)
+class UnmappedFileRow:
+    original: Path
+    reason: str
+    preview: Any | None = None
+    ignored: bool = False
+
+
+@dataclass(slots=True)
+class EpisodeGuide:
+    source_id: str = "tmdb"
+    source_label: str = "TMDB"
+    rows: list[EpisodeGuideRow] = field(default_factory=list)
+    unmapped_primary_files: list[UnmappedFileRow] = field(default_factory=list)
+    orphan_companion_files: list[Any] = field(default_factory=list)
+    summary: EpisodeGuideSummary = field(default_factory=EpisodeGuideSummary)
+
+
+@dataclass(slots=True)
+class QueuePreflightSummary:
+    enabled: bool
+    mapped_primary_files: int = 0
+    companion_files: int = 0
+    missing_episodes: int = 0
+    unmapped_primary_files: int = 0
+    orphan_companion_files: int = 0
+    conflicts: int = 0
+    summary_text: str = ""
 
 
 @dataclass(slots=True)

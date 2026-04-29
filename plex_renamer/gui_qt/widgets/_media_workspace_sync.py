@@ -9,7 +9,11 @@ from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
 from ._media_workspace_roster import _CHECKED_ROLE
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
-from ._workspace_widgets import PreviewRowWidget as _PreviewRowWidget, RosterRowWidget as _RosterRowWidget
+from ._workspace_widgets import (
+    EpisodeGuideRowWidget as _EpisodeGuideRowWidget,
+    PreviewRowWidget as _PreviewRowWidget,
+    RosterRowWidget as _RosterRowWidget,
+)
 
 
 class MediaWorkspaceSyncCoordinator:
@@ -161,7 +165,7 @@ class MediaWorkspaceSyncCoordinator:
         for row in range(list_widget.count()):
             item = list_widget.item(row)
             widget = list_widget.itemWidget(item)
-            if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget)):
+            if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget, _EpisodeGuideRowWidget)):
                 widget.set_selected(item is current)
 
     def _sync_current_roster_row_checked(self, checked: bool) -> None:

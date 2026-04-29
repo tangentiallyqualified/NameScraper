@@ -629,7 +629,7 @@ class MovieStateBuildTests(_ControllerTestCase):
         self.assertEqual(len(state.search_results), 2)
         self.assertEqual(len(state.alternate_matches), 1)
         self.assertIs(state.scanner, scanner)
-        self.assertTrue(state.checked)
+        self.assertFalse(state.checked)
 
     def test_build_movie_library_states_marks_actionable_duplicate_under_ready_primary(self):
         proper_dir = self.tmp / "Alien (1979)"
@@ -737,7 +737,7 @@ class RematchStateTests(_ControllerTestCase):
 
         self.assertEqual(state.match_origin, "manual")
         self.assertFalse(state.needs_review)
-        self.assertTrue(state.checked)
+        self.assertFalse(state.checked)
 
     def test_apply_runtime_settings_updates_review_threshold(self):
         state = ScanState(
@@ -1014,7 +1014,7 @@ class RematchStateTests(_ControllerTestCase):
 
         self.assertEqual(state.media_info["id"], 99)
         self.assertEqual(state.preview_items[0].new_name, "Dune: Part Two (2024).mkv")
-        self.assertTrue(state.checked)
+        self.assertFalse(state.checked)
         self.assertEqual(state.match_origin, "manual")
         self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
 
@@ -1062,7 +1062,7 @@ class RematchStateTests(_ControllerTestCase):
         self.assertEqual(state.match_origin, "manual")
         self.assertEqual(state.preview_items[0].status, "OK")
         self.assertEqual(self.ctrl.movie_preview_items[0].status, "OK")
-        self.assertTrue(state.checked)
+        self.assertFalse(state.checked)
         self.assertEqual(state.confidence, 1.0)
 
 

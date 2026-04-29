@@ -182,6 +182,8 @@ class ScanState:
     season_names: dict[int, str] = field(default_factory=dict)
     season_assignment: int | None = None
     season_folders: dict[int, Path] = field(default_factory=dict)
+    active_episode_source: str = "tmdb"
+    orphan_companion_files: list[CompanionFile] = field(default_factory=list)
 
     # Flags
     scanned: bool = False

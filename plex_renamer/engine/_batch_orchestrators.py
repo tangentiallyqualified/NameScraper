@@ -298,15 +298,13 @@ class BatchTVOrchestrator:
             results,
             cancel_event=cancel_event,
         )
-        auto_check = best_score >= get_auto_accept_threshold() and not tie_detected
-
         return ScanState(
             folder=folder,
             media_info=best,
             confidence=best_score,
             search_results=results,
             alternate_matches=alternates,
-            checked=auto_check,
+            checked=False,
             relative_folder=candidate.relative_folder,
             parent_relative_folder=candidate.parent_relative_folder,
             discovery_reason=candidate.discovery_reason,
@@ -828,15 +826,13 @@ class BatchMovieOrchestrator:
                             tie_detected = True
                         break
 
-            auto_check = best_score >= get_auto_accept_threshold() and not tie_detected
-
             state = ScanState(
                 folder=folder,
                 media_info=best,
                 confidence=best_score,
                 search_results=results,
                 alternate_matches=alternates,
-                checked=auto_check,
+                checked=False,
                 source_file=source_file,
                 relative_folder=candidate.relative_folder,
                 parent_relative_folder=candidate.parent_relative_folder,
