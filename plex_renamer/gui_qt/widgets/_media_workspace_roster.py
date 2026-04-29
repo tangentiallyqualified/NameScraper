@@ -105,27 +105,26 @@ class MediaWorkspaceRosterPanel(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(4)
+        footer = QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(4)
 
         self._master_check = _MasterCheckBox("Select All")
         self._master_check.setTristate(True)
         self._master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        header.addWidget(self._master_check)
+        footer.addWidget(self._master_check)
 
         self._selection_summary = QLabel("0 checked")
         self._selection_summary.setProperty("cssClass", "caption")
-        header.addWidget(self._selection_summary)
-        header.addStretch()
+        footer.addWidget(self._selection_summary)
+        footer.addStretch()
 
         self._queue_button = QPushButton("Queue Checked")
         self._queue_button.setProperty("cssClass", "primary")
         self._queue_button.setProperty("sizeVariant", "compact")
         self._queue_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._queue_button.setEnabled(False)
-        header.addWidget(self._queue_button)
-        layout.addLayout(header)
+        footer.addWidget(self._queue_button)
 
         self._list_widget = QListWidget()
         self._list_widget.setProperty("cssClass", "row-host-list")
@@ -134,6 +133,7 @@ class MediaWorkspaceRosterPanel(QFrame):
         self._list_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         layout.addWidget(self._list_widget, stretch=1)
+        layout.addLayout(footer)
 
     def set_queue_button_text(self, text: str) -> None:
         self._queue_button.setText(text)
@@ -217,7 +217,7 @@ class MediaWorkspaceRosterPanel(QFrame):
             ("plex-ready", "Plex Ready"),
             ("matched", "Matched"),
             ("review", "Needs Review"),
-            ("unmatched", "Unmatched"),
+            ("unmatched", "No Match Found"),
             ("duplicate", "Duplicates"),
         ]
         for group, title in groups:

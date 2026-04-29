@@ -186,6 +186,13 @@ class _JobListTab(QWidget):
         self._toolbar_layout.setContentsMargins(12, 12, 12, 12)
         self._root.addWidget(self._toolbar)
 
+        self._actions_bar = QFrame()
+        self._actions_bar.setProperty("cssClass", "panel")
+        self._actions_bar.setProperty("panelVariant", "square")
+        self._actions_layout = QHBoxLayout(self._actions_bar)
+        self._actions_layout.setContentsMargins(0, 0, 0, 0)
+        self._actions_layout.setSpacing(8)
+
         self._header = _CheckableHeaderView(self)
         self._header.checkStateChanged.connect(self._on_master_check_changed)
 
@@ -268,6 +275,8 @@ class _JobListTab(QWidget):
 
     def _finish_list_pane(self) -> None:
         self._list_layout.addWidget(self._table, stretch=1)
+        self._actions_layout.insertStretch(0, 1)
+        self._list_layout.addWidget(self._actions_bar)
 
     def select_job(self, job_id: str) -> None:
         for row, job in enumerate(self._model.jobs()):

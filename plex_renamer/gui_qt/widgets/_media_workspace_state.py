@@ -84,7 +84,6 @@ class MediaWorkspaceStateCoordinator:
             ensure_check_bindings=workspace._ensure_check_bindings,
             folder_plan_text=workspace._folder_plan_text,
             folder_preview_data=workspace._folder_preview_data,
-            season_ratio_text=workspace._season_ratio_text,
         )
         workspace._preview_syncing = False
         workspace._preview_list.setUpdatesEnabled(True)

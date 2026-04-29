@@ -25,6 +25,8 @@ class QtMainWindowTests(QtSmokeBase):
         window = MainWindow()
         self.assertEqual(window.windowTitle(), "Plex Renamer")
         self.assertEqual(window.centralWidget().__class__.__name__, "QTabWidget")
+        self.assertEqual(window.centralWidget().currentIndex(), 0)
+        self.assertEqual(window.centralWidget().tabText(0), "Settings")
         window.close()
 
     def test_transient_popup_filter_hides_tool_windows(self):
@@ -99,7 +101,7 @@ class QtMainWindowTests(QtSmokeBase):
 
         window.queue_ctrl.revert_job.assert_called_once_with(job.job_id)
         window._history_tab.select_job.assert_called_once_with(job.job_id)
-        self.assertEqual(window.centralWidget().currentIndex(), 3)
+        self.assertEqual(window.centralWidget().currentIndex(), 4)
         window.close()
 
     def test_main_window_queue_events_create_toasts(self):
@@ -126,7 +128,7 @@ class QtMainWindowTests(QtSmokeBase):
 
         window._show_history_job(job.job_id)
         window._history_tab.select_job.assert_called_once_with(job.job_id)
-        self.assertEqual(window.centralWidget().currentIndex(), 3)
+        self.assertEqual(window.centralWidget().currentIndex(), 4)
 
         window._on_queue_finished()
         self.assertGreaterEqual(window._toast_manager.toast_count(), 2)
@@ -177,8 +179,10 @@ class QtMainWindowTests(QtSmokeBase):
         )
         window._refresh_job_views()
 
-        self.assertEqual(window._tabs.tabText(2), "Queue")
-        self.assertEqual(window._tabs.tabText(3), "History")
+        self.assertEqual(
+            [window._tabs.tabText(index) for index in range(window._tabs.count())],
+            ["Settings", "TV Shows", "Movies", "Queue", "History"],
+        )
         self.assertEqual(window._queue_badge.count_text(), "1")
         self.assertTrue(window._queue_badge.failure_visible())
         self.assertEqual(window._history_badge.count_text(), "2")
@@ -222,7 +226,16 @@ class QtMainWindowTests(QtSmokeBase):
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[],
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -231,6 +244,7 @@ class QtMainWindowTests(QtSmokeBase):
         window.media_ctrl._tv_root_folder = Path("C:/library/tv")
         window.media_ctrl.library_selected_index = 0
         window._tv_workspace.show_ready()
+        window._switch_to_tab(1)
 
         queue_selected = _find_action(window, "Ctrl+Q")
         queue_checked = _find_action(window, "Ctrl+Shift+Q")
@@ -378,15 +392,13 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertIsNone(window._tmdb)
         window.close()
 
-    def test_main_window_starts_startup_job_poster_backfill(self):
+    def test_main_window_skips_startup_job_poster_backfill_when_no_jobs_exist(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 
         with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot") as single_shot:
             window = MainWindow()
 
-        single_shot.assert_called()
-        callback = single_shot.call_args.args[1]
-        self.assertEqual(callback.__name__, "_start_job_poster_backfill")
+        single_shot.assert_not_called()
         window.close()
 
     def test_main_window_startup_job_poster_backfill_uses_queue_controller(self):
@@ -460,4 +472,3 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(window._toast_manager._summary_toast._message_label.text(), "3 more notifications collapsed.")
 
         window.close()
-

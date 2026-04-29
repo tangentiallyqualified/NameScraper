@@ -61,12 +61,12 @@ def state_status(state: ScanState) -> tuple[str, QColor]:
         return "Queued", QColor("#4a9eda")
     if state.scanning:
         return "Scanning", QColor("#e5a00d")
-    if state.show_id is None:
-        return "Unmatched", QColor("#d44040")
-    if state.needs_review:
-        return "Needs Review", QColor("#e5a00d")
     if state.duplicate_of is not None:
         return "Duplicate", QColor("#777777")
+    if state.show_id is None:
+        return "No Match Found", QColor("#d44040")
+    if state.needs_review:
+        return "Needs Review", QColor("#e5a00d")
     if state.match_origin == "manual":
         return "Approved", QColor("#4a9eda")
     if is_plex_ready_state(state):
@@ -79,12 +79,12 @@ def state_status_tone(state: ScanState) -> str:
         return "info"
     if state.scanning:
         return "accent"
+    if state.duplicate_of is not None:
+        return "muted"
     if state.show_id is None:
         return "error"
     if state.needs_review:
         return "accent"
-    if state.duplicate_of is not None:
-        return "muted"
     if is_plex_ready_state(state):
         return "success"
     return "info"
@@ -101,20 +101,18 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if state.needs_review or is_plex_ready_state(state):
         return False
-    if media_type == "movie":
-        return any(item.is_actionable for item in state.preview_items)
-    return True
+    return any(item.is_actionable for item in state.preview_items)
 
 
 def roster_group(state: ScanState) -> str:
     if state.queued:
         return "queued"
+    if state.duplicate_of is not None:
+        return "duplicate"
     if state.show_id is None:
         return "unmatched"
     if state.needs_review:
         return "review"
-    if state.duplicate_of is not None:
-        return "duplicate"
     if is_plex_ready_state(state):
         return "plex-ready"
     return "matched"
@@ -128,15 +126,18 @@ def auto_accept_threshold(settings) -> float:
 
 def state_match_summary(state: ScanState, threshold: float) -> str:
     pct = percent_text(state.confidence)
+    confidence_label = "High" if state.confidence >= 0.85 else "Review"
+    source = (state.active_episode_source or "tmdb").upper()
+    badge = f"{source} - {confidence_label} {pct}"
     if state.duplicate_of is not None:
-        return f"{pct} confidence · duplicate match"
+        return f"{source} - Duplicate"
     if state.match_origin == "manual" and not state.needs_review:
-        return f"{pct} confidence · manually approved"
+        return f"{source} - Approved"
     if state.tie_detected and state.needs_review:
-        return f"{pct} confidence · tied match — please choose"
+        return f"{badge} - tied match"
     if state.needs_review:
-        return f"{pct} confidence · needs review"
-    return f"{pct} confidence"
+        return f"{badge} - needs review"
+    return badge
 
 
 # ── Roster helpers ──────────────────────────────────────────────────

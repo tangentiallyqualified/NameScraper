@@ -556,7 +556,7 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
             f"Expected confidence >= {AUTO_ACCEPT_THRESHOLD}, "
             f"got {state.confidence:.2f}",
         )
-        self.assertTrue(state.checked, "Should be auto-checked")
+        self.assertFalse(state.checked, "Matched results start unchecked until explicitly queued")
 
     def test_matrix_exact_match_no_boost_needed(self):
         """The.Matrix.1999 should auto-accept without needing alt titles."""
@@ -565,7 +565,7 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
         state = states[0]
         self.assertEqual(state.show_id, 603)
         self.assertGreaterEqual(state.confidence, AUTO_ACCEPT_THRESHOLD)
-        self.assertTrue(state.checked)
+        self.assertFalse(state.checked)
 
     def test_spirited_away_english_folder_matches_japanese_primary(self):
         """Spirited.Away.2001 should match the Japanese-titled TMDB entry

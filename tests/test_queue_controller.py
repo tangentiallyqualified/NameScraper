@@ -12,7 +12,7 @@ from plex_renamer.app.controllers.queue_controller import (
     QueueController,
 )
 from plex_renamer.constants import JobStatus, MediaType
-from plex_renamer.engine import PreviewItem, ScanState
+from plex_renamer.engine import CompanionFile, PreviewItem, ScanState
 from plex_renamer.job_store import JobStore, RenameJob, RenameOp, DuplicateJobError
 
 
@@ -754,6 +754,80 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         self.assertEqual(jobs[0].source_folder, ".")
         self.assertIsNone(jobs[0].show_folder_rename)
         self.assertEqual(jobs[0].rename_ops[0].target_dir_relative, "Spaceballs (1987)")
+
+
+class TVBatchShowLevelQueueTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._tmp.name)
+        self.store = JobStore(db_path=self.tmp / "test_queue.db")
+        self.ctrl = QueueController(self.store)
+
+    def tearDown(self):
+        self.ctrl.close()
+        self._tmp.cleanup()
+
+    def test_checked_tv_show_queues_all_mapped_files_and_companions(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        class _Binding:
+            def __init__(self, value):
+                self._value = value
+
+            def get(self):
+                return self._value
+
+            def set(self, value):
+                self._value = value
+
+        lib_root = self.tmp / "library"
+        source = lib_root / "Show" / "Season 01"
+        source.mkdir(parents=True)
+        subtitle = CompanionFile(
+            original=source / "Show.S01E01.en.srt",
+            new_name="Show (2024) - S01E01 - Pilot.en.srt",
+            file_type="subtitle",
+        )
+        state = ScanState(
+            folder=lib_root / "Show",
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=source / "Show.S01E01.mkv",
+                    new_name="Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=lib_root / "Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                    companions=[subtitle],
+                ),
+                PreviewItem(
+                    original=source / "Show.S01E02.mkv",
+                    new_name="Show (2024) - S01E02 - Second.mkv",
+                    target_dir=lib_root / "Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[2],
+                    status="OK",
+                ),
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        state.check_vars = {"0": _Binding(False), "1": _Binding(False)}
+
+        result = self.ctrl.add_tv_batch(
+            states=[state],
+            library_root=lib_root,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 1)
+        jobs = self.store.get_pending()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(len(jobs[0].rename_ops), 3)
+        self.assertTrue(all(op.selected for op in jobs[0].rename_ops))
+        self.assertEqual([op.file_type for op in jobs[0].rename_ops], ["video", "subtitle", "video"])
 
 
 class BatchQueueResultTests(unittest.TestCase):

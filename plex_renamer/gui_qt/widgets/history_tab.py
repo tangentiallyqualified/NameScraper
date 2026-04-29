@@ -56,22 +56,22 @@ class HistoryTab(_JobListTab):
 
         self._revert_btn = QPushButton("Revert Selected")
         self._revert_btn.clicked.connect(self._revert_selected)
-        self._toolbar_layout.addWidget(self._revert_btn)
+        self._actions_layout.addWidget(self._revert_btn)
 
         self._confirm_revert_btn = QPushButton("Confirm Revert")
         self._confirm_revert_btn.setProperty("cssClass", "danger")
         self._confirm_revert_btn.clicked.connect(self._confirm_revert)
         self._confirm_revert_btn.hide()
-        self._toolbar_layout.addWidget(self._confirm_revert_btn)
+        self._actions_layout.addWidget(self._confirm_revert_btn)
 
         self._cancel_revert_btn = QPushButton("Cancel")
         self._cancel_revert_btn.setProperty("cssClass", "secondary")
         self._cancel_revert_btn.clicked.connect(self._cancel_revert)
-        self._toolbar_layout.addWidget(self._cancel_revert_btn)
+        self._actions_layout.addWidget(self._cancel_revert_btn)
 
         self._revert_info = QLabel("")
         self._revert_info.setProperty("cssClass", "text-dim")
-        self._toolbar_layout.addWidget(self._revert_info)
+        self._actions_layout.addWidget(self._revert_info)
 
         hide_revert_banner(
             self._revert_btn,
@@ -164,4 +164,3 @@ class HistoryTab(_JobListTab):
             self._cancel_revert_btn,
             self._revert_info,
         )
-

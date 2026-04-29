@@ -319,6 +319,112 @@ class PreviewRowWidget(ClickableRow):
 
 # ── Folder preview row widget ────────────────────────────────────────
 
+class EpisodeGuideRowWidget(ClickableRow):
+    def __init__(
+        self,
+        *,
+        title: str,
+        status: str,
+        original: str = "",
+        target: str = "",
+        confidence: str = "",
+        companions: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("episodeGuideRowCard")
+        self.setProperty("cssClass", "preview-row-card")
+        self.setProperty("band", self._band_for_status(status))
+        self.setProperty("selectionState", "normal")
+        self._selected = False
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+
+        self._check = ToggleSwitch(False, self)
+        self._check.hide()
+        layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
+
+        body = QVBoxLayout()
+        body.setSpacing(4)
+        layout.addLayout(body, stretch=1)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+        self._title = QLabel(title)
+        self._title.setProperty("cssClass", "row-title")
+        self._title.setWordWrap(True)
+        self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        top_row.addWidget(self._title, stretch=1)
+
+        self._status = QLabel(status)
+        self._status.setProperty("cssClass", "status-pill")
+        self._status.setProperty("tone", self._tone_for_status(status))
+        self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
+        body.addLayout(top_row)
+
+        self._original = QLabel(original)
+        self._original.setProperty("cssClass", "caption")
+        self._original.setWordWrap(True)
+        self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._original.setVisible(bool(original))
+        body.addWidget(self._original)
+
+        self._target = QLabel(f"-> {target}" if target else "")
+        self._target.setProperty("cssClass", "row-target")
+        self._target.setWordWrap(True)
+        self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._target.setVisible(bool(target))
+        body.addWidget(self._target)
+
+        companion_text = ", ".join(companions or [])
+        self._companions = QLabel(f"Companions: {companion_text}" if companion_text else "")
+        self._companions.setProperty("cssClass", "caption")
+        self._companions.setWordWrap(True)
+        self._companions.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._companions.setVisible(bool(companion_text))
+        body.addWidget(self._companions)
+
+        self._confidence = QLabel(confidence)
+        self._confidence.setProperty("cssClass", "caption")
+        self._confidence.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._confidence.setVisible(bool(confidence))
+        body.addWidget(self._confidence)
+
+        self._apply_style()
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_style()
+
+    def _apply_style(self) -> None:
+        self.setProperty("selectionState", "selected" if self._selected else "normal")
+        _repolish(self)
+        _repolish(self._status)
+
+    @staticmethod
+    def _band_for_status(status: str) -> str:
+        if status == "Conflict":
+            return "error"
+        if status == "Missing File":
+            return "muted"
+        if status == "Review":
+            return "accent"
+        return "success"
+
+    @staticmethod
+    def _tone_for_status(status: str) -> str:
+        if status == "Conflict":
+            return "error"
+        if status == "Missing File":
+            return "muted"
+        if status == "Review":
+            return "accent"
+        return "success"
+
+
 class FolderPreviewRowWidget(QFrame):
     def __init__(self, source_name: str, target_name: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)

@@ -34,7 +34,11 @@ class MainWindowFeedbackCoordinator:
             return window._job_poster_backfill_future
         if not api_key_lookup("TMDB"):
             return None
-        tmdb = window._ensure_tmdb()
+        try:
+            tmdb = window._ensure_tmdb()
+        except Exception:
+            logger.debug("Job poster backfill skipped (TMDB unavailable)")
+            return None
         if tmdb is None:
             return None
         window._job_poster_backfill_started = True

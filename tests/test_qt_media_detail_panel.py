@@ -45,7 +45,11 @@ class QtMediaDetailPanelTests(QtSmokeBase):
             settings = SettingsService(path=Path(tmp) / "settings.json")
             settings.auto_accept_threshold = 0.6
             tmdb = MagicMock()
-            tmdb.get_tv_details.return_value = {"status": "Returning Series"}
+            tmdb.get_tv_details.return_value = {
+                "status": "Returning Series",
+                "networks": [{"name": "HBO"}],
+                "created_by": [{"name": "Creator Name"}],
+            }
             tmdb.fetch_poster.return_value = None
 
             preview = PreviewItem(
@@ -69,9 +73,9 @@ class QtMediaDetailPanelTests(QtSmokeBase):
                                 "still_path": "/episode-still.jpg",
                                 "overview": "Episode overview",
                                 "air_date": "2024-01-01",
-                                "directors": [],
-                                "writers": [],
-                                "guest_stars": [],
+                                "directors": ["Director Name"],
+                                "writers": ["Writer Name"],
+                                "guest_stars": [{"name": "Guest Name"}],
                             }
                         }
                     },
@@ -89,8 +93,13 @@ class QtMediaDetailPanelTests(QtSmokeBase):
                 target_width=500,
             )
             self.assertEqual(payload["artwork_mode"], "poster")
-            self.assertIn(("Confidence", "42%"), payload["rows"])
+            self.assertIn(("Source", "TMDB"), payload["rows"])
+            self.assertIn(("Match", "Needs Review"), payload["rows"])
+            self.assertIn(("Confidence", "Review 42%"), payload["rows"])
             self.assertIn(("Air Date", "2024-01-01"), payload["rows"])
+            self.assertNotIn(("Status", "Returning Series"), payload["rows"])
+            self.assertNotIn(("Network", "HBO"), payload["rows"])
+            self.assertEqual(payload["extra"], "")
 
             panel._current_token = "token"
             panel._apply_payload(payload, None, "token")
@@ -171,7 +180,7 @@ class QtMediaDetailPanelTests(QtSmokeBase):
 
         self.assertNotIn(("Queue", "Already queued"), rows)
         self.assertNotIn(("Folder", "Folder rename plan: Arrival.2016 -> Arrival (2016)"), rows)
-        self.assertIn(("Confidence", "91%"), rows)
+        self.assertIn(("Confidence", "High 91%"), rows)
 
         panel.close()
 
@@ -231,4 +240,3 @@ class QtMediaDetailPanelTests(QtSmokeBase):
         self.assertGreater(panel._title.height(), panel._title.fontMetrics().lineSpacing())
 
         panel.close()
-

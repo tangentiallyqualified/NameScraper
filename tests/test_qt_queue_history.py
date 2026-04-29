@@ -381,7 +381,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         self.assertEqual(window._queue_badge.count_text(), "1")
         self.assertTrue(state.queued)
 
-        window._switch_to_tab(2)
+        window._switch_to_tab(3)
         self._app.processEvents()
         job_id = window.queue_ctrl.get_queue()[0].job_id
         window._queue_tab.select_job(job_id)
@@ -396,7 +396,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         self.assertEqual(window._queue_badge.count_text(), "0")
 
-        window._switch_to_tab(0)
+        window._switch_to_tab(1)
         self._app.processEvents()
 
         self.assertFalse(state.queued)
@@ -440,13 +440,13 @@ class QtQueueHistoryTests(QtSmokeBase):
         window.queue_ctrl.job_store.set_undo_data(job.job_id, {"renames": [], "created_dirs": [], "removed_dirs": [], "renamed_dirs": []})
         job.status = JobStatus.COMPLETED
 
-        window._switch_to_tab(2)
+        window._switch_to_tab(3)
         self._app.processEvents()
 
         window._on_job_completed(job, RenameResult(renamed_count=1))
         window._on_queue_changed()
 
-        window._switch_to_tab(0)
+        window._switch_to_tab(1)
         self._app.processEvents()
         window._tv_workspace._roster_collapsed["plex-ready"] = False
         window._tv_workspace.refresh_from_controller()

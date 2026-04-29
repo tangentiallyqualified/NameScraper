@@ -106,6 +106,11 @@ class MediaWorkspaceUiCoordinator:
                 checked,
                 preview=True,
             ),
+            episode_filter_changed_callback=lambda: (
+                workspace._populate_preview(workspace._selected_state())
+                if workspace._selected_state() is not None
+                else None
+            ),
         )
         workspace._preview_list = workspace._preview_panel.list_widget
         workspace._preview_master_check = workspace._preview_panel.master_check
@@ -132,6 +137,15 @@ class MediaWorkspaceUiCoordinator:
         )
         workspace._detail_panel.setProperty("panelVariant", "square")
         workspace._detail_panel.setMinimumWidth(340)
+        workspace._preview_panel.fix_match_button.hide()
+        workspace._preview_panel.primary_action_button.hide()
+        workspace._fix_match_btn = workspace._detail_panel.fix_match_button
+        workspace._queue_inline_btn = workspace._detail_panel.primary_action_button
+        workspace._queue_preflight_label = workspace._detail_panel.queue_preflight_label
+        workspace._fix_match_btn.clicked.connect(workspace._fix_match)
+        workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
+        workspace._queue_inline_btn.setText(workspace._queue_selected_label())
+        workspace._sync_action_button_metrics()
 
     def _restore_splitter_positions(self) -> None:
         workspace = self._workspace

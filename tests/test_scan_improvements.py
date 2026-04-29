@@ -402,7 +402,7 @@ class ScanImprovementTests(unittest.TestCase):
             duplicate = by_path["Anime/Naruto Alt"]
 
             self.assertIsNone(primary.duplicate_of)
-            self.assertTrue(primary.checked)
+            self.assertFalse(primary.checked)
             self.assertEqual(duplicate.duplicate_of, primary.display_name)
             self.assertEqual(duplicate.duplicate_of_relative_folder, primary.relative_folder)
             self.assertFalse(duplicate.checked)

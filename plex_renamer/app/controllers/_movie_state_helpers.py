@@ -42,7 +42,7 @@ def build_movie_library_states(
             search_results=search_results,
             alternate_matches=search_results[1:4],
             scanned=True,
-            checked=item.is_actionable,
+            checked=False,
             scanner=scanner,
         )
         states.append(state)

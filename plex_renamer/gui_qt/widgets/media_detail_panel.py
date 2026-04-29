@@ -7,7 +7,17 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QFormLayout, QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ...engine import PreviewItem, ScanState
 from ._media_detail_artwork import (
@@ -121,6 +131,25 @@ class MediaDetailPanel(QFrame):
         self._scroll.setWidget(self._body)
         layout.addWidget(self._scroll, stretch=1)
 
+        self._queue_preflight = _WrappingDetailLabel("")
+        self._queue_preflight.setProperty("cssClass", "caption")
+        self._queue_preflight.setWordWrap(True)
+        self._queue_preflight.hide()
+        layout.addWidget(self._queue_preflight)
+
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
+        self._fix_match_button = QPushButton("Fix Match")
+        self._fix_match_button.setProperty("cssClass", "secondary")
+        self._fix_match_button.setEnabled(False)
+        actions.addWidget(self._fix_match_button)
+
+        self._primary_action_button = QPushButton("")
+        self._primary_action_button.setEnabled(False)
+        actions.addWidget(self._primary_action_button)
+        layout.addLayout(actions)
+
         self._title = _WrappingDetailLabel("Selection")
         self._title.setProperty("cssClass", "heading")
         self._title.setWordWrap(True)
@@ -231,6 +260,18 @@ class MediaDetailPanel(QFrame):
 
     def clear_metadata_cache(self) -> None:
         self._workflow.clear_metadata_cache()
+
+    @property
+    def fix_match_button(self) -> QPushButton:
+        return self._fix_match_button
+
+    @property
+    def primary_action_button(self) -> QPushButton:
+        return self._primary_action_button
+
+    @property
+    def queue_preflight_label(self) -> QLabel:
+        return self._queue_preflight
 
     def set_selection(
         self,

@@ -18,12 +18,14 @@ class MainWindowTabsCoordinator:
         self,
         window: Any,
         *,
+        settings_index: int,
         tv_index: int,
         movies_index: int,
         queue_index: int,
         history_index: int,
     ) -> None:
         self._window = window
+        self._settings_index = settings_index
         self._tv_index = tv_index
         self._movies_index = movies_index
         self._queue_index = queue_index
@@ -67,11 +69,11 @@ class MainWindowTabsCoordinator:
             clear_history_callback=window._clear_history_from_settings,
         )
 
+        window._tabs.addTab(window._settings_tab, "Settings")
         window._tabs.addTab(window._tv_workspace, "TV Shows")
         window._tabs.addTab(window._movie_workspace, "Movies")
         window._tabs.addTab(window._queue_tab, "Queue")
         window._tabs.addTab(window._history_tab, "History")
-        window._tabs.addTab(window._settings_tab, "Settings")
 
         self._build_badges()
 
@@ -101,7 +103,10 @@ class MainWindowTabsCoordinator:
         window._apply_view_mode(window.settings_service.view_mode)
         window._apply_companion_visibility(window.settings_service.show_companion_files)
         window._apply_discovery_visibility(window.settings_service.show_discovery_info)
-        schedule_single_shot(0, window._start_job_poster_backfill)
+        window._tabs.setCurrentIndex(self._settings_index)
+        counts = window.queue_ctrl.count_by_status()
+        if any(counts.values()):
+            schedule_single_shot(0, window._start_job_poster_backfill)
 
     def _build_badges(self) -> None:
         window = self._window
