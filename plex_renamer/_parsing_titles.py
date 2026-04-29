@@ -106,6 +106,7 @@ def sanitize_filename(name: str) -> str:
     """
     name = name.replace(":", " -")
     name = name.replace("*", "\uFF0A")
+    name = name.replace("/", " ")
     name = UNSAFE_FILENAME_CHARS.sub("", name)
     name = re.sub(r"\s+", " ", name).strip()
     name = name.rstrip(". ")
