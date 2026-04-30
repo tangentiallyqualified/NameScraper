@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from ...parsing import build_tv_name
 from ...engine import PreviewItem, ScanState
 from ..models import (
     EpisodeGuide,
@@ -14,6 +17,61 @@ from ..models import (
 
 class EpisodeMappingService:
     """Project raw scan preview state into episode-guide workflow state."""
+
+    def episode_choices(self, state: ScanState) -> list[tuple[str, int, int]]:
+        """Return selectable episodes within the currently matched show."""
+        keys: set[tuple[int, int]] = set()
+        if state.scanner is not None:
+            keys.update(state.scanner.episode_meta)
+        completeness = state.completeness
+        if completeness is not None:
+            if completeness.specials is not None:
+                keys.update((0, episode) for episode, _title in completeness.specials.matched_episodes)
+                keys.update((0, episode) for episode, _title in completeness.specials.missing)
+            for season_num, season in completeness.seasons.items():
+                keys.update((season_num, episode) for episode, _title in season.matched_episodes)
+                keys.update((season_num, episode) for episode, _title in season.missing)
+            keys.update((season, episode) for season, episode, _title in completeness.total_missing)
+        for preview in state.preview_items:
+            if preview.season is None:
+                continue
+            keys.update((preview.season, episode) for episode in preview.episodes)
+
+        choices: list[tuple[str, int, int]] = []
+        for season, episode in sorted(keys):
+            title = self._episode_title(state, (season, episode)) or f"Episode {episode}"
+            choices.append((f"S{season:02d}E{episode:02d} - {title}", season, episode))
+        return choices
+
+    def remap_preview_to_episode(
+        self,
+        state: ScanState,
+        preview: PreviewItem,
+        *,
+        season: int,
+        episode: int,
+    ) -> PreviewItem:
+        """Map one preview item to a different episode in the same show."""
+        old_name = preview.new_name or ""
+        title = self._episode_title(state, (season, episode)) or f"Episode {episode}"
+        show_name = state.media_info.get("name") or state.media_info.get("title") or state.folder.name
+        year = str(state.media_info.get("year") or "")
+
+        preview.season = season
+        preview.episodes = [episode]
+        preview.status = "OK"
+        preview.episode_confidence = 1.0
+        preview.new_name = build_tv_name(
+            show_name,
+            year,
+            season,
+            [episode],
+            [title],
+            preview.original.suffix,
+        )
+        preview.target_dir = self._target_dir_for_episode(state, preview, season)
+        self._retarget_companions(preview, old_name)
+        return preview
 
     def build_episode_guide(self, state: ScanState) -> EpisodeGuide:
         source_id = state.active_episode_source or "tmdb"
@@ -156,6 +214,29 @@ class EpisodeMappingService:
             return "No Match Found"
         pct = max(0, min(100, round(preview.episode_confidence * 100)))
         return f"{pct}%"
+
+    @staticmethod
+    def _target_dir_for_episode(state: ScanState, preview: PreviewItem, season: int) -> Path:
+        target_dir = preview.target_dir or preview.original.parent
+        parent = target_dir
+        if target_dir.name.lower().startswith("season ") or target_dir.name.lower() == "specials":
+            parent = target_dir.parent
+        elif preview.target_dir is None:
+            parent = state.folder
+        folder_name = "Specials" if season == 0 else f"Season {season:02d}"
+        return parent / folder_name
+
+    @staticmethod
+    def _retarget_companions(preview: PreviewItem, old_video_name: str) -> None:
+        if preview.new_name is None:
+            return
+        old_stem = Path(old_video_name).stem if old_video_name else preview.original.stem
+        new_stem = Path(preview.new_name).stem
+        for companion in preview.companions:
+            if companion.new_name and companion.new_name.startswith(old_stem):
+                companion.new_name = new_stem + companion.new_name[len(old_stem):]
+            else:
+                companion.new_name = new_stem + companion.original.suffix
 
     @staticmethod
     def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:

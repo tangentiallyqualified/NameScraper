@@ -65,7 +65,7 @@ def state_status(state: ScanState) -> tuple[str, QColor]:
         return "Duplicate", QColor("#777777")
     if state.show_id is None:
         return "No Match Found", QColor("#d44040")
-    if state.needs_review:
+    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
         return "Needs Review", QColor("#e5a00d")
     if state.match_origin == "manual":
         return "Approved", QColor("#4a9eda")
@@ -83,7 +83,7 @@ def state_status_tone(state: ScanState) -> str:
         return "muted"
     if state.show_id is None:
         return "error"
-    if state.needs_review:
+    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
         return "accent"
     if is_plex_ready_state(state):
         return "success"
@@ -113,7 +113,7 @@ def roster_group(state: ScanState) -> str:
         return "duplicate"
     if state.show_id is None:
         return "unmatched"
-    if state.needs_review:
+    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
         return "review"
     if is_plex_ready_state(state):
         return "plex-ready"
@@ -181,6 +181,7 @@ def roster_signature(state: ScanState, *, compact: bool, media_type: str) -> tup
         state.confidence,
         state.file_count,
         state.season_assignment,
+        tuple(item.status for item in state.preview_items),
         compact,
         media_type,
         alt_signature,

@@ -162,6 +162,62 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         self.assertEqual(preflight.review_required, 1)
         self.assertIn("1 review", preflight.summary_text)
 
+    def test_remap_preview_item_to_selected_episode_recomputes_name_and_companions(self):
+        companion = CompanionFile(
+            original=Path("C:/library/tv/Show/Season 01/Show.S01E01.eng.sup.mks"),
+            new_name="Show (2024) - S01E01 - Pilot.eng.sup.mks",
+            file_type="subtitle",
+        )
+        review_item = _preview(
+            "Show.S01E01.mkv",
+            status="REVIEW: episode confidence below threshold",
+            companions=[companion],
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Show"),
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            scanner=type(
+                "Scanner",
+                (),
+                {"episode_meta": {(1, 1): {"name": "Pilot"}, (1, 2): {"name": "Second"}}},
+            )(),
+            preview_items=[review_item],
+            completeness=CompletenessReport(
+                seasons={
+                    1: SeasonCompleteness(
+                        season=1,
+                        expected=2,
+                        matched=1,
+                        missing=[(2, "Second")],
+                        matched_episodes=[(1, "Pilot")],
+                    )
+                },
+                specials=None,
+                total_expected=2,
+                total_matched=1,
+                total_missing=[(1, 2, "Second")],
+            ),
+            scanned=True,
+        )
+
+        self.service.remap_preview_to_episode(state, review_item, season=1, episode=2)
+
+        self.assertEqual(review_item.status, "OK")
+        self.assertEqual(review_item.season, 1)
+        self.assertEqual(review_item.episodes, [2])
+        self.assertEqual(review_item.episode_confidence, 1.0)
+        self.assertEqual(review_item.new_name, "Show (2024) - S01E02 - Second.mkv")
+        self.assertEqual(
+            companion.new_name,
+            "Show (2024) - S01E02 - Second.eng.sup.mks",
+        )
+        guide = self.service.build_episode_guide(state)
+        mapped_rows = [row for row in guide.rows if row.primary_file is review_item]
+        self.assertEqual([row.episode_key for row in mapped_rows], [(1, 2)])
+        preflight = self.service.build_queue_preflight(state)
+        self.assertTrue(preflight.enabled)
+        self.assertEqual(preflight.review_required, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

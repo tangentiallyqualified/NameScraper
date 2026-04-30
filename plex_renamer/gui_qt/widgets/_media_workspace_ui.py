@@ -111,6 +111,9 @@ class MediaWorkspaceUiCoordinator:
                 if workspace._selected_state() is not None
                 else None
             ),
+            approve_episode_callback=workspace._approve_episode_mapping,
+            fix_episode_callback=workspace._prompt_fix_episode_mapping,
+            approve_all_episode_callback=workspace._approve_all_episode_mappings,
         )
         workspace._preview_list = workspace._preview_panel.list_widget
         workspace._preview_master_check = workspace._preview_panel.master_check

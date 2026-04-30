@@ -70,16 +70,6 @@ def _update_inline_action_button(workspace, selected_state: ScanState | None) ->
         workspace._queue_inline_btn.setToolTip("")
         return
 
-    selected_preview = workspace._selected_preview()
-    if selected_preview is not None and selected_preview.is_episode_review:
-        workspace._queue_inline_btn.setText("Approve Episode")
-        can_approve = not selected_state.queued and not selected_state.scanning
-        workspace._queue_inline_btn.setEnabled(can_approve)
-        workspace._queue_inline_btn.setToolTip(
-            "" if can_approve else "Wait for this item to leave its current state before approving."
-        )
-        return
-
     workspace._queue_inline_btn.setText(_primary_action_label(workspace, selected_state))
     if (
         _can_inline_assign_season(workspace, selected_state)

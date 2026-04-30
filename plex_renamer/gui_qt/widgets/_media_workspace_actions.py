@@ -6,6 +6,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QMessageBox
 
+from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
 from ._media_workspace_action_bar import (
     set_roster_queue_button_text as _set_roster_queue_button_text,
@@ -49,10 +50,6 @@ class MediaWorkspaceActionCoordinator:
         state = workspace._selected_state()
         if state is None:
             workspace.status_message.emit(f"Select a {self.media_noun()} first.", 4000)
-            return
-        selected_preview = workspace._selected_preview()
-        if selected_preview is not None and selected_preview.is_episode_review:
-            self.approve_episode_mapping(state, selected_preview)
             return
         if self.can_inline_assign_season(state):
             workspace._prompt_assign_season(state)
@@ -129,6 +126,71 @@ class MediaWorkspaceActionCoordinator:
         workspace._populate_preview(state)
         workspace._update_action_bar()
         workspace.status_message.emit("Episode mapping approved.", 3000)
+
+    def approve_all_episode_mappings(self) -> None:
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued or state.scanning:
+            return
+        approved = 0
+        for preview in state.preview_items:
+            if not preview.is_episode_review:
+                continue
+            preview.status = "OK"
+            approved += 1
+        if approved == 0:
+            return
+        workspace._ensure_check_bindings(state)
+        workspace._populate_preview(state)
+        workspace._update_action_bar()
+        workspace.status_message.emit(f"Approved {approved} episode mapping(s).", 3000)
+
+    def prompt_fix_episode_mapping(
+        self,
+        state: ScanState,
+        preview,
+        *,
+        input_dialog: Any,
+        warning_box: Any = QMessageBox,
+    ) -> None:
+        workspace = self._workspace
+        if state.queued or state.scanning or not preview.is_episode_review:
+            workspace.status_message.emit("This episode cannot be fixed in its current state.", 3000)
+            return
+        service = EpisodeMappingService()
+        choices = service.episode_choices(state)
+        if not choices:
+            workspace.status_message.emit("No episode choices are available for this show.", 4000)
+            return
+        labels = [label for label, _season, _episode in choices]
+        current_index = 0
+        if preview.season is not None and preview.episodes:
+            current_key = (preview.season, preview.episodes[0])
+            for index, (_label, season, episode) in enumerate(choices):
+                if (season, episode) == current_key:
+                    current_index = index
+                    break
+        selected, ok = input_dialog.getItem(
+            workspace,
+            "Fix Episode",
+            f"Episode for \"{preview.original.name}\":",
+            labels,
+            current_index,
+            False,
+        )
+        if not ok or not selected:
+            return
+        choice_map = {label: (season, episode) for label, season, episode in choices}
+        season, episode = choice_map[selected]
+        try:
+            service.remap_preview_to_episode(state, preview, season=season, episode=episode)
+        except Exception as exc:
+            warning_box.warning(workspace, "Fix Episode Failed", str(exc))
+            return
+        workspace._ensure_check_bindings(state)
+        workspace._populate_preview(state)
+        workspace._update_action_bar()
+        workspace.status_message.emit("Episode mapping updated.", 3000)
 
     def prompt_assign_season(
         self,

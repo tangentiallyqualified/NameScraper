@@ -51,6 +51,9 @@ class MediaWorkspacePreviewPanel(QFrame):
         settings_service: "SettingsService | None" = None,
         set_item_check_state_callback=None,
         episode_filter_changed_callback=None,
+        approve_episode_callback=None,
+        fix_episode_callback=None,
+        approve_all_episode_callback=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -58,6 +61,9 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._settings = settings_service
         self._set_item_check_state = set_item_check_state_callback
         self._episode_filter_changed = episode_filter_changed_callback
+        self._approve_episode = approve_episode_callback
+        self._fix_episode = fix_episode_callback
+        self._approve_all_episode = approve_all_episode_callback
         self._episode_filter = "all"
         self._master_syncing = False
         self._episode_mapping = EpisodeMappingService()
@@ -129,6 +135,13 @@ class MediaWorkspacePreviewPanel(QFrame):
             button.clicked.connect(lambda _checked=False, value=key: self._set_episode_filter(value))
             self._episode_filter_buttons[key] = button
             header.addWidget(button)
+
+        self._approve_all_button = QPushButton("Approve All")
+        self._approve_all_button.setProperty("cssClass", "secondary")
+        self._approve_all_button.setProperty("sizeVariant", "compact")
+        self._approve_all_button.hide()
+        self._approve_all_button.clicked.connect(self._on_approve_all_clicked)
+        header.addWidget(self._approve_all_button)
         header.addStretch()
 
         self._fix_match_button = QPushButton("Fix Match")
@@ -198,6 +211,7 @@ class MediaWorkspacePreviewPanel(QFrame):
                 self.set_summary("Preview will appear once scanning completes.")
             else:
                 self.set_summary("No preview items available for this selection.")
+            self._approve_all_button.hide()
             return
 
         if self._media_type == "tv":
@@ -209,6 +223,7 @@ class MediaWorkspacePreviewPanel(QFrame):
             return
 
         self._set_episode_filters_visible(False)
+        self._approve_all_button.hide()
         ensure_check_bindings(state)
         self.set_summary("")
 
@@ -261,6 +276,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._sync_episode_filter_buttons()
         guide = self._episode_mapping.build_episode_guide(state)
         self.set_summary("")
+        self._approve_all_button.setVisible(any(row.status == "Review" for row in guide.rows))
 
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         all_rows_by_season: dict[int, list] = {}
@@ -289,13 +305,13 @@ class MediaWorkspacePreviewPanel(QFrame):
             season_name = state.season_names.get(season_num, "")
             season_title = _season_label(season_num, name=season_name)
             season_title += self._episode_guide_season_ratio(state, season_num, rows)
-            self.add_header(("> " if is_collapsed else "v ") + season_title, section_key)
+            self.add_header(("▸ " if is_collapsed else "▾ ") + season_title, section_key)
             if is_collapsed:
                 continue
             for row in rows:
                 item = self._build_episode_guide_item(state, row)
                 self._list_widget.addItem(item)
-                self._attach_episode_guide_widget(item, row)
+                self._attach_episode_guide_widget(item, state, row)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
             self.add_static_header(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
@@ -338,6 +354,8 @@ class MediaWorkspacePreviewPanel(QFrame):
     def _set_episode_filters_visible(self, visible: bool) -> None:
         for button in self._episode_filter_buttons.values():
             button.setVisible(visible)
+        if not visible:
+            self._approve_all_button.hide()
 
     def _sync_episode_filter_buttons(self) -> None:
         for key, button in self._episode_filter_buttons.items():
@@ -353,6 +371,10 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._sync_episode_filter_buttons()
         if self._episode_filter_changed is not None:
             self._episode_filter_changed()
+
+    def _on_approve_all_clicked(self) -> None:
+        if self._approve_all_episode is not None:
+            self._approve_all_episode()
 
     @staticmethod
     def _episode_summary_text(summary) -> str:
@@ -389,7 +411,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
         return item
 
-    def _attach_episode_guide_widget(self, item: QListWidgetItem, row) -> None:
+    def _attach_episode_guide_widget(self, item: QListWidgetItem, state: ScanState, row) -> None:
         original = row.primary_file.original.name if row.primary_file is not None else ""
         companions = [companion.original.name for companion in row.companions]
         title = f"S{row.season:02d}E{row.episode:02d}"
@@ -404,6 +426,21 @@ class MediaWorkspacePreviewPanel(QFrame):
             companions=companions,
             parent=self._list_widget,
         )
+        if row.primary_file is not None:
+            widget.approve_requested.connect(
+                lambda preview=row.primary_file, state=state: (
+                    self._approve_episode(state, preview)
+                    if self._approve_episode is not None
+                    else None
+                )
+            )
+            widget.fix_requested.connect(
+                lambda preview=row.primary_file, state=state: (
+                    self._fix_episode(state, preview)
+                    if self._fix_episode is not None
+                    else None
+                )
+            )
         widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
         self._sync_item_height(item, widget)
         self._list_widget.setItemWidget(item, widget)
@@ -418,7 +455,7 @@ class MediaWorkspacePreviewPanel(QFrame):
     ) -> None:
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         is_collapsed = folder_section_key in collapsed
-        self.add_header(("> " if is_collapsed else "v ") + "Folder", folder_section_key)
+        self.add_header(("▸ " if is_collapsed else "▾ ") + "Folder", folder_section_key)
         if is_collapsed:
             return
         item = self.build_folder_preview_row()

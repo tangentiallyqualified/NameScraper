@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -132,10 +133,16 @@ class RosterRowWidget(ClickableRow):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
-        self._check = ToggleSwitch(state.checked if checkable else False, self)
+        self._check_slot = QWidget(self)
+        check_slot_layout = QHBoxLayout(self._check_slot)
+        check_slot_layout.setContentsMargins(0, 0, 0, 0)
+        check_slot_layout.setSpacing(0)
+        self._check = ToggleSwitch(state.checked if checkable else False, self._check_slot)
         self._check.setVisible(checkable)
         self._check.toggled.connect(self.check_toggled.emit)
-        layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
+        check_slot_layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
+        self._check_slot.setFixedWidth(max(self._check.sizeHint().width(), 26))
+        layout.addWidget(self._check_slot, alignment=Qt.AlignmentFlag.AlignTop)
 
         if not compact:
             poster_alignment = (
@@ -369,6 +376,9 @@ class PreviewRowWidget(ClickableRow):
 # ── Folder preview row widget ────────────────────────────────────────
 
 class EpisodeGuideRowWidget(ClickableRow):
+    approve_requested = Signal()
+    fix_requested = Signal()
+
     def __init__(
         self,
         *,
@@ -412,6 +422,20 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._status.setProperty("tone", self._tone_for_status(status))
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self._approve_button = QPushButton("Approve")
+        self._approve_button.setProperty("cssClass", "primary")
+        self._approve_button.setProperty("sizeVariant", "compact")
+        self._approve_button.setVisible(status == "Review")
+        self._approve_button.clicked.connect(self.approve_requested.emit)
+        top_row.addWidget(self._approve_button, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self._fix_button = QPushButton("Fix")
+        self._fix_button.setProperty("cssClass", "secondary")
+        self._fix_button.setProperty("sizeVariant", "compact")
+        self._fix_button.setVisible(status == "Review")
+        self._fix_button.clicked.connect(self.fix_requested.emit)
+        top_row.addWidget(self._fix_button, alignment=Qt.AlignmentFlag.AlignTop)
         body.addLayout(top_row)
 
         self._original = QLabel(original)

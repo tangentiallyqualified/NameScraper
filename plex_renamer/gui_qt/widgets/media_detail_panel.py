@@ -135,7 +135,6 @@ class MediaDetailPanel(QFrame):
         self._queue_preflight.setProperty("cssClass", "caption")
         self._queue_preflight.setWordWrap(True)
         self._queue_preflight.hide()
-        layout.addWidget(self._queue_preflight)
 
         self._title = _WrappingDetailLabel("Selection")
         self._title.setProperty("cssClass", "heading")
@@ -144,6 +143,7 @@ class MediaDetailPanel(QFrame):
         self._title.setMinimumWidth(0)
         self._title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body_layout.addWidget(self._title)
+        body_layout.addWidget(self._queue_preflight)
 
         self._subtitle = _WrappingDetailLabel("")
         self._subtitle.setProperty("cssClass", "text-dim")
@@ -258,9 +258,13 @@ class MediaDetailPanel(QFrame):
         self._show_artwork_placeholder()
         self._title.setText("Selection")
         self._subtitle.setText(text)
+        self._queue_preflight.clear()
+        self._queue_preflight.hide()
         for key_label, value_label in self._meta_rows:
             key_label.setText("")
             value_label.setText("")
+            key_label.hide()
+            value_label.hide()
         self._overview.setText("")
         self._extra.setText("")
 
@@ -391,6 +395,10 @@ class MediaDetailPanel(QFrame):
                 key, value = rows[row_index]
                 key_label.setText(key)
                 value_label.setText(value)
+                key_label.setVisible(True)
+                value_label.setVisible(True)
             else:
                 key_label.setText("")
                 value_label.setText("")
+                key_label.hide()
+                value_label.hide()

@@ -88,10 +88,7 @@ def build_detail_payload(
     )
     raw_image = pil_to_raw(image) if image is not None else None
 
-    subtitle_parts = []
-    if state.media_info.get("year"):
-        subtitle_parts.append(str(state.media_info.get("year")))
-    subtitle = " · ".join(part for part in subtitle_parts if part)
+    subtitle = ""
 
     rows: list[tuple[str, str]] = [
         ("Source", (state.active_episode_source or "tmdb").upper()),
