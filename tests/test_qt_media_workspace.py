@@ -1588,9 +1588,15 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         widget = workspace._preview_list.itemWidget(item)
 
-        with patch(
-            "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getItem",
-            return_value=("S01E02 - Second", True),
+        with (
+            patch(
+                "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getItem",
+                side_effect=AssertionError("episode fix should not use a collapsing combo dropdown"),
+            ),
+            patch(
+                "plex_renamer.gui_qt.widgets._media_workspace_actions.EpisodeChoiceDialog.pick",
+                return_value=(1, 2),
+            ),
         ):
             widget._fix_button.click()
         self._app.processEvents()
@@ -1658,6 +1664,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         self.assertTrue(approve_all.isVisible())
         self.assertEqual(approve_all.text(), "Approve All")
+        self.assertEqual(approve_all.property("cssClass"), "primary")
         self.assertEqual(
             approve_all.parent(),
             workspace._preview_panel._episode_filter_buttons["unmapped"].parent(),
@@ -1669,6 +1676,73 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual([item.status for item in state.preview_items], ["OK", "OK"])
         self.assertFalse(approve_all.isVisible())
         self.assertTrue(workspace._queue_inline_btn.isEnabled())
+
+        workspace.close()
+
+    def test_media_workspace_episode_review_actions_are_inline_with_confidence_meter(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        review_item = PreviewItem(
+            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW: episode confidence below threshold",
+            episode_confidence=0.5,
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[review_item],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        widget = self._preview_widget_for_index(workspace, 0)
+        before_height = widget.sizeHint().height()
+
+        self.assertEqual(widget._approve_button.property("sizeVariant"), "inline")
+        self.assertEqual(widget._fix_button.property("sizeVariant"), "inline")
+        self.assertLessEqual(widget._approve_button.sizeHint().height(), 24)
+        self.assertLessEqual(widget._fix_button.sizeHint().height(), 24)
+        self.assertGreater(
+            widget._approve_button.mapTo(widget, QPoint(0, 0)).x(),
+            widget._confidence.mapTo(widget, QPoint(0, 0)).x(),
+        )
+        approve_center = (
+            widget._approve_button.mapTo(widget, QPoint(0, 0)).y()
+            + widget._approve_button.height() // 2
+        )
+        confidence_center = (
+            widget._confidence.mapTo(widget, QPoint(0, 0)).y()
+            + widget._confidence.height() // 2
+        )
+        self.assertLessEqual(abs(approve_center - confidence_center), 4)
+        self.assertLessEqual(widget.sizeHint().height(), before_height)
 
         workspace.close()
 

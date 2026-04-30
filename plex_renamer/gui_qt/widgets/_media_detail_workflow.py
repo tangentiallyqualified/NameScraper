@@ -132,6 +132,7 @@ class MediaDetailWorkflowCoordinator:
 
         artwork_mode = _selection_artwork_mode(preview)
         panel._subtitle.setText(queue_reason or "Fetching metadata...")
+        panel._subtitle.show()
         panel._set_artwork_mode(artwork_mode)
         panel._show_artwork_placeholder(state.display_name, loading=True)
         panel._set_meta_rows(panel._fallback_rows(state, preview, queue_reason, folder_plan))
@@ -185,7 +186,9 @@ class MediaDetailWorkflowCoordinator:
 
         panel._stop_shimmer()
         panel._title.setText(payload.get("title", "Selection"))
-        panel._subtitle.setText(payload.get("subtitle", ""))
+        subtitle = payload.get("subtitle", "")
+        panel._subtitle.setText(subtitle)
+        panel._subtitle.setVisible(bool(subtitle))
         panel._overview.setText(payload.get("overview", ""))
         panel._extra.setText(payload.get("extra", ""))
         panel._set_artwork_mode(payload.get("artwork_mode", "poster"))
@@ -215,5 +218,6 @@ class MediaDetailWorkflowCoordinator:
         panel._overview.setText("")
         panel._extra.setText("")
         panel._subtitle.setText(subtitle)
+        panel._subtitle.setVisible(bool(subtitle))
         panel._show_artwork_placeholder(state.display_name)
         panel._set_meta_rows(panel._fallback_rows(state, preview, queue_reason, folder_plan))

@@ -178,6 +178,81 @@ class QtMediaDetailPanelTests(QtSmokeBase):
 
         panel.close()
 
+    def test_media_detail_panel_preflight_does_not_leave_empty_subtitle_padding(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        panel.resize(520, 640)
+        panel.show()
+        panel._current_token = "token"
+        panel._apply_payload(
+            {
+                "title": "Bartender (2006)",
+                "subtitle": "",
+                "rows": [("Confidence", "100%")],
+                "overview": "",
+                "extra": "",
+                "artwork_mode": "poster",
+            },
+            None,
+            "token",
+        )
+        panel._queue_preflight.setText("Queue preflight: 1 mapped file - 1 companion - 10 review")
+        panel._queue_preflight.show()
+        self._app.processEvents()
+
+        preflight_bottom = (
+            panel._queue_preflight.mapTo(panel._body, QPoint(0, 0)).y()
+            + panel._queue_preflight.height()
+        )
+        poster_top = panel._poster.mapTo(panel._body, QPoint(0, 0)).y()
+
+        self.assertTrue(panel._subtitle.isHidden())
+        self.assertLessEqual(poster_top - preflight_bottom, 28)
+
+        panel.close()
+
+    def test_media_detail_panel_facts_values_render_inside_card(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        panel.resize(560, 640)
+        panel.show()
+        panel._current_token = "token"
+        panel._apply_payload(
+            {
+                "title": "Bartender (2006)",
+                "subtitle": "",
+                "rows": [
+                    ("Source", "TMDB"),
+                    ("Match", "Matched"),
+                    ("Confidence", "100%"),
+                    ("Preview", "Review"),
+                    ("Air Date", "2006-10-29"),
+                    ("Seasons", "1 season - 11 episodes"),
+                ],
+                "overview": "",
+                "extra": "",
+                "artwork_mode": "poster",
+            },
+            None,
+            "token",
+        )
+        self._app.processEvents()
+
+        for key_label, value_label in panel._meta_rows:
+            if not key_label.text():
+                continue
+            value_pos = value_label.mapTo(panel._facts_card, QPoint(0, 0))
+            value_right = value_pos.x() + value_label.width()
+            self.assertTrue(value_label.isVisible())
+            self.assertTrue(value_label.text())
+            self.assertGreater(value_pos.x(), key_label.mapTo(panel._facts_card, QPoint(0, 0)).x())
+            self.assertLessEqual(value_right, panel._facts_card.width())
+            self.assertGreater(value_label.width(), 24)
+
+        panel.close()
+
     def test_media_detail_panel_omits_movie_queue_row(self):
         from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
 

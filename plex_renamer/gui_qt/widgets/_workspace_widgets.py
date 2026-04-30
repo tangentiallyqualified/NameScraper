@@ -422,20 +422,6 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._status.setProperty("tone", self._tone_for_status(status))
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
-
-        self._approve_button = QPushButton("Approve")
-        self._approve_button.setProperty("cssClass", "primary")
-        self._approve_button.setProperty("sizeVariant", "compact")
-        self._approve_button.setVisible(status == "Review")
-        self._approve_button.clicked.connect(self.approve_requested.emit)
-        top_row.addWidget(self._approve_button, alignment=Qt.AlignmentFlag.AlignTop)
-
-        self._fix_button = QPushButton("Fix")
-        self._fix_button.setProperty("cssClass", "secondary")
-        self._fix_button.setProperty("sizeVariant", "compact")
-        self._fix_button.setVisible(status == "Review")
-        self._fix_button.clicked.connect(self.fix_requested.emit)
-        top_row.addWidget(self._fix_button, alignment=Qt.AlignmentFlag.AlignTop)
         body.addLayout(top_row)
 
         self._original = QLabel(original)
@@ -477,6 +463,23 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._confidence.setFixedWidth(96)
         self._confidence.setVisible(confidence_value is not None)
         confidence_row.addWidget(self._confidence)
+
+        self._approve_button = QPushButton("Approve")
+        self._approve_button.setProperty("cssClass", "primary")
+        self._approve_button.setProperty("sizeVariant", "inline")
+        self._approve_button.setFixedHeight(22)
+        self._approve_button.setVisible(status == "Review")
+        self._approve_button.clicked.connect(self.approve_requested.emit)
+        confidence_row.addWidget(self._approve_button)
+
+        self._fix_button = QPushButton("Fix")
+        self._fix_button.setProperty("cssClass", "secondary")
+        self._fix_button.setProperty("sizeVariant", "inline")
+        self._fix_button.setFixedHeight(22)
+        self._fix_button.setVisible(status == "Review")
+        self._fix_button.clicked.connect(self.fix_requested.emit)
+        confidence_row.addWidget(self._fix_button)
+
         confidence_row.addStretch(1)
         body.addLayout(confidence_row)
 

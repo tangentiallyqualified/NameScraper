@@ -137,7 +137,7 @@ class MediaWorkspacePreviewPanel(QFrame):
             header.addWidget(button)
 
         self._approve_all_button = QPushButton("Approve All")
-        self._approve_all_button.setProperty("cssClass", "secondary")
+        self._approve_all_button.setProperty("cssClass", "primary")
         self._approve_all_button.setProperty("sizeVariant", "compact")
         self._approve_all_button.hide()
         self._approve_all_button.clicked.connect(self._on_approve_all_clicked)

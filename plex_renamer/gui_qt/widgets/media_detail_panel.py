@@ -8,8 +8,8 @@ from collections.abc import Callable
 from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QFormLayout,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -127,13 +127,14 @@ class MediaDetailPanel(QFrame):
         self._body.setProperty("cssClass", "media-detail-content-surface")
         body_layout = QVBoxLayout(self._body)
         body_layout.setContentsMargins(14, 12, 14, 14)
-        body_layout.setSpacing(12)
+        body_layout.setSpacing(8)
         self._scroll.setWidget(self._body)
         layout.addWidget(self._scroll, stretch=1)
 
         self._queue_preflight = _WrappingDetailLabel("")
         self._queue_preflight.setProperty("cssClass", "caption")
         self._queue_preflight.setWordWrap(True)
+        self._queue_preflight.setMargin(0)
         self._queue_preflight.hide()
 
         self._title = _WrappingDetailLabel("Selection")
@@ -196,13 +197,12 @@ class MediaDetailPanel(QFrame):
         self._facts_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self._facts_card.setMaximumWidth(280)
         self._meta_grid = QWidget()
-        meta_layout = QFormLayout(self._meta_grid)
+        meta_layout = QGridLayout(self._meta_grid)
         meta_layout.setContentsMargins(0, 0, 0, 0)
         meta_layout.setHorizontalSpacing(6)
         meta_layout.setVerticalSpacing(6)
-        meta_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        meta_layout.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        meta_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        meta_layout.setColumnStretch(0, 0)
+        meta_layout.setColumnStretch(1, 1)
         self._meta_rows: list[tuple[QLabel, QLabel]] = []
         for row in range(6):
             key_label = QLabel("")
@@ -216,7 +216,8 @@ class MediaDetailPanel(QFrame):
             value_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             value_label.setMinimumWidth(0)
             value_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-            meta_layout.addRow(key_label, value_label)
+            meta_layout.addWidget(key_label, row, 0, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            meta_layout.addWidget(value_label, row, 1)
             self._meta_rows.append((key_label, value_label))
         facts_layout = QVBoxLayout(self._facts_card)
         facts_layout.setContentsMargins(12, 12, 12, 12)
@@ -258,6 +259,7 @@ class MediaDetailPanel(QFrame):
         self._show_artwork_placeholder()
         self._title.setText("Selection")
         self._subtitle.setText(text)
+        self._subtitle.show()
         self._queue_preflight.clear()
         self._queue_preflight.hide()
         for key_label, value_label in self._meta_rows:

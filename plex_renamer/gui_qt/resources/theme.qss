@@ -423,6 +423,13 @@ QPushButton[cssClass="primary"][sizeVariant="compact"] {
     padding: 6px 4px;
 }
 
+QPushButton[cssClass="primary"][sizeVariant="inline"] {
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: 4px;
+}
+
 /* Secondary / outline button */
 QPushButton[cssClass="secondary"] {
     background-color: transparent;
@@ -455,6 +462,14 @@ QPushButton[cssClass="secondary"][sizeVariant="compact"] {
     text-align: left;
     padding: 2px 6px;
     font-size: 11px;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="inline"] {
+    text-align: center;
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: 4px;
 }
 
 /* Danger button */

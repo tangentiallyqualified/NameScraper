@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QVBoxLayout,
+)
 
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
@@ -36,6 +45,54 @@ from ._media_workspace_queue_actions import (
     queue_states as _queue_states,
     summarize_skip_reasons as _summarize_skip_reasons,
 )
+
+
+class EpisodeChoiceDialog:
+    """List-based episode picker used instead of a fragile combo popup."""
+
+    @staticmethod
+    def pick(
+        *,
+        parent,
+        title: str,
+        prompt: str,
+        choices: list[tuple[str, int, int]],
+        current_index: int = 0,
+    ) -> tuple[int, int] | None:
+        dialog = QDialog(parent)
+        dialog.setWindowTitle(title)
+        layout = QVBoxLayout(dialog)
+
+        prompt_label = QLabel(prompt)
+        prompt_label.setWordWrap(True)
+        layout.addWidget(prompt_label)
+
+        list_widget = QListWidget()
+        for label, season, episode in choices:
+            item = QListWidgetItem(label)
+            item.setData(Qt.ItemDataRole.UserRole, (season, episode))
+            list_widget.addItem(item)
+        if choices:
+            list_widget.setCurrentRow(max(0, min(current_index, len(choices) - 1)))
+        list_widget.itemDoubleClicked.connect(lambda _item: dialog.accept())
+        layout.addWidget(list_widget)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        item = list_widget.currentItem()
+        if item is None:
+            return None
+        selected = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(selected, tuple) or len(selected) != 2:
+            return None
+        return int(selected[0]), int(selected[1])
 
 
 class MediaWorkspaceActionCoordinator:
@@ -162,7 +219,6 @@ class MediaWorkspaceActionCoordinator:
         if not choices:
             workspace.status_message.emit("No episode choices are available for this show.", 4000)
             return
-        labels = [label for label, _season, _episode in choices]
         current_index = 0
         if preview.season is not None and preview.episodes:
             current_key = (preview.season, preview.episodes[0])
@@ -170,18 +226,16 @@ class MediaWorkspaceActionCoordinator:
                 if (season, episode) == current_key:
                     current_index = index
                     break
-        selected, ok = input_dialog.getItem(
-            workspace,
-            "Fix Episode",
-            f"Episode for \"{preview.original.name}\":",
-            labels,
-            current_index,
-            False,
+        selected = EpisodeChoiceDialog.pick(
+            parent=workspace,
+            title="Fix Episode",
+            prompt=f"Episode for \"{preview.original.name}\":",
+            choices=choices,
+            current_index=current_index,
         )
-        if not ok or not selected:
+        if selected is None:
             return
-        choice_map = {label: (season, episode) for label, season, episode in choices}
-        season, episode = choice_map[selected]
+        season, episode = selected
         try:
             service.remap_preview_to_episode(state, preview, season=season, episode=episode)
         except Exception as exc:
