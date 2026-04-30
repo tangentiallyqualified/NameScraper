@@ -60,6 +60,39 @@ def _state_spans_multiple_seasons(state: ScanState) -> bool:
     return len(preview_seasons) > 1
 
 
+def _known_non_special_season_count(state: ScanState) -> int:
+    if state.completeness is not None:
+        return len(state.completeness.seasons)
+    if state.season_names:
+        return len({season for season in state.season_names if season > 0})
+    if state.season_folders:
+        return len({season for season in state.season_folders if season > 0})
+    return len({
+        preview.season
+        for preview in state.preview_items
+        if preview.season not in (None, 0)
+    })
+
+
+def _should_show_season_assignment(state: ScanState) -> bool:
+    if state.season_assignment in (None, 0):
+        return False
+    return (
+        _known_non_special_season_count(state) > 1
+        and not _state_spans_multiple_seasons(state)
+    )
+
+
+def _percent_from_label(value: str) -> int | None:
+    text = value.strip()
+    if not text.endswith("%"):
+        return None
+    try:
+        return max(0, min(100, int(round(float(text[:-1])))))
+    except ValueError:
+        return None
+
+
 # ── Roster row widget ────────────────────────────────────────────────
 
 class RosterRowWidget(ClickableRow):
@@ -105,7 +138,12 @@ class RosterRowWidget(ClickableRow):
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
         if not compact:
-            layout.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
+            poster_alignment = (
+                Qt.AlignmentFlag.AlignVCenter
+                if media_type == "movie"
+                else Qt.AlignmentFlag.AlignTop
+            )
+            layout.addWidget(self._poster, alignment=poster_alignment)
 
         body = QVBoxLayout()
         body.setSpacing(4)
@@ -132,7 +170,7 @@ class RosterRowWidget(ClickableRow):
         body.addLayout(title_row)
 
         meta_parts = [f"{_file_count_for_state(state)} file(s)"]
-        if state.season_assignment is not None and not _state_spans_multiple_seasons(state):
+        if _should_show_season_assignment(state):
             meta_parts.append(f"Season {state.season_assignment}")
         if state.duplicate_of is not None:
             duplicate_target = state.duplicate_of_relative_folder or state.duplicate_of
@@ -149,11 +187,22 @@ class RosterRowWidget(ClickableRow):
         self._meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         body.addWidget(self._meta)
 
+        confidence_row = QHBoxLayout()
+        confidence_row.setContentsMargins(0, 0, 0, 0)
+        confidence_row.setSpacing(8)
+        self._confidence_label = QLabel("Confidence")
+        self._confidence_label.setProperty("cssClass", "caption")
+        self._confidence_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        confidence_row.addWidget(self._confidence_label)
+
         self._confidence = MiniProgressBar(
             color=_confidence_fill_color(self._state.confidence, state=self._state),
             value=clamped_percent(state.confidence),
         )
-        body.addWidget(self._confidence)
+        self._confidence.setFixedWidth(92 if compact else 110)
+        confidence_row.addWidget(self._confidence)
+        confidence_row.addStretch(1)
+        body.addLayout(confidence_row)
 
         self._approve_btn = None
 
@@ -387,11 +436,25 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._companions.setVisible(bool(companion_text))
         body.addWidget(self._companions)
 
-        self._confidence = QLabel(confidence)
-        self._confidence.setProperty("cssClass", "caption")
-        self._confidence.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self._confidence.setVisible(bool(confidence))
-        body.addWidget(self._confidence)
+        confidence_value = _percent_from_label(confidence)
+        confidence_row = QHBoxLayout()
+        confidence_row.setContentsMargins(0, 0, 0, 0)
+        confidence_row.setSpacing(8)
+        self._confidence_label = QLabel("Confidence")
+        self._confidence_label.setProperty("cssClass", "caption")
+        self._confidence_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._confidence_label.setVisible(confidence_value is not None)
+        confidence_row.addWidget(self._confidence_label)
+
+        self._confidence = MiniProgressBar(
+            color=_confidence_fill_color((confidence_value or 0) / 100),
+            value=confidence_value or 0,
+        )
+        self._confidence.setFixedWidth(96)
+        self._confidence.setVisible(confidence_value is not None)
+        confidence_row.addWidget(self._confidence)
+        confidence_row.addStretch(1)
+        body.addLayout(confidence_row)
 
         self._apply_style()
 

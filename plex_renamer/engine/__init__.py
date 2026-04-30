@@ -10,8 +10,12 @@ from __future__ import annotations
 from ._state import (
     AUTO_ACCEPT_THRESHOLD,
     DEFAULT_AUTO_ACCEPT_THRESHOLD,
+    DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD,
+    EPISODE_AUTO_ACCEPT_THRESHOLD,
     get_auto_accept_threshold,
+    get_episode_auto_accept_threshold,
     set_auto_accept_threshold,
+    set_episode_auto_accept_threshold,
 )
 from .models import (
     CompanionFile,
@@ -60,7 +64,9 @@ __all__ = [
     "CompanionFile",
     "CompletenessReport",
     "DEFAULT_AUTO_ACCEPT_THRESHOLD",
+    "DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD",
     "DirectEpisodeEvidence",
+    "EPISODE_AUTO_ACCEPT_THRESHOLD",
     "MovieScanner",
     "PreviewItem",
     "RenameResult",
@@ -76,11 +82,13 @@ __all__ = [
     "collect_direct_episode_evidence",
     "execute_rename",
     "get_auto_accept_threshold",
+    "get_episode_auto_accept_threshold",
     "get_checked_indices_from_state",
     "infer_explicit_season_assignment",
     "pick_alternate_matches",
     "score_results",
     "score_tv_results",
     "set_auto_accept_threshold",
+    "set_episode_auto_accept_threshold",
     "title_similarity",
 ]

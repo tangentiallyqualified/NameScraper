@@ -757,6 +757,34 @@ class RematchStateTests(_ControllerTestCase):
         self.ctrl.apply_runtime_settings()
         self.assertFalse(state.needs_review)
 
+    def test_apply_runtime_settings_reapplies_episode_review_threshold(self):
+        item = PreviewItem(
+            original=self.tmp / "Show.2024" / "Show.S01E01.mkv",
+            new_name="Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=self.tmp / "Show (2024)" / "Season 01",
+            season=1,
+            episodes=[1],
+            status="OK",
+            episode_confidence=0.7,
+        )
+        state = ScanState(
+            folder=self.tmp / "Show.2024",
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[item],
+            confidence=1.0,
+            checked=True,
+        )
+        self.set_tv_session([state], batch_mode=False)
+
+        self.ctrl.settings.episode_auto_accept_threshold = 0.85
+        self.ctrl.apply_runtime_settings()
+        self.assertTrue(item.is_review)
+        self.assertFalse(state.checked)
+
+        self.ctrl.settings.episode_auto_accept_threshold = 0.6
+        self.ctrl.apply_runtime_settings()
+        self.assertEqual(item.status, "OK")
+
     def test_rematch_tv_state_keeps_runner_up_suggestions_without_score_threshold(self):
         state = ScanState(
             folder=self.tmp / "Man.DOk.Ngew.2016",

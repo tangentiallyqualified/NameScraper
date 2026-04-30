@@ -313,6 +313,55 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[2]].season, 2)
             self.assertEqual(by_name[filenames[2]].episodes, [2])
 
+    def test_tv_scanner_marks_low_episode_confidence_for_review_using_episode_threshold(self):
+        from plex_renamer.engine import set_episode_auto_accept_threshold
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender"
+            root.mkdir()
+            (root / "Bartender 03.mkv").write_text("x")
+
+            try:
+                set_episode_auto_accept_threshold(0.85)
+                scanner = TVScanner(
+                    _FakeTMDB(),
+                    {"id": 100, "name": "Bartender", "year": "2006"},
+                    root,
+                )
+
+                items, _has_mismatch = scanner.scan()
+            finally:
+                set_episode_auto_accept_threshold(0.85)
+
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0].episode_confidence, 0.5)
+            self.assertTrue(items[0].status.startswith("REVIEW"))
+
+    def test_tv_scanner_attaches_sup_mks_subtitle_companions(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender"
+            root.mkdir()
+            video = root / "[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].mkv"
+            sidecar = root / "[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng.[BD].sup.mks"
+            video.write_text("video")
+            sidecar.write_text("subtitle")
+
+            scanner = TVScanner(
+                _FakeTMDB(),
+                {"id": 100, "name": "Bartender", "year": "2006"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertEqual(len(items), 1)
+            self.assertEqual(len(items[0].companions), 1)
+            self.assertEqual(items[0].companions[0].original, sidecar)
+            self.assertEqual(
+                items[0].companions[0].new_name,
+                "Bartender (2006) - S01E03 - Episode 3.eng.[BD].sup.mks",
+            )
+
     def test_tv_discovery_uses_consistent_episode_title_over_noisy_folder_suffix(self):
         with TemporaryDirectory() as tmp:
             show = Path(tmp) / "chernobyl framestor"

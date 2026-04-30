@@ -76,6 +76,21 @@ class CommandGatingService:
         eligible_selected = sorted(index for index in selected if index in actionable)
         blocked_counts = self._blocked_counts(items)
 
+        if require_resolved_review:
+            review_selected = sorted(
+                index
+                for index in selected
+                if 0 <= index < len(items) and items[index].is_review
+            )
+            if review_selected:
+                return QueueEligibility(
+                    command_state=QueueCommandState.DISABLED_UNRESOLVED_REVIEW,
+                    reason="Review the episode mappings before queueing.",
+                    actionable_indices=actionable,
+                    selected_indices=review_selected,
+                    blocked_counts=blocked_counts,
+                )
+
         if eligible_selected:
             return QueueEligibility(
                 command_state=QueueCommandState.ENABLED,
@@ -131,6 +146,16 @@ class CommandGatingService:
                 index for index, item in enumerate(state.preview_items)
                 if self.is_actionable_item(item)
             }
+
+        if require_resolved_review and any(
+            state.preview_items[index].is_review
+            for index in selected
+            if 0 <= index < len(state.preview_items)
+        ):
+            return QueueEligibility(
+                command_state=QueueCommandState.DISABLED_UNRESOLVED_REVIEW,
+                reason="Review the episode mappings before queueing.",
+            )
 
         if not state.scanned and not state.preview_items:
             return QueueEligibility(
@@ -211,15 +236,15 @@ class CommandGatingService:
     def _blocked_counts(cls, items: list[PreviewItem]) -> dict[str, int]:
         counter: Counter[str] = Counter()
         for item in items:
-            if cls.is_actionable_item(item):
-                continue
             status = item.status.upper()
-            if status.startswith("CONFLICT"):
+            if status.startswith("REVIEW"):
+                counter["review"] += 1
+            elif cls.is_actionable_item(item):
+                continue
+            elif status.startswith("CONFLICT"):
                 counter["conflict"] += 1
             elif status.startswith("SKIP"):
                 counter["skip"] += 1
-            elif status.startswith("REVIEW"):
-                counter["review"] += 1
             else:
                 counter["other"] += 1
         return dict(counter)

@@ -50,6 +50,10 @@ class MediaWorkspaceActionCoordinator:
         if state is None:
             workspace.status_message.emit(f"Select a {self.media_noun()} first.", 4000)
             return
+        selected_preview = workspace._selected_preview()
+        if selected_preview is not None and selected_preview.is_episode_review:
+            self.approve_episode_mapping(state, selected_preview)
+            return
         if self.can_inline_assign_season(state):
             workspace._prompt_assign_season(state)
             return
@@ -108,6 +112,24 @@ class MediaWorkspaceActionCoordinator:
     def approve_match(self, state: ScanState) -> None:
         _approve_match(self._workspace, state)
 
+    def approve_episode_mapping(self, state: ScanState, preview) -> None:
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit("This episode cannot be approved in its current state.", 3000)
+            return
+        if not preview.is_episode_review:
+            return
+        preview.status = "OK"
+        workspace._ensure_check_bindings(state)
+        if state.checked:
+            for index, item in enumerate(state.preview_items):
+                binding = state.check_vars.get(str(index))
+                if binding is not None and hasattr(binding, "set"):
+                    binding.set(item.is_actionable and not item.is_review)
+        workspace._populate_preview(state)
+        workspace._update_action_bar()
+        workspace.status_message.emit("Episode mapping approved.", 3000)
+
     def prompt_assign_season(
         self,
         state: ScanState,
@@ -159,4 +181,3 @@ class MediaWorkspaceActionCoordinator:
 
     def can_fix_match(self, state: ScanState) -> bool:
         return _can_fix_match(state)
-

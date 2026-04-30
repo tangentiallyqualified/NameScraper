@@ -87,7 +87,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
             self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
-            self.assertIs(workspace._queue_inline_btn.parent(), workspace._detail_panel)
+            self.assertIs(workspace._queue_inline_btn, workspace._detail_panel.primary_action_button)
+            self.assertGreater(
+                workspace._queue_inline_btn.mapTo(workspace._detail_panel._body, QPoint(0, 0)).y(),
+                workspace._detail_panel._poster.mapTo(workspace._detail_panel._body, QPoint(0, 0)).y(),
+            )
             self.assertGreater(
                 workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y(),
                 workspace._roster_list.mapTo(workspace, QPoint(0, 0)).y(),
@@ -280,6 +284,87 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         row_widget = self._roster_widget_for_index(workspace, 0)
         self.assertIsInstance(row_widget, _RosterRowWidget)
         self.assertNotIn("Season 1", row_widget._meta.text())
+
+        workspace.close()
+
+    def test_media_workspace_season_one_badge_only_shows_when_show_has_multiple_seasons(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self, states):
+                self.command_gating = CommandGatingService()
+                self.batch_states = states
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        def _state(name: str, completeness: CompletenessReport) -> ScanState:
+            return ScanState(
+                folder=Path(f"C:/library/tv/{name}"),
+                media_info={"id": 101, "name": name, "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"C:/library/tv/{name}/Season 01/{name}.S01E01.mkv"),
+                        new_name=f"{name} (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"C:/library/tv/{name} (2024)/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                completeness=completeness,
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+                season_assignment=1,
+            )
+
+        single_season = _state(
+            "Single Season",
+            CompletenessReport(
+                seasons={1: SeasonCompleteness(season=1, expected=1, matched=1, missing=[])},
+                specials=None,
+                total_expected=1,
+                total_matched=1,
+                total_missing=[],
+            ),
+        )
+        multi_season = _state(
+            "Multi Season",
+            CompletenessReport(
+                seasons={
+                    1: SeasonCompleteness(season=1, expected=1, matched=1, missing=[]),
+                    2: SeasonCompleteness(season=2, expected=1, matched=0, missing=[(1, "Second Season")]),
+                },
+                specials=None,
+                total_expected=2,
+                total_matched=1,
+                total_missing=[(2, 1, "Second Season")],
+            ),
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=_FakeMediaController([single_season, multi_season]),
+        )
+        workspace.show_ready()
+
+        single_widget = self._roster_widget_for_index(workspace, 0)
+        multi_widget = self._roster_widget_for_index(workspace, 1)
+        self.assertIsInstance(single_widget, _RosterRowWidget)
+        self.assertIsInstance(multi_widget, _RosterRowWidget)
+        self.assertNotIn("Season 1", single_widget._meta.text())
+        self.assertIn("Season 1", multi_widget._meta.text())
 
         workspace.close()
 
@@ -1266,12 +1351,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                         matched=1,
                         missing=[(2, "Second")],
                         matched_episodes=[(1, "Pilot")],
-                    )
+                    ),
+                    2: SeasonCompleteness(
+                        season=2,
+                        expected=1,
+                        matched=0,
+                        missing=[(1, "A Missing Start")],
+                        matched_episodes=[],
+                    ),
                 },
                 specials=None,
-                total_expected=2,
+                total_expected=3,
                 total_matched=1,
-                total_missing=[(1, 2, "Second")],
+                total_missing=[(1, 2, "Second"), (2, 1, "A Missing Start")],
             ),
             scanned=True,
             checked=True,
@@ -1283,27 +1375,93 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         self.assertTrue(workspace._preview_master_check.isHidden())
         self.assertTrue(workspace._preview_check_summary.isHidden())
-        self.assertIn("1 mapped", workspace._preview_summary.text())
-        self.assertIn("1 missing", workspace._preview_summary.text())
+        self.assertTrue(workspace._preview_summary.isHidden())
         self.assertIn("Queue preflight:", workspace._queue_preflight_label.text())
         self.assertIn("1 mapped file", workspace._queue_preflight_label.text())
         self.assertIn("1 companion", workspace._queue_preflight_label.text())
         headers = self._preview_header_texts(workspace)
-        self.assertTrue(any("EPISODE GUIDE: TMDB" in header for header in headers))
-        self.assertTrue(any("SEASON 1" in header for header in headers))
+        self.assertFalse(any("EPISODE GUIDE:" in header for header in headers))
+        self.assertTrue(any(header.startswith("V SEASON 1") for header in headers))
+        self.assertTrue(any(header.startswith("> SEASON 2") for header in headers))
 
         mapped_widget = self._preview_widget_for_index(workspace, 0)
         self.assertIsInstance(mapped_widget, EpisodeGuideRowWidget)
         self.assertTrue(mapped_widget._check.isHidden())
         self.assertEqual(mapped_widget._status.text(), "Mapped")
         self.assertIn("Example.S01E01.en.srt", mapped_widget._companions.text())
+        self.assertEqual(mapped_widget._confidence_label.text(), "Confidence")
+        self.assertEqual(mapped_widget._confidence._value, 100)
 
         missing_statuses = []
+        missing_titles = []
         for row in range(workspace._preview_list.count()):
             widget = workspace._preview_list.itemWidget(workspace._preview_list.item(row))
             if isinstance(widget, EpisodeGuideRowWidget):
                 missing_statuses.append(widget._status.text())
+                missing_titles.append(widget._title.text())
         self.assertIn("Missing File", missing_statuses)
+        self.assertNotIn("S02E01 - A Missing Start", missing_titles)
+
+        workspace.close()
+
+    def test_media_workspace_selected_review_episode_can_be_approved_inline(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        review_item = PreviewItem(
+            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW: episode confidence below threshold",
+            episode_confidence=0.5,
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[review_item],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        item = next(
+            workspace._preview_list.item(row)
+            for row in range(workspace._preview_list.count())
+            if workspace._preview_list.item(row).data(Qt.ItemDataRole.UserRole) == 0
+        )
+        workspace._preview_list.setCurrentItem(item)
+        self._app.processEvents()
+
+        self.assertEqual(workspace._queue_inline_btn.text(), "Approve Episode")
+        self.assertTrue(workspace._queue_inline_btn.isEnabled())
+
+        workspace._queue_inline_btn.click()
+        self._app.processEvents()
+
+        self.assertEqual(review_item.status, "OK")
+        self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
+        self.assertTrue(workspace._queue_inline_btn.isEnabled())
 
         workspace.close()
 
@@ -1434,8 +1592,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         headers = self._preview_header_texts(workspace)
         self.assertTrue(any("UNMAPPED PRIMARY FILES" in header for header in headers))
         self.assertTrue(any("ORPHAN COMPANION FILES" in header for header in headers))
-        self.assertIn("1 unmapped", workspace._preview_summary.text())
-        self.assertIn("1 orphan companion", workspace._preview_summary.text())
+        self.assertTrue(workspace._preview_summary.isHidden())
 
         workspace.close()
 
@@ -2114,6 +2271,72 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_media_workspace_movie_roster_poster_is_vertically_centered(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = [state]
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_movie(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def select_show(self, index):
+                return self.select_movie(index)
+
+            def sync_queued_states(self):
+                return None
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            state = ScanState(
+                folder=Path("C:/library/movies/Arrival.2016"),
+                media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                        new_name="Arrival (2016).mkv",
+                        target_dir=Path("C:/library/movies/Arrival (2016)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=22,
+                        media_name="Arrival",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=_FakeMediaController(state),
+                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                settings_service=settings,
+                tmdb_provider=lambda: None,
+            )
+            workspace.resize(1000, 700)
+            workspace.show()
+            workspace.show_ready()
+            self._app.processEvents()
+
+            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
+            self.assertIsInstance(row_widget, _RosterRowWidget)
+            row_center = row_widget.rect().center().y()
+            poster_center = row_widget._poster.geometry().center().y()
+            self.assertLessEqual(abs(poster_center - row_center), 2)
+
+            workspace.close()
+
     def test_media_workspace_shows_threshold_aware_roster_match_text(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
 
@@ -2168,7 +2391,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertIn("TMDB - Review 42%", row_widget._meta.text())
+            self.assertIn("TMDB - 42%", row_widget._meta.text())
+            self.assertNotIn("Review 42%", row_widget._meta.text())
+            self.assertEqual(row_widget._confidence_label.text(), "Confidence")
+            self.assertEqual(row_widget._confidence._value, 42)
             self.assertIn("needs review", row_widget._meta.text())
             self.assertTrue(row_widget._status.isHidden())
             self.assertEqual(workspace._queue_inline_btn.text(), "Approve Match")

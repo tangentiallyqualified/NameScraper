@@ -34,8 +34,7 @@ def detail_state_media_type(state: ScanState) -> str:
 
 
 def detail_state_confidence_value(state: ScanState) -> str:
-    label = "High" if state.confidence >= 0.85 else "Review"
-    return f"{label} {clamped_percent(state.confidence)}%"
+    return f"{clamped_percent(state.confidence)}%"
 
 
 def detail_match_status(state: ScanState) -> str:
@@ -56,11 +55,8 @@ def build_detail_fallback_rows(
     queue_reason: str,
 ) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = []
-    if queue_reason and detail_state_media_type(state) != "movie":
-        rows.append(("Queue", queue_reason))
     rows.append(("Confidence", detail_state_confidence_value(state)))
     if preview is not None:
-        rows.append(("File", preview.original.name))
         rows.append(("Status", preview.status))
     return rows
 
@@ -95,8 +91,6 @@ def build_detail_payload(
     subtitle_parts = []
     if state.media_info.get("year"):
         subtitle_parts.append(str(state.media_info.get("year")))
-    if details.get("tagline"):
-        subtitle_parts.append(details["tagline"])
     subtitle = " · ".join(part for part in subtitle_parts if part)
 
     rows: list[tuple[str, str]] = [
@@ -104,12 +98,7 @@ def build_detail_payload(
         ("Match", detail_match_status(state)),
         ("Confidence", detail_state_confidence_value(state)),
     ]
-    if queue_reason and media_type != "movie":
-        rows.append(("Queue", queue_reason))
     if preview is not None:
-        if preview.new_name:
-            rows.append(("Rename", preview.new_name))
-        rows.append(("File", preview.original.name))
         rows.append(("Preview", preview.status))
         if episode_meta and episode_meta.get("air_date"):
             rows.append(("Air Date", episode_meta["air_date"]))

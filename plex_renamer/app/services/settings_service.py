@@ -127,6 +127,20 @@ class SettingsService:
         self.set("auto_accept_threshold", max(0.50, min(1.00, float(value))))
 
     @property
+    def episode_auto_accept_threshold(self) -> float:
+        """Confidence threshold for auto-accepting episode mappings."""
+        val = self.get("episode_auto_accept_threshold")
+        try:
+            f = float(val)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 0.85
+        return max(0.50, min(1.00, f))
+
+    @episode_auto_accept_threshold.setter
+    def episode_auto_accept_threshold(self, value: float) -> None:
+        self.set("episode_auto_accept_threshold", max(0.50, min(1.00, float(value))))
+
+    @property
     def show_confidence_bars(self) -> bool:
         """Whether per-episode confidence bars are shown in the preview."""
         return bool(self.get("show_confidence_bars"))

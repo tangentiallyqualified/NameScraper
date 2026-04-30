@@ -212,6 +212,9 @@ class MainWindow(QMainWindow):
     def _on_threshold_changed(self, value: float) -> None:
         self._state_coordinator.on_threshold_changed(value)
 
+    def _on_episode_threshold_changed(self, value: float) -> None:
+        self._state_coordinator.on_episode_threshold_changed(value)
+
     # ── Menu bar ─────────────────────────────────────────────────
 
     def _build_menu_bar(self) -> None:

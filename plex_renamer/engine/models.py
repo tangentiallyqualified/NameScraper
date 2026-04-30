@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from ._tv_scanner import TVScanner  # noqa: F401
 
 
+EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
+
+
 @dataclass
 class CompanionFile:
     """
@@ -82,6 +85,10 @@ class PreviewItem:
     @property
     def is_review(self) -> bool:
         return self.status.startswith("REVIEW")
+
+    @property
+    def is_episode_review(self) -> bool:
+        return self.status.startswith(EPISODE_REVIEW_STATUS_PREFIX)
 
     @property
     def is_unmatched(self) -> bool:

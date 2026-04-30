@@ -26,6 +26,7 @@ from ...engine import (
     PreviewItem,
     ScanState,
     set_auto_accept_threshold,
+    set_episode_auto_accept_threshold,
     pick_alternate_matches,
     score_results,
     score_tv_results,
@@ -93,6 +94,7 @@ class MediaController:
         self._tv_discovery = tv_discovery or TVLibraryDiscoveryService()
         self._movie_discovery = movie_discovery or MovieLibraryDiscoveryService()
         set_auto_accept_threshold(self._settings.auto_accept_threshold)
+        set_episode_auto_accept_threshold(self._settings.episode_auto_accept_threshold)
 
         self._mode_state = ControllerModeState()
         self._tv_session = TVControllerSession()
@@ -324,6 +326,7 @@ class MediaController:
         """Apply settings that directly affect scan/review semantics."""
         apply_runtime_settings_to_states(
             self._settings.auto_accept_threshold,
+            self._settings.episode_auto_accept_threshold,
             (*self._batch_states, *self._movie_library_states),
         )
         self._notify("library_changed", self.library_states)

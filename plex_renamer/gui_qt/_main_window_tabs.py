@@ -93,6 +93,7 @@ class MainWindowTabsCoordinator:
         window._settings_tab.discovery_visibility_changed.connect(window._apply_discovery_visibility)
         window._settings_tab.language_changed.connect(window._on_language_changed)
         window._settings_tab.threshold_changed.connect(window._on_threshold_changed)
+        window._settings_tab.episode_threshold_changed.connect(window._on_episode_threshold_changed)
         window._settings_tab.api_key_saved.connect(window._invalidate_tmdb)
         window._settings_tab.history_cleared.connect(window._on_queue_changed)
 

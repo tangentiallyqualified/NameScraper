@@ -101,6 +101,8 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if state.needs_review or is_plex_ready_state(state):
         return False
+    if any(item.is_review for item in state.preview_items):
+        return False
     return any(item.is_actionable for item in state.preview_items)
 
 
@@ -126,9 +128,8 @@ def auto_accept_threshold(settings) -> float:
 
 def state_match_summary(state: ScanState, threshold: float) -> str:
     pct = percent_text(state.confidence)
-    confidence_label = "High" if state.confidence >= 0.85 else "Review"
     source = (state.active_episode_source or "tmdb").upper()
-    badge = f"{source} - {confidence_label} {pct}"
+    badge = f"{source} - {pct}"
     if state.duplicate_of is not None:
         return f"{source} - Duplicate"
     if state.match_origin == "manual" and not state.needs_review:

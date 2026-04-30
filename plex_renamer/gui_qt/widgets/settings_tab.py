@@ -70,6 +70,7 @@ class SettingsTab(QScrollArea):
     discovery_visibility_changed = Signal(bool)
     language_changed = Signal(str)
     threshold_changed = Signal(float)
+    episode_threshold_changed = Signal(float)
     api_key_saved = Signal()
     history_cleared = Signal()
 
@@ -180,6 +181,9 @@ class SettingsTab(QScrollArea):
 
     def _on_threshold(self, value: int) -> None:
         self._state_coordinator.on_threshold(value)
+
+    def _on_episode_threshold(self, value: int) -> None:
+        self._state_coordinator.on_episode_threshold(value)
 
     def _on_confidence_bars(self, checked: bool) -> None:
         self._state_coordinator.on_confidence_bars(checked)

@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections import defaultdict
 
 from ..parsing import clean_folder_name, clean_name
-from .models import CompletenessReport, PreviewItem, SeasonCompleteness
+from ._state import get_episode_auto_accept_threshold
+from .models import (
+    EPISODE_REVIEW_STATUS_PREFIX,
+    CompletenessReport,
+    PreviewItem,
+    SeasonCompleteness,
+)
 
 
 def resolve_duplicate_episodes(
@@ -51,6 +57,19 @@ def resolve_duplicate_episodes(
             )
             loser.new_name = None
             loser.target_dir = None
+
+
+def apply_episode_review_threshold(items: list[PreviewItem]) -> None:
+    """Mark low-confidence episode mappings for manual approval."""
+    threshold = get_episode_auto_accept_threshold()
+    for item in items:
+        if item.status == "OK" and item.episode_confidence < threshold:
+            item.status = (
+                f"{EPISODE_REVIEW_STATUS_PREFIX} "
+                f"({item.episode_confidence:.0%} < {threshold:.0%})"
+            )
+        elif item.status.startswith(EPISODE_REVIEW_STATUS_PREFIX) and item.episode_confidence >= threshold:
+            item.status = "OK"
 
 
 def build_completeness_report(

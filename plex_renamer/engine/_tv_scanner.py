@@ -19,6 +19,7 @@ from ._tv_scanner_consolidated import (
 )
 from ._tv_scanner_normal import build_normal_preview as _build_normal_preview
 from ._tv_scanner_postprocess import (
+    apply_episode_review_threshold,
     build_completeness_report,
     resolve_duplicate_episodes,
 )
@@ -238,6 +239,7 @@ class TVScanner:
             items,
             show_name=self.show_info.get("name", ""),
         )
+        apply_episode_review_threshold(items)
 
     def _scan_nested_extras(
         self,

@@ -88,6 +88,7 @@ class MediaWorkspaceSyncCoordinator:
                 preview = state.preview_items[index]
         self.sync_row_selection(workspace._preview_list)
         workspace._render_detail(state, preview)
+        workspace._update_action_bar()
 
     def on_preview_item_changed(self, item: QListWidgetItem) -> None:
         workspace = self._workspace

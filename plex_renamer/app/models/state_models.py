@@ -151,6 +151,7 @@ class EpisodeGuideSummary:
     unmapped_primary_files: int = 0
     orphan_companion_files: int = 0
     conflicts: int = 0
+    review_required: int = 0
 
 
 @dataclass(slots=True)
@@ -199,6 +200,7 @@ class QueuePreflightSummary:
     unmapped_primary_files: int = 0
     orphan_companion_files: int = 0
     conflicts: int = 0
+    review_required: int = 0
     summary_text: str = ""
 
 

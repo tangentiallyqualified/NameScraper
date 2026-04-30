@@ -36,6 +36,9 @@ class TestSettingsServiceDefaults(unittest.TestCase):
     def test_auto_accept_threshold_default(self):
         self.assertAlmostEqual(self.svc.auto_accept_threshold, 0.55)
 
+    def test_episode_auto_accept_threshold_default(self):
+        self.assertAlmostEqual(self.svc.episode_auto_accept_threshold, 0.85)
+
     def test_show_confidence_bars_default(self):
         self.assertTrue(self.svc.show_confidence_bars)
 
@@ -97,6 +100,22 @@ class TestSettingsServiceSetters(unittest.TestCase):
     def test_auto_accept_threshold_handles_corrupt(self):
         self.svc.set("auto_accept_threshold", "garbage")
         self.assertAlmostEqual(self.svc.auto_accept_threshold, 0.55)
+
+    def test_episode_auto_accept_threshold_roundtrip(self):
+        self.svc.episode_auto_accept_threshold = 0.90
+        self.assertAlmostEqual(self.svc.episode_auto_accept_threshold, 0.90)
+        svc2 = SettingsService(path=self.path)
+        self.assertAlmostEqual(svc2.episode_auto_accept_threshold, 0.90)
+
+    def test_episode_auto_accept_threshold_clamped(self):
+        self.svc.episode_auto_accept_threshold = 0.10
+        self.assertAlmostEqual(self.svc.episode_auto_accept_threshold, 0.50)
+        self.svc.episode_auto_accept_threshold = 1.50
+        self.assertAlmostEqual(self.svc.episode_auto_accept_threshold, 1.00)
+
+    def test_episode_auto_accept_threshold_handles_corrupt(self):
+        self.svc.set("episode_auto_accept_threshold", "garbage")
+        self.assertAlmostEqual(self.svc.episode_auto_accept_threshold, 0.85)
 
     def test_show_confidence_bars_roundtrip(self):
         self.svc.show_confidence_bars = False
@@ -216,12 +235,14 @@ class TestSettingsValidation(unittest.TestCase):
             "match_language": "fr-FR",
             "hide_already_named": False,
             "auto_accept_threshold": 0.75,
+            "episode_auto_accept_threshold": 0.90,
             "window_geometry": [10, 20, 800, 600],
         })
         svc = SettingsService(path=self.path)
         self.assertEqual(svc.match_language, "fr-FR")
         self.assertFalse(svc.hide_already_named)
         self.assertAlmostEqual(svc.auto_accept_threshold, 0.75)
+        self.assertAlmostEqual(svc.episode_auto_accept_threshold, 0.90)
         self.assertEqual(svc.window_geometry, [10, 20, 800, 600])
 
     def test_int_threshold_accepted(self):

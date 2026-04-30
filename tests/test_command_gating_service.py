@@ -220,6 +220,29 @@ class CommandGatingServiceTests(unittest.TestCase):
         self.assertEqual(result.selected_indices, [0, 1])
         self.assertEqual(result.eligible_file_count, 2)
 
+    def test_tv_show_level_queue_blocks_unresolved_episode_review(self):
+        state = _state(
+            items=[
+                _item(original="ep01.mkv", new_name="Show - S01E01.mkv"),
+                _item(
+                    status="REVIEW: episode confidence below threshold",
+                    original="ep02.mkv",
+                    new_name="Show - S01E02.mkv",
+                ),
+            ],
+            checked=True,
+        )
+        state.confidence = 1.0
+
+        result = self.svc.evaluate_scan_state(
+            state,
+            require_resolved_review=True,
+            allow_show_level_queue=True,
+        )
+
+        self.assertEqual(result.command_state, QueueCommandState.DISABLED_UNRESOLVED_REVIEW)
+        self.assertEqual(result.reason, "Review the episode mappings before queueing.")
+
 
 if __name__ == "__main__":
     unittest.main()

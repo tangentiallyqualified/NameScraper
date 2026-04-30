@@ -142,6 +142,26 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         self.assertIn("1 companion", preflight.summary_text)
         self.assertIn("1 conflict", preflight.summary_text)
 
+    def test_queue_preflight_blocks_review_required_episode_mappings(self):
+        review_item = _preview(
+            "Show.S01E01.mkv",
+            status="REVIEW: episode confidence below threshold",
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Show"),
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[review_item],
+            scanned=True,
+            checked=True,
+        )
+
+        preflight = self.service.build_queue_preflight(state)
+
+        self.assertFalse(preflight.enabled)
+        self.assertEqual(preflight.mapped_primary_files, 0)
+        self.assertEqual(preflight.review_required, 1)
+        self.assertIn("1 review", preflight.summary_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,8 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from ...constants import MediaType
-from ...engine import ScanState, set_auto_accept_threshold
+from ...engine import ScanState, set_auto_accept_threshold, set_episode_auto_accept_threshold
+from ...engine._tv_scanner_postprocess import apply_episode_review_threshold
 from ..models import ScanLifecycle, ScanProgress
 
 ListenerEntry = dict[str, Callable[..., Any] | None]
@@ -67,10 +68,15 @@ def build_scan_progress(
 
 def apply_runtime_settings_to_states(
     auto_accept_threshold: float,
+    episode_auto_accept_threshold: float,
     states: Iterable[ScanState],
 ) -> None:
     set_auto_accept_threshold(auto_accept_threshold)
+    set_episode_auto_accept_threshold(episode_auto_accept_threshold)
     for state in states:
+        apply_episode_review_threshold(state.preview_items)
+        if any(item.is_review for item in state.preview_items):
+            state.checked = False
         if state.match_origin == "manual":
             continue
         if state.needs_review:

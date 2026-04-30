@@ -260,10 +260,12 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._set_episode_filters_visible(True)
         self._sync_episode_filter_buttons()
         guide = self._episode_mapping.build_episode_guide(state)
-        self.set_summary(self._episode_summary_text(guide.summary))
-        self.add_static_header(f"Episode Guide: {guide.source_label}")
+        self.set_summary("")
 
         collapsed = preview_group_state.setdefault(_state_key(state), set())
+        all_rows_by_season: dict[int, list] = {}
+        for row in guide.rows:
+            all_rows_by_season.setdefault(row.season, []).append(row)
         rows_by_season: dict[int, list] = {}
         for row in guide.rows:
             if self._episode_filter == "unmapped":
@@ -274,11 +276,20 @@ class MediaWorkspacePreviewPanel(QFrame):
 
         for season_num, rows in sorted(rows_by_season.items()):
             section_key = f"episode-guide-season:{season_num}"
+            auto_collapsed_key = f"{section_key}:auto-collapsed"
+            season_rows = all_rows_by_season.get(season_num, rows)
+            if (
+                season_rows
+                and all(row.status == "Missing File" for row in season_rows)
+                and auto_collapsed_key not in collapsed
+            ):
+                collapsed.add(section_key)
+                collapsed.add(auto_collapsed_key)
             is_collapsed = section_key in collapsed
             season_name = state.season_names.get(season_num, "")
             season_title = _season_label(season_num, name=season_name)
             season_title += self._episode_guide_season_ratio(state, season_num, rows)
-            self.add_header(("â–¸ " if is_collapsed else "â–¾ ") + season_title, section_key)
+            self.add_header(("> " if is_collapsed else "v ") + season_title, section_key)
             if is_collapsed:
                 continue
             for row in rows:
@@ -407,7 +418,7 @@ class MediaWorkspacePreviewPanel(QFrame):
     ) -> None:
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         is_collapsed = folder_section_key in collapsed
-        self.add_header(("▸ " if is_collapsed else "▾ ") + "Folder", folder_section_key)
+        self.add_header(("> " if is_collapsed else "v ") + "Folder", folder_section_key)
         if is_collapsed:
             return
         item = self.build_folder_preview_row()

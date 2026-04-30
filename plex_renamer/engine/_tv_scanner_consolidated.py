@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import build_tv_name, extract_episode, extract_season_number, normalize_for_specials
+from ._movie_scanner import _build_subtitle_companions
 from .models import PreviewItem
 
 AbsoluteFileEntry = tuple[Path, int, str | None, list[int], bool, int | None]
@@ -191,7 +192,7 @@ def build_consolidated_preview(
                 [title],
                 file_path.suffix,
             )
-            items.append(PreviewItem(
+            item = PreviewItem(
                 original=file_path,
                 new_name=new_name,
                 target_dir=target_dir,
@@ -200,7 +201,9 @@ def build_consolidated_preview(
                 status="OK",
                 episode_confidence=0.7,
                 **media_fields,
-            ))
+            )
+            item.companions = _build_subtitle_companions(file_path, new_name)
+            items.append(item)
         resolve_duplicate_episodes(items)
         return items
 
@@ -243,7 +246,7 @@ def build_consolidated_preview(
             file_path.suffix,
         )
 
-        items.append(PreviewItem(
+        item = PreviewItem(
             original=file_path,
             new_name=new_name,
             target_dir=target_dir,
@@ -252,7 +255,9 @@ def build_consolidated_preview(
             status="OK",
             episode_confidence=0.5 if is_season_relative else 0.3,
             **media_fields,
-        ))
+        )
+        item.companions = _build_subtitle_companions(file_path, new_name)
+        items.append(item)
 
     resolve_duplicate_episodes(items)
     return items

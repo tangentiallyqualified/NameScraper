@@ -211,6 +211,30 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
+    def test_settings_tab_has_independent_episode_threshold_slider(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            settings.auto_accept_threshold = 0.60
+            settings.episode_auto_accept_threshold = 0.85
+            emitted: list[float] = []
+
+            tab = SettingsTab(settings_service=settings)
+            tab.episode_threshold_changed.connect(emitted.append)
+
+            self.assertEqual(tab._threshold_slider.value(), 60)
+            self.assertEqual(tab._episode_threshold_slider.value(), 85)
+
+            tab._episode_threshold_slider.setValue(72)
+
+            self.assertAlmostEqual(settings.auto_accept_threshold, 0.60)
+            self.assertAlmostEqual(settings.episode_auto_accept_threshold, 0.72)
+            self.assertEqual(tab._episode_threshold_label.text(), "0.72")
+            self.assertEqual(emitted[-1], 0.72)
+
+            tab.close()
+
     def test_main_window_queue_shortcuts_trigger_selected_and_checked_actions(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 

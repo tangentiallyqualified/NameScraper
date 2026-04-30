@@ -20,6 +20,18 @@ def _extract_lang_tag(stem: str) -> str:
     return match.group(1) if match else ""
 
 
+def _subtitle_stream_extensions() -> tuple[str, ...]:
+    return tuple(sorted(SUBTITLE_EXTENSIONS - {".mks"}, key=len, reverse=True))
+
+
+def _subtitle_tag(raw_tag: str) -> str:
+    if not raw_tag or _LANG_TAG_RE.fullmatch(raw_tag):
+        return raw_tag
+    if raw_tag.lower().endswith(_subtitle_stream_extensions()):
+        return raw_tag
+    return _extract_lang_tag(raw_tag)
+
+
 def find_companion_subtitles(video_path: Path) -> list[tuple[Path, str]]:
     """
     Find subtitle files in the same directory that pair with a video file.
@@ -58,11 +70,7 @@ def find_companion_subtitles(video_path: Path) -> list[tuple[Path, str]]:
     for sub in all_subs:
         if sub.stem.lower().startswith(video_stem_lower):
             raw_tag = sub.stem[len(video_stem):]
-            if not raw_tag or _LANG_TAG_RE.fullmatch(raw_tag):
-                tag = raw_tag
-            else:
-                tag = _extract_lang_tag(raw_tag)
-            paired.append((sub, tag))
+            paired.append((sub, _subtitle_tag(raw_tag)))
         else:
             unpaired.append(sub)
 

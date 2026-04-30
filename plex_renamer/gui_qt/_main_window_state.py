@@ -70,6 +70,16 @@ class MainWindowStateCoordinator:
         self.refresh_media_workspaces()
         window.statusBar().showMessage(f"Auto-accept threshold updated to {value:.2f}.", 3000)
 
+    def on_episode_threshold_changed(self, value: float) -> None:
+        window = self._window
+        window.settings_service.episode_auto_accept_threshold = value
+        window.media_ctrl.apply_runtime_settings()
+        self.refresh_media_workspaces()
+        window.statusBar().showMessage(
+            f"Episode auto-map threshold updated to {value:.2f}.",
+            3000,
+        )
+
     def switch_to_tab(self, index: int) -> None:
         self._window._tabs.setCurrentIndex(index)
 

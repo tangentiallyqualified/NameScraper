@@ -79,6 +79,14 @@ class SettingsTabStateCoordinator:
             tab._settings.auto_accept_threshold = float_value
         tab.threshold_changed.emit(float_value)
 
+    def on_episode_threshold(self, value: int) -> None:
+        tab = self._tab
+        float_value = value / 100
+        tab._episode_threshold_label.setText(f"{float_value:.2f}")
+        if tab._settings:
+            tab._settings.episode_auto_accept_threshold = float_value
+        tab.episode_threshold_changed.emit(float_value)
+
     def on_confidence_bars(self, checked: bool) -> None:
         tab = self._tab
         if tab._settings:

@@ -27,7 +27,7 @@ SCORE_TIE_MARGIN = 0.02  # runner-up within this delta → flag for review
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v"}
 
 # Subtitle/caption formats — renamed alongside their paired video file.
-SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"}
+SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup", ".mks"}
 
 # ─── Logging / persistence paths ─────────────────────────────────────────────
 

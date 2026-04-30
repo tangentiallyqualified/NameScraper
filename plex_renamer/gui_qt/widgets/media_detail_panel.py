@@ -137,19 +137,6 @@ class MediaDetailPanel(QFrame):
         self._queue_preflight.hide()
         layout.addWidget(self._queue_preflight)
 
-        actions = QHBoxLayout()
-        actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(8)
-        self._fix_match_button = QPushButton("Fix Match")
-        self._fix_match_button.setProperty("cssClass", "secondary")
-        self._fix_match_button.setEnabled(False)
-        actions.addWidget(self._fix_match_button)
-
-        self._primary_action_button = QPushButton("")
-        self._primary_action_button.setEnabled(False)
-        actions.addWidget(self._primary_action_button)
-        layout.addLayout(actions)
-
         self._title = _WrappingDetailLabel("Selection")
         self._title.setProperty("cssClass", "heading")
         self._title.setWordWrap(True)
@@ -172,13 +159,32 @@ class MediaDetailPanel(QFrame):
         summary_row.setSpacing(12)
         body_layout.addLayout(summary_row)
 
+        poster_column = QVBoxLayout()
+        poster_column.setContentsMargins(0, 0, 0, 0)
+        poster_column.setSpacing(8)
+        summary_row.addLayout(poster_column)
+
         self._poster = QLabel("No Poster")
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._poster.setProperty("cssClass", "job-poster-card")
         self._poster_shimmer: ShimmerOverlay | None = None
         self._set_artwork_mode("poster")
-        summary_row.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
+        poster_column.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
+
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
+        self._fix_match_button = QPushButton("Fix Match")
+        self._fix_match_button.setProperty("cssClass", "secondary")
+        self._fix_match_button.setEnabled(False)
+        actions.addWidget(self._fix_match_button)
+
+        self._primary_action_button = QPushButton("")
+        self._primary_action_button.setEnabled(False)
+        actions.addWidget(self._primary_action_button)
+        poster_column.addLayout(actions)
+        poster_column.addStretch(1)
 
         self._summary_body = QVBoxLayout()
         self._summary_body.setContentsMargins(0, 0, 0, 0)

@@ -87,6 +87,7 @@ class EpisodeMappingService:
             unmapped_primary_files=len(guide.unmapped_primary_files),
             orphan_companion_files=len(guide.orphan_companion_files),
             conflicts=conflict_count,
+            review_required=sum(1 for row in guide.rows if row.status == "Review"),
         )
         return guide
 
@@ -94,9 +95,13 @@ class EpisodeMappingService:
         guide = self.build_episode_guide(state)
         actionable_primary_ids: set[int] = set()
         companion_count = 0
+        review_required = 0
         for row in guide.rows:
             preview = row.primary_file
             if preview is None or preview.is_conflict or not preview.is_actionable:
+                continue
+            if preview.is_review:
+                review_required += 1
                 continue
             if id(preview) in actionable_primary_ids:
                 continue
@@ -104,7 +109,7 @@ class EpisodeMappingService:
             companion_count += len(preview.companions)
 
         mapped_primary_files = len(actionable_primary_ids)
-        enabled = bool(mapped_primary_files and guide.summary.conflicts == 0)
+        enabled = bool(mapped_primary_files and guide.summary.conflicts == 0 and review_required == 0)
         parts = [
             f"{mapped_primary_files} mapped file{'s' if mapped_primary_files != 1 else ''}",
             f"{companion_count} companion{'s' if companion_count != 1 else ''}",
@@ -112,6 +117,7 @@ class EpisodeMappingService:
             f"{guide.summary.unmapped_primary_files} unmapped",
             f"{guide.summary.orphan_companion_files} orphan companion{'s' if guide.summary.orphan_companion_files != 1 else ''}",
             f"{guide.summary.conflicts} conflict{'s' if guide.summary.conflicts != 1 else ''}",
+            f"{review_required} review",
         ]
         return QueuePreflightSummary(
             enabled=enabled,
@@ -121,6 +127,7 @@ class EpisodeMappingService:
             unmapped_primary_files=guide.summary.unmapped_primary_files,
             orphan_companion_files=guide.summary.orphan_companion_files,
             conflicts=guide.summary.conflicts,
+            review_required=review_required,
             summary_text=" - ".join(parts),
         )
 
@@ -148,8 +155,7 @@ class EpisodeMappingService:
         if preview.is_unmatched:
             return "No Match Found"
         pct = max(0, min(100, round(preview.episode_confidence * 100)))
-        label = "High" if preview.episode_confidence >= 0.85 else "Review"
-        return f"{label} {pct}%"
+        return f"{pct}%"
 
     @staticmethod
     def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:

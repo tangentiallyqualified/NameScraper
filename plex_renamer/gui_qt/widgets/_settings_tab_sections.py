@@ -127,6 +127,26 @@ class SettingsTabSectionsBuilder:
         tab._threshold_slider.valueChanged.connect(tab._on_threshold)
         section.add_layout(threshold_row)
 
+        episode_threshold_row = QHBoxLayout()
+        episode_threshold_row.addWidget(QLabel("Episode auto-map confidence threshold"))
+        tab._episode_threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        tab._episode_threshold_slider.setRange(50, 100)
+        tab._episode_threshold_slider.setSingleStep(1)
+        episode_current_value = 85
+        if tab._settings:
+            episode_current_value = int(tab._settings.episode_auto_accept_threshold * 100)
+        tab._episode_threshold_slider.setValue(episode_current_value)
+        tab._episode_threshold_slider.setFixedWidth(200)
+        episode_threshold_row.addWidget(tab._episode_threshold_slider)
+
+        tab._episode_threshold_label = QLabel(f"{episode_current_value / 100:.2f}")
+        tab._episode_threshold_label.setFixedWidth(40)
+        episode_threshold_row.addWidget(tab._episode_threshold_label)
+        episode_threshold_row.addStretch()
+
+        tab._episode_threshold_slider.valueChanged.connect(tab._on_episode_threshold)
+        section.add_layout(episode_threshold_row)
+
         tab._confidence_cb = QCheckBox("Show episode confidence bars in preview")
         if tab._settings:
             tab._confidence_cb.setChecked(tab._settings.show_confidence_bars)

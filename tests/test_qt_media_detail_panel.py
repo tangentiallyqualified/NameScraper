@@ -49,6 +49,7 @@ class QtMediaDetailPanelTests(QtSmokeBase):
                 "status": "Returning Series",
                 "networks": [{"name": "HBO"}],
                 "created_by": [{"name": "Creator Name"}],
+                "tagline": "Unneeded show tagline",
             }
             tmdb.fetch_poster.return_value = None
 
@@ -95,8 +96,11 @@ class QtMediaDetailPanelTests(QtSmokeBase):
             self.assertEqual(payload["artwork_mode"], "poster")
             self.assertIn(("Source", "TMDB"), payload["rows"])
             self.assertIn(("Match", "Needs Review"), payload["rows"])
-            self.assertIn(("Confidence", "Review 42%"), payload["rows"])
+            self.assertIn(("Confidence", "42%"), payload["rows"])
             self.assertIn(("Air Date", "2024-01-01"), payload["rows"])
+            self.assertNotIn(("Queue", ""), payload["rows"])
+            self.assertFalse(any(key in {"File", "Rename"} for key, _value in payload["rows"]))
+            self.assertEqual(payload["subtitle"], "2024")
             self.assertNotIn(("Status", "Returning Series"), payload["rows"])
             self.assertNotIn(("Network", "HBO"), payload["rows"])
             self.assertEqual(payload["extra"], "")
@@ -135,18 +139,30 @@ class QtMediaDetailPanelTests(QtSmokeBase):
         self.assertEqual(panel._poster.text(), "")
         panel.close()
 
-    def test_media_detail_panel_places_facts_card_in_summary_column(self):
+    def test_media_detail_panel_places_actions_below_poster_and_facts_card_in_summary_column(self):
         from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
 
         panel = MediaDetailPanel()
+        panel.resize(520, 640)
+        panel.show()
+        self._app.processEvents()
+
         body_layout = panel._body.layout()
         summary_row = body_layout.itemAt(2).layout()
+        poster_column = summary_row.itemAt(0).layout()
         summary_body = summary_row.itemAt(1).layout()
 
         self.assertGreater(body_layout.contentsMargins().left(), 0)
         self.assertIs(body_layout.itemAt(0).widget(), panel._title)
         self.assertIs(body_layout.itemAt(1).widget(), panel._subtitle)
         self.assertIsNotNone(summary_row)
+        self.assertIs(poster_column.itemAt(0).widget(), panel._poster)
+        self.assertIs(poster_column.itemAt(1).layout().itemAt(0).widget(), panel._fix_match_button)
+        self.assertIs(poster_column.itemAt(1).layout().itemAt(1).widget(), panel._primary_action_button)
+        self.assertGreater(
+            panel._fix_match_button.mapTo(panel._body, QPoint(0, 0)).y(),
+            panel._poster.mapTo(panel._body, QPoint(0, 0)).y(),
+        )
         self.assertIs(summary_body.itemAt(0).widget(), panel._facts_card)
         self.assertEqual(panel._facts_card.height(), panel._poster.height())
 
@@ -180,7 +196,8 @@ class QtMediaDetailPanelTests(QtSmokeBase):
 
         self.assertNotIn(("Queue", "Already queued"), rows)
         self.assertNotIn(("Folder", "Folder rename plan: Arrival.2016 -> Arrival (2016)"), rows)
-        self.assertIn(("Confidence", "High 91%"), rows)
+        self.assertNotIn(("File", "Arrival.2016.mkv"), rows)
+        self.assertIn(("Confidence", "91%"), rows)
 
         panel.close()
 
