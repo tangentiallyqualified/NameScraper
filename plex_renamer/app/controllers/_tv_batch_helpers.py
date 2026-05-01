@@ -266,15 +266,25 @@ def _complete_tv_bulk_scan(
         state for state in controller._batch_states
         if state.scanned and state.preview_items
     ]
-    if prepared_states:
+    total_prepared = len(prepared_states)
+    if total_prepared:
         controller._set_progress(
             ScanLifecycle.SCANNING,
             phase="Preparing episode list...",
             done=0,
-            total=len(prepared_states),
-            message=f"Preparing episode list... 0/{len(prepared_states)}",
+            total=total_prepared,
+            message=f"Preparing episode list... 0/{total_prepared}",
         )
-        controller.prepare_episode_guides(prepared_states)
+    for index, state in enumerate(prepared_states, start=1):
+        controller._set_progress(
+            ScanLifecycle.SCANNING,
+            phase="Preparing episode list...",
+            done=index,
+            total=total_prepared,
+            current_item=state.display_name,
+            message=f"Preparing episode list... {index}/{total_prepared} - {state.display_name}",
+        )
+        controller.prepare_episode_guides([state])
     controller._set_progress(
         ScanLifecycle.READY,
         phase="Batch scan complete",

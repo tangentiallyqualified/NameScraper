@@ -119,6 +119,8 @@ class MainWindowScanCoordinator:
         if tmdb is None:
             self._workspace_for_media_type(media_type).show_empty()
             return
+        workspace = self._workspace_for_media_type(media_type)
+        workspace.show_scanning()
         folder = Path(path)
         if media_type == "movie":
             window.media_ctrl.start_movie_batch(folder, tmdb)

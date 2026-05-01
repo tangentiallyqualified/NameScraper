@@ -29,6 +29,76 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(window.centralWidget().tabText(0), "Settings")
         window.close()
 
+    def test_main_window_scan_progress_updates_active_progress_widget(self):
+        from plex_renamer.app.models import ScanLifecycle, ScanProgress
+        from plex_renamer.gui_qt._main_window_scan import MainWindowScanCoordinator
+
+        class _FakeStatusBar:
+            def __init__(self):
+                self.messages = []
+
+            def showMessage(self, message, timeout=0):
+                self.messages.append((message, timeout))
+
+        class _FakeProgressWidget:
+            def __init__(self):
+                self.updates = []
+
+            def update_progress(self, **payload):
+                self.updates.append(payload)
+
+        class _FakeWorkspace:
+            def __init__(self):
+                self.scan_progress_widget = _FakeProgressWidget()
+                self.show_scanning_calls = 0
+
+            def show_scanning(self):
+                self.show_scanning_calls += 1
+
+        class _FakeMediaController:
+            active_content_mode = "tv"
+
+            def start_tv_batch(self, folder, tmdb):
+                return None
+
+        class _FakeWindow:
+            def __init__(self):
+                self.media_ctrl = _FakeMediaController()
+                self._tv_workspace = _FakeWorkspace()
+                self._movie_workspace = _FakeWorkspace()
+                self._status = _FakeStatusBar()
+
+            def statusBar(self):
+                return self._status
+
+            def _ensure_tmdb(self):
+                return object()
+
+        window = _FakeWindow()
+        coordinator = MainWindowScanCoordinator(window, tv_index=0, movies_index=1)
+
+        coordinator.start_tv_scan("C:/library/tv")
+        coordinator.on_scan_progress(
+            ScanProgress(
+                lifecycle=ScanLifecycle.SCANNING,
+                phase="Preparing episode list...",
+                done=3,
+                total=10,
+                current_item="Example Show",
+                message="Preparing episode list... 3/10 - Example Show",
+            )
+        )
+
+        self.assertEqual(window._tv_workspace.show_scanning_calls, 1)
+        self.assertEqual(
+            window._tv_workspace.scan_progress_widget.updates[-1]["phase"],
+            "Preparing episode list...",
+        )
+        self.assertEqual(
+            window._tv_workspace.scan_progress_widget.updates[-1]["current_item"],
+            "Example Show",
+        )
+
     def test_transient_popup_filter_hides_tool_windows(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QWidget
