@@ -12,6 +12,18 @@ from ._media_helpers import roster_selection_key as _roster_selection_key
 from ._media_workspace_action_state import fix_match_label
 
 
+def _invalidate_episode_projection(workspace, state: ScanState) -> None:
+    media_ctrl = getattr(workspace, "_media_ctrl", None)
+    if media_ctrl is not None and hasattr(media_ctrl, "invalidate_episode_guide"):
+        media_ctrl.invalidate_episode_guide(state)
+
+
+def _refresh_episode_projection(workspace, state: ScanState) -> None:
+    media_ctrl = getattr(workspace, "_media_ctrl", None)
+    if media_ctrl is not None and hasattr(media_ctrl, "refresh_episode_guide"):
+        media_ctrl.refresh_episode_guide(state)
+
+
 def fix_match(
     workspace,
     *,
@@ -166,6 +178,7 @@ def apply_selected_match(
             workspace.status_message.emit("TMDB is unavailable.", 4000)
             return
 
+        _invalidate_episode_projection(workspace, state)
         updated_state = workspace._media_ctrl.rematch_tv_state(state, chosen, active_tmdb)
         finish_tv_rematch(workspace, updated_state, active_tmdb)
     except Exception as exc:
@@ -177,6 +190,7 @@ def finish_tv_rematch(workspace, updated_state: ScanState, tmdb: Any) -> None:
     workspace._restore_roster_selection_by_key(_roster_selection_key(updated_state))
     workspace._media_ctrl.scan_show(updated_state, tmdb)
     if updated_state.scanned or updated_state.preview_items:
+        _refresh_episode_projection(workspace, updated_state)
         workspace.refresh_from_controller()
         workspace._restore_roster_selection_by_key(_roster_selection_key(updated_state))
     workspace.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)

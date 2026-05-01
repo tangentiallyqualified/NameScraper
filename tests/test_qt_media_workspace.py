@@ -1646,6 +1646,135 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(header.text().startswith("\u25b8 SEASON 1"))
         workspace.close()
 
+    def test_media_workspace_episode_approval_refreshes_prepared_projection(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        review_item = PreviewItem(
+            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW: episode confidence below threshold",
+            episode_confidence=0.5,
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[review_item],
+            scanned=True,
+            confidence=1.0,
+        )
+        media_ctrl = _FakeMediaController(state)
+        workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
+        workspace.show_ready()
+        widget = next(
+            workspace._preview_list.itemWidget(workspace._preview_list.item(row))
+            for row in range(workspace._preview_list.count())
+            if isinstance(
+                workspace._preview_list.itemWidget(workspace._preview_list.item(row)),
+                EpisodeGuideRowWidget,
+            )
+        )
+
+        widget._approve_button.click()
+        self._app.processEvents()
+
+        media_ctrl.refresh_episode_guide.assert_called_with(state)
+        self.assertEqual(review_item.status, "OK")
+        workspace.close()
+
+    def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeTMDB:
+            def search_tv(self, *_args, **_kwargs):
+                return []
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.invalidate_episode_guide = MagicMock()
+                self.refresh_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+            def rematch_tv_state(self, state, chosen, tmdb=None):
+                state.media_info = chosen
+                state.preview_items = []
+                state.scanned = False
+                return state
+
+            def scan_show(self, state, _tmdb):
+                state.preview_items = [
+                    PreviewItem(
+                        original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+                        new_name="Replacement Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Replacement Show (2024)/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ]
+                state.scanned = True
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Original Show", "year": "2024"},
+            preview_items=[],
+            scanned=False,
+            confidence=0.5,
+        )
+        media_ctrl = _FakeMediaController(state)
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=media_ctrl,
+            tmdb_provider=_FakeTMDB,
+        )
+        workspace.show_ready()
+
+        workspace._apply_alternate_match(
+            state,
+            {"id": 202, "name": "Replacement Show", "year": "2024"},
+        )
+
+        media_ctrl.invalidate_episode_guide.assert_called_with(state)
+        media_ctrl.refresh_episode_guide.assert_called_with(state)
+        workspace.close()
+
     def test_media_workspace_episode_header_toggle_does_not_reload_detail_selection(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE

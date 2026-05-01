@@ -47,6 +47,12 @@ from ._media_workspace_queue_actions import (
 )
 
 
+def _refresh_episode_projection(workspace, state: ScanState) -> None:
+    media_ctrl = getattr(workspace, "_media_ctrl", None)
+    if media_ctrl is not None and hasattr(media_ctrl, "refresh_episode_guide"):
+        media_ctrl.refresh_episode_guide(state)
+
+
 class EpisodeChoiceDialog:
     """List-based episode picker used instead of a fragile combo popup."""
 
@@ -180,6 +186,7 @@ class MediaWorkspaceActionCoordinator:
                 binding = state.check_vars.get(str(index))
                 if binding is not None and hasattr(binding, "set"):
                     binding.set(item.is_actionable and not item.is_review)
+        _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
         workspace._update_action_bar()
         workspace.status_message.emit("Episode mapping approved.", 3000)
@@ -198,6 +205,7 @@ class MediaWorkspaceActionCoordinator:
         if approved == 0:
             return
         workspace._ensure_check_bindings(state)
+        _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
         workspace._update_action_bar()
         workspace.status_message.emit(f"Approved {approved} episode mapping(s).", 3000)
@@ -242,6 +250,7 @@ class MediaWorkspaceActionCoordinator:
             warning_box.warning(workspace, "Fix Episode Failed", str(exc))
             return
         workspace._ensure_check_bindings(state)
+        _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
         workspace._update_action_bar()
         workspace.status_message.emit("Episode mapping updated.", 3000)
