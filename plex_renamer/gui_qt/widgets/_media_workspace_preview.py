@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 _CHECKED_ROLE = Qt.ItemDataRole.UserRole + 10
 _PREVIEW_ENTRY_KIND_ROLE = Qt.ItemDataRole.UserRole + 14
 _PREVIEW_SECTION_ROLE = Qt.ItemDataRole.UserRole + 15
+_SECTION_COLLAPSED_PREFIX = "\u25b8 "
+_SECTION_EXPANDED_PREFIX = "\u25be "
 
 
 class MediaWorkspacePreviewPanel(QFrame):
@@ -70,6 +72,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._master_syncing = False
         self._episode_mapping = EpisodeMappingService()
         self._episode_guide_cache: dict[str, tuple[tuple, Any]] = {}
+        self._episode_section_items: dict[str, list[QListWidgetItem]] = {}
         self._build_ui()
 
     @property
@@ -196,6 +199,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         folder_preview_data: Callable[[ScanState], tuple[str, str] | None],
     ) -> None:
         self._list_widget.clear()
+        self._episode_section_items.clear()
         folder_preview = folder_preview_data(state)
         self._folder_plan_label.setText(folder_plan_text(state) if folder_preview is not None else "")
         if folder_preview is not None:
@@ -308,13 +312,14 @@ class MediaWorkspacePreviewPanel(QFrame):
             season_name = state.season_names.get(season_num, "")
             season_title = _season_label(season_num, name=season_name)
             season_title += self._episode_guide_season_ratio(state, season_num, rows)
-            self.add_header(("▸ " if is_collapsed else "▾ ") + season_title, section_key)
-            if is_collapsed:
-                continue
+            prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
+            self.add_header(prefix + season_title, section_key)
             for row in rows:
                 item = self._build_episode_guide_item(state, row)
                 self._list_widget.addItem(item)
+                self._episode_section_items.setdefault(section_key, []).append(item)
                 self._attach_episode_guide_widget(item, state, row)
+                item.setHidden(is_collapsed)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
             self.add_static_header(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
@@ -371,6 +376,41 @@ class MediaWorkspacePreviewPanel(QFrame):
         guide = self._episode_mapping.build_episode_guide(state)
         self._episode_guide_cache[key] = (signature, guide)
         return guide
+
+    def toggle_episode_section(
+        self,
+        *,
+        state: ScanState,
+        section_key: str,
+        preview_group_state: dict[str, set[int | str]],
+    ) -> bool:
+        if section_key not in self._episode_section_items:
+            return False
+        collapsed = preview_group_state.setdefault(_state_key(state), set())
+        is_collapsing = section_key not in collapsed
+        if is_collapsing:
+            collapsed.add(section_key)
+        else:
+            collapsed.remove(section_key)
+
+        for row in range(self._list_widget.count()):
+            item = self._list_widget.item(row)
+            if item.data(_PREVIEW_SECTION_ROLE) == section_key:
+                text = item.text()
+                for prefix in (_SECTION_COLLAPSED_PREFIX, _SECTION_EXPANDED_PREFIX):
+                    if text.startswith(prefix):
+                        text = text[len(prefix):]
+                        break
+                item.setText(
+                    (_SECTION_COLLAPSED_PREFIX if is_collapsing else _SECTION_EXPANDED_PREFIX)
+                    + text
+                )
+                break
+
+        for item in self._episode_section_items.get(section_key, []):
+            item.setHidden(is_collapsing)
+        self.update_sticky_header()
+        return True
 
     @staticmethod
     def _episode_guide_signature(state: ScanState) -> tuple:

@@ -102,6 +102,14 @@ class MediaWorkspaceStateCoordinator:
         section_key = item.data(_PREVIEW_SECTION_ROLE)
         if section_key is None:
             return
+        if str(section_key).startswith("episode-guide-season:"):
+            handled = workspace._preview_panel.toggle_episode_section(
+                state=state,
+                section_key=section_key,
+                preview_group_state=workspace._preview_group_state,
+            )
+            if handled:
+                return
         collapsed = workspace._preview_group_state.setdefault(_state_key(state), set())
         if section_key in collapsed:
             collapsed.remove(section_key)

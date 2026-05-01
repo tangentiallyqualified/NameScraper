@@ -1575,6 +1575,77 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         media_ctrl.episode_guide_for_state.assert_called_with(state)
         workspace.close()
 
+    def test_media_workspace_episode_header_toggle_hides_rows_without_rebuilding_preview(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_workspace_preview import (
+            _PREVIEW_ENTRY_KIND_ROLE,
+            _PREVIEW_SECTION_ROLE,
+        )
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path(f"C:/library/tv/Example/Season 01/Example.S01E{episode:02d}.mkv"),
+                    new_name=f"Example Show (2024) - S01E{episode:02d} - Episode {episode}.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[episode],
+                    status="OK",
+                )
+                for episode in range(1, 6)
+            ],
+            scanned=True,
+            confidence=1.0,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+        original_populate = workspace._state_coordinator.populate_preview
+        workspace._state_coordinator.populate_preview = MagicMock(wraps=original_populate)
+        header = next(
+            workspace._preview_list.item(row)
+            for row in range(workspace._preview_list.count())
+            if (
+                workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
+                and str(workspace._preview_list.item(row).data(_PREVIEW_SECTION_ROLE)).startswith(
+                    "episode-guide-season:"
+                )
+            )
+        )
+        first_episode = next(
+            workspace._preview_list.item(row)
+            for row in range(workspace._preview_list.count())
+            if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "episode"
+        )
+        first_widget = workspace._preview_list.itemWidget(first_episode)
+
+        workspace._on_preview_item_clicked(header)
+
+        workspace._state_coordinator.populate_preview.assert_not_called()
+        self.assertTrue(first_episode.isHidden())
+        self.assertIs(workspace._preview_list.itemWidget(first_episode), first_widget)
+        self.assertTrue(header.text().startswith("\u25b8 SEASON 1"))
+        workspace.close()
+
     def test_media_workspace_episode_header_toggle_does_not_reload_detail_selection(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
