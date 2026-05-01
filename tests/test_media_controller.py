@@ -453,6 +453,71 @@ class TVBatchTests(_ControllerTestCase):
 
         self.assertEqual(len(state.preview_items), 1)
 
+    def test_scan_all_shows_reports_current_show_before_and_after_scan(self):
+        states = [
+            ScanState(folder=self.tmp / "ShowA", media_info={"id": 1, "name": "Show A"}),
+            ScanState(folder=self.tmp / "ShowB", media_info={"id": 2, "name": "Show B"}),
+        ]
+        for state in states:
+            state.folder.mkdir()
+
+        class _ProgressOrchestrator:
+            def __init__(self, scan_states):
+                self.states = scan_states
+
+            def scan_all(self, progress_callback=None, cancel_event=None):
+                total = len(self.states)
+                for index, state in enumerate(self.states):
+                    if progress_callback:
+                        progress_callback(index, total, state.display_name)
+                    state.preview_items = [
+                        PreviewItem(
+                            original=state.folder / "Episode.mkv",
+                            new_name="Episode.mkv",
+                            target_dir=state.folder,
+                            season=1,
+                            episodes=[1],
+                            status="OK",
+                        )
+                    ]
+                    state.scanned = True
+                    if progress_callback:
+                        progress_callback(index + 1, total, state.display_name)
+
+        events: list[ScanProgress] = []
+        self.ctrl.add_listener(on_progress=events.append)
+        self.set_tv_session(states, batch_orchestrator=_ProgressOrchestrator(states))
+
+        self.ctrl.scan_all_shows()
+
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
+            description="TV bulk scan to finish",
+        )
+
+        scanning_events = [event for event in events if event.lifecycle == ScanLifecycle.SCANNING]
+        self.assertTrue(any(event.current_item == "Show A" and event.done == 0 for event in scanning_events))
+        self.assertTrue(any(event.current_item == "Show B" and event.done == 1 for event in scanning_events))
+        self.assertTrue(any(event.current_item == "Show B" and event.done == 2 for event in scanning_events))
+
+    def test_start_movie_batch_forwards_scanner_progress_to_scan_progress(self):
+        root = self.tmp / "movies"
+        root.mkdir()
+        events: list[ScanProgress] = []
+        self.ctrl.add_listener(on_progress=events.append)
+
+        self.ctrl.start_movie_batch(root, _FakeTMDB(), scanner_factory=_SlowMovieBatchScanner)
+
+        _wait_until(
+            lambda: any(event.lifecycle == ScanLifecycle.SCANNING and event.done >= 2 for event in events),
+            description="movie batch progress events",
+        )
+        self.ctrl.cancel_scan()
+
+        movie_events = [event for event in events if event.lifecycle == ScanLifecycle.SCANNING]
+        self.assertTrue(any(event.phase == "Searching TMDB..." for event in movie_events))
+        self.assertTrue(any(event.done == 2 and event.total == 5 for event in movie_events))
+
 
 class BatchTVOrchestratorRegressionTests(unittest.TestCase):
 

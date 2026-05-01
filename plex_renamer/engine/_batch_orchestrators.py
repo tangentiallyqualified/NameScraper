@@ -58,6 +58,20 @@ from .models import (
 _log = logging.getLogger(__name__)
 
 
+def _emit_scan_progress(
+    progress_callback: Callable | None,
+    done: int,
+    total: int,
+    current_item: str,
+) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(done, total, current_item)
+    except TypeError:
+        progress_callback(done, total)
+
+
 class BatchTVOrchestrator:
     """
     Discovers TV show folders in a library root, matches each to TMDB,
@@ -533,14 +547,14 @@ class BatchTVOrchestrator:
 
         for index, state in enumerate(to_scan):
             _raise_if_cancelled(cancel_event)
+            _emit_scan_progress(progress_callback, index, total, state.display_name)
             try:
                 self.scan_show(state, cancel_event=cancel_event)
             except Exception as error:
                 if isinstance(error, ScanCancelledError):
                     raise
                 _log.error("Failed to scan %s: %s", state.display_name, error)
-            if progress_callback:
-                progress_callback(index + 1, total)
+            _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
         self._reconcile_scanned_siblings(cancel_event=cancel_event)
 

@@ -125,10 +125,10 @@ def scan_all_tv_batch_shows(controller: _TVBatchController) -> None:
     )
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int) -> None:
+    def _progress(done: int, total: int, current_item: str | None = None) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
-        current_name = _current_batch_scan_name(controller._batch_states, done)
+        current_name = current_item or _current_batch_scan_name(controller._batch_states, done)
         controller._set_progress(
             ScanLifecycle.SCANNING,
             phase="Scanning episodes...",

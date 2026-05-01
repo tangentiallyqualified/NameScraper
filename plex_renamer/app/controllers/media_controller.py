@@ -425,6 +425,8 @@ class MediaController:
         self,
         folder: Path,
         tmdb: Any,
+        *,
+        scanner_factory: Any = MovieScanner,
     ) -> None:
         """Discover and scan movies.  Spawns a background thread.
 
@@ -434,7 +436,7 @@ class MediaController:
         self._movie_workflow.start_batch(
             folder,
             tmdb,
-            scanner_factory=MovieScanner,
+            scanner_factory=scanner_factory,
         )
 
     def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:

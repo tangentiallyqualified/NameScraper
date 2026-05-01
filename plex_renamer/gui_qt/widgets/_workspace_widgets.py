@@ -378,6 +378,7 @@ class PreviewRowWidget(ClickableRow):
 class EpisodeGuideRowWidget(ClickableRow):
     approve_requested = Signal()
     fix_requested = Signal()
+    _ROW_HEIGHT = 72
 
     def __init__(
         self,
@@ -396,24 +397,29 @@ class EpisodeGuideRowWidget(ClickableRow):
         self.setProperty("band", self._band_for_status(status))
         self.setProperty("selectionState", "normal")
         self._selected = False
+        self.setFixedHeight(self._ROW_HEIGHT)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
+        layout.setContentsMargins(6, 5, 6, 5)
+        layout.setSpacing(6)
 
         self._check = ToggleSwitch(False, self)
         self._check.hide()
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
         body = QVBoxLayout()
-        body.setSpacing(4)
+        body.setSpacing(2)
         layout.addLayout(body, stretch=1)
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(8)
-        self._title = QLabel(title)
+        top_row.setSpacing(6)
+        self._title = ElidedLabel(
+            title,
+            elide_mode=Qt.TextElideMode.ElideRight,
+            parent=self,
+        )
         self._title.setProperty("cssClass", "row-title")
-        self._title.setWordWrap(True)
         self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._title, stretch=1)
 
@@ -421,27 +427,38 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._status.setProperty("cssClass", "status-pill")
         self._status.setProperty("tone", self._tone_for_status(status))
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._status.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._status.setMinimumWidth(self._status.sizeHint().width())
         top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
         body.addLayout(top_row)
 
-        self._original = QLabel(original)
+        self._original = ElidedLabel(
+            original,
+            elide_mode=Qt.TextElideMode.ElideMiddle,
+            parent=self,
+        )
         self._original.setProperty("cssClass", "caption")
-        self._original.setWordWrap(True)
         self._original.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._original.setVisible(bool(original))
         body.addWidget(self._original)
 
-        self._target = QLabel(f"-> {target}" if target else "")
+        self._target = ElidedLabel(
+            f"-> {target}" if target else "",
+            elide_mode=Qt.TextElideMode.ElideMiddle,
+            parent=self,
+        )
         self._target.setProperty("cssClass", "row-target")
-        self._target.setWordWrap(True)
         self._target.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._target.setVisible(bool(target))
         body.addWidget(self._target)
 
         companion_text = ", ".join(companions or [])
-        self._companions = QLabel(f"Companions: {companion_text}" if companion_text else "")
+        self._companions = ElidedLabel(
+            f"Companions: {companion_text}" if companion_text else "",
+            elide_mode=Qt.TextElideMode.ElideMiddle,
+            parent=self,
+        )
         self._companions.setProperty("cssClass", "caption")
-        self._companions.setWordWrap(True)
         self._companions.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._companions.setVisible(bool(companion_text))
         body.addWidget(self._companions)
@@ -484,6 +501,14 @@ class EpisodeGuideRowWidget(ClickableRow):
         body.addLayout(confidence_row)
 
         self._apply_style()
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        hint = super().sizeHint()
+        return QSize(hint.width(), self._ROW_HEIGHT)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802
+        hint = super().minimumSizeHint()
+        return QSize(hint.width(), self._ROW_HEIGHT)
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected

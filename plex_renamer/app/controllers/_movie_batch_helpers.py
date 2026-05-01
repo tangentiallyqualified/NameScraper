@@ -74,9 +74,20 @@ def start_movie_batch_session(
     scanner = controller._movie_scanner
     cancel_event = controller._begin_scan_operation()
 
+    def _progress(done: int, total: int, phase: str = "Scanning movies...") -> None:
+        if cancel_event.is_set():
+            raise ScanCancelledError("Scan cancelled")
+        controller._set_progress(
+            ScanLifecycle.SCANNING,
+            phase=phase,
+            done=done,
+            total=total,
+            message=f"{phase} {done}/{total}",
+        )
+
     def _worker() -> None:
         try:
-            items = scanner.scan(cancel_event=cancel_event)
+            items = scanner.scan(progress_callback=_progress, cancel_event=cancel_event)
         except ScanCancelledError:
             _cancel_movie_batch_scan(controller, cancel_event)
             return

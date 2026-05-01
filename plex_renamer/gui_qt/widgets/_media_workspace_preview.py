@@ -67,6 +67,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._episode_filter = "all"
         self._master_syncing = False
         self._episode_mapping = EpisodeMappingService()
+        self._episode_guide_cache: dict[str, tuple[tuple, Any]] = {}
         self._build_ui()
 
     @property
@@ -274,7 +275,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._check_summary.hide()
         self._set_episode_filters_visible(True)
         self._sync_episode_filter_buttons()
-        guide = self._episode_mapping.build_episode_guide(state)
+        guide = self._episode_guide_for_state(state)
         self.set_summary("")
         self._approve_all_button.setVisible(any(row.status == "Review" for row in guide.rows))
 
@@ -356,6 +357,86 @@ class MediaWorkspacePreviewPanel(QFrame):
             button.setVisible(visible)
         if not visible:
             self._approve_all_button.hide()
+
+    def _episode_guide_for_state(self, state: ScanState):
+        key = _state_key(state)
+        signature = self._episode_guide_signature(state)
+        cached = self._episode_guide_cache.get(key)
+        if cached is not None and cached[0] == signature:
+            return cached[1]
+        guide = self._episode_mapping.build_episode_guide(state)
+        self._episode_guide_cache[key] = (signature, guide)
+        return guide
+
+    @staticmethod
+    def _episode_guide_signature(state: ScanState) -> tuple:
+        preview_signature = tuple(
+            (
+                str(preview.original),
+                preview.new_name,
+                str(preview.target_dir) if preview.target_dir is not None else "",
+                preview.season,
+                tuple(preview.episodes),
+                preview.status,
+                round(preview.episode_confidence, 4),
+                tuple(
+                    (
+                        str(companion.original),
+                        companion.new_name,
+                        companion.file_type,
+                    )
+                    for companion in preview.companions
+                ),
+            )
+            for preview in state.preview_items
+        )
+        completeness = state.completeness
+        completeness_signature = None
+        if completeness is not None:
+            completeness_signature = (
+                tuple(
+                    (
+                        season_num,
+                        season.expected,
+                        season.matched,
+                        tuple(season.missing),
+                        tuple(season.matched_episodes),
+                    )
+                    for season_num, season in sorted(completeness.seasons.items())
+                ),
+                None
+                if completeness.specials is None
+                else (
+                    completeness.specials.expected,
+                    completeness.specials.matched,
+                    tuple(completeness.specials.missing),
+                    tuple(completeness.specials.matched_episodes),
+                ),
+                completeness.total_expected,
+                completeness.total_matched,
+                tuple(completeness.total_missing),
+            )
+        scanner_meta = ()
+        if state.scanner is not None:
+            scanner_meta = tuple(
+                (
+                    key,
+                    tuple(sorted((str(name), str(value)) for name, value in meta.items())),
+                )
+                for key, meta in sorted(state.scanner.episode_meta.items())
+            )
+        orphan_signature = tuple(
+            (str(companion.original), companion.new_name, companion.file_type)
+            for companion in state.orphan_companion_files
+        )
+        return (
+            state.active_episode_source,
+            tuple(sorted(state.season_names.items())),
+            preview_signature,
+            completeness_signature,
+            scanner_meta,
+            orphan_signature,
+        )
 
     def _sync_episode_filter_buttons(self) -> None:
         for key, button in self._episode_filter_buttons.items():

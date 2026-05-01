@@ -1465,6 +1465,116 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_media_workspace_episode_guide_reuses_projection_when_toggling_headers(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            confidence=1.0,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+        original_builder = workspace._preview_panel._episode_mapping.build_episode_guide
+        workspace._preview_panel._episode_mapping.build_episode_guide = MagicMock(wraps=original_builder)
+        workspace._preview_panel._episode_guide_cache.clear()
+
+        workspace._populate_preview(state)
+        def _first_header():
+            return next(
+                workspace._preview_list.item(row)
+                for row in range(workspace._preview_list.count())
+                if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
+            )
+
+        workspace._on_preview_item_clicked(_first_header())
+        workspace._on_preview_item_clicked(_first_header())
+
+        self.assertEqual(workspace._preview_panel._episode_mapping.build_episode_guide.call_count, 1)
+        workspace.close()
+
+    def test_media_workspace_episode_header_toggle_does_not_reload_detail_selection(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            confidence=1.0,
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+        workspace._detail_panel.set_selection = MagicMock(wraps=workspace._detail_panel.set_selection)
+        header = next(
+            workspace._preview_list.item(row)
+            for row in range(workspace._preview_list.count())
+            if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
+        )
+
+        workspace._on_preview_item_clicked(header)
+
+        workspace._detail_panel.set_selection.assert_not_called()
+        workspace.close()
+
     def test_media_workspace_selected_review_episode_uses_card_actions(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -1678,6 +1788,27 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(workspace._queue_inline_btn.isEnabled())
 
         workspace.close()
+
+    def test_media_workspace_episode_guide_rows_have_stable_compact_height(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        short_row = EpisodeGuideRowWidget(title="S01E01 - Pilot", status="Mapped", original="Pilot.mkv")
+        missing_row = EpisodeGuideRowWidget(title="S01E02 - Missing", status="Missing File")
+        long_row = EpisodeGuideRowWidget(
+            title="S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally",
+            status="Review",
+            original="Example.Show.S01E03.With.A.Long.Release.Name.mkv",
+            target="Example Show (2024) - S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally.mkv",
+            confidence="52%",
+        )
+
+        heights = {short_row.sizeHint().height(), missing_row.sizeHint().height(), long_row.sizeHint().height()}
+        self.assertEqual(len(heights), 1)
+        self.assertLessEqual(next(iter(heights)), 76)
+
+        short_row.close()
+        missing_row.close()
+        long_row.close()
 
     def test_media_workspace_episode_review_actions_are_inline_with_confidence_meter(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace

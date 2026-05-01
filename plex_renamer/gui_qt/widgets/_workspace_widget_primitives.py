@@ -109,6 +109,9 @@ class ElidedLabel(QLabel):
         self._full_text = text
         self._apply_elision()
 
+    def text(self) -> str:  # noqa: N802
+        return self._full_text
+
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
         self._apply_elision()
