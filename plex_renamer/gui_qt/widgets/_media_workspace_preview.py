@@ -699,4 +699,4 @@ class MediaWorkspacePreviewPanel(QFrame):
                 return
 
     def _sync_item_height(self, item: QListWidgetItem, widget: QWidget) -> None:
-        item.setSizeHint(QSize(0, widget.sizeHint().height()))
+        item.setSizeHint(QSize(0, widget.sizeHint().height() + 6))
