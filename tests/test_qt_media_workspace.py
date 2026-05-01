@@ -1523,6 +1523,58 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(workspace._preview_panel._episode_mapping.build_episode_guide.call_count, 1)
         workspace.close()
 
+    def test_media_workspace_uses_controller_episode_guide_on_first_show_render(self):
+        from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.episode_guide_for_state = MagicMock(
+                    return_value=EpisodeMappingService().build_episode_guide(state)
+                )
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            confidence=1.0,
+        )
+        media_ctrl = _FakeMediaController(state)
+        workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
+        workspace._preview_panel._episode_mapping.build_episode_guide = MagicMock(
+            side_effect=AssertionError("preview panel should not build TV guide on first render")
+        )
+
+        workspace.show_ready()
+
+        media_ctrl.episode_guide_for_state.assert_called_with(state)
+        workspace.close()
+
     def test_media_workspace_episode_header_toggle_does_not_reload_detail_selection(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE

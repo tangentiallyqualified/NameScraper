@@ -54,6 +54,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         approve_episode_callback=None,
         fix_episode_callback=None,
         approve_all_episode_callback=None,
+        episode_guide_provider=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -64,6 +65,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._approve_episode = approve_episode_callback
         self._fix_episode = fix_episode_callback
         self._approve_all_episode = approve_all_episode_callback
+        self._episode_guide_provider = episode_guide_provider
         self._episode_filter = "all"
         self._master_syncing = False
         self._episode_mapping = EpisodeMappingService()
@@ -359,6 +361,8 @@ class MediaWorkspacePreviewPanel(QFrame):
             self._approve_all_button.hide()
 
     def _episode_guide_for_state(self, state: ScanState):
+        if self._episode_guide_provider is not None:
+            return self._episode_guide_provider(state)
         key = _state_key(state)
         signature = self._episode_guide_signature(state)
         cached = self._episode_guide_cache.get(key)

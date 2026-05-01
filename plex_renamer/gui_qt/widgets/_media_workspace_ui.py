@@ -114,6 +114,12 @@ class MediaWorkspaceUiCoordinator:
             approve_episode_callback=workspace._approve_episode_mapping,
             fix_episode_callback=workspace._prompt_fix_episode_mapping,
             approve_all_episode_callback=workspace._approve_all_episode_mappings,
+            episode_guide_provider=(
+                workspace._media_ctrl.episode_guide_for_state
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "episode_guide_for_state")
+                else None
+            ),
         )
         workspace._preview_list = workspace._preview_panel.list_widget
         workspace._preview_master_check = workspace._preview_panel.master_check
