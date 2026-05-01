@@ -314,12 +314,13 @@ class MediaWorkspacePreviewPanel(QFrame):
             season_title += self._episode_guide_season_ratio(state, season_num, rows)
             prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
             self.add_header(prefix + season_title, section_key)
+            if is_collapsed:
+                continue
             for row in rows:
                 item = self._build_episode_guide_item(state, row)
                 self._list_widget.addItem(item)
                 self._episode_section_items.setdefault(section_key, []).append(item)
                 self._attach_episode_guide_widget(item, state, row)
-                item.setHidden(is_collapsed)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
             self.add_static_header(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
