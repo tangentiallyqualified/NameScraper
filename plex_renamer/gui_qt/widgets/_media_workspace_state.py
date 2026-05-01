@@ -90,6 +90,49 @@ class MediaWorkspaceStateCoordinator:
         workspace._sync_row_selection(workspace._preview_list)
         self.update_preview_master_state(state)
 
+    def warm_preview_cache(self, states: list[ScanState], active_state: ScanState | None) -> None:
+        workspace = self._workspace
+        if workspace._media_type != "tv" or active_state is None:
+            return
+        targets = [
+            state
+            for state in states
+            if state is not active_state
+            and state.preview_items
+            and not workspace._preview_panel.has_current_render(
+                state,
+                folder_preview=workspace._folder_preview_data(state),
+            )
+        ]
+        if not targets:
+            return
+
+        workspace._preview_syncing = True
+        workspace._preview_list.setUpdatesEnabled(False)
+        try:
+            for state in targets:
+                workspace._preview_panel.populate_from_state(
+                    state,
+                    preview_group_state=workspace._preview_group_state,
+                    folder_section_key=self._folder_section_key,
+                    ensure_check_bindings=workspace._ensure_check_bindings,
+                    folder_plan_text=workspace._folder_plan_text,
+                    folder_preview_data=workspace._folder_preview_data,
+                )
+            workspace._preview_panel.populate_from_state(
+                active_state,
+                preview_group_state=workspace._preview_group_state,
+                folder_section_key=self._folder_section_key,
+                ensure_check_bindings=workspace._ensure_check_bindings,
+                folder_plan_text=workspace._folder_plan_text,
+                folder_preview_data=workspace._folder_preview_data,
+            )
+        finally:
+            workspace._preview_syncing = False
+            workspace._preview_list.setUpdatesEnabled(True)
+        workspace._sync_row_selection(workspace._preview_list)
+        self.update_preview_master_state(active_state)
+
     def on_preview_item_clicked(self, item: QListWidgetItem) -> None:
         workspace = self._workspace
         if workspace._preview_syncing:

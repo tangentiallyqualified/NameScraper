@@ -1861,6 +1861,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return workspace._preview_list.itemWidget(item)
             return None
 
+        def _episode_widget_for_title(workspace, title: str):
+            for row in range(workspace._preview_list.count()):
+                item = workspace._preview_list.item(row)
+                if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "episode":
+                    continue
+                widget = workspace._preview_list.itemWidget(item)
+                if widget is not None and title in widget._target.text():
+                    return item, widget
+            return None, None
+
         first_state = _state("First Show", 101)
         second_state = _state("Second Show", 202)
         workspace = MediaWorkspace(
@@ -1870,12 +1880,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         first_widget = _first_visible_episode_widget(workspace)
         self.assertIsNotNone(first_widget)
+        second_cached_item, second_cached_widget = _episode_widget_for_title(workspace, "Second Show")
+        self.assertIsNotNone(second_cached_item)
+        self.assertIsNotNone(second_cached_widget)
+        self.assertTrue(second_cached_item.isHidden())
 
         second_item = workspace._find_roster_item_by_index(1)
         self.assertIsNotNone(second_item)
         workspace._roster_list.setCurrentItem(second_item)
         self._app.processEvents()
-        self.assertIsNot(_first_visible_episode_widget(workspace), first_widget)
+        self.assertIs(_first_visible_episode_widget(workspace), second_cached_widget)
         second_header = next(
             workspace._preview_list.item(row)
             for row in range(workspace._preview_list.count())

@@ -71,6 +71,7 @@ class MediaWorkspaceRefreshCoordinator:
         if selected_state is not None:
             self.ensure_check_bindings(selected_state)
             workspace._populate_preview(selected_state)
+            workspace._warm_preview_cache(states, selected_state)
             workspace._render_detail(selected_state, workspace._selected_preview())
         workspace._update_action_bar()
         workspace._sync_row_selection(workspace._roster_list)

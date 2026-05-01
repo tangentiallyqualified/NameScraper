@@ -225,6 +225,9 @@ class MediaWorkspace(QWidget):
     def _populate_preview(self, state: ScanState) -> None:
         self._state_coordinator.populate_preview(state)
 
+    def _warm_preview_cache(self, states: list[ScanState], active_state: ScanState | None) -> None:
+        self._state_coordinator.warm_preview_cache(states, active_state)
+
     def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
         self._state_coordinator.on_preview_item_clicked(item)
 
@@ -382,4 +385,3 @@ class MediaWorkspace(QWidget):
 
     def _season_expected_count(self, state: ScanState, season_num: int | None) -> int:
         return self._view_coordinator.season_expected_count(state, season_num)
-

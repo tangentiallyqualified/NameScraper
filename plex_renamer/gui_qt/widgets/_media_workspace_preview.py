@@ -469,6 +469,21 @@ class MediaWorkspacePreviewPanel(QFrame):
             preview_group_state=preview_group_state,
         )
 
+    def has_current_render(
+        self,
+        state: ScanState,
+        *,
+        folder_preview: tuple[str, str] | None,
+    ) -> bool:
+        if self._media_type != "tv":
+            return False
+        render_key = self._render_key_for_state(state)
+        return (
+            self._render_signatures.get(render_key)
+            == self._render_signature_for_state(state, folder_preview)
+            and self._has_render_items(render_key)
+        )
+
     def _add_rendered_item(
         self,
         item: QListWidgetItem,
