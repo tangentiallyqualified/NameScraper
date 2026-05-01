@@ -453,6 +453,76 @@ class TVBatchTests(_ControllerTestCase):
 
         self.assertEqual(len(state.preview_items), 1)
 
+    def test_scan_all_shows_prepares_episode_guides_before_ready(self):
+        state = ScanState(
+            folder=self.tmp / "PreparedShow",
+            media_info={"id": 11, "name": "Prepared Show", "year": "2024"},
+            scanned=False,
+        )
+
+        class _PreparedOrchestrator:
+            def scan_all(self, progress_callback=None, cancel_event=None):
+                state.preview_items = [
+                    PreviewItem(
+                        original=state.folder
+                        / "Season 01"
+                        / "Prepared.Show.S01E01.mkv",
+                        new_name="Prepared Show (2024) - S01E01 - Pilot.mkv",
+                        target_dir=state.folder
+                        / "Prepared Show (2024)"
+                        / "Season 01",
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ]
+                state.scanned = True
+                if progress_callback:
+                    progress_callback(1, 1, state.display_name)
+
+        self.set_tv_session([state], batch_orchestrator=_PreparedOrchestrator())
+
+        self.ctrl.scan_all_shows()
+
+        _wait_until(
+            lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
+            description="TV scan and projection preparation to finish",
+        )
+
+        guide = self.ctrl.episode_guide_for_state(state)
+        self.assertEqual(len(guide.rows), 1)
+        self.assertEqual(guide.rows[0].status, "Mapped")
+
+    def test_episode_guide_for_state_rebuilds_after_invalidation(self):
+        state = ScanState(
+            folder=self.tmp / "ReviewShow",
+            media_info={"id": 12, "name": "Review Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=self.tmp
+                    / "ReviewShow"
+                    / "Season 01"
+                    / "Review.Show.S01E01.mkv",
+                    new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=self.tmp / "Review Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[1],
+                    status="REVIEW: episode confidence below threshold",
+                    episode_confidence=0.45,
+                )
+            ],
+            scanned=True,
+        )
+        first = self.ctrl.episode_guide_for_state(state)
+
+        state.preview_items[0].status = "OK"
+        state.preview_items[0].episode_confidence = 1.0
+        self.ctrl.invalidate_episode_guide(state)
+        second = self.ctrl.episode_guide_for_state(state)
+
+        self.assertIsNot(second, first)
+        self.assertEqual(second.rows[0].status, "Mapped")
+
     def test_scan_all_shows_reports_current_show_before_and_after_scan(self):
         states = [
             ScanState(folder=self.tmp / "ShowA", media_info={"id": 1, "name": "Show A"}),

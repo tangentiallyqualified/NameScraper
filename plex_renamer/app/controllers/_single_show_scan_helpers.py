@@ -33,6 +33,8 @@ class _SingleShowScanController(Protocol):
 
     def _notify(self, event: str, *args: Any) -> None: ...
 
+    def refresh_episode_guide(self, state: ScanState) -> Any: ...
+
 
 def start_single_show_scan(
     controller: _SingleShowScanController,
@@ -84,6 +86,8 @@ def start_single_show_scan(
             phase="TV scan complete",
             message=f"Preview ready — {len(final_state.preview_items)} file(s)",
         )
+        if final_state.preview_items:
+            controller.refresh_episode_guide(final_state)
         controller._notify("library_changed", controller.library_states)
         controller._notify("scan_complete", final_state)
 

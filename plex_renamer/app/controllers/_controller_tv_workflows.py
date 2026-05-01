@@ -58,6 +58,8 @@ class MediaControllerTVWorkflow:
         scanner_factory: Any,
         duplicate_checker: Any,
     ) -> None:
+        if hasattr(self._controller, "invalidate_episode_guide"):
+            self._controller.invalidate_episode_guide(state)
         start_single_show_scan(
             self._controller,
             state,

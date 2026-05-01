@@ -50,6 +50,10 @@ class _TVBatchController(Protocol):
 
     def sync_queued_states(self) -> None: ...
 
+    def prepare_episode_guides(self, states: list[ScanState]) -> None: ...
+
+    def invalidate_episode_guides(self) -> None: ...
+
 
 def start_tv_batch_session(
     controller: _TVBatchController,
@@ -69,6 +73,7 @@ def start_tv_batch_session(
     controller._batch_states = []
     controller._active_scan = None
     controller._library_selected_index = None
+    controller.invalidate_episode_guides()
 
     controller._set_progress(
         ScanLifecycle.DISCOVERING,
@@ -257,6 +262,19 @@ def _complete_tv_bulk_scan(
 
     _clear_plex_ready_checks(controller)
     scanned, total_files = _summarize_scanned_batch_states(controller._batch_states)
+    prepared_states = [
+        state for state in controller._batch_states
+        if state.scanned and state.preview_items
+    ]
+    if prepared_states:
+        controller._set_progress(
+            ScanLifecycle.SCANNING,
+            phase="Preparing episode list...",
+            done=0,
+            total=len(prepared_states),
+            message=f"Preparing episode list... 0/{len(prepared_states)}",
+        )
+        controller.prepare_episode_guides(prepared_states)
     controller._set_progress(
         ScanLifecycle.READY,
         phase="Batch scan complete",

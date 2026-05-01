@@ -56,9 +56,10 @@ from ._controller_event_helpers import (
     apply_runtime_settings_to_states,
     notify_controller_listeners,
 )
-from ..models import ScanLifecycle, ScanProgress
+from ..models import EpisodeGuide, ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
+from ..services.episode_projection_cache import EpisodeProjectionCacheService
 from ..services.refresh_policy_service import RefreshPolicyService
 from ..services.settings_service import SettingsService
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
@@ -93,6 +94,7 @@ class MediaController:
         self._refresh_policy = refresh_policy
         self._tv_discovery = tv_discovery or TVLibraryDiscoveryService()
         self._movie_discovery = movie_discovery or MovieLibraryDiscoveryService()
+        self._episode_projection_cache = EpisodeProjectionCacheService()
         set_auto_accept_threshold(self._settings.auto_accept_threshold)
         set_episode_auto_accept_threshold(self._settings.episode_auto_accept_threshold)
 
@@ -509,3 +511,18 @@ class MediaController:
     def sync_queued_states(self) -> None:
         """Refresh queued flags for TV and movie rosters from the job store."""
         self._projection_workflow.sync_queued_states()
+
+    def prepare_episode_guides(self, states: list[ScanState]) -> None:
+        self._episode_projection_cache.prepare_states(states)
+
+    def episode_guide_for_state(self, state: ScanState) -> EpisodeGuide:
+        return self._episode_projection_cache.guide_for_state(state)
+
+    def refresh_episode_guide(self, state: ScanState) -> EpisodeGuide:
+        return self._episode_projection_cache.refresh_state(state)
+
+    def invalidate_episode_guide(self, state: ScanState) -> None:
+        self._episode_projection_cache.invalidate_state(state)
+
+    def invalidate_episode_guides(self) -> None:
+        self._episode_projection_cache.invalidate_all()
