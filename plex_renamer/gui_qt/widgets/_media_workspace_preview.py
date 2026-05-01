@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 _CHECKED_ROLE = Qt.ItemDataRole.UserRole + 10
 _PREVIEW_ENTRY_KIND_ROLE = Qt.ItemDataRole.UserRole + 14
 _PREVIEW_SECTION_ROLE = Qt.ItemDataRole.UserRole + 15
+_PREVIEW_RENDER_KEY_ROLE = Qt.ItemDataRole.UserRole + 16
 _SECTION_COLLAPSED_PREFIX = "\u25b8 "
 _SECTION_EXPANDED_PREFIX = "\u25be "
 
@@ -72,7 +73,9 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._master_syncing = False
         self._episode_mapping = EpisodeMappingService()
         self._episode_guide_cache: dict[str, tuple[tuple, Any]] = {}
-        self._episode_section_items: dict[str, list[QListWidgetItem]] = {}
+        self._preview_section_items: dict[int | str, list[QListWidgetItem]] = {}
+        self._render_signatures: dict[str, tuple] = {}
+        self._visible_render_key: str | None = None
         self._build_ui()
 
     @property
@@ -198,16 +201,35 @@ class MediaWorkspacePreviewPanel(QFrame):
         folder_plan_text: Callable[[ScanState], str],
         folder_preview_data: Callable[[ScanState], tuple[str, str] | None],
     ) -> None:
-        self._list_widget.clear()
-        self._episode_section_items.clear()
+        if state.preview_items:
+            ensure_check_bindings(state)
         folder_preview = folder_preview_data(state)
         self._folder_plan_label.setText(folder_plan_text(state) if folder_preview is not None else "")
+        render_key = self._render_key_for_state(state) if self._media_type == "tv" else None
+        if render_key is not None:
+            render_signature = self._render_signature_for_state(state, folder_preview)
+            if self._restore_rendered_state(
+                state,
+                render_key=render_key,
+                render_signature=render_signature,
+                preview_group_state=preview_group_state,
+            ):
+                return
+            self._remove_render_items(render_key)
+            self._hide_render_items_except(render_key)
+            self._render_signatures[render_key] = render_signature
+            self._visible_render_key = render_key
+        else:
+            self._list_widget.clear()
+            self._visible_render_key = None
+        self._preview_section_items.clear()
         if folder_preview is not None:
             self._add_folder_preview_section(
                 state,
                 folder_preview,
                 preview_group_state=preview_group_state,
                 folder_section_key=folder_section_key,
+                render_key=render_key,
             )
 
         if not state.preview_items:
@@ -226,6 +248,7 @@ class MediaWorkspacePreviewPanel(QFrame):
                 state,
                 preview_group_state=preview_group_state,
                 ensure_check_bindings=ensure_check_bindings,
+                render_key=render_key,
             )
             return
 
@@ -236,7 +259,7 @@ class MediaWorkspacePreviewPanel(QFrame):
 
         for index, preview in enumerate(state.preview_items):
             item = self.build_preview_row(state, index, preview)
-            self._list_widget.addItem(item)
+            self._add_rendered_item(item, render_key)
             self.attach_preview_widget(item, state, index, preview)
 
         self._restore_current_preview_row(state)
@@ -257,17 +280,25 @@ class MediaWorkspacePreviewPanel(QFrame):
         row.setFlags(Qt.ItemFlag.ItemIsEnabled)
         return row
 
-    def add_header(self, text: str, section_key: int | str) -> None:
+    def add_header(
+        self,
+        text: str,
+        section_key: int | str,
+        *,
+        render_key: str | None = None,
+    ) -> QListWidgetItem:
         header = _make_section_header(text, selectable=True)
         header.setData(_PREVIEW_ENTRY_KIND_ROLE, "header")
         header.setData(_PREVIEW_SECTION_ROLE, section_key)
-        self._list_widget.addItem(header)
+        self._add_rendered_item(header, render_key)
+        return header
 
-    def add_static_header(self, text: str) -> None:
+    def add_static_header(self, text: str, *, render_key: str | None = None) -> QListWidgetItem:
         header = _make_section_header(text, selectable=False)
         header.setData(_PREVIEW_ENTRY_KIND_ROLE, "label")
         header.setData(_PREVIEW_SECTION_ROLE, None)
-        self._list_widget.addItem(header)
+        self._add_rendered_item(header, render_key)
+        return header
 
     def _populate_episode_guide(
         self,
@@ -275,6 +306,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         *,
         preview_group_state: dict[str, set[int | str]],
         ensure_check_bindings: Callable[[ScanState], None],
+        render_key: str | None = None,
     ) -> None:
         ensure_check_bindings(state)
         self._master_check.hide()
@@ -313,24 +345,30 @@ class MediaWorkspacePreviewPanel(QFrame):
             season_title = _season_label(season_num, name=season_name)
             season_title += self._episode_guide_season_ratio(state, season_num, rows)
             prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
-            self.add_header(prefix + season_title, section_key)
-            if is_collapsed:
-                continue
+            self.add_header(prefix + season_title, section_key, render_key=render_key)
             for row in rows:
                 item = self._build_episode_guide_item(state, row)
-                self._list_widget.addItem(item)
-                self._episode_section_items.setdefault(section_key, []).append(item)
+                self._add_rendered_item(
+                    item,
+                    render_key,
+                    section_key=section_key,
+                    track_section=True,
+                )
+                item.setHidden(is_collapsed)
                 self._attach_episode_guide_widget(item, state, row)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
-            self.add_static_header(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
+            self.add_static_header(
+                f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})",
+                render_key=render_key,
+            )
             for unmapped in guide.unmapped_primary_files:
                 index = state.preview_items.index(unmapped.preview) if unmapped.preview in state.preview_items else None
                 item = QListWidgetItem()
                 item.setData(Qt.ItemDataRole.UserRole, index)
                 item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                self._list_widget.addItem(item)
+                self._add_rendered_item(item, render_key)
                 widget = _EpisodeGuideRowWidget(
                     title=unmapped.original.name,
                     status="Unmapped",
@@ -342,13 +380,16 @@ class MediaWorkspacePreviewPanel(QFrame):
                 self._list_widget.setItemWidget(item, widget)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.orphan_companion_files:
-            self.add_static_header(f"Orphan Companion Files ({len(guide.orphan_companion_files)})")
+            self.add_static_header(
+                f"Orphan Companion Files ({len(guide.orphan_companion_files)})",
+                render_key=render_key,
+            )
             for companion in guide.orphan_companion_files:
                 item = QListWidgetItem()
                 item.setData(Qt.ItemDataRole.UserRole, None)
                 item.setData(_PREVIEW_ENTRY_KIND_ROLE, "orphan-companion")
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                self._list_widget.addItem(item)
+                self._add_rendered_item(item, render_key)
                 widget = _EpisodeGuideRowWidget(
                     title=companion.original.name,
                     status="Orphan Companion",
@@ -378,14 +419,14 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._episode_guide_cache[key] = (signature, guide)
         return guide
 
-    def toggle_episode_section(
+    def toggle_section(
         self,
         *,
         state: ScanState,
-        section_key: str,
+        section_key: int | str,
         preview_group_state: dict[str, set[int | str]],
     ) -> bool:
-        if section_key not in self._episode_section_items:
+        if section_key not in self._preview_section_items:
             return False
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         is_collapsing = section_key not in collapsed
@@ -396,6 +437,8 @@ class MediaWorkspacePreviewPanel(QFrame):
 
         for row in range(self._list_widget.count()):
             item = self._list_widget.item(row)
+            if item.isHidden() or not self._is_visible_render_item(item):
+                continue
             if item.data(_PREVIEW_SECTION_ROLE) == section_key:
                 text = item.text()
                 for prefix in (_SECTION_COLLAPSED_PREFIX, _SECTION_EXPANDED_PREFIX):
@@ -408,10 +451,161 @@ class MediaWorkspacePreviewPanel(QFrame):
                 )
                 break
 
-        for item in self._episode_section_items.get(section_key, []):
+        for item in self._preview_section_items.get(section_key, []):
             item.setHidden(is_collapsing)
         self.update_sticky_header()
         return True
+
+    def toggle_episode_section(
+        self,
+        *,
+        state: ScanState,
+        section_key: str,
+        preview_group_state: dict[str, set[int | str]],
+    ) -> bool:
+        return self.toggle_section(
+            state=state,
+            section_key=section_key,
+            preview_group_state=preview_group_state,
+        )
+
+    def _add_rendered_item(
+        self,
+        item: QListWidgetItem,
+        render_key: str | None,
+        *,
+        section_key: int | str | None = None,
+        track_section: bool = False,
+    ) -> None:
+        if render_key is not None:
+            item.setData(_PREVIEW_RENDER_KEY_ROLE, render_key)
+        if section_key is not None:
+            item.setData(_PREVIEW_SECTION_ROLE, section_key)
+        self._list_widget.addItem(item)
+        if track_section and section_key is not None:
+            self._preview_section_items.setdefault(section_key, []).append(item)
+
+    def _hide_render_items_except(self, render_key: str) -> None:
+        for row in range(self._list_widget.count()):
+            item = self._list_widget.item(row)
+            item.setHidden(item.data(_PREVIEW_RENDER_KEY_ROLE) != render_key)
+
+    def _remove_render_items(self, render_key: str) -> None:
+        for row in range(self._list_widget.count() - 1, -1, -1):
+            item = self._list_widget.item(row)
+            if item.data(_PREVIEW_RENDER_KEY_ROLE) != render_key:
+                continue
+            widget = self._list_widget.itemWidget(item)
+            if widget is not None:
+                self._list_widget.removeItemWidget(item)
+                widget.deleteLater()
+            self._list_widget.takeItem(row)
+
+    def _restore_rendered_state(
+        self,
+        state: ScanState,
+        *,
+        render_key: str,
+        render_signature: tuple,
+        preview_group_state: dict[str, set[int | str]],
+    ) -> bool:
+        if self._render_signatures.get(render_key) != render_signature:
+            return False
+        if not self._has_render_items(render_key):
+            return False
+        self._hide_render_items_except(render_key)
+        self._visible_render_key = render_key
+        self._preview_section_items.clear()
+        collapsed = preview_group_state.setdefault(_state_key(state), set())
+        self._sync_cached_headers(render_key, collapsed)
+        self._restore_cached_tv_controls(state)
+        for row in range(self._list_widget.count()):
+            item = self._list_widget.item(row)
+            if item.data(_PREVIEW_RENDER_KEY_ROLE) != render_key:
+                continue
+            section_key = item.data(_PREVIEW_SECTION_ROLE)
+            entry_kind = item.data(_PREVIEW_ENTRY_KIND_ROLE)
+            if section_key is not None and entry_kind not in {"header", "label"}:
+                self._preview_section_items.setdefault(section_key, []).append(item)
+                item.setHidden(section_key in collapsed)
+            else:
+                item.setHidden(False)
+        self._restore_current_preview_row(state)
+        self.update_sticky_header()
+        return True
+
+    def _has_render_items(self, render_key: str) -> bool:
+        for row in range(self._list_widget.count()):
+            if self._list_widget.item(row).data(_PREVIEW_RENDER_KEY_ROLE) == render_key:
+                return True
+        return False
+
+    def _sync_cached_headers(self, render_key: str, collapsed: set[int | str]) -> None:
+        for row in range(self._list_widget.count()):
+            item = self._list_widget.item(row)
+            if item.data(_PREVIEW_RENDER_KEY_ROLE) != render_key:
+                continue
+            if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "header":
+                continue
+            section_key = item.data(_PREVIEW_SECTION_ROLE)
+            if section_key is None:
+                continue
+            text = item.text()
+            for prefix in (_SECTION_COLLAPSED_PREFIX, _SECTION_EXPANDED_PREFIX):
+                if text.startswith(prefix):
+                    text = text[len(prefix):]
+                    break
+            item.setText(
+                (_SECTION_COLLAPSED_PREFIX if section_key in collapsed else _SECTION_EXPANDED_PREFIX)
+                + text
+            )
+
+    def _restore_cached_tv_controls(self, state: ScanState) -> None:
+        self._master_check.hide()
+        self._check_summary.hide()
+        self._set_episode_filters_visible(True)
+        self._sync_episode_filter_buttons()
+        self.set_summary("")
+        guide = self._episode_guide_for_state(state)
+        self._approve_all_button.setVisible(any(row.status == "Review" for row in guide.rows))
+
+    @staticmethod
+    def _render_key_for_state(state: ScanState) -> str:
+        return str(id(state))
+
+    def _render_signature_for_state(
+        self,
+        state: ScanState,
+        folder_preview: tuple[str, str] | None,
+    ) -> tuple:
+        check_signature = tuple(
+            sorted(
+                (key, binding.get())
+                for key, binding in state.check_vars.items()
+                if hasattr(binding, "get")
+            )
+        )
+        settings_signature = None
+        if self._settings is not None:
+            settings_signature = (
+                self._settings.view_mode,
+                self._settings.show_confidence_bars,
+                self._settings.show_companion_files,
+            )
+        return (
+            self._media_type,
+            self._episode_filter,
+            folder_preview,
+            state.scanned,
+            state.scanning,
+            state.show_id,
+            state.display_name,
+            state.queued,
+            state.checked,
+            check_signature,
+            settings_signature,
+            self._episode_guide_signature(state),
+        )
 
     @staticmethod
     def _episode_guide_signature(state: ScanState) -> tuple:
@@ -578,14 +772,20 @@ class MediaWorkspacePreviewPanel(QFrame):
         *,
         preview_group_state: dict[str, set[int | str]],
         folder_section_key: str,
+        render_key: str | None = None,
     ) -> None:
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         is_collapsed = folder_section_key in collapsed
-        self.add_header(("▸ " if is_collapsed else "▾ ") + "Folder", folder_section_key)
-        if is_collapsed:
-            return
+        prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
+        self.add_header(prefix + "FOLDER", folder_section_key, render_key=render_key)
         item = self.build_folder_preview_row()
-        self._list_widget.addItem(item)
+        self._add_rendered_item(
+            item,
+            render_key,
+            section_key=folder_section_key,
+            track_section=True,
+        )
+        item.setHidden(is_collapsed)
         self.attach_folder_preview_widget(item, *folder_preview)
 
     def attach_preview_widget(
@@ -689,15 +889,24 @@ class MediaWorkspacePreviewPanel(QFrame):
         if target_index is not None:
             for row in range(self._list_widget.count()):
                 item = self._list_widget.item(row)
+                if item.isHidden() or not self._is_visible_render_item(item):
+                    continue
                 if item.data(Qt.ItemDataRole.UserRole) == target_index:
                     self._list_widget.setCurrentRow(row)
                     return
 
         for row in range(self._list_widget.count()):
             item = self._list_widget.item(row)
+            if item.isHidden() or not self._is_visible_render_item(item):
+                continue
             if item.data(Qt.ItemDataRole.UserRole) is not None:
                 self._list_widget.setCurrentRow(row)
                 return
 
     def _sync_item_height(self, item: QListWidgetItem, widget: QWidget) -> None:
         item.setSizeHint(QSize(0, widget.sizeHint().height() + 6))
+
+    def _is_visible_render_item(self, item: QListWidgetItem) -> bool:
+        if self._visible_render_key is None:
+            return True
+        return item.data(_PREVIEW_RENDER_KEY_ROLE) == self._visible_render_key
