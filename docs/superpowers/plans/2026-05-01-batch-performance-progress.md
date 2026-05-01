@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python, PySide6 `QListWidget`, existing controller `ScanProgress`, pytest Qt smoke tests.
 
+**Post-feedback revision:** The panel-local projection cache in this plan is not sufficient for the observed first-click and season-toggle delay. Continue with `docs/superpowers/plans/2026-05-01-batch-scan-time-ui-projections.md`, which moves pure episode-guide preparation into scan completion, keeps show/episode match changes cache-correct, and makes season toggles hide/show existing rows instead of rebuilding the preview list.
+
 ---
 
 ## File Structure
