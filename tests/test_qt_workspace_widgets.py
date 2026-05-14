@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QPushButton, QWidget
 
 from conftest_qt import QtSmokeBase
 
@@ -51,3 +53,75 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
 
         self.assertEqual(widget._target.toolTip(), "Some Extremely Long Target Folder Name")
         widget.close()
+
+    def test_episode_review_row_reserves_moderate_space_for_actions_and_review_pill(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        original_stylesheet = self._app.styleSheet()
+        theme = Path("plex_renamer/gui_qt/resources/theme.qss").read_text(encoding="utf-8")
+        self._app.setStyleSheet(theme)
+        self.addCleanup(lambda: self._app.setStyleSheet(original_stylesheet))
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E01 - Bartender",
+            status="Review",
+            original="[Kawaiika-Raws] Bartender 01 [BDRip 1920x1080 HEVC FLAC].mkv",
+            target="Bartender (2006) - S01E01 - Bartender.mkv",
+            confidence="50%",
+            companions=["[Kawaiika-Raws] Bartender 01 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+        )
+        widget.resize(780, widget.sizeHint().height())
+        widget.show()
+        self._app.processEvents()
+
+        buttons = widget.findChildren(QPushButton)
+        button_bottom = max(button.geometry().bottom() for button in buttons if button.isVisible())
+        button_bottom_clearance = widget.contentsRect().bottom() - button_bottom
+
+        self.assertGreaterEqual(widget.sizeHint().height(), 96)
+        self.assertGreaterEqual(button_bottom_clearance, 8)
+        self.assertLessEqual(button_bottom_clearance, 10)
+        self.assertGreaterEqual(
+            widget._status.minimumWidth(),
+            widget._status.fontMetrics().horizontalAdvance("Review") + 16,
+        )
+        widget.close()
+
+    def test_episode_rows_without_actions_do_not_reserve_action_space(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        original_stylesheet = self._app.styleSheet()
+        theme = Path("plex_renamer/gui_qt/resources/theme.qss").read_text(encoding="utf-8")
+        self._app.setStyleSheet(theme)
+        self.addCleanup(lambda: self._app.setStyleSheet(original_stylesheet))
+
+        compact = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            original="Pilot.mkv",
+        )
+        detailed = EpisodeGuideRowWidget(
+            title="S01E02 - Heart of the Menu",
+            status="Mapped",
+            original="[Kawaiika-Raws] Bartender 02 [BDRip 1920x1080 HEVC FLAC].mkv",
+            target="Bartender (2006) - S01E02 - Heart of the Menu.mkv",
+            confidence="100%",
+            companions=["[Kawaiika-Raws] Bartender 02 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+        )
+        review = EpisodeGuideRowWidget(
+            title="S01E03 - Glass of Regret",
+            status="Review",
+            original="[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].mkv",
+            target="Bartender (2006) - S01E03 - Glass of Regret.mkv",
+            confidence="50%",
+            companions=["[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+        )
+
+        self.assertLess(compact.sizeHint().height(), detailed.sizeHint().height())
+        self.assertLess(detailed.sizeHint().height(), review.sizeHint().height())
+        self.assertLessEqual(compact.sizeHint().height(), 76)
+        self.assertLessEqual(detailed.sizeHint().height(), 96)
+
+        compact.close()
+        detailed.close()
+        review.close()

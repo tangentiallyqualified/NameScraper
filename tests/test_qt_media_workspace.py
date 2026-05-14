@@ -2370,7 +2370,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def test_media_workspace_episode_guide_rows_have_stable_compact_height(self):
+    def test_media_workspace_episode_guide_rows_size_to_visible_actions(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
         short_row = EpisodeGuideRowWidget(title="S01E01 - Pilot", status="Mapped", original="Pilot.mkv")
@@ -2383,9 +2383,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             confidence="52%",
         )
 
-        heights = {short_row.sizeHint().height(), missing_row.sizeHint().height(), long_row.sizeHint().height()}
-        self.assertEqual(len(heights), 1)
-        self.assertLessEqual(next(iter(heights)), 76)
+        self.assertEqual(short_row.sizeHint().height(), missing_row.sizeHint().height())
+        self.assertLess(short_row.sizeHint().height(), long_row.sizeHint().height())
+        self.assertLessEqual(short_row.sizeHint().height(), 76)
+        self.assertLessEqual(long_row.sizeHint().height(), 120)
 
         short_row.close()
         missing_row.close()

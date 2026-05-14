@@ -378,7 +378,8 @@ class PreviewRowWidget(ClickableRow):
 class EpisodeGuideRowWidget(ClickableRow):
     approve_requested = Signal()
     fix_requested = Signal()
-    _ROW_HEIGHT = 72
+    _COMPACT_ROW_MIN_HEIGHT = 72
+    _STATUS_PILL_HORIZONTAL_CHROME = 18
 
     def __init__(
         self,
@@ -397,23 +398,24 @@ class EpisodeGuideRowWidget(ClickableRow):
         self.setProperty("band", self._band_for_status(status))
         self.setProperty("selectionState", "normal")
         self._selected = False
-        self.setFixedHeight(self._ROW_HEIGHT)
+        self._row_height = self._COMPACT_ROW_MIN_HEIGHT
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        show_actions = status == "Review"
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 5, 6, 5)
-        layout.setSpacing(6)
+        layout.setContentsMargins(8, 7, 8, 7)
+        layout.setSpacing(8)
 
         self._check = ToggleSwitch(False, self)
         self._check.hide()
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
         body = QVBoxLayout()
-        body.setSpacing(2)
+        body.setSpacing(3)
         layout.addLayout(body, stretch=1)
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(6)
+        top_row.setSpacing(8)
         self._title = ElidedLabel(
             title,
             elide_mode=Qt.TextElideMode.ElideRight,
@@ -428,7 +430,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._status.setProperty("tone", self._tone_for_status(status))
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._status.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self._status.setMinimumWidth(self._status.sizeHint().width())
+        self._status.setMinimumWidth(self._status_pill_minimum_width(status))
         top_row.addWidget(self._status, alignment=Qt.AlignmentFlag.AlignTop)
         body.addLayout(top_row)
 
@@ -464,14 +466,10 @@ class EpisodeGuideRowWidget(ClickableRow):
         body.addWidget(self._companions)
 
         confidence_value = _percent_from_label(confidence)
-        confidence_row = QHBoxLayout()
-        confidence_row.setContentsMargins(0, 0, 0, 0)
-        confidence_row.setSpacing(8)
         self._confidence_label = QLabel("Confidence", self)
         self._confidence_label.setProperty("cssClass", "caption")
         self._confidence_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._confidence_label.setVisible(confidence_value is not None)
-        confidence_row.addWidget(self._confidence_label)
 
         self._confidence = MiniProgressBar(
             color=_confidence_fill_color((confidence_value or 0) / 100),
@@ -480,36 +478,45 @@ class EpisodeGuideRowWidget(ClickableRow):
         )
         self._confidence.setFixedWidth(96)
         self._confidence.setVisible(confidence_value is not None)
-        confidence_row.addWidget(self._confidence)
 
         self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
-        self._approve_button.setFixedHeight(22)
-        self._approve_button.setVisible(status == "Review")
+        self._approve_button.setFixedHeight(24)
+        self._approve_button.setVisible(show_actions)
         self._approve_button.clicked.connect(self.approve_requested.emit)
-        confidence_row.addWidget(self._approve_button)
 
         self._fix_button = QPushButton("Fix", self)
         self._fix_button.setProperty("cssClass", "secondary")
         self._fix_button.setProperty("sizeVariant", "inline")
-        self._fix_button.setFixedHeight(22)
-        self._fix_button.setVisible(status == "Review")
+        self._fix_button.setFixedHeight(24)
+        self._fix_button.setVisible(show_actions)
         self._fix_button.clicked.connect(self.fix_requested.emit)
-        confidence_row.addWidget(self._fix_button)
 
-        confidence_row.addStretch(1)
-        body.addLayout(confidence_row)
+        if confidence_value is not None or show_actions:
+            confidence_row = QHBoxLayout()
+            confidence_row.setContentsMargins(0, 0, 0, 0)
+            confidence_row.setSpacing(8)
+            confidence_row.addWidget(self._confidence_label)
+            confidence_row.addWidget(self._confidence)
+            confidence_row.addWidget(self._approve_button)
+            confidence_row.addWidget(self._fix_button)
+            confidence_row.addStretch(1)
+            body.addLayout(confidence_row)
+            if show_actions:
+                body.addStretch(1)
 
+        self._row_height = self._preferred_row_height(show_actions)
+        self.setFixedHeight(self._row_height)
         self._apply_style()
 
     def sizeHint(self) -> QSize:  # noqa: N802
         hint = super().sizeHint()
-        return QSize(hint.width(), self._ROW_HEIGHT)
+        return QSize(hint.width(), self._row_height)
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802
         hint = super().minimumSizeHint()
-        return QSize(hint.width(), self._ROW_HEIGHT)
+        return QSize(hint.width(), self._row_height)
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
@@ -519,6 +526,23 @@ class EpisodeGuideRowWidget(ClickableRow):
         self.setProperty("selectionState", "selected" if self._selected else "normal")
         _repolish(self)
         _repolish(self._status)
+
+    def _status_pill_minimum_width(self, text: str) -> int:
+        text_width = self._status.fontMetrics().horizontalAdvance(text)
+        return max(
+            self._status.sizeHint().width(),
+            text_width + self._STATUS_PILL_HORIZONTAL_CHROME,
+        )
+
+    def _preferred_row_height(self, has_actions: bool) -> int:
+        layout = self.layout()
+        content_height = layout.sizeHint().height() if layout is not None else 0
+        if has_actions:
+            return max(self._COMPACT_ROW_MIN_HEIGHT, content_height + self._action_bottom_extra())
+        return max(self._COMPACT_ROW_MIN_HEIGHT, content_height)
+
+    def _action_bottom_extra(self) -> int:
+        return max(1, self._fix_button.fontMetrics().height() // 3)
 
     @staticmethod
     def _band_for_status(status: str) -> str:
