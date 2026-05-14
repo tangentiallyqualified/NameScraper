@@ -695,6 +695,34 @@ class ScanImprovementTests(unittest.TestCase):
                 },
             )
 
+    def test_nested_discovery_ignores_season_like_trees_without_video_files(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "Anime" / "Naruto" / "Season 01"
+            show.mkdir(parents=True)
+            (show / "Naruto - S01E01.mkv").write_text("x")
+
+            objects = root / "TrackStripper" / ".git" / "objects"
+            for folder_name in ("01", "02", "03"):
+                object_dir = objects / folder_name
+                object_dir.mkdir(parents=True)
+                (object_dir / "0123456789abcdef0123456789abcdef012345").write_text("git object")
+
+            non_media_objects = root / "Not Media" / "objects"
+            for folder_name in ("01", "02", "03"):
+                object_dir = non_media_objects / folder_name
+                object_dir.mkdir(parents=True)
+                (object_dir / "opaque-data-file").write_text("not video")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+            relative_paths = {candidate.relative_folder for candidate in candidates}
+
+            self.assertEqual(relative_paths, {"Anime/Naruto"})
+            self.assertNotIn("TrackStripper/.git/objects", relative_paths)
+            self.assertNotIn("Not Media/objects", relative_paths)
+            self.assertEqual(service.discover_show_roots(root / "TrackStripper" / ".git"), [])
+
     def test_nested_discovery_keeps_lowercase_s_seasons_under_single_letter_show(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

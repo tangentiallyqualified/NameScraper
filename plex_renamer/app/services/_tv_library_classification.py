@@ -219,7 +219,14 @@ class TVDirectoryClassifier:
             and not is_extras_folder(grandchild.path.name)
             for grandchild in child_entries
         )
-        return not has_nested_non_extras_dirs
+        if has_nested_non_extras_dirs:
+            return False
+
+        return any(
+            grandchild.is_file
+            and grandchild.path.suffix.lower() in VIDEO_EXTENSIONS
+            for grandchild in child_entries
+        )
 
     @staticmethod
     def scan_children(directory: Path) -> list[DirChild]:

@@ -24,6 +24,9 @@ _IGNORED_SYSTEM_NAMES = {
     "lost+found",
     ".debris",
     "#recycle",
+    ".git",
+    ".hg",
+    ".svn",
 }
 
 class TVLibraryDiscoveryService:
@@ -62,6 +65,8 @@ class TVLibraryDiscoveryService:
         #     Karasuno.../                  <- non-season (named season)
         # has 3 out of 4 as season dirs — a strong majority.
         root_classified = self._classify_directory(library_root)
+        if root_classified.role == TVDirectoryRole.IGNORED_SYSTEM:
+            return []
         if root_classified.role == TVDirectoryRole.SHOW_ROOT:
             # The root itself looks like a show folder.  Return it as the
             # sole candidate when either:
