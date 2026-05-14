@@ -169,7 +169,7 @@ def build_consolidated_preview(
     title_matches = try_title_based_matching(all_files, tmdb_seasons)
     if title_matches is not None:
         items: list[PreviewItem] = []
-        for index, (file_path, _abs_num, _raw_title, episode_numbers, _is_season_relative, _season_hint) in enumerate(all_files):
+        for index, (file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, season_hint) in enumerate(all_files):
             match = title_matches[index]
             if match is None:
                 items.append(PreviewItem(
@@ -192,6 +192,14 @@ def build_consolidated_preview(
                 [title],
                 file_path.suffix,
             )
+            episode_confidence = 0.7
+            if (
+                is_season_relative
+                and season_hint == season_num
+                and len(episode_numbers) == 1
+                and episode_numbers[0] == episode_num
+            ):
+                episode_confidence = 1.0
             item = PreviewItem(
                 original=file_path,
                 new_name=new_name,
@@ -199,7 +207,7 @@ def build_consolidated_preview(
                 season=season_num,
                 episodes=[episode_num],
                 status="OK",
-                episode_confidence=0.7,
+                episode_confidence=episode_confidence,
                 **media_fields,
             )
             item.companions = _build_subtitle_companions(file_path, new_name)

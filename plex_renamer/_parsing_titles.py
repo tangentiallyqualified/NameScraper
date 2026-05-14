@@ -19,6 +19,12 @@ _LEADING_WEBSITE_RELEASE_PREFIX = re.compile(
 )
 
 
+def _is_release_noise_token(token: str) -> bool:
+    if token.casefold() == "it" and token != "iT":
+        return False
+    return RELEASE_NOISE.search(f" {token} ") is not None
+
+
 def clean_folder_name(name: str, *, include_year: bool = True) -> str:
     """
     Extract a human-readable title from a release-group style folder name.
@@ -71,7 +77,7 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
     tokens = text.split()
     title_tokens = []
     for token in tokens:
-        if RELEASE_NOISE.search(f" {token} "):
+        if _is_release_noise_token(token):
             break
         if re.match(r"(?i)^(?:Season|Seasons?)$", token):
             break

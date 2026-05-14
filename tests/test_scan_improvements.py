@@ -10,7 +10,7 @@ from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.engine import BatchTVOrchestrator, score_tv_results, TVScanner
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
-from plex_renamer.parsing import best_tv_match_title, extract_episode, extract_season_number
+from plex_renamer.parsing import best_tv_match_title, clean_folder_name, extract_episode, extract_season_number
 
 
 class _FakeTMDB:
@@ -265,6 +265,38 @@ class _FakeSuccessionTMDB(_FakeTMDB):
         )
 
 
+class _FakeITCrowdTMDB(_FakeTMDB):
+    _SEASONS = {
+        1: {
+            "titles": {
+                1: "Yesterday's Jam",
+                2: "Calamity Jen",
+            },
+            "posters": {},
+            "episodes": {},
+            "count": 2,
+        },
+        2: {
+            "titles": {
+                1: "The Work Outing",
+            },
+            "posters": {},
+            "episodes": {},
+            "count": 1,
+        },
+    }
+
+    def get_season_map(self, show_id):
+        total = sum(data["count"] for data in self._SEASONS.values())
+        return self._SEASONS, total
+
+    def get_season(self, show_id, season_num):
+        return self._SEASONS.get(
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
 class ScanImprovementTests(unittest.TestCase):
     def test_extract_episode_parses_nxnn_filenames_as_season_relative(self):
         name = "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv"
@@ -438,6 +470,35 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[2]].season, 2)
             self.assertEqual(by_name[filenames[2]].episodes, [2])
 
+    def test_consolidated_preview_auto_accepts_explicit_sxxeyy_title_matches(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "The IT Crowd"
+            root.mkdir()
+            filenames = [
+                "The.IT.Crowd.S01E01.Yesterdays.Jam.mkv",
+                "The.IT.Crowd.S01E02.Calamity.Jen.mkv",
+                "The.IT.Crowd.S02E01.The.Work.Outing.mkv",
+            ]
+            for name in filenames:
+                (root / name).write_text("x")
+
+            scanner = TVScanner(
+                _FakeITCrowdTMDB(),
+                {"id": 2490, "name": "The IT Crowd", "year": "2006"},
+                root,
+            )
+
+            items, has_mismatch = scanner.scan()
+            by_name = {item.original.name: item for item in items}
+
+            self.assertFalse(has_mismatch)
+            self.assertEqual(by_name[filenames[0]].season, 1)
+            self.assertEqual(by_name[filenames[0]].episodes, [1])
+            self.assertEqual(by_name[filenames[2]].season, 2)
+            self.assertEqual(by_name[filenames[2]].episodes, [1])
+            self.assertTrue(all(item.status == "OK" for item in items))
+            self.assertTrue(all(item.episode_confidence == 1.0 for item in items))
+
     def test_tv_scanner_marks_low_episode_confidence_for_review_using_episode_threshold(self):
         from plex_renamer.engine import set_episode_auto_accept_threshold
 
@@ -532,6 +593,26 @@ class ScanImprovementTests(unittest.TestCase):
             orchestrator.discover_shows()
 
             self.assertEqual(tmdb.queries, [("The Pitt", None)])
+
+    def test_tv_discovery_preserves_it_in_show_title_when_cleaning_release_noise(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "The IT Crowd 2006 S01-S05 Complete 1080p WEB-DL HEVC x265 BONE"
+            season_one = show / "S01"
+            season_one.mkdir(parents=True)
+            (season_one / "The.IT.Crowd.S01E01.mkv").write_text("x")
+
+            tmdb = _RecordingTVTMDB()
+            orchestrator = BatchTVOrchestrator(
+                tmdb,
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            orchestrator.discover_shows()
+
+            self.assertEqual(clean_folder_name(show.name, include_year=False), "The IT Crowd")
+            self.assertEqual(tmdb.queries, [("The IT Crowd", "2006")])
 
     def test_duplicate_season_sibling_does_not_block_multi_season_consolidation(self):
         with TemporaryDirectory() as tmp:

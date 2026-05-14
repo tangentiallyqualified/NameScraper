@@ -2458,6 +2458,34 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_episode_guide_review_action_buttons_are_parented_during_construction(self):
+        from PySide6.QtWidgets import QPushButton as RealQPushButton
+        import plex_renamer.gui_qt.widgets._workspace_widgets as workspace_widgets
+
+        constructed: list[tuple[str, object | None]] = []
+
+        def recording_button(*args, **kwargs):
+            text = args[0] if args else kwargs.get("text", "")
+            parent = args[1] if len(args) > 1 else kwargs.get("parent")
+            if text in {"Approve", "Fix"}:
+                constructed.append((text, parent))
+            return RealQPushButton(*args, **kwargs)
+
+        with patch.object(workspace_widgets, "QPushButton", recording_button):
+            row = workspace_widgets.EpisodeGuideRowWidget(
+                title="S01E01 - Pilot",
+                status="Review",
+                confidence="50%",
+            )
+
+        try:
+            self.assertEqual([text for text, _parent in constructed], ["Approve", "Fix"])
+            self.assertTrue(all(parent is row for _text, parent in constructed))
+            self.assertFalse(row._approve_button.isWindow())
+            self.assertFalse(row._fix_button.isWindow())
+        finally:
+            row.close()
+
     def test_media_workspace_tv_episode_guide_filters_problems_and_unmapped(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace

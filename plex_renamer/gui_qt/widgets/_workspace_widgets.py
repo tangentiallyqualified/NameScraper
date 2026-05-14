@@ -423,7 +423,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         top_row.addWidget(self._title, stretch=1)
 
-        self._status = QLabel(status)
+        self._status = QLabel(status, self)
         self._status.setProperty("cssClass", "status-pill")
         self._status.setProperty("tone", self._tone_for_status(status))
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
@@ -467,7 +467,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         confidence_row = QHBoxLayout()
         confidence_row.setContentsMargins(0, 0, 0, 0)
         confidence_row.setSpacing(8)
-        self._confidence_label = QLabel("Confidence")
+        self._confidence_label = QLabel("Confidence", self)
         self._confidence_label.setProperty("cssClass", "caption")
         self._confidence_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._confidence_label.setVisible(confidence_value is not None)
@@ -476,12 +476,13 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._confidence = MiniProgressBar(
             color=_confidence_fill_color((confidence_value or 0) / 100),
             value=confidence_value or 0,
+            parent=self,
         )
         self._confidence.setFixedWidth(96)
         self._confidence.setVisible(confidence_value is not None)
         confidence_row.addWidget(self._confidence)
 
-        self._approve_button = QPushButton("Approve")
+        self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
         self._approve_button.setFixedHeight(22)
@@ -489,7 +490,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._approve_button.clicked.connect(self.approve_requested.emit)
         confidence_row.addWidget(self._approve_button)
 
-        self._fix_button = QPushButton("Fix")
+        self._fix_button = QPushButton("Fix", self)
         self._fix_button.setProperty("cssClass", "secondary")
         self._fix_button.setProperty("sizeVariant", "inline")
         self._fix_button.setFixedHeight(22)
