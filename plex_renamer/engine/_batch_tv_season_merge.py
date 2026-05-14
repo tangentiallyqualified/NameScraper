@@ -81,6 +81,16 @@ def season_merge_priority(state: ScanState) -> tuple[int, float, int, str]:
     )
 
 
+def _season_representative_priority(state: ScanState) -> tuple[int, int, float, str]:
+    """Prefer fuller folders when multiple candidates cover the same season."""
+    return (
+        state.direct_episode_file_count,
+        state.direct_video_file_count,
+        state.confidence,
+        normalized_relative_folder(state.relative_folder, state.folder),
+    )
+
+
 def _enumerate_direct_season_subdirs(folder: Path) -> dict[int, Path]:
     """Return ``{season_num: subdir}`` for all season-named children of *folder*."""
     result: dict[int, Path] = {}
@@ -99,42 +109,48 @@ def _enumerate_direct_season_subdirs(folder: Path) -> dict[int, Path]:
 
 def merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
     """Merge states that share a TMDB ID and have distinct season assignments."""
-    groups: dict[int, list[ScanState]] = {}
+    groups: dict[int, dict[int, list[ScanState]]] = {}
     rest: list[ScanState] = []
     for state in states:
         show_id = state.show_id
         if show_id is None or state.season_assignment is None:
             rest.append(state)
             continue
-        groups.setdefault(show_id, []).append(state)
+        groups.setdefault(show_id, {}).setdefault(state.season_assignment, []).append(state)
 
     merged: list[ScanState] = list(rest)
-    for group in groups.values():
-        if len(group) < 2:
-            merged.extend(group)
+    for season_groups in groups.values():
+        representatives: list[ScanState] = []
+        duplicate_season_siblings: list[ScanState] = []
+        for members in season_groups.values():
+            if len(members) == 1:
+                representatives.append(members[0])
+                continue
+            ordered = sorted(members, key=_season_representative_priority, reverse=True)
+            representatives.append(ordered[0])
+            duplicate_season_siblings.extend(ordered[1:])
+
+        if len(representatives) < 2:
+            merged.extend(representatives)
+            merged.extend(duplicate_season_siblings)
             continue
 
-        assignments = {state.season_assignment for state in group}
-        if len(assignments) < len(group):
-            merged.extend(group)
-            continue
-
-        group.sort(key=lambda state: (-state.confidence, state.display_name.lower()))
-        primary = group[0]
+        representatives.sort(key=lambda state: (-state.confidence, state.display_name.lower()))
+        primary = representatives[0]
 
         season_map: dict[int, Path] = {}
-        total_files = primary.direct_video_file_count
-        total_episode_files = primary.direct_episode_file_count
-        for state in group:
+        total_files = 0
+        total_episode_files = 0
+        for state in representatives:
             if state.season_assignment is not None:
                 season_map[state.season_assignment] = resolve_season_folder(
                     state.folder,
                     state.season_assignment,
                 )
-            if state is primary:
-                continue
             total_files += state.direct_video_file_count
             total_episode_files += state.direct_episode_file_count
+            if state is primary:
+                continue
             for season_num, name in state.season_names.items():
                 primary.season_names.setdefault(season_num, name)
 
@@ -143,6 +159,7 @@ def merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
         primary.direct_video_file_count = total_files
         primary.direct_episode_file_count = total_episode_files
         merged.append(primary)
+        merged.extend(duplicate_season_siblings)
 
     return merged
 

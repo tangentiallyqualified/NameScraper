@@ -12,6 +12,12 @@ from .constants import (
     YEAR_MIN_EXTRACT,
 )
 
+_LEADING_WEBSITE_RELEASE_PREFIX = re.compile(
+    r"^\s*(?:https?://)?www\.[A-Za-z0-9][A-Za-z0-9-]*"
+    r"(?:\.[A-Za-z0-9][A-Za-z0-9-]*)+\s*[-\u2013\u2014]+\s*",
+    re.IGNORECASE,
+)
+
 
 def clean_folder_name(name: str, *, include_year: bool = True) -> str:
     """
@@ -36,6 +42,7 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
       7. If a 4-digit year is found and include_year is True, preserve it
          in parentheses
     """
+    name = _LEADING_WEBSITE_RELEASE_PREFIX.sub("", name)
     acronyms: list[tuple[str, str, bool]] = []
 
     def _protect_acronym(match: re.Match) -> str:

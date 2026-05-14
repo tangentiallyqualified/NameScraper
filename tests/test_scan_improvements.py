@@ -217,6 +217,54 @@ class _FakeAlwaysSunnyTMDB(_FakeTMDB):
         )
 
 
+class _FakeSuccessionTMDB(_FakeTMDB):
+    SUCCESSION = {
+        "id": 76331,
+        "name": "Succession",
+        "year": "2018",
+        "poster_path": None,
+        "overview": "",
+        "number_of_seasons": 4,
+        "number_of_episodes": 39,
+    }
+
+    _SEASONS = {
+        1: {"titles": {episode: f"Season 1 Episode {episode}" for episode in range(1, 11)}, "posters": {}, "episodes": {}, "count": 10},
+        2: {"titles": {episode: f"Season 2 Episode {episode}" for episode in range(1, 11)}, "posters": {}, "episodes": {}, "count": 10},
+        3: {"titles": {episode: f"Season 3 Episode {episode}" for episode in range(1, 10)}, "posters": {}, "episodes": {}, "count": 9},
+        4: {"titles": {episode: f"Season 4 Episode {episode}" for episode in range(1, 10)}, "posters": {}, "episodes": {}, "count": 10},
+    }
+
+    def search_tv_batch(self, queries, progress_callback=None):
+        results = []
+        total = len(queries)
+        for index, (_name, _year) in enumerate(queries, start=1):
+            if progress_callback:
+                progress_callback(index, total)
+            results.append([dict(self.SUCCESSION)])
+        return results
+
+    def get_tv_details(self, show_id):
+        return {
+            "number_of_seasons": 4,
+            "number_of_episodes": 39,
+            "seasons": [
+                {"season_number": season, "name": f"Season {season}", "episode_count": data["count"]}
+                for season, data in sorted(self._SEASONS.items())
+            ],
+        }
+
+    def get_season_map(self, show_id):
+        total = sum(data["count"] for data in self._SEASONS.values())
+        return self._SEASONS, total
+
+    def get_season(self, show_id, season_num):
+        return self._SEASONS.get(
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
 class ScanImprovementTests(unittest.TestCase):
     def test_extract_episode_parses_nxnn_filenames_as_season_relative(self):
         name = "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv"
@@ -463,6 +511,68 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(states[0].show_id, 87108)
             self.assertEqual(states[0].media_info["name"], "Chernobyl")
             self.assertEqual(states[0].display_name, "Chernobyl (2019)")
+
+    def test_tv_discovery_strips_leading_website_release_prefix_from_query(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = (
+                root
+                / "www.UIndex.org    -    The Pitt S02E03 900 A M 2160p HMAX WEB-DL DDP5 1 DV H 265-NTb"
+            )
+            show.mkdir()
+            (show / "The Pitt (2025) - S02E03 - 9 -00 A.M..mkv").write_text("x")
+
+            tmdb = _RecordingTVTMDB()
+            orchestrator = BatchTVOrchestrator(
+                tmdb,
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            orchestrator.discover_shows()
+
+            self.assertEqual(tmdb.queries, [("The Pitt", None)])
+
+    def test_duplicate_season_sibling_does_not_block_multi_season_consolidation(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            season_folders = {
+                1: root / "Succession.S01.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                2: root / "Succession.S02.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                3: root / "Succession.S03.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                4: root / "succession season 04",
+            }
+            for season, folder in season_folders.items():
+                folder.mkdir()
+                for episode in range(1, 3):
+                    (folder / f"Succession.S{season:02d}E{episode:02d}.mkv").write_text("x")
+
+            duplicate_season = (
+                root
+                / "www.Torrenting.com - Succession S04E09 Church and State 2160p MAX WEB-DL DD 5 1 Atmos DoVi HDR H 265-playWEB"
+            )
+            duplicate_season.mkdir()
+            (duplicate_season / "Succession S04E09 Church and State.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeSuccessionTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_shows()
+            succession_states = [state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]]
+            merged = [state for state in succession_states if state.season_folders]
+
+            self.assertEqual(len(merged), 1)
+            self.assertEqual(set(merged[0].season_folders), {1, 2, 3, 4})
+            self.assertIsNone(merged[0].season_assignment)
+
+            duplicates = [state for state in succession_states if state is not merged[0]]
+            self.assertEqual(len(duplicates), 1)
+            self.assertEqual(duplicates[0].season_assignment, 4)
+            self.assertEqual(duplicates[0].duplicate_of, merged[0].display_name)
+            self.assertEqual(duplicates[0].duplicate_of_relative_folder, merged[0].relative_folder)
 
     def test_best_tv_match_title_falls_back_when_episode_titles_disagree(self):
         with TemporaryDirectory() as tmp:
