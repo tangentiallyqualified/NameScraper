@@ -10,7 +10,7 @@ from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.engine import BatchTVOrchestrator, score_tv_results, TVScanner
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
-from plex_renamer.parsing import best_tv_match_title
+from plex_renamer.parsing import best_tv_match_title, extract_episode, extract_season_number
 
 
 class _FakeTMDB:
@@ -183,7 +183,84 @@ class _FakeYuruCampTMDB(_FakeTMDB):
         )
 
 
+class _FakeAlwaysSunnyTMDB(_FakeTMDB):
+    _SEASONS = {
+        1: {
+            "titles": {
+                1: "The Gang Gets Racist",
+                2: "Charlie Wants an Abortion",
+                5: "Gun Fever",
+            },
+            "posters": {},
+            "episodes": {},
+            "count": 7,
+        },
+        2: {
+            "titles": {
+                1: "Charlie Gets Crippled",
+                2: "The Gang Goes Jihad",
+            },
+            "posters": {},
+            "episodes": {},
+            "count": 10,
+        },
+    }
+
+    def get_season_map(self, show_id):
+        total = sum(data["count"] for data in self._SEASONS.values())
+        return self._SEASONS, total
+
+    def get_season(self, show_id, season_num):
+        return self._SEASONS.get(
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
 class ScanImprovementTests(unittest.TestCase):
+    def test_extract_episode_parses_nxnn_filenames_as_season_relative(self):
+        name = "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv"
+
+        self.assertEqual(extract_episode(name), ([5], "Gun Fever", True))
+        self.assertEqual(extract_season_number(name), 1)
+
+    def test_tv_scanner_maps_nxnn_files_to_their_episode_numbers(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "It's Always Sunny in Philadelphia S01-02"
+            season_one = root / "S01"
+            season_two = root / "S02"
+            season_one.mkdir(parents=True)
+            season_two.mkdir()
+
+            filenames = [
+                season_one / "It's Always Sunny in Philadelphia - 1x01 - The Gang Gets Racist.mkv",
+                season_one / "It's Always Sunny in Philadelphia - 1x02 - Charlie Wants an Abortion.mkv",
+                season_one / "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv",
+                season_two / "It's Always Sunny in Philadelphia - 2x01 - Charlie Gets Crippled.mkv",
+                season_two / "It's Always Sunny in Philadelphia - 2x02 - The Gang Goes Jihad.mkv",
+            ]
+            for filename in filenames:
+                filename.write_text("x")
+
+            scanner = TVScanner(
+                _FakeAlwaysSunnyTMDB(),
+                {"id": 2710, "name": "It's Always Sunny in Philadelphia", "year": "2005"},
+                root,
+            )
+
+            items, has_mismatch = scanner.scan()
+
+            self.assertFalse(has_mismatch)
+            by_name = {item.original.name: item for item in items}
+            self.assertEqual(len(by_name), len(filenames))
+            self.assertEqual(by_name[filenames[0].name].episodes, [1])
+            self.assertEqual(by_name[filenames[1].name].episodes, [2])
+            self.assertEqual(by_name[filenames[2].name].episodes, [5])
+            self.assertEqual(by_name[filenames[3].name].season, 2)
+            self.assertEqual(by_name[filenames[3].name].episodes, [1])
+            self.assertEqual(by_name[filenames[4].name].episodes, [2])
+            self.assertTrue(all(item.status == "OK" for item in items))
+
     def test_tv_classify_directory_marks_explicit_episode_folder_as_show_root(self):
         with TemporaryDirectory() as tmp:
             show = Path(tmp) / "Yuru Camp△"
@@ -426,6 +503,24 @@ class ScanImprovementTests(unittest.TestCase):
                     "Sci-Fi/Battlestar Galactica (2004)",
                 },
             )
+
+    def test_nested_discovery_keeps_lowercase_s_seasons_under_single_letter_show(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "K"
+            season_one = show / "s01"
+            season_two = show / "s02"
+            season_one.mkdir(parents=True)
+            season_two.mkdir()
+            (season_one / "k - s01e01.mkv").write_text("x")
+            (season_two / "k - s02e01.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+            relative_paths = {candidate.relative_folder for candidate in candidates}
+
+            self.assertEqual(relative_paths, {"K"})
+            self.assertTrue(candidates[0].has_direct_season_subdirs)
 
     def test_duplicate_resolution_keeps_primary_relative_path(self):
         with TemporaryDirectory() as tmp:

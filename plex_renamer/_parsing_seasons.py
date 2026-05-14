@@ -78,7 +78,7 @@ def get_season(folder: Path) -> int | None:
     if match and not re.match(r"\d{1,2}\s*,\s*\d", name[match.start(1):]):
         return int(match.group(1))
 
-    match = re.search(r"(?:^|[\s._\-])S(\d{1,2})(?:[\s._\-]|$)", name)
+    match = re.search(r"(?:^|[\s._\-])S(\d{1,2})(?:[\s._\-]|$)", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 

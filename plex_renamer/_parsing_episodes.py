@@ -16,15 +16,28 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     Returns:
         episode_numbers: list of ints (supports multi-episode files)
         title: str or None
-        is_season_relative: True if the number came from an S##E## pattern
-            (guaranteed season-relative), False if it came from a bare number
-            or dash-delimited pattern (likely absolute for anime).
+        is_season_relative: True if the number came from an S##E## or
+            N x NN pattern (guaranteed season-relative), False if it came
+            from a bare number or dash-delimited pattern (likely absolute
+            for anime).
     """
     raw_stem = Path(filename).stem
     name = clean_name(raw_stem)
 
     match = re.search(
         r"S(\d+)E(\d+)(?:[E-]?E?(\d+))?\s*[-.]?\s*(.*)",
+        name,
+        re.IGNORECASE,
+    )
+    if match:
+        episodes = [int(match.group(2))]
+        if match.group(3):
+            episodes.append(int(match.group(3)))
+        title = match.group(4).strip() if match.group(4) else None
+        return episodes, title, True
+
+    match = re.search(
+        r"\b(\d{1,2})x(\d{2,3})(?:[x-](\d{2,3}))?(?!\d)\s*[-.]?\s*(.*)",
         name,
         re.IGNORECASE,
     )
@@ -91,9 +104,14 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 
 
 def extract_season_number(filename: str) -> int | None:
-    """Extract the explicit season number from an ``S##E##`` filename pattern."""
+    """Extract the explicit season number from a season/episode filename pattern."""
     name = clean_name(Path(filename).stem)
     match = re.search(r"S(\d+)E\d+(?:[E-]?E?\d+)?", name, re.IGNORECASE)
-    if not match:
-        return None
-    return int(match.group(1))
+    if match:
+        return int(match.group(1))
+
+    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:[x-]\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+
+    return None
