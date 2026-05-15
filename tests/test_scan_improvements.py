@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.app.models import TVDirectoryRole
-from plex_renamer.engine import BatchTVOrchestrator, score_tv_results, TVScanner
+from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, score_tv_results, TVScanner
+from plex_renamer.engine._tv_scanner_postprocess import apply_episode_confidence_adjustments
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 from plex_renamer.parsing import best_tv_match_title, clean_folder_name, extract_episode, extract_season_number
@@ -297,6 +299,39 @@ class _FakeITCrowdTMDB(_FakeTMDB):
         )
 
 
+class _FakeSeasonMapTMDB(_FakeTMDB):
+    language = "en-US"
+
+    def __init__(self, seasons):
+        self._seasons = seasons
+
+    def get_tv_details(self, show_id):
+        return {
+            "number_of_seasons": len([season for season in self._seasons if season > 0]),
+            "number_of_episodes": sum(
+                data["count"] for season, data in self._seasons.items() if season > 0
+            ),
+            "seasons": [
+                {
+                    "season_number": season,
+                    "name": data.get("name", f"Season {season}"),
+                    "episode_count": data["count"],
+                }
+                for season, data in sorted(self._seasons.items())
+            ],
+        }
+
+    def get_season_map(self, show_id):
+        total = sum(data["count"] for season, data in self._seasons.items() if season > 0)
+        return self._seasons, total
+
+    def get_season(self, show_id, season_num):
+        return self._seasons.get(
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
 class ScanImprovementTests(unittest.TestCase):
     def test_extract_episode_parses_nxnn_filenames_as_season_relative(self):
         name = "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv"
@@ -497,7 +532,384 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[2]].season, 2)
             self.assertEqual(by_name[filenames[2]].episodes, [1])
             self.assertTrue(all(item.status == "OK" for item in items))
-            self.assertTrue(all(item.episode_confidence == 1.0 for item in items))
+            self.assertTrue(all(item.episode_confidence == 0.92 for item in items))
+
+    def test_title_prefix_mismatch_caps_explicit_episode_confidence(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "Pilot", 2: "Square Peg"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "King of the Hill"
+            season_one = root / "Season 01"
+            season_one.mkdir(parents=True)
+            (season_one / "SpongeBob - S01E01.mkv").write_text("x")
+            (season_one / "SpongeBob - S01E02.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 1000, "name": "King of the Hill", "year": "1997"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertTrue(all(item.episode_confidence == 0.45 for item in items))
+            self.assertTrue(all(item.status.startswith("REVIEW") for item in items))
+
+    def test_title_and_episode_title_evidence_raise_explicit_episode_confidence(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "Pilot"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "King of the Hill"
+            root.mkdir()
+            (root / "King.of.the.Hill.S01E01.Pilot.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 1000, "name": "King of the Hill", "year": "1997"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertEqual(items[0].episode_confidence, 0.92)
+            self.assertEqual(items[0].status, "OK")
+
+    def test_season_name_satisfies_source_title_prefix_compatibility(self):
+        seasons = {
+            2: {
+                "name": "K: Return of Kings",
+                "titles": {1: "Knave", 2: "Kindness"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "K"
+            season_two = root / "Season 02"
+            season_two.mkdir(parents=True)
+            (season_two / "K.Return.of.Kings.01.Releasegroup.mkv").write_text("x")
+            (season_two / "K.Return.of.Kings.02.Releasegroup.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 2000, "name": "K", "year": "2012"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in items))
+            self.assertTrue(all(item.status.startswith("REVIEW") for item in items))
+
+    def test_exact_bare_number_season_coverage_gets_below_default_floor(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {episode: f"Episode {episode}" for episode in range(1, 12)},
+                "posters": {},
+                "episodes": {},
+                "count": 11,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender"
+            root.mkdir()
+            for episode in range(1, 12):
+                (root / f"[Kawaiika-Raws] Bartender {episode:02d} [BDRip].mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 3000, "name": "Bartender", "year": "2006"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in items))
+            self.assertTrue(all(item.status.startswith("REVIEW") for item in items))
+
+    def test_single_season_exact_coverage_with_perfect_show_match_reaches_default_threshold(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {episode: f"Episode {episode}" for episode in range(1, 12)},
+                "posters": {},
+                "episodes": {},
+                "count": 11,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender"
+            root.mkdir()
+            for episode in range(1, 12):
+                (root / f"[Kawaiika-Raws] Bartender {episode:02d} [BDRip].mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 3000, "name": "Bartender", "year": "2006"},
+                root,
+                show_match_confidence=1.0,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertTrue(all(item.episode_confidence == 0.85 for item in items))
+            self.assertTrue(all(item.status == "OK" for item in items))
+
+    def test_exact_bare_number_floor_clears_when_user_threshold_allows_it(self):
+        from plex_renamer.engine import set_episode_auto_accept_threshold
+
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {episode: f"Episode {episode}" for episode in range(1, 4)},
+                "posters": {},
+                "episodes": {},
+                "count": 3,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender"
+            root.mkdir()
+            for episode in range(1, 4):
+                (root / f"Bartender {episode:02d}.mkv").write_text("x")
+
+            try:
+                set_episode_auto_accept_threshold(0.80)
+                scanner = TVScanner(
+                    _FakeSeasonMapTMDB(seasons),
+                    {"id": 3000, "name": "Bartender", "year": "2006"},
+                    root,
+                )
+
+                items, _has_mismatch = scanner.scan()
+            finally:
+                set_episode_auto_accept_threshold(0.85)
+
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in items))
+            self.assertTrue(all(item.status == "OK" for item in items))
+
+    def test_multi_season_exact_coverage_gets_per_season_floor(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "One", 2: "Two"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+            2: {
+                "name": "Season 2",
+                "titles": {1: "Three", 2: "Four"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Example Show"
+            for season in (1, 2):
+                season_dir = root / f"Season {season:02d}"
+                season_dir.mkdir(parents=True)
+                (season_dir / "Example Show 01.mkv").write_text("x")
+                (season_dir / "Example Show 02.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 4000, "name": "Example Show", "year": "2020"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertEqual({item.season for item in items}, {1, 2})
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in items))
+
+    def test_companion_videos_do_not_block_exact_coverage_floor(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "One", 2: "Two"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Example Show"
+            season_dir = root / "Season 01"
+            season_dir.mkdir(parents=True)
+            (season_dir / "Example Show 01.mkv").write_text("x")
+            (season_dir / "Example Show 02.mkv").write_text("x")
+            (season_dir / "Example Show NCOP.mkv").write_text("x")
+            (season_dir / "Example Show NCED.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 4000, "name": "Example Show", "year": "2020"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+            episode_items = [item for item in items if item.episodes]
+
+            self.assertEqual(len(episode_items), 2)
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in episode_items))
+
+    def test_nested_extras_do_not_block_regular_season_coverage_floor(self):
+        seasons = {
+            0: {
+                "name": "Specials",
+                "titles": {},
+                "posters": {},
+                "episodes": {},
+                "count": 0,
+            },
+            1: {
+                "name": "Season 1",
+                "titles": {1: "One", 2: "Two"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Example Show"
+            season_dir = root / "Season 01"
+            extras_dir = season_dir / "Extras"
+            extras_dir.mkdir(parents=True)
+            (season_dir / "Example Show 01.mkv").write_text("x")
+            (season_dir / "Example Show 02.mkv").write_text("x")
+            (extras_dir / "Interview.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 4000, "name": "Example Show", "year": "2020"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+            episode_items = [item for item in items if item.season == 1 and item.episodes]
+
+            self.assertEqual(len(episode_items), 2)
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in episode_items))
+
+    def test_duplicate_regular_episode_claims_prevent_coverage_floor(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "One"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Example Show"
+            root.mkdir()
+            (root / "Example Show 01.mkv").write_text("x")
+            (root / "Alt Show 01.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 4000, "name": "Example Show", "year": "2020"},
+                root,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertTrue(any("duplicate episode" in item.status for item in items))
+            self.assertTrue(all(item.episode_confidence < 0.80 for item in items))
+
+    def test_conflict_regular_episode_claims_prevent_coverage_floor(self):
+        items = [
+            PreviewItem(
+                Path("C:/tv/Show/Show 01.mkv"),
+                "Show (2020) - S01E01 - One.mkv",
+                Path("C:/tv/Show/Season 01"),
+                1,
+                [1],
+                "OK",
+                episode_confidence=0.5,
+            ),
+            PreviewItem(
+                Path("C:/tv/Show/Other 01.mkv"),
+                "Show (2020) - S01E01 - One.mkv",
+                Path("C:/tv/Show/Season 01"),
+                1,
+                [1],
+                "CONFLICT: same target as Show 01.mkv",
+                episode_confidence=0.5,
+            ),
+        ]
+        tmdb_seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "One"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            }
+        }
+
+        apply_episode_confidence_adjustments(
+            items,
+            tmdb_seasons,
+            {"id": 4000, "name": "Show", "year": "2020"},
+        )
+
+        self.assertEqual(items[0].episode_confidence, 0.5)
+
+    def test_currently_airing_season_uses_aired_episode_count_for_coverage(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {episode: f"Episode {episode}" for episode in range(1, 14)},
+                "posters": {},
+                "episodes": {
+                    episode: {
+                        "name": f"Episode {episode}",
+                        "air_date": f"2026-01-{episode:02d}" if episode <= 4 else f"2026-12-{episode:02d}",
+                    }
+                    for episode in range(1, 14)
+                },
+                "count": 13,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Airing Show"
+            root.mkdir()
+            for episode in range(1, 5):
+                (root / f"Airing Show {episode:02d}.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 5000, "name": "Airing Show", "year": "2026"},
+                root,
+            )
+
+            with patch("plex_renamer.engine._tv_scanner_postprocess.date") as fake_date:
+                fake_date.today.return_value = date(2026, 5, 15)
+                fake_date.fromisoformat.side_effect = date.fromisoformat
+                items, _has_mismatch = scanner.scan()
+
+            self.assertEqual(len(items), 4)
+            self.assertTrue(all(item.episode_confidence == 0.80 for item in items))
 
     def test_tv_scanner_marks_low_episode_confidence_for_review_using_episode_threshold(self):
         from plex_renamer.engine import set_episode_auto_accept_threshold

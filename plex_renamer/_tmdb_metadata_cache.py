@@ -188,6 +188,7 @@ class _TMDBMetadataCacheStore:
 
             payload = season_data or {}
             normalized[season_num] = {
+                "name": str(payload.get("name", "")),
                 "titles": cls.normalize_episode_map_keys(payload.get("titles", {})),
                 "posters": cls.normalize_episode_map_keys(payload.get("posters", {})),
                 "episodes": cls.normalize_episode_map_keys(payload.get("episodes", {})),

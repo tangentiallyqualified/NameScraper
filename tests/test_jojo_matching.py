@@ -16,7 +16,12 @@ from plex_renamer.app.services import (
     TVLibraryDiscoveryService,
 )
 from plex_renamer.engine import BatchTVOrchestrator, MovieScanner
-from plex_renamer.parsing import extract_episode, looks_like_tv_episode
+from plex_renamer.parsing import (
+    extract_episode,
+    extract_source_title_prefix,
+    is_companion_video_file,
+    looks_like_tv_episode,
+)
 
 
 # ── Bare-number OVA filenames (Bug 1) ──────────────────────────────────────
@@ -73,6 +78,24 @@ class TVCompanionVideoPatternTests(unittest.TestCase):
                     looks_like_tv_episode(Path(f"/tmp/Anime/{name}")),
                     f"Expected TV companion detection for: {name}",
                 )
+
+    def test_companion_video_helper_identifies_only_companion_extras(self):
+        for name in self.COMPANION_FILENAMES:
+            with self.subTest(name=name):
+                self.assertTrue(is_companion_video_file(Path(name)))
+
+        self.assertFalse(is_companion_video_file(Path("Show.Name.S01E01.mkv")))
+
+    def test_source_title_prefix_handles_explicit_and_bare_episode_tokens(self):
+        cases = {
+            "SpongeBob - S01E01.mkv": "SpongeBob",
+            "King.of.the.Hill.S01E01.Pilot.mkv": "King of the Hill",
+            "K.Return.of.Kings.01.Releasegroup.mkv": "K Return of Kings",
+            "[Kawaiika-Raws] Bartender 01 [BDRip 1920x1080 HEVC FLAC].mkv": "Bartender",
+        }
+        for name, expected in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(extract_source_title_prefix(name), expected)
 
 
 class CombinedFansubEpisodeRangeTests(unittest.TestCase):

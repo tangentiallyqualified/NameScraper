@@ -71,6 +71,10 @@ _TV_TITLE_PREFIX_PATTERNS = (
         r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+\d{1,3}['\u2032]?(?:\s*-\s*\d{1,3}['\u2032]?)*(?=\s|\.|\(|\[|$)",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)[ ._\-]+\d{1,3}(?:v\d+)?(?=[ ._\-\[(]|$)",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -82,6 +86,11 @@ def is_extras_folder(name: str) -> bool:
 def is_sample_file(filepath: Path) -> bool:
     """Return True if a file is a release sample clip, not the main film."""
     return bool(_SAMPLE_FILE_RE.search(filepath.stem))
+
+
+def is_companion_video_file(filepath: Path) -> bool:
+    """Return True when a video file is a TV companion extra, not an episode."""
+    return bool(_TV_COMPANION_VIDEO_PATTERN.search(filepath.name))
 
 
 def looks_like_tv_episode(filepath: Path) -> bool:
@@ -106,7 +115,7 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     if _FILENAME_SEASON_PATTERN.search(name):
         return True
 
-    if _TV_COMPANION_VIDEO_PATTERN.search(name):
+    if is_companion_video_file(filepath):
         return True
 
     parent = filepath.parent.name
@@ -119,7 +128,7 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     return False
 
 
-def _extract_tv_title_prefix(filename: str) -> str | None:
+def extract_source_title_prefix(filename: str) -> str | None:
     """Extract a conservative show-title prefix from an episodic filename."""
     stem = TRAILING_GROUP.sub("", Path(filename).stem)
     stem = re.sub(r"\[[^\[\]]*\]", "", stem).strip()
@@ -133,6 +142,10 @@ def _extract_tv_title_prefix(filename: str) -> str | None:
         if len(title) >= 2 and re.search(r"[A-Za-z]", title):
             return title
     return None
+
+
+def _extract_tv_title_prefix(filename: str) -> str | None:
+    return extract_source_title_prefix(filename)
 
 
 def _infer_tv_title_from_direct_episode_files(folder: Path) -> str | None:

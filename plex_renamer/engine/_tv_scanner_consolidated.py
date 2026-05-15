@@ -199,7 +199,7 @@ def build_consolidated_preview(
                 and len(episode_numbers) == 1
                 and episode_numbers[0] == episode_num
             ):
-                episode_confidence = 1.0
+                episode_confidence = 0.86
             item = PreviewItem(
                 original=file_path,
                 new_name=new_name,
@@ -261,7 +261,7 @@ def build_consolidated_preview(
             season=target_season,
             episodes=file_eps,
             status="OK",
-            episode_confidence=0.5 if is_season_relative else 0.3,
+            episode_confidence=0.86 if is_season_relative else 0.3,
             **media_fields,
         )
         item.companions = _build_subtitle_companions(file_path, new_name)

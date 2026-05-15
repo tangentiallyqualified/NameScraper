@@ -19,6 +19,7 @@ from ._tv_scanner_consolidated import (
 )
 from ._tv_scanner_normal import build_normal_preview as _build_normal_preview
 from ._tv_scanner_postprocess import (
+    apply_episode_confidence_adjustments,
     apply_episode_review_threshold,
     build_completeness_report,
     resolve_duplicate_episodes,
@@ -73,12 +74,14 @@ class TVScanner:
         *,
         season_hint: int | None = None,
         season_folders: dict[int, Path] | None = None,
+        show_match_confidence: float | None = None,
     ):
         self.tmdb = tmdb
         self.show_info = show_info
         self.root = root_folder
         self._season_hint = season_hint
         self._season_folders = season_folders
+        self._show_match_confidence = show_match_confidence
         self.episode_titles: dict[tuple[int, int], str] = {}
         self.episode_posters: dict[tuple[int, int], str | None] = {}
         self.episode_meta: dict[tuple[int, int], dict] = {}
@@ -238,6 +241,12 @@ class TVScanner:
         resolve_duplicate_episodes(
             items,
             show_name=self.show_info.get("name", ""),
+        )
+        apply_episode_confidence_adjustments(
+            items,
+            self._get_tmdb_seasons(),
+            self.show_info,
+            show_match_confidence=self._show_match_confidence,
         )
         apply_episode_review_threshold(items)
 

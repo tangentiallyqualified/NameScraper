@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from conftest_qt import QtSmokeBase
@@ -125,3 +125,54 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         compact.close()
         detailed.close()
         review.close()
+
+    def test_episode_confidence_rows_show_percentage_to_right_of_meter(self):
+        from plex_renamer.engine import PreviewItem
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget, PreviewRowWidget
+
+        preview = PreviewItem(
+            original=Path("C:/library/tv/Bartender/Season 01/Bartender.01.mkv"),
+            new_name="Bartender (2006) - S01E01 - Bartender.mkv",
+            target_dir=Path("C:/library/tv/Bartender (2006)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+            episode_confidence=0.8,
+        )
+        preview_row = PreviewRowWidget(
+            preview,
+            compact=False,
+            show_confidence=True,
+            show_companions=False,
+            checked=False,
+            checkable=True,
+        )
+        guide_row = EpisodeGuideRowWidget(
+            title="S01E01 - Bartender",
+            status="Mapped",
+            original="Bartender.01.mkv",
+            target="Bartender (2006) - S01E01 - Bartender.mkv",
+            confidence="80%",
+        )
+
+        for row in (preview_row, guide_row):
+            row.resize(640, row.sizeHint().height())
+            row.show()
+        self._app.processEvents()
+
+        try:
+            self.assertEqual(preview_row._confidence_percent.text(), "80%")
+            self.assertEqual(guide_row._confidence_percent.text(), "80%")
+            self.assertTrue(preview_row._confidence_percent.isVisible())
+            self.assertTrue(guide_row._confidence_percent.isVisible())
+            self.assertGreater(
+                preview_row._confidence_percent.mapTo(preview_row, QPoint(0, 0)).x(),
+                preview_row._confidence.mapTo(preview_row, QPoint(0, 0)).x(),
+            )
+            self.assertGreater(
+                guide_row._confidence_percent.mapTo(guide_row, QPoint(0, 0)).x(),
+                guide_row._confidence.mapTo(guide_row, QPoint(0, 0)).x(),
+            )
+        finally:
+            preview_row.close()
+            guide_row.close()

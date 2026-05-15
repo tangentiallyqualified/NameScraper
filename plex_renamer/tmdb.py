@@ -203,6 +203,7 @@ class TMDBClient:
             titles = season_data["titles"]
             count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
             tmdb_seasons[sn] = {
+                "name": season_info.get("name", ""),
                 "titles": titles,
                 "posters": season_data["posters"],
                 "episodes": season_data.get("episodes", {}),

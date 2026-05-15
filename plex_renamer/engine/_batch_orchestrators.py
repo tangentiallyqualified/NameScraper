@@ -487,6 +487,7 @@ class BatchTVOrchestrator:
                 state.folder,
                 season_hint=state.season_assignment,
                 season_folders=state.season_folders or None,
+                show_match_confidence=state.confidence,
             )
             items, has_mismatch = scanner.scan()
             _raise_if_cancelled(cancel_event)

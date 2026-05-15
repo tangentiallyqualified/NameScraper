@@ -211,7 +211,7 @@ def build_normal_preview(
                     season=season_num,
                     episodes=episode_numbers,
                     status="OK",
-                    episode_confidence=1.0 if is_season_relative else 0.5,
+                    episode_confidence=0.86 if is_season_relative else 0.5,
                     **media_fields,
                 )
                 item.companions = _build_subtitle_companions(file_path, new_name)

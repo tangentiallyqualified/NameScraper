@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...engine import PreviewItem, ScanState
-from ._formatting import clamped_percent
+from ._formatting import clamped_percent, percent_text
 from ._image_utils import (
     ShimmerOverlay,
     build_placeholder_pixmap,
@@ -343,12 +343,25 @@ class PreviewRowWidget(ClickableRow):
             self._companions = None
 
         self._confidence = None
+        self._confidence_percent = None
         if show_confidence:
+            confidence_row = QHBoxLayout()
+            confidence_row.setContentsMargins(0, 0, 0, 0)
+            confidence_row.setSpacing(8)
             self._confidence = MiniProgressBar(
                 color=_preview_band(self._preview),
                 value=clamped_percent(preview.episode_confidence),
             )
-            body.addWidget(self._confidence)
+            confidence_row.addWidget(self._confidence, stretch=1)
+
+            self._confidence_percent = QLabel(percent_text(preview.episode_confidence), self)
+            self._confidence_percent.setProperty("cssClass", "caption")
+            self._confidence_percent.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            self._confidence_percent.setFixedWidth(
+                self._confidence_percent.fontMetrics().horizontalAdvance("100%") + 2
+            )
+            confidence_row.addWidget(self._confidence_percent)
+            body.addLayout(confidence_row)
 
         self._apply_style()
 
@@ -479,6 +492,14 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._confidence.setFixedWidth(96)
         self._confidence.setVisible(confidence_value is not None)
 
+        self._confidence_percent = QLabel(confidence if confidence_value is not None else "", self)
+        self._confidence_percent.setProperty("cssClass", "caption")
+        self._confidence_percent.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self._confidence_percent.setFixedWidth(
+            self._confidence_percent.fontMetrics().horizontalAdvance("100%") + 2
+        )
+        self._confidence_percent.setVisible(confidence_value is not None)
+
         self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
@@ -499,6 +520,7 @@ class EpisodeGuideRowWidget(ClickableRow):
             confidence_row.setSpacing(8)
             confidence_row.addWidget(self._confidence_label)
             confidence_row.addWidget(self._confidence)
+            confidence_row.addWidget(self._confidence_percent)
             confidence_row.addWidget(self._approve_button)
             confidence_row.addWidget(self._fix_button)
             confidence_row.addStretch(1)
