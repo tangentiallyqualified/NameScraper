@@ -117,6 +117,7 @@ class _SuppressTransientPopups(QObject):
 def run() -> None:
     """Create the QApplication, main window, and enter the event loop."""
     try:
+        from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication
     except ImportError:
         _log.error(
@@ -125,6 +126,12 @@ def run() -> None:
         sys.exit(1)
 
     from .main_window import MainWindow
+
+    # Must be called BEFORE QApplication is constructed; ensures fractional
+    # screen scales (125%, 150%) are not snapped to the nearest integer.
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
 
     app = QApplication(sys.argv)
     app.setApplicationName("Plex Renamer")
