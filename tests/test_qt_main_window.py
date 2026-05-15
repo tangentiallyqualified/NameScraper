@@ -566,3 +566,23 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(window._toast_manager._summary_toast._message_label.text(), "3 more notifications collapsed.")
 
         window.close()
+
+    def test_main_window_minimum_size_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/main_window.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale.px(960)", source)
+        self.assertIn("_scale.px(600)", source)
+        self.assertNotIn("setMinimumSize(960, 600)", source)
+
+    def test_main_window_shell_resize_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/_main_window_shell.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale.px(1440)", source)
+        self.assertIn("_scale.px(900)", source)
+        self.assertNotIn("window.resize(1440, 900)", source)

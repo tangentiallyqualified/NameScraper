@@ -43,6 +43,7 @@ from ._main_window_shortcuts import MainWindowShortcutCoordinator
 from ._main_window_state import MainWindowStateCoordinator
 from ._main_window_tabs import MainWindowTabsCoordinator
 from ._main_window_tmdb import MainWindowTmdbCoordinator
+from . import _scale
 from .widgets.media_workspace import MediaWorkspace
 from .widgets.toast_manager import ToastManager
 
@@ -64,7 +65,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Plex Renamer")
-        self.setMinimumSize(960, 600)
+        self.setMinimumSize(_scale.px(960), _scale.px(600))
         self.statusBar().setSizeGripEnabled(False)
         self.statusBar().hide()
 

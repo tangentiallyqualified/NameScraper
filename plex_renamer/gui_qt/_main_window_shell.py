@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import _scale
+
 
 class MainWindowShellCoordinator:
     def __init__(
@@ -82,7 +84,7 @@ class MainWindowShellCoordinator:
         if geometry and len(geometry) == 4:
             window.setGeometry(*geometry)
             return
-        window.resize(1440, 900)
+        window.resize(_scale.px(1440), _scale.px(900))
 
     def save_window_state(self) -> None:
         window = self._window
