@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import _scale
+
 if TYPE_CHECKING:
     from ...app.services.settings_service import SettingsService
 
@@ -118,7 +120,7 @@ class _DropZone(QFrame):
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setFixedSize(360, 220)
+        self.setFixedSize(_scale.px(360), _scale.px(220))
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -131,7 +133,7 @@ class _DropZone(QFrame):
         style = QApplication.style()
         if style is not None:
             folder_icon = style.standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
-            icon_label.setPixmap(folder_icon.pixmap(QSize(48, 48)))
+            icon_label.setPixmap(folder_icon.pixmap(_scale.icon("xl")))
         else:
             icon_label.setText("\U0001F4C2")
         layout.addWidget(icon_label)

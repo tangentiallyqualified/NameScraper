@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import _scale
 from ...app.models import ScanLifecycle
 
 
@@ -66,10 +67,10 @@ class ScanProgressWidget(QWidget):
         # Container card
         card = QFrame()
         card.setProperty("cssClass", "panel")
-        card.setFixedWidth(480)
+        card.setFixedWidth(_scale.px(480))
         card_layout = QVBoxLayout(card)
         card_layout.setSpacing(12)
-        card_layout.setContentsMargins(32, 24, 32, 24)
+        card_layout.setContentsMargins(_scale.px(32), _scale.px(24), _scale.px(32), _scale.px(24))
 
         # Title
         kind = "TV Library" if self._media_type == "tv" else "Movie Folder"
@@ -88,12 +89,12 @@ class ScanProgressWidget(QWidget):
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
-        self._progress_bar.setFixedHeight(8)
+        self._progress_bar.setFixedHeight(_scale.px(8))
         self._progress_bar.setTextVisible(False)
         bar_row.addWidget(self._progress_bar, stretch=1)
 
         self._count_label = QLabel("0/0")
-        self._count_label.setFixedWidth(56)
+        self._count_label.setFixedWidth(_scale.px(56))
         self._count_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         bar_row.addWidget(self._count_label)
         card_layout.addLayout(bar_row)
@@ -111,7 +112,7 @@ class ScanProgressWidget(QWidget):
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setProperty("cssClass", "separator")
-        sep.setFixedHeight(1)
+        sep.setFixedHeight(_scale.px(1))
         card_layout.addWidget(sep)
 
         # Phase checklist — keyed by ScanLifecycle enum values
@@ -123,7 +124,7 @@ class ScanProgressWidget(QWidget):
             icon = QLabel("\u25CB")  # hollow circle (pending)
             icon.setProperty("cssClass", "scan-phase-icon")
             icon.setProperty("phaseState", "pending")
-            icon.setFixedWidth(16)
+            icon.setFixedWidth(_scale.px(16))
             icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
             row.addWidget(icon)
 
@@ -143,7 +144,7 @@ class ScanProgressWidget(QWidget):
         btn_row.addStretch()
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setProperty("cssClass", "secondary")
-        self._cancel_btn.setFixedWidth(100)
+        self._cancel_btn.setFixedWidth(_scale.px(100))
         self._cancel_btn.clicked.connect(self.cancel_requested.emit)
         btn_row.addWidget(self._cancel_btn)
         card_layout.addLayout(btn_row)

@@ -190,3 +190,30 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         finally:
             preview_row.close()
             guide_row.close()
+
+    def test_empty_state_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/empty_state.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        self.assertNotIn("setFixedSize(360, 220)", source)
+        self.assertNotIn("QSize(48, 48)", source)
+
+    def test_scan_progress_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/scan_progress.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        for literal in (
+            "setFixedWidth(480)",
+            "setFixedHeight(8)",
+            "setFixedWidth(56)",
+            "setFixedHeight(1)",
+            "setFixedWidth(16)",
+            "setFixedWidth(100)",
+        ):
+            self.assertNotIn(literal, source)
