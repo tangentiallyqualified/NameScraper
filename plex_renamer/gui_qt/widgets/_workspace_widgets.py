@@ -29,6 +29,7 @@ from ._workspace_widget_primitives import (
     RosterPosterBridge,
     ToggleSwitch,
 )
+from .. import _scale
 from ._media_helpers import (
     companion_summary as _companion_summary,
     confidence_band as _confidence_band,
@@ -120,7 +121,11 @@ class RosterRowWidget(ClickableRow):
         self._auto_accept_threshold = auto_accept_threshold
         self._selected = False
         self._poster = QLabel()
-        self._poster_size = QSize(34, 50) if compact else QSize(48, 70)
+        self._poster_size = (
+            QSize(_scale.px(34), _scale.px(50))
+            if compact
+            else QSize(_scale.px(48), _scale.px(70))
+        )
         self._poster.setFixedSize(self._poster_size)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._shimmer: ShimmerOverlay | None = None
@@ -141,7 +146,7 @@ class RosterRowWidget(ClickableRow):
         self._check.setVisible(checkable)
         self._check.toggled.connect(self.check_toggled.emit)
         check_slot_layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
-        self._check_slot.setFixedWidth(max(self._check.sizeHint().width(), 26))
+        self._check_slot.setFixedWidth(max(self._check.sizeHint().width(), _scale.px(26)))
         layout.addWidget(self._check_slot, alignment=Qt.AlignmentFlag.AlignTop)
 
         if not compact:
@@ -210,7 +215,7 @@ class RosterRowWidget(ClickableRow):
             ),
             value=clamped_percent(state.confidence),
         )
-        self._confidence.setFixedWidth(92 if compact else 110)
+        self._confidence.setFixedWidth(_scale.px(92) if compact else _scale.px(110))
         confidence_row.addWidget(self._confidence)
         confidence_row.addStretch(1)
         body.addLayout(confidence_row)
@@ -375,7 +380,7 @@ class PreviewRowWidget(ClickableRow):
             self._confidence_percent.setProperty("cssClass", "caption")
             self._confidence_percent.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             self._confidence_percent.setFixedWidth(
-                self._confidence_percent.fontMetrics().horizontalAdvance("100%") + 2
+                self._confidence_percent.fontMetrics().horizontalAdvance("100%") + _scale.px(2)
             )
             confidence_row.addWidget(self._confidence_percent)
             body.addLayout(confidence_row)
@@ -408,8 +413,12 @@ class PreviewRowWidget(ClickableRow):
 class EpisodeGuideRowWidget(ClickableRow):
     approve_requested = Signal()
     fix_requested = Signal()
-    _COMPACT_ROW_MIN_HEIGHT = 72
+    _COMPACT_ROW_MIN_HEIGHT_GRID_UNITS = 72
     _STATUS_PILL_HORIZONTAL_CHROME = 18
+
+    @property
+    def _COMPACT_ROW_MIN_HEIGHT(self) -> int:  # noqa: N802
+        return _scale.px(self._COMPACT_ROW_MIN_HEIGHT_GRID_UNITS)
 
     def __init__(
         self,
@@ -506,28 +515,28 @@ class EpisodeGuideRowWidget(ClickableRow):
             value=confidence_value or 0,
             parent=self,
         )
-        self._confidence.setFixedWidth(96)
+        self._confidence.setFixedWidth(_scale.px(96))
         self._confidence.setVisible(confidence_value is not None)
 
         self._confidence_percent = QLabel(confidence if confidence_value is not None else "", self)
         self._confidence_percent.setProperty("cssClass", "caption")
         self._confidence_percent.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self._confidence_percent.setFixedWidth(
-            self._confidence_percent.fontMetrics().horizontalAdvance("100%") + 2
+            self._confidence_percent.fontMetrics().horizontalAdvance("100%") + _scale.px(2)
         )
         self._confidence_percent.setVisible(confidence_value is not None)
 
         self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
-        self._approve_button.setFixedHeight(24)
+        self._approve_button.setFixedHeight(_scale.px(24))
         self._approve_button.setVisible(show_actions)
         self._approve_button.clicked.connect(self.approve_requested.emit)
 
         self._fix_button = QPushButton("Fix", self)
         self._fix_button.setProperty("cssClass", "secondary")
         self._fix_button.setProperty("sizeVariant", "inline")
-        self._fix_button.setFixedHeight(24)
+        self._fix_button.setFixedHeight(_scale.px(24))
         self._fix_button.setVisible(show_actions)
         self._fix_button.clicked.connect(self.fix_requested.emit)
 

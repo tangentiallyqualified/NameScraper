@@ -231,3 +231,20 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         # No bare literals on the MiniProgressBar
         self.assertNotIn("setFixedHeight(4)", source)
         self.assertNotIn("QSize(120, 4)", source)
+
+    def test_workspace_widgets_use_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/_workspace_widgets.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        for literal in (
+            "QSize(34, 50)",
+            "QSize(48, 70)",
+            "setFixedWidth(92 if compact else 110)",
+            "setFixedWidth(96)",
+            "setFixedHeight(24)",
+            "_COMPACT_ROW_MIN_HEIGHT = 72",
+        ):
+            self.assertNotIn(literal, source)
