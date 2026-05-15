@@ -93,6 +93,13 @@ class ScaleHelperTests(unittest.TestCase):
         self.assertEqual(m.right(), m.bottom())
         self.assertEqual(m.left(), _scale.px(8))
 
+    def test_dpi_scale_falls_back_when_no_screen(self):
+        from unittest.mock import patch
+        from plex_renamer.gui_qt import _scale
+
+        with patch.object(_scale.QGuiApplication, "primaryScreen", return_value=None):
+            self.assertEqual(_scale._dpi_scale(), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

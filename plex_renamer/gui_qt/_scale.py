@@ -5,13 +5,22 @@ than appearing as bare integer literals.  ``px(n)`` converts logical 4px-grid
 values into physical pixels using the primary screen's logical DPI; the
 returned values match the visual sizes intended by the original literals when
 the screen is at 96 DPI (100% scale) and grow proportionally on HiDPI.
+
+Tokens:
+    px(n)              -> int       physical pixels for a logical grid unit
+    row_height(rows,   -> int       font-metric-derived row height in physical
+                padding)            pixels, with optional padding (in grid units)
+    icon(token)        -> QSize     named icon sizes ("sm"=16, "md"=24, "lg"=32, "xl"=48)
+    margins(*tokens)   -> QMargins  1, 2, or 4 grid-unit tokens
+
+Intended for use across ``plex_renamer.gui_qt.*`` modules only.
 """
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 from PySide6.QtCore import QMargins, QSize
-from PySide6.QtGui import QFont, QFontMetrics, QGuiApplication
+from PySide6.QtGui import QFontMetrics, QGuiApplication
 
 _LOGICAL_DPI_BASE = 96.0
 
@@ -44,8 +53,10 @@ def row_height(rows: int = 1, padding: int = 0) -> int:
     """Return a row height derived from the application font's line spacing.
 
     ``rows`` is a multiplier; ``padding`` is in grid units (passed through ``px``).
+    Result is in physical pixels: ``lineSpacing()`` already accounts for the
+    application's DPI, while ``padding`` is scaled via ``px()`` from grid units.
     """
-    metrics = QFontMetrics(QFont())
+    metrics = QFontMetrics(QGuiApplication.font())
     return metrics.lineSpacing() * max(1, rows) + px(padding)
 
 
