@@ -167,11 +167,16 @@ class QtMediaDetailPanelTests(QtSmokeBase):
         self.assertIs(body_layout.itemAt(2).widget(), panel._subtitle)
         self.assertIsNotNone(summary_row)
         self.assertIs(poster_column.itemAt(0).widget(), panel._poster)
-        self.assertIs(poster_column.itemAt(1).layout().itemAt(0).widget(), panel._fix_match_button)
-        self.assertIs(poster_column.itemAt(1).layout().itemAt(1).widget(), panel._primary_action_button)
+        actions = body_layout.itemAt(4).layout()
+        self.assertIs(actions.itemAt(0).widget(), panel._fix_match_button)
+        self.assertIs(actions.itemAt(1).widget(), panel._primary_action_button)
         self.assertGreater(
             panel._fix_match_button.mapTo(panel._body, QPoint(0, 0)).y(),
             panel._poster.mapTo(panel._body, QPoint(0, 0)).y(),
+        )
+        self.assertGreater(
+            panel._fix_match_button.mapTo(panel._body, QPoint(0, 0)).y(),
+            panel._facts_card.mapTo(panel._body, QPoint(0, 0)).y(),
         )
         self.assertIs(summary_body.itemAt(0).widget(), panel._facts_card)
         self.assertEqual(panel._facts_card.height(), panel._poster.height())
@@ -250,6 +255,105 @@ class QtMediaDetailPanelTests(QtSmokeBase):
             self.assertGreater(value_pos.x(), key_label.mapTo(panel._facts_card, QPoint(0, 0)).x())
             self.assertLessEqual(value_right, panel._facts_card.width())
             self.assertGreater(value_label.width(), 24)
+
+        panel.close()
+
+    def test_media_detail_panel_facts_card_uses_available_summary_width(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        panel.resize(640, 640)
+        panel.show()
+        panel._current_token = "token"
+        panel._apply_payload(
+            {
+                "title": "Succession (2018)",
+                "subtitle": "Queue preflight: 38 mapped files - 0 companions - 1 missing",
+                "rows": [
+                    ("Source", "TMDB"),
+                    ("Match", "Matched"),
+                    ("Confidence", "100%"),
+                    ("Preview", "OK"),
+                    ("Air Date", "2018-06-03"),
+                    ("Seasons", "4 seasons - 39 episodes"),
+                ],
+                "overview": "",
+                "extra": "",
+                "artwork_mode": "poster",
+            },
+            None,
+            "token",
+        )
+        self._app.processEvents()
+
+        summary_row = panel._body.layout().itemAt(3).layout()
+        summary_body = summary_row.itemAt(1).layout()
+        summary_left = summary_body.geometry().left()
+        summary_right = summary_body.geometry().right()
+        card_left = panel._facts_card.geometry().left()
+        card_right = panel._facts_card.geometry().right()
+
+        self.assertEqual(card_left, summary_left)
+        self.assertGreaterEqual(card_right, summary_right - 1)
+        self.assertGreaterEqual(panel._facts_card.width(), 320)
+
+        rendered_rows = [
+            (key_label, value_label)
+            for key_label, value_label in panel._meta_rows
+            if key_label.text()
+        ]
+        self.assertTrue(rendered_rows)
+        for _key_label, value_label in rendered_rows:
+            value_pos = value_label.mapTo(panel._facts_card, QPoint(0, 0))
+            self.assertTrue(value_label.isVisible())
+            self.assertTrue(value_label.text())
+            self.assertGreaterEqual(value_pos.x(), 0)
+            self.assertLessEqual(value_pos.x() + value_label.width(), panel._facts_card.width())
+            self.assertGreater(value_label.width(), 40)
+
+        panel.close()
+
+    def test_media_detail_panel_action_buttons_do_not_squeeze_facts_column(self):
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        panel = MediaDetailPanel()
+        panel.resize(420, 640)
+        panel.primary_action_button.setText("Approve Match")
+        panel.show()
+        panel._current_token = "token"
+        panel._apply_payload(
+            {
+                "title": "Amelie (2001)",
+                "subtitle": "",
+                "rows": [
+                    ("Source", "TMDB"),
+                    ("Match", "Needs Review"),
+                    ("Confidence", "50%"),
+                    ("Preview", "REVIEW"),
+                    ("Rating", "7.9/10"),
+                    ("Runtime", "2h 2m"),
+                ],
+                "overview": "",
+                "extra": "",
+                "artwork_mode": "poster",
+            },
+            None,
+            "token",
+        )
+        self._app.processEvents()
+
+        summary_row = panel._body.layout().itemAt(3).layout()
+        poster_column = summary_row.itemAt(0).layout()
+        summary_body = summary_row.itemAt(1).layout()
+
+        self.assertLessEqual(poster_column.geometry().width(), panel._poster.width() + 1)
+        self.assertGreaterEqual(panel._facts_card.width(), summary_body.geometry().width() - 1)
+        for key_label, value_label in panel._meta_rows:
+            if not key_label.text():
+                continue
+            self.assertTrue(value_label.isVisible())
+            self.assertTrue(value_label.text())
+            self.assertGreater(value_label.width(), 40)
 
         panel.close()
 

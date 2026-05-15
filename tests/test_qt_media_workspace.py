@@ -106,6 +106,77 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_movie_detail_action_buttons_do_not_squeeze_facts_column(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = [state]
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/movies/Amelie.2001"),
+            media_info={"id": 194, "title": "Amelie", "year": "2001", "_media_type": "movie"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/movies/Amelie.2001/Amelie.2001.mkv"),
+                    new_name="Amelie (2001).mkv",
+                    target_dir=Path("C:/library/movies/Amelie (2001)"),
+                    season=None,
+                    episodes=[],
+                    status="REVIEW",
+                    media_type="movie",
+                    media_id=194,
+                    media_name="Amelie",
+                )
+            ],
+            scanned=True,
+            checked=False,
+            confidence=0.5,
+        )
+
+        workspace = MediaWorkspace(
+            media_type="movie",
+            media_controller=_FakeMediaController(state),
+            tmdb_provider=lambda: None,
+        )
+        workspace.resize(1220, 700)
+        workspace.show()
+        self._app.processEvents()
+        workspace.show_ready()
+        workspace._splitter.setSizes([300, 540, 360])
+        self._app.processEvents()
+
+        panel = workspace._detail_panel
+        summary_row = panel._body.layout().itemAt(3).layout()
+        poster_column = summary_row.itemAt(0).layout()
+        summary_body = summary_row.itemAt(1).layout()
+
+        self.assertEqual(workspace._queue_inline_btn.text(), "Approve Match")
+        self.assertGreater(panel.width(), 0)
+        self.assertGreater(summary_body.geometry().width(), 100)
+        self.assertLessEqual(poster_column.geometry().width(), panel._poster.width() + 1)
+        self.assertGreaterEqual(panel._facts_card.width(), summary_body.geometry().width() - 1)
+        for key_label, value_label in panel._meta_rows:
+            if not key_label.text():
+                continue
+            self.assertTrue(value_label.text())
+
+        workspace.close()
+
     def test_media_workspace_uses_inline_approve_action_for_review_items(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
 

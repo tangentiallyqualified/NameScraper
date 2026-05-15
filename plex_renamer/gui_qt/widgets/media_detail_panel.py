@@ -172,19 +172,6 @@ class MediaDetailPanel(QFrame):
         self._poster_shimmer: ShimmerOverlay | None = None
         self._set_artwork_mode("poster")
         poster_column.addWidget(self._poster, alignment=Qt.AlignmentFlag.AlignTop)
-
-        actions = QHBoxLayout()
-        actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(8)
-        self._fix_match_button = QPushButton("Fix Match")
-        self._fix_match_button.setProperty("cssClass", "secondary")
-        self._fix_match_button.setEnabled(False)
-        actions.addWidget(self._fix_match_button)
-
-        self._primary_action_button = QPushButton("")
-        self._primary_action_button.setEnabled(False)
-        actions.addWidget(self._primary_action_button)
-        poster_column.addLayout(actions)
         poster_column.addStretch(1)
 
         self._summary_body = QVBoxLayout()
@@ -194,8 +181,7 @@ class MediaDetailPanel(QFrame):
 
         self._facts_card = QFrame()
         self._facts_card.setProperty("cssClass", "job-detail-facts-card")
-        self._facts_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        self._facts_card.setMaximumWidth(280)
+        self._facts_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         self._meta_grid = QWidget()
         meta_layout = QGridLayout(self._meta_grid)
         meta_layout.setContentsMargins(0, 0, 0, 0)
@@ -226,6 +212,20 @@ class MediaDetailPanel(QFrame):
         self._summary_body.addWidget(self._facts_card)
         self._summary_body.addStretch(1)
         self._sync_facts_card_height()
+
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
+        self._fix_match_button = QPushButton("Fix Match")
+        self._fix_match_button.setProperty("cssClass", "secondary")
+        self._fix_match_button.setEnabled(False)
+        actions.addWidget(self._fix_match_button)
+
+        self._primary_action_button = QPushButton("")
+        self._primary_action_button.setEnabled(False)
+        actions.addWidget(self._primary_action_button)
+        actions.addStretch(1)
+        body_layout.addLayout(actions)
 
         self._overview = _WrappingDetailLabel("")
         self._overview.setWordWrap(True)
