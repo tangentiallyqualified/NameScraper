@@ -34,6 +34,7 @@ from ._media_helpers import (
     roster_item_key as _roster_item_key,
     roster_signature as _roster_signature,
 )
+from .. import _scale
 from ._workspace_widgets import (
     MasterCheckBox as _MasterCheckBox,
     RosterPosterBridge as _RosterPosterBridge,
@@ -128,7 +129,7 @@ class MediaWorkspaceRosterPanel(QFrame):
 
         self._list_widget = QListWidget()
         self._list_widget.setProperty("cssClass", "row-host-list")
-        self._list_widget.setIconSize(QSize(42, 60))
+        self._list_widget.setIconSize(QSize(_scale.px(42), _scale.px(60)))
         self._list_widget.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._list_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

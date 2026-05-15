@@ -265,3 +265,21 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         ).read_text(encoding="utf-8")
         self.assertIn("_scale", ui)
         self.assertNotIn("setMinimumWidth(340)", ui)
+
+    def test_match_picker_dialog_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/match_picker_dialog.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        self.assertNotIn("resize(520, 520)", source)
+
+    def test_media_workspace_preview_sticky_header_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/_media_workspace_preview.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        self.assertNotIn("setFixedHeight(30)", source)

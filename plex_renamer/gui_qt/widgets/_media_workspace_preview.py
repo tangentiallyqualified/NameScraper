@@ -26,6 +26,7 @@ from ._media_helpers import (
     season_label as _season_label,
     state_key as _state_key,
 )
+from .. import _scale
 from ._workspace_widgets import (
     _CheckBinding,
     EpisodeGuideRowWidget as _EpisodeGuideRowWidget,
@@ -854,7 +855,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._sticky_header.setText(header_text)
         viewport = self._list_widget.viewport()
         self._sticky_header.setFixedWidth(viewport.width())
-        self._sticky_header.setFixedHeight(30)
+        self._sticky_header.setFixedHeight(_scale.row_height(rows=1, padding=14))
         self._sticky_header.move(0, 0)
         self._sticky_header.show()
         self._sticky_header.raise_()

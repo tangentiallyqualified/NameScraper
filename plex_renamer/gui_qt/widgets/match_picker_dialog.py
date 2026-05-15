@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import _scale
 from ._match_picker_search import MatchPickerSearchCoordinator
 from ._match_picker_selection import MatchPickerSelectionCoordinator
 
@@ -46,7 +47,7 @@ class MatchPickerDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(520, 520)
+        self.resize(_scale.px(520), _scale.px(520))
         self._title_key = title_key
         self._search_callback = search_callback
         self._score_results_callback = score_results_callback

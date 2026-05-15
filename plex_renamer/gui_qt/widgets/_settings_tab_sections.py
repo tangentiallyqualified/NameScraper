@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .. import _scale
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -38,7 +39,7 @@ class SettingsSectionCard(QFrame):
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
         separator.setProperty("cssClass", "separator")
-        separator.setFixedHeight(1)
+        separator.setFixedHeight(_scale.px(1))
         self._layout.addWidget(separator)
 
     def add_widget(self, widget: QWidget) -> None:
