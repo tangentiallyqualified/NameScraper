@@ -100,6 +100,26 @@ class ScaleHelperTests(unittest.TestCase):
         with patch.object(_scale.QGuiApplication, "primaryScreen", return_value=None):
             self.assertEqual(_scale._dpi_scale(), 1.0)
 
+    def test_scaling_at_simulated_hidpi(self):
+        from unittest.mock import patch
+
+        from PySide6.QtCore import QSize
+        from plex_renamer.gui_qt import _scale
+
+        with patch.object(_scale, "_dpi_scale", return_value=2.0):
+            self.assertEqual(_scale.px(8), 16)
+            self.assertEqual(_scale.px(100), 200)
+            self.assertEqual(_scale.icon("md"), QSize(48, 48))
+            self.assertEqual(_scale.icon("xl"), QSize(96, 96))
+
+            bare = _scale.row_height(rows=1, padding=0)
+            padded = _scale.row_height(rows=1, padding=4)
+            self.assertEqual(padded - bare, 8)
+
+            m = _scale.margins(8, 12)
+            self.assertEqual(m.left(), 24)
+            self.assertEqual(m.top(), 16)
+
 
 if __name__ == "__main__":
     unittest.main()
