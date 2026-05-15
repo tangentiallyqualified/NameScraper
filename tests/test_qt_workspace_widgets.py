@@ -9,6 +9,20 @@ from conftest_qt import QtSmokeBase
 
 
 class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
+    def test_roster_group_keeps_movie_duplicates_but_reviews_tv_duplicates(self):
+        from plex_renamer.engine import ScanState
+        from plex_renamer.gui_qt.widgets._media_helpers import roster_group
+
+        duplicate_state = ScanState(
+            folder=Path("C:/library/Duplicate"),
+            media_info={"id": 101, "name": "Duplicate", "year": "2024"},
+            duplicate_of="Duplicate (2024)",
+            checked=False,
+        )
+
+        self.assertEqual(roster_group(duplicate_state, media_type="tv"), "review")
+        self.assertEqual(roster_group(duplicate_state, media_type="movie"), "duplicate")
+
     def test_master_checkbox_toggles_like_binary_control(self):
         from plex_renamer.gui_qt.widgets._workspace_widget_primitives import MasterCheckBox
 

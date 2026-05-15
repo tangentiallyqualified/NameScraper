@@ -6,19 +6,25 @@ from collections.abc import Callable
 from logging import Logger
 from pathlib import Path
 
+from .models import SeasonFolderEntry, iter_season_folder_paths
+
 
 def resolve_tv_season_dirs(
     root: Path,
     *,
     season_hint: int | None,
-    season_folders: dict[int, Path] | None,
+    season_folders: dict[int, SeasonFolderEntry] | None,
     get_season: Callable[[Path], int | None],
     match_dirs_to_tmdb_seasons: Callable[[list[Path], set[int]], list[tuple[Path, int]]],
 ) -> list[tuple[Path, int]]:
     if season_folders:
+        flattened: list[tuple[Path, int]] = []
+        for season_num, folder_entry in season_folders.items():
+            for folder in iter_season_folder_paths(folder_entry):
+                flattened.append((folder, season_num))
         return sorted(
-            [(folder, season_num) for season_num, folder in season_folders.items()],
-            key=lambda item: item[1],
+            flattened,
+            key=lambda item: (item[1], item[0].as_posix().casefold()),
         )
 
     dirs_with_season: list[tuple[Path, int]] = []

@@ -22,7 +22,7 @@ from ._tv_scanner_specials import (
     match_special,
     scan_nested_extras,
 )
-from .models import PreviewItem
+from .models import PreviewItem, SeasonFolderEntry, iter_season_folder_paths
 
 
 def build_normal_preview(
@@ -33,7 +33,7 @@ def build_normal_preview(
     show_info: dict,
     root: Path,
     media_fields: dict,
-    season_folders: dict[int, Path] | None,
+    season_folders: dict[int, SeasonFolderEntry] | None,
     store_tmdb_data: Callable[[int, dict, dict, dict | None], None],
     resolve_duplicate_episodes: Callable[[list[PreviewItem]], None],
 ) -> list[PreviewItem]:
@@ -74,10 +74,13 @@ def build_normal_preview(
         else:
             tmdb_title_lookup = build_title_lookup(titles)
 
-        explicit_season_folder = (
-            season_dir == root
-            or any(folder == season_dir for folder in (season_folders or {}).values())
-        )
+        explicit_season_folder = season_dir == root
+        if not explicit_season_folder and season_folders:
+            explicit_season_folder = any(
+                folder == season_dir
+                for folder_entry in season_folders.values()
+                for folder in iter_season_folder_paths(folder_entry)
+            )
         nested_specials_folder = bool(
             re.search(
                 r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",

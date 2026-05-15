@@ -165,7 +165,7 @@ class RosterRowWidget(ClickableRow):
         self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         title_row.addWidget(self._title, stretch=1)
 
-        self._status = QLabel(_state_status(state)[0].upper())
+        self._status = QLabel(_state_status(state, media_type=media_type)[0].upper())
         self._status.setProperty("cssClass", "status-pill")
         self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
@@ -203,7 +203,11 @@ class RosterRowWidget(ClickableRow):
         confidence_row.addWidget(self._confidence_label)
 
         self._confidence = MiniProgressBar(
-            color=_confidence_fill_color(self._state.confidence, state=self._state),
+            color=_confidence_fill_color(
+                self._state.confidence,
+                state=self._state,
+                media_type=self._media_type,
+            ),
             value=clamped_percent(state.confidence),
         )
         self._confidence.setFixedWidth(92 if compact else 110)
@@ -253,7 +257,7 @@ class RosterRowWidget(ClickableRow):
             self._poster_size,
             title=title,
             subtitle="",
-            accent=_state_status(self._state)[1].name(),
+            accent=_state_status(self._state, media_type=self._media_type)[1].name(),
             device_pixel_ratio=self._poster_device_pixel_ratio(),
         )
         self._poster.setPixmap(placeholder)
@@ -269,12 +273,25 @@ class RosterRowWidget(ClickableRow):
             return 1.0
 
     def _apply_style(self) -> None:
-        self.setProperty("band", _confidence_band(self._state.confidence, state=self._state))
+        self.setProperty(
+            "band",
+            _confidence_band(
+                self._state.confidence,
+                state=self._state,
+                media_type=self._media_type,
+            ),
+        )
         self.setProperty("selectionState", "selected" if self._selected else "normal")
-        self._status.setProperty("tone", _state_status_tone(self._state))
+        self._status.setProperty("tone", _state_status_tone(self._state, media_type=self._media_type))
         _repolish(self)
         _repolish(self._status)
-        self._confidence.setColor(_confidence_fill_color(self._state.confidence, state=self._state))
+        self._confidence.setColor(
+            _confidence_fill_color(
+                self._state.confidence,
+                state=self._state,
+                media_type=self._media_type,
+            )
+        )
 
 
 # ── Preview row widget ───────────────────────────────────────────────

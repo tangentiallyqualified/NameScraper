@@ -54,7 +54,10 @@ class MediaWorkspaceRefreshCoordinator:
                 selection_is_auto
                 and selected_index is not None
                 and 0 <= selected_index < len(states)
-                and _roster_group(states[selected_index]) not in {"matched", "review"}
+                and _roster_group(
+                    states[selected_index],
+                    media_type=workspace._media_type,
+                ) not in {"matched", "review"}
             ):
                 selected_index = preferred_focus_index
                 selection_is_auto = True
@@ -134,9 +137,10 @@ class MediaWorkspaceRefreshCoordinator:
     def preferred_batch_focus_index(self, states: list[ScanState]) -> int | None:
         if len(states) <= 1:
             return None
+        workspace = self._workspace
         for group in ("matched", "review"):
             for index, state in enumerate(states):
-                if _roster_group(state) == group:
+                if _roster_group(state, media_type=workspace._media_type) == group:
                     return index
         return None
 

@@ -221,7 +221,11 @@ class MediaWorkspaceRosterPanel(QFrame):
             ("duplicate", "Duplicates"),
         ]
         for group, title in groups:
-            indices = [index for index, state in enumerate(states) if _roster_group(state) == group]
+            indices = [
+                index
+                for index, state in enumerate(states)
+                if _roster_group(state, media_type=self._media_type) == group
+            ]
             if not indices:
                 continue
             collapsed = collapsed_groups.get(group, False)

@@ -74,6 +74,10 @@ def start_single_show_scan(
                     controller._notify("library_changed", controller.library_states)
                     _run_scan(reconciled)
                     reconciled.scanning = False
+                claim_reconciled = orchestrator.reconcile_scanned_episode_claims(final_state)
+                controller._batch_states = orchestrator.states
+                if claim_reconciled is not None:
+                    final_state = claim_reconciled
         except Exception as exc:
             _log.exception("Single-show scan failed: %s", exc)
         finally:

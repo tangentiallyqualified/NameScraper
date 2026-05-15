@@ -22,6 +22,10 @@ from ._batch_tv_duplicates import (
     apply_duplicate_labels as _apply_tv_duplicate_labels,
     normalized_relative_folder as _normalized_tv_relative_folder,
 )
+from ._batch_tv_episode_claims import (
+    assign_preview_source_folders as _assign_tv_preview_source_folders,
+    reconcile_scanned_episode_claims as _reconcile_tv_episode_claims,
+)
 from ._batch_tv_match_policy import (
     count_season_subdirs as _count_tv_season_subdirs,
     episode_count_tiebreak as _episode_count_tiebreak,
@@ -509,12 +513,13 @@ class BatchTVOrchestrator:
                 _raise_if_cancelled(cancel_event)
 
             check_duplicates(items)
+            state.preview_items = items
+            _assign_tv_preview_source_folders(state, self.root)
 
             initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
             completeness = scanner.get_completeness(items, checked_indices=initial_checked)
 
             state.scanner = scanner
-            state.preview_items = items
             state.completeness = completeness
             state.scanned = True
 
@@ -558,6 +563,16 @@ class BatchTVOrchestrator:
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
         self._reconcile_scanned_siblings(cancel_event=cancel_event)
+        self.reconcile_scanned_episode_claims()
+
+    def reconcile_scanned_episode_claims(self, state: ScanState | None = None) -> ScanState | None:
+        """Merge scanned same-show siblings by episode claim."""
+        if not hasattr(self, "root"):
+            return state
+        replacements = _reconcile_tv_episode_claims(self.states, self.root)
+        if state is None:
+            return None
+        return replacements.get(id(state), state)
 
     def reconcile_scanned_state(self, state: ScanState) -> ScanState:
         """Try to merge a freshly-scanned state into a same-show sibling."""

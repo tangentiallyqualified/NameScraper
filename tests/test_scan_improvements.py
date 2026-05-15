@@ -1089,7 +1089,7 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(clean_folder_name(show.name, include_year=False), "The IT Crowd")
             self.assertEqual(tmdb.queries, [("The IT Crowd", "2006")])
 
-    def test_duplicate_season_sibling_does_not_block_multi_season_consolidation(self):
+    def test_disjoint_same_season_sibling_is_consolidated_into_multi_season_card(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             season_folders = {
@@ -1125,10 +1125,135 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertIsNone(merged[0].season_assignment)
 
             duplicates = [state for state in succession_states if state is not merged[0]]
+            self.assertEqual(duplicates, [])
+
+            orchestrator.scan_show(merged[0])
+
+            season_four_items = [
+                item
+                for item in merged[0].preview_items
+                if item.season == 4 and item.status == "OK"
+            ]
+            self.assertEqual(
+                sorted(item.episodes[0] for item in season_four_items),
+                [1, 2, 9],
+            )
+
+    def test_overlapping_same_season_sibling_remains_duplicate(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            season_folder = root / "succession season 04"
+            season_folder.mkdir()
+            (season_folder / "Succession.S04E01.mkv").write_text("x")
+            (season_folder / "Succession.S04E09.mkv").write_text("x")
+
+            overlapping_folder = root / "Succession S04E09 Church and State"
+            overlapping_folder.mkdir()
+            (overlapping_folder / "Succession S04E09 Church and State.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeSuccessionTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            states = orchestrator.discover_shows()
+            succession_states = [state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]]
+            primaries = [state for state in succession_states if state.duplicate_of is None]
+            duplicates = [state for state in succession_states if state.duplicate_of is not None]
+
+            self.assertEqual(len(primaries), 1)
             self.assertEqual(len(duplicates), 1)
             self.assertEqual(duplicates[0].season_assignment, 4)
-            self.assertEqual(duplicates[0].duplicate_of, merged[0].display_name)
-            self.assertEqual(duplicates[0].duplicate_of_relative_folder, merged[0].relative_folder)
+            self.assertEqual(duplicates[0].duplicate_of, primaries[0].display_name)
+            self.assertEqual(
+                duplicates[0].duplicate_of_relative_folder,
+                primaries[0].relative_folder,
+            )
+
+    def test_partial_overlap_same_season_sibling_merges_unique_claims_and_marks_conflicts(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            season_folder = root / "succession season 04"
+            season_folder.mkdir()
+            (season_folder / "Succession.S04E01.mkv").write_text("x")
+            (season_folder / "Succession.S04E09.mkv").write_text("x")
+
+            overlapping_folder = root / "Succession S04E09 S04E10 pack"
+            overlapping_folder.mkdir()
+            (overlapping_folder / "Succession S04E09 Church and State.mkv").write_text("x")
+            (overlapping_folder / "Succession S04E10 With Open Eyes.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeSuccessionTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            orchestrator.discover_shows()
+            orchestrator.scan_all()
+
+            succession_states = [
+                state
+                for state in orchestrator.states
+                if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]
+            ]
+            self.assertEqual(len(succession_states), 1)
+            merged = succession_states[0]
+            ok_items = [item for item in merged.preview_items if item.status == "OK"]
+            conflict_items = [item for item in merged.preview_items if item.is_conflict]
+
+            self.assertEqual(
+                sorted(item.episodes[0] for item in ok_items if item.season == 4),
+                [1, 9, 10],
+            )
+            self.assertEqual(len(conflict_items), 1)
+            self.assertEqual(conflict_items[0].episodes, [9])
+            self.assertIn("duplicate episode claim S04E09", conflict_items[0].status)
+            self.assertEqual(
+                conflict_items[0].source_relative_folder,
+                overlapping_folder.relative_to(root).as_posix(),
+            )
+
+    def test_fully_redundant_same_show_sibling_becomes_conflict_evidence(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            season_folder = root / "succession season 04"
+            season_folder.mkdir()
+            (season_folder / "Succession.S04E01.mkv").write_text("x")
+            (season_folder / "Succession.S04E02.mkv").write_text("x")
+
+            redundant_folder = root / "Succession S04 duplicate pack"
+            redundant_folder.mkdir()
+            (redundant_folder / "Succession S04E01 The Munsters.mkv").write_text("x")
+            (redundant_folder / "Succession S04E02 Rehearsal.mkv").write_text("x")
+
+            orchestrator = BatchTVOrchestrator(
+                _FakeSuccessionTMDB(),
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
+            )
+
+            orchestrator.discover_shows()
+            orchestrator.scan_all()
+
+            succession_states = [
+                state
+                for state in orchestrator.states
+                if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]
+            ]
+            self.assertEqual(len(succession_states), 1)
+            conflict_items = [
+                item for item in succession_states[0].preview_items if item.is_conflict
+            ]
+
+            self.assertEqual(len(conflict_items), 2)
+            self.assertTrue(
+                all(
+                    item.source_relative_folder == redundant_folder.relative_to(root).as_posix()
+                    for item in conflict_items
+                )
+            )
 
     def test_best_tv_match_title_falls_back_when_episode_titles_disagree(self):
         with TemporaryDirectory() as tmp:

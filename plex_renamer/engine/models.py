@@ -25,6 +25,13 @@ if TYPE_CHECKING:
 
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
+SeasonFolderEntry = Path | tuple[Path, ...]
+
+
+def iter_season_folder_paths(entry: SeasonFolderEntry) -> tuple[Path, ...]:
+    if isinstance(entry, Path):
+        return (entry,)
+    return entry
 
 
 @dataclass
@@ -66,6 +73,7 @@ class PreviewItem:
     media_name: str | None = None    # Display name — for grouping in batch mode
     companions: list[CompanionFile] = field(default_factory=list)
     episode_confidence: float = 1.0
+    source_relative_folder: str = ""
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
@@ -188,7 +196,7 @@ class ScanState:
     # Season metadata
     season_names: dict[int, str] = field(default_factory=dict)
     season_assignment: int | None = None
-    season_folders: dict[int, Path] = field(default_factory=dict)
+    season_folders: dict[int, SeasonFolderEntry] = field(default_factory=dict)
     active_episode_source: str = "tmdb"
     orphan_companion_files: list[CompanionFile] = field(default_factory=list)
 

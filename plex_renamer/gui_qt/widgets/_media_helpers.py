@@ -27,8 +27,12 @@ def file_count_for_state(state: ScanState) -> int:
     return 0
 
 
-def confidence_band(score: float, *, state: ScanState | None = None) -> str:
-    if state is not None and (state.duplicate_of is not None or state.queued or state.scanning):
+def confidence_band(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
+    if state is not None and (
+        (state.duplicate_of is not None and media_type == MediaType.MOVIE)
+        or state.queued
+        or state.scanning
+    ):
         return "muted"
     if score >= 0.85:
         return "high"
@@ -37,13 +41,13 @@ def confidence_band(score: float, *, state: ScanState | None = None) -> str:
     return "low"
 
 
-def confidence_fill_color(score: float, *, state: ScanState | None = None) -> str:
+def confidence_fill_color(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
     return {
         "high": "#3ea463",
         "medium": "#e5a00d",
         "low": "#d44040",
         "muted": "#777777",
-    }[confidence_band(score, state=state)]
+    }[confidence_band(score, state=state, media_type=media_type)]
 
 
 def band_color(band: str) -> str:
@@ -56,16 +60,20 @@ def band_color(band: str) -> str:
     }[band]
 
 
-def state_status(state: ScanState) -> tuple[str, QColor]:
+def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QColor]:
     if state.queued:
         return "Queued", QColor("#4a9eda")
     if state.scanning:
         return "Scanning", QColor("#e5a00d")
-    if state.duplicate_of is not None:
+    if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "Duplicate", QColor("#777777")
     if state.show_id is None:
         return "No Match Found", QColor("#d44040")
-    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
+    if (
+        state.duplicate_of is not None
+        or state.needs_review
+        or any(item.is_episode_review for item in state.preview_items)
+    ):
         return "Needs Review", QColor("#e5a00d")
     if state.match_origin == "manual":
         return "Approved", QColor("#4a9eda")
@@ -74,16 +82,20 @@ def state_status(state: ScanState) -> tuple[str, QColor]:
     return "Matched", QColor("#4a9eda")
 
 
-def state_status_tone(state: ScanState) -> str:
+def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
     if state.queued:
         return "info"
     if state.scanning:
         return "accent"
-    if state.duplicate_of is not None:
+    if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "muted"
     if state.show_id is None:
         return "error"
-    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
+    if (
+        state.duplicate_of is not None
+        or state.needs_review
+        or any(item.is_episode_review for item in state.preview_items)
+    ):
         return "accent"
     if is_plex_ready_state(state):
         return "success"
@@ -106,14 +118,18 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
     return any(item.is_actionable for item in state.preview_items)
 
 
-def roster_group(state: ScanState) -> str:
+def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.queued:
         return "queued"
-    if state.duplicate_of is not None:
+    if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "duplicate"
     if state.show_id is None:
         return "unmatched"
-    if state.needs_review or any(item.is_episode_review for item in state.preview_items):
+    if (
+        state.duplicate_of is not None
+        or state.needs_review
+        or any(item.is_episode_review for item in state.preview_items)
+    ):
         return "review"
     if is_plex_ready_state(state):
         return "plex-ready"

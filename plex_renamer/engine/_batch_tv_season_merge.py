@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
-from ..parsing import get_season
+from ..parsing import extract_episode, extract_season_number, get_season
 from ._batch_tv_duplicates import normalized_relative_folder
-from .models import ScanState
+from .models import ScanState, SeasonFolderEntry, iter_season_folder_paths
 
 
 def preview_single_season(state: ScanState) -> int | None:
@@ -48,7 +48,7 @@ def represented_seasons(state: ScanState) -> set[int]:
     return seasons
 
 
-def expanded_season_folders(state: ScanState) -> dict[int, Path]:
+def expanded_season_folders(state: ScanState) -> dict[int, SeasonFolderEntry]:
     if state.season_folders:
         return dict(state.season_folders)
     if state.season_assignment is not None:
@@ -91,6 +91,92 @@ def _season_representative_priority(state: ScanState) -> tuple[int, int, float, 
     )
 
 
+def _episode_keys_for_season_folder(folder: Path, season_num: int) -> set[tuple[int, int]]:
+    """Return concrete episode keys represented by direct video files in *folder*."""
+    keys: set[tuple[int, int]] = set()
+    try:
+        entries = sorted(folder.iterdir())
+    except OSError:
+        return keys
+
+    for entry in entries:
+        if not entry.is_file() or entry.suffix.lower() not in VIDEO_EXTENSIONS:
+            continue
+        episode_numbers, _raw_title, is_season_relative = extract_episode(entry.name)
+        if not episode_numbers:
+            continue
+        file_season = extract_season_number(entry.name) if is_season_relative else None
+        effective_season = file_season if file_season is not None else season_num
+        if effective_season != season_num:
+            continue
+        keys.update((season_num, episode_num) for episode_num in episode_numbers)
+    return keys
+
+
+def _can_merge_disjoint_season_folder(
+    existing_folders: list[Path],
+    candidate_folder: Path,
+    season_num: int,
+) -> bool:
+    existing_keys: set[tuple[int, int]] = set()
+    for folder in existing_folders:
+        existing_keys.update(_episode_keys_for_season_folder(folder, season_num))
+    candidate_keys = _episode_keys_for_season_folder(candidate_folder, season_num)
+    return bool(existing_keys) and bool(candidate_keys) and existing_keys.isdisjoint(candidate_keys)
+
+
+def _combine_folder_entries(folders: list[Path]) -> SeasonFolderEntry:
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for folder in folders:
+        key = folder.as_posix().casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(folder)
+    if len(unique) == 1:
+        return unique[0]
+    return tuple(unique)
+
+
+def _merge_same_season_members(
+    members: list[ScanState],
+    season_num: int,
+) -> tuple[ScanState, list[ScanState]]:
+    ordered = sorted(members, key=_season_representative_priority, reverse=True)
+    representative = ordered[0]
+    representative_folders = [
+        resolve_season_folder(representative.folder, season_num)
+    ]
+    total_files = representative.direct_video_file_count
+    total_episode_files = representative.direct_episode_file_count
+    duplicate_siblings: list[ScanState] = []
+
+    for sibling in ordered[1:]:
+        sibling_folder = resolve_season_folder(sibling.folder, season_num)
+        if _can_merge_disjoint_season_folder(
+            representative_folders,
+            sibling_folder,
+            season_num,
+        ):
+            representative_folders.append(sibling_folder)
+            total_files += sibling.direct_video_file_count
+            total_episode_files += sibling.direct_episode_file_count
+            for named_season, name in sibling.season_names.items():
+                representative.season_names.setdefault(named_season, name)
+            continue
+        duplicate_siblings.append(sibling)
+
+    if len(representative_folders) > 1:
+        representative.season_folders = {
+            season_num: _combine_folder_entries(representative_folders),
+        }
+        representative.direct_video_file_count = total_files
+        representative.direct_episode_file_count = total_episode_files
+
+    return representative, duplicate_siblings
+
+
 def _enumerate_direct_season_subdirs(folder: Path) -> dict[int, Path]:
     """Return ``{season_num: subdir}`` for all season-named children of *folder*."""
     result: dict[int, Path] = {}
@@ -122,13 +208,13 @@ def merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
     for season_groups in groups.values():
         representatives: list[ScanState] = []
         duplicate_season_siblings: list[ScanState] = []
-        for members in season_groups.values():
+        for season_num, members in season_groups.items():
             if len(members) == 1:
                 representatives.append(members[0])
                 continue
-            ordered = sorted(members, key=_season_representative_priority, reverse=True)
-            representatives.append(ordered[0])
-            duplicate_season_siblings.extend(ordered[1:])
+            representative, duplicates = _merge_same_season_members(members, season_num)
+            representatives.append(representative)
+            duplicate_season_siblings.extend(duplicates)
 
         if len(representatives) < 2:
             merged.extend(representatives)
@@ -138,15 +224,17 @@ def merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
         representatives.sort(key=lambda state: (-state.confidence, state.display_name.lower()))
         primary = representatives[0]
 
-        season_map: dict[int, Path] = {}
+        season_map: dict[int, SeasonFolderEntry] = {}
         total_files = 0
         total_episode_files = 0
         for state in representatives:
-            if state.season_assignment is not None:
-                season_map[state.season_assignment] = resolve_season_folder(
-                    state.folder,
-                    state.season_assignment,
-                )
+            for season_num, folder_entry in expanded_season_folders(state).items():
+                if season_num in season_map:
+                    existing = list(iter_season_folder_paths(season_map[season_num]))
+                    existing.extend(iter_season_folder_paths(folder_entry))
+                    season_map[season_num] = _combine_folder_entries(existing)
+                else:
+                    season_map[season_num] = folder_entry
             total_files += state.direct_video_file_count
             total_episode_files += state.direct_episode_file_count
             if state is primary:

@@ -34,7 +34,7 @@ from ._tv_scanner_specials import (
     match_special as _match_special,
     scan_nested_extras as _scan_nested_extras,
 )
-from .models import CompletenessReport, PreviewItem, SeasonCompleteness
+from .models import CompletenessReport, PreviewItem, SeasonCompleteness, SeasonFolderEntry
 
 _log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class TVScanner:
         root_folder: Path,
         *,
         season_hint: int | None = None,
-        season_folders: dict[int, Path] | None = None,
+        season_folders: dict[int, SeasonFolderEntry] | None = None,
         show_match_confidence: float | None = None,
     ):
         self.tmdb = tmdb
