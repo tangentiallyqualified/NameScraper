@@ -217,3 +217,17 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             "setFixedWidth(100)",
         ):
             self.assertNotIn(literal, source)
+
+    def test_workspace_widget_primitives_use_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        # No bare integer class constants for pixel sizes
+        self.assertNotIn("_INDICATOR_SIZE = 18", source)
+        self.assertNotIn("_SIZE = 20", source)
+        # No bare literals on the MiniProgressBar
+        self.assertNotIn("setFixedHeight(4)", source)
+        self.assertNotIn("QSize(120, 4)", source)

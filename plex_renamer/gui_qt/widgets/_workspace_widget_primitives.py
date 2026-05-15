@@ -6,6 +6,8 @@ from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QSizePolicy, QWidget
 
+from .. import _scale
+
 
 class _CheckBinding:
     """Small checkbox binding used to reuse engine/controller helpers in Qt."""
@@ -27,8 +29,13 @@ class RosterPosterBridge(QObject):
 class MasterCheckBox(QCheckBox):
     """Tri-state display checkbox that toggles like a normal binary control."""
 
-    _INDICATOR_SIZE = 18
+    _INDICATOR_GRID_UNITS = 18
     _RADIUS = 4
+
+    @property
+    def _INDICATOR_SIZE(self) -> int:  # noqa: N802 — preserves original API
+        return _scale.px(self._INDICATOR_GRID_UNITS)
+
     _BG_OFF = QColor("#3a3a3a")
     _BG_ON = QColor("#3ea463")
     _BG_PARTIAL = QColor("#4a9eda")
@@ -151,8 +158,13 @@ class ClickableRow(QFrame):
 
 
 class ToggleSwitch(QCheckBox):
-    _SIZE = 20
+    _GRID_UNITS = 20
     _RADIUS = 4
+
+    @property
+    def _SIZE(self) -> int:  # noqa: N802 — preserves original API
+        return _scale.px(self._GRID_UNITS)
+
     _BG_OFF = QColor("#3a3a3a")
     _BG_ON = QColor("#3ea463")
     _BG_PARTIAL = QColor("#4a9eda")
@@ -209,7 +221,7 @@ class MiniProgressBar(QWidget):
         super().__init__(parent)
         self._color = QColor(color)
         self._value = max(0, min(100, value))
-        self.setFixedHeight(4)
+        self.setFixedHeight(_scale.px(4))
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def setValue(self, value: int) -> None:  # noqa: N802
@@ -221,7 +233,7 @@ class MiniProgressBar(QWidget):
         self.update()
 
     def sizeHint(self) -> QSize:
-        return QSize(120, 4)
+        return QSize(_scale.px(120), _scale.px(4))
 
     def paintEvent(self, event) -> None:  # noqa: N802
         del event
