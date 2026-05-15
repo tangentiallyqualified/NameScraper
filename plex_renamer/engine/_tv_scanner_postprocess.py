@@ -26,6 +26,7 @@ from .models import (
 EXPLICIT_EPISODE_FLOOR = 0.86
 COMPATIBLE_PREFIX_FLOOR = 0.88
 EPISODE_TITLE_MATCH_FLOOR = 0.92
+PLEX_READY_EPISODE_FLOOR = 1.0
 EXACT_COVERAGE_FLOOR = 0.80
 SINGLE_SEASON_PERFECT_SHOW_EXACT_COVERAGE_FLOOR = 0.85
 NEAR_COMPLETE_COVERAGE_FLOOR = 0.74
@@ -205,6 +206,11 @@ def _has_perfect_show_match(show_match_confidence: float | None) -> bool:
     return show_match_confidence is not None and _clamp_confidence(show_match_confidence) == 1.0
 
 
+def _is_plex_ready_episode_item(item: PreviewItem) -> bool:
+    target_dir = item.target_dir or item.original.parent
+    return item.new_name == item.original.name and target_dir == item.original.parent
+
+
 def apply_episode_confidence_adjustments(
     items: list[PreviewItem],
     tmdb_seasons: dict,
@@ -271,6 +277,9 @@ def apply_episode_confidence_adjustments(
                 assigned_title = season_data.get("titles", {}).get(item.episodes[0])
                 if _episode_title_matches(raw_title, assigned_title):
                     _raise_confidence(item, EPISODE_TITLE_MATCH_FLOOR)
+
+            if _is_plex_ready_episode_item(item):
+                _raise_confidence(item, PLEX_READY_EPISODE_FLOOR)
 
             if not source_compatible:
                 contradictory_prefix_items.append(item)

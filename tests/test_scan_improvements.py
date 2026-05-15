@@ -588,6 +588,69 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(items[0].episode_confidence, 0.92)
             self.assertEqual(items[0].status, "OK")
 
+    def test_already_plex_ready_episode_gets_perfect_confidence(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "Bartender"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender (2006)"
+            season_one = root / "Season 01"
+            season_one.mkdir(parents=True)
+            (season_one / "Bartender (2006) - S01E01 - Bartender.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 3000, "name": "Bartender", "year": "2006"},
+                root,
+                show_match_confidence=1.0,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            self.assertEqual(items[0].new_name, items[0].original.name)
+            self.assertEqual(items[0].target_dir, items[0].original.parent)
+            self.assertFalse(items[0].is_actionable)
+            self.assertEqual(items[0].episode_confidence, 1.0)
+            self.assertEqual(items[0].status, "OK")
+
+    def test_plex_ready_episode_gets_perfect_confidence_in_mixed_directory(self):
+        seasons = {
+            1: {
+                "name": "Season 1",
+                "titles": {1: "Bartender", 2: "Menu of the Heart"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Bartender (2006)"
+            season_one = root / "Season 01"
+            season_one.mkdir(parents=True)
+            (season_one / "Bartender (2006) - S01E01 - Bartender.mkv").write_text("x")
+            (season_one / "[Kawaiika-Raws] Bartender 02 [BDRip].mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 3000, "name": "Bartender", "year": "2006"},
+                root,
+                show_match_confidence=1.0,
+            )
+
+            items, _has_mismatch = scanner.scan()
+
+            by_episode = {item.episodes[0]: item for item in items}
+            self.assertFalse(by_episode[1].is_actionable)
+            self.assertTrue(by_episode[2].is_actionable)
+            self.assertEqual(by_episode[1].episode_confidence, 1.0)
+            self.assertEqual(by_episode[2].episode_confidence, 0.85)
+
     def test_season_name_satisfies_source_title_prefix_compatibility(self):
         seasons = {
             2: {

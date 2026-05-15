@@ -16,6 +16,7 @@ Explicit `S01E01` numbering is strong evidence, not certainty. A mapped file's s
 
 Exact season coverage uses a `0.80` floor, intentionally below the default episode threshold of `0.85`.
 For single-season shows with exact clean coverage and a perfect `1.0` show match, the exact coverage floor is raised to `0.85`.
+Rows that are already Plex-ready no-op episode renames receive `1.0` confidence independently, even when other rows in the same directory still need renaming.
 
 ## Key Changes
 
@@ -31,6 +32,7 @@ For single-season shows with exact clean coverage and a perfect `1.0` show match
   - Near-complete clean coverage floor: `0.74`.
   - Compatible source title prefix floor: `0.88`.
   - Assigned TMDB episode title match floor: `0.92`.
+  - Already Plex-ready no-op episode row floor: `1.0`, applied per row rather than per show.
   - Contradictory source title prefix cap: `0.45`.
   - Manual episode remaps may remain `1.0`.
 
@@ -57,6 +59,8 @@ For single-season shows with exact clean coverage and a perfect `1.0` show match
   - `King of the Hill/Season 01/SpongeBob - S01E01.mkv` is capped below threshold despite explicit numbering.
   - `King of the Hill - S01E01 - Pilot.mkv` gets high confidence from compatible prefix/title evidence, not numbering alone.
   - `K/Season 02/K.Return.of.Kings.01.mkv` is treated as compatible with TMDB season name `K: Return of Kings`.
+  - Already Plex-ready episodes such as `Bartender (2006)/Season 01/Bartender (2006) - S01E01 - Bartender.mkv` get `1.0`.
+  - A mixed directory with one already Plex-ready episode and one episode needing rename keeps the Plex-ready row at `1.0`.
   - Bartender-style bare `01..11` exact coverage gets `0.80` by default, or `0.85` when the show match confidence is `1.0`.
   - Multi-season folders with exact per-season coverage get `0.80` without changing season assignment.
   - `NCOP`/`NCED` files in a season folder do not count against exact coverage.
