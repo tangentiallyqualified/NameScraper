@@ -249,3 +249,19 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         ):
             self.assertNotIn(literal, source)
         self.assertIn("row_height(rows=1, padding=10)", source)
+
+    def test_media_workspace_lifecycle_and_ui_use_scale_helper(self):
+        from pathlib import Path
+
+        lifecycle = Path(
+            "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", lifecycle)
+        self.assertNotIn("QSize(32, 46)", lifecycle)
+        self.assertNotIn("QSize(42, 60)", lifecycle)
+
+        ui = Path(
+            "plex_renamer/gui_qt/widgets/_media_workspace_ui.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", ui)
+        self.assertNotIn("setMinimumWidth(340)", ui)

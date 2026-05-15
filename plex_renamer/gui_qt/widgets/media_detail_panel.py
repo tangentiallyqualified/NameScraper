@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...engine import PreviewItem, ScanState
+from .. import _scale
 from ._media_detail_artwork import (
     detail_artwork_fetch_width,
     render_detail_artwork,
@@ -86,8 +87,16 @@ class MediaDetailPanel(QFrame):
     """Poster and metadata surface for the selected roster or preview item."""
 
     _MAX_METADATA_CACHE_ENTRIES = 64
-    _PORTRAIT_ARTWORK_SIZE = QSize(148, 222)
-    _LANDSCAPE_ARTWORK_SIZE = QSize(220, 124)
+    _PORTRAIT_ARTWORK_GRID = (148, 222)
+    _LANDSCAPE_ARTWORK_GRID = (220, 124)
+
+    @property
+    def _PORTRAIT_ARTWORK_SIZE(self) -> "QSize":  # noqa: N802
+        return QSize(_scale.px(self._PORTRAIT_ARTWORK_GRID[0]), _scale.px(self._PORTRAIT_ARTWORK_GRID[1]))
+
+    @property
+    def _LANDSCAPE_ARTWORK_SIZE(self) -> "QSize":  # noqa: N802
+        return QSize(_scale.px(self._LANDSCAPE_ARTWORK_GRID[0]), _scale.px(self._LANDSCAPE_ARTWORK_GRID[1]))
 
     def __init__(
         self,

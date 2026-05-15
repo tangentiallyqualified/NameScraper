@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...job_store import RenameJob
+from .. import _scale
 from ._job_detail_data import (
     build_job_fact_values,
     build_job_meta_line,
@@ -178,7 +179,7 @@ class JobDetailPanel(QFrame):
         self._poster_workflow = JobDetailPosterWorkflow(self)
         self._bridge.poster_ready.connect(self._apply_poster)
         self.setProperty("cssClass", "panel")
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(_scale.px(400))
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         shell = QVBoxLayout(self)
@@ -196,7 +197,7 @@ class JobDetailPanel(QFrame):
 
         self._empty_card = QFrame()
         self._empty_card.setProperty("cssClass", "job-detail-empty-card")
-        self._empty_card.setMaximumWidth(380)
+        self._empty_card.setMaximumWidth(_scale.px(380))
         self._empty_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         empty_card_layout = QVBoxLayout(self._empty_card)
         empty_card_layout.setContentsMargins(28, 28, 28, 28)
@@ -234,7 +235,7 @@ class JobDetailPanel(QFrame):
         layout.addLayout(summary_row)
 
         self._poster = QLabel()
-        self._poster.setFixedSize(160, 240)
+        self._poster.setFixedSize(_scale.px(160), _scale.px(240))
         self._poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._poster.setProperty("cssClass", "job-poster-card")

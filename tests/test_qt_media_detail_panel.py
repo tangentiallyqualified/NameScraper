@@ -480,3 +480,13 @@ class QtMediaDetailPanelTests(QtSmokeBase):
         self.assertGreater(panel._title.height(), panel._title.fontMetrics().lineSpacing())
 
         panel.close()
+
+    def test_media_detail_panel_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/media_detail_panel.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        for literal in ("QSize(148, 222)", "QSize(220, 124)"):
+            self.assertNotIn(literal, source)

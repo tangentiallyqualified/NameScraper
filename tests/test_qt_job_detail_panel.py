@@ -581,3 +581,17 @@ class QtJobDetailPanelTests(QtSmokeBase):
             )
             panel.close()
 
+    def test_job_detail_panel_uses_scale_helper(self):
+        from pathlib import Path
+
+        source = Path(
+            "plex_renamer/gui_qt/widgets/job_detail_panel.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", source)
+        for literal in (
+            "setMinimumWidth(400)",
+            "setMaximumWidth(380)",
+            "setFixedSize(160, 240)",
+        ):
+            self.assertNotIn(literal, source)
+

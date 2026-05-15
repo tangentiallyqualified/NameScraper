@@ -7,6 +7,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
+from .. import _scale
 from ._media_workspace_preview import MediaWorkspacePreviewPanel
 from ._media_workspace_roster import MediaWorkspaceRosterPanel
 from .empty_state import EmptyStateWidget
@@ -145,7 +146,7 @@ class MediaWorkspaceUiCoordinator:
             settings_service=workspace._settings,
         )
         workspace._detail_panel.setProperty("panelVariant", "square")
-        workspace._detail_panel.setMinimumWidth(340)
+        workspace._detail_panel.setMinimumWidth(_scale.px(340))
         workspace._preview_panel.fix_match_button.hide()
         workspace._preview_panel.primary_action_button.hide()
         workspace._fix_match_btn = workspace._detail_panel.fix_match_button
