@@ -529,14 +529,14 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
-        self._approve_button.setFixedHeight(_scale.px(24))
+        self._approve_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
         self._approve_button.setVisible(show_actions)
         self._approve_button.clicked.connect(self.approve_requested.emit)
 
         self._fix_button = QPushButton("Fix", self)
         self._fix_button.setProperty("cssClass", "secondary")
         self._fix_button.setProperty("sizeVariant", "inline")
-        self._fix_button.setFixedHeight(_scale.px(24))
+        self._fix_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
         self._fix_button.setVisible(show_actions)
         self._fix_button.clicked.connect(self.fix_requested.emit)
 

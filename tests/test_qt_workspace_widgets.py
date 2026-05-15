@@ -248,3 +248,4 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             "_COMPACT_ROW_MIN_HEIGHT = 72",
         ):
             self.assertNotIn(literal, source)
+        self.assertIn("row_height(rows=1, padding=10)", source)
