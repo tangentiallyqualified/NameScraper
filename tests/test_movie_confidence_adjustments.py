@@ -194,7 +194,9 @@ class ApplyMovieConfidenceAdjustmentsTests(unittest.TestCase):
             tmdb_title="Inception",
             tmdb_year="2010",
         )
-        self.assertLessEqual(result, 0.45)
+        # Exact equality: floor applied (raw 0.95 already at/above floor 0.95),
+        # then cap brings it down to exactly MOVIE_CAP_YEAR_SEVERELY_OFF (0.45).
+        self.assertAlmostEqual(result, 0.45, places=6)
 
     def test_no_evidence_leaves_score_unchanged(self):
         result = self._call(
@@ -210,10 +212,32 @@ class ApplyMovieConfidenceAdjustmentsTests(unittest.TestCase):
         self.assertLessEqual(result, 1.0)
 
     def test_never_below_zero(self):
+        # Negative raw input is clamped to 0.0 even with no evidence triggering.
         result = self._call(
-            0.10,
-            file_path=Path("/movies/Iron Man 2.mkv"),
-            tmdb_title="Iron Man",
-            tmdb_year="2008",
+            -0.1,
+            file_path=Path("/movies/totally_different.mkv"),
+            tmdb_title="Unknown",
+            tmdb_year="2010",
         )
         self.assertGreaterEqual(result, 0.0)
+
+    def test_year_none_leaves_year_evidence_inactive(self):
+        # With tmdb_year=None, neither the year-exact floor nor the year-severely-off
+        # cap should fire. Only title evidence remains, so an exact title match still
+        # floors to 0.95.
+        result = self._call(
+            0.42,
+            file_path=Path("/movies/Inception.2010.mkv"),  # filename has a year
+            tmdb_title="Inception",
+            tmdb_year=None,
+        )
+        self.assertGreaterEqual(result, 0.95)  # title floor applies
+
+        # No title evidence, no year evidence → raw passes through.
+        result_neutral = self._call(
+            0.55,
+            file_path=Path("/movies/totally_different.2010.mkv"),
+            tmdb_title="Inception",
+            tmdb_year=None,
+        )
+        self.assertAlmostEqual(result_neutral, 0.55, places=6)
