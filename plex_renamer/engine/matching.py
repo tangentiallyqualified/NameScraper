@@ -478,6 +478,51 @@ def _collect_movie_evidence(
     )
 
 
+# Movie confidence floors and caps. Tweak here as evidence weighting
+# is iterated. See docs/superpowers/specs/2026-05-16-batch-movie-improvements-design.md.
+MOVIE_FLOOR_EXACT_TITLE = 0.95
+MOVIE_FLOOR_FOLDER_CORROBORATES = 0.88
+MOVIE_FLOOR_YEAR_EXACT = 0.85
+MOVIE_CAP_SEQUEL_MISMATCH = 0.50
+MOVIE_CAP_YEAR_SEVERELY_OFF = 0.45
+
+
+def apply_movie_confidence_adjustments(
+    *,
+    raw_confidence: float,
+    file_path: Path,
+    tmdb_title: str,
+    tmdb_year: str | None,
+) -> float:
+    """Return *raw_confidence* adjusted by evidence floors and caps.
+
+    Floors raise confidence; caps lower it. Caps are applied after floors so
+    a strong contradicting signal (e.g. wrong year) overrides a corroborating
+    one (e.g. matching folder name). Result is clamped to ``[0.0, 1.0]``.
+    """
+    evidence = _collect_movie_evidence(
+        file_path=file_path,
+        tmdb_title=tmdb_title,
+        tmdb_year=tmdb_year,
+    )
+
+    confidence = raw_confidence
+
+    if evidence.exact_title_match:
+        confidence = max(confidence, MOVIE_FLOOR_EXACT_TITLE)
+    if evidence.folder_corroborates_title:
+        confidence = max(confidence, MOVIE_FLOOR_FOLDER_CORROBORATES)
+    if evidence.year_exact_match:
+        confidence = max(confidence, MOVIE_FLOOR_YEAR_EXACT)
+
+    if evidence.sequel_mismatch:
+        confidence = min(confidence, MOVIE_CAP_SEQUEL_MISMATCH)
+    if evidence.year_severely_off:
+        confidence = min(confidence, MOVIE_CAP_YEAR_SEVERELY_OFF)
+
+    return max(0.0, min(1.0, confidence))
+
+
 def score_tv_results(
     results: list[dict],
     raw_name: str,

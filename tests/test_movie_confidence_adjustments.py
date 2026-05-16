@@ -4,6 +4,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from plex_renamer.engine import apply_movie_confidence_adjustments
 from plex_renamer.engine.matching import (
     _collect_movie_evidence,
     _extract_sequel_number,
@@ -133,3 +134,86 @@ class CollectMovieEvidenceTests(unittest.TestCase):
             tmdb_year="2010",
         )
         self.assertFalse(ev.sequel_mismatch)
+
+
+class ApplyMovieConfidenceAdjustmentsTests(unittest.TestCase):
+    def _call(self, raw, **kwargs):
+        return apply_movie_confidence_adjustments(
+            raw_confidence=raw,
+            file_path=kwargs.get("file_path", Path("/movies/Inception.mkv")),
+            tmdb_title=kwargs.get("tmdb_title", "Inception"),
+            tmdb_year=kwargs.get("tmdb_year", "2010"),
+        )
+
+    def test_exact_title_match_floors_to_095(self):
+        result = self._call(0.42, file_path=Path("/movies/Inception.mkv"))
+        self.assertGreaterEqual(result, 0.95)
+
+    def test_year_exact_match_floors_to_085(self):
+        # No exact title (filename differs), but year matches exactly.
+        result = self._call(
+            0.20,
+            file_path=Path("/movies/incept.2010.mkv"),
+            tmdb_title="Inception",
+            tmdb_year="2010",
+        )
+        self.assertGreaterEqual(result, 0.85)
+
+    def test_folder_corroborates_floors_to_088(self):
+        result = self._call(
+            0.30,
+            file_path=Path("/movies/Inception/movie.mkv"),
+            tmdb_title="Inception",
+            tmdb_year="2010",
+        )
+        self.assertGreaterEqual(result, 0.88)
+
+    def test_year_severely_off_caps_to_045(self):
+        result = self._call(
+            0.98,
+            file_path=Path("/movies/Inception.2007.mkv"),
+            tmdb_title="Inception",
+            tmdb_year="2010",
+        )
+        self.assertLessEqual(result, 0.45)
+
+    def test_sequel_mismatch_caps_to_050(self):
+        result = self._call(
+            0.95,
+            file_path=Path("/movies/Iron Man 2.mkv"),
+            tmdb_title="Iron Man",
+            tmdb_year="2008",
+        )
+        self.assertLessEqual(result, 0.50)
+
+    def test_cap_wins_over_floor(self):
+        # Exact title match (floor 0.95) AND year severely off (cap 0.45) → 0.45.
+        result = self._call(
+            0.95,
+            file_path=Path("/movies/Inception.2007.mkv"),
+            tmdb_title="Inception",
+            tmdb_year="2010",
+        )
+        self.assertLessEqual(result, 0.45)
+
+    def test_no_evidence_leaves_score_unchanged(self):
+        result = self._call(
+            0.62,
+            file_path=Path("/movies/totally_different.mkv"),
+            tmdb_title="Inception",
+            tmdb_year="2010",
+        )
+        self.assertAlmostEqual(result, 0.62, places=3)
+
+    def test_never_exceeds_one(self):
+        result = self._call(1.0, file_path=Path("/movies/Inception.mkv"))
+        self.assertLessEqual(result, 1.0)
+
+    def test_never_below_zero(self):
+        result = self._call(
+            0.10,
+            file_path=Path("/movies/Iron Man 2.mkv"),
+            tmdb_title="Iron Man",
+            tmdb_year="2008",
+        )
+        self.assertGreaterEqual(result, 0.0)

@@ -33,6 +33,7 @@ from ._batch_orchestrators import (
     BatchTVOrchestrator,
 )
 from .matching import (
+    apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
     boost_tv_scores_with_episode_evidence,
     pick_alternate_matches,
@@ -74,6 +75,7 @@ __all__ = [
     "ScanState",
     "SeasonCompleteness",
     "TVScanner",
+    "apply_movie_confidence_adjustments",
     "boost_scores_with_alt_titles",
     "boost_tv_scores_with_episode_evidence",
     "build_rename_job_from_items",
