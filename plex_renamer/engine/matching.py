@@ -359,6 +359,65 @@ def boost_tv_scores_with_episode_evidence(
     return updated
 
 
+import re as _re_sequel
+
+_ROMAN_NUMERAL_MAP = {
+    "i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5,
+    "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10,
+}
+_WORD_NUMERAL_MAP = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+
+# Match trailing sequel tokens:
+#   - "Part 2" / "Part II" / "Part Two"
+#   - "Chapter 3" / "Chapter Three"
+#   - "Episode IV"
+#   - bare trailing "2" / "II" (only if not a 4-digit year)
+_SEQUEL_RE = _re_sequel.compile(
+    r"""
+    (?:
+        \b(?:part|chapter|episode)\s+
+        (?P<phrase>[ivx]+|\w+|\d{1,2})
+        |
+        \b(?P<trailing>\d{1,2}|[ivx]+)\s*$
+    )
+    """,
+    _re_sequel.IGNORECASE | _re_sequel.VERBOSE,
+)
+
+
+def _extract_sequel_number(title: str) -> int | None:
+    """Return the integer sequel number embedded in *title*, or None.
+
+    Recognises trailing arabic numerals (``Iron Man 2``), roman numerals
+    (``Rocky II``), and ``Part/Chapter/Episode`` phrases including word
+    numerals (``Dune: Part Two``). A 4-digit token like ``2049`` is treated
+    as a year, not a sequel number.
+    """
+    if not title:
+        return None
+    stripped = title.strip()
+    if stripped.endswith(")"):
+        # Drop trailing "(2010)" year annotation before scanning.
+        stripped = _re_sequel.sub(r"\s*\(\d{4}\)\s*$", "", stripped)
+    for match in _SEQUEL_RE.finditer(stripped):
+        token = (match.group("phrase") or match.group("trailing") or "").lower()
+        if not token:
+            continue
+        if token.isdigit():
+            value = int(token)
+            if 1 <= value <= 99:
+                return value
+            continue
+        if token in _ROMAN_NUMERAL_MAP:
+            return _ROMAN_NUMERAL_MAP[token]
+        if token in _WORD_NUMERAL_MAP:
+            return _WORD_NUMERAL_MAP[token]
+    return None
+
+
 def score_tv_results(
     results: list[dict],
     raw_name: str,
