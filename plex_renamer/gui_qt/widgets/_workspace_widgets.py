@@ -313,20 +313,27 @@ class PreviewRowWidget(ClickableRow):
         show_companions: bool,
         checked: bool,
         checkable: bool,
+        media_type: str = "tv",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("previewRowCard")
         self.setProperty("cssClass", "preview-row-card")
         self._preview = preview
+        self._media_type = media_type
         self._selected = False
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
-        self._check = ToggleSwitch(checked if preview.is_actionable and checkable else False, self)
-        self._check.setVisible(preview.is_actionable and checkable)
+        show_check = (
+            media_type != "movie"
+            and preview.is_actionable
+            and checkable
+        )
+        self._check = ToggleSwitch(checked if show_check else False, self)
+        self._check.setVisible(show_check)
         self._check.toggled.connect(self.check_toggled.emit)
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 

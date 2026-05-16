@@ -283,3 +283,59 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         ).read_text(encoding="utf-8")
         self.assertIn("_scale", source)
         self.assertNotIn("setFixedHeight(30)", source)
+
+
+class MoviePreviewRowCheckboxTests(QtSmokeBase):
+    def _make_movie_preview(self):
+        from pathlib import Path
+        from plex_renamer.constants import MediaType
+        from plex_renamer.engine import PreviewItem
+        return PreviewItem(
+            original=Path("/movies/Inception.mkv"),
+            new_name="Inception (2010).mkv",
+            target_dir=Path("/movies/Inception (2010)"),
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=27205,
+            media_name="Inception",
+        )
+
+    def test_movie_mode_hides_checkbox(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import PreviewRowWidget
+        widget = PreviewRowWidget(
+            self._make_movie_preview(),
+            compact=False,
+            show_confidence=True,
+            show_companions=False,
+            checked=False,
+            checkable=True,
+            media_type="movie",
+        )
+        self.assertFalse(widget._check.isVisibleTo(widget))
+
+    def test_tv_mode_shows_checkbox_when_actionable(self):
+        from pathlib import Path
+        from plex_renamer.constants import MediaType
+        from plex_renamer.engine import PreviewItem
+        from plex_renamer.gui_qt.widgets._workspace_widgets import PreviewRowWidget
+        tv_preview = PreviewItem(
+            original=Path("/tv/show/s01e01.mkv"),
+            new_name="Show - S01E01.mkv",
+            target_dir=Path("/tv/show/Show (2020)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+            media_type=MediaType.TV,
+        )
+        widget = PreviewRowWidget(
+            tv_preview,
+            compact=False,
+            show_confidence=True,
+            show_companions=False,
+            checked=False,
+            checkable=True,
+            media_type="tv",
+        )
+        self.assertTrue(widget._check.isVisibleTo(widget))

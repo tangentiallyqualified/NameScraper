@@ -821,6 +821,7 @@ class MediaWorkspacePreviewPanel(QFrame):
             show_companions=show_companions,
             checked=state.check_vars.get(str(index), _CheckBinding(False)).get(),
             checkable=_is_state_queue_approvable(state, media_type=self._media_type),
+            media_type=self._media_type,
             parent=self._list_widget,
         )
         widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
