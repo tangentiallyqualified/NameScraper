@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
-from plex_renamer.engine.matching import _extract_sequel_number
+from plex_renamer.engine.matching import (
+    _collect_movie_evidence,
+    _extract_sequel_number,
+)
 
 
 class ExtractSequelNumberTests(unittest.TestCase):
@@ -41,11 +45,6 @@ class ExtractSequelNumberTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-from pathlib import Path
-
-from plex_renamer.engine.matching import _collect_movie_evidence
 
 
 class CollectMovieEvidenceTests(unittest.TestCase):
