@@ -176,11 +176,9 @@ def rematch_movie_scan_state(
         for result, score in scored
         if result.get("id") != state.media_info.get("id") and score > 0.3
     ][:3]
-    state.confidence = (
-        scored[0][1]
-        if scored and scored[0][0].get("id") == state.media_info.get("id")
-        else 1.0
-    )
+    # Manual rematch: read from the preview the scanner just stamped (which is
+    # 1.0 for user-confirmed picks, future-proofed against scanner changes).
+    state.confidence = new_item.episode_confidence
     state.scanned = True
     state.checked = False
     state.selected_index = 0 if state.preview_items else None

@@ -1137,7 +1137,7 @@ class RematchStateTests(_ControllerTestCase):
 
             def rematch_file(self, item, chosen):
                 self.movie_info[item.original] = chosen
-                return PreviewItem(
+                new_item = PreviewItem(
                     original=item.original,
                     new_name=f"{chosen['title']} ({chosen['year']}).mkv",
                     target_dir=self._target_root / f"{chosen['title']} ({chosen['year']})",
@@ -1148,6 +1148,8 @@ class RematchStateTests(_ControllerTestCase):
                     media_id=chosen["id"],
                     media_name=chosen["title"],
                 )
+                new_item.episode_confidence = 1.0
+                return new_item
 
             def get_search_results(self, path):
                 return list(self._results.get(path, []))
@@ -1180,6 +1182,81 @@ class RematchStateTests(_ControllerTestCase):
         self.assertFalse(state.checked)
         self.assertEqual(state.match_origin, "manual")
         self.assertEqual(self.ctrl.movie_preview_items[0].media_id, 99)
+
+    def test_rematch_movie_sets_state_confidence_from_preview(self):
+        # After a manual movie rematch, state.confidence should equal the
+        # value the scanner stamped on the new preview item (1.0 for manual picks),
+        # not the raw TMDB scoring result.
+        movie_file = self.tmp / "Some.Film.2020.mkv"
+        old_item = PreviewItem(
+            original=movie_file,
+            new_name="Wrong Match (2019).mkv",
+            target_dir=self.tmp / "Wrong Match (2019)",
+            season=None,
+            episodes=[],
+            status="REVIEW: verify",
+            media_type=MediaType.MOVIE,
+            media_id=7,
+            media_name="Wrong Match",
+        )
+
+        class _ConfidenceRematchScanner:
+            def __init__(self, target_root):
+                self._target_root = target_root
+                self.movie_info = {movie_file: {"id": 7, "title": "Wrong Match", "year": "2019"}}
+                self._results = {
+                    movie_file: [
+                        {"id": 42, "title": "Some Film", "year": "2020",
+                         "poster_path": None, "overview": ""},
+                    ]
+                }
+
+            def rematch_file(self, item, chosen):
+                self.movie_info[item.original] = chosen
+                new_item = PreviewItem(
+                    original=item.original,
+                    new_name=f"{chosen['title']} ({chosen['year']}).mkv",
+                    target_dir=self._target_root / f"{chosen['title']} ({chosen['year']})",
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type=MediaType.MOVIE,
+                    media_id=chosen["id"],
+                    media_name=chosen["title"],
+                )
+                new_item.episode_confidence = 1.0
+                return new_item
+
+            def get_search_results(self, path):
+                return list(self._results.get(path, []))
+
+        scanner = _ConfidenceRematchScanner(self.tmp)
+        state = ScanState(
+            folder=self.tmp,
+            media_info={"id": 7, "title": "Wrong Match", "year": "2019"},
+            preview_items=[old_item],
+            confidence=0.3,
+            scanned=True,
+            checked=False,
+            scanner=scanner,
+            search_results=scanner.get_search_results(movie_file),
+            alternate_matches=[],
+        )
+        self.set_movie_session(
+            [state],
+            preview_items=[old_item],
+            movie_scanner=scanner,
+        )
+
+        self.ctrl.rematch_movie_state(
+            state,
+            {"id": 42, "title": "Some Film", "year": "2020",
+             "poster_path": None, "overview": ""},
+        )
+
+        # state.confidence must come from the preview item's episode_confidence,
+        # not from a raw TMDB score calculation.
+        self.assertEqual(state.confidence, 1.0)
 
     def test_approve_match_ignores_duplicates(self):
         state = ScanState(

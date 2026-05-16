@@ -1,10 +1,12 @@
 """Tests for movie confidence postprocessing helpers in engine.matching."""
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
 
-from plex_renamer.engine import apply_movie_confidence_adjustments
+from plex_renamer.engine import MovieScanner, apply_movie_confidence_adjustments
 from plex_renamer.engine.matching import (
     _collect_movie_evidence,
     _extract_sequel_number,
@@ -42,10 +44,6 @@ class ExtractSequelNumberTests(unittest.TestCase):
     def test_case_insensitive(self):
         self.assertEqual(_extract_sequel_number("iron man 2"), 2)
         self.assertEqual(_extract_sequel_number("rocky ii"), 2)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class CollectMovieEvidenceTests(unittest.TestCase):
@@ -243,12 +241,6 @@ class ApplyMovieConfidenceAdjustmentsTests(unittest.TestCase):
         self.assertAlmostEqual(result_neutral, 0.55, places=6)
 
 
-import tempfile
-from unittest.mock import MagicMock
-
-from plex_renamer.engine import MovieScanner
-
-
 class MovieScannerConfidenceTests(unittest.TestCase):
     def _make_scanner(self, tmp: Path, tmdb_results: list[dict]) -> MovieScanner:
         tmdb = MagicMock()
@@ -300,3 +292,7 @@ class MovieScannerConfidenceTests(unittest.TestCase):
             mystery = next(i for i in items if "Some Mystery" in i.original.name)
             self.assertEqual(mystery.episode_confidence, 0.0)
             self.assertTrue(mystery.status.startswith("REVIEW"))
+
+
+if __name__ == "__main__":
+    unittest.main()
