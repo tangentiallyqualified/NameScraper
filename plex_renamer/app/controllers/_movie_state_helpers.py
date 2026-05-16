@@ -29,9 +29,10 @@ def build_movie_library_states(
             "overview": chosen.get("overview", ""),
             "_media_type": MediaType.MOVIE,
         }
-        confidence = 1.0 if media_id else 0.0
-        if item.status.startswith("REVIEW"):
-            confidence = 0.5 if media_id else 0.0
+        if media_id:
+            confidence = item.episode_confidence
+        else:
+            confidence = 0.0
 
         state = ScanState(
             folder=item.original.parent,
