@@ -294,6 +294,7 @@ class MovieScanner:
                     episodes=[],
                     status="REVIEW: no TMDB results — click to search manually",
                     media_type=MediaType.MOVIE,
+                    episode_confidence=0.0,
                 ))
                 continue
 
@@ -355,6 +356,7 @@ class MovieScanner:
                 episodes=[],
                 status="SKIP: no movie selected" if results else "REVIEW: no TMDB results — click to search manually",
                 media_type=MediaType.MOVIE,
+                episode_confidence=0.0,
             )]
 
         self.movie_info[file_path] = chosen

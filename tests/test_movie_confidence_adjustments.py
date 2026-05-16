@@ -288,3 +288,15 @@ class MovieScannerConfidenceTests(unittest.TestCase):
             iron = next(i for i in items if "Iron Man" in i.original.name)
             self.assertLessEqual(iron.episode_confidence, 0.50)
             self.assertTrue(iron.status.startswith("REVIEW"))
+
+    def test_no_tmdb_results_yields_zero_confidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            (tmp / "Some Mystery Film.mkv").touch()
+            (tmp / "filler1.mkv").touch()
+            (tmp / "filler2.mkv").touch()
+            scanner = self._make_scanner(tmp, [])  # empty TMDB results
+            items = scanner.scan()
+            mystery = next(i for i in items if "Some Mystery" in i.original.name)
+            self.assertEqual(mystery.episode_confidence, 0.0)
+            self.assertTrue(mystery.status.startswith("REVIEW"))
