@@ -241,3 +241,50 @@ class ApplyMovieConfidenceAdjustmentsTests(unittest.TestCase):
             tmdb_year=None,
         )
         self.assertAlmostEqual(result_neutral, 0.55, places=6)
+
+
+import tempfile
+from unittest.mock import MagicMock
+
+from plex_renamer.engine import MovieScanner
+
+
+class MovieScannerConfidenceTests(unittest.TestCase):
+    def _make_scanner(self, tmp: Path, tmdb_results: list[dict]) -> MovieScanner:
+        tmdb = MagicMock()
+        tmdb.language = "en-US"
+        tmdb.search_movies_batch.return_value = [tmdb_results, tmdb_results, tmdb_results]
+        tmdb.search_with_fallback.return_value = tmdb_results
+        tmdb.search_movie.return_value = tmdb_results
+        tmdb.get_alternative_titles.return_value = []
+        return MovieScanner(tmdb, tmp)
+
+    def test_preview_item_carries_real_confidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            (tmp / "Inception.2010.mkv").touch()
+            (tmp / "filler1.mkv").touch()
+            (tmp / "filler2.mkv").touch()
+            scanner = self._make_scanner(tmp, [
+                {"id": 27205, "title": "Inception", "year": "2010",
+                 "poster_path": None, "overview": ""},
+            ])
+            items = scanner.scan()
+            inception = next(i for i in items if "Inception" in i.original.name)
+            self.assertGreaterEqual(inception.episode_confidence, 0.95)
+
+    def test_review_status_set_for_low_confidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            (tmp / "Iron Man 2.mkv").touch()
+            (tmp / "filler1.mkv").touch()
+            (tmp / "filler2.mkv").touch()
+            # TMDB returns Iron Man (no 2) — sequel-mismatch cap should fire.
+            scanner = self._make_scanner(tmp, [
+                {"id": 1726, "title": "Iron Man", "year": "2008",
+                 "poster_path": None, "overview": ""},
+            ])
+            items = scanner.scan()
+            iron = next(i for i in items if "Iron Man" in i.original.name)
+            self.assertLessEqual(iron.episode_confidence, 0.50)
+            self.assertTrue(iron.status.startswith("REVIEW"))

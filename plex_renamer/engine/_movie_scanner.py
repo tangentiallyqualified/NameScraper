@@ -22,6 +22,7 @@ from ._scan_runtime import CANCEL_SCAN, _raise_if_cancelled
 from ._state import get_auto_accept_threshold
 from .matching import (
     _country_from_language,
+    apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
     score_results,
 )
@@ -296,10 +297,18 @@ class MovieScanner:
                 ))
                 continue
 
-            chosen, confidence = self._best_match(results, raw_name, year_hint)
+            chosen, raw_confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[file_path] = chosen
 
+            confidence = apply_movie_confidence_adjustments(
+                raw_confidence=raw_confidence,
+                file_path=file_path,
+                tmdb_title=chosen.get("title", ""),
+                tmdb_year=chosen.get("year"),
+            )
+
             item = _build_movie_preview_item(file_path, chosen, self.root)
+            item.episode_confidence = confidence
             item.companions = _build_subtitle_companions(file_path, item.new_name)
             if confidence < get_auto_accept_threshold():
                 item.status = (
@@ -350,6 +359,8 @@ class MovieScanner:
 
         self.movie_info[file_path] = chosen
         item = _build_movie_preview_item(file_path, chosen, self.root)
+        # Manual single-file selection: user picked from the dialog, treat as 1.0.
+        item.episode_confidence = 1.0
         item.companions = _build_subtitle_companions(file_path, item.new_name)
         return [item]
 
@@ -360,7 +371,9 @@ class MovieScanner:
     ) -> PreviewItem:
         """Re-match a single file to a different TMDB movie."""
         self.movie_info[item.original] = chosen
-        return _build_movie_preview_item(item.original, chosen, self.root)
+        new_item = _build_movie_preview_item(item.original, chosen, self.root)
+        new_item.episode_confidence = 1.0
+        return new_item
 
     def set_movie_info(self, file_path: Path, info: dict) -> None:
         """Hydrate cached movie metadata for a file during session restore."""
