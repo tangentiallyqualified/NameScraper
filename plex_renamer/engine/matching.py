@@ -9,6 +9,7 @@ and preview generation instead of scoring math.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from ..parsing import clean_folder_name, normalize_for_match
@@ -359,8 +360,6 @@ def boost_tv_scores_with_episode_evidence(
     return updated
 
 
-import re as _re_sequel
-
 _ROMAN_NUMERAL_MAP = {
     "i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5,
     "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10,
@@ -375,16 +374,16 @@ _WORD_NUMERAL_MAP = {
 #   - "Chapter 3" / "Chapter Three"
 #   - "Episode IV"
 #   - bare trailing "2" / "II" (only if not a 4-digit year)
-_SEQUEL_RE = _re_sequel.compile(
+_SEQUEL_RE = re.compile(
     r"""
     (?:
         \b(?:part|chapter|episode)\s+
-        (?P<phrase>[ivx]+|\w+|\d{1,2})
+        (?P<phrase>\d{1,2}|[ivx]+|\w+)
         |
         \b(?P<trailing>\d{1,2}|[ivx]+)\s*$
     )
     """,
-    _re_sequel.IGNORECASE | _re_sequel.VERBOSE,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -401,7 +400,7 @@ def _extract_sequel_number(title: str) -> int | None:
     stripped = title.strip()
     if stripped.endswith(")"):
         # Drop trailing "(2010)" year annotation before scanning.
-        stripped = _re_sequel.sub(r"\s*\(\d{4}\)\s*$", "", stripped)
+        stripped = re.sub(r"\s*\(\d{4}\)\s*$", "", stripped)
     for match in _SEQUEL_RE.finditer(stripped):
         token = (match.group("phrase") or match.group("trailing") or "").lower()
         if not token:
