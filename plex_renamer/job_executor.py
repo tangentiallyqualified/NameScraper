@@ -22,18 +22,28 @@ Also provides ``revert_job()`` for per-job undo without a stack constraint.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .constants import JobKind, JobStatus
-from .job_store import JobStore, RenameJob, RenameOp
+from ._job_execution_filesystem import (
+    UNMATCHED_FILES_DIR,
+    apply_rename_plan,
+    cleanup_source_directories,
+    normalize_season_directories,
+    remap_target_into_final_root,
+)
+from .constants import JobKind, JobStatus, MediaType
+from .job_store import JobStore, RenameJob
 from .engine import RenameResult
-from .parsing import get_season
 
 _log = logging.getLogger(__name__)
+
+
+_UNMATCHED_FILES_DIR = UNMATCHED_FILES_DIR
 
 
 # ─── Pre-execution validation ────────────────────────────────────────────────
@@ -70,6 +80,21 @@ def _validate_sources(job: RenameJob) -> list[str]:
     return missing
 
 
+def _remap_target_into_final_root(
+    target_dir: Path,
+    root_folder: Path,
+    final_root: Path | None,
+) -> Path:
+    """Route root-relative targets into the final renamed show folder.
+
+    Queue execution previously moved files inside the source root and then
+    renamed the entire root folder at the end. When leftover source
+    directories remained, that pulled stale structure into the finished
+    Plex folder. Remapping root-relative targets avoids that coupling.
+    """
+    return remap_target_into_final_root(target_dir, root_folder, final_root)
+
+
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
 def _execute_rename(job: RenameJob) -> RenameResult:
@@ -92,9 +117,37 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
     library_root = Path(job.library_root)
     root_folder = library_root / job.source_folder
+    root_is_library = (
+        os.path.normcase(str(root_folder)) == os.path.normcase(str(library_root))
+    )
+    final_root: Path | None = None
+    if (
+        job.show_folder_rename
+        and not (job.media_type == MediaType.MOVIE and root_is_library)
+        and root_folder.name != job.show_folder_rename
+    ):
+        # TV shows always belong directly under the library root, even when
+        # the source was discovered inside a multi-show release directory
+        # (e.g. "[UDF] Yuru Camp△ + Heya Camp△/Heya Camp△").  Movies keep
+        # the historical "rename release folder in place" behavior so a
+        # sibling-of-root placement is preserved for release directories.
+        if job.media_type == MediaType.TV:
+            candidate_parent = library_root
+        else:
+            candidate_parent = root_folder.parent
+        candidate_root = candidate_parent / job.show_folder_rename
+        same_dir = (
+            os.path.normcase(str(root_folder))
+            == os.path.normcase(str(candidate_root))
+        )
+        if not same_dir:
+            final_root = candidate_root
 
     renames: list[tuple[Path, Path, Path]] = []
     source_dirs: set[Path] = set()
+    # Maps each source directory to the target directory its files were moved
+    # into.  Used after renames to relocate any leftover files.
+    source_to_target: dict[Path, Path] = {}
 
     for op in job.rename_ops:
         if not op.selected:
@@ -106,6 +159,11 @@ def _execute_rename(job: RenameJob) -> RenameResult:
 
         src = library_root / op.original_relative
         target_dir = library_root / op.target_dir_relative
+        target_dir = _remap_target_into_final_root(
+            target_dir,
+            root_folder,
+            final_root,
+        )
         dst = target_dir / op.new_name
 
         if not src.exists():
@@ -116,78 +174,75 @@ def _execute_rename(job: RenameJob) -> RenameResult:
             continue
 
         source_dirs.add(src.parent)
+        source_to_target[src.parent] = target_dir
         renames.append((src, dst, target_dir))
 
     if not renames:
         return result
 
-    for src, dst, target_dir in renames:
-        try:
-            if not target_dir.exists():
-                target_dir.mkdir(parents=True, exist_ok=True)
-                if str(target_dir) not in result.log_entry["created_dirs"]:
-                    result.log_entry["created_dirs"].append(str(target_dir))
+    # Track successful destination paths so the cleanup phase doesn't
+    # treat them as leftovers (important when source and target dirs
+    # resolve to the same NTFS directory with different casing).
+    successful_destinations = apply_rename_plan(renames, result)
 
-            if src.parent != target_dir:
-                shutil.move(str(src), str(dst))
-            else:
-                src.rename(dst)
+    normalize_season_directories(
+        root_folder=root_folder,
+        source_dirs=source_dirs,
+        renames=renames,
+        result=result,
+    )
 
-            result.log_entry["renames"].append({
-                "old": str(src), "new": str(dst),
-            })
-            result.renamed_count += 1
-        except (OSError, shutil.Error) as e:
-            result.errors.append(f"{src.name}: {e}")
+    # Clean up source directories after renames.
+    #
+    # For movies with their own subdirectory (release folders like
+    # "Dune.2021.2160p.REMUX/"), root_folder IS the release directory.
+    # Once renamed files have been moved to the Plex-named target folder,
+    # anything remaining in the source directory (sample clips, NFOs,
+    # extra files the scanner skipped) is relocated into
+    # ``target_dir/Unmatched Files/`` rather than deleted.
+    #
+    # When a movie file lives directly in the library root (source_folder
+    # is "."), root_folder == library_root.  In that case the library root
+    # is NOT a release directory — it contains other movies and possibly
+    # non-movie content — so leftover cleanup must be skipped entirely.
+    #
+    # For TV, root_folder is the show directory and is never touched here
+    # (show_folder_rename handles it); season subdirectories follow the
+    # same "move leftovers" logic.
+    #
+    # Revert: leftover moves are appended to ``renames``, so revert_job
+    # restores them automatically alongside the primary media files — no
+    # special handling required.
+    cleanup_source_directories(
+        media_type=job.media_type,
+        library_root=library_root,
+        root_folder=root_folder,
+        source_dirs=source_dirs,
+        source_to_target=source_to_target,
+        successful_destinations=successful_destinations,
+        result=result,
+    )
 
-    # Normalize season folder names (TV only)
-    unmatched_dir = root_folder / "Unmatched"
-    all_dirs = source_dirs.copy()
-    for _, dst, td in renames:
-        all_dirs.add(td)
-
-    for season_dir in all_dirs:
-        if not season_dir.exists() or season_dir == root_folder:
-            continue
-        try:
-            season_dir.relative_to(unmatched_dir)
-            continue
-        except ValueError:
-            pass
-        season_num = get_season(season_dir)
-        if season_num is None:
-            continue
-        proper_name = f"Season {season_num:02d}"
-        if season_dir.name == proper_name:
-            continue
-        proper_path = season_dir.parent / proper_name
-        if proper_path.exists():
-            continue
-        try:
-            season_dir.rename(proper_path)
-            result.log_entry["renamed_dirs"].append({
-                "old": str(season_dir), "new": str(proper_path),
-            })
-        except OSError as e:
-            _log.warning("Could not normalize season dir %s: %s",
-                         season_dir.name, e)
-
-    # Clean up empty source directories
-    for src_dir in source_dirs:
-        try:
-            if src_dir != root_folder and src_dir.exists():
-                if not list(src_dir.iterdir()):
-                    src_dir.rmdir()
-                    result.log_entry["removed_dirs"].append(str(src_dir))
-        except OSError as e:
-            _log.warning("Could not remove empty dir %s: %s",
-                         src_dir.name, e)
-
-    # Rename root show folder
-    if job.show_folder_rename and root_folder.exists():
+    # Rename root show/movie folder to match TMDB naming.
+    # Skip this when targets were already routed into the final root.
+    if (
+        final_root is None
+        and job.show_folder_rename
+        and root_folder.exists()
+        and not (job.media_type == MediaType.MOVIE and root_is_library)
+    ):
         if root_folder.name != job.show_folder_rename:
             new_root = root_folder.parent / job.show_folder_rename
-            if not new_root.exists():
+            # On case-insensitive filesystems (NTFS), new_root.exists()
+            # returns True for case-only differences like "Goodfellas (1990)"
+            # vs "GoodFellas (1990)".  Allow the rename when the paths
+            # resolve to the same directory (case correction) but block it
+            # when new_root is a genuinely different existing directory.
+            same_dir = (
+                os.path.normcase(str(root_folder)) ==
+                os.path.normcase(str(new_root))
+            )
+            if same_dir or not new_root.exists():
                 try:
                     root_folder.rename(new_root)
                     result.log_entry["renamed_dirs"].append({
@@ -220,6 +275,9 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         return False, ["No undo data stored for this job."]
 
     undo = job.undo_data
+    library_root = Path(job.library_root)
+    source_folder = Path(job.source_folder)
+    cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
 
     # Revert folder renames (in reverse order)
@@ -284,7 +342,11 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
 
     for dir_path_str in list(cleaned_dirs):
         parent = Path(dir_path_str).parent
-        while parent.exists() and parent != parent.parent:
+        while (
+            parent.exists()
+            and parent != parent.parent
+            and parent != cleanup_boundary
+        ):
             try:
                 if not list(parent.iterdir()):
                     parent.rmdir()
@@ -384,6 +446,23 @@ class QueueExecutor:
             self._running = False
             self._notify("finished")
             _log.info("Queue executor stopped")
+
+    def execute_single_job(self, job_id: str) -> bool:
+        """Execute a specific pending job by ID without starting the full queue.
+
+        Returns True if the job was found and executed (regardless of
+        success/failure), False if the job doesn't exist or isn't pending.
+
+        Fires the same listener callbacks as the background worker so the
+        UI stays in sync.  Safe to call from any thread, but callers must
+        ensure only one execution path is active at a time (do not call
+        while the background worker is running).
+        """
+        job = self.store.get_job(job_id)
+        if job is None or job.status != JobStatus.PENDING:
+            return False
+        self._execute_one(job)
+        return True
 
     def _execute_one(self, job: RenameJob) -> None:
         _log.info("Executing job %s: %s", job.job_id[:8], job.media_name)

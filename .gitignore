@@ -1,4 +1,15 @@
 __pycache__/
 *.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.worktrees/
+
+.claude/
+.vscode/settings.json
 
 plex_renamer/test_library.zip
+docs/test_library/
+docs/local/

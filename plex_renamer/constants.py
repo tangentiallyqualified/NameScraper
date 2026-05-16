@@ -8,13 +8,32 @@ from pathlib import Path
 
 # ─── File types ───────────────────────────────────────────────────────────────
 
+# ─── Year / resolution guards ────────────────────────────────────────────────
+# Used by parsing and engine modules to distinguish episode numbers from years
+# and resolution tags embedded in filenames.
+
+YEAR_MIN = 1900
+YEAR_MAX = 2099
+YEAR_MIN_EXTRACT = 1920  # stricter lower bound for extract_year()
+
+RESOLUTION_NUMBERS = frozenset({480, 720, 1080, 2160})
+
+# ─── Scoring ─────────────────────────────────────────────────────────────────
+
+SCORE_TIE_MARGIN = 0.02  # runner-up within this delta → flag for review
+
+# ─── File types ───────────────────────────────────────────────────────────────
+
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m4v"}
+
+# Subtitle/caption formats — renamed alongside their paired video file.
+SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup", ".mks"}
 
 # ─── Logging / persistence paths ─────────────────────────────────────────────
 
 LOG_DIR = Path.home() / ".plex_renamer"
-LOG_FILE = LOG_DIR / "rename_log.json"
 DB_FILE = LOG_DIR / "job_queue.db"
+CACHE_DB_FILE = LOG_DIR / "cache.db"
 
 
 def ensure_log_dir() -> None:
@@ -32,16 +51,21 @@ class JobStatus(StrEnum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     REVERTED = "reverted"
+    REVERT_FAILED = "revert_failed"
 
 
 class JobKind(StrEnum):
     """Job type discriminator — extensible for future task types."""
     RENAME = "rename"
+    # Future: download subtitles from the OpenSubtitles API.
+    # This is a separate job kind (not an op within RENAME) because it
+    # involves network I/O, rate limiting, and credential management.
+    SUBTITLE_DOWNLOAD = "subtitle_download"
 
 # ─── Filename sanitization ────────────────────────────────────────────────────
 
 # Characters illegal in filenames on Windows (and problematic elsewhere).
-UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]')
+UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?]')
 
 # ─── Release-group noise patterns ────────────────────────────────────────────
 # Tokens commonly found in release-group folder/file names that are NOT part

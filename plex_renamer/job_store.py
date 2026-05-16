@@ -26,7 +26,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .constants import DB_FILE, JobKind, JobStatus, MediaType, ensure_log_dir
+from ._job_path_propagation import rebase_path, rewrite_job_paths
+from ._job_store_codec import (
+    deserialize_rename_op_dicts,
+    row_to_job,
+    serialize_rename_op_dicts,
+    serialize_rename_ops,
+    serialize_undo_data,
+)
+from ._job_store_db import connect_job_store, initialize_job_store, migrate_job_store
+from ._job_store_ordering import (
+    compact_positions,
+    move_pending_jobs,
+    move_pending_jobs_to_top,
+    reorder_pending_job,
+)
+from .constants import DB_FILE, JobKind, JobStatus, MediaType
 
 _log = logging.getLogger(__name__)
 
@@ -48,12 +63,17 @@ class RenameOp:
     season: int | None = None
     episodes: list[int] = field(default_factory=list)
     selected: bool = True           # Was this file checked by the user?
+    # "video" for the main media file; "subtitle" for companion subtitle files
+    # renamed alongside it.  Extensible for future companion types (e.g. "nfo").
+    file_type: str = "video"
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> RenameOp:
+        d = dict(d)
+        d.setdefault("file_type", "video")  # Back-compat: old rows lack this field
         return cls(**d)
 
 
@@ -77,6 +97,7 @@ class RenameJob:
     media_type: str = MediaType.TV
     tmdb_id: int = 0
     media_name: str = ""
+    poster_path: str | None = None
 
     # Paths
     library_root: str = ""          # Absolute path to the library root
@@ -98,7 +119,19 @@ class RenameJob:
     job_kind: str = JobKind.RENAME
     data_source: str = "tmdb"
 
-    # Dependency (future use)
+    # Dependency linking
+    # ─────────────────
+    # For companion files that are renamed *alongside* their media file
+    # (subtitles, future: posters, NFOs), use RenameOp entries within this
+    # same job.  They execute and revert atomically — there is no scenario
+    # where a subtitle reverts without its video, or vice versa.
+    #
+    # ``depends_on`` is reserved for jobs that are *sequentially dependent*
+    # rather than atomic companions — specifically, a future
+    # ``JobKind.SUBTITLE_DOWNLOAD`` job that downloads a subtitle file from
+    # OpenSubtitles *after* a rename job has established the correct filename.
+    # That job sets ``depends_on = rename_job_id`` so the executor can resolve
+    # the final path and wait for the rename to complete first.
     depends_on: str | None = None   # job_id of prerequisite, or None
 
     @property
@@ -109,6 +142,22 @@ class RenameJob:
     @property
     def selected_count(self) -> int:
         return sum(1 for op in self.rename_ops if op.selected)
+
+    @property
+    def video_ops(self) -> list[RenameOp]:
+        """Ops for the primary media files (file_type == 'video')."""
+        return [op for op in self.rename_ops if op.file_type == "video"]
+
+    @property
+    def companion_ops(self) -> list[RenameOp]:
+        """
+        Ops for companion files renamed alongside the video (subtitles,
+        future: posters, NFOs).  Grouped by ``file_type`` in the GUI.
+
+        These are always part of the same job as their video op — reverting
+        this job reverts all companion ops atomically.
+        """
+        return [op for op in self.rename_ops if op.file_type != "video"]
 
     @property
     def source_path(self) -> Path:
@@ -126,47 +175,11 @@ class RenameJob:
         return self.status in (
             JobStatus.COMPLETED, JobStatus.FAILED,
             JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED,
         )
 
 
 # ─── SQLite store ────────────────────────────────────────────────────────────
-
-_SCHEMA_VERSION = 1
-
-_CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS schema_version (
-    version INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS jobs (
-    job_id          TEXT PRIMARY KEY,
-    created_at      TEXT NOT NULL,
-    updated_at      TEXT NOT NULL,
-    media_type      TEXT NOT NULL,
-    tmdb_id         INTEGER NOT NULL,
-    media_name      TEXT NOT NULL,
-    library_root    TEXT NOT NULL,
-    source_folder   TEXT NOT NULL,
-    show_folder_rename TEXT,
-    status          TEXT NOT NULL DEFAULT 'pending',
-    error_message   TEXT,
-    position        INTEGER NOT NULL DEFAULT 0,
-    undo_data       TEXT,
-    job_kind        TEXT NOT NULL DEFAULT 'rename',
-    data_source     TEXT NOT NULL DEFAULT 'tmdb',
-    depends_on      TEXT,
-    rename_ops      TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_position ON jobs(position);
-"""
-
-_DEDUP_INDEX_SQL = """
-CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_dedup
-    ON jobs(job_kind, media_type, tmdb_id, library_root)
-    WHERE status IN ('pending', 'running');
-"""
 
 
 class DuplicateJobError(Exception):
@@ -201,11 +214,7 @@ class JobStore:
         """Return the per-thread connection, creating it if needed."""
         conn = getattr(self._local, 'conn', None)
         if conn is None:
-            ensure_log_dir()
-            conn = sqlite3.connect(str(self._db_path), timeout=10)
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA foreign_keys=ON")
-            conn.row_factory = sqlite3.Row
+            conn = connect_job_store(self._db_path)
             self._local.conn = conn
         return conn
 
@@ -223,16 +232,11 @@ class JobStore:
         """Create tables and indexes if they don't exist."""
         with self._lock:
             conn = self._get_conn()
-            conn.executescript(_CREATE_SQL)
-            conn.executescript(_DEDUP_INDEX_SQL)
-            row = conn.execute(
-                "SELECT version FROM schema_version LIMIT 1"
-            ).fetchone()
-            if row is None:
-                conn.execute(
-                    "INSERT INTO schema_version (version) VALUES (?)",
-                    (_SCHEMA_VERSION,))
-            conn.commit()
+            initialize_job_store(conn)
+
+    def _migrate_db(self, conn: sqlite3.Connection, current_version: int) -> None:
+        """Compatibility wrapper for extracted schema migration helpers."""
+        migrate_job_store(conn, current_version)
 
     # ── Write operations ──────────────────────────────────────────────
 
@@ -243,8 +247,8 @@ class JobStore:
         Raises DuplicateJobError if a pending/running job with the same
         (job_kind, media_type, tmdb_id, library_root) already exists.
         """
-        ops_json = json.dumps([op.to_dict() for op in job.rename_ops])
-        undo_json = json.dumps(job.undo_data) if job.undo_data else None
+        ops_json = serialize_rename_ops(job.rename_ops)
+        undo_json = serialize_undo_data(job.undo_data)
         job.updated_at = datetime.now(timezone.utc).isoformat()
 
         with self._lock:
@@ -259,15 +263,15 @@ class JobStore:
                 conn.execute("""
                     INSERT INTO jobs (
                         job_id, created_at, updated_at, media_type, tmdb_id,
-                        media_name, library_root, source_folder,
+                        media_name, poster_path, library_root, source_folder,
                         show_folder_rename, status, error_message, position,
                         undo_data, job_kind, data_source, depends_on,
                         rename_ops
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job.job_id, job.created_at, job.updated_at,
                     job.media_type, job.tmdb_id,
-                    job.media_name, job.library_root, job.source_folder,
+                    job.media_name, job.poster_path, job.library_root, job.source_folder,
                     job.show_folder_rename, job.status, job.error_message,
                     job.position, undo_json, job.job_kind, job.data_source,
                     job.depends_on, ops_json,
@@ -309,13 +313,24 @@ class JobStore:
     def set_undo_data(self, job_id: str, undo_data: dict) -> None:
         """Store undo/revert data after successful execution."""
         now = datetime.now(timezone.utc).isoformat()
-        undo_json = json.dumps(undo_data)
+        undo_json = serialize_undo_data(undo_data)
         with self._lock:
             conn = self._get_conn()
             conn.execute(
                 "UPDATE jobs SET undo_data = ?, updated_at = ? "
                 "WHERE job_id = ?",
                 (undo_json, now, job_id))
+            conn.commit()
+
+    def set_poster_path(self, job_id: str, poster_path: str | None) -> None:
+        """Persist a resolved TMDB poster path for an existing job."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE jobs SET poster_path = ?, updated_at = ? WHERE job_id = ?",
+                (poster_path, now, job_id),
+            )
             conn.commit()
 
     def remove_job(self, job_id: str) -> bool:
@@ -358,15 +373,12 @@ class JobStore:
         with self._lock:
             conn = self._get_conn()
             now = datetime.now(timezone.utc).isoformat()
-            conn.execute(
-                "UPDATE jobs SET position = position + 1 "
-                "WHERE status = 'pending' AND position >= ?",
-                (new_position,))
-            conn.execute(
-                "UPDATE jobs SET position = ?, updated_at = ? "
-                "WHERE job_id = ? AND status = 'pending'",
-                (new_position, now, job_id))
-            self._compact_positions(conn)
+            reorder_pending_job(
+                conn,
+                job_id=job_id,
+                new_position=new_position,
+                now=now,
+            )
             conn.commit()
 
     def move_jobs(self, job_ids: list[str], direction: int) -> None:
@@ -380,37 +392,23 @@ class JobStore:
         with self._lock:
             conn = self._get_conn()
             now = datetime.now(timezone.utc).isoformat()
-            # Get current ordered list of all pending
-            rows = conn.execute(
-                "SELECT job_id, position FROM jobs "
-                "WHERE status = 'pending' "
-                "ORDER BY position ASC"
-            ).fetchall()
-            ordered = [r["job_id"] for r in rows]
-            id_set = set(job_ids)
-            # Find indices of selected jobs
-            indices = [i for i, jid in enumerate(ordered) if jid in id_set]
-            if not indices:
-                return
-            # Calculate swap
-            if direction == -1 and indices[0] > 0:
-                # Move block up: swap with item above the first selected
-                swap_idx = indices[0] - 1
-                item = ordered.pop(swap_idx)
-                ordered.insert(indices[-1], item)
-            elif direction == 1 and indices[-1] < len(ordered) - 1:
-                # Move block down: swap with item below the last selected
-                swap_idx = indices[-1] + 1
-                item = ordered.pop(swap_idx)
-                ordered.insert(indices[0], item)
-            else:
-                return  # already at boundary
-            # Write new positions
-            for pos, jid in enumerate(ordered, start=1):
-                conn.execute(
-                    "UPDATE jobs SET position = ?, updated_at = ? "
-                    "WHERE job_id = ?", (pos, now, jid))
-            conn.commit()
+            if move_pending_jobs(
+                conn,
+                job_ids=job_ids,
+                direction=direction,
+                now=now,
+            ):
+                conn.commit()
+
+    def move_jobs_to_top(self, job_ids: list[str]) -> None:
+        """Move the given pending jobs to the top of the queue."""
+        if not job_ids:
+            return
+        with self._lock:
+            conn = self._get_conn()
+            now = datetime.now(timezone.utc).isoformat()
+            if move_pending_jobs_to_top(conn, job_ids=job_ids, now=now):
+                conn.commit()
 
     def clear_history(self) -> int:
         """Delete all terminal jobs.  Returns row count."""
@@ -418,21 +416,13 @@ class JobStore:
             conn = self._get_conn()
             cursor = conn.execute(
                 "DELETE FROM jobs WHERE status IN "
-                "('completed', 'failed', 'cancelled', 'reverted')")
+                "('completed', 'failed', 'cancelled', 'reverted', 'revert_failed')")
             conn.commit()
             return cursor.rowcount
 
     def _compact_positions(self, conn: sqlite3.Connection) -> None:
         """Reassign positions 1..N for pending/running jobs. Call under lock."""
-        rows = conn.execute(
-            "SELECT job_id FROM jobs "
-            "WHERE status IN ('pending', 'running') "
-            "ORDER BY position ASC"
-        ).fetchall()
-        for idx, row in enumerate(rows, start=1):
-            conn.execute(
-                "UPDATE jobs SET position = ? WHERE job_id = ?",
-                (idx, row["job_id"]))
+        compact_positions(conn)
 
     # ── Path propagation ──────────────────────────────────────────────
 
@@ -466,58 +456,18 @@ class JobStore:
 
             for row in rows:
                 job_id = row["job_id"]
-                library_root = row["library_root"]
-                source_folder = row["source_folder"]
-                ops_data = json.loads(row["rename_ops"])
-                changed = False
-
-                for dir_rename in renamed_dirs:
-                    old_dir = dir_rename["old"]
-                    new_dir = dir_rename["new"]
-
-                    # Update source_folder
-                    abs_source = str(Path(library_root) / source_folder)
-                    new_source = self._rebase_path(
-                        abs_source, old_dir, new_dir)
-                    if new_source != abs_source:
-                        try:
-                            source_folder = str(
-                                Path(new_source).relative_to(library_root))
-                        except ValueError:
-                            source_folder = new_source
-                        changed = True
-
-                    # Update each op's paths
-                    for op in ops_data:
-                        abs_orig = str(
-                            Path(library_root) / op["original_relative"])
-                        new_orig = self._rebase_path(
-                            abs_orig, old_dir, new_dir)
-                        if new_orig != abs_orig:
-                            try:
-                                op["original_relative"] = str(
-                                    Path(new_orig).relative_to(library_root))
-                            except ValueError:
-                                op["original_relative"] = new_orig
-                            changed = True
-
-                        abs_target = str(
-                            Path(library_root) / op["target_dir_relative"])
-                        new_target = self._rebase_path(
-                            abs_target, old_dir, new_dir)
-                        if new_target != abs_target:
-                            try:
-                                op["target_dir_relative"] = str(
-                                    Path(new_target).relative_to(library_root))
-                            except ValueError:
-                                op["target_dir_relative"] = new_target
-                            changed = True
+                source_folder, ops_data, changed = rewrite_job_paths(
+                    library_root=row["library_root"],
+                    source_folder=row["source_folder"],
+                    rename_ops=deserialize_rename_op_dicts(row["rename_ops"]),
+                    renamed_dirs=renamed_dirs,
+                )
 
                 if changed:
                     conn.execute(
                         "UPDATE jobs SET source_folder = ?, rename_ops = ?, "
                         "updated_at = ? WHERE job_id = ?",
-                        (source_folder, json.dumps(ops_data), now, job_id))
+                        (source_folder, serialize_rename_op_dicts(ops_data), now, job_id))
                     updated_count += 1
 
             if updated_count:
@@ -532,14 +482,8 @@ class JobStore:
 
     @staticmethod
     def _rebase_path(path_str: str, old_prefix: str, new_prefix: str) -> str:
-        """If *path_str* starts with *old_prefix*, replace that prefix."""
-        norm_path = path_str.replace("\\", "/")
-        norm_old = old_prefix.replace("\\", "/")
-        if norm_path == norm_old:
-            return new_prefix
-        if norm_path.startswith(norm_old + "/"):
-            return new_prefix + path_str[len(old_prefix):]
-        return path_str
+        """Compatibility wrapper for the extracted path-rewrite helper."""
+        return rebase_path(path_str, old_prefix, new_prefix)
 
     # ── Read operations ───────────────────────────────────────────────
 
@@ -565,10 +509,22 @@ class JobStore:
             conn = self._get_conn()
             rows = conn.execute(
                 "SELECT * FROM jobs "
-                "WHERE status IN ('completed', 'failed', 'cancelled', 'reverted') "
+                "WHERE status IN ('completed', 'failed', 'cancelled', 'reverted', 'revert_failed') "
                 "ORDER BY updated_at DESC"
             ).fetchall()
             return [self._row_to_job(r) for r in rows]
+
+    def get_latest_completed_with_undo(self) -> RenameJob | None:
+        """Return the most recently completed job that can still be reverted."""
+        with self._lock:
+            conn = self._get_conn()
+            row = conn.execute(
+                "SELECT * FROM jobs "
+                "WHERE status = ? AND undo_data IS NOT NULL "
+                "ORDER BY updated_at DESC LIMIT 1",
+                (JobStatus.COMPLETED,),
+            ).fetchone()
+            return self._row_to_job(row) if row else None
 
     def get_all(self) -> list[RenameJob]:
         with self._lock:
@@ -632,28 +588,8 @@ class JobStore:
 
     @staticmethod
     def _row_to_job(row: sqlite3.Row) -> RenameJob:
-        ops_data = json.loads(row["rename_ops"])
-        rename_ops = [RenameOp.from_dict(d) for d in ops_data]
-        undo_data = None
-        if row["undo_data"]:
-            undo_data = json.loads(row["undo_data"])
-
-        return RenameJob(
-            job_id=row["job_id"],
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-            media_type=row["media_type"],
-            tmdb_id=row["tmdb_id"],
-            media_name=row["media_name"],
-            library_root=row["library_root"],
-            source_folder=row["source_folder"],
-            show_folder_rename=row["show_folder_rename"],
-            status=row["status"],
-            error_message=row["error_message"],
-            position=row["position"],
-            undo_data=undo_data,
-            job_kind=row["job_kind"],
-            data_source=row["data_source"],
-            depends_on=row["depends_on"],
-            rename_ops=rename_ops,
+        return row_to_job(
+            row,
+            rename_op_from_dict=RenameOp.from_dict,
+            job_factory=RenameJob,
         )

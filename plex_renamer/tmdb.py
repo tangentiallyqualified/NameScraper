@@ -18,116 +18,40 @@ from __future__ import annotations
 
 import io
 import logging
-import threading
-import time
-from collections import OrderedDict
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-import requests
 from PIL import Image
+
+from ._tmdb_transport import (
+    TMDBAPIError,
+    TMDBError,
+    TMDBNetworkError,
+    TMDBRateLimitError,
+    TMDBTransport,
+)
+from ._tmdb_batch_search import (
+    resolve_movie_batch_query,
+    resolve_tv_batch_query,
+    run_batch_search,
+)
+from ._tmdb_image_cache import _TMDBImageCacheStore
+from ._tmdb_metadata_builder import (
+    build_empty_season_payload,
+    build_movie_search_results,
+    build_season_payload,
+    build_tv_search_results,
+)
+from ._tmdb_metadata_cache import _TMDBMetadataCacheStore
+from ._tmdb_search_helpers import extract_alternative_titles, search_with_fallback as run_search_with_fallback
 
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
+_HTTP_POOL_CONNECTIONS = 16
+_HTTP_POOL_MAXSIZE = 32
 
 log = logging.getLogger(__name__)
-
-
-# ─── Error types ─────────────────────────────────────────────────────────────
-
-class TMDBError(Exception):
-    """Base class for TMDB client errors."""
-
-
-class TMDBNetworkError(TMDBError):
-    """Network or connection failure — transient, may be retried."""
-
-
-class TMDBRateLimitError(TMDBError):
-    """API rate limit hit (HTTP 429)."""
-
-
-class TMDBAPIError(TMDBError):
-    """Non-retryable API error (4xx other than 429)."""
-
-    def __init__(self, status_code: int, message: str = ""):
-        self.status_code = status_code
-        super().__init__(f"TMDB API error {status_code}: {message}")
-
-
-# ─── Rate limiter ────────────────────────────────────────────────────────────
-
-class _TokenBucket:
-    """
-    Simple token-bucket rate limiter.
-
-    Allows up to *rate* requests per second with a burst capacity
-    equal to *rate*.  Thread-safe.
-    """
-
-    def __init__(self, rate: float = 35.0):
-        self._rate = rate
-        self._tokens = rate
-        self._max_tokens = rate
-        self._last_refill = time.monotonic()
-        self._lock = threading.Lock()
-
-    def acquire(self) -> None:
-        """Block until a token is available."""
-        while True:
-            with self._lock:
-                now = time.monotonic()
-                elapsed = now - self._last_refill
-                self._tokens = min(
-                    self._max_tokens,
-                    self._tokens + elapsed * self._rate,
-                )
-                self._last_refill = now
-                if self._tokens >= 1.0:
-                    self._tokens -= 1.0
-                    return
-            # Sleep briefly and retry
-            time.sleep(0.02)
-
-
-# ─── LRU image cache ────────────────────────────────────────────────────────
-
-class _LRUImageCache:
-    """
-    Bounded LRU cache for PIL Images.
-
-    Evicts the least-recently-used entry when *max_size* is exceeded.
-    Thread-safe.
-    """
-
-    def __init__(self, max_size: int = 200):
-        self._max_size = max_size
-        self._cache: OrderedDict[tuple, Image.Image] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def get(self, key: tuple) -> Image.Image | None:
-        with self._lock:
-            if key in self._cache:
-                self._cache.move_to_end(key)
-                return self._cache[key]
-        return None
-
-    def put(self, key: tuple, value: Image.Image) -> None:
-        with self._lock:
-            if key in self._cache:
-                self._cache.move_to_end(key)
-            else:
-                if len(self._cache) >= self._max_size:
-                    self._cache.popitem(last=False)
-            self._cache[key] = value
-
-    def clear(self) -> None:
-        with self._lock:
-            self._cache.clear()
-
-
 # ─── Client ──────────────────────────────────────────────────────────────────
 
 class TMDBClient:
@@ -145,96 +69,48 @@ class TMDBClient:
     """
 
     def __init__(self, api_key: str, rate_limit: float = 35.0,
-                 max_retries: int = 2, image_cache_size: int = 200):
+                 max_retries: int = 2, image_cache_size: int = 200,
+                 language: str = "en-US",
+                 cache_service: Any | None = None,
+                 refresh_policy: Any | None = None):
         self.api_key = api_key
-        self._session = requests.Session()
-        self._rate_limiter = _TokenBucket(rate_limit)
+        self.language = language
+        self._cache_service = cache_service
+        self._refresh_policy = refresh_policy
+        self._transport = TMDBTransport(
+            api_key=api_key,
+            language=language,
+            api_base=API_BASE,
+            rate_limit=rate_limit,
+            max_retries=max_retries,
+            pool_connections=_HTTP_POOL_CONNECTIONS,
+            pool_maxsize=_HTTP_POOL_MAXSIZE,
+            logger=log,
+        )
+        self._session = self._transport.session
+        self._rate_limiter = self._transport.rate_limiter
         self._max_retries = max_retries
 
-        # In-memory caches keyed by (show_id,) or (show_id, season_num)
-        self._show_cache: dict[int, dict] = {}
-        self._season_cache: dict[tuple[int, int], dict] = {}
-        self._season_map_cache: dict[int, tuple[dict, int]] = {}
-        self._movie_cache: dict[int, dict] = {}
+        self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
 
-        # LRU-bounded image cache keyed by (image_path, target_width)
-        self._image_cache = _LRUImageCache(max_size=image_cache_size)
+        self._metadata_cache_store = _TMDBMetadataCacheStore(
+            cache_service=cache_service,
+            refresh_policy=refresh_policy,
+        )
+        self._image_cache_store = _TMDBImageCacheStore(
+            image_cache_size=image_cache_size,
+            cache_service=cache_service,
+        )
 
     # ─── Helpers ──────────────────────────────────────────────────────
 
     def _get(self, path: str, params: dict | None = None) -> dict | None:
-        """
-        Make a GET request to the TMDB API with rate limiting and retry.
-
-        Returns JSON dict on success, None if the resource was not found
-        (404).  Raises TMDBError subclasses for other failures so callers
-        can distinguish transient vs permanent errors.
-        """
-        url = f"{API_BASE}{path}"
-        all_params = {"api_key": self.api_key}
-        if params:
-            all_params.update(params)
-
-        last_exc: Exception | None = None
-
-        for attempt in range(1 + self._max_retries):
-            self._rate_limiter.acquire()
-
-            try:
-                r = self._session.get(url, params=all_params, timeout=10)
-            except requests.RequestException as e:
-                last_exc = TMDBNetworkError(str(e))
-                if attempt < self._max_retries:
-                    time.sleep(1.0 * (2 ** attempt))
-                    continue
-                raise last_exc from e
-
-            if r.ok:
-                return r.json()
-
-            if r.status_code == 404:
-                return None
-
-            if r.status_code == 429:
-                # Rate limited — wait and retry
-                retry_after = float(r.headers.get("Retry-After", 1.5))
-                log.warning("TMDB rate limit hit, waiting %.1fs", retry_after)
-                last_exc = TMDBRateLimitError(
-                    f"Rate limited (attempt {attempt + 1})")
-                time.sleep(retry_after)
-                continue
-
-            if r.status_code >= 500:
-                # Server error — retry with backoff
-                last_exc = TMDBNetworkError(
-                    f"Server error {r.status_code} (attempt {attempt + 1})")
-                if attempt < self._max_retries:
-                    time.sleep(1.0 * (2 ** attempt))
-                    continue
-                raise last_exc
-
-            # 4xx (other than 404/429) — not retryable
-            raise TMDBAPIError(r.status_code, r.text[:200])
-
-        # Exhausted retries
-        if last_exc:
-            raise last_exc
-        return None
+        """Make a GET request to the TMDB API with rate limiting and retry."""
+        return self._transport.get_json(path, params)
 
     def _get_safe(self, path: str, params: dict | None = None) -> dict | None:
-        """
-        Like _get() but catches TMDBError and returns None.
-
-        Use this for non-critical paths (images, supplementary data)
-        where a failure shouldn't crash the operation.  For critical
-        paths (search, season fetch), prefer _get() and handle errors
-        explicitly.
-        """
-        try:
-            return self._get(path, params)
-        except TMDBError as e:
-            log.warning("TMDB request failed for %s: %s", path, e)
-            return None
+        """Like _get() but catches TMDBError and returns None."""
+        return self._transport.get_json_safe(path, params)
 
     # ─── TV Series ────────────────────────────────────────────────────
 
@@ -249,30 +125,25 @@ class TMDBClient:
         if year:
             params["first_air_date_year"] = year
 
-        data = self._get_safe("/search/tv", params)
-        if not data:
-            return []
-
-        results = []
-        for show in data.get("results", []):
-            air_date = show.get("first_air_date") or ""
-            year = air_date[:4] if len(air_date) >= 4 else ""
-            results.append({
-                "id": show["id"],
-                "name": show["name"],
-                "year": year,
-                "poster_path": show.get("poster_path"),
-                "overview": show.get("overview", ""),
-            })
-        return results
+        return build_tv_search_results(self._get_safe("/search/tv", params))
 
     def get_tv_details(self, show_id: int) -> dict | None:
         """Fetch full show details (seasons list, etc.). Cached."""
-        if show_id in self._show_cache:
-            return self._show_cache[show_id]
+        cached = self._metadata_cache_store.show_cache.get(show_id)
+        if cached is not None:
+            return cached
+        persisted = self._metadata_cache_store.get_tv_details(show_id)
+        if persisted is not None:
+            self._metadata_cache_store.show_cache[show_id] = persisted
+            return persisted
         data = self._get_safe(f"/tv/{show_id}")
         if data:
-            self._show_cache[show_id] = data
+            self._metadata_cache_store.show_cache[show_id] = data
+            self._metadata_cache_store.put_tv_details(
+                show_id,
+                data,
+                show_status=data.get("status"),
+            )
         return data
 
     def get_season(self, show_id: int, season_num: int) -> dict:
@@ -287,47 +158,24 @@ class TMDBClient:
             }
         """
         cache_key = (show_id, season_num)
-        if cache_key in self._season_cache:
-            return self._season_cache[cache_key]
+        cached = self._metadata_cache_store.season_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        persisted = self._metadata_cache_store.get_season(show_id, season_num)
+        if persisted is not None:
+            self._metadata_cache_store.season_cache[cache_key] = persisted
+            return persisted
 
         data = self._get_safe(f"/tv/{show_id}/season/{season_num}")
         if not data:
-            result = {"titles": {}, "posters": {}, "episodes": {},
-                      "season_poster_path": None}
-            self._season_cache[cache_key] = result
+            result = build_empty_season_payload()
+            self._metadata_cache_store.season_cache[cache_key] = result
             return result
 
-        titles = {}
-        posters = {}
-        episodes = {}
-        for ep in data.get("episodes", []):
-            num = ep["episode_number"]
-            titles[num] = ep.get("name", f"Episode {num}")
-            posters[num] = ep.get("still_path")
-            # Store rich metadata for the detail panel
-            guest_stars = ep.get("guest_stars", [])
-            crew = ep.get("crew", [])
-            episodes[num] = {
-                "name": titles[num],
-                "overview": ep.get("overview", ""),
-                "air_date": ep.get("air_date", ""),
-                "vote_average": ep.get("vote_average", 0),
-                "vote_count": ep.get("vote_count", 0),
-                "runtime": ep.get("runtime"),
-                "still_path": posters[num],
-                "directors": [c.get("name", "") for c in crew
-                              if c.get("job") == "Director" and c.get("name")],
-                "writers": [c.get("name", "") for c in crew
-                            if c.get("job") in ("Writer", "Teleplay", "Story")
-                            and c.get("name")],
-                "guest_stars": [
-                    {"name": g.get("name", ""), "character": g.get("character", "")}
-                    for g in guest_stars[:5]  # Top 5 guests
-                ],
-            }
-        result = {"titles": titles, "posters": posters, "episodes": episodes,
-                  "season_poster_path": data.get("poster_path")}
-        self._season_cache[cache_key] = result
+        result = build_season_payload(data)
+        self._metadata_cache_store.season_cache[cache_key] = result
+        self._metadata_cache_store.put_season(show_id, season_num, result)
         return result
 
     def get_season_map(self, show_id: int) -> tuple[dict, int]:
@@ -338,8 +186,9 @@ class TMDBClient:
             tmdb_seasons: {season_num: {"titles": {...}, "posters": {...}, "episodes": {...}, "count": int}}
             total_episodes: total across non-special seasons
         """
-        if show_id in self._season_map_cache:
-            return self._season_map_cache[show_id]
+        cached = self._metadata_cache_store.season_map_cache.get(show_id)
+        if cached is not None:
+            return cached
 
         show_data = self.get_tv_details(show_id)
         if not show_data:
@@ -354,6 +203,7 @@ class TMDBClient:
             titles = season_data["titles"]
             count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
             tmdb_seasons[sn] = {
+                "name": season_info.get("name", ""),
                 "titles": titles,
                 "posters": season_data["posters"],
                 "episodes": season_data.get("episodes", {}),
@@ -362,8 +212,9 @@ class TMDBClient:
             if sn > 0:
                 total_episodes += count
 
-        self._season_map_cache[show_id] = (tmdb_seasons, total_episodes)
-        return tmdb_seasons, total_episodes
+        cached = (tmdb_seasons, total_episodes)
+        self._metadata_cache_store.season_map_cache[show_id] = cached
+        return cached
 
     # ─── Movies ───────────────────────────────────────────────────────
 
@@ -378,31 +229,61 @@ class TMDBClient:
         if year:
             params["year"] = year
 
-        data = self._get_safe("/search/movie", params)
-        if not data:
-            return []
-
-        results = []
-        for movie in data.get("results", []):
-            release_date = movie.get("release_date") or ""
-            yr = release_date[:4] if len(release_date) >= 4 else ""
-            results.append({
-                "id": movie["id"],
-                "title": movie["title"],
-                "year": yr,
-                "poster_path": movie.get("poster_path"),
-                "overview": movie.get("overview", ""),
-            })
-        return results
+        return build_movie_search_results(self._get_safe("/search/movie", params))
 
     def get_movie_details(self, movie_id: int) -> dict | None:
         """Fetch full movie details. Cached."""
-        if movie_id in self._movie_cache:
-            return self._movie_cache[movie_id]
+        cached = self._metadata_cache_store.movie_cache.get(movie_id)
+        if cached is not None:
+            return cached
+        persisted = self._metadata_cache_store.get_movie_details(movie_id)
+        if persisted is not None:
+            self._metadata_cache_store.movie_cache[movie_id] = persisted
+            return persisted
         data = self._get_safe(f"/movie/{movie_id}")
         if data:
-            self._movie_cache[movie_id] = data
+            self._metadata_cache_store.movie_cache[movie_id] = data
+            self._metadata_cache_store.put_movie_details(movie_id, data)
         return data
+
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie",
+    ) -> list[tuple[str, str]]:
+        """
+        Fetch alternative/AKA titles for a movie or TV show. Cached.
+
+        Args:
+            media_id: TMDB ID.
+            media_type: ``"movie"`` or ``"tv"``.
+
+        Returns:
+            List of ``(title, country_code)`` tuples where *country_code*
+            is the ISO 3166-1 alpha-2 code (e.g. ``"US"``, ``"FR"``).
+        """
+        cache_key = (media_id, media_type)
+        if cache_key in self._alt_titles_cache:
+            return self._alt_titles_cache[cache_key]
+
+        data = self._get_safe(f"/{media_type}/{media_id}/alternative_titles")
+        if not data:
+            log.warning(
+                "Alt titles: no data returned for %s/%s", media_type, media_id)
+            self._alt_titles_cache[cache_key] = []
+            return []
+
+        entries = data.get("titles") or data.get("results") or []
+        log.debug(
+            "Alt titles for %s/%s: %d entries in response",
+            media_type, media_id, len(entries),
+        )
+        titles = extract_alternative_titles(data)
+        log.info(
+            "Alt titles for %s/%s: %d unique titles — %s",
+            media_type, media_id, len(titles),
+            [(t, c) for t, c in titles[:5]],
+        )
+        self._alt_titles_cache[cache_key] = titles
+        return titles
 
     def search_movies_batch(
         self,
@@ -424,30 +305,17 @@ class TMDBClient:
             A list of result lists, one per query, in the same order as
             the input queries.
         """
-        total = len(queries)
-        results: list[list[dict] | None] = [None] * total
-        completed = [0]
-        lock = threading.Lock()
-
-        def _search(index: int, query: str, year: str | None) -> None:
-            res = self.search_with_fallback(query, self.search_movie, year=year)
-            if not res and year:
-                res = self.search_with_fallback(query, self.search_movie)
-            results[index] = res
-            with lock:
-                completed[0] += 1
-                count = completed[0]
-            if progress_callback:
-                progress_callback(count, total)
-
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = []
-            for i, (query, year) in enumerate(queries):
-                futures.append(pool.submit(_search, i, query, year))
-            for future in as_completed(futures):
-                future.result()
-
-        return [r if r is not None else [] for r in results]
+        return run_batch_search(
+            queries,
+            search_query=lambda query, year: resolve_movie_batch_query(
+                query,
+                year,
+                search_with_fallback=self.search_with_fallback,
+                search_fn=self.search_movie,
+            ),
+            max_workers=max_workers,
+            progress_callback=progress_callback,
+        )
 
     def search_tv_batch(
         self,
@@ -468,30 +336,17 @@ class TMDBClient:
             A list of result lists, one per query, in the same order as
             the input queries.
         """
-        total = len(queries)
-        results: list[list[dict] | None] = [None] * total
-        completed = [0]
-        lock = threading.Lock()
-
-        def _search(index: int, query: str, year: str | None) -> None:
-            res = self.search_with_fallback(query, self.search_tv, year=year)
-            if not res and year:
-                res = self.search_with_fallback(query, self.search_tv)
-            results[index] = res
-            with lock:
-                completed[0] += 1
-                count = completed[0]
-            if progress_callback:
-                progress_callback(count, total)
-
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = []
-            for i, (query, year) in enumerate(queries):
-                futures.append(pool.submit(_search, i, query, year))
-            for future in as_completed(futures):
-                future.result()
-
-        return [r if r is not None else [] for r in results]
+        return run_batch_search(
+            queries,
+            search_query=lambda query, year: resolve_tv_batch_query(
+                query,
+                year,
+                search_with_fallback=self.search_with_fallback,
+                search_fn=self.search_tv,
+            ),
+            max_workers=max_workers,
+            progress_callback=progress_callback,
+        )
 
     # ─── Fallback search ─────────────────────────────────────────────
 
@@ -517,14 +372,12 @@ class TMDBClient:
 
         Returns the first non-empty result list, or [].
         """
-        words = query.split()
-        # Try full query first, then progressively shorter
-        for n in range(len(words), min_words - 1, -1):
-            attempt = " ".join(words[:n])
-            results = search_fn(attempt, **kwargs)
-            if results:
-                return results
-        return []
+        return run_search_with_fallback(
+            query,
+            search_fn,
+            min_words=min_words,
+            **kwargs,
+        )
 
     # ─── Images ───────────────────────────────────────────────────────
 
@@ -545,20 +398,27 @@ class TMDBClient:
         """
         if not image_path:
             return None
-        cache_key = (image_path, target_width)
-        cached = self._image_cache.get(cache_key)
+        cached = self._image_cache_store.get_image(image_path, target_width)
         if cached is not None:
             return cached
+        source = self._image_cache_store.get_source_image(image_path)
+        if source is None:
+            try:
+                payload = self._transport.fetch_bytes(IMAGE_BASE_URL + image_path)
+                source = Image.open(io.BytesIO(payload))
+                source.load()
+                self._image_cache_store.store_source_image(image_path, source)
+            except (TMDBNetworkError, OSError, ValueError) as e:
+                log.debug("Failed to fetch image %s: %s", image_path, e)
+                return None
+
         try:
-            self._rate_limiter.acquire()
-            r = self._session.get(IMAGE_BASE_URL + image_path, timeout=10)
-            img = Image.open(io.BytesIO(r.content))
-            scale = target_width / img.width
-            new_h = int(img.height * scale)
-            img = img.resize((target_width, new_h), Image.LANCZOS)
-            self._image_cache.put(cache_key, img)
+            scale = target_width / source.width
+            new_h = int(source.height * scale)
+            img = source.resize((target_width, new_h), Image.LANCZOS)
+            self._image_cache_store.store_image(image_path, target_width, img)
             return img
-        except (requests.RequestException, OSError, ValueError) as e:
+        except (OSError, ValueError) as e:
             log.debug("Failed to fetch image %s: %s", image_path, e)
             return None
 
@@ -576,39 +436,88 @@ class TMDBClient:
         Priority: ep_still → season poster → show/movie poster.
         Uses cached data where available to avoid extra API calls.
         """
+        cached = self._image_cache_store.get_poster(
+            media_id=media_id,
+            media_type=media_type,
+            season=season,
+            ep_still=ep_still,
+            target_width=target_width,
+        )
+        if cached is not None:
+            return cached
+
         # Try episode still first
         if ep_still:
             img = self.fetch_image(ep_still, target_width)
             if img:
+                self._image_cache_store.store_poster(
+                    media_id=media_id,
+                    media_type=media_type,
+                    season=season,
+                    ep_still=ep_still,
+                    target_width=target_width,
+                    image=img,
+                )
                 return img
 
         # Try season poster (TV only) — read from cache, no extra API call
         if media_type == "tv" and season is not None:
             cache_key = (media_id, season)
-            if cache_key not in self._season_cache:
+            if cache_key not in self._metadata_cache_store.season_cache:
                 self.get_season(media_id, season)  # populates cache
-            cached = self._season_cache.get(cache_key)
+            cached = self._metadata_cache_store.season_cache.get(cache_key)
             if cached and cached.get("season_poster_path"):
                 img = self.fetch_image(cached["season_poster_path"], target_width)
                 if img:
+                    self._image_cache_store.store_poster(
+                        media_id=media_id,
+                        media_type=media_type,
+                        season=season,
+                        ep_still=ep_still,
+                        target_width=target_width,
+                        image=img,
+                    )
                     return img
 
         # Fall back to show/movie poster — use cache for both TV and movies
-        if media_type == "tv" and media_id in self._show_cache:
-            data = self._show_cache[media_id]
-        elif media_type == "movie" and media_id in self._movie_cache:
-            data = self._movie_cache[media_id]
+        if media_type == "tv" and media_id in self._metadata_cache_store.show_cache:
+            data = self._metadata_cache_store.show_cache[media_id]
+        elif media_type == "movie" and media_id in self._metadata_cache_store.movie_cache:
+            data = self._metadata_cache_store.movie_cache[media_id]
         else:
             data = self._get_safe(f"/{media_type}/{media_id}")
         if data and data.get("poster_path"):
-            return self.fetch_image(data["poster_path"], target_width)
+            img = self.fetch_image(data["poster_path"], target_width)
+            if img:
+                self._image_cache_store.store_poster(
+                    media_id=media_id,
+                    media_type=media_type,
+                    season=season,
+                    ep_still=ep_still,
+                    target_width=target_width,
+                    image=img,
+                )
+            return img
 
         return None
 
+    def get_cached_poster_path(self, media_id: int, media_type: str = "tv") -> str | None:
+        """Return a cached poster path for a media item without making network calls."""
+        return self._metadata_cache_store.get_cached_poster_path(media_id, media_type)
+
     def clear_cache(self) -> None:
         """Clear all in-memory caches. Useful when switching shows."""
-        self._show_cache.clear()
-        self._season_cache.clear()
-        self._season_map_cache.clear()
-        self._movie_cache.clear()
-        self._image_cache.clear()
+        self._metadata_cache_store.clear_runtime_caches()
+        self._image_cache_store.clear_runtime_caches()
+
+    def export_cache_snapshot(self) -> dict[str, dict]:
+        """Return a serializable snapshot of the in-memory metadata caches."""
+        return self._metadata_cache_store.export_snapshot()
+
+    def import_cache_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+        """Hydrate the in-memory metadata caches from a persisted snapshot."""
+        if not snapshot:
+            return
+        if clear_existing:
+            self._image_cache_store.clear_runtime_caches()
+        self._metadata_cache_store.import_snapshot(snapshot, clear_existing=clear_existing)
