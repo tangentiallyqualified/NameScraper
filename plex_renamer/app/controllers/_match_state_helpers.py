@@ -41,6 +41,7 @@ def approve_scan_match(
         return False
     state.match_origin = "manual"
     resolve_movie_preview_review(state)
+    set_actionable_preview_checks(state, True)
     return True
 
 

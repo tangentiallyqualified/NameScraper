@@ -1225,7 +1225,7 @@ class RematchStateTests(_ControllerTestCase):
         self.assertEqual(state.match_origin, "manual")
         self.assertEqual(state.preview_items[0].status, "OK")
         self.assertEqual(self.ctrl.movie_preview_items[0].status, "OK")
-        self.assertFalse(state.checked)
+        self.assertTrue(state.checked)
         self.assertEqual(state.confidence, 1.0)
 
 
