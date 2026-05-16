@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
-from ..parsing import clean_folder_name, normalize_for_match
+from ..parsing import clean_folder_name, extract_year, normalize_for_match
 from ..tmdb import TMDBClient
 from ._state import get_auto_accept_threshold
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
@@ -415,6 +416,66 @@ def _extract_sequel_number(title: str) -> int | None:
         if token in _WORD_NUMERAL_MAP:
             return _WORD_NUMERAL_MAP[token]
     return None
+
+
+@dataclass(frozen=True, slots=True)
+class _MovieEvidence:
+    exact_title_match: bool
+    year_exact_match: bool
+    year_severely_off: bool
+    folder_corroborates_title: bool
+    sequel_mismatch: bool
+
+
+def _collect_movie_evidence(
+    *,
+    file_path: Path,
+    tmdb_title: str,
+    tmdb_year: str | None,
+) -> _MovieEvidence:
+    """Inspect *file_path* against the chosen TMDB title/year and return evidence flags."""
+    stem = file_path.stem
+    raw_filename_no_year = clean_folder_name(stem, include_year=False)
+    folder_clean = clean_folder_name(file_path.parent.name, include_year=False)
+
+    tmdb_norm = normalize_for_match(tmdb_title)
+    filename_norm = normalize_for_match(raw_filename_no_year)
+    folder_norm = normalize_for_match(folder_clean)
+
+    exact_title_match = bool(tmdb_norm) and (
+        filename_norm == tmdb_norm or folder_norm == tmdb_norm
+    )
+
+    filename_year = extract_year(stem) or extract_year(file_path.parent.name)
+    year_exact_match = False
+    year_severely_off = False
+    if filename_year and tmdb_year:
+        try:
+            diff = abs(int(filename_year) - int(tmdb_year))
+            year_exact_match = (diff == 0)
+            year_severely_off = (diff >= 3)
+        except (ValueError, TypeError):
+            pass
+
+    folder_corroborates_title = (
+        bool(folder_norm) and bool(tmdb_norm) and folder_norm == tmdb_norm
+    )
+
+    raw_filename = clean_folder_name(stem)
+    filename_sequel = _extract_sequel_number(raw_filename)
+    tmdb_sequel = _extract_sequel_number(tmdb_title)
+    sequel_mismatch = (
+        (filename_sequel is not None or tmdb_sequel is not None)
+        and filename_sequel != tmdb_sequel
+    )
+
+    return _MovieEvidence(
+        exact_title_match=exact_title_match,
+        year_exact_match=year_exact_match,
+        year_severely_off=year_severely_off,
+        folder_corroborates_title=folder_corroborates_title,
+        sequel_mismatch=sequel_mismatch,
+    )
 
 
 def score_tv_results(
