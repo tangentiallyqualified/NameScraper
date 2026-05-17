@@ -192,6 +192,16 @@ class PersistentCacheService:
             )
             return cursor.rowcount
 
+    def invalidate_namespace_prefix(self, namespace_prefix: str) -> int:
+        """Delete entries in a namespace and dot-child namespaces."""
+        child_pattern = f"{namespace_prefix}.%"
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "DELETE FROM cache_entries WHERE namespace = ? OR namespace LIKE ?",
+                (namespace_prefix, child_pattern),
+            )
+            return cursor.rowcount
+
     def invalidate_by_prefix(self, namespace: str, key_prefix: str) -> int:
         """Delete every entry whose key starts with the provided prefix."""
         with self._connect() as conn:
@@ -201,12 +211,16 @@ class PersistentCacheService:
             )
             return cursor.rowcount
 
-    def stats(self) -> dict[str, int]:
+    def stats(self, *, namespace_prefix: str | None = None) -> dict[str, int]:
         """Return aggregate cache statistics for auditing and tests."""
+        query = "SELECT COUNT(*) AS item_count, COALESCE(SUM(size_bytes), 0) AS total_size FROM cache_entries"
+        params: tuple[object, ...] = ()
+        if namespace_prefix is not None:
+            query += " WHERE namespace = ? OR namespace LIKE ?"
+            params = (namespace_prefix, f"{namespace_prefix}.%")
+
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS item_count, COALESCE(SUM(size_bytes), 0) AS total_size FROM cache_entries"
-            ).fetchone()
+            row = conn.execute(query, params).fetchone()
             return {
                 "item_count": int(row["item_count"]),
                 "total_size_bytes": int(row["total_size"]),

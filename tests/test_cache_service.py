@@ -109,6 +109,34 @@ class CacheServiceTests(unittest.TestCase):
         self.assertFalse(self.cache.get("ns", "key1").is_hit)
         self.assertTrue(self.cache.get("other", "key1").is_hit)
 
+    def test_invalidate_namespace_prefix_removes_root_and_child_namespaces(self):
+        self.cache.put("tmdb", "client_snapshot", {"movie_cache": {"1": {}}})
+        self.cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+        self.cache.put("tmdb.poster_image", "poster::200", {"png_base64": "abc"})
+        self.cache.put("other", "key1", {"v": 3})
+
+        deleted = self.cache.invalidate_namespace_prefix("tmdb")
+
+        self.assertEqual(deleted, 3)
+        self.assertFalse(self.cache.get("tmdb", "client_snapshot").is_hit)
+        self.assertFalse(self.cache.get("tmdb.tv_details", "1").is_hit)
+        self.assertFalse(self.cache.get("tmdb.poster_image", "poster::200").is_hit)
+        self.assertTrue(self.cache.get("other", "key1").is_hit)
+
+    def test_stats_can_be_scoped_to_namespace_prefix(self):
+        self.cache.put("tmdb", "client_snapshot", {"movie_cache": {"1": {}}})
+        self.cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+        self.cache.put("tmdb.poster_image", "poster::200", {"png_base64": "abc"})
+        self.cache.put("other", "key1", {"v": 3})
+
+        all_stats = self.cache.stats()
+        tmdb_stats = self.cache.stats(namespace_prefix="tmdb")
+
+        self.assertEqual(all_stats["item_count"], 4)
+        self.assertEqual(tmdb_stats["item_count"], 3)
+        self.assertGreater(tmdb_stats["total_size_bytes"], 0)
+        self.assertEqual(tmdb_stats["max_items"], 4000)
+
     def test_invalidate_by_prefix(self):
         self.cache.put("ns", "show::123::s1", {"v": 1})
         self.cache.put("ns", "show::123::s2", {"v": 2})
