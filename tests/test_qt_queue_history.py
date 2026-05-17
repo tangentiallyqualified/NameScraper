@@ -352,6 +352,9 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -360,12 +363,13 @@ class QtQueueHistoryTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -409,6 +413,9 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -417,12 +424,13 @@ class QtQueueHistoryTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -451,7 +459,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         window._tv_workspace._roster_collapsed["plex-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
-        self.assertEqual(state.folder, Path("C:/library/tv/Example Show (2024)"))
+        self.assertEqual(state.folder, output_root / "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
         self._assert_roster_section_title(window._tv_workspace, 0, "PLEX READY")

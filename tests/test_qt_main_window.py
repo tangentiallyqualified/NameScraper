@@ -279,7 +279,52 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertGreaterEqual(window._toast_manager.toast_count(), 2)
         window.close()
 
-    def test_main_window_batches_quick_success_toasts(self):
+    def test_queue_bridge_batches_bursty_queue_changed_refreshes(self):
+        from plex_renamer.gui_qt._main_window_bridges import QueueBridge
+
+        bridge = QueueBridge()
+        changed: list[object] = []
+        started: list[object] = []
+        completed: list[tuple[object, object]] = []
+        bridge.changed.connect(changed.append)
+        bridge.job_started.connect(started.append)
+        bridge.job_completed.connect(lambda job, result: completed.append((job, result)))
+
+        jobs = [object() for _ in range(20)]
+        results = [object() for _ in jobs]
+        for job, result in zip(jobs, results):
+            bridge.on_job_started(job)
+            bridge.on_job_completed(job, result)
+
+        self._app.processEvents()
+        self.assertEqual(len(started), 20)
+        self.assertEqual(len(completed), 20)
+
+        QTest.qWait(150)
+
+        self.assertEqual(len(changed), 1)
+
+    def test_queue_bridge_flushes_pending_refresh_when_queue_finishes(self):
+        from plex_renamer.gui_qt._main_window_bridges import QueueBridge
+
+        bridge = QueueBridge()
+        changed: list[object] = []
+        finished: list[bool] = []
+        bridge.changed.connect(changed.append)
+        bridge.queue_finished.connect(lambda: finished.append(True))
+
+        bridge.on_job_started(object())
+        bridge.on_queue_finished()
+        self._app.processEvents()
+
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(len(changed), 1)
+
+        QTest.qWait(150)
+
+        self.assertEqual(len(changed), 1)
+
+    def test_main_window_updates_one_running_queue_toast_until_finished(self):
         from plex_renamer.constants import JobStatus
         from plex_renamer.engine import RenameResult
         from plex_renamer.gui_qt.main_window import MainWindow
@@ -293,16 +338,30 @@ class QtMainWindowTests(QtSmokeBase):
             status=JobStatus.RUNNING,
         )
 
+        window.queue_ctrl.executor._running = True
         window._on_job_started(job)
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "Queue running")
+
         window._on_job_completed(job, RenameResult(renamed_count=12))
         window._on_job_completed(job, RenameResult(renamed_count=8))
-        self.assertEqual(window._toast_manager.toast_count(), 0)
 
         QTest.qWait(450)
 
         self.assertEqual(window._toast_manager.toast_count(), 1)
         toast = window._toast_manager._layout.itemAt(0).widget()
-        self.assertEqual(toast._title_label.text(), "2 jobs completed")
+        self.assertEqual(toast._title_label.text(), "Queue running")
+        self.assertIn("2 completed", toast._message_label.text())
+        self.assertIn("20 files renamed", toast._message_label.text())
+
+        window.queue_ctrl.executor._running = False
+        window._on_queue_finished()
+
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "Queue finished")
+        self.assertIn("2 completed", toast._message_label.text())
         self.assertIn("20 files renamed", toast._message_label.text())
         window.close()
 
