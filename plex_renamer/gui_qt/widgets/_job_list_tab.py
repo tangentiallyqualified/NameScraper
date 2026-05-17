@@ -329,12 +329,12 @@ class _JobListTab(QWidget):
         self.refresh()
 
     def _select_all(self) -> None:
-        self._model.set_jobs_checked(self._visible_job_ids(), True)
+        self._model.set_jobs_checked(self._visible_job_ids(checkable_only=True), True)
 
     def _clear_selection(self) -> None:
         self._model.clear_checked()
 
-    def _visible_job_ids(self) -> set[str]:
+    def _visible_job_ids(self, *, checkable_only: bool = False) -> set[str]:
         job_ids: set[str] = set()
         for row in range(self._proxy.rowCount()):
             proxy_index = self._proxy.index(row, 0)
@@ -342,12 +342,13 @@ class _JobListTab(QWidget):
             if not source_index.isValid():
                 continue
             job = self._model.job_at(source_index.row())
-            if job is not None:
+            if job is not None and (not checkable_only or self._model.is_checkable_job(job)):
                 job_ids.add(job.job_id)
         return job_ids
 
     def _retain_visible_checked_jobs(self) -> None:
-        self._model.set_checked_job_ids(self._model.checked_job_ids() & self._visible_job_ids())
+        visible_checkable_ids = self._visible_job_ids(checkable_only=True)
+        self._model.set_checked_job_ids(self._model.checked_job_ids() & visible_checkable_ids)
 
     def _on_master_check_changed(self, state: int) -> None:
         if self._master_check_syncing:
@@ -406,7 +407,7 @@ class _JobListTab(QWidget):
         self._update_job_controls()
 
     def _sync_selection_widgets(self) -> None:
-        visible_ids = self._visible_job_ids()
+        visible_ids = self._visible_job_ids(checkable_only=True)
         checked_ids = self._model.checked_job_ids()
         checked_visible = len(visible_ids & checked_ids)
         total_checked = len(checked_ids)

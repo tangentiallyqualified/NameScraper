@@ -75,6 +75,67 @@ class QtQueueHistoryTests(QtSmokeBase):
             history_tab.close()
             queue_ctrl.close()
 
+    def test_history_header_and_revert_use_only_revertible_checked_jobs(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp) / "jobs.sqlite3")
+            queue_ctrl = QueueController(store)
+            revertible = RenameJob(
+                library_root="C:/library",
+                source_folder="Show",
+                media_name="Revertible Show",
+                status=JobStatus.COMPLETED,
+                undo_data={"renames": [{"old": "a", "new": "b"}, {"old": "c", "new": "d"}]},
+            )
+            completed_without_undo = RenameJob(
+                library_root="C:/library",
+                source_folder="NoUndo",
+                media_name="No Undo Show",
+                status=JobStatus.COMPLETED,
+                undo_data=None,
+            )
+            failed_with_undo = RenameJob(
+                library_root="C:/library",
+                source_folder="Failed",
+                media_name="Failed Show",
+                status=JobStatus.FAILED,
+                undo_data={"renames": [{"old": "e", "new": "f"}]},
+            )
+            store.add_job(revertible)
+            store.add_job(completed_without_undo)
+            store.add_job(failed_with_undo)
+
+            history_tab = HistoryTab(queue_ctrl)
+            self._app.processEvents()
+            history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
+
+            self.assertEqual(history_tab._model.checked_job_ids(), {revertible.job_id})
+            self.assertEqual(history_tab._selection_status.text(), "1 job checked")
+
+            def check_state_for(job_id: str):
+                for row, job in enumerate(history_tab._model.jobs()):
+                    if job.job_id == job_id:
+                        return history_tab._model.data(
+                            history_tab._model.index(row, 0),
+                            Qt.ItemDataRole.CheckStateRole,
+                        )
+                self.fail(f"Missing job {job_id}")
+
+            self.assertEqual(check_state_for(revertible.job_id), Qt.CheckState.Checked)
+            self.assertIsNone(check_state_for(completed_without_undo.job_id))
+            self.assertIsNone(check_state_for(failed_with_undo.job_id))
+
+            history_tab._revert_selected()
+
+            self.assertEqual(history_tab._pending_revert_job_ids, [revertible.job_id])
+            self.assertIn("1 job, 2 files", history_tab._revert_info.text())
+
+            history_tab.close()
+            queue_ctrl.close()
+
     def test_queue_and_history_tabs_refresh(self):
         from PySide6.QtWidgets import QHeaderView
         from plex_renamer.app.controllers.queue_controller import QueueController
@@ -105,6 +166,7 @@ class QtQueueHistoryTests(QtSmokeBase):
                     tmdb_id=456,
                     status=JobStatus.COMPLETED,
                     rename_ops=[],
+                    undo_data={"renames": [{"old": "a", "new": "b"}]},
                 )
             )
 
