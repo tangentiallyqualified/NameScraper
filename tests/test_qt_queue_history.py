@@ -136,6 +136,46 @@ class QtQueueHistoryTests(QtSmokeBase):
             history_tab.close()
             queue_ctrl.close()
 
+    def test_history_header_click_resyncs_when_no_visible_revertible_jobs(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp) / "jobs.sqlite3")
+            queue_ctrl = QueueController(store)
+            job = RenameJob(
+                library_root="C:/library",
+                source_folder="NoUndo",
+                media_name="No Undo Show",
+                status=JobStatus.COMPLETED,
+                undo_data=None,
+            )
+            store.add_job(job)
+
+            history_tab = HistoryTab(queue_ctrl)
+            try:
+                history_tab.show()
+                self._app.processEvents()
+
+                QTest.mouseClick(
+                    history_tab._header.viewport(),
+                    Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier,
+                    QPoint(
+                        history_tab._header.sectionViewportPosition(0)
+                        + history_tab._header.sectionSize(0) // 2,
+                        history_tab._header.height() // 2,
+                    ),
+                )
+
+                self.assertEqual(history_tab._model.checked_job_ids(), set())
+                self.assertEqual(history_tab._selection_status.text(), "0 jobs checked")
+                self.assertEqual(history_tab._header.check_state(), Qt.CheckState.Unchecked)
+            finally:
+                history_tab.close()
+                queue_ctrl.close()
+
     def test_queue_and_history_tabs_refresh(self):
         from PySide6.QtWidgets import QHeaderView
         from plex_renamer.app.controllers.queue_controller import QueueController

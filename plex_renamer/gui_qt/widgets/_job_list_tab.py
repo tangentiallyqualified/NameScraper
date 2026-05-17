@@ -70,7 +70,7 @@ class _CheckableHeaderView(QHeaderView):
             self.style().drawControl(QStyle.ControlElement.CE_CheckBox, option, painter)
 
     def mousePressEvent(self, event) -> None:
-        logical = self.logicalIndexAt(event.pos())
+        logical = self.logicalIndexAt(event.position().toPoint())
         if logical == 0:
             next_state = (
                 Qt.CheckState.Unchecked
@@ -357,6 +357,7 @@ class _JobListTab(QWidget):
             self._select_all()
         elif state == Qt.CheckState.Unchecked.value:
             self._clear_selection()
+        self._sync_selection_widgets()
 
     def _on_cell_entered(self, index: QModelIndex) -> None:
         self._hover_delegate.set_hover_row(index.row() if index.isValid() else -1)
