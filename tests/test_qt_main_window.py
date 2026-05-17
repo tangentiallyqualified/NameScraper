@@ -415,6 +415,42 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
+    def test_settings_tab_cache_stats_and_clear_use_tmdb_namespace_prefix(self):
+        import gc
+
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            tab = None
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb", "client_snapshot", {"movie_cache": {"1": {}}})
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            cache.put("tmdb.poster_image", "poster::200", {"png_base64": "abc"})
+            cache.put("other", "key1", {"v": 3})
+            dropped_runtime_clients: list[bool] = []
+
+            tab = SettingsTab(
+                cache_service=cache,
+                clear_tmdb_callback=lambda: dropped_runtime_clients.append(True),
+            )
+
+            try:
+                self.assertIn("3 entries", tab._cache_stats.text())
+
+                tab._on_clear_cache()
+                self._app.processEvents()
+
+                self.assertEqual(dropped_runtime_clients, [True])
+                self.assertEqual(tab._cache_confirm.text(), "Cleared 3 TMDB cache entries.")
+                self.assertIn("0 entries", tab._cache_stats.text())
+                self.assertTrue(cache.get("other", "key1").is_hit)
+            finally:
+                if tab is not None:
+                    tab.close()
+                del tab
+                del cache
+                gc.collect()
+
     def test_settings_tab_has_destination_category_and_controls(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
