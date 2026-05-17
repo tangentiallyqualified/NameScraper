@@ -30,7 +30,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 return BatchQueueResult(added=len(states))
 
         class _FakeMediaController:
@@ -699,7 +699,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -757,21 +757,27 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             confidence=1.0,
         )
         media_ctrl = _FakeMediaController([first, second])
-        workspace = MediaWorkspace(
-            media_type="tv",
-            media_controller=media_ctrl,
-            queue_controller=_FakeQueueController(),
-        )
-        workspace.show_ready()
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=_FakeQueueController(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
 
-        workspace._queue_checked()
+            workspace._queue_checked()
 
-        self.assertTrue(first.queued)
-        self.assertFalse(second.checked)
-        self._assert_roster_section_title(workspace, 0, "QUEUED")
-        self._assert_roster_section_title(workspace, 2, "MATCHED")
+            self.assertTrue(first.queued)
+            self.assertFalse(second.checked)
+            self._assert_roster_section_title(workspace, 0, "QUEUED")
+            self._assert_roster_section_title(workspace, 2, "MATCHED")
 
-        workspace.close()
+            workspace.close()
 
     def test_media_workspace_fix_match_refreshes_duplicate_tv_preview(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
@@ -1135,7 +1141,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, command_gating):
+            def add_movie_batch(self, states, root, output_root, command_gating):
                 self.called = True
                 return BatchQueueResult(added=len(states))
 
@@ -1143,6 +1149,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         queue_ctrl = _FakeQueueController()
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
             ready_state = ScanState(
                 folder=Path("C:/library/movies/Dune.Part.Two.2024"),
                 media_info={"id": 11, "title": "Dune: Part Two", "year": "2024"},
@@ -3651,7 +3660,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -3696,6 +3705,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
             media_ctrl = _FakeMediaController()
             media_ctrl.batch_states = [
                 _make_state("Show.One.2024", 101),
@@ -3726,7 +3738,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, gating):
+            def add_movie_batch(self, states, root, output_root, gating):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -3752,6 +3764,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
             state = ScanState(
                 folder=Path("C:/library/movies/Arrival.2016"),
                 media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},

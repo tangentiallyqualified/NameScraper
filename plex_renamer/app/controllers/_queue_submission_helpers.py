@@ -46,6 +46,7 @@ def add_single_queue_job(
     tmdb_id: int,
     media_name: str,
     library_root: Path,
+    output_root: Path,
     source_folder: Path,
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
@@ -57,10 +58,13 @@ def add_single_queue_job(
         tmdb_id=tmdb_id,
         media_name=media_name,
         library_root=library_root,
+        output_root=output_root,
         source_folder=source_folder,
         show_folder_rename=show_folder_rename,
         poster_path=poster_path,
     )
+    if not job.selected_ops:
+        raise ValueError("No actionable rename operations are selected.")
     job_store.add_job(job)
     return job
 
@@ -70,6 +74,7 @@ def add_tv_batch_jobs(
     *,
     states: list[ScanState],
     library_root: Path,
+    output_root: Path,
     command_gating: CommandGatingService,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
@@ -102,6 +107,7 @@ def add_tv_batch_jobs(
         job = build_rename_job_from_state(
             state=state,
             library_root=library_root,
+            output_root=output_root,
             show_folder_rename=show_folder,
             checked_indices=checked,
         )
@@ -123,6 +129,7 @@ def add_movie_batch_jobs(
     *,
     states: list[ScanState],
     library_root: Path,
+    output_root: Path,
     command_gating: CommandGatingService,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
@@ -161,6 +168,7 @@ def add_movie_batch_jobs(
             tmdb_id=state.show_id or 0,
             media_name=state.display_name,
             library_root=library_root,
+            output_root=output_root,
             source_folder=item.original.parent,
             show_folder_rename=movie_folder,
             poster_path=state.media_info.get("poster_path"),

@@ -57,6 +57,7 @@ class QueueControllerTests(unittest.TestCase):
             tmdb_id=100,
             media_name="Show",
             library_root=lib_root,
+            output_root=lib_root,
             source_folder=source,
             show_folder_rename="Show (2020)",
         )
@@ -91,6 +92,7 @@ class QueueControllerTests(unittest.TestCase):
             tmdb_id=100,
             media_name="Show",
             library_root=lib_root,
+            output_root=lib_root,
             source_folder=source,
             poster_path="/poster.jpg",
         )
@@ -206,6 +208,7 @@ class QueueControllerTests(unittest.TestCase):
             tmdb_id=100,
             media_name="Show",
             library_root=lib_root,
+            output_root=lib_root,
             source_folder=source,
         )
 
@@ -214,6 +217,85 @@ class QueueControllerTests(unittest.TestCase):
             self.ctrl.add_single_job(**kwargs)
 
     # ── Properties ────────────────────────────────────────────────────
+
+    def test_add_single_job_rejects_unmatched_only_selection(self):
+        lib_root = self.tmp / "library"
+        output_root = self.tmp / "output"
+        source = lib_root / "Show"
+        source.mkdir(parents=True)
+        output_root.mkdir()
+
+        item = PreviewItem(
+            original=source / "extra.mkv",
+            new_name="extra.mkv",
+            target_dir=output_root / "Show (2024)" / "Unmatched",
+            season=0,
+            episodes=[],
+            status="UNMATCHED: no TMDB special found - moving to Unmatched",
+            media_type=MediaType.TV,
+            media_id=100,
+            media_name="Show",
+        )
+
+        with self.assertRaises(ValueError):
+            self.ctrl.add_single_job(
+                items=[item],
+                checked_indices={0},
+                media_type=MediaType.TV,
+                tmdb_id=100,
+                media_name="Show",
+                library_root=lib_root,
+                output_root=output_root,
+                source_folder=source,
+            )
+
+        self.assertEqual(self.store.get_pending(), [])
+
+    def test_add_single_job_rejects_selection_with_no_selected_queue_ops(self):
+        lib_root = self.tmp / "library"
+        output_root = self.tmp / "output"
+        source = lib_root / "Show"
+        source.mkdir(parents=True)
+        output_root.mkdir()
+
+        items = [
+            PreviewItem(
+                original=source / "extra.mkv",
+                new_name="extra.mkv",
+                target_dir=output_root / "Show (2024)" / "Unmatched",
+                season=0,
+                episodes=[],
+                status="UNMATCHED: no TMDB special found - moving to Unmatched",
+                media_type=MediaType.TV,
+                media_id=100,
+                media_name="Show",
+            ),
+            PreviewItem(
+                original=source / "episode.mkv",
+                new_name="Show (2024) - S01E01.mkv",
+                target_dir=output_root / "Show (2024)" / "Season 01",
+                season=1,
+                episodes=[1],
+                status="OK",
+                media_type=MediaType.TV,
+                media_id=100,
+                media_name="Show",
+            ),
+        ]
+
+        with self.assertRaises(ValueError):
+            self.ctrl.add_single_job(
+                items=items,
+                checked_indices={0},
+                media_type=MediaType.TV,
+                tmdb_id=100,
+                media_name="Show",
+                library_root=lib_root,
+                output_root=output_root,
+                source_folder=source,
+            )
+
+        self.assertEqual(self.store.get_pending(), [])
 
     def test_pending_count_tracks_pending_jobs(self):
         self.assertEqual(self.ctrl.pending_count, 0)
@@ -242,6 +324,7 @@ class QueueControllerTests(unittest.TestCase):
             tmdb_id=200,
             media_name="Show2",
             library_root=lib_root,
+            output_root=lib_root,
             source_folder=source,
         )
 
@@ -679,6 +762,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         result = self.ctrl.add_movie_batch(
             states=[checked_state, unchecked_state],
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -698,6 +782,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         result = self.ctrl.add_movie_batch(
             states=states,
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -724,6 +809,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         result = self.ctrl.add_movie_batch(
             states=[state],
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -763,6 +849,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         result = self.ctrl.add_movie_batch(
             states=[state],
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -802,6 +889,7 @@ class MovieBatchCheckboxTests(unittest.TestCase):
         result = self.ctrl.add_movie_batch(
             states=[state],
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -876,6 +964,7 @@ class TVBatchShowLevelQueueTests(unittest.TestCase):
         result = self.ctrl.add_tv_batch(
             states=[state],
             library_root=lib_root,
+            output_root=lib_root,
             command_gating=CommandGatingService(),
         )
 
@@ -885,6 +974,94 @@ class TVBatchShowLevelQueueTests(unittest.TestCase):
         self.assertEqual(len(jobs[0].rename_ops), 3)
         self.assertTrue(all(op.selected for op in jobs[0].rename_ops))
         self.assertEqual([op.file_type for op in jobs[0].rename_ops], ["video", "subtitle", "video"])
+
+    def test_tv_batch_job_uses_output_root_relative_targets(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        lib_root = self.tmp / "library"
+        output = self.tmp / "output"
+        source = lib_root / "Show" / "Disc 01"
+        target = output / "Show (2024)" / "Season 01"
+        source.mkdir(parents=True)
+        target.mkdir(parents=True)
+
+        state = ScanState(
+            folder=lib_root / "Show",
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=source / "Show.S01E01.mkv",
+                    new_name="Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=target,
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+            output_root=output,
+        )
+
+        result = self.ctrl.add_tv_batch(
+            states=[state],
+            library_root=lib_root,
+            output_root=output,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 1)
+        jobs = self.store.get_pending()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0].output_root, str(output))
+        self.assertEqual(
+            Path(jobs[0].rename_ops[0].original_relative),
+            Path("Show/Disc 01/Show.S01E01.mkv"),
+        )
+        self.assertEqual(
+            Path(jobs[0].rename_ops[0].target_dir_relative),
+            Path("Show (2024)/Season 01"),
+        )
+
+    def test_unmatched_preview_items_do_not_produce_queue_ops(self):
+        from plex_renamer.app.services.command_gating_service import CommandGatingService
+
+        lib_root = self.tmp / "library"
+        output = self.tmp / "output"
+        source = lib_root / "Show" / "Disc 01"
+        source.mkdir(parents=True)
+        output.mkdir()
+
+        state = ScanState(
+            folder=lib_root / "Show",
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=source / "Show.Special.mkv",
+                    new_name="Show (2024) - Special.mkv",
+                    target_dir=output / "Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[],
+                    status="UNMATCHED: no episode mapping",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+            output_root=output,
+        )
+
+        result = self.ctrl.add_tv_batch(
+            states=[state],
+            library_root=lib_root,
+            output_root=output,
+            command_gating=CommandGatingService(),
+        )
+
+        self.assertEqual(result.added, 0)
+        self.assertTrue(result.blocked)
+        self.assertEqual(self.store.get_pending(), [])
 
 
 class BatchQueueResultTests(unittest.TestCase):

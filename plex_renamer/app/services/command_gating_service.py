@@ -229,8 +229,8 @@ class CommandGatingService:
 
     @staticmethod
     def is_actionable_item(item: PreviewItem) -> bool:
-        """Delegate to the canonical ``PreviewItem.is_actionable`` property."""
-        return item.is_actionable
+        """True when an item should produce a rename/move operation."""
+        return item.is_actionable and not item.is_unmatched
 
     @classmethod
     def _blocked_counts(cls, items: list[PreviewItem]) -> dict[str, int]:

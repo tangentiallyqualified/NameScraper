@@ -14,32 +14,37 @@ def get_checked_indices_from_state(state: ScanState) -> set[int]:
         index for index, item in enumerate(state.preview_items)
         if state.check_vars.get(str(index)) is not None
         and state.check_vars[str(index)].get()
-        and item.is_actionable
+        and _is_queue_actionable(item)
     }
+
+
+def _is_queue_actionable(item: PreviewItem) -> bool:
+    return item.is_actionable and not item.is_unmatched
 
 
 def _build_rename_ops(
     items: list[PreviewItem],
     checked_indices: set[int],
-    library_root: Path,
+    source_root: Path,
+    output_root: Path,
 ) -> list:
     """Convert preview items into serializable RenameOp rows."""
     from ..job_store import RenameOp
 
     ops = []
     for index, item in enumerate(items):
-        if not item.is_actionable:
+        if not _is_queue_actionable(item):
             continue
 
         target_dir = item.target_dir or item.original.parent
 
         try:
-            original_rel = str(item.original.relative_to(library_root))
+            original_rel = str(item.original.relative_to(source_root))
         except ValueError:
             original_rel = str(item.original)
 
         try:
-            target_rel = str(target_dir.relative_to(library_root))
+            target_rel = str(target_dir.relative_to(output_root))
         except ValueError:
             target_rel = str(target_dir)
 
@@ -57,7 +62,7 @@ def _build_rename_ops(
 
         for companion in item.companions:
             try:
-                companion_rel = str(companion.original.relative_to(library_root))
+                companion_rel = str(companion.original.relative_to(source_root))
             except ValueError:
                 companion_rel = str(companion.original)
 
@@ -78,6 +83,7 @@ def _build_rename_ops(
 def build_rename_job_from_state(
     state: ScanState,
     library_root: Path,
+    output_root: Path,
     show_folder_rename: str | None = None,
     checked_indices: set[int] | None = None,
 ) -> "RenameJob":
@@ -85,7 +91,7 @@ def build_rename_job_from_state(
     from ..job_store import RenameJob
 
     checked_indices = checked_indices or get_checked_indices_from_state(state)
-    ops = _build_rename_ops(state.preview_items, checked_indices, library_root)
+    ops = _build_rename_ops(state.preview_items, checked_indices, library_root, output_root)
 
     if state.relative_folder:
         source_folder = state.relative_folder
@@ -101,6 +107,7 @@ def build_rename_job_from_state(
         media_name=state.display_name,
         poster_path=state.media_info.get("poster_path"),
         library_root=str(library_root),
+        output_root=str(output_root),
         source_folder=source_folder,
         rename_ops=ops,
         show_folder_rename=show_folder_rename,
@@ -114,6 +121,7 @@ def build_rename_job_from_items(
     tmdb_id: int,
     media_name: str,
     library_root: Path,
+    output_root: Path,
     source_folder: Path,
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
@@ -121,7 +129,7 @@ def build_rename_job_from_items(
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob
 
-    ops = _build_rename_ops(items, checked_indices, library_root)
+    ops = _build_rename_ops(items, checked_indices, library_root, output_root)
 
     if media_type == MediaType.MOVIE:
         try:
@@ -142,6 +150,7 @@ def build_rename_job_from_items(
         media_name=media_name,
         poster_path=poster_path,
         library_root=str(library_root),
+        output_root=str(output_root),
         source_folder=source_rel,
         rename_ops=ops,
         show_folder_rename=show_folder_rename,

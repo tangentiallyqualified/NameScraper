@@ -191,6 +191,7 @@ class CommandGatingServiceTests(unittest.TestCase):
         job = build_rename_job_from_state(
             state,
             Path("C:/library/tv"),
+            Path("C:/library/tv"),
             checked_indices={0, 1},
         )
 
