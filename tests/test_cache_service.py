@@ -123,6 +123,30 @@ class CacheServiceTests(unittest.TestCase):
         self.assertFalse(self.cache.get("tmdb.poster_image", "poster::200").is_hit)
         self.assertTrue(self.cache.get("other", "key1").is_hit)
 
+    def test_invalidate_namespace_prefix_is_literal_case_sensitive_and_dot_bound(self):
+        self.cache.put("tmdb", "root", {"v": 1})
+        self.cache.put("tmdb.child", "child", {"v": 2})
+        self.cache.put("tmdbx", "sibling", {"v": 3})
+        self.cache.put("tmdb_extra", "underscore", {"v": 4})
+        self.cache.put("TMDB.child", "case", {"v": 5})
+        self.cache.put("foo_bar", "root", {"v": 6})
+        self.cache.put("foo_bar.child", "child", {"v": 7})
+        self.cache.put("fooXbar.child", "wildcard-lookalike", {"v": 8})
+
+        tmdb_deleted = self.cache.invalidate_namespace_prefix("tmdb")
+        foo_bar_deleted = self.cache.invalidate_namespace_prefix("foo_bar")
+
+        self.assertEqual(tmdb_deleted, 2)
+        self.assertEqual(foo_bar_deleted, 2)
+        self.assertFalse(self.cache.get("tmdb", "root").is_hit)
+        self.assertFalse(self.cache.get("tmdb.child", "child").is_hit)
+        self.assertFalse(self.cache.get("foo_bar", "root").is_hit)
+        self.assertFalse(self.cache.get("foo_bar.child", "child").is_hit)
+        self.assertTrue(self.cache.get("tmdbx", "sibling").is_hit)
+        self.assertTrue(self.cache.get("tmdb_extra", "underscore").is_hit)
+        self.assertTrue(self.cache.get("TMDB.child", "case").is_hit)
+        self.assertTrue(self.cache.get("fooXbar.child", "wildcard-lookalike").is_hit)
+
     def test_stats_can_be_scoped_to_namespace_prefix(self):
         self.cache.put("tmdb", "client_snapshot", {"movie_cache": {"1": {}}})
         self.cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
@@ -136,6 +160,22 @@ class CacheServiceTests(unittest.TestCase):
         self.assertEqual(tmdb_stats["item_count"], 3)
         self.assertGreater(tmdb_stats["total_size_bytes"], 0)
         self.assertEqual(tmdb_stats["max_items"], 4000)
+
+    def test_stats_namespace_prefix_is_literal_case_sensitive_and_dot_bound(self):
+        self.cache.put("tmdb", "root", {"v": 1})
+        self.cache.put("tmdb.child", "child", {"v": 2})
+        self.cache.put("tmdbx", "sibling", {"v": 3})
+        self.cache.put("tmdb_extra", "underscore", {"v": 4})
+        self.cache.put("TMDB.child", "case", {"v": 5})
+        self.cache.put("foo_bar", "root", {"v": 6})
+        self.cache.put("foo_bar.child", "child", {"v": 7})
+        self.cache.put("fooXbar.child", "wildcard-lookalike", {"v": 8})
+
+        tmdb_stats = self.cache.stats(namespace_prefix="tmdb")
+        foo_bar_stats = self.cache.stats(namespace_prefix="foo_bar")
+
+        self.assertEqual(tmdb_stats["item_count"], 2)
+        self.assertEqual(foo_bar_stats["item_count"], 2)
 
     def test_invalidate_by_prefix(self):
         self.cache.put("ns", "show::123::s1", {"v": 1})

@@ -194,11 +194,11 @@ class PersistentCacheService:
 
     def invalidate_namespace_prefix(self, namespace_prefix: str) -> int:
         """Delete entries in a namespace and dot-child namespaces."""
-        child_pattern = f"{namespace_prefix}.%"
+        child_prefix = f"{namespace_prefix}."
         with self._connect() as conn:
             cursor = conn.execute(
-                "DELETE FROM cache_entries WHERE namespace = ? OR namespace LIKE ?",
-                (namespace_prefix, child_pattern),
+                "DELETE FROM cache_entries WHERE namespace = ? OR substr(namespace, 1, ?) = ?",
+                (namespace_prefix, len(child_prefix), child_prefix),
             )
             return cursor.rowcount
 
@@ -216,8 +216,9 @@ class PersistentCacheService:
         query = "SELECT COUNT(*) AS item_count, COALESCE(SUM(size_bytes), 0) AS total_size FROM cache_entries"
         params: tuple[object, ...] = ()
         if namespace_prefix is not None:
-            query += " WHERE namespace = ? OR namespace LIKE ?"
-            params = (namespace_prefix, f"{namespace_prefix}.%")
+            child_prefix = f"{namespace_prefix}."
+            query += " WHERE namespace = ? OR substr(namespace, 1, ?) = ?"
+            params = (namespace_prefix, len(child_prefix), child_prefix)
 
         with self._connect() as conn:
             row = conn.execute(query, params).fetchone()
