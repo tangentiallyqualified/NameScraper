@@ -5,6 +5,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from plex_renamer.app.models import RefreshState
 from plex_renamer.app.services.cache_service import PersistentCacheService
@@ -21,6 +22,31 @@ class CacheServiceTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.db_path = Path(self._tmp.name) / "cache.db"
         self.cache = PersistentCacheService(db_path=self.db_path)
+
+    def test_init_closes_sqlite_connection(self):
+        class _FakeConnection:
+            def __init__(self):
+                self.closed = False
+                self.row_factory = None
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def executescript(self, _sql):
+                return None
+
+            def close(self):
+                self.closed = True
+
+        conn = _FakeConnection()
+
+        with patch("plex_renamer.app.services.cache_service.sqlite3.connect", return_value=conn):
+            PersistentCacheService(db_path=self.db_path)
+
+        self.assertTrue(conn.closed)
 
     def test_put_get_round_trip(self):
         entry = self.cache.put("ns", "key1", {"title": "Arrival"})
