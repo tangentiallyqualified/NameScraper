@@ -20,7 +20,7 @@ from conftest_qt import QtSmokeBase
 
 class QtQueueHistoryTests(QtSmokeBase):
     def test_job_table_file_and_companion_columns_do_not_double_count(self):
-        from plex_renamer.gui_qt.models.job_table_model import JobTableModel
+        from plex_renamer.gui_qt.models.job_table_model import JobTableModel, SORT_ROLE
         from plex_renamer.job_store import RenameJob, RenameOp
 
         job = RenameJob(
@@ -52,6 +52,14 @@ class QtQueueHistoryTests(QtSmokeBase):
                     selected=False,
                     file_type="video",
                 ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E02.eng.srt",
+                    new_name="Example Show - S01E02.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=False,
+                    file_type="subtitle",
+                ),
             ],
         )
         model = JobTableModel(history=False)
@@ -59,6 +67,8 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         self.assertEqual(model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole), "1")
         self.assertEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.data(model.index(0, 5), SORT_ROLE), 1)
+        self.assertEqual(model.data(model.index(0, 6), SORT_ROLE), 1)
 
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
