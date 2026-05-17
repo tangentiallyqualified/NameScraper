@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import _scale
 from ...thread_pool import submit as _submit_bg
 from ._settings_tab_actions import SettingsTabActionsCoordinator
 from ._settings_tab_sections import SettingsTabSectionsBuilder
@@ -108,12 +109,17 @@ class SettingsTab(QScrollArea):
 
         content = QWidget()
         shell = QHBoxLayout(content)
-        shell.setContentsMargins(24, 20, 24, 20)
-        shell.setSpacing(16)
+        shell.setContentsMargins(
+            _scale.px(24),
+            _scale.px(20),
+            _scale.px(24),
+            _scale.px(20),
+        )
+        shell.setSpacing(_scale.px(16))
 
         self._settings_nav = QListWidget()
         self._settings_nav.setProperty("cssClass", "settings-nav")
-        self._settings_nav.setFixedWidth(180)
+        self._settings_nav.setFixedWidth(_scale.px(180))
         self._settings_nav.addItems(
             [
                 "Destinations",

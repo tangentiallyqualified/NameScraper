@@ -29,8 +29,14 @@ class SettingsSectionCard(QFrame):
         self.setProperty("cssClass", "settings-section")
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(16, 16, 16, 16)
-        self._layout.setSpacing(12)
+        self._layout.setContentsMargins(
+            _scale.px(16),
+            _scale.px(16),
+            _scale.px(16),
+            _scale.px(16),
+        )
+        self._layout.setSpacing(_scale.px(12))
+        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         heading = QLabel(title)
         heading.setProperty("cssClass", "heading")
@@ -81,14 +87,14 @@ class SettingsTabSectionsBuilder:
     ) -> QVBoxLayout:
         tab = self._tab
         wrapper = QVBoxLayout()
-        wrapper.setSpacing(6)
+        wrapper.setSpacing(_scale.px(6))
 
         title = QLabel(label)
         title.setProperty("cssClass", "field-label")
         wrapper.addWidget(title)
 
         row = QHBoxLayout()
-        row.setSpacing(8)
+        row.setSpacing(_scale.px(8))
 
         path_input = QLineEdit()
         path_input.setProperty("cssClass", "path-input")

@@ -133,6 +133,25 @@ class QtMainWindowTests(QtSmokeBase):
                 self.assertEqual(window._tv_workspace._stack.currentIndex(), 0)
             window.close()
 
+    def test_workspace_folder_selection_without_output_stays_empty(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-tv"
+            source.mkdir()
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.tv_output_folder = ""
+
+            window._tv_workspace.load_folder(str(source))
+            self._app.processEvents()
+
+            self.assertEqual(window._tv_workspace._stack.currentIndex(), 0)
+            self.assertFalse(window._tv_workspace.scan_progress_widget._animation_timer.isActive())
+            self.assertFalse(window.media_ctrl.cancel_scan())
+            window.close()
+
     def test_movie_scan_is_blocked_when_output_is_nested_under_source(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 
@@ -351,6 +370,28 @@ class QtMainWindowTests(QtSmokeBase):
             self.assertEqual(tab._tv_output_input.text(), "")
             self.assertEqual(tab._movie_output_input.text(), "")
 
+            tab.close()
+
+    def test_settings_tab_category_page_controls_stay_top_aligned(self):
+        from PySide6.QtWidgets import QLabel
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            tab.resize(_scale.px(1400), _scale.px(800))
+            tab.show()
+            self._app.processEvents()
+
+            tab._settings_nav.setCurrentRow(1)
+            self._app.processEvents()
+
+            page = tab._settings_stack.currentWidget()
+            labels = {label.text(): label for label in page.findChildren(QLabel)}
+
+            self.assertLess(labels["Default view mode"].mapTo(page, QPoint(0, 0)).y(), _scale.px(120))
+            self.assertLess(labels["Display"].height(), _scale.px(80))
             tab.close()
 
     def test_settings_tab_saves_existing_destination_paths(self):

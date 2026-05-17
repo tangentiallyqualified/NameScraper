@@ -56,7 +56,6 @@ class MediaWorkspaceLifecycleCoordinator:
     def on_folder_selected(self, path: str) -> None:
         workspace = self._workspace
         workspace.folder_selected.emit(path)
-        self.show_scanning()
 
     def on_cancel_scan(self) -> None:
         workspace = self._workspace
