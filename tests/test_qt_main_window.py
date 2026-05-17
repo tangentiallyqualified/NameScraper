@@ -428,6 +428,9 @@ class QtMainWindowTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -436,12 +439,13 @@ class QtMainWindowTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,

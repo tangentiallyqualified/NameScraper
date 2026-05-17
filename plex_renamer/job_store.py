@@ -53,12 +53,13 @@ class RenameOp:
     """
     One file's rename plan — fully serializable, no Path objects.
 
-    Paths are stored relative to the job's library_root so they survive
-    drive remounts and are portable across machines.
+    Source paths are stored relative to the job's library_root.  Target
+    directories are relative to output_root for destination-aware jobs and
+    library_root for completed legacy jobs.
     """
     original_relative: str          # Relative path from library_root
     new_name: str                   # Target filename
-    target_dir_relative: str        # Relative path from library_root to target dir
+    target_dir_relative: str        # Relative path from target root to target dir
     status: str                     # "OK", "UNMATCHED", etc.
     season: int | None = None
     episodes: list[int] = field(default_factory=list)
@@ -100,7 +101,7 @@ class RenameJob:
     poster_path: str | None = None
 
     # Paths
-    library_root: str = ""          # Absolute path to the library root
+    library_root: str = ""          # Absolute path to the source root
     output_root: str | None = None  # Optional destination root for output files
     source_folder: str = ""         # Relative path from library_root to show/movie folder
 
