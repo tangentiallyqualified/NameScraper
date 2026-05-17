@@ -61,9 +61,22 @@ class QtMainWindowTests(QtSmokeBase):
             def start_tv_batch(self, folder, tmdb):
                 return None
 
+        class _FakeOutputStatus:
+            valid = True
+            path = Path("D:/library-output")
+            reason = ""
+
+        class _FakeSettingsService:
+            def validate_tv_output_folder(self):
+                return _FakeOutputStatus()
+
+            def validate_scan_output_relationship(self, folder, output_folder):
+                return _FakeOutputStatus()
+
         class _FakeWindow:
             def __init__(self):
                 self.media_ctrl = _FakeMediaController()
+                self.settings_service = _FakeSettingsService()
                 self._tv_workspace = _FakeWorkspace()
                 self._movie_workspace = _FakeWorkspace()
                 self._status = _FakeStatusBar()
@@ -98,6 +111,49 @@ class QtMainWindowTests(QtSmokeBase):
             window._tv_workspace.scan_progress_widget.updates[-1]["current_item"],
             "Example Show",
         )
+
+    def test_tv_scan_is_blocked_without_output_folder(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-tv"
+            source.mkdir()
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.tv_output_folder = ""
+
+            window._scan_coordinator.start_tv_scan(str(source))
+            self._app.processEvents()
+
+            self.assertIsNone(window.media_ctrl.tv_root_folder)
+            if hasattr(window._tv_workspace, "is_showing_empty"):
+                self.assertTrue(window._tv_workspace.is_showing_empty())
+            else:
+                self.assertEqual(window._tv_workspace._stack.currentIndex(), 0)
+            window.close()
+
+    def test_movie_scan_is_blocked_when_output_is_nested_under_source(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-movies"
+            output = source / "ready"
+            output.mkdir(parents=True)
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.movie_output_folder = str(output)
+
+            window._scan_coordinator.start_movie_scan(str(source))
+            self._app.processEvents()
+
+            self.assertIsNone(window.media_ctrl.movie_folder)
+            if hasattr(window._movie_workspace, "is_showing_empty"):
+                self.assertTrue(window._movie_workspace.is_showing_empty())
+            else:
+                self.assertEqual(window._movie_workspace._stack.currentIndex(), 0)
+            window.close()
 
     def test_transient_popup_filter_hides_tool_windows(self):
         from PySide6.QtCore import QEvent

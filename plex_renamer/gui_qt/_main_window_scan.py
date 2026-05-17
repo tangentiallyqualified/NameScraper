@@ -115,17 +115,53 @@ class MainWindowScanCoordinator:
     def _start_scan(self, path: str, *, media_type: str) -> None:
         window = self._window
         window._scan_feedback_token = None
+        folder = Path(path)
+        workspace = self._workspace_for_media_type(media_type)
+        if not self._validate_destination_for_scan(folder, media_type=media_type):
+            return
         tmdb = window._ensure_tmdb()
         if tmdb is None:
-            self._workspace_for_media_type(media_type).show_empty()
+            workspace.show_empty()
             return
-        workspace = self._workspace_for_media_type(media_type)
         workspace.show_scanning()
-        folder = Path(path)
         if media_type == "movie":
             window.media_ctrl.start_movie_batch(folder, tmdb)
             return
         window.media_ctrl.start_tv_batch(folder, tmdb)
+
+    def _validate_destination_for_scan(self, folder: Path, *, media_type: str) -> bool:
+        window = self._window
+        if media_type == "movie":
+            output_status = window.settings_service.validate_movie_output_folder()
+            workspace = window._movie_workspace
+            label = "Movies"
+        else:
+            output_status = window.settings_service.validate_tv_output_folder()
+            workspace = window._tv_workspace
+            label = "TV Shows"
+
+        if not output_status.valid or output_status.path is None:
+            workspace.show_empty()
+            window._show_scan_feedback(
+                title=f"{label} output folder required",
+                message=output_status.reason or f"Set a {label} output folder in Settings before scanning.",
+                tone="error",
+            )
+            window.statusBar().showMessage("Set an output folder in Settings before scanning.", 5000)
+            return False
+
+        relationship = window.settings_service.validate_scan_output_relationship(folder, output_status.path)
+        if not relationship.valid:
+            workspace.show_empty()
+            window._show_scan_feedback(
+                title="Output folder cannot be inside the scan folder",
+                message=relationship.reason,
+                tone="error",
+            )
+            window.statusBar().showMessage(relationship.reason, 5000)
+            return False
+
+        return True
 
     def _workspace_for_media_type(self, media_type: str):
         window = self._window
