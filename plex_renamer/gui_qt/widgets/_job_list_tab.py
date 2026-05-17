@@ -184,11 +184,9 @@ class _JobListTab(QWidget):
         self._toolbar.setProperty("panelVariant", "square")
         self._toolbar_layout = QHBoxLayout(self._toolbar)
         self._toolbar_layout.setContentsMargins(12, 12, 12, 12)
-        self._root.addWidget(self._toolbar)
+        self._actions_layout_has_stretch = False
 
         self._actions_bar = QFrame()
-        self._actions_bar.setProperty("cssClass", "panel")
-        self._actions_bar.setProperty("panelVariant", "square")
         self._actions_layout = QHBoxLayout(self._actions_bar)
         self._actions_layout.setContentsMargins(0, 0, 0, 0)
         self._actions_layout.setSpacing(8)
@@ -258,24 +256,44 @@ class _JobListTab(QWidget):
         self._model.dataChanged.connect(self._on_checked_jobs_changed)
         self._model.modelReset.connect(self._sync_selection_widgets)
 
-    def _finish_toolbar(self, filters: dict[str, set[str] | None], *, current_text: str = "All") -> None:
+    def _finish_toolbar(
+        self,
+        filters: dict[str, set[str] | None],
+        *,
+        current_text: str = "All",
+        position: str = "top",
+    ) -> None:
         self._filters = dict(filters)
         self._filter_control = SegmentedControl(filters.keys(), current_text=current_text)
         self._filter_control.currentTextChanged.connect(self._apply_filter)
-        self._toolbar_layout.addWidget(self._filter_control)
 
-        self._toolbar_layout.addWidget(self._selection_status)
+        toolbar_layout = self._toolbar_layout
+        status_stretch = 1
+        if position == "bottom":
+            toolbar_layout = self._actions_layout
+            self._actions_layout.insertWidget(0, self._filter_control)
+            self._actions_layout.insertWidget(1, self._selection_status)
+            status_stretch = 0
+        else:
+            self._root.insertWidget(0, self._toolbar)
+            toolbar_layout.addWidget(self._filter_control)
+            toolbar_layout.addWidget(self._selection_status)
 
         self._status = QLabel("")
         self._status.setProperty("cssClass", "text-dim")
-        self._toolbar_layout.addWidget(self._status, stretch=1)
+        toolbar_layout.insertWidget(2, self._status, stretch=status_stretch)
+        if position == "bottom":
+            toolbar_layout.insertStretch(3, 1)
+            self._actions_layout_has_stretch = True
 
     def _insert_panel_before_detail(self, widget: QWidget) -> None:
         self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
 
     def _finish_list_pane(self) -> None:
         self._list_layout.addWidget(self._table, stretch=1)
-        self._actions_layout.insertStretch(0, 1)
+        if not self._actions_layout_has_stretch:
+            self._actions_layout.insertStretch(0, 1)
+            self._actions_layout_has_stretch = True
         self._list_layout.addWidget(self._actions_bar)
 
     def select_job(self, job_id: str) -> None:

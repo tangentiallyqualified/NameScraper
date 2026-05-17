@@ -80,7 +80,7 @@ class HistoryTab(_JobListTab):
             self._revert_info,
         )
 
-        self._finish_toolbar(_HISTORY_FILTERS)
+        self._finish_toolbar(_HISTORY_FILTERS, position="bottom")
         self._finish_list_pane()
         self.refresh()
 

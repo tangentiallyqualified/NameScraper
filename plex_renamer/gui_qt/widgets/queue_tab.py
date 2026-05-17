@@ -70,7 +70,7 @@ class QueueTab(_JobListTab):
         self._remove_btn.clicked.connect(self._remove_selected)
         self._actions_layout.addWidget(self._remove_btn)
 
-        self._finish_toolbar(_QUEUE_FILTERS)
+        self._finish_toolbar(_QUEUE_FILTERS, position="bottom")
         self._finish_list_pane()
 
         self.refresh()
