@@ -24,6 +24,7 @@ class _MovieBatchController(Protocol):
     _movie_library_states: list[Any]
     _movie_media_info: dict | None
     _library_selected_index: int | None
+    _settings: Any
 
     def _set_progress(
         self,
@@ -160,6 +161,9 @@ def _complete_movie_batch_scan(
         phase="Preparing review list...",
         message="Preparing review list...",
     )
+    movie_output = controller._settings.valid_movie_output_folder
+    if movie_output is not None:
+        retarget_movie_items_to_output(items, movie_output)
     controller._movie_preview_items = items
     controller._build_movie_library_states(items, scanner)
     controller.sync_queued_states()
@@ -180,3 +184,15 @@ def _complete_movie_batch_scan(
     controller._notify("library_changed", controller._movie_library_states)
     controller._notify("scan_complete", None)
     controller._finish_scan_operation(cancel_event)
+
+
+def retarget_movie_items_to_output(items: list[Any], output_root: Path) -> None:
+    """Retarget actionable movie preview items into the configured output root."""
+    resolved_output = output_root.resolve()
+    for item in items:
+        if not getattr(item, "new_name", None) or getattr(item, "target_dir", None) is None:
+            continue
+        if getattr(item, "media_type", None) != MediaType.MOVIE:
+            continue
+        target_name = Path(item.target_dir).name
+        item.target_dir = resolved_output / target_name

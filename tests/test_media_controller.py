@@ -859,6 +859,161 @@ class MovieStateBuildTests(_ControllerTestCase):
         self.assertFalse(duplicate_state.checked)
 
 
+class OutputPreviewRetargetingTests(_ControllerTestCase):
+    def test_tv_scan_state_preview_targets_output_root(self):
+        output = self.tmp / "TV Output"
+        source = self.tmp / "Incoming" / "Bleach" / "Season 01"
+        output.mkdir()
+        source.mkdir(parents=True)
+        episode = source / "Bleach.S01E01.mkv"
+        episode.write_text("x")
+        self.ctrl.settings.tv_output_folder = str(output)
+
+        state = ScanState(
+            folder=self.tmp / "Incoming" / "Bleach",
+            media_info={"id": 1, "name": "Bleach", "year": "2004"},
+            preview_items=[
+                PreviewItem(
+                    original=episode,
+                    new_name="Bleach (2004) - S01E01 - Pilot.mkv",
+                    target_dir=source,
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+        )
+
+        from plex_renamer.app.controllers._tv_batch_helpers import retarget_tv_state_to_output
+
+        retarget_tv_state_to_output(state, output)
+
+        self.assertEqual(state.output_root, output.resolve())
+        self.assertEqual(
+            state.preview_items[0].target_dir,
+            output / "Bleach (2004)" / "Season 01",
+        )
+
+    def test_tv_retarget_leaves_unmatched_preview_at_source_target(self):
+        output = self.tmp / "TV Output"
+        source = self.tmp / "Incoming" / "Show"
+        source.mkdir(parents=True)
+        output.mkdir()
+        extra = source / "extra.mkv"
+        extra.write_text("x")
+        original_target = source / "Unmatched"
+        state = ScanState(
+            folder=source,
+            media_info={"id": 1, "name": "Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=extra,
+                    new_name="extra.mkv",
+                    target_dir=original_target,
+                    season=0,
+                    episodes=[],
+                    status="UNMATCHED: no TMDB special found - moving to Unmatched",
+                )
+            ],
+            scanned=True,
+        )
+
+        from plex_renamer.app.controllers._tv_batch_helpers import retarget_tv_state_to_output
+
+        retarget_tv_state_to_output(state, output)
+
+        self.assertEqual(state.output_root, output.resolve())
+        self.assertEqual(state.preview_items[0].target_dir, original_target)
+
+    def test_movie_preview_targets_movie_output_root(self):
+        output = self.tmp / "Movies Output"
+        source = self.tmp / "Incoming"
+        output.mkdir()
+        source.mkdir()
+        movie = source / "Alien.1979.mkv"
+        movie.write_text("x")
+        self.ctrl.settings.movie_output_folder = str(output)
+
+        item = PreviewItem(
+            original=movie,
+            new_name="Alien (1979).mkv",
+            target_dir=source / "Alien (1979)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=10,
+            media_name="Alien",
+        )
+
+        from plex_renamer.app.controllers._movie_batch_helpers import retarget_movie_items_to_output
+
+        retarget_movie_items_to_output([item], output)
+
+        self.assertEqual(item.target_dir, output / "Alien (1979)")
+
+    def test_movie_rematch_keeps_state_and_controller_preview_on_output_root(self):
+        output = self.tmp / "Movies Output"
+        output.mkdir()
+        movie_file = self.tmp / "Incoming" / "Alien.Source.mkv"
+        movie_file.parent.mkdir()
+        movie_file.write_text("x")
+        old_item = PreviewItem(
+            original=movie_file,
+            new_name="Wrong Match (1980).mkv",
+            target_dir=self.tmp / "Incoming" / "Wrong Match (1980)",
+            season=None,
+            episodes=[],
+            status="REVIEW: verify",
+            media_type=MediaType.MOVIE,
+            media_id=1,
+            media_name="Wrong Match",
+        )
+
+        class _OutputRematchScanner:
+            def __init__(self, target_root):
+                self._target_root = target_root
+                self.movie_info = {movie_file: {"id": 1, "title": "Wrong Match", "year": "1980"}}
+
+            def rematch_file(self, item, chosen):
+                self.movie_info[item.original] = chosen
+                return PreviewItem(
+                    original=item.original,
+                    new_name=f"{chosen['title']} ({chosen['year']}).mkv",
+                    target_dir=self._target_root / f"{chosen['title']} ({chosen['year']})",
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type=MediaType.MOVIE,
+                    media_id=chosen["id"],
+                    media_name=chosen["title"],
+                )
+
+            def get_search_results(self, path):
+                return [{"id": 42, "title": "Alien", "year": "1979"}]
+
+        scanner = _OutputRematchScanner(self.tmp / "Incoming")
+        state = ScanState(
+            folder=movie_file.parent,
+            media_info={"id": 1, "title": "Wrong Match", "year": "1980"},
+            preview_items=[old_item],
+            confidence=0.5,
+            scanned=True,
+            scanner=scanner,
+            search_results=scanner.get_search_results(movie_file),
+        )
+        self.ctrl.settings.movie_output_folder = str(output)
+        self.set_movie_session([state], preview_items=[old_item], movie_scanner=scanner)
+
+        self.ctrl.rematch_movie_state(state, {"id": 42, "title": "Alien", "year": "1979"})
+
+        self.assertIs(state.preview_items[0], self.ctrl.movie_preview_items[0])
+        self.assertEqual(state.output_root, output)
+        self.assertEqual(state.preview_items[0].target_dir, output / "Alien (1979)")
+        self.assertEqual(self.ctrl.movie_preview_items[0].target_dir, output / "Alien (1979)")
+
+
 class RematchStateTests(_ControllerTestCase):
 
     def tearDown(self):

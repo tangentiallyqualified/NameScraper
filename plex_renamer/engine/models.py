@@ -177,6 +177,7 @@ class ScanState:
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
     relative_folder: str = ""
+    output_root: Path | None = None
     parent_relative_folder: str | None = None
     duplicate_of_relative_folder: str | None = None
     discovery_reason: str = ""

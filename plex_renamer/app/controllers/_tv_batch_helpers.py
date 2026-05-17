@@ -9,6 +9,7 @@ from typing import Any, Protocol
 
 from ...constants import MediaType
 from ...engine import BatchTVOrchestrator, ScanCancelledError, ScanState
+from ...parsing import build_show_folder_name
 from ...thread_pool import submit as _submit_bg
 from ..models import ScanLifecycle
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
@@ -25,6 +26,7 @@ class _TVBatchController(Protocol):
     _batch_states: list[ScanState]
     _active_scan: ScanState | None
     _library_selected_index: int | None
+    _settings: Any
 
     @property
     def command_gating(self) -> Any: ...
@@ -234,6 +236,10 @@ def _complete_tv_batch_discovery(
         return
 
     controller._batch_states = states or []
+    tv_output = controller._settings.valid_tv_output_folder
+    if tv_output is not None:
+        for state in controller._batch_states:
+            state.output_root = tv_output
     if not controller._batch_states:
         controller._set_progress(
             ScanLifecycle.WARNING,
@@ -286,6 +292,11 @@ def _complete_tv_bulk_scan(
     if not controller._is_current_scan_operation(cancel_event):
         return
 
+    tv_output = controller._settings.valid_tv_output_folder
+    if tv_output is not None:
+        for state in controller._batch_states:
+            if state.scanned:
+                retarget_tv_state_to_output(state, tv_output)
     _clear_plex_ready_checks(controller)
     scanned, total_files = _summarize_scanned_batch_states(controller._batch_states)
     prepared_states = [
@@ -326,6 +337,25 @@ def _complete_tv_bulk_scan(
     )
     controller._notify("library_changed", controller._batch_states)
     controller._finish_scan_operation(cancel_event)
+
+
+def retarget_tv_state_to_output(state: ScanState, output_root: Path) -> None:
+    """Retarget actionable TV preview items into the configured output root."""
+    resolved_output = output_root.resolve()
+    state.output_root = resolved_output
+    show_folder = build_show_folder_name(
+        state.media_info.get("name", ""),
+        state.media_info.get("year", ""),
+    )
+    if not show_folder:
+        show_folder = state.display_name
+
+    for item in state.preview_items:
+        if not item.new_name or item.season is None:
+            continue
+        if item.status != "OK" and not item.is_review:
+            continue
+        item.target_dir = resolved_output / show_folder / f"Season {item.season:02d}"
 
 
 def _clear_plex_ready_checks(controller: _TVBatchController) -> None:
