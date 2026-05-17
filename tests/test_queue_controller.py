@@ -135,7 +135,49 @@ class QueueControllerTests(unittest.TestCase):
             columns = {entry[1] for entry in row}
             version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
             self.assertIn("poster_path", columns)
-            self.assertEqual(version, 2)
+            self.assertEqual(version, 3)
+        finally:
+            migrated.close()
+
+    def test_job_store_migrates_existing_db_to_add_output_root(self):
+        db_path = self.tmp / "legacy_jobs_v2.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript(
+            """
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (2);
+            CREATE TABLE jobs (
+                job_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                media_type TEXT NOT NULL,
+                tmdb_id INTEGER NOT NULL,
+                media_name TEXT NOT NULL,
+                poster_path TEXT,
+                library_root TEXT NOT NULL,
+                source_folder TEXT NOT NULL,
+                show_folder_rename TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                error_message TEXT,
+                position INTEGER NOT NULL DEFAULT 0,
+                undo_data TEXT,
+                job_kind TEXT NOT NULL DEFAULT 'rename',
+                data_source TEXT NOT NULL DEFAULT 'tmdb',
+                depends_on TEXT,
+                rename_ops TEXT NOT NULL
+            );
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        migrated = JobStore(db_path=db_path)
+        try:
+            row = migrated._get_conn().execute("PRAGMA table_info(jobs)").fetchall()
+            columns = {entry[1] for entry in row}
+            version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            self.assertIn("output_root", columns)
+            self.assertEqual(version, 3)
         finally:
             migrated.close()
 
@@ -420,6 +462,21 @@ class QueueControllerTests(unittest.TestCase):
         self.assertEqual(len(stored.rename_ops), 2)
         self.assertEqual(stored.rename_ops[1].file_type, "subtitle")
         self.assertEqual(stored.undo_data, {"renames": [{"old": "a", "new": "b"}]})
+
+    def test_job_store_round_trips_output_root(self):
+        output = self.tmp / "output"
+        job = RenameJob(
+            library_root=str(self.tmp),
+            output_root=str(output),
+            source_folder="Show",
+            media_name="Show",
+            tmdb_id=405,
+        )
+
+        self.store.add_job(job)
+
+        stored = self.store.get_job(job.job_id)
+        self.assertEqual(stored.output_root, str(output))
 
 
 class JobStorePathPropagationTests(unittest.TestCase):

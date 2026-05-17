@@ -55,6 +55,7 @@ def row_to_job(
         media_name=row["media_name"],
         poster_path=row["poster_path"],
         library_root=row["library_root"],
+        output_root=row["output_root"],
         source_folder=row["source_folder"],
         show_folder_rename=row["show_folder_rename"],
         status=row["status"],

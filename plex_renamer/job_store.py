@@ -101,6 +101,7 @@ class RenameJob:
 
     # Paths
     library_root: str = ""          # Absolute path to the library root
+    output_root: str | None = None  # Optional destination root for output files
     source_folder: str = ""         # Relative path from library_root to show/movie folder
 
     # What to rename
@@ -163,6 +164,11 @@ class RenameJob:
     def source_path(self) -> Path:
         """Absolute path to the show/movie folder."""
         return Path(self.library_root) / self.source_folder
+
+    @property
+    def output_path(self) -> Path | None:
+        """Absolute path to the configured output destination."""
+        return Path(self.output_root) if self.output_root else None
 
     @property
     def is_actionable(self) -> bool:
@@ -263,18 +269,18 @@ class JobStore:
                 conn.execute("""
                     INSERT INTO jobs (
                         job_id, created_at, updated_at, media_type, tmdb_id,
-                        media_name, poster_path, library_root, source_folder,
-                        show_folder_rename, status, error_message, position,
-                        undo_data, job_kind, data_source, depends_on,
-                        rename_ops
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        media_name, poster_path, library_root, output_root,
+                        source_folder, show_folder_rename, status,
+                        error_message, position, undo_data, job_kind,
+                        data_source, depends_on, rename_ops
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job.job_id, job.created_at, job.updated_at,
                     job.media_type, job.tmdb_id,
-                    job.media_name, job.poster_path, job.library_root, job.source_folder,
-                    job.show_folder_rename, job.status, job.error_message,
-                    job.position, undo_json, job.job_kind, job.data_source,
-                    job.depends_on, ops_json,
+                    job.media_name, job.poster_path, job.library_root,
+                    job.output_root, job.source_folder, job.show_folder_rename,
+                    job.status, job.error_message, job.position, undo_json,
+                    job.job_kind, job.data_source, job.depends_on, ops_json,
                 ))
                 conn.commit()
             except sqlite3.IntegrityError as e:
