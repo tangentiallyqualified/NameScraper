@@ -11,7 +11,7 @@ from ...job_store import RenameJob
 
 
 def build_job_summary(job: RenameJob) -> str:
-    companion = len(job.companion_ops)
+    companion = job.selected_companion_count
     parts: list[str] = []
     if companion:
         parts.append(f"{companion} companion file(s)")
@@ -41,8 +41,8 @@ def format_job_timestamp(value: str) -> str:
 
 
 def build_job_fact_values(job: RenameJob) -> dict[str, str]:
-    companions = len(job.companion_ops)
-    files_text = f"{job.selected_count} selected"
+    companions = job.selected_companion_count
+    files_text = f"{job.selected_video_count} selected"
     companions_text = str(companions) if companions else "None"
     return {
         "media": {"tv": "TV Show", "movie": "Movie"}.get(job.media_type, job.media_type.title()),

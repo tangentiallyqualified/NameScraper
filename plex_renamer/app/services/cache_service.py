@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from ...constants import CACHE_DB_FILE, ensure_log_dir
 from ..models import CacheEntry, CacheLookup, RefreshState
@@ -40,8 +41,17 @@ class PersistentCacheService:
         conn.row_factory = sqlite3.Row
         return conn
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _init_db(self) -> None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS cache_entries (
@@ -77,7 +87,7 @@ class PersistentCacheService:
     ) -> CacheLookup:
         """Return a cached value plus freshness state."""
         now = now or _utc_now()
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT * FROM cache_entries WHERE namespace = ? AND cache_key = ?",
                 (namespace, key),
@@ -126,7 +136,7 @@ class PersistentCacheService:
         metadata_json = json.dumps(metadata, sort_keys=True)
         size_bytes = len(payload_json.encode("utf-8")) + len(metadata_json.encode("utf-8"))
 
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 INSERT INTO cache_entries (
@@ -168,7 +178,7 @@ class PersistentCacheService:
 
     def mark_refreshing(self, namespace: str, key: str, refreshing: bool = True) -> None:
         """Set or clear the refreshing flag for an entry."""
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 "UPDATE cache_entries SET is_refreshing = ? WHERE namespace = ? AND cache_key = ?",
                 (1 if refreshing else 0, namespace, key),
@@ -176,7 +186,7 @@ class PersistentCacheService:
 
     def invalidate(self, namespace: str, key: str) -> int:
         """Delete a single cache entry."""
-        with self._connect() as conn:
+        with self._connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM cache_entries WHERE namespace = ? AND cache_key = ?",
                 (namespace, key),
@@ -185,28 +195,43 @@ class PersistentCacheService:
 
     def invalidate_namespace(self, namespace: str) -> int:
         """Delete every entry in a namespace."""
-        with self._connect() as conn:
+        with self._connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM cache_entries WHERE namespace = ?",
                 (namespace,),
             )
             return cursor.rowcount
 
+    def invalidate_namespace_prefix(self, namespace_prefix: str) -> int:
+        """Delete entries in a namespace and dot-child namespaces."""
+        child_prefix = f"{namespace_prefix}."
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM cache_entries WHERE namespace = ? OR substr(namespace, 1, ?) = ?",
+                (namespace_prefix, len(child_prefix), child_prefix),
+            )
+            return cursor.rowcount
+
     def invalidate_by_prefix(self, namespace: str, key_prefix: str) -> int:
         """Delete every entry whose key starts with the provided prefix."""
-        with self._connect() as conn:
+        with self._connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM cache_entries WHERE namespace = ? AND cache_key LIKE ?",
                 (namespace, f"{key_prefix}%"),
             )
             return cursor.rowcount
 
-    def stats(self) -> dict[str, int]:
+    def stats(self, *, namespace_prefix: str | None = None) -> dict[str, int]:
         """Return aggregate cache statistics for auditing and tests."""
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS item_count, COALESCE(SUM(size_bytes), 0) AS total_size FROM cache_entries"
-            ).fetchone()
+        query = "SELECT COUNT(*) AS item_count, COALESCE(SUM(size_bytes), 0) AS total_size FROM cache_entries"
+        params: tuple[object, ...] = ()
+        if namespace_prefix is not None:
+            child_prefix = f"{namespace_prefix}."
+            query += " WHERE namespace = ? OR substr(namespace, 1, ?) = ?"
+            params = (namespace_prefix, len(child_prefix), child_prefix)
+
+        with self._connection() as conn:
+            row = conn.execute(query, params).fetchone()
             return {
                 "item_count": int(row["item_count"]),
                 "total_size_bytes": int(row["total_size"]),

@@ -8,6 +8,9 @@ from typing import Any
 from PySide6.QtWidgets import QWidget
 
 
+_TMDB_CACHE_NAMESPACE_PREFIX = "tmdb"
+
+
 class SettingsTabActionsCoordinator:
     def __init__(self, tab: Any) -> None:
         self._tab = tab
@@ -92,7 +95,7 @@ class SettingsTabActionsCoordinator:
         if tab._cache_service is None:
             return
 
-        removed = tab._cache_service.invalidate_namespace("tmdb")
+        removed = tab._cache_service.invalidate_namespace_prefix(_TMDB_CACHE_NAMESPACE_PREFIX)
         if tab._clear_tmdb_callback is not None:
             tab._clear_tmdb_callback()
         noun = "entry" if removed == 1 else "entries"
@@ -107,7 +110,7 @@ class SettingsTabActionsCoordinator:
             tab._cache_stats.setText("Cache actions are unavailable in this context.")
             return
 
-        stats = tab._cache_service.stats()
+        stats = tab._cache_service.stats(namespace_prefix=_TMDB_CACHE_NAMESPACE_PREFIX)
         tab._cache_stats.setText(
             f"{stats['item_count']} entries · {format_bytes(stats['total_size_bytes'])} used "
             f"· cap {format_bytes(stats['max_size_bytes'])} / {stats['max_items']} items"
