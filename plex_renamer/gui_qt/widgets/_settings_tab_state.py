@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+from PySide6.QtWidgets import QFileDialog
+
+from ._media_helpers import repolish as _repolish
 
 
 class SettingsTabStateCoordinator:
@@ -91,3 +96,53 @@ class SettingsTabStateCoordinator:
         tab = self._tab
         if tab._settings:
             tab._settings.show_confidence_bars = checked
+
+    def browse_output_folder(self, media_type: str) -> None:
+        tab = self._tab
+        if media_type == "tv":
+            target = tab._tv_output_input
+            title = "Choose TV output folder"
+        else:
+            target = tab._movie_output_input
+            title = "Choose movie output folder"
+
+        selected = QFileDialog.getExistingDirectory(tab, title, target.text().strip())
+        if selected:
+            target.setText(selected)
+
+    def on_save_destinations(self) -> None:
+        tab = self._tab
+        if not tab._settings:
+            self._set_destination_status("Settings service is not available.", "error")
+            return
+
+        tv_text = tab._tv_output_input.text().strip()
+        movie_text = tab._movie_output_input.text().strip()
+        tv_path = ""
+        movie_path = ""
+
+        if tv_text:
+            tv_status = tab._settings.validate_output_folder(tv_text)
+            if not tv_status.valid:
+                self._set_destination_status(tv_status.reason, "error")
+                return
+            tv_path = str(tv_status.path or Path(tv_text))
+
+        if movie_text:
+            movie_status = tab._settings.validate_output_folder(movie_text)
+            if not movie_status.valid:
+                self._set_destination_status(movie_status.reason, "error")
+                return
+            movie_path = str(movie_status.path or Path(movie_text))
+
+        tab._settings.tv_output_folder = tv_path
+        tab._settings.movie_output_folder = movie_path
+        tab._tv_output_input.setText(tv_path)
+        tab._movie_output_input.setText(movie_path)
+        self._set_destination_status("Output destinations saved.", "success")
+
+    def _set_destination_status(self, text: str, tone: str) -> None:
+        status = self._tab._destinations_status
+        status.setText(text)
+        status.setProperty("tone", tone)
+        _repolish(status)

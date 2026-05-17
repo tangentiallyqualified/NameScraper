@@ -281,6 +281,62 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
+    def test_settings_tab_has_destination_category_and_controls(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            self._app.processEvents()
+
+            self.assertGreaterEqual(tab._settings_nav.count(), 1)
+            self.assertEqual(tab._settings_nav.item(0).text(), "Destinations")
+            self.assertIs(tab._settings_stack.currentWidget(), tab._destinations_page)
+            self.assertEqual(tab._tv_output_input.text(), "")
+            self.assertEqual(tab._movie_output_input.text(), "")
+
+            tab.close()
+
+    def test_settings_tab_saves_existing_destination_paths(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tv = root / "TV"
+            movies = root / "Movies"
+            tv.mkdir()
+            movies.mkdir()
+            settings = SettingsService(path=root / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+
+            tab._tv_output_input.setText(str(tv))
+            tab._movie_output_input.setText(str(movies))
+            tab._on_save_destinations()
+            self._app.processEvents()
+
+            self.assertEqual(Path(settings.tv_output_folder), tv.resolve())
+            self.assertEqual(Path(settings.movie_output_folder), movies.resolve())
+            self.assertIn("saved", tab._destinations_status.text().lower())
+
+            tab.close()
+
+    def test_settings_tab_rejects_missing_destination_path(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+
+            tab._tv_output_input.setText(str(Path(tmp) / "missing-tv"))
+            tab._movie_output_input.setText("")
+            tab._on_save_destinations()
+            self._app.processEvents()
+
+            self.assertEqual(settings.tv_output_folder, "")
+            self.assertIn("does not exist", tab._destinations_status.text().lower())
+
+            tab.close()
+
     def test_settings_tab_has_independent_episode_threshold_slider(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
