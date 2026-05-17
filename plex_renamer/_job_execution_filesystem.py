@@ -51,12 +51,11 @@ def output_target_collision_remap(
     """Choose numbered top-level output siblings for collided targets."""
     remap: dict[Path, Path] = {}
     for _src, dst, target_dir in renames:
-        if not dst.exists():
-            continue
         top_dir = _top_output_dir(output_root, target_dir)
         if top_dir is None or top_dir in remap:
             continue
-        remap[top_dir] = _next_numbered_sibling(top_dir)
+        if top_dir.exists() or dst.exists():
+            remap[top_dir] = _next_numbered_sibling(top_dir)
     return remap
 
 

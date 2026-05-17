@@ -1830,6 +1830,59 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertFalse(movie_file.exists())
             self.assertFalse(subtitle.exists())
 
+    def test_destination_existing_top_folder_routes_whole_job_to_numbered_folder(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            existing_dir = output_root / "Toy Story (1995)"
+            existing_dir.mkdir(parents=True)
+            unrelated = existing_dir / "poster.jpg"
+            unrelated.write_text("existing")
+            movie_file = source_root / "Toy.Story.1995.mkv"
+            movie_file.write_text("movie")
+            subtitle = source_root / "Toy.Story.1995.srt"
+            subtitle.write_text("subtitle")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Toy Story",
+                media_type=MediaType.MOVIE,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Toy.Story.1995.mkv",
+                        new_name="Toy Story (1995).mkv",
+                        target_dir_relative="Toy Story (1995)",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Toy.Story.1995.srt",
+                        new_name="Toy Story (1995).srt",
+                        target_dir_relative="Toy Story (1995)",
+                        status="REVIEW_SUBTITLE",
+                        selected=True,
+                        file_type="subtitle",
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            numbered_dir = output_root / "Toy Story (1995) (1)"
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 2)
+            self.assertTrue(unrelated.exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).mkv").exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).srt").exists())
+            self.assertFalse((existing_dir / "Toy Story (1995).mkv").exists())
+
     def test_destination_job_rejects_paths_outside_source_or_output_roots(self):
         from plex_renamer.constants import MediaType
         from plex_renamer.job_executor import _execute_rename
