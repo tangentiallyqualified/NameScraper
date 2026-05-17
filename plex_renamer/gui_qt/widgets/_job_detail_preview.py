@@ -7,7 +7,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ...job_store import RenameJob, RenameOp
-from ._job_detail_data import folder_preview_data
+from ._job_detail_data import (
+    final_target_dir_relative,
+    folder_preview_data,
+    folder_preview_source_name,
+)
 
 
 @dataclass(frozen=True)
@@ -30,23 +34,42 @@ JobPreviewEntry = JobPreviewRow | JobPreviewGroup
 
 def build_job_preview_entries(job: RenameJob) -> list[JobPreviewEntry]:
     entries: list[JobPreviewEntry] = []
-    folder_preview = folder_preview_data(job)
-    if folder_preview is not None:
-        source_name, target_name = folder_preview
-        entries.append(
-            JobPreviewGroup(
-                label="Folder Rename",
-                rows=[
-                    JobPreviewRow(
-                        before=source_name,
-                        after=target_name,
-                        before_label="Source",
-                        after_label="Target",
-                    )
-                ],
-                expanded=True,
+    if job.output_root:
+        target_name = _output_top_folder_name(job)
+        source_name = folder_preview_source_name(job, include_media_name=True)
+        if target_name and source_name:
+            entries.append(
+                JobPreviewGroup(
+                    label="Output Folder",
+                    rows=[
+                        JobPreviewRow(
+                            before=source_name,
+                            after=target_name,
+                            before_label="Source",
+                            after_label="Output",
+                        )
+                    ],
+                    expanded=True,
+                )
             )
-        )
+    else:
+        folder_preview = folder_preview_data(job)
+        if folder_preview is not None:
+            source_name, target_name = folder_preview
+            entries.append(
+                JobPreviewGroup(
+                    label="Folder Rename",
+                    rows=[
+                        JobPreviewRow(
+                            before=source_name,
+                            after=target_name,
+                            before_label="Source",
+                            after_label="Target",
+                        )
+                    ],
+                    expanded=True,
+                )
+            )
 
     ops = job.selected_ops or job.rename_ops
     if not ops:
@@ -67,6 +90,15 @@ def build_job_preview_entries(job: RenameJob) -> list[JobPreviewEntry]:
         )
 
     return entries
+
+
+def _output_top_folder_name(job: RenameJob) -> str | None:
+    ops = job.selected_ops or job.rename_ops
+    for op in ops:
+        parts = [part for part in final_target_dir_relative(job, op).parts if part not in {"", "."}]
+        if parts:
+            return parts[0]
+    return None
 
 
 def _build_video_preview_entries(job: RenameJob, video_ops: list[RenameOp]) -> list[JobPreviewEntry]:

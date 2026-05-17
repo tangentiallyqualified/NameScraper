@@ -275,6 +275,87 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertTrue(panel._meta.text().startswith("Updated "))
         panel.close()
 
+    def test_destination_job_detail_uses_output_root_for_target_paths(self):
+        from plex_renamer.gui_qt.widgets._job_detail_data import primary_target_path
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/incoming",
+            output_root="D:/TV Output",
+            source_folder="Bleach",
+            media_type="tv",
+            media_name="Bleach",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Bleach/Disc 01/Bleach.001.mkv",
+                    new_name="Bleach (2004) - S01E01.mkv",
+                    target_dir_relative="Bleach (2004)/Season 01",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        self.assertEqual(
+            primary_target_path(job),
+            Path("D:/TV Output") / "Bleach (2004)" / "Season 01",
+        )
+
+    def test_destination_job_preview_labels_output_move(self):
+        from plex_renamer.gui_qt.widgets._job_detail_preview import build_job_preview_entries
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/incoming",
+            output_root="D:/Movies",
+            source_folder=".",
+            media_type="movie",
+            media_name="Alien",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.1979.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        entries = build_job_preview_entries(job)
+
+        self.assertEqual(entries[0].label, "Output Folder")
+        self.assertEqual(entries[0].rows[0].before, "Alien")
+        self.assertEqual(entries[0].rows[0].before_label, "Source")
+        self.assertEqual(entries[0].rows[0].after_label, "Output")
+
+    def test_destination_job_preview_uses_final_output_folder_name(self):
+        from plex_renamer.gui_qt.widgets._job_detail_preview import build_job_preview_entries
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/incoming",
+            output_root="D:/TV Output",
+            source_folder="Bleach.Raw",
+            media_type="tv",
+            media_name="Bleach",
+            show_folder_rename="Bleach (2004)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Bleach.Raw/Disc 01/Bleach.001.mkv",
+                    new_name="Bleach (2004) - S01E01.mkv",
+                    target_dir_relative="Bleach.Raw/Season 01",
+                    status="OK",
+                    selected=True,
+                )
+            ],
+        )
+
+        entries = build_job_preview_entries(job)
+
+        self.assertEqual(entries[0].label, "Output Folder")
+        self.assertEqual(entries[0].rows[0].after, "Bleach (2004)")
+
     def test_job_detail_panel_uses_local_non_hover_poster_style(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
 
@@ -594,4 +675,3 @@ class QtJobDetailPanelTests(QtSmokeBase):
             "setFixedSize(160, 240)",
         ):
             self.assertNotIn(literal, source)
-

@@ -28,17 +28,18 @@ def apply_completed_job_projection(
     if state is None:
         return CompletedJobProjection(False)
 
-    library_root = Path(job.library_root)
+    source_root = Path(job.library_root)
+    target_root = Path(job.output_root) if getattr(job, "output_root", None) else source_root
     preview_lookup: dict[str, PreviewItem] = {}
     for preview in state.preview_items:
-        key = _normalized_preview_relative(preview, library_root)
+        key = _normalized_preview_relative(preview, source_root)
         if key:
             preview_lookup[key] = preview
 
     companion_lookup: dict[str, CompanionFile] = {}
     for preview in state.preview_items:
         for companion in preview.companions:
-            key = _normalized_relative_path(companion.original, library_root)
+            key = _normalized_relative_path(companion.original, source_root)
             if key:
                 companion_lookup[key] = companion
 
@@ -47,7 +48,7 @@ def apply_completed_job_projection(
         if not op.selected:
             continue
         final_dir_relative = _final_target_dir_relative(job, op)
-        final_dir = library_root / Path(final_dir_relative)
+        final_dir = target_root / Path(final_dir_relative)
         final_path = final_dir / op.new_name
         normalized_original = _normalized_relative_string(op.original_relative)
 
@@ -75,7 +76,7 @@ def apply_completed_job_projection(
 
     root_relative = _job_completed_root_relative(job)
     if root_relative is not None:
-        state.folder = library_root / Path(root_relative)
+        state.folder = target_root / Path(root_relative)
         state.relative_folder = root_relative
         parent_relative = PurePosixPath(root_relative).parent
         state.parent_relative_folder = None if str(parent_relative) in {"", "."} else parent_relative.as_posix()
@@ -163,6 +164,11 @@ def _job_completed_root_relative(job: Any) -> str | None:
     selected_video_ops = [op for op in job.video_ops if op.selected]
     if not selected_video_ops:
         return None
+
+    if getattr(job, "output_root", None):
+        root_path = PurePosixPath(_final_target_dir_relative(job, selected_video_ops[0]))
+        parts = root_path.parts
+        return parts[0] if parts else None
 
     source_folder = _normalized_relative_string(job.source_folder)
     if job.show_folder_rename and source_folder not in {"", "."}:
