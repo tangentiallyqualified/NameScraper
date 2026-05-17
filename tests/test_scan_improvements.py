@@ -1617,6 +1617,164 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue(note.exists())
             self.assertFalse((output_root / "Bleach (2004)" / "Season 01" / "Unmatched Files").exists())
 
+    def test_revert_destination_job_restores_files_and_removes_empty_output_dirs_only(self):
+        from plex_renamer.job_executor import _execute_rename, revert_job
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_dir = source_root / "Show" / "Disc 01"
+            source_dir.mkdir(parents=True)
+            output_root.mkdir()
+            original = source_dir / "Show.001.mkv"
+            original.write_text("x")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Show/Disc 01/Show.001.mkv",
+                        new_name="Show (2024) - S01E01.mkv",
+                        target_dir_relative="Show (2024)/Season 01",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            result = _execute_rename(job)
+            job.undo_data = result.log_entry
+
+            ok, errors = revert_job(job)
+
+            self.assertTrue(ok, errors)
+            self.assertTrue(original.exists())
+            self.assertTrue(source_dir.exists())
+            self.assertTrue(output_root.exists())
+            self.assertFalse((output_root / "Show (2024)").exists())
+
+    def test_revert_destination_job_preserves_output_folder_with_unrelated_files(self):
+        from plex_renamer.job_executor import _execute_rename, revert_job
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            output_root.mkdir()
+            original = source_root / "Alien.1979.mkv"
+            original.write_text("x")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Alien",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Alien.1979.mkv",
+                        new_name="Alien (1979).mkv",
+                        target_dir_relative="Alien (1979)",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            result = _execute_rename(job)
+            unrelated = output_root / "Alien (1979)" / "poster.jpg"
+            unrelated.write_text("keep")
+            job.undo_data = result.log_entry
+
+            ok, errors = revert_job(job)
+
+            self.assertTrue(ok, errors)
+            self.assertTrue(original.exists())
+            self.assertTrue(unrelated.exists())
+
+    def test_revert_destination_job_rejects_undo_paths_outside_roots(self):
+        from plex_renamer.job_executor import revert_job
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_output = Path(tmp) / "outside-output.mkv"
+            outside_output.write_text("outside")
+            outside_source = Path(tmp) / "outside-source" / "restored.mkv"
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                undo_data={
+                    "renames": [
+                        {
+                            "old": str(outside_source),
+                            "new": str(outside_output),
+                        }
+                    ],
+                    "created_dirs": [],
+                    "removed_dirs": [],
+                    "renamed_dirs": [],
+                },
+            )
+
+            ok, errors = revert_job(job)
+
+            self.assertFalse(ok)
+            self.assertTrue(any("outside the output root" in error for error in errors))
+            self.assertTrue(any("outside the source root" in error for error in errors))
+            self.assertTrue(outside_output.exists())
+            self.assertEqual(outside_output.read_text(), "outside")
+            self.assertFalse(outside_source.exists())
+
+    def test_revert_destination_job_rejects_folder_undo_paths_outside_roots(self):
+        from plex_renamer.job_executor import revert_job
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_renamed_dir = Path(tmp) / "outside-renamed"
+            outside_renamed_dir.mkdir()
+            outside_restore_dir = Path(tmp) / "outside-restored"
+            outside_removed_dir = Path(tmp) / "outside-removed"
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                undo_data={
+                    "renames": [],
+                    "created_dirs": [],
+                    "removed_dirs": [str(outside_removed_dir)],
+                    "renamed_dirs": [
+                        {
+                            "old": str(outside_restore_dir),
+                            "new": str(outside_renamed_dir),
+                        }
+                    ],
+                },
+            )
+
+            ok, errors = revert_job(job)
+
+            self.assertFalse(ok)
+            self.assertTrue(any("outside the output root" in error for error in errors))
+            self.assertTrue(any("outside the source root" in error for error in errors))
+            self.assertTrue(outside_renamed_dir.exists())
+            self.assertFalse(outside_restore_dir.exists())
+            self.assertFalse(outside_removed_dir.exists())
+
     def test_destination_collision_routes_whole_job_to_numbered_top_folder(self):
         from plex_renamer.constants import MediaType
         from plex_renamer.job_executor import _execute_rename

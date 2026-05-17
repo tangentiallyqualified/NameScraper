@@ -375,6 +375,64 @@ _EXECUTORS: dict[str, Callable[[RenameJob], RenameResult]] = {
 
 # ─── Per-job revert ──────────────────────────────────────────────────────────
 
+def _cleanup_empty_output_dirs(
+    *,
+    output_root: Path,
+    created_dirs: list[str],
+    moved_from_paths: list[Path],
+) -> None:
+    boundary = output_root.resolve()
+    candidates = {Path(path) for path in created_dirs}
+    candidates.update(path.parent for path in moved_from_paths)
+
+    for candidate in sorted(
+        candidates,
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        current = candidate
+        while True:
+            try:
+                resolved = current.resolve()
+            except OSError:
+                break
+            if resolved == boundary:
+                break
+            try:
+                resolved.relative_to(boundary)
+            except ValueError:
+                break
+            try:
+                if current.exists() and not any(current.iterdir()):
+                    current.rmdir()
+                    current = current.parent
+                    continue
+            except OSError:
+                pass
+            break
+
+
+def _destination_revert_path_errors(
+    *,
+    new_path: Path,
+    old_path: Path,
+    output_boundary: Path,
+    source_boundary: Path,
+) -> list[str]:
+    errors: list[str] = []
+    try:
+        new_path.resolve(strict=False).relative_to(output_boundary)
+    except (OSError, ValueError):
+        errors.append(f"Revert source is outside the output root: {new_path}")
+
+    try:
+        old_path.resolve(strict=False).relative_to(source_boundary)
+    except (OSError, ValueError):
+        errors.append(f"Revert target is outside the source root: {old_path}")
+
+    return errors
+
+
 def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     """
     Revert a single completed job using its stored undo data.
@@ -389,12 +447,28 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     source_folder = Path(job.source_folder)
     cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
+    moved_from_paths: list[Path] = []
+    output_boundary = (
+        Path(job.output_root).resolve(strict=False)
+        if job.output_root else None
+    )
+    source_boundary = library_root.resolve(strict=False)
 
     # Revert folder renames (in reverse order)
     dir_rename_map: dict[Path, Path] = {}
     for entry in reversed(undo.get("renamed_dirs", [])):
         new_dir = Path(entry["new"])
         old_dir = Path(entry["old"])
+        if output_boundary is not None:
+            path_errors = _destination_revert_path_errors(
+                new_path=new_dir,
+                old_path=old_dir,
+                output_boundary=output_boundary,
+                source_boundary=source_boundary,
+            )
+            if path_errors:
+                errors.extend(path_errors)
+                continue
         try:
             if new_dir.exists():
                 new_dir.rename(old_dir)
@@ -404,11 +478,20 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
 
     # Recreate removed directories
     for dir_path_str in undo.get("removed_dirs", []):
+        dir_path = Path(dir_path_str)
+        if output_boundary is not None:
+            try:
+                dir_path.resolve(strict=False).relative_to(source_boundary)
+            except (OSError, ValueError):
+                errors.append(
+                    f"Removed directory is outside the source root: {dir_path}"
+                )
+                continue
         try:
-            Path(dir_path_str).mkdir(parents=True, exist_ok=True)
+            dir_path.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             errors.append(
-                f"Could not recreate folder {Path(dir_path_str).name}: {e}")
+                f"Could not recreate folder {dir_path.name}: {e}")
 
     # Move files back
     for entry in reversed(undo.get("renames", [])):
@@ -427,6 +510,17 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
             except ValueError:
                 pass
 
+        if output_boundary is not None:
+            path_errors = _destination_revert_path_errors(
+                new_path=new_path,
+                old_path=old_path,
+                output_boundary=output_boundary,
+                source_boundary=source_boundary,
+            )
+            if path_errors:
+                errors.extend(path_errors)
+                continue
+
         try:
             old_path.parent.mkdir(parents=True, exist_ok=True)
             if new_path.exists():
@@ -434,10 +528,19 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
                     shutil.move(str(new_path), str(old_path))
                 else:
                     new_path.rename(old_path)
+                moved_from_paths.append(new_path)
             else:
                 errors.append(f"File not found: {new_path.name}")
         except (OSError, shutil.Error) as e:
             errors.append(f"{new_path.name}: {e}")
+
+    if job.output_root:
+        _cleanup_empty_output_dirs(
+            output_root=Path(job.output_root),
+            created_dirs=list(undo.get("created_dirs", [])),
+            moved_from_paths=moved_from_paths,
+        )
+        return len(errors) == 0, errors
 
     # Remove created directories if empty
     cleaned_dirs: set[str] = set()
