@@ -189,9 +189,9 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return job.job_kind.title()
             if value_column == 4:
-                return str(job.selected_count)
+                return str(job.selected_video_count)
             if value_column == 5:
-                comp = len(job.companion_ops)
+                comp = job.selected_companion_count
                 return str(comp) if comp else ""
             if value_column == 6:
                 return _fmt_dt(job.updated_at if self._history else job.created_at)
@@ -224,9 +224,9 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return (job.job_kind or "").casefold()
             if value_column == 4:
-                return int(job.selected_count or 0)
+                return int(job.selected_video_count or 0)
             if value_column == 5:
-                return len(job.companion_ops)
+                return job.selected_companion_count
             if value_column == 6:
                 return job.updated_at if self._history else job.created_at
 

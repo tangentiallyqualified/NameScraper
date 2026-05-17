@@ -146,6 +146,22 @@ class RenameJob:
         return sum(1 for op in self.rename_ops if op.selected)
 
     @property
+    def selected_video_ops(self) -> list[RenameOp]:
+        return [op for op in self.selected_ops if op.file_type == "video"]
+
+    @property
+    def selected_video_count(self) -> int:
+        return len(self.selected_video_ops)
+
+    @property
+    def selected_companion_ops(self) -> list[RenameOp]:
+        return [op for op in self.selected_ops if op.file_type != "video"]
+
+    @property
+    def selected_companion_count(self) -> int:
+        return len(self.selected_companion_ops)
+
+    @property
     def video_ops(self) -> list[RenameOp]:
         """Ops for the primary media files (file_type == 'video')."""
         return [op for op in self.rename_ops if op.file_type == "video"]

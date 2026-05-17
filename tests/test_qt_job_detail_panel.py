@@ -275,6 +275,43 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertTrue(panel._meta.text().startswith("Updated "))
         panel.close()
 
+    def test_job_detail_panel_counts_primary_and_companion_files_separately(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        panel = JobDetailPanel()
+        panel.set_history_mode(True)
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Alien",
+            media_type="movie",
+            media_name="Alien",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Alien/Alien.mkv",
+                    new_name="Alien (1979).mkv",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Alien/Alien.eng.srt",
+                    new_name="Alien (1979).eng.srt",
+                    target_dir_relative="Alien (1979)",
+                    status="OK",
+                    selected=True,
+                    file_type="subtitle",
+                ),
+            ],
+        )
+
+        panel.set_job(job)
+
+        self.assertEqual(panel._fact_values["files"].text(), "1 selected")
+        self.assertEqual(panel._fact_values["companions"].text(), "1")
+        panel.close()
+
     def test_destination_job_detail_uses_output_root_for_target_paths(self):
         from plex_renamer.gui_qt.widgets._job_detail_data import primary_target_path
         from plex_renamer.job_store import RenameJob, RenameOp

@@ -19,6 +19,47 @@ from conftest_qt import QtSmokeBase
 
 
 class QtQueueHistoryTests(QtSmokeBase):
+    def test_job_table_file_and_companion_columns_do_not_double_count(self):
+        from plex_renamer.gui_qt.models.job_table_model import JobTableModel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/Example Show - S01E01.mkv",
+                    new_name="Example Show - S01E01.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E01.eng.srt",
+                    new_name="Example Show - S01E01.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=True,
+                    file_type="subtitle",
+                ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E02.mkv",
+                    new_name="Example Show - S01E02.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=False,
+                    file_type="video",
+                ),
+            ],
+        )
+        model = JobTableModel(history=False)
+        model.set_jobs([job])
+
+        self.assertEqual(model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
+
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
         from plex_renamer.gui_qt.widgets._image_utils import build_placeholder_pixmap
