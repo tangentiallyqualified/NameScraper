@@ -31,9 +31,11 @@ from typing import Any
 
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
+    apply_top_dir_remap,
     apply_rename_plan,
     cleanup_source_directories,
     normalize_season_directories,
+    output_target_collision_remap,
     remap_target_into_final_root,
 )
 from .constants import JobKind, JobStatus, MediaType
@@ -97,6 +99,111 @@ def _remap_target_into_final_root(
 
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
+def _execute_output_rename(job: RenameJob) -> RenameResult:
+    """Execute a destination-aware rename job into its output root."""
+    result = RenameResult()
+    result.log_entry = {
+        "show": job.media_name,
+        "job_id": job.job_id,
+        "output_root": job.output_root,
+        "renames": [],
+        "created_dirs": [],
+        "removed_dirs": [],
+        "renamed_dirs": [],
+    }
+
+    if not job.output_root:
+        result.errors.append("Legacy pending job must be recreated before execution.")
+        return result
+
+    source_root = Path(job.library_root)
+    output_root = Path(job.output_root)
+    if not output_root.exists() or not output_root.is_dir():
+        result.errors.append(f"Output folder is not available: {output_root}")
+        return result
+    source_boundary = source_root.resolve()
+    output_boundary = output_root.resolve()
+
+    renames: list[tuple[Path, Path, Path]] = []
+    for op in job.rename_ops:
+        if not op.selected:
+            continue
+        if op.status != "OK" and not op.status.startswith("REVIEW"):
+            continue
+        if not op.new_name:
+            continue
+
+        src = source_root / op.original_relative
+        target_dir = output_root / op.target_dir_relative
+        try:
+            resolved_src = src.resolve()
+            resolved_src.relative_to(source_boundary)
+        except (OSError, ValueError):
+            result.errors.append(f"Source path is outside the source root: {op.original_relative}")
+            continue
+        try:
+            resolved_target_dir = target_dir.resolve(strict=False)
+            resolved_target_dir.relative_to(output_boundary)
+        except (OSError, ValueError):
+            result.errors.append(f"Target path is outside the output root: {op.target_dir_relative}")
+            continue
+        dst = target_dir / op.new_name
+        try:
+            resolved_dst = dst.resolve(strict=False)
+            resolved_dst.relative_to(output_boundary)
+        except (OSError, ValueError):
+            result.errors.append(f"Target path is outside the output root: {dst}")
+            continue
+
+        if not src.exists():
+            result.errors.append(f"Source not found: {src.name}")
+            continue
+        renames.append((src, dst, target_dir))
+
+    if not renames:
+        return result
+
+    remap = output_target_collision_remap(
+        output_root=output_root,
+        renames=renames,
+    )
+    if remap:
+        renames = [
+            (
+                src,
+                apply_top_dir_remap(target_dir, remap) / dst.name,
+                apply_top_dir_remap(target_dir, remap),
+            )
+            for src, dst, target_dir in renames
+        ]
+
+    safe_renames: list[tuple[Path, Path, Path]] = []
+    for src, dst, target_dir in renames:
+        try:
+            resolved_dst = dst.resolve(strict=False)
+            resolved_dst.relative_to(output_boundary)
+        except (OSError, ValueError):
+            result.errors.append(f"Target path is outside the output root: {dst}")
+            continue
+        safe_renames.append((src, dst, target_dir))
+    renames = safe_renames
+
+    seen_targets: set[str] = set()
+    for _src, dst, _target_dir in renames:
+        normalized_dst = os.path.normcase(str(dst.resolve(strict=False)))
+        if normalized_dst in seen_targets:
+            result.errors.append(f"Duplicate target in selected files: {dst.name}")
+            continue
+        seen_targets.add(normalized_dst)
+        if dst.exists():
+            result.errors.append(f"Target already exists, skipped: {dst.name}")
+    if result.errors:
+        return result
+
+    apply_rename_plan(renames, result)
+    return result
+
+
 def _execute_rename(job: RenameJob) -> RenameResult:
     """
     Execute a rename job's file operations.
@@ -105,6 +212,9 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     write to the legacy undo log.  The caller (the QueueExecutor) persists
     undo data via the JobStore and propagates path changes.
     """
+    if job.output_root:
+        return _execute_output_rename(job)
+
     result = RenameResult()
     result.log_entry = {
         "show": job.media_name,
@@ -508,6 +618,9 @@ class QueueExecutor:
             executor_fn = _EXECUTORS.get(job.job_kind)
             if executor_fn is None:
                 raise ValueError(f"Unknown job kind: {job.job_kind}")
+
+            if job.job_kind == JobKind.RENAME and not job.output_root:
+                raise ValueError("Legacy pending job must be recreated before execution.")
 
             result = executor_fn(job)
 

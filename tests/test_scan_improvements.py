@@ -1567,6 +1567,244 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue((source_root / "Disc 02" / "Bleach - 002.mkv").exists())
             self.assertFalse((library_root / "Bleach (2004)").exists())
 
+    def test_destination_aware_tv_job_moves_files_to_output_and_preserves_source_dirs(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_dir = source_root / "Bleach" / "Disc 01"
+            source_dir.mkdir(parents=True)
+            output_root.mkdir()
+            episode = source_dir / "Bleach - 001.mkv"
+            note = source_dir / "notes.txt"
+            episode.write_text("ep1")
+            note.write_text("keep")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach (2004)/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/notes.txt",
+                        new_name="notes.txt",
+                        target_dir_relative="Bleach (2004)/Season 01/Unmatched Files",
+                        status="UNMATCHED",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 1)
+            self.assertTrue((output_root / "Bleach (2004)" / "Season 01" / "Bleach (2004) - S01E01.mkv").exists())
+            self.assertFalse(episode.exists())
+            self.assertTrue(source_dir.exists())
+            self.assertTrue(note.exists())
+            self.assertFalse((output_root / "Bleach (2004)" / "Season 01" / "Unmatched Files").exists())
+
+    def test_destination_collision_routes_whole_job_to_numbered_top_folder(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            existing_dir = output_root / "Toy Story (1995)"
+            existing_dir.mkdir(parents=True)
+            existing_file = existing_dir / "Toy Story (1995).mkv"
+            existing_file.write_text("existing")
+            movie_file = source_root / "Toy.Story.1995.mkv"
+            movie_file.write_text("movie")
+            subtitle = source_root / "Toy.Story.1995.srt"
+            subtitle.write_text("subtitle")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Toy Story",
+                media_type=MediaType.MOVIE,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Toy.Story.1995.mkv",
+                        new_name="Toy Story (1995).mkv",
+                        target_dir_relative="Toy Story (1995)",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Toy.Story.1995.srt",
+                        new_name="Toy Story (1995).srt",
+                        target_dir_relative="Toy Story (1995)",
+                        status="REVIEW_SUBTITLE",
+                        selected=True,
+                        file_type="subtitle",
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            numbered_dir = output_root / "Toy Story (1995) (1)"
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 2)
+            self.assertTrue(existing_file.exists())
+            self.assertEqual(existing_file.read_text(), "existing")
+            self.assertTrue((numbered_dir / "Toy Story (1995).mkv").exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).srt").exists())
+            self.assertFalse(movie_file.exists())
+            self.assertFalse(subtitle.exists())
+
+    def test_destination_job_rejects_paths_outside_source_or_output_roots(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_source = Path(tmp) / "outside.mkv"
+            outside_source.write_text("outside")
+            inside_source = source_root / "episode.mkv"
+            inside_source.write_text("inside")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Escapes",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="../outside.mkv",
+                        new_name="Outside.mkv",
+                        target_dir_relative="Escapes/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="episode.mkv",
+                        new_name="Inside.mkv",
+                        target_dir_relative="../Escaped",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("outside the source root" in error for error in result.errors))
+            self.assertTrue(any("outside the output root" in error for error in result.errors))
+            self.assertTrue(outside_source.exists())
+            self.assertTrue(inside_source.exists())
+            self.assertFalse((Path(tmp) / "Escaped").exists())
+
+    def test_destination_job_rejects_duplicate_selected_targets_before_moving(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            first = source_root / "first.mkv"
+            second = source_root / "second.mkv"
+            first.write_text("first")
+            second.write_text("second")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Duplicate",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="first.mkv",
+                        new_name="Duplicate.mkv",
+                        target_dir_relative="Duplicate/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="second.mkv",
+                        new_name="Duplicate.mkv",
+                        target_dir_relative="Duplicate/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("Duplicate target" in error for error in result.errors))
+            self.assertTrue(first.exists())
+            self.assertTrue(second.exists())
+            self.assertFalse((output_root / "Duplicate").exists())
+
+    def test_destination_job_rejects_new_name_that_escapes_output_root(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            episode = source_root / "episode.mkv"
+            episode.write_text("inside")
+            outside_collision = Path(tmp) / "escaped.mkv"
+            outside_collision.write_text("outside")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Escaped Name",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="episode.mkv",
+                        new_name="../../../escaped.mkv",
+                        target_dir_relative="Escaped Name/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("outside the output root" in error for error in result.errors))
+            self.assertTrue(episode.exists())
+            self.assertEqual(outside_collision.read_text(), "outside")
 
     def test_movie_at_library_root_does_not_move_sibling_content(self):
         """Movies in the library root must not cause sibling dirs/files

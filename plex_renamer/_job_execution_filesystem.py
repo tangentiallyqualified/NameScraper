@@ -32,6 +32,55 @@ def remap_target_into_final_root(
     return final_root / relative
 
 
+def apply_top_dir_remap(path: Path, remap: dict[Path, Path]) -> Path:
+    """Move a path under a remapped top-level output directory."""
+    for old_top, new_top in remap.items():
+        try:
+            relative = path.relative_to(old_top)
+        except ValueError:
+            continue
+        return new_top / relative
+    return path
+
+
+def output_target_collision_remap(
+    *,
+    output_root: Path,
+    renames: list[tuple[Path, Path, Path]],
+) -> dict[Path, Path]:
+    """Choose numbered top-level output siblings for collided targets."""
+    remap: dict[Path, Path] = {}
+    for _src, dst, target_dir in renames:
+        if not dst.exists():
+            continue
+        top_dir = _top_output_dir(output_root, target_dir)
+        if top_dir is None or top_dir in remap:
+            continue
+        remap[top_dir] = _next_numbered_sibling(top_dir)
+    return remap
+
+
+def _top_output_dir(output_root: Path, path: Path) -> Path | None:
+    """Return the first directory below output_root for path."""
+    try:
+        relative = path.relative_to(output_root)
+    except ValueError:
+        return None
+    if not relative.parts:
+        return None
+    return output_root / relative.parts[0]
+
+
+def _next_numbered_sibling(path: Path) -> Path:
+    """Return the next available '<name> (N)' sibling for path."""
+    counter = 1
+    while True:
+        candidate = path.with_name(f"{path.name} ({counter})")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
 def apply_rename_plan(
     renames: list[tuple[Path, Path, Path]],
     result: RenameResult,
