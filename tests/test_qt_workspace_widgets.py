@@ -218,6 +218,123 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         ):
             self.assertNotIn(literal, source)
 
+    def test_scan_progress_resets_phase_local_progress_between_lifecycles(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.MATCHING,
+            phase="Matching shows...",
+            done=5,
+            total=5,
+            message="Matching shows... 5/5",
+        )
+        self.assertEqual(widget._progress_bar.value(), 100)
+
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=0,
+            total=3,
+            message="Building episode previews... 0/3",
+        )
+
+        self.assertEqual(widget._progress_bar.value(), 0)
+        self.assertEqual(widget._count_label.text(), "0/3")
+        widget.close()
+
+    def test_scan_progress_terminal_state_stops_animation(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="movie")
+        widget.start()
+        self.assertTrue(widget._animation_timer.isActive())
+
+        widget.update_progress(
+            lifecycle=ScanLifecycle.READY,
+            phase="Movie scan complete",
+            message="Movie scan complete",
+        )
+
+        self.assertFalse(widget._animation_timer.isActive())
+        widget.close()
+
+    def test_scan_progress_completes_prior_phases_when_lifecycle_skips_ahead(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="movie")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.PREPARING_REVIEW,
+            phase="Preparing review list...",
+            message="Preparing review list...",
+        )
+
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.DISCOVERING].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.MATCHING].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.BUILDING_PREVIEWS].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.PREPARING_REVIEW].property("phaseState"),
+            "active",
+        )
+        self.assertEqual(widget._progress_bar.value(), 0)
+        self.assertEqual(widget._count_label.text(), "Working")
+        widget.close()
+
+    def test_scan_progress_throttles_fast_text_updates_but_keeps_count_current(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=1,
+            total=5,
+            current_item="Show A",
+            message="Building episode previews... 1/5 - Show A",
+        )
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=2,
+            total=5,
+            current_item="Show B",
+            message="Building episode previews... 2/5 - Show B",
+        )
+
+        self.assertEqual(widget._count_label.text(), "2/5")
+        self.assertEqual(widget._current_label.text(), "Current: Show A")
+        widget.close()
+
+    def test_scan_progress_checklist_matches_media_type(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        tv_widget = ScanProgressWidget(media_type="tv")
+        movie_widget = ScanProgressWidget(media_type="movie")
+
+        self.assertIn(ScanLifecycle.RECONCILING, tv_widget._phase_rows)
+        self.assertNotIn(ScanLifecycle.RECONCILING, movie_widget._phase_rows)
+        self.assertIn(ScanLifecycle.PREPARING_REVIEW, movie_widget._phase_rows)
+
+        tv_widget.close()
+        movie_widget.close()
+
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path
 

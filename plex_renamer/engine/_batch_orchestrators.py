@@ -67,13 +67,17 @@ def _emit_scan_progress(
     done: int,
     total: int,
     current_item: str,
+    phase: str | None = None,
 ) -> None:
     if progress_callback is None:
         return
     try:
-        progress_callback(done, total, current_item)
+        progress_callback(done, total, current_item, phase)
     except TypeError:
-        progress_callback(done, total)
+        try:
+            progress_callback(done, total, current_item)
+        except TypeError:
+            progress_callback(done, total)
 
 
 class BatchTVOrchestrator:
@@ -377,7 +381,18 @@ class BatchTVOrchestrator:
         )
 
         states: list[ScanState] = []
-        for (candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence), results in zip(candidates, all_results):
+        total_candidates = len(candidates)
+        _emit_scan_progress(
+            progress_callback,
+            0,
+            total_candidates,
+            "Preparing matched shows...",
+            "Preparing matched shows...",
+        )
+        for index, ((candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence), results) in enumerate(
+            zip(candidates, all_results),
+            start=1,
+        ):
             _raise_if_cancelled(cancel_event)
             states.append(
                 self._build_discovered_show_state(
@@ -390,7 +405,21 @@ class BatchTVOrchestrator:
                     cancel_event=cancel_event,
                 )
             )
+            _emit_scan_progress(
+                progress_callback,
+                index,
+                total_candidates,
+                candidate.folder.name,
+                "Preparing matched shows...",
+            )
 
+        _emit_scan_progress(
+            progress_callback,
+            0,
+            0,
+            "Merging related seasons...",
+            "Preparing matched shows...",
+        )
         states = _merge_tv_season_siblings(states)
         states = _merge_tv_umbrella_siblings(states)
         states.sort(key=self._sort_discovered_show_state)
@@ -562,7 +591,21 @@ class BatchTVOrchestrator:
                 _log.error("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
+        _emit_scan_progress(
+            progress_callback,
+            0,
+            0,
+            "Reconciling merged seasons...",
+            "Reconciling scan results...",
+        )
         self._reconcile_scanned_siblings(cancel_event=cancel_event)
+        _emit_scan_progress(
+            progress_callback,
+            0,
+            0,
+            "Reconciling episode claims...",
+            "Reconciling scan results...",
+        )
         self.reconcile_scanned_episode_claims()
 
     def reconcile_scanned_episode_claims(self, state: ScanState | None = None) -> ScanState | None:

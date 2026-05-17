@@ -364,6 +364,46 @@ class TVBatchTests(_ControllerTestCase):
 
         self.assertEqual(self.ctrl.batch_states, [])
 
+    def test_tv_batch_discovery_does_not_report_ready_before_bulk_scan(self):
+        root = self.tmp / "tv_root"
+        (root / "Naruto" / "Season 01").mkdir(parents=True)
+        (root / "Naruto" / "Season 01" / "Naruto - S01E01.mkv").write_text("x")
+        complete_lifecycles: list[ScanLifecycle] = []
+        self.ctrl.add_listener(
+            on_scan_complete=lambda _state: complete_lifecycles.append(self.ctrl.scan_progress.lifecycle),
+        )
+
+        self.ctrl.start_tv_batch(root, _FakeTMDB())
+
+        _wait_until(
+            lambda: bool(complete_lifecycles),
+            description="TV discovery scan_complete event",
+        )
+
+        self.assertEqual(complete_lifecycles[-1], ScanLifecycle.BUILDING_PREVIEWS)
+
+    def test_tv_batch_reports_preparing_matched_shows_after_matching(self):
+        root = self.tmp / "tv_root"
+        for name in ("Naruto", "Bleach"):
+            (root / name / "Season 01").mkdir(parents=True)
+            (root / name / "Season 01" / f"{name} - S01E01.mkv").write_text("x")
+        events: list[ScanProgress] = []
+        self.ctrl.add_listener(on_progress=events.append)
+
+        self.ctrl.start_tv_batch(root, _FakeTMDB())
+
+        _wait_until(
+            lambda: any(event.phase == "Preparing matched shows..." for event in events),
+            description="TV batch matched-show preparation progress",
+        )
+
+        preparing_events = [
+            event for event in events
+            if event.phase == "Preparing matched shows..."
+        ]
+        self.assertTrue(preparing_events)
+        self.assertTrue(all(event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS for event in preparing_events))
+
     def test_cancel_tv_batch_sets_cancelled_progress(self):
         root = self.tmp / "tv_root"
         for name in ("Naruto", "Bleach", "One Piece"):
@@ -565,7 +605,7 @@ class TVBatchTests(_ControllerTestCase):
             description="TV bulk scan to finish",
         )
 
-        scanning_events = [event for event in events if event.lifecycle == ScanLifecycle.SCANNING]
+        scanning_events = [event for event in events if event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS]
         self.assertTrue(any(event.current_item == "Show A" and event.done == 0 for event in scanning_events))
         self.assertTrue(any(event.current_item == "Show B" and event.done == 1 for event in scanning_events))
         self.assertTrue(any(event.current_item == "Show B" and event.done == 2 for event in scanning_events))
@@ -579,12 +619,12 @@ class TVBatchTests(_ControllerTestCase):
         self.ctrl.start_movie_batch(root, _FakeTMDB(), scanner_factory=_SlowMovieBatchScanner)
 
         _wait_until(
-            lambda: any(event.lifecycle == ScanLifecycle.SCANNING and event.done >= 2 for event in events),
+            lambda: any(event.lifecycle == ScanLifecycle.MATCHING and event.done >= 2 for event in events),
             description="movie batch progress events",
         )
         self.ctrl.cancel_scan()
 
-        movie_events = [event for event in events if event.lifecycle == ScanLifecycle.SCANNING]
+        movie_events = [event for event in events if event.lifecycle == ScanLifecycle.MATCHING]
         self.assertTrue(any(event.phase == "Searching TMDB..." for event in movie_events))
         self.assertTrue(any(event.done == 2 and event.total == 5 for event in movie_events))
 
@@ -1316,11 +1356,11 @@ class MovieBatchCancellationTests(_ControllerTestCase):
             "plex_renamer.app.controllers.media_controller.MovieScanner",
             _SlowMovieBatchScanner,
         ):
-            self.ctrl.start_movie_batch(root, _FakeTMDB())
+            self.ctrl.start_movie_batch(root, _FakeTMDB(), scanner_factory=_SlowMovieBatchScanner)
 
             _wait_until(
-                lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.SCANNING,
-                description="movie batch scan to enter SCANNING",
+                lambda: self.ctrl.scan_progress.lifecycle == ScanLifecycle.MATCHING,
+                description="movie batch scan to enter MATCHING",
             )
 
             self.assertTrue(self.ctrl.cancel_scan())

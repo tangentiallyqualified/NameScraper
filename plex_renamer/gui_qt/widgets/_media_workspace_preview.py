@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -330,6 +331,7 @@ class MediaWorkspacePreviewPanel(QFrame):
                 continue
             rows_by_season.setdefault(row.season, []).append(row)
 
+        rendered_rows = 0
         for season_num, rows in sorted(rows_by_season.items()):
             section_key = f"episode-guide-season:{season_num}"
             auto_collapsed_key = f"{section_key}:auto-collapsed"
@@ -348,6 +350,9 @@ class MediaWorkspacePreviewPanel(QFrame):
             prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
             self.add_header(prefix + season_title, section_key, render_key=render_key)
             for row in rows:
+                rendered_rows += 1
+                if rendered_rows % 30 == 0:
+                    QApplication.processEvents()
                 item = self._build_episode_guide_item(state, row)
                 self._add_rendered_item(
                     item,

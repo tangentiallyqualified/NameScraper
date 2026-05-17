@@ -1880,7 +1880,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(header.text().startswith("\u25be SPECIALS"))
         workspace.close()
 
-    def test_media_workspace_reselecting_show_reuses_rendered_preview_rows(self):
+    def test_media_workspace_reselecting_show_renders_preview_rows_on_demand(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
 
@@ -1952,15 +1952,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         first_widget = _first_visible_episode_widget(workspace)
         self.assertIsNotNone(first_widget)
         second_cached_item, second_cached_widget = _episode_widget_for_title(workspace, "Second Show")
-        self.assertIsNotNone(second_cached_item)
-        self.assertIsNotNone(second_cached_widget)
-        self.assertTrue(second_cached_item.isHidden())
+        self.assertIsNone(second_cached_item)
+        self.assertIsNone(second_cached_widget)
 
         second_item = workspace._find_roster_item_by_index(1)
         self.assertIsNotNone(second_item)
         workspace._roster_list.setCurrentItem(second_item)
         self._app.processEvents()
-        self.assertIs(_first_visible_episode_widget(workspace), second_cached_widget)
+        second_widget = _first_visible_episode_widget(workspace)
+        self.assertIsNotNone(second_widget)
+        self.assertIsNot(second_widget, first_widget)
         second_header = next(
             workspace._preview_list.item(row)
             for row in range(workspace._preview_list.count())

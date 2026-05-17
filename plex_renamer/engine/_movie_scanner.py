@@ -266,10 +266,10 @@ class MovieScanner:
 
         prepared = [_prepare_movie_query(file_path.stem) for file_path in video_files]
 
-        def _progress(done, total):
+        def _progress(done, total, current_item=""):
             _raise_if_cancelled(cancel_event)
             if progress_callback:
-                progress_callback(done, total, "Searching TMDB...")
+                progress_callback(done, total, "Searching TMDB...", current_item)
 
         search_queries = [(query, year) for query, year, _raw_name in prepared]
         all_results = self.tmdb.search_movies_batch(
@@ -277,10 +277,12 @@ class MovieScanner:
             progress_callback=_progress,
         )
 
-        for file_path, (_search_query, year_hint, raw_name), results in zip(
-            video_files,
-            prepared,
-            all_results,
+        if progress_callback:
+            progress_callback(0, len(video_files), "Building rename previews...", "")
+
+        for index, (file_path, (_search_query, year_hint, raw_name), results) in enumerate(
+            zip(video_files, prepared, all_results),
+            start=1,
         ):
             _raise_if_cancelled(cancel_event)
             self._search_cache[file_path] = results
@@ -296,6 +298,8 @@ class MovieScanner:
                     media_type=MediaType.MOVIE,
                     episode_confidence=0.0,
                 ))
+                if progress_callback:
+                    progress_callback(index, len(video_files), "Building rename previews...", file_path.name)
                 continue
 
             chosen, raw_confidence = self._best_match(results, raw_name, year_hint)
@@ -317,6 +321,8 @@ class MovieScanner:
                     f"(confidence {confidence:.0%}) — click to verify"
                 )
             items.append(item)
+            if progress_callback:
+                progress_callback(index, len(video_files), "Building rename previews...", file_path.name)
 
         return items
 

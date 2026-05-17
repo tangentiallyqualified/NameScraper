@@ -85,15 +85,30 @@ def start_tv_batch_session(
     orchestrator = controller._batch_orchestrator
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int) -> None:
+    def _progress(
+        done: int,
+        total: int,
+        current_item: str | None = None,
+        phase: str | None = None,
+    ) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
+        phase_text = phase or "Matching shows..."
+        preparing_matches = phase_text == "Preparing matched shows..."
+        suffix = (
+            f" - {current_item}"
+            if current_item and preparing_matches
+            else f" - last matched: {current_item}" if current_item else ""
+        )
         controller._set_progress(
-            ScanLifecycle.MATCHING,
-            phase="Matching shows...",
+            ScanLifecycle.BUILDING_PREVIEWS if preparing_matches else ScanLifecycle.MATCHING,
+            phase=phase_text,
             done=done,
             total=total,
-            message=f"Matching shows... {done}/{total}",
+            current_item=current_item or None,
+            message=(
+                f"{phase_text} {done}/{total}" if total else phase_text
+            ) + suffix,
         )
 
     def _worker() -> None:
@@ -124,24 +139,35 @@ def scan_all_tv_batch_shows(controller: _TVBatchController) -> None:
         return
 
     controller._set_progress(
-        ScanLifecycle.SCANNING,
-        phase="Scanning episodes...",
-        message="Scanning episodes...",
+        ScanLifecycle.BUILDING_PREVIEWS,
+        phase="Building episode previews...",
+        message="Building episode previews...",
     )
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int, current_item: str | None = None) -> None:
+    def _progress(
+        done: int,
+        total: int,
+        current_item: str | None = None,
+        phase: str | None = None,
+    ) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
         current_name = current_item or _current_batch_scan_name(controller._batch_states, done)
+        phase_text = phase or "Building episode previews..."
+        lifecycle = (
+            ScanLifecycle.RECONCILING
+            if phase and "Reconciling" in phase
+            else ScanLifecycle.BUILDING_PREVIEWS
+        )
+        progress_text = f"{phase_text} {done}/{total}" if total else phase_text
         controller._set_progress(
-            ScanLifecycle.SCANNING,
-            phase="Scanning episodes...",
+            lifecycle,
+            phase=phase_text,
             done=done,
             total=total,
             current_item=current_name or None,
-            message=f"Scanning episodes... {done}/{total}"
-            + (f" — {current_name}" if current_name else ""),
+            message=progress_text + (f" - {current_name}" if current_name else ""),
         )
 
     def _worker() -> None:
@@ -222,12 +248,12 @@ def _complete_tv_batch_discovery(
 
     needs_review = sum(1 for state in controller._batch_states if state.needs_review)
     controller._set_progress(
-        ScanLifecycle.READY,
+        ScanLifecycle.BUILDING_PREVIEWS,
         phase="Discovery complete",
         message=(
             f"Found {len(controller._batch_states)} shows"
-            + (f" — {needs_review} need review" if needs_review else "")
-            + " — scanning episodes..."
+            + (f" - {needs_review} need review" if needs_review else "")
+            + " - scanning episodes..."
         ),
     )
     controller._notify("library_changed", controller._batch_states)
@@ -247,7 +273,7 @@ def _cancel_tv_bulk_scan(
     controller._set_progress(
         ScanLifecycle.CANCELLED,
         phase="Batch scan cancelled",
-        message=f"Cancelled after scanning {scanned} show(s) — {total_files} total files",
+        message=f"Cancelled after scanning {scanned} show(s) - {total_files} total files",
     )
     controller._notify("library_changed", controller._batch_states)
     controller._finish_scan_operation(cancel_event)
@@ -269,7 +295,7 @@ def _complete_tv_bulk_scan(
     total_prepared = len(prepared_states)
     if total_prepared:
         controller._set_progress(
-            ScanLifecycle.SCANNING,
+            ScanLifecycle.PREPARING_REVIEW,
             phase="Preparing episode list...",
             done=0,
             total=total_prepared,
@@ -277,18 +303,26 @@ def _complete_tv_bulk_scan(
         )
     for index, state in enumerate(prepared_states, start=1):
         controller._set_progress(
-            ScanLifecycle.SCANNING,
+            ScanLifecycle.PREPARING_REVIEW,
+            phase="Preparing episode list...",
+            done=index - 1,
+            total=total_prepared,
+            current_item=state.display_name,
+            message=f"Preparing episode list... {index - 1}/{total_prepared} - {state.display_name}",
+        )
+        controller.prepare_episode_guides([state])
+        controller._set_progress(
+            ScanLifecycle.PREPARING_REVIEW,
             phase="Preparing episode list...",
             done=index,
             total=total_prepared,
             current_item=state.display_name,
-            message=f"Preparing episode list... {index}/{total_prepared} - {state.display_name}",
+            message=f"Prepared episode list... {index}/{total_prepared} - {state.display_name}",
         )
-        controller.prepare_episode_guides([state])
     controller._set_progress(
         ScanLifecycle.READY,
         phase="Batch scan complete",
-        message=f"Scanned {scanned} shows — {total_files} total files",
+        message=f"Scanned {scanned} shows - {total_files} total files",
     )
     controller._notify("library_changed", controller._batch_states)
     controller._finish_scan_operation(cancel_event)

@@ -21,6 +21,9 @@ class ScanLifecycle(StrEnum):
     DISCOVERING = "discovering"
     MATCHING = "matching"
     SCANNING = "scanning"
+    BUILDING_PREVIEWS = "building_previews"
+    RECONCILING = "reconciling"
+    PREPARING_REVIEW = "preparing_review"
     REFRESHING_CACHE = "refreshing_cache"
     READY = "ready"
     WARNING = "warning"
@@ -84,6 +87,9 @@ class ScanProgress:
             ScanLifecycle.DISCOVERING,
             ScanLifecycle.MATCHING,
             ScanLifecycle.SCANNING,
+            ScanLifecycle.BUILDING_PREVIEWS,
+            ScanLifecycle.RECONCILING,
+            ScanLifecycle.PREPARING_REVIEW,
             ScanLifecycle.REFRESHING_CACHE,
         }
 
