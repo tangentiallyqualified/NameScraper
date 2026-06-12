@@ -351,7 +351,7 @@ def infer_explicit_season_assignment(
         return season_num
 
     direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
-    explicit_seasons = {item.season_num for item in direct_evidence if item.season_num > 0}
+    explicit_seasons = {item.season_num for item in direct_evidence}
     if len(explicit_seasons) == 1:
         return next(iter(explicit_seasons))
 

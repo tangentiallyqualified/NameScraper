@@ -308,10 +308,10 @@ def _tv_episode_evidence_adjustment(
         return 0.0
 
     adjustment = 0.0
-    explicit_seasons = {item.season_num for item in evidence if item.season_num > 0}
+    explicit_seasons = {item.season_num for item in evidence}
     if explicit_seasons:
-        tmdb_regular_seasons = {sn for sn in tmdb_seasons if sn > 0}
-        coverage = len(explicit_seasons & tmdb_regular_seasons) / len(explicit_seasons)
+        tmdb_known_seasons = {int(sn) for sn in tmdb_seasons}
+        coverage = len(explicit_seasons & tmdb_known_seasons) / len(explicit_seasons)
         adjustment += (coverage - 0.5) * 0.24
 
     exact_episode_hits = 0

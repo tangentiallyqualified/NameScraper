@@ -2310,3 +2310,36 @@ class TestTableDrivenScan:
         items, _ = scanner.scan()
         special = next(item for item in items if item.season == 0)
         assert special.episode_confidence < 1.0
+
+
+class TestSpecialsOnlyShow:
+    def test_specials_only_folder_scans_season_zero(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01 - Opening.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        assert all(item.season == 0 for item in items)
+
+    def test_infer_season_assignment_returns_zero_for_all_s00_evidence(self):
+        from plex_renamer.engine.models import (
+            DirectEpisodeEvidence,
+            infer_explicit_season_assignment,
+        )
+        evidence = [
+            DirectEpisodeEvidence(0, 1, "Opening"),
+            DirectEpisodeEvidence(0, 2, "Recap"),
+        ]
+        assert infer_explicit_season_assignment(
+            Path("Some Show"), evidence,
+        ) == 0
+
+    def test_collect_evidence_descends_specials_folder(self, tmp_path):
+        from plex_renamer.engine.models import collect_direct_episode_evidence
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01 - Opening.mkv").touch()
+        evidence = collect_direct_episode_evidence(tmp_path)
+        assert any(item.season_num == 0 for item in evidence)
