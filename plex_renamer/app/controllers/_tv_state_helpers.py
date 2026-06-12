@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from ...engine import ScanState
+from ...engine._episode_projection import project_preview_items
+from ...engine.episode_assignments import carry_over_manual_assignments
 from ...parsing import get_season
 
 
@@ -54,6 +56,24 @@ def run_tv_scan(
     items, has_mismatch = scanner.scan()
     if has_mismatch:
         items = scanner.scan_consolidated()
+    new_table = getattr(scanner, "assignment_table", None)
+    old_table = state.assignments
+    if (
+        new_table is not None
+        and old_table is not None
+        and state.show_id == scanner.show_info.get("id")
+    ):
+        carry_over_manual_assignments(old_table, new_table)
+        items = project_preview_items(
+            new_table,
+            show_info=state.media_info,
+            root=state.folder,
+            media_fields={
+                "media_id": state.show_id,
+                "media_name": state.media_info.get("name"),
+            },
+        )
+    state.assignments = new_table
     duplicate_checker(items)
     initial_checked = {index for index, item in enumerate(items) if item.status == "OK"}
     state.preview_items = items

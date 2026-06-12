@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path, PurePosixPath
 
 from ._batch_tv_duplicates import normalized_relative_folder
+from ._episode_projection import project_preview_items
+from .episode_assignments import merge_tables
 from .models import PreviewItem, ScanState
 
 
@@ -43,34 +45,58 @@ def reconcile_scanned_episode_claims(
             (state for state in group if state is not primary),
             key=_primary_priority,
         )
-        merged_items: list[PreviewItem] = []
-        claimed: dict[tuple[int, int], PreviewItem] = {}
 
-        for state in ordered:
-            assign_preview_source_folders(state, library_root)
-            for item in state.preview_items:
-                keys = _episode_claim_keys(item)
-                overlapping = [key for key in keys if key in claimed]
-                if overlapping:
-                    item.status = _duplicate_claim_status(overlapping, claimed)
-                else:
-                    for key in keys:
-                        claimed[key] = item
-                merged_items.append(item)
-            if state is not primary:
-                removed.add(id(state))
-                replacements[id(state)] = primary
+        if all(state.assignments is not None for state in ordered):
+            for state in ordered:
+                assign_preview_source_folders(state, library_root)
+                for entry in state.assignments.files.values():
+                    if not entry.source_relative_folder:
+                        entry.source_relative_folder = _relative_folder(
+                            entry.path.parent, library_root,
+                        )
+                if state is not primary:
+                    merge_tables(primary.assignments, state.assignments)
+                    removed.add(id(state))
+                    replacements[id(state)] = primary
+            primary.preview_items = project_preview_items(
+                primary.assignments,
+                show_info=primary.media_info,
+                root=primary.folder,
+                media_fields={
+                    "media_id": primary.show_id,
+                    "media_name": primary.media_info.get("name"),
+                },
+            )
+        else:
+            # Legacy path for states scanned before the table existed.
+            merged_items: list[PreviewItem] = []
+            claimed: dict[tuple[int, int], PreviewItem] = {}
 
-        primary.preview_items = sorted(
-            merged_items,
-            key=lambda item: (
-                item.season if item.season is not None else 9999,
-                item.episodes[0] if item.episodes else 9999,
-                item.is_conflict,
-                item.source_relative_folder.casefold(),
-                item.original.name.casefold(),
-            ),
-        )
+            for state in ordered:
+                assign_preview_source_folders(state, library_root)
+                for item in state.preview_items:
+                    keys = _episode_claim_keys(item)
+                    overlapping = [key for key in keys if key in claimed]
+                    if overlapping:
+                        item.status = _duplicate_claim_status(overlapping, claimed)
+                    else:
+                        for key in keys:
+                            claimed[key] = item
+                    merged_items.append(item)
+                if state is not primary:
+                    removed.add(id(state))
+                    replacements[id(state)] = primary
+
+            primary.preview_items = sorted(
+                merged_items,
+                key=lambda item: (
+                    item.season if item.season is not None else 9999,
+                    item.episodes[0] if item.episodes else 9999,
+                    item.is_conflict,
+                    item.source_relative_folder.casefold(),
+                    item.original.name.casefold(),
+                ),
+            )
         primary.direct_video_file_count = sum(state.direct_video_file_count for state in group)
         primary.direct_episode_file_count = sum(state.direct_episode_file_count for state in group)
         primary.duplicate_of = None

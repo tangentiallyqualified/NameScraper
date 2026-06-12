@@ -1171,14 +1171,22 @@ class ScanImprovementTests(unittest.TestCase):
 
             self.assertEqual(
                 sorted(item.episodes[0] for item in ok_items if item.season == 4),
-                [1, 9, 10],
+                [1, 10],
             )
-            self.assertEqual(len(conflict_items), 1)
-            self.assertEqual(conflict_items[0].episodes, [9])
-            self.assertIn("duplicate episode claim S04E09", conflict_items[0].status)
+            # Spec: 2+ claims on a slot are a conflict record — both
+            # claimants surfaced, neither wins silently.
+            self.assertEqual(len(conflict_items), 2)
+            self.assertTrue(all(item.episodes == [9] for item in conflict_items))
+            self.assertTrue(all(
+                "duplicate episode claim S04E09" in item.status
+                for item in conflict_items
+            ))
             self.assertEqual(
-                conflict_items[0].source_relative_folder,
-                overlapping_folder.relative_to(root).as_posix(),
+                sorted(item.source_relative_folder for item in conflict_items),
+                sorted([
+                    season_folder.relative_to(root).as_posix(),
+                    overlapping_folder.relative_to(root).as_posix(),
+                ]),
             )
 
     def test_fully_redundant_same_show_sibling_becomes_conflict_evidence(self):
@@ -1213,12 +1221,16 @@ class ScanImprovementTests(unittest.TestCase):
                 item for item in succession_states[0].preview_items if item.is_conflict
             ]
 
-            self.assertEqual(len(conflict_items), 2)
-            self.assertTrue(
-                all(
-                    item.source_relative_folder == redundant_folder.relative_to(root).as_posix()
-                    for item in conflict_items
-                )
+            # Spec: both claimants of each duplicated slot are conflicts —
+            # neither folder's copy wins silently.
+            self.assertEqual(len(conflict_items), 4)
+            conflict_sources = {item.source_relative_folder for item in conflict_items}
+            self.assertEqual(
+                conflict_sources,
+                {
+                    season_folder.relative_to(root).as_posix(),
+                    redundant_folder.relative_to(root).as_posix(),
+                },
             )
 
     def test_best_tv_match_title_falls_back_when_episode_titles_disagree(self):

@@ -210,3 +210,57 @@ class TestIngestion:
         ]
         ingest_preview_items(table, items)
         assert (1, 2) in table.conflicts()
+
+
+from plex_renamer.engine.episode_assignments import merge_tables
+
+
+class TestMergeTables:
+    def test_merge_remaps_file_ids_and_detects_cross_state_conflicts(self):
+        primary = make_table()
+        sibling = make_table()
+        a = primary.add_file(Path("s1/opening.mkv"), source_relative_folder="s1")
+        b = sibling.add_file(Path("s2/opening.mkv"), source_relative_folder="s2")
+        primary.assign(a.file_id, 0, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        sibling.assign(b.file_id, 0, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        merge_tables(primary, sibling)
+        assert len(primary.files) == 2
+        assert (0, 1) in primary.conflicts()
+
+    def test_merge_keeps_unassigned_reasons(self):
+        primary = make_table()
+        sibling = make_table()
+        entry = sibling.add_file(Path("x.mkv"))
+        sibling.mark_unassigned(entry.file_id, "could not parse episode number")
+        merge_tables(primary, sibling)
+        assert len(primary.unassigned_files()) == 1
+
+
+class TestManualCarryOver:
+    def test_manual_assignments_survive_rescan_of_same_show(self):
+        from plex_renamer.engine.episode_assignments import (
+            carry_over_manual_assignments,
+        )
+        old = make_table()
+        entry_old = old.add_file(Path("lib/show/e1.mkv"))
+        old.assign(entry_old.file_id, 1, [2], origin=ORIGIN_MANUAL)
+
+        new = make_table()
+        entry_new = new.add_file(Path("lib/show/e1.mkv"))
+        new.assign(entry_new.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+
+        carry_over_manual_assignments(old, new)
+        restored = new.assignment_for(entry_new.file_id)
+        assert restored.episodes == (2,)
+        assert restored.origin == ORIGIN_MANUAL
+
+    def test_manual_carry_over_skips_files_missing_from_new_scan(self):
+        from plex_renamer.engine.episode_assignments import (
+            carry_over_manual_assignments,
+        )
+        old = make_table()
+        gone = old.add_file(Path("lib/show/deleted.mkv"))
+        old.assign(gone.file_id, 1, [1], origin=ORIGIN_MANUAL)
+        new = make_table()
+        carry_over_manual_assignments(old, new)  # must not raise
+        assert new.assignments() == []

@@ -22,6 +22,7 @@ from ._state import get_auto_accept_threshold
 
 if TYPE_CHECKING:
     from ._tv_scanner import TVScanner  # noqa: F401
+    from .episode_assignments import EpisodeAssignmentTable  # noqa: F401
 
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
@@ -171,6 +172,7 @@ class ScanState:
     source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
     completeness: CompletenessReport | None = None
+    assignments: "EpisodeAssignmentTable | None" = None
 
     # Match metadata
     confidence: float = 0.0
@@ -281,6 +283,7 @@ class ScanState:
         self.scanner = None
         self.preview_items.clear()
         self.completeness = None
+        self.assignments = None
         self.scanned = False
         self.reset_gui_state()
 

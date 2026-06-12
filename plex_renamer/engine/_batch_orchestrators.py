@@ -549,6 +549,7 @@ class BatchTVOrchestrator:
             completeness = scanner.get_completeness(items, checked_indices=initial_checked)
 
             state.scanner = scanner
+            state.assignments = scanner.assignment_table
             state.completeness = completeness
             state.scanned = True
 

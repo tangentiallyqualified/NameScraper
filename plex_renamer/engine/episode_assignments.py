@@ -289,3 +289,74 @@ def ingest_preview_items(
                 except ValueError:
                     pass  # non-contiguous run at a season boundary
         table.mark_unassigned(entry.file_id, item.status or REASON_NO_PARSE)
+
+
+def merge_tables(
+    primary: EpisodeAssignmentTable,
+    other: EpisodeAssignmentTable,
+) -> dict[int, int]:
+    """Absorb *other* into *primary*; returns old->new file id mapping."""
+    id_map: dict[int, int] = {}
+    for slot in other.slots.values():
+        if slot.key not in primary.slots:
+            primary.add_slot(slot)
+    for old_id, entry in sorted(other.files.items()):
+        new_entry = primary.add_file(
+            entry.path,
+            parsed_episodes=entry.parsed_episodes,
+            raw_title=entry.raw_title,
+            is_season_relative=entry.is_season_relative,
+            season_hint=entry.season_hint,
+            folder_season=entry.folder_season,
+            from_extras_folder=entry.from_extras_folder,
+            source_relative_folder=entry.source_relative_folder,
+        )
+        id_map[old_id] = new_entry.file_id
+        assignment = other.assignment_for(old_id)
+        if assignment is not None:
+            primary.assign(
+                new_entry.file_id,
+                assignment.season,
+                list(assignment.episodes),
+                origin=assignment.origin,
+                confidence=assignment.confidence,
+                evidence=assignment.evidence,
+            )
+            if assignment.approved:
+                primary.set_approved(new_entry.file_id)
+        else:
+            primary.mark_unassigned(
+                new_entry.file_id, other.unassigned_reasons.get(old_id, ""),
+            )
+    return id_map
+
+
+def carry_over_manual_assignments(
+    old: EpisodeAssignmentTable,
+    new: EpisodeAssignmentTable,
+) -> None:
+    """Re-apply manual assignments from a previous scan of the SAME show.
+
+    Matches files by path. Files that vanished or episodes no longer in
+    TMDB are skipped silently (the rescan reflects current reality).
+    Spec: manual assignments survive re-scans of the same show match;
+    a rematch to a different show id discards the old table entirely.
+    """
+    new_by_path = {entry.path: entry.file_id for entry in new.files.values()}
+    for assignment in old.assignments():
+        if assignment.origin != ORIGIN_MANUAL:
+            continue
+        entry = old.files[assignment.file_id]
+        new_id = new_by_path.get(entry.path)
+        if new_id is None:
+            continue
+        try:
+            new.assign(
+                new_id,
+                assignment.season,
+                list(assignment.episodes),
+                origin=ORIGIN_MANUAL,
+                displace=True,
+            )
+        except ValueError:
+            continue
