@@ -83,13 +83,14 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             target="Bartender (2006) - S01E01 - Bartender.mkv",
             confidence="50%",
             companions=["[Kawaiika-Raws] Bartender 01 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
         )
         widget.resize(780, widget.sizeHint().height())
         widget.show()
         self._app.processEvents()
 
-        buttons = widget.findChildren(QPushButton)
-        button_bottom = max(button.geometry().bottom() for button in buttons if button.isVisible())
+        buttons = [b for b in widget.findChildren(QPushButton) if b.isVisible()]
+        button_bottom = max(b.geometry().bottom() for b in buttons)
         button_bottom_clearance = widget.contentsRect().bottom() - button_bottom
 
         self.assertGreaterEqual(widget.sizeHint().height(), 96)
@@ -129,6 +130,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             target="Bartender (2006) - S01E03 - Glass of Regret.mkv",
             confidence="50%",
             companions=["[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
         )
 
         self.assertLess(compact.sizeHint().height(), detailed.sizeHint().height())
@@ -456,3 +458,63 @@ class MoviePreviewRowCheckboxTests(QtSmokeBase):
             media_type="tv",
         )
         self.assertTrue(widget._check.isVisibleTo(widget))
+
+
+class EpisodeGuideRowActionsTests(QtSmokeBase):
+    def test_actions_menu_button_present(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            actions=[("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
+        self.assertIsNotNone(widget.actions_button())
+        labels = [action.text() for action in widget.actions_menu().actions()]
+        self.assertEqual(labels, ["Reassign...", "Unassign"])
+        widget.close()
+
+    def test_action_signal_carries_action_id(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            actions=[("unassign", "Unassign")],
+        )
+        fired: list[str] = []
+        widget.action_requested.connect(fired.append)
+        widget.actions_menu().actions()[0].trigger()
+        self.assertEqual(fired, ["unassign"])
+        widget.close()
+
+    def test_no_actions_hides_button(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E02 - Missing",
+            status="Missing File",
+            actions=[],
+        )
+        self.assertTrue(
+            widget.actions_button() is None or not widget.actions_button().isVisible()
+        )
+        widget.close()
+
+    def test_approve_quick_button_only_for_review(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        review = EpisodeGuideRowWidget(
+            title="S01E01",
+            status="Review",
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
+        )
+        mapped = EpisodeGuideRowWidget(
+            title="S01E01",
+            status="Mapped",
+            actions=[("reassign", "Reassign...")],
+        )
+        self.assertTrue(review.approve_button().isVisibleTo(review))
+        self.assertFalse(mapped.approve_button().isVisibleTo(mapped))
+        review.close()
+        mapped.close()

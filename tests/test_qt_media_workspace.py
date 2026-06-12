@@ -2054,11 +2054,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
         )
 
+        # New API: approve button emits action_requested("approve") via the new signal.
+        # Real dispatch is wired in Task 12; here we verify the signal fires.
+        fired: list[str] = []
+        widget.action_requested.connect(fired.append)
         widget._approve_button.click()
         self._app.processEvents()
 
-        media_ctrl.refresh_episode_guide.assert_called_with(state)
-        self.assertEqual(review_item.status, "OK")
+        self.assertEqual(fired, ["approve"])
         workspace.close()
 
     def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
@@ -2291,17 +2294,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         widget = workspace._preview_list.itemWidget(item)
         self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
         self.assertNotEqual(workspace._queue_inline_btn.text(), "Approve Episode")
+        # New API: approve button visible for Review rows; ⋯ menu for reassign/unassign.
         self.assertTrue(hasattr(widget, "_approve_button"))
-        self.assertTrue(hasattr(widget, "_fix_button"))
         self.assertTrue(widget._approve_button.isVisible())
-        self.assertTrue(widget._fix_button.isVisible())
-
-        widget._approve_button.click()
-        self._app.processEvents()
-
-        self.assertEqual(review_item.status, "OK")
-        self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
-        self.assertTrue(workspace._queue_inline_btn.isEnabled())
+        self.assertIsNotNone(widget.actions_button())
+        menu_labels = [a.text() for a in widget.actions_menu().actions()]
+        self.assertIn("Reassign...", menu_labels)
+        self.assertIn("Unassign", menu_labels)
 
         workspace.close()
 
@@ -2360,23 +2359,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         widget = workspace._preview_list.itemWidget(item)
 
-        with (
-            patch(
-                "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getItem",
-                side_effect=AssertionError("episode fix should not use a collapsing combo dropdown"),
-            ),
-            patch(
-                "plex_renamer.gui_qt.widgets._media_workspace_actions.EpisodeChoiceDialog.pick",
-                return_value=(1, 2),
-            ),
-        ):
-            widget._fix_button.click()
-        self._app.processEvents()
-
-        self.assertEqual(review_item.status, "OK")
-        self.assertEqual(review_item.episodes, [2])
-        self.assertIn("S01E02", review_item.new_name)
-        self.assertEqual(review_item.episode_confidence, 1.0)
+        # New API: Fix button removed; reassign is now a menu action via the ⋯ tool button.
+        self.assertFalse(hasattr(widget, "_fix_button"))
+        self.assertIsNotNone(widget.actions_button())
+        menu_labels = [a.text() for a in widget.actions_menu().actions()]
+        self.assertIn("Reassign...", menu_labels)
 
         workspace.close()
 
@@ -2462,6 +2449,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             original="Example.Show.S01E03.With.A.Long.Release.Name.mkv",
             target="Example Show (2024) - S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally.mkv",
             confidence="52%",
+            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
         )
 
         self.assertEqual(short_row.sizeHint().height(), missing_row.sizeHint().height())
@@ -2520,9 +2508,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         before_height = widget.sizeHint().height()
 
         self.assertEqual(widget._approve_button.property("sizeVariant"), "inline")
-        self.assertEqual(widget._fix_button.property("sizeVariant"), "inline")
         self.assertLessEqual(widget._approve_button.sizeHint().height(), 24)
-        self.assertLessEqual(widget._fix_button.sizeHint().height(), 24)
+        self.assertIsNotNone(widget.actions_button())
         self.assertGreater(
             widget._approve_button.mapTo(widget, QPoint(0, 0)).x(),
             widget._confidence.mapTo(widget, QPoint(0, 0)).x(),
@@ -2541,30 +2528,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_episode_guide_review_action_buttons_are_parented_during_construction(self):
-        from PySide6.QtWidgets import QPushButton as RealQPushButton
         import plex_renamer.gui_qt.widgets._workspace_widgets as workspace_widgets
 
-        constructed: list[tuple[str, object | None]] = []
-
-        def recording_button(*args, **kwargs):
-            text = args[0] if args else kwargs.get("text", "")
-            parent = args[1] if len(args) > 1 else kwargs.get("parent")
-            if text in {"Approve", "Fix"}:
-                constructed.append((text, parent))
-            return RealQPushButton(*args, **kwargs)
-
-        with patch.object(workspace_widgets, "QPushButton", recording_button):
-            row = workspace_widgets.EpisodeGuideRowWidget(
-                title="S01E01 - Pilot",
-                status="Review",
-                confidence="50%",
-            )
+        row = workspace_widgets.EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Review",
+            confidence="50%",
+            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
 
         try:
-            self.assertEqual([text for text, _parent in constructed], ["Approve", "Fix"])
-            self.assertTrue(all(parent is row for _text, parent in constructed))
+            # Approve button is present, parented, and not a top-level window.
             self.assertFalse(row._approve_button.isWindow())
-            self.assertFalse(row._fix_button.isWindow())
+            self.assertIsNotNone(row.actions_button())
+            self.assertFalse(row.actions_button().isWindow())
+            # ⋯ menu carries the non-approve actions.
+            labels = [a.text() for a in row.actions_menu().actions()]
+            self.assertEqual(labels, ["Reassign...", "Unassign"])
         finally:
             row.close()
 

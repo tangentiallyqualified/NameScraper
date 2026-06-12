@@ -56,8 +56,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         settings_service: "SettingsService | None" = None,
         set_item_check_state_callback=None,
         episode_filter_changed_callback=None,
-        approve_episode_callback=None,
-        fix_episode_callback=None,
+        episode_row_action_callback=None,
         approve_all_episode_callback=None,
         episode_guide_provider=None,
         parent: QWidget | None = None,
@@ -67,8 +66,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._settings = settings_service
         self._set_item_check_state = set_item_check_state_callback
         self._episode_filter_changed = episode_filter_changed_callback
-        self._approve_episode = approve_episode_callback
-        self._fix_episode = fix_episode_callback
+        self._episode_row_action = episode_row_action_callback
         self._approve_all_episode = approve_all_episode_callback
         self._episode_guide_provider = episode_guide_provider
         self._episode_filter = "all"
@@ -758,6 +756,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         title = f"S{row.season:02d}E{row.episode:02d}"
         if row.title:
             title = f"{title} - {row.title}"
+        actions = self._episode_row_actions(row)
         widget = _EpisodeGuideRowWidget(
             title=title,
             status=row.status,
@@ -765,26 +764,35 @@ class MediaWorkspacePreviewPanel(QFrame):
             target=row.target_rename,
             confidence=row.confidence_label,
             companions=companions,
+            actions=actions,
             parent=self._list_widget,
         )
-        if row.primary_file is not None:
-            widget.approve_requested.connect(
-                lambda preview=row.primary_file, state=state: (
-                    self._approve_episode(state, preview)
-                    if self._approve_episode is not None
-                    else None
-                )
-            )
-            widget.fix_requested.connect(
-                lambda preview=row.primary_file, state=state: (
-                    self._fix_episode(state, preview)
-                    if self._fix_episode is not None
-                    else None
+        if self._episode_row_action is not None:
+            widget.action_requested.connect(
+                lambda action_id, state=state, row=row: self._episode_row_action(
+                    state, row, action_id,
                 )
             )
         widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
         self._sync_item_height(item, widget)
         self._list_widget.setItemWidget(item, widget)
+
+    @staticmethod
+    def _episode_row_actions(row) -> list[tuple[str, str]]:
+        if row.status == "Missing File":
+            return [("assign_file", "Assign file...")]
+        if row.status == "Conflict":
+            return [
+                ("keep_this", "Keep this file (unassign others)"),
+                ("reassign", "Reassign..."),
+                ("unassign", "Unassign"),
+            ]
+        actions: list[tuple[str, str]] = []
+        if row.status == "Review":
+            actions.append(("approve", "Approve"))
+        actions.append(("reassign", "Reassign..."))
+        actions.append(("unassign", "Unassign"))
+        return actions
 
     def _add_folder_preview_section(
         self,
