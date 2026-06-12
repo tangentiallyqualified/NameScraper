@@ -144,3 +144,36 @@ class TestQueries:
         table.unassign(entry.file_id, reason="manually unassigned")
         assert table.claimant(1, 1) is None
         assert table.assignment_for(entry.file_id) is None
+
+
+class TestContractPins:
+    def test_displacing_one_episode_unassigns_whole_multi_episode_holder(self):
+        table = make_table()
+        holder = table.add_file(Path("multi.mkv"))
+        taker = table.add_file(Path("single.mkv"))
+        table.assign(holder.file_id, 1, [1, 2, 3], origin=ORIGIN_AUTO, confidence=0.9)
+        table.assign(taker.file_id, 1, [2], origin=ORIGIN_MANUAL, displace=True)
+        assert table.assignment_for(holder.file_id) is None
+        assert table.unassigned_reasons[holder.file_id] == REASON_DISPLACED
+        assert table.claimant(1, 1) is None  # whole run released, not just E02
+        assert table.claimant(1, 3) is None
+
+    def test_set_approved_and_set_confidence_raise_for_unassigned_file(self):
+        table = make_table()
+        entry = table.add_file(Path("a.mkv"))
+        with pytest.raises(ValueError):
+            table.set_approved(entry.file_id)
+        with pytest.raises(ValueError):
+            table.set_confidence(entry.file_id, 0.5)
+
+    def test_resolve_conflict_keeps_multi_episode_winner_intact(self):
+        table = make_table()
+        winner = table.add_file(Path("multi.mkv"))
+        loser = table.add_file(Path("dupe.mkv"))
+        table.assign(winner.file_id, 1, [2, 3], origin=ORIGIN_AUTO, confidence=0.9)
+        table.assign(loser.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
+        table.resolve_conflict(1, 2, winner_file_id=winner.file_id)
+        kept = table.assignment_for(winner.file_id)
+        assert kept is not None and kept.episodes == (2, 3)
+        assert table.assignment_for(loser.file_id) is None
+        assert table.conflicts() == {}
