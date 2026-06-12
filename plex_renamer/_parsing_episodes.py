@@ -8,6 +8,15 @@ from pathlib import Path
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
 from ._parsing_titles import clean_name
 
+_MAX_RANGE_SPAN = 12
+
+
+def _expand_range(start: int, end: int) -> list[int]:
+    """Expand an inclusive episode range, capping absurd spans."""
+    if end >= start and (end - start) <= _MAX_RANGE_SPAN:
+        return list(range(start, end + 1))
+    return [start, end]
+
 
 def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     """
@@ -25,26 +34,28 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     name = clean_name(raw_stem)
 
     match = re.search(
-        r"S(\d+)E(\d+)(?:[E-]?E?(\d+))?\s*[-.]?\s*(.*)",
+        r"S(\d+)((?:E\d+)+)(?:\s*-\s*E?(\d+))?\s*[-.]?\s*(.*)",
         name,
         re.IGNORECASE,
     )
     if match:
-        episodes = [int(match.group(2))]
+        episodes = [int(num) for num in re.findall(r"E(\d+)", match.group(2), re.IGNORECASE)]
         if match.group(3):
-            episodes.append(int(match.group(3)))
+            episodes = _expand_range(episodes[0], int(match.group(3)))
         title = match.group(4).strip() if match.group(4) else None
         return episodes, title, True
 
     match = re.search(
-        r"\b(\d{1,2})x(\d{2,3})(?:[x-](\d{2,3}))?(?!\d)\s*[-.]?\s*(.*)",
+        r"\b(\d{1,2})x(\d{2,3})(?:\s*-\s*(?:\1x)?(\d{2,3}))?(?!\d)\s*[-.]?\s*(.*)",
         name,
         re.IGNORECASE,
     )
     if match:
-        episodes = [int(match.group(2))]
+        start_num = int(match.group(2))
         if match.group(3):
-            episodes.append(int(match.group(3)))
+            episodes = _expand_range(start_num, int(match.group(3)))
+        else:
+            episodes = [start_num]
         title = match.group(4).strip() if match.group(4) else None
         return episodes, title, True
 
@@ -106,11 +117,11 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 def extract_season_number(filename: str) -> int | None:
     """Extract the explicit season number from a season/episode filename pattern."""
     name = clean_name(Path(filename).stem)
-    match = re.search(r"S(\d+)E\d+(?:[E-]?E?\d+)?", name, re.IGNORECASE)
+    match = re.search(r"S(\d+)(?:E\d+)+", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
-    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:[x-]\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
