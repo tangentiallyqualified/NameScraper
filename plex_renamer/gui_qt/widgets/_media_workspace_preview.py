@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...app.models.state_models import EpisodeGuideRow as _EpisodeGuideRow
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import PreviewItem, ScanState
 from ._media_helpers import (
@@ -373,12 +374,23 @@ class MediaWorkspacePreviewPanel(QFrame):
                 item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 self._add_rendered_item(item, render_key)
+                synthetic_row = _EpisodeGuideRow(
+                    season=unmapped.preview.season or 0 if unmapped.preview is not None else 0,
+                    episode=(unmapped.preview.episodes[0] if unmapped.preview is not None and unmapped.preview.episodes else 0),
+                    status="Unassigned",
+                    primary_file=unmapped.preview,
+                )
                 widget = _EpisodeGuideRowWidget(
                     title=unmapped.original.name,
-                    status="Unmapped",
-                    original=unmapped.reason,
+                    status="Unassigned",
+                    original=str(unmapped.reason),
+                    actions=[("reassign", "Assign to episode...")],
                     parent=self._list_widget,
                 )
+                if self._episode_row_action is not None:
+                    widget.action_requested.connect(
+                        lambda action_id, s=state, r=synthetic_row: self._episode_row_action(s, r, action_id)
+                    )
                 widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
                 self._sync_item_height(item, widget)
                 self._list_widget.setItemWidget(item, widget)

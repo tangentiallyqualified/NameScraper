@@ -4,15 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
-    QVBoxLayout,
 )
 
 from ...app.services.episode_mapping_service import EpisodeMappingService
@@ -45,60 +38,13 @@ from ._media_workspace_queue_actions import (
     queue_states as _queue_states,
     summarize_skip_reasons as _summarize_skip_reasons,
 )
+from .episode_assign_dialog import EpisodeAssignDialog
 
 
 def _refresh_episode_projection(workspace, state: ScanState) -> None:
     media_ctrl = getattr(workspace, "_media_ctrl", None)
     if media_ctrl is not None and hasattr(media_ctrl, "refresh_episode_guide"):
         media_ctrl.refresh_episode_guide(state)
-
-
-class EpisodeChoiceDialog:
-    """List-based episode picker used instead of a fragile combo popup."""
-
-    @staticmethod
-    def pick(
-        *,
-        parent,
-        title: str,
-        prompt: str,
-        choices: list[tuple[str, int, int]],
-        current_index: int = 0,
-    ) -> tuple[int, int] | None:
-        dialog = QDialog(parent)
-        dialog.setWindowTitle(title)
-        layout = QVBoxLayout(dialog)
-
-        prompt_label = QLabel(prompt)
-        prompt_label.setWordWrap(True)
-        layout.addWidget(prompt_label)
-
-        list_widget = QListWidget()
-        for label, season, episode in choices:
-            item = QListWidgetItem(label)
-            item.setData(Qt.ItemDataRole.UserRole, (season, episode))
-            list_widget.addItem(item)
-        if choices:
-            list_widget.setCurrentRow(max(0, min(current_index, len(choices) - 1)))
-        list_widget.itemDoubleClicked.connect(lambda _item: dialog.accept())
-        layout.addWidget(list_widget)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return None
-        item = list_widget.currentItem()
-        if item is None:
-            return None
-        selected = item.data(Qt.ItemDataRole.UserRole)
-        if not isinstance(selected, tuple) or len(selected) != 2:
-            return None
-        return int(selected[0]), int(selected[1])
 
 
 class MediaWorkspaceActionCoordinator:
@@ -177,15 +123,19 @@ class MediaWorkspaceActionCoordinator:
         if state.queued or state.scanning:
             workspace.status_message.emit("This episode cannot be approved in its current state.", 3000)
             return
-        if not preview.is_episode_review:
-            return
-        preview.status = "OK"
+        service = EpisodeMappingService()
+        if state.assignments is not None:
+            try:
+                service.approve_file(state, preview)
+            except ValueError as exc:
+                QMessageBox.warning(workspace, "Episode Assignment Failed", str(exc))
+                return
+        else:
+            # Legacy path: no assignment table — mutate status directly.
+            if not preview.is_episode_review:
+                return
+            preview.status = "OK"
         workspace._ensure_check_bindings(state)
-        if state.checked:
-            for index, item in enumerate(state.preview_items):
-                binding = state.check_vars.get(str(index))
-                if binding is not None and hasattr(binding, "set"):
-                    binding.set(item.is_actionable and not item.is_review)
         _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
         workspace._update_action_bar()
@@ -196,19 +146,29 @@ class MediaWorkspaceActionCoordinator:
         state = workspace._selected_state()
         if state is None or state.queued or state.scanning:
             return
-        approved = 0
-        for preview in state.preview_items:
-            if not preview.is_episode_review:
-                continue
-            preview.status = "OK"
-            approved += 1
-        if approved == 0:
-            return
+        service = EpisodeMappingService()
+        if state.assignments is not None:
+            try:
+                count = service.approve_all(state)
+            except ValueError:
+                return
+            if count == 0:
+                return
+        else:
+            # Legacy path: no assignment table — mutate status directly.
+            count = 0
+            for preview in state.preview_items:
+                if not preview.is_episode_review:
+                    continue
+                preview.status = "OK"
+                count += 1
+            if count == 0:
+                return
         workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
         workspace._update_action_bar()
-        workspace.status_message.emit(f"Approved {approved} episode mapping(s).", 3000)
+        workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
 
     def prompt_fix_episode_mapping(
         self,
@@ -219,34 +179,34 @@ class MediaWorkspaceActionCoordinator:
         warning_box: Any = QMessageBox,
     ) -> None:
         workspace = self._workspace
-        if state.queued or state.scanning or not preview.is_episode_review:
+        if state.queued or state.scanning:
             workspace.status_message.emit("This episode cannot be fixed in its current state.", 3000)
             return
         service = EpisodeMappingService()
-        choices = service.episode_choices(state)
-        if not choices:
+        preselected = None
+        if preview is not None and preview.season is not None and preview.episodes:
+            preselected = [(preview.season, ep) for ep in preview.episodes]
+        try:
+            slots = service.episode_slot_choices(state)
+        except ValueError as exc:
+            workspace.status_message.emit(str(exc), 4000)
+            return
+        if not slots:
             workspace.status_message.emit("No episode choices are available for this show.", 4000)
             return
-        current_index = 0
-        if preview.season is not None and preview.episodes:
-            current_key = (preview.season, preview.episodes[0])
-            for index, (_label, season, episode) in enumerate(choices):
-                if (season, episode) == current_key:
-                    current_index = index
-                    break
-        selected = EpisodeChoiceDialog.pick(
+        selection = EpisodeAssignDialog.pick_episodes(
             parent=workspace,
-            title="Fix Episode",
-            prompt=f"Episode for \"{preview.original.name}\":",
-            choices=choices,
-            current_index=current_index,
+            title=f"Assign \"{preview.original.name}\"" if preview is not None else "Assign Episode",
+            slots=slots,
+            preselected=preselected,
         )
-        if selected is None:
+        if selection is None:
             return
-        season, episode = selected
+        season = selection[0][0]
+        episodes = [ep for _s, ep in selection]
         try:
-            service.remap_preview_to_episode(state, preview, season=season, episode=episode)
-        except Exception as exc:
+            service.assign_file(state, preview, season=season, episodes=episodes)
+        except ValueError as exc:
             warning_box.warning(workspace, "Fix Episode Failed", str(exc))
             return
         workspace._ensure_check_bindings(state)
@@ -254,6 +214,95 @@ class MediaWorkspaceActionCoordinator:
         workspace._populate_preview(state)
         workspace._update_action_bar()
         workspace.status_message.emit("Episode mapping updated.", 3000)
+
+    def handle_episode_row_action(self, state: ScanState, row, action_id: str) -> None:
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit(
+                "Finish or cancel the queued/scanning state first.", 3000,
+            )
+            return
+        service = EpisodeMappingService()
+        preview = row.primary_file
+        try:
+            if action_id == "approve" and preview is not None:
+                service.approve_file(state, preview)
+                message = "Episode mapping approved."
+            elif action_id == "unassign" and preview is not None:
+                service.unassign_file(state, preview)
+                message = "File unassigned."
+            elif action_id == "keep_this" and preview is not None:
+                service.resolve_conflict(state, row.season, row.episode, preview)
+                message = "Conflict resolved."
+            elif action_id == "reassign" and preview is not None:
+                preselected = [
+                    (preview.season, episode)
+                    for episode in preview.episodes
+                    if preview.season is not None
+                ]
+                slots = service.episode_slot_choices(state)
+                selection = EpisodeAssignDialog.pick_episodes(
+                    parent=workspace,
+                    title=f"Assign \"{preview.original.name}\"",
+                    slots=slots,
+                    preselected=preselected or None,
+                )
+                if selection is None:
+                    return
+                season = selection[0][0]
+                episodes = [episode for _season, episode in selection]
+                service.assign_file(state, preview, season=season, episodes=episodes)
+                message = "Episode mapping updated."
+            elif action_id == "assign_file":
+                table = state.assignments
+                unassigned: list[tuple[int, str]] = []
+                for candidate in service.unassigned_file_previews(state):
+                    if candidate.file_id is None:
+                        continue
+                    reason = (
+                        table.unassigned_reasons.get(candidate.file_id, "")
+                        if table is not None
+                        else ""
+                    )
+                    label = (
+                        f"{candidate.original.name}  ({reason})"
+                        if reason
+                        else candidate.original.name
+                    )
+                    unassigned.append((candidate.file_id, label))
+                assigned = [
+                    (item.file_id, item.original.name)
+                    for item in state.preview_items
+                    if item.file_id is not None and item.new_name is not None
+                ]
+                file_id = EpisodeAssignDialog.pick_file(
+                    parent=workspace,
+                    title=f"Assign file to S{row.season:02d}E{row.episode:02d}",
+                    unassigned=unassigned,
+                    assigned=assigned,
+                )
+                if file_id is None:
+                    return
+                target = next(
+                    (item for item in state.preview_items if item.file_id == file_id),
+                    None,
+                )
+                if target is None:
+                    return
+                service.assign_file(
+                    state, target, season=row.season, episodes=[row.episode],
+                )
+                message = "File assigned."
+            else:
+                return
+        except ValueError as exc:
+            QMessageBox.warning(workspace, "Episode Assignment Failed", str(exc))
+            return
+        workspace._ensure_check_bindings(state)
+        _refresh_episode_projection(workspace, state)
+        workspace._populate_preview(state)
+        workspace._update_action_bar()
+        workspace.status_message.emit(message, 3000)
 
     def prompt_assign_season(
         self,

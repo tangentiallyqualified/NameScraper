@@ -3915,3 +3915,53 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIn("Evangelion: 3.0 You Can (Not) Redo (2012)", seen_titles)
 
         workspace.close()
+
+
+# ---------------------------------------------------------------------------
+# EpisodeAssignDialog tests
+# ---------------------------------------------------------------------------
+
+from plex_renamer.app.models.state_models import EpisodeSlotChoice  # noqa: E402
+from plex_renamer.gui_qt.widgets.episode_assign_dialog import EpisodeAssignDialog  # noqa: E402
+
+
+def _slot_choices():
+    return [
+        EpisodeSlotChoice(season=1, episode=1, title="Pilot", claimed_by="e1.mkv"),
+        EpisodeSlotChoice(season=1, episode=2, title="Heist"),
+        EpisodeSlotChoice(season=1, episode=3, title="Endgame"),
+        EpisodeSlotChoice(season=2, episode=1, title="Reboot"),
+    ]
+
+
+class TestEpisodeAssignDialog(QtSmokeBase):
+    def test_contiguous_same_season_selection_enables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 2), (1, 3)])
+        self.assertTrue(dialog.is_selection_valid())
+        dialog.close()
+
+    def test_non_contiguous_selection_disables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 1), (1, 3)])
+        self.assertFalse(dialog.is_selection_valid())
+        self.assertIn("contiguous", dialog.validation_text().lower())
+        dialog.close()
+
+    def test_cross_season_selection_disables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 3), (2, 1)])
+        self.assertFalse(dialog.is_selection_valid())
+        self.assertIn("season", dialog.validation_text().lower())
+        dialog.close()
+
+    def test_claimed_slot_shows_claimant(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        self.assertIn("e1.mkv", dialog.slot_row_text(1, 1))
+        dialog.close()
+
+    def test_selected_episodes_returned(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 2), (1, 3)])
+        self.assertEqual(dialog.selected_episodes(), [(1, 2), (1, 3)])
+        dialog.close()
