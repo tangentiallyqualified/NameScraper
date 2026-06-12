@@ -244,3 +244,82 @@ class TestResolutionRules:
         )
         assert res.episodes == (3,)
         assert res.confidence == CONF_NUMBER_RELATIVE
+
+
+from pathlib import Path
+
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
+from plex_renamer.engine._episode_resolution import (
+    COMPATIBLE_PREFIX_FLOOR,
+    CONTRADICTORY_PREFIX_CAP,
+    EPISODE_TITLE_MATCH_FLOOR,
+    EXACT_COVERAGE_FLOOR,
+    EXPLICIT_EPISODE_FLOOR,
+    apply_confidence_adjustments,
+)
+
+SHOW = {"id": 7, "name": "Demo Show", "year": "2020"}
+
+
+def coverage_table(count: int = 3) -> EpisodeAssignmentTable:
+    table = EpisodeAssignmentTable()
+    for episode in range(1, count + 1):
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+    return table
+
+
+class TestConfidenceAdjustments:
+    def test_explicit_episode_floor(self):
+        table = coverage_table()
+        entry = table.add_file(
+            Path("Demo Show S01E01.mkv"), is_season_relative=True,
+        )
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(entry.file_id).confidence >= EXPLICIT_EPISODE_FLOOR
+
+    def test_title_match_floor(self):
+        table = coverage_table()
+        entry = table.add_file(
+            Path("Demo Show S01E02 - Ep 2.mkv"),
+            is_season_relative=True, raw_title="Ep 2",
+        )
+        table.assign(entry.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.5)
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(entry.file_id).confidence >= EPISODE_TITLE_MATCH_FLOOR
+
+    def test_exact_coverage_floor(self):
+        table = coverage_table(3)
+        for episode in range(1, 4):
+            entry = table.add_file(
+                Path(f"demo - {episode}.mkv"), is_season_relative=False,
+            )
+            table.assign(entry.file_id, 1, [episode], origin=ORIGIN_AUTO, confidence=0.5)
+        apply_confidence_adjustments(table, show_info=SHOW)
+        for assignment in table.assignments():
+            assert assignment.confidence >= EXACT_COVERAGE_FLOOR
+
+    def test_conflicted_season_gets_no_coverage_floor(self):
+        table = coverage_table(3)
+        first = table.add_file(Path("a.mkv"), is_season_relative=False)
+        second = table.add_file(Path("b.mkv"), is_season_relative=False)
+        table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        table.assign(second.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(first.file_id).confidence == 0.5
+
+    def test_contradictory_source_prefix_caps(self):
+        table = coverage_table()
+        entry = table.add_file(
+            Path("Totally Different Show S01E01.mkv"), is_season_relative=True,
+        )
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert (
+            table.assignment_for(entry.file_id).confidence
+            <= CONTRADICTORY_PREFIX_CAP
+        )

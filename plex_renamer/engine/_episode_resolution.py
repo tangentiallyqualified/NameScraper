@@ -8,12 +8,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 
-from ..parsing import normalize_for_specials
+from ..parsing import (
+    build_tv_name,
+    extract_source_title_prefix,
+    normalize_for_match,
+    normalize_for_specials,
+)
 from .episode_assignments import (
+    ORIGIN_MANUAL,
     REASON_NO_PARSE,
     REASON_NO_TITLE_MATCH,
     REASON_NOT_IN_SEASON,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
 )
 
 # ── calibration constants ───────────────────────────────────────────
@@ -219,3 +228,159 @@ def resolve_file(
     if raw_title:
         return Resolution(episodes=(), reason=REASON_NO_TITLE_MATCH)
     return Resolution(episodes=(), reason=REASON_NO_PARSE)
+
+
+# ── post-resolution confidence floors and caps ──────────────────────
+# Same semantics as the retired _tv_scanner_postprocess adjustments,
+# rebased onto FileEntry evidence instead of filename re-parsing.
+EXPLICIT_EPISODE_FLOOR = 0.86
+COMPATIBLE_PREFIX_FLOOR = 0.88
+EPISODE_TITLE_MATCH_FLOOR = 0.92
+PLEX_READY_EPISODE_FLOOR = 1.0
+EXACT_COVERAGE_FLOOR = 0.80
+SINGLE_SEASON_PERFECT_SHOW_EXACT_COVERAGE_FLOOR = 0.85
+NEAR_COMPLETE_COVERAGE_FLOOR = 0.74
+CONTRADICTORY_PREFIX_CAP = 0.45
+
+
+def _parse_air_date(value: object) -> date | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _expected_for_season(slots: list[EpisodeSlot]) -> set[int]:
+    """Episode numbers expected for coverage, ignoring unaired episodes.
+
+    Slots whose air date is in the future are excluded — but only when at
+    least one slot in the season has already aired, so seasons with no
+    air-date metadata still count in full.
+    """
+    today = date.today()
+    aired: set[int] = set()
+    saw_future = False
+    for slot in slots:
+        air_date = _parse_air_date(slot.air_date)
+        if air_date is None:
+            continue
+        if air_date <= today:
+            aired.add(slot.episode)
+        else:
+            saw_future = True
+    if saw_future and aired:
+        return aired
+    return {slot.episode for slot in slots}
+
+
+def apply_confidence_adjustments(
+    table: EpisodeAssignmentTable,
+    *,
+    show_info: dict,
+    show_match_confidence: float | None = None,
+) -> None:
+    """Raise/cap auto-assignment confidence from corroborating evidence."""
+    show_name = show_info.get("name", "")
+    show_norm = normalize_for_match(show_name)
+    conflicted = table.conflicted_file_ids()
+
+    slots_by_season: dict[int, list[EpisodeSlot]] = {}
+    for slot in table.slots.values():
+        slots_by_season.setdefault(slot.season, []).append(slot)
+    season_slots = {
+        season: _expected_for_season(slots)
+        for season, slots in slots_by_season.items()
+    }
+
+    season_has_issue: set[int] = set()
+    matched_by_season: dict[int, set[int]] = {}
+    for assignment in table.assignments():
+        if assignment.origin == ORIGIN_MANUAL:
+            continue
+        if assignment.file_id in conflicted:
+            season_has_issue.add(assignment.season)
+            continue
+        matched_by_season.setdefault(assignment.season, set()).update(
+            assignment.episodes
+        )
+
+    for assignment in table.assignments():
+        if assignment.origin == ORIGIN_MANUAL or assignment.file_id in conflicted:
+            continue
+        entry = table.files[assignment.file_id]
+        confidence = assignment.confidence
+
+        if entry.is_season_relative:
+            confidence = max(confidence, EXPLICIT_EPISODE_FLOOR)
+
+        source_title = extract_source_title_prefix(entry.path.name)
+        if source_title:
+            source_norm = normalize_for_match(source_title)
+            compatible = bool(show_norm) and (
+                source_norm == show_norm
+                or source_norm.startswith(show_norm)
+                or show_norm.startswith(source_norm)
+            )
+            if compatible and entry.is_season_relative:
+                confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
+            if not compatible:
+                confidence = min(confidence, CONTRADICTORY_PREFIX_CAP)
+
+        first_slot = table.slots.get((assignment.season, assignment.episodes[0]))
+        if (
+            entry.raw_title
+            and first_slot is not None
+            and first_slot.title
+            and normalize_for_specials(entry.raw_title)
+            == normalize_for_specials(first_slot.title)
+        ):
+            confidence = max(confidence, EPISODE_TITLE_MATCH_FLOOR)
+
+        titles = [
+            (table.slots[(assignment.season, episode)].title or f"Episode {episode}")
+            for episode in assignment.episodes
+        ]
+        expected_name = build_tv_name(
+            show_name,
+            show_info.get("year", ""),
+            assignment.season,
+            list(assignment.episodes),
+            titles,
+            entry.path.suffix,
+        )
+        if expected_name == entry.path.name:
+            confidence = max(confidence, PLEX_READY_EPISODE_FLOOR)
+
+        table.set_confidence(assignment.file_id, confidence)
+
+    single_regular_season = (
+        sum(1 for season in season_slots if season > 0) == 1
+    )
+    perfect_show = show_match_confidence is not None and show_match_confidence >= 1.0
+
+    for season, expected in season_slots.items():
+        if season == 0 or season in season_has_issue or not expected:
+            continue
+        matched = matched_by_season.get(season, set())
+        missing = expected - matched
+        if matched == expected:
+            floor = EXACT_COVERAGE_FLOOR
+            if single_regular_season and perfect_show:
+                floor = SINGLE_SEASON_PERFECT_SHOW_EXACT_COVERAGE_FLOOR
+        elif matched and matched <= expected and (
+            len(missing) <= 1 or len(matched) / max(len(expected), 1) >= 0.90
+        ):
+            floor = NEAR_COMPLETE_COVERAGE_FLOOR
+        else:
+            continue
+        for assignment in table.assignments():
+            if (
+                assignment.season == season
+                and assignment.origin != ORIGIN_MANUAL
+                and assignment.file_id not in conflicted
+            ):
+                table.set_confidence(
+                    assignment.file_id, max(assignment.confidence, floor),
+                )
