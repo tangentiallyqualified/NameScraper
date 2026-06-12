@@ -2003,7 +2003,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_episode_approval_emits_approve_action(self):
-        # TODO(Task 12): restore projection-refresh assertions once dispatch is wired.
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -2027,25 +2032,34 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def sync_queued_states(self):
                 return None
 
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(
+            entry.file_id, 1, [1],
+            origin=ORIGIN_AUTO, confidence=0.5,
         )
         state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[review_item],
+            folder=folder,
+            media_info=show_info,
             scanned=True,
             confidence=1.0,
         )
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
         media_ctrl = _FakeMediaController(state)
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
+
+        # Find the review-status episode guide row widget.
         widget = next(
             workspace._preview_list.itemWidget(workspace._preview_list.item(row))
             for row in range(workspace._preview_list.count())
@@ -2054,15 +2068,15 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 EpisodeGuideRowWidget,
             )
         )
+        self.assertEqual(widget._status.text(), "Review")
 
-        # New API: approve button emits action_requested("approve") via the new signal.
-        # Real dispatch is wired in Task 12; here we verify the signal fires.
-        fired: list[str] = []
-        widget.action_requested.connect(fired.append)
+        # Clicking approve dispatches through handle_episode_row_action → service.approve_file.
         widget._approve_button.click()
         self._app.processEvents()
 
-        self.assertEqual(fired, ["approve"])
+        # After approval the projection reprojects: the row's status should flip to "OK".
+        review_item = next(p for p in state.preview_items if p.file_id == entry.file_id)
+        self.assertEqual(review_item.status, "OK")
         workspace.close()
 
     def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
@@ -2619,6 +2633,18 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
+
+        # In the default "all" filter, UNMAPPED PRIMARY FILES must appear BEFORE season rows.
+        all_headers = self._preview_header_texts(workspace)
+        unmapped_indices = [i for i, h in enumerate(all_headers) if "UNMAPPED PRIMARY FILES" in h]
+        season_indices = [i for i, h in enumerate(all_headers) if "SEASON 1" in h]
+        self.assertTrue(unmapped_indices, "Expected an UNMAPPED PRIMARY FILES header")
+        self.assertTrue(season_indices, "Expected a SEASON 1 header")
+        self.assertLess(
+            unmapped_indices[0],
+            season_indices[0],
+            "UNMAPPED PRIMARY FILES header must appear before SEASON 1 header",
+        )
 
         workspace._preview_panel._episode_filter_buttons["problems"].click()
         statuses = [

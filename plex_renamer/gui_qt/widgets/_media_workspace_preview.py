@@ -330,38 +330,6 @@ class MediaWorkspacePreviewPanel(QFrame):
                 continue
             rows_by_season.setdefault(row.season, []).append(row)
 
-        rendered_rows = 0
-        for season_num, rows in sorted(rows_by_season.items()):
-            section_key = f"episode-guide-season:{season_num}"
-            auto_collapsed_key = f"{section_key}:auto-collapsed"
-            season_rows = all_rows_by_season.get(season_num, rows)
-            if (
-                season_rows
-                and all(row.status == "Missing File" for row in season_rows)
-                and auto_collapsed_key not in collapsed
-            ):
-                collapsed.add(section_key)
-                collapsed.add(auto_collapsed_key)
-            is_collapsed = section_key in collapsed
-            season_name = state.season_names.get(season_num, "")
-            season_title = _season_label(season_num, name=season_name)
-            season_title += self._episode_guide_season_ratio(state, season_num, rows)
-            prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
-            self.add_header(prefix + season_title, section_key, render_key=render_key)
-            for row in rows:
-                rendered_rows += 1
-                if rendered_rows % 30 == 0:
-                    QApplication.processEvents()
-                item = self._build_episode_guide_item(state, row)
-                self._add_rendered_item(
-                    item,
-                    render_key,
-                    section_key=section_key,
-                    track_section=True,
-                )
-                item.setHidden(is_collapsed)
-                self._attach_episode_guide_widget(item, state, row)
-
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
             self.add_static_header(
                 f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})",
@@ -394,6 +362,38 @@ class MediaWorkspacePreviewPanel(QFrame):
                 widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
                 self._sync_item_height(item, widget)
                 self._list_widget.setItemWidget(item, widget)
+
+        rendered_rows = 0
+        for season_num, rows in sorted(rows_by_season.items()):
+            section_key = f"episode-guide-season:{season_num}"
+            auto_collapsed_key = f"{section_key}:auto-collapsed"
+            season_rows = all_rows_by_season.get(season_num, rows)
+            if (
+                season_rows
+                and all(row.status == "Missing File" for row in season_rows)
+                and auto_collapsed_key not in collapsed
+            ):
+                collapsed.add(section_key)
+                collapsed.add(auto_collapsed_key)
+            is_collapsed = section_key in collapsed
+            season_name = state.season_names.get(season_num, "")
+            season_title = _season_label(season_num, name=season_name)
+            season_title += self._episode_guide_season_ratio(state, season_num, rows)
+            prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
+            self.add_header(prefix + season_title, section_key, render_key=render_key)
+            for row in rows:
+                rendered_rows += 1
+                if rendered_rows % 30 == 0:
+                    QApplication.processEvents()
+                item = self._build_episode_guide_item(state, row)
+                self._add_rendered_item(
+                    item,
+                    render_key,
+                    section_key=section_key,
+                    track_section=True,
+                )
+                item.setHidden(is_collapsed)
+                self._attach_episode_guide_widget(item, state, row)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.orphan_companion_files:
             self.add_static_header(

@@ -124,17 +124,11 @@ class MediaWorkspaceActionCoordinator:
             workspace.status_message.emit("This episode cannot be approved in its current state.", 3000)
             return
         service = EpisodeMappingService()
-        if state.assignments is not None:
-            try:
-                service.approve_file(state, preview)
-            except ValueError as exc:
-                QMessageBox.warning(workspace, "Episode Assignment Failed", str(exc))
-                return
-        else:
-            # Legacy path: no assignment table — mutate status directly.
-            if not preview.is_episode_review:
-                return
-            preview.status = "OK"
+        try:
+            service.approve_file(state, preview)
+        except ValueError as exc:
+            QMessageBox.warning(workspace, "Episode Assignment Failed", str(exc))
+            return
         workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
         workspace._populate_preview(state)
@@ -215,7 +209,14 @@ class MediaWorkspaceActionCoordinator:
         workspace._update_action_bar()
         workspace.status_message.emit("Episode mapping updated.", 3000)
 
-    def handle_episode_row_action(self, state: ScanState, row, action_id: str) -> None:
+    def handle_episode_row_action(
+        self,
+        state: ScanState,
+        row,
+        action_id: str,
+        *,
+        warning_box: Any = QMessageBox,
+    ) -> None:
         workspace = self._workspace
         if state.queued or state.scanning:
             workspace.status_message.emit(
@@ -296,7 +297,7 @@ class MediaWorkspaceActionCoordinator:
             else:
                 return
         except ValueError as exc:
-            QMessageBox.warning(workspace, "Episode Assignment Failed", str(exc))
+            warning_box.warning(workspace, "Episode Assignment Failed", str(exc))
             return
         workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
