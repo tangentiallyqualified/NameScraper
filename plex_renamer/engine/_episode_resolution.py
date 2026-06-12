@@ -28,7 +28,8 @@ CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
 _TITLE_EXACT = 1.0
 _TITLE_SUBSTRING = 0.90
 _TITLE_PART_NUMBER = 0.80
-_MIN_SUBSTRING_LEN = 6
+_MIN_SUBSTRING_LEN = 6       # minimum length of the INPUT to enter substring matching
+_MIN_KEY_SUBSTRING_LEN = 4   # minimum length of a KEY to participate as a candidate
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +59,44 @@ def _strip_part_number(normalized: str) -> tuple[str, str]:
     return normalized, ""
 
 
+def _substring_candidates(
+    normalized: str,
+    lookup: dict[str, tuple[int, str]],
+) -> list[tuple[int, str]]:
+    """Return all (episode, title) pairs where *normalized* and the key overlap.
+
+    A key participates only when ``len(key) >= _MIN_KEY_SUBSTRING_LEN``.
+    Called only when ``len(normalized) >= _MIN_SUBSTRING_LEN``.
+    """
+    return [
+        (episode, title)
+        for key, (episode, title) in lookup.items()
+        if len(key) >= _MIN_KEY_SUBSTRING_LEN and (normalized in key or key in normalized)
+    ]
+
+
+def _has_ambiguous_title_evidence(
+    raw_title: str | None,
+    season_titles: dict[int, str],
+) -> bool:
+    """Return True when *raw_title* substring-matches 2+ distinct episode titles.
+
+    Uses the same candidate logic as ``match_title_in_titles`` so both
+    functions share one definition of 'ambiguous'.
+    """
+    if not raw_title or not season_titles:
+        return False
+    normalized = normalize_for_specials(raw_title)
+    if not normalized or len(normalized) < _MIN_SUBSTRING_LEN:
+        return False
+    lookup = {
+        normalize_for_specials(title): (episode, title)
+        for episode, title in season_titles.items()
+        if normalize_for_specials(title)
+    }
+    return len(_substring_candidates(normalized, lookup)) > 1
+
+
 def match_title_in_titles(
     raw_text: str | None,
     titles: dict[int, str],
@@ -84,11 +123,7 @@ def match_title_in_titles(
         return TitleMatch(episode=hit[0], title=hit[1], strength=_TITLE_EXACT)
 
     if len(normalized) >= _MIN_SUBSTRING_LEN:
-        substring_hits = [
-            (episode, title)
-            for key, (episode, title) in lookup.items()
-            if normalized in key or key in normalized
-        ]
+        substring_hits = _substring_candidates(normalized, lookup)
         if len(substring_hits) == 1:
             episode, title = substring_hits[0]
             return TitleMatch(episode=episode, title=title, strength=_TITLE_SUBSTRING)
@@ -154,7 +189,14 @@ def resolve_file(
             evidence=frozenset({"number", "title-weak-disagree"}),
         )
 
-    if valid_numbers:  # rule 4
+    if valid_numbers:
+        if _has_ambiguous_title_evidence(raw_title, season_titles):  # rule 3 (ambiguous)
+            return Resolution(
+                episodes=valid_numbers,
+                confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+                evidence=frozenset({"number", "title-ambiguous"}),
+            )
+        # rule 4: no usable title evidence
         confidence = CONF_NUMBER_RELATIVE if is_season_relative else CONF_NUMBER_INFERRED
         evidence = {"number"}
         if is_season_relative:

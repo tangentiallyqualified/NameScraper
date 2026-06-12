@@ -236,3 +236,11 @@ class TestResolutionRules:
         )
         assert res.episodes == (1, 2, 3)
         assert res.confidence == CONF_NUMBER_RELATIVE
+
+    def test_rule4_unaffected_when_no_title_evidence(self):
+        res = resolve_file(
+            parsed_episodes=(3,), raw_title="Completely Unrelated Thing",
+            is_season_relative=True, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (3,)
+        assert res.confidence == CONF_NUMBER_RELATIVE
