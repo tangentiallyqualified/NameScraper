@@ -342,9 +342,10 @@ class MediaWorkspacePreviewPanel(QFrame):
                 item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 self._add_rendered_item(item, render_key)
+                _up = unmapped.preview
                 synthetic_row = _EpisodeGuideRow(
-                    season=unmapped.preview.season or 0 if unmapped.preview is not None else 0,
-                    episode=(unmapped.preview.episodes[0] if unmapped.preview is not None and unmapped.preview.episodes else 0),
+                    season=(_up.season or 0) if _up is not None else 0,
+                    episode=(_up.episodes[0] if _up.episodes else 0) if _up is not None else 0,
                     status="Unassigned",
                     primary_file=unmapped.preview,
                 )

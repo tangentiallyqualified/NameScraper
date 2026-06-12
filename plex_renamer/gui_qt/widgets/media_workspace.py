@@ -313,19 +313,8 @@ class MediaWorkspace(QWidget):
     def _approve_match(self, state: ScanState) -> None:
         self._action_coordinator.approve_match(state)
 
-    def _approve_episode_mapping(self, state: ScanState, preview: PreviewItem) -> None:
-        self._action_coordinator.approve_episode_mapping(state, preview)
-
     def _approve_all_episode_mappings(self) -> None:
         self._action_coordinator.approve_all_episode_mappings()
-
-    def _prompt_fix_episode_mapping(self, state: ScanState, preview: PreviewItem) -> None:
-        self._action_coordinator.prompt_fix_episode_mapping(
-            state,
-            preview,
-            input_dialog=QInputDialog,
-            warning_box=QMessageBox,
-        )
 
     def _prompt_assign_season(self, state: ScanState) -> None:
         self._action_coordinator.prompt_assign_season(

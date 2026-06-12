@@ -2079,6 +2079,262 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(review_item.status, "OK")
         workspace.close()
 
+    # ── helpers shared by row-action dispatch tests ──────────────────────────
+
+    @staticmethod
+    def _make_episode_table_state(folder=None, show_info=None):
+        """Return (state, table, entry_id) with one auto-assigned file at S01E01."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = folder or Path("C:/library/tv/Example")
+        show_info = show_info or {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+        return state, table, entry.file_id
+
+    @staticmethod
+    def _make_fake_media_ctrl(state):
+        class _FakeMediaController:
+            def __init__(self, s):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [s]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        return _FakeMediaController(state)
+
+    # ── dispatch tests ───────────────────────────────────────────────────────
+
+    def test_episode_row_action_unassign_removes_file_assignment(self):
+        """unassign: dialog-free; file moves from mapped to unassigned."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        workspace._action_coordinator.handle_episode_row_action(state, row, "unassign")
+        self._app.processEvents()
+
+        # After unassign the file should have no assignment in the table.
+        self.assertIsNone(table._assignments.get(file_id))
+        # The reprojected preview_items should no longer carry a mapped entry for this file.
+        remapped = next((p for p in state.preview_items if p.file_id == file_id), None)
+        self.assertIsNotNone(remapped)
+        self.assertIsNone(remapped.new_name)
+        workspace.close()
+
+    def test_episode_row_action_keep_this_resolves_conflict(self):
+        """keep_this: dialog-free; winner keeps the slot, loser is unassigned."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        winner_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        loser_entry = table.add_file(folder / "Season 01" / "B.S01E01.mkv")
+        table.assign(winner_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        table.assign(loser_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.4)
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        winner_preview = next(p for p in state.preview_items if p.file_id == winner_entry.file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=winner_preview)
+
+        workspace._action_coordinator.handle_episode_row_action(state, row, "keep_this")
+        self._app.processEvents()
+
+        # Winner retains assignment; loser has been unassigned.
+        self.assertIsNotNone(table._assignments.get(winner_entry.file_id))
+        self.assertIsNone(table._assignments.get(loser_entry.file_id))
+        workspace.close()
+
+    def test_episode_row_action_reassign_calls_dialog_and_moves_file(self):
+        """reassign: stub assign_dialog returns a fixed selection; file moves."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        # Stub dialog: pick_episodes always returns S01E02.
+        class _StubAssignDialog:
+            @staticmethod
+            def pick_episodes(**_kwargs):
+                return [(1, 2)]
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "reassign", assign_dialog=_StubAssignDialog,
+        )
+        self._app.processEvents()
+
+        # File should now be assigned to episode 2 (not episode 1).
+        assignment = table._assignments.get(file_id)
+        self.assertIsNotNone(assignment)
+        self.assertEqual(assignment.episodes, (2,))
+        workspace.close()
+
+    def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
+        """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        # One file assigned to E01; one file unassigned (will be picked and placed at E02).
+        e01_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        table.assign(e01_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        loose_entry = table.add_file(folder / "Season 01" / "Loose.mkv")
+        table.mark_unassigned(loose_entry.file_id, "could not parse episode number")
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Simulate clicking "assign_file" on the S01E02 missing row.
+        row = EpisodeGuideRow(season=1, episode=2, title="Sequel", primary_file=None)
+
+        picked_file_id = loose_entry.file_id
+
+        class _StubAssignDialog:
+            @staticmethod
+            def pick_file(**_kwargs):
+                return picked_file_id
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_file", assign_dialog=_StubAssignDialog,
+        )
+        self._app.processEvents()
+
+        assignment = table._assignments.get(loose_entry.file_id)
+        self.assertIsNotNone(assignment)
+        self.assertEqual(assignment.season, 1)
+        self.assertEqual(assignment.episodes, (2,))
+        workspace.close()
+
+    def test_episode_row_action_error_calls_warning_box_no_crash(self):
+        """If the service raises ValueError, warning_box.warning is called; no hang."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Use a preview with file_id=None so approve_file raises ValueError.
+        from plex_renamer.engine import PreviewItem
+        bad_preview = PreviewItem(
+            original=Path("C:/library/tv/Example/Season 01/NoId.mkv"),
+            new_name=None,
+            target_dir=None,
+            season=1,
+            episodes=[1],
+            status="REVIEW: low confidence",
+        )
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=bad_preview)
+
+        warnings: list[tuple] = []
+
+        class _RecordingWarningBox:
+            @staticmethod
+            def warning(*args, **kwargs):
+                warnings.append(args)
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "approve", warning_box=_RecordingWarningBox,
+        )
+        self._app.processEvents()
+
+        self.assertEqual(len(warnings), 1, "Expected exactly one warning dialog call")
+        workspace.close()
+
     def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 

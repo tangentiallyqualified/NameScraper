@@ -204,6 +204,20 @@ class EpisodeAssignDialog(QDialog):
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
 
+        ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+
+        def _update_ok() -> None:
+            current = list_widget.currentItem()
+            enabled = (
+                current is not None
+                and bool(current.flags() & Qt.ItemFlag.ItemIsSelectable)
+            )
+            if ok_btn is not None:
+                ok_btn.setEnabled(enabled)
+
+        list_widget.currentItemChanged.connect(lambda _cur, _prev: _update_ok())
+        _update_ok()
+
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
         item = list_widget.currentItem()

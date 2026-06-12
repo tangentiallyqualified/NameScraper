@@ -130,6 +130,22 @@ class EpisodeMappingService:
             if preview.file_id in unassigned_ids
         ]
 
+    def unassigned_file_choices(self, state: ScanState) -> list[tuple[int, str]]:
+        """Return (file_id, display_label) pairs for the file picker dialog."""
+        table = self._require_table(state)
+        result: list[tuple[int, str]] = []
+        for candidate in self.unassigned_file_previews(state):
+            if candidate.file_id is None:
+                continue
+            reason = table.unassigned_reasons.get(candidate.file_id, "")
+            label = (
+                f"{candidate.original.name}  ({reason})"
+                if reason
+                else candidate.original.name
+            )
+            result.append((candidate.file_id, label))
+        return result
+
     def build_episode_guide(self, state: ScanState) -> EpisodeGuide:
         source_id = state.active_episode_source or "tmdb"
         guide = EpisodeGuide(
