@@ -17,7 +17,6 @@ from ._tv_scanner_consolidated import (
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
     try_title_based_matching as _try_title_based_matching,
 )
-from ._tv_scanner_normal import build_normal_preview as _build_normal_preview
 from ._tv_scanner_postprocess import (
     apply_episode_confidence_adjustments,
     apply_episode_review_threshold,
@@ -28,12 +27,7 @@ from ._tv_scanner_seasons import (
     match_tv_dirs_to_tmdb_seasons,
     resolve_tv_season_dirs,
 )
-from ._tv_scanner_specials import (
-    fuzzy_match_special as _fuzzy_match_special,
-    load_specials_context,
-    match_special as _match_special,
-    scan_nested_extras as _scan_nested_extras,
-)
+from .episode_assignments import EpisodeAssignmentTable
 from .models import CompletenessReport, PreviewItem, SeasonCompleteness, SeasonFolderEntry
 
 _log = logging.getLogger(__name__)
@@ -87,6 +81,7 @@ class TVScanner:
         self.episode_meta: dict[tuple[int, int], dict] = {}
         self._season_dirs: list[tuple[Path, int]] | None = None
         self._tmdb_seasons: dict | None = None
+        self.assignment_table: EpisodeAssignmentTable | None = None
 
     def _get_season_dirs(self) -> list[tuple[Path, int]]:
         """Find and sort season subdirectories. Cached after first call."""
@@ -225,16 +220,30 @@ class TVScanner:
         season_dirs: list[tuple[Path, int]],
         tmdb_seasons: dict,
     ) -> list[PreviewItem]:
-        return _build_normal_preview(
+        from ._episode_projection import project_preview_items
+        from ._episode_resolution import apply_confidence_adjustments
+        from ._tv_scanner_normal import build_normal_table
+
+        table = build_normal_table(
             season_dirs=season_dirs,
             tmdb_seasons=tmdb_seasons,
             tmdb=self.tmdb,
             show_info=self.show_info,
             root=self.root,
-            media_fields=self._media_fields,
             season_folders=self._season_folders,
             store_tmdb_data=self._store_tmdb_data,
-            resolve_duplicate_episodes=self._resolve_duplicate_episodes,
+        )
+        apply_confidence_adjustments(
+            table,
+            show_info=self.show_info,
+            show_match_confidence=self._show_match_confidence,
+        )
+        self.assignment_table = table
+        return project_preview_items(
+            table,
+            show_info=self.show_info,
+            root=self.root,
+            media_fields=self._media_fields,
         )
 
     def _resolve_duplicate_episodes(self, items: list[PreviewItem]) -> None:
@@ -249,53 +258,6 @@ class TVScanner:
             show_match_confidence=self._show_match_confidence,
         )
         apply_episode_review_threshold(items)
-
-    def _scan_nested_extras(
-        self,
-        extras_dir: Path,
-        s0_titles: dict,
-        s0_tmdb_title_lookup: dict,
-        specials_target: Path,
-    ) -> list[PreviewItem]:
-        return _scan_nested_extras(
-            extras_dir=extras_dir,
-            titles=s0_titles,
-            tmdb_title_lookup=s0_tmdb_title_lookup,
-            specials_target=specials_target,
-            media_fields=self._media_fields,
-            show_info=self.show_info,
-            root=self.root,
-        )
-
-    def _match_special(
-        self,
-        file_path: Path,
-        episode_numbers: list[int],
-        raw_title: str | None,
-        titles: dict,
-        tmdb_title_lookup: dict,
-        specials_target: Path,
-        from_extras_folder: bool = False,
-    ) -> PreviewItem:
-        return _match_special(
-            file_path=file_path,
-            episode_numbers=episode_numbers,
-            raw_title=raw_title,
-            titles=titles,
-            tmdb_title_lookup=tmdb_title_lookup,
-            specials_target=specials_target,
-            media_fields=self._media_fields,
-            show_info=self.show_info,
-            root=self.root,
-            from_extras_folder=from_extras_folder,
-        )
-
-    @staticmethod
-    def _fuzzy_match_special(
-        text: str,
-        tmdb_title_lookup: dict,
-    ) -> tuple[int | None, str | None]:
-        return _fuzzy_match_special(text, tmdb_title_lookup)
 
     def _build_consolidated_preview(
         self,

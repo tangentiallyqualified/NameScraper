@@ -255,14 +255,18 @@ def _parse_air_date(value: object) -> date | None:
 def _expected_for_season(slots: list[EpisodeSlot]) -> set[int]:
     """Episode numbers expected for coverage, ignoring unaired episodes.
 
-    Slots whose air date is in the future are excluded — but only when at
-    least one slot in the season has already aired, so seasons with no
-    air-date metadata still count in full.
+    Untitled placeholder slots (count-implied, no TMDB listing yet) don't
+    count toward coverage when titled slots exist. Slots whose air date is
+    in the future are excluded — but only when at least one slot in the
+    season has already aired, so seasons with no air-date metadata still
+    count in full.
     """
+    titled = [slot for slot in slots if slot.title]
+    candidates = titled or slots
     today = date.today()
     aired: set[int] = set()
     saw_future = False
-    for slot in slots:
+    for slot in candidates:
         air_date = _parse_air_date(slot.air_date)
         if air_date is None:
             continue
@@ -272,7 +276,7 @@ def _expected_for_season(slots: list[EpisodeSlot]) -> set[int]:
             saw_future = True
     if saw_future and aired:
         return aired
-    return {slot.episode for slot in slots}
+    return {slot.episode for slot in candidates}
 
 
 def apply_confidence_adjustments(
@@ -306,6 +310,7 @@ def apply_confidence_adjustments(
             assignment.episodes
         )
 
+    contradicted: set[int] = set()
     for assignment in table.assignments():
         if assignment.origin == ORIGIN_MANUAL or assignment.file_id in conflicted:
             continue
@@ -326,7 +331,7 @@ def apply_confidence_adjustments(
             if compatible and entry.is_season_relative:
                 confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
             if not compatible:
-                confidence = min(confidence, CONTRADICTORY_PREFIX_CAP)
+                contradicted.add(assignment.file_id)
 
         first_slot = table.slots.get((assignment.season, assignment.episodes[0]))
         if (
@@ -384,3 +389,12 @@ def apply_confidence_adjustments(
                 table.set_confidence(
                     assignment.file_id, max(assignment.confidence, floor),
                 )
+
+    # Contradictory source prefixes cap LAST so no floor can lift them
+    # back up (mirrors the retired postprocess ordering).
+    for file_id in contradicted:
+        assignment = table.assignment_for(file_id)
+        if assignment is not None:
+            table.set_confidence(
+                file_id, min(assignment.confidence, CONTRADICTORY_PREFIX_CAP),
+            )

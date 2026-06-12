@@ -585,7 +585,9 @@ class ScanImprovementTests(unittest.TestCase):
 
             items, _has_mismatch = scanner.scan()
 
-            self.assertEqual(items[0].episode_confidence, 0.92)
+            # Number and TMDB title agree -> CONF_AGREE from the shared
+            # resolution policy (was a 0.92 title-match floor pre-table).
+            self.assertEqual(items[0].episode_confidence, 0.96)
             self.assertEqual(items[0].status, "OK")
 
     def test_already_plex_ready_episode_gets_perfect_confidence(self):
@@ -2227,3 +2229,108 @@ class ScanImprovementTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeTMDB:
+    """Minimal TMDB stand-in for table-driven scanner tests."""
+
+    def __init__(self, seasons: dict):
+        # seasons: {num: {"titles": {ep: title}, "posters": {}, "episodes": {}, "count": n}}
+        self._seasons = seasons
+        self.language = "en-US"
+
+    def get_season_map(self, show_id):
+        return self._seasons, None
+
+    def get_season(self, show_id, season_num):
+        return self._seasons.get(
+            season_num, {"titles": {}, "posters": {}, "episodes": {}},
+        )
+
+    def get_tv_details(self, show_id):
+        return {"seasons": []}
+
+
+SHOW_INFO = {"id": 5, "name": "Demo Show", "year": "2020"}
+
+
+def _seasons(spec: dict[int, dict[int, str]]) -> dict:
+    return {
+        num: {
+            "titles": titles,
+            "posters": {},
+            "episodes": {},
+            "count": len(titles),
+        }
+        for num, titles in spec.items()
+    }
+
+
+def make_scanner(root, seasons):
+    from plex_renamer.engine._tv_scanner import TVScanner
+
+    return TVScanner(FakeTMDB(_seasons(seasons)), SHOW_INFO, root)
+
+
+class TestTableDrivenScan:
+    def test_scan_produces_assignment_table(self, tmp_path):
+        season_dir = tmp_path / "Season 01"
+        season_dir.mkdir()
+        (season_dir / "Demo Show S01E01.mkv").touch()
+        scanner = make_scanner(tmp_path, {1: {1: "Pilot", 2: "Two"}})
+        items, _ = scanner.scan()
+        assert scanner.assignment_table is not None
+        assert len(scanner.assignment_table.files) == 1
+        assert items[0].file_id is not None
+        assert items[0].status == "OK"
+
+    def test_special_title_beats_wrong_number(self, tmp_path):
+        # The headline bug: local S00E03 named "Special A" while TMDB
+        # says e02 is "Special A" -> must map to e02, not e03.
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E03 - Special A.mkv").touch()
+        scanner = make_scanner(
+            tmp_path,
+            {0: {1: "Opening", 2: "Special A", 3: "Special C"},
+             1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.episodes == [2]
+        assert special.episode_confidence < 1.0
+
+    def test_unmatched_special_is_not_silent_ok(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "random home video.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.is_unmatched
+
+    def test_same_named_specials_in_two_seasons_conflict(self, tmp_path):
+        for season_name in ("Season 01", "Season 02"):
+            directory = tmp_path / season_name
+            directory.mkdir()
+            (directory / "S00E01 - Opening.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
+        )
+        items, _ = scanner.scan()
+        conflicted = [item for item in items if item.is_conflict]
+        assert len(conflicted) == 2
+        assert scanner.assignment_table.conflicts()
+
+    def test_episode_confidence_set_on_specials(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01.mkv").touch()  # number only, no title
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.episode_confidence < 1.0

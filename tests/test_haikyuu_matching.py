@@ -329,9 +329,12 @@ class SpecialsSeasonHintRegressionTests(unittest.TestCase):
         self.assertFalse(has_mismatch)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].season, 0)
-        self.assertEqual(items[0].status, "OK")
-        self.assertEqual(items[0].target_dir, self.root / "Season 00")
-        self.assertEqual(items[0].new_name, "Campfire Talk.mkv")
+        # No TMDB special matches this title: surfaced as UNMATCHED in
+        # place (never silently OK'd, never moved to Unmatched/Extras).
+        self.assertEqual(items[0].status, "UNMATCHED: no TMDB special title match")
+        self.assertIsNone(items[0].target_dir)
+        self.assertIsNone(items[0].new_name)
+        self.assertFalse(items[0].is_actionable)
 
     def test_merged_specials_folder_keeps_ok_preview_status(self):
         from plex_renamer.engine import TVScanner
@@ -351,7 +354,9 @@ class SpecialsSeasonHintRegressionTests(unittest.TestCase):
         self.assertFalse(has_mismatch)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].season, 0)
-        self.assertEqual(items[0].status, "OK")
+        # Bare-number specials map to S00E01 but carry the inferred-number
+        # confidence and land in review instead of a silent full-confidence OK.
+        self.assertTrue(items[0].is_episode_review)
         self.assertEqual(items[0].target_dir, parent / "Season 00")
         self.assertIn("S00E01", items[0].new_name)
 
@@ -373,7 +378,8 @@ class SpecialsSeasonHintRegressionTests(unittest.TestCase):
 
         self.assertFalse(has_mismatch)
         self.assertEqual(len(items), 3)
-        self.assertTrue(all(item.status == "OK" for item in items))
+        # Bare-number specials resolve but stay in review (inferred numbers).
+        self.assertTrue(all(item.is_episode_review for item in items))
         self.assertTrue(all(item.season == 0 for item in items))
         self.assertTrue(all(item.target_dir == parent / "Season 00" for item in items))
         self.assertEqual(
