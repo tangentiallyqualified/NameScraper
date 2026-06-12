@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ...parsing import build_tv_name
 from ...engine import PreviewItem, ScanState
@@ -10,9 +11,13 @@ from ..models import (
     EpisodeGuide,
     EpisodeGuideRow,
     EpisodeGuideSummary,
+    EpisodeSlotChoice,
     QueuePreflightSummary,
     UnmappedFileRow,
 )
+
+if TYPE_CHECKING:
+    from ...engine.episode_assignments import EpisodeAssignmentTable
 
 
 class EpisodeMappingService:
@@ -73,6 +78,114 @@ class EpisodeMappingService:
         self._retarget_companions(preview, old_name)
         return preview
 
+    # ── table-backed mutations ──────────────────────────────────────
+
+    @staticmethod
+    def _require_table(state: ScanState) -> "EpisodeAssignmentTable":
+        table = state.assignments
+        if table is None:
+            raise ValueError("This show has no assignment table (rescan needed)")
+        return table
+
+    def reproject(self, state: ScanState) -> None:
+        from ...engine._episode_projection import project_preview_items
+
+        table = self._require_table(state)
+        state.preview_items = project_preview_items(
+            table,
+            show_info=state.media_info,
+            root=state.folder,
+            media_fields={
+                "media_id": state.show_id,
+                "media_name": state.media_info.get("name"),
+            },
+        )
+        if state.scanner is not None:
+            checked = {
+                index for index, item in enumerate(state.preview_items)
+                if item.status == "OK"
+            }
+            state.completeness = state.scanner.get_completeness(
+                state.preview_items, checked_indices=checked,
+            )
+        state.reset_gui_state()
+
+    def assign_file(
+        self,
+        state: ScanState,
+        preview: PreviewItem,
+        *,
+        season: int,
+        episodes: list[int],
+    ) -> None:
+        from ...engine.episode_assignments import ORIGIN_MANUAL
+
+        table = self._require_table(state)
+        if preview.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        table.assign(
+            preview.file_id, season, episodes,
+            origin=ORIGIN_MANUAL, displace=True,
+        )
+        self.reproject(state)
+
+    def unassign_file(self, state: ScanState, preview: PreviewItem) -> None:
+        table = self._require_table(state)
+        if preview.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        table.unassign(preview.file_id)
+        self.reproject(state)
+
+    def approve_file(self, state: ScanState, preview: PreviewItem) -> None:
+        table = self._require_table(state)
+        if preview.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        table.set_approved(preview.file_id)
+        self.reproject(state)
+
+    def approve_all(self, state: ScanState) -> int:
+        table = self._require_table(state)
+        count = 0
+        for preview in state.preview_items:
+            if preview.is_episode_review and preview.file_id is not None:
+                table.set_approved(preview.file_id)
+                count += 1
+        if count:
+            self.reproject(state)
+        return count
+
+    def resolve_conflict(
+        self, state: ScanState, season: int, episode: int, winner: PreviewItem,
+    ) -> None:
+        table = self._require_table(state)
+        if winner.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        table.resolve_conflict(season, episode, winner_file_id=winner.file_id)
+        self.reproject(state)
+
+    # ── choices for the dialogs ─────────────────────────────────────
+
+    def episode_slot_choices(self, state: ScanState) -> list[EpisodeSlotChoice]:
+        table = self._require_table(state)
+        choices: list[EpisodeSlotChoice] = []
+        for key, slot in sorted(table.slots.items()):
+            claimant = table.claimant(*key)
+            choices.append(EpisodeSlotChoice(
+                season=slot.season,
+                episode=slot.episode,
+                title=slot.title,
+                claimed_by=claimant.path.name if claimant else None,
+            ))
+        return choices
+
+    def unassigned_file_previews(self, state: ScanState) -> list[PreviewItem]:
+        table = self._require_table(state)
+        unassigned_ids = {entry.file_id for entry, _ in table.unassigned_files()}
+        return [
+            preview for preview in state.preview_items
+            if preview.file_id in unassigned_ids
+        ]
+
     def build_episode_guide(self, state: ScanState) -> EpisodeGuide:
         source_id = state.active_episode_source or "tmdb"
         guide = EpisodeGuide(
@@ -86,10 +199,15 @@ class EpisodeMappingService:
 
         for preview in state.preview_items:
             if not self._is_episode_mapped(preview):
+                reason = preview.status
+                if state.assignments is not None and preview.file_id is not None:
+                    reason = state.assignments.unassigned_reasons.get(
+                        preview.file_id, preview.status,
+                    )
                 guide.unmapped_primary_files.append(
                     UnmappedFileRow(
                         original=preview.original,
-                        reason=preview.status,
+                        reason=reason,
                         preview=preview,
                     )
                 )
@@ -166,15 +284,18 @@ class EpisodeMappingService:
             actionable_primary_ids.add(id(preview))
             companion_count += len(preview.companions)
 
+        conflicts = guide.summary.conflicts
+        if state.assignments is not None:
+            conflicts = len(state.assignments.conflicts())
         mapped_primary_files = len(actionable_primary_ids)
-        enabled = bool(mapped_primary_files and guide.summary.conflicts == 0 and review_required == 0)
+        enabled = bool(mapped_primary_files and conflicts == 0 and review_required == 0)
         parts = [
             f"{mapped_primary_files} mapped file{'s' if mapped_primary_files != 1 else ''}",
             f"{companion_count} companion{'s' if companion_count != 1 else ''}",
             f"{guide.summary.missing_episodes} missing",
             f"{guide.summary.unmapped_primary_files} unmapped",
             f"{guide.summary.orphan_companion_files} orphan companion{'s' if guide.summary.orphan_companion_files != 1 else ''}",
-            f"{guide.summary.conflicts} conflict{'s' if guide.summary.conflicts != 1 else ''}",
+            f"{conflicts} conflict{'s' if conflicts != 1 else ''}",
             f"{review_required} review",
         ]
         return QueuePreflightSummary(
@@ -184,7 +305,7 @@ class EpisodeMappingService:
             missing_episodes=guide.summary.missing_episodes,
             unmapped_primary_files=guide.summary.unmapped_primary_files,
             orphan_companion_files=guide.summary.orphan_companion_files,
-            conflicts=guide.summary.conflicts,
+            conflicts=conflicts,
             review_required=review_required,
             summary_text=" - ".join(parts),
         )

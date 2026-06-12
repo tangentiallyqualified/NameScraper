@@ -221,3 +221,98 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
+from plex_renamer.engine._episode_projection import project_preview_items
+
+ROOT = Path("C:/lib/Demo Show (2020)")
+SHOW = {"id": 9, "name": "Demo Show", "year": "2020"}
+
+
+def table_state() -> ScanState:
+    table = EpisodeAssignmentTable()
+    for episode, title in [(1, "Pilot"), (2, "Heist"), (3, "Endgame"), (4, "Coda")]:
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=title))
+    ok = table.add_file(ROOT / "e1.mkv")
+    table.assign(ok.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+    stray = table.add_file(ROOT / "stray.mkv")
+    table.mark_unassigned(stray.file_id, "could not parse episode number")
+    state = ScanState(folder=ROOT, media_info=SHOW)
+    state.assignments = table
+    state.preview_items = project_preview_items(
+        table, show_info=SHOW, root=ROOT,
+        media_fields={"media_id": 9, "media_name": "Demo Show"},
+    )
+    state.scanned = True
+    return state
+
+
+class TestTableBackedService:
+    def test_assign_unassigned_file_to_missing_episodes(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        stray = next(p for p in state.preview_items if p.new_name is None)
+        service.assign_file(state, stray, season=1, episodes=[2, 3])
+        updated = next(
+            p for p in state.preview_items if p.original.name == "stray.mkv"
+        )
+        assert updated.episodes == [2, 3]
+        assert updated.status == "OK"
+        assert updated.episode_confidence == 1.0
+
+    def test_assign_displaces_existing_claimant(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        stray = next(p for p in state.preview_items if p.new_name is None)
+        service.assign_file(state, stray, season=1, episodes=[1])
+        displaced = next(
+            p for p in state.preview_items if p.original.name == "e1.mkv"
+        )
+        assert displaced.new_name is None  # back to unassigned
+
+    def test_unassign_file(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        mapped = next(p for p in state.preview_items if p.status == "OK")
+        service.unassign_file(state, mapped)
+        assert all(
+            p.new_name is None
+            for p in state.preview_items if p.original.name == "e1.mkv"
+        )
+
+    def test_approve_file(self):
+        state = table_state()
+        table = state.assignments
+        low = table.add_file(ROOT / "low.mkv")
+        table.assign(low.file_id, 1, [4], origin=ORIGIN_AUTO, confidence=0.5)
+        service = EpisodeMappingService()
+        service.reproject(state)
+        review = next(p for p in state.preview_items if p.is_episode_review)
+        service.approve_file(state, review)
+        approved = next(
+            p for p in state.preview_items if p.original.name == "low.mkv"
+        )
+        assert approved.status == "OK"
+
+    def test_slot_choices_show_claim_state(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        choices = service.episode_slot_choices(state)
+        claimed = next(c for c in choices if (c.season, c.episode) == (1, 1))
+        free = next(c for c in choices if (c.season, c.episode) == (1, 2))
+        assert claimed.claimed_by == "e1.mkv"
+        assert free.claimed_by is None
+
+    def test_guide_lists_unassigned_with_reason(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        guide = service.build_episode_guide(state)
+        assert guide.summary.unmapped_primary_files == 1
+        assert guide.unmapped_primary_files[0].reason == (
+            "could not parse episode number"
+        )
