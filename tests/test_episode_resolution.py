@@ -113,3 +113,126 @@ class TestRangeFalsePositives:
     def test_range_span_cap_still_works(self):
         eps, _, _ = extract_episode("Show S01E01-E80.mkv")
         assert eps == [1, 80]
+
+
+from plex_renamer.engine._episode_resolution import (
+    CONF_AGREE,
+    CONF_NUMBER_INFERRED,
+    CONF_NUMBER_RELATIVE,
+    CONF_TITLE_ONLY,
+    CONF_TITLE_WINS,
+    CONF_WEAK_TITLE_NUMBER_CAP,
+    STRONG_TITLE_STRENGTH,
+    match_title_in_titles,
+    resolve_file,
+)
+
+S0_TITLES = {1: "Inauguration Part 1", 2: "Special A", 3: "Special C"}
+S1_TITLES = {1: "Pilot", 2: "The Heist", 3: "Endgame", 4: "Coda"}
+
+
+class TestTitleStrength:
+    def test_exact_normalized_match_is_full_strength(self):
+        match = match_title_in_titles("Special A", S0_TITLES)
+        assert match is not None
+        assert match.episode == 2
+        assert match.strength == 1.0
+
+    def test_unique_substring_is_strong(self):
+        match = match_title_in_titles("The Heist 720p extended", S1_TITLES)
+        assert match is not None
+        assert match.episode == 2
+        assert match.strength >= STRONG_TITLE_STRENGTH
+
+    def test_ambiguous_returns_none(self):
+        titles = {1: "Part 1", 2: "Part 2"}
+        assert match_title_in_titles("Part", titles) is None
+
+    def test_no_match_returns_none(self):
+        assert match_title_in_titles("Completely Unrelated", S1_TITLES) is None
+
+
+class TestResolutionRules:
+    def test_rule1_number_and_title_agree(self):
+        res = resolve_file(
+            parsed_episodes=(2,), raw_title="The Heist",
+            is_season_relative=True, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (2,)
+        assert res.confidence >= CONF_AGREE
+        assert res.reason is None
+
+    def test_rule2_strong_title_beats_number(self):
+        # The user-reported case: s00e03 named "Special A" must map to e02.
+        res = resolve_file(
+            parsed_episodes=(3,), raw_title="Special A",
+            is_season_relative=True, season_titles=S0_TITLES,
+        )
+        assert res.episodes == (2,)
+        assert res.confidence == CONF_TITLE_WINS
+
+    def test_rule3_weak_title_keeps_number_capped(self):
+        # Title fuzzy-misses; the valid number wins but lands in review range.
+        res = resolve_file(
+            parsed_episodes=(3,), raw_title="Endgame Part",
+            is_season_relative=True,
+            season_titles={1: "Pilot", 2: "Endgame Part One", 3: "Endgame Part Two"},
+        )
+        assert res.episodes == (3,)
+        assert res.confidence <= CONF_WEAK_TITLE_NUMBER_CAP
+
+    def test_rule4_number_only_relative(self):
+        res = resolve_file(
+            parsed_episodes=(4,), raw_title=None,
+            is_season_relative=True, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (4,)
+        assert res.confidence == CONF_NUMBER_RELATIVE
+
+    def test_rule4_number_only_inferred(self):
+        res = resolve_file(
+            parsed_episodes=(4,), raw_title=None,
+            is_season_relative=False, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (4,)
+        assert res.confidence == CONF_NUMBER_INFERRED
+
+    def test_rule5_title_only_strong(self):
+        res = resolve_file(
+            parsed_episodes=(), raw_title="Endgame",
+            is_season_relative=False, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (3,)
+        assert res.confidence == CONF_TITLE_ONLY
+
+    def test_rule5_title_only_weak_is_unassigned(self):
+        res = resolve_file(
+            parsed_episodes=(), raw_title="Bloopers Reel",
+            is_season_relative=False, season_titles=S1_TITLES,
+        )
+        assert res.episodes == ()
+        assert res.reason == "no TMDB title match"
+
+    def test_rule6_nothing_is_unassigned(self):
+        res = resolve_file(
+            parsed_episodes=(), raw_title=None,
+            is_season_relative=False, season_titles=S1_TITLES,
+        )
+        assert res.episodes == ()
+        assert res.reason == "could not parse episode number"
+
+    def test_number_not_in_season_is_unassigned(self):
+        res = resolve_file(
+            parsed_episodes=(99,), raw_title=None,
+            is_season_relative=True, season_titles=S1_TITLES,
+        )
+        assert res.episodes == ()
+        assert res.reason == "episode not in TMDB season"
+
+    def test_multi_episode_run_validated(self):
+        res = resolve_file(
+            parsed_episodes=(1, 2, 3), raw_title=None,
+            is_season_relative=True, season_titles=S1_TITLES,
+        )
+        assert res.episodes == (1, 2, 3)
+        assert res.confidence == CONF_NUMBER_RELATIVE
