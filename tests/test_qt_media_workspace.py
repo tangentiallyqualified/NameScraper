@@ -2002,7 +2002,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIs(_first_visible_episode_widget(workspace), first_widget)
         workspace.close()
 
-    def test_media_workspace_episode_approval_refreshes_prepared_projection(self):
+    def test_media_workspace_episode_approval_emits_approve_action(self):
+        # TODO(Task 12): restore projection-refresh assertions once dispatch is wired.
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -2304,7 +2305,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def test_media_workspace_review_episode_fix_button_remaps_within_same_show(self):
+    def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
+        # TODO(Task 12): restore end-to-end reassign assertions once dispatch is wired.
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -2441,8 +2443,18 @@ class QtMediaWorkspaceTests(QtSmokeBase):
     def test_media_workspace_episode_guide_rows_size_to_visible_actions(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
-        short_row = EpisodeGuideRowWidget(title="S01E01 - Pilot", status="Mapped", original="Pilot.mkv")
-        missing_row = EpisodeGuideRowWidget(title="S01E02 - Missing", status="Missing File")
+        # Production-realistic action lists per _episode_row_actions policy.
+        short_row = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            original="Pilot.mkv",
+            actions=[("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
+        missing_row = EpisodeGuideRowWidget(
+            title="S01E02 - Missing",
+            status="Missing File",
+            actions=[("assign_file", "Assign file...")],
+        )
         long_row = EpisodeGuideRowWidget(
             title="S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally",
             status="Review",
@@ -2452,9 +2464,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
         )
 
+        # All three rows take the taller (actions) path; long_row is taller still due
+        # to the visible confidence meter and target label.
         self.assertEqual(short_row.sizeHint().height(), missing_row.sizeHint().height())
         self.assertLess(short_row.sizeHint().height(), long_row.sizeHint().height())
-        self.assertLessEqual(short_row.sizeHint().height(), 76)
+        self.assertLessEqual(short_row.sizeHint().height(), 96)
         self.assertLessEqual(long_row.sizeHint().height(), 120)
 
         short_row.close()

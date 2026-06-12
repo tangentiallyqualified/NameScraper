@@ -496,9 +496,7 @@ class EpisodeGuideRowActionsTests(QtSmokeBase):
             status="Missing File",
             actions=[],
         )
-        self.assertTrue(
-            widget.actions_button() is None or not widget.actions_button().isVisible()
-        )
+        self.assertIsNone(widget.actions_button())
         widget.close()
 
     def test_approve_quick_button_only_for_review(self):

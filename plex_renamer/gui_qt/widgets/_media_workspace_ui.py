@@ -112,7 +112,7 @@ class MediaWorkspaceUiCoordinator:
                 if workspace._selected_state() is not None
                 else None
             ),
-            episode_row_action_callback=lambda state, row, action_id: None,
+            episode_row_action_callback=lambda state, row, action_id: None,  # TODO(Task 12): wire handle_episode_row_action
             approve_all_episode_callback=workspace._approve_all_episode_mappings,
             episode_guide_provider=(
                 workspace._media_ctrl.episode_guide_for_state

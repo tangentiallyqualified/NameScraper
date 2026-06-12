@@ -551,6 +551,8 @@ class EpisodeGuideRowWidget(ClickableRow):
         if non_approve_actions:
             self._actions_button: QToolButton | None = QToolButton(self)
             self._actions_button.setText("⋯")
+            self._actions_button.setToolTip("More actions")
+            self._actions_button.setAccessibleName("More actions")
             self._actions_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
             self._actions_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
             self._actions_button.setFixedWidth(_scale.px(28))
@@ -564,7 +566,7 @@ class EpisodeGuideRowWidget(ClickableRow):
             self._actions_button.setMenu(self._actions_menu)
         else:
             self._actions_button = None
-            self._actions_menu = QMenu(self)
+            self._actions_menu: QMenu | None = None
 
         if confidence_value is not None or show_actions:
             confidence_row = QHBoxLayout()
@@ -589,8 +591,8 @@ class EpisodeGuideRowWidget(ClickableRow):
         """Return the ⋯ tool button, or None if no non-approve actions were supplied."""
         return self._actions_button
 
-    def actions_menu(self) -> QMenu:
-        """Return the popup menu attached to the ⋯ tool button."""
+    def actions_menu(self) -> QMenu | None:
+        """Return the popup menu attached to the ⋯ tool button, or None if no tool button exists."""
         return self._actions_menu
 
     def approve_button(self) -> QPushButton:
