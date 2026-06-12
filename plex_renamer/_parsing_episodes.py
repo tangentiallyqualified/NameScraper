@@ -33,30 +33,45 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     raw_stem = Path(filename).stem
     name = clean_name(raw_stem)
 
+    # Range-end rules (prevents digit-leading titles from being eaten):
+    #   -E04   or  -E04 (no spaces, E prefix)  → range
+    #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
+    #   ' - E04'   (spaced dash, E prefix)      → range
+    #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
     match = re.search(
-        r"S(\d+)((?:E\d+)+)(?:\s*-\s*E?(\d+))?\s*[-.]?\s*(.*)",
+        r"S(\d+)((?:E\d+)+)"
+        r"(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)?"
+        r"\s*[-.]?\s*(.*)",
         name,
         re.IGNORECASE,
     )
     if match:
         episodes = [int(num) for num in re.findall(r"E(\d+)", match.group(2), re.IGNORECASE)]
-        if match.group(3):
-            episodes = _expand_range(episodes[0], int(match.group(3)))
-        title = match.group(4).strip() if match.group(4) else None
+        range_end_str = match.group(3) or match.group(4) or match.group(5)
+        if range_end_str:
+            episodes = _expand_range(episodes[0], int(range_end_str))
+        title = match.group(6).strip() if match.group(6) else None
         return episodes, title, True
 
+    # NxNN range-end rules (mirrors S##E## logic):
+    #   -1x04  or  -04  (no spaces)             → range, bare end not followed by letter
+    #   ' - 1x04'       (spaced, N×NN prefix)   → range
+    #   ' - 04 …'       (spaced, bare digits)   → NOT a range (title)
     match = re.search(
-        r"\b(\d{1,2})x(\d{2,3})(?:\s*-\s*(?:\1x)?(\d{2,3}))?(?!\d)\s*[-.]?\s*(.*)",
+        r"\b(\d{1,2})x(\d{2,3})"
+        r"(?:-(?:\1x)?(\d{2,3})(?![a-zA-Z])|\s+-\s+\1x(\d{2,3})(?![a-zA-Z]))?"
+        r"(?!\d)\s*[-.]?\s*(.*)",
         name,
         re.IGNORECASE,
     )
     if match:
         start_num = int(match.group(2))
-        if match.group(3):
-            episodes = _expand_range(start_num, int(match.group(3)))
+        range_end_str = match.group(3) or match.group(4)
+        if range_end_str:
+            episodes = _expand_range(start_num, int(range_end_str))
         else:
             episodes = [start_num]
-        title = match.group(4).strip() if match.group(4) else None
+        title = match.group(5).strip() if match.group(5) else None
         return episodes, title, True
 
     match = re.search(
