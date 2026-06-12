@@ -74,6 +74,7 @@ class PreviewItem:
     companions: list[CompanionFile] = field(default_factory=list)
     episode_confidence: float = 1.0
     source_relative_folder: str = ""
+    file_id: int | None = None   # Link back to EpisodeAssignmentTable.files
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
