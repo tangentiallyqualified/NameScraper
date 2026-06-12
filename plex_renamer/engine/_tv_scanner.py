@@ -17,12 +17,7 @@ from ._tv_scanner_consolidated import (
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
     try_title_based_matching as _try_title_based_matching,
 )
-from ._tv_scanner_postprocess import (
-    apply_episode_confidence_adjustments,
-    apply_episode_review_threshold,
-    build_completeness_report,
-    resolve_duplicate_episodes,
-)
+from ._tv_scanner_postprocess import build_completeness_report
 from ._tv_scanner_seasons import (
     match_tv_dirs_to_tmdb_seasons,
     resolve_tv_season_dirs,
@@ -246,32 +241,42 @@ class TVScanner:
             media_fields=self._media_fields,
         )
 
-    def _resolve_duplicate_episodes(self, items: list[PreviewItem]) -> None:
-        resolve_duplicate_episodes(
-            items,
-            show_name=self.show_info.get("name", ""),
-        )
-        apply_episode_confidence_adjustments(
-            items,
-            self._get_tmdb_seasons(),
-            self.show_info,
-            show_match_confidence=self._show_match_confidence,
-        )
-        apply_episode_review_threshold(items)
-
     def _build_consolidated_preview(
         self,
         season_dirs: list[tuple[Path, int]],
         tmdb_seasons: dict,
     ) -> list[PreviewItem]:
-        return _build_consolidated_preview(
+        from ._episode_projection import project_preview_items
+        from ._episode_resolution import apply_confidence_adjustments
+        from ._tv_scanner_normal import _register_season_slots
+        from .episode_assignments import ingest_preview_items
+
+        items = _build_consolidated_preview(
             season_dirs=season_dirs,
             tmdb_seasons=tmdb_seasons,
             root=self.root,
             show_info=self.show_info,
             media_fields=self._media_fields,
             store_tmdb_data=self._store_tmdb_data,
-            resolve_duplicate_episodes=self._resolve_duplicate_episodes,
+        )
+        table = EpisodeAssignmentTable()
+        for season_num, season_data in tmdb_seasons.items():
+            _register_season_slots(
+                table, season_num,
+                season_data.get("titles", {}), season_data.get("episodes", {}),
+            )
+        ingest_preview_items(table, items)
+        apply_confidence_adjustments(
+            table,
+            show_info=self.show_info,
+            show_match_confidence=self._show_match_confidence,
+        )
+        self.assignment_table = table
+        return project_preview_items(
+            table,
+            show_info=self.show_info,
+            root=self.root,
+            media_fields=self._media_fields,
         )
 
     def _try_title_based_matching(

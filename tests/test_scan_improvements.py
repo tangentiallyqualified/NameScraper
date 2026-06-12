@@ -9,7 +9,6 @@ from unittest.mock import patch
 from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, score_tv_results, TVScanner
-from plex_renamer.engine._tv_scanner_postprocess import apply_episode_confidence_adjustments
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 from plex_renamer.parsing import best_tv_match_title, clean_folder_name, extract_episode, extract_season_number
@@ -901,44 +900,9 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue(any("duplicate episode" in item.status for item in items))
             self.assertTrue(all(item.episode_confidence < 0.80 for item in items))
 
-    def test_conflict_regular_episode_claims_prevent_coverage_floor(self):
-        items = [
-            PreviewItem(
-                Path("C:/tv/Show/Show 01.mkv"),
-                "Show (2020) - S01E01 - One.mkv",
-                Path("C:/tv/Show/Season 01"),
-                1,
-                [1],
-                "OK",
-                episode_confidence=0.5,
-            ),
-            PreviewItem(
-                Path("C:/tv/Show/Other 01.mkv"),
-                "Show (2020) - S01E01 - One.mkv",
-                Path("C:/tv/Show/Season 01"),
-                1,
-                [1],
-                "CONFLICT: same target as Show 01.mkv",
-                episode_confidence=0.5,
-            ),
-        ]
-        tmdb_seasons = {
-            1: {
-                "name": "Season 1",
-                "titles": {1: "One"},
-                "posters": {},
-                "episodes": {},
-                "count": 1,
-            }
-        }
-
-        apply_episode_confidence_adjustments(
-            items,
-            tmdb_seasons,
-            {"id": 4000, "name": "Show", "year": "2020"},
-        )
-
-        self.assertEqual(items[0].episode_confidence, 0.5)
+    # test_conflict_regular_episode_claims_prevent_coverage_floor moved to
+    # tests/test_episode_resolution.py::TestConfidenceAdjustments::
+    # test_conflicted_season_gets_no_coverage_floor (table-based).
 
     def test_currently_airing_season_uses_aired_episode_count_for_coverage(self):
         seasons = {
@@ -968,7 +932,7 @@ class ScanImprovementTests(unittest.TestCase):
                 root,
             )
 
-            with patch("plex_renamer.engine._tv_scanner_postprocess.date") as fake_date:
+            with patch("plex_renamer.engine._episode_resolution.date") as fake_date:
                 fake_date.today.return_value = date(2026, 5, 15)
                 fake_date.fromisoformat.side_effect = date.fromisoformat
                 items, _has_mismatch = scanner.scan()

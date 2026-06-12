@@ -145,7 +145,6 @@ def build_consolidated_preview(
     show_info: dict,
     media_fields: dict,
     store_tmdb_data: Callable[[int, dict, dict, dict | None], None],
-    resolve_duplicate_episodes: Callable[[list[PreviewItem]], None],
 ) -> list[PreviewItem]:
     """Build preview mapping files in absolute order to TMDB structure."""
     all_files = collect_absolute_files(season_dirs)
@@ -212,7 +211,6 @@ def build_consolidated_preview(
             )
             item.companions = _build_subtitle_companions(file_path, new_name)
             items.append(item)
-        resolve_duplicate_episodes(items)
         return items
 
     items: list[PreviewItem] = []
@@ -267,5 +265,4 @@ def build_consolidated_preview(
         item.companions = _build_subtitle_companions(file_path, new_name)
         items.append(item)
 
-    resolve_duplicate_episodes(items)
     return items

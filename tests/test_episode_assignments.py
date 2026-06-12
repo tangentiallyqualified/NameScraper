@@ -177,3 +177,36 @@ class TestContractPins:
         assert kept is not None and kept.episodes == (2, 3)
         assert table.assignment_for(loser.file_id) is None
         assert table.conflicts() == {}
+
+
+from plex_renamer.engine.episode_assignments import ingest_preview_items
+from plex_renamer.engine.models import PreviewItem
+
+
+class TestIngestion:
+    def test_ingest_assigned_and_skipped_items(self):
+        table = make_table()
+        ok_item = PreviewItem(
+            original=Path("a.mkv"), new_name="x.mkv", target_dir=Path("out"),
+            season=1, episodes=[2], status="OK", episode_confidence=0.7,
+        )
+        skip_item = PreviewItem(
+            original=Path("b.mkv"), new_name=None, target_dir=None,
+            season=0, episodes=[], status="SKIP: could not match episode title to TMDB",
+        )
+        ingest_preview_items(table, [ok_item, skip_item])
+        assert table.claimant(1, 2) is not None
+        assert len(table.unassigned_files()) == 1
+        assert ok_item.file_id is not None
+
+    def test_ingest_duplicate_claims_conflict(self):
+        table = make_table()
+        items = [
+            PreviewItem(
+                original=Path(name), new_name="x.mkv", target_dir=Path("out"),
+                season=1, episodes=[2], status="OK", episode_confidence=0.7,
+            )
+            for name in ("a.mkv", "b.mkv")
+        ]
+        ingest_preview_items(table, items)
+        assert (1, 2) in table.conflicts()

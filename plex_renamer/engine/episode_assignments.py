@@ -233,3 +233,59 @@ class EpisodeAssignmentTable:
         return [
             slot for key, slot in sorted(self.slots.items()) if key not in claimed
         ]
+
+
+def ingest_preview_items(
+    table: EpisodeAssignmentTable,
+    items: list,
+) -> None:
+    """Ingest already-built PreviewItems (consolidated path) into a table.
+
+    Sets ``item.file_id`` on each item so the GUI can address files.
+    Assigned items become auto claims; everything else is unassigned with
+    the item's status text as the reason.
+    """
+    from ..parsing import extract_episode, extract_season_number
+
+    for item in items:
+        episode_numbers, raw_title, is_season_relative = extract_episode(
+            item.original.name,
+        )
+        entry = table.add_file(
+            item.original,
+            parsed_episodes=tuple(episode_numbers),
+            raw_title=raw_title,
+            is_season_relative=is_season_relative,
+            season_hint=(
+                extract_season_number(item.original.name)
+                if is_season_relative else None
+            ),
+            folder_season=item.season,
+            source_relative_folder=item.source_relative_folder,
+        )
+        item.file_id = entry.file_id
+        if (
+            item.season is not None
+            and item.episodes
+            and item.new_name is not None
+            and not item.is_skipped
+            and not item.is_unmatched
+        ):
+            valid = [
+                episode for episode in item.episodes
+                if (item.season, episode) in table.slots
+            ]
+            if valid == list(item.episodes):
+                try:
+                    table.assign(
+                        entry.file_id,
+                        item.season,
+                        valid,
+                        origin=ORIGIN_AUTO,
+                        confidence=item.episode_confidence,
+                        evidence=frozenset({"consolidated"}),
+                    )
+                    continue
+                except ValueError:
+                    pass  # non-contiguous run at a season boundary
+        table.mark_unassigned(entry.file_id, item.status or REASON_NO_PARSE)
