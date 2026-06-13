@@ -20,7 +20,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             checked=False,
         )
 
-        self.assertEqual(roster_group(duplicate_state, media_type="tv"), "review")
+        self.assertEqual(roster_group(duplicate_state, media_type="tv"), "review-match")
         self.assertEqual(roster_group(duplicate_state, media_type="movie"), "duplicate")
 
     def test_master_checkbox_toggles_like_binary_control(self):

@@ -69,12 +69,10 @@ def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QCol
         return "Duplicate", QColor("#777777")
     if state.show_id is None:
         return "No Match Found", QColor("#d44040")
-    if (
-        state.duplicate_of is not None
-        or state.needs_review
-        or any(item.is_episode_review for item in state.preview_items)
-    ):
-        return "Needs Review", QColor("#e5a00d")
+    if state.needs_review or state.duplicate_of is not None:
+        return "Review Match", QColor("#e5a00d")
+    if has_episode_problems(state):
+        return "Review Episode Matching", QColor("#e5a00d")
     if state.match_origin == "manual":
         return "Approved", QColor("#4a9eda")
     if is_plex_ready_state(state):
@@ -91,11 +89,9 @@ def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
         return "muted"
     if state.show_id is None:
         return "error"
-    if (
-        state.duplicate_of is not None
-        or state.needs_review
-        or any(item.is_episode_review for item in state.preview_items)
-    ):
+    if state.needs_review or state.duplicate_of is not None:
+        return "accent"
+    if has_episode_problems(state):
         return "accent"
     if is_plex_ready_state(state):
         return "success"
@@ -118,6 +114,19 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
     return any(item.is_actionable for item in state.preview_items)
 
 
+def has_episode_problems(state: ScanState) -> bool:
+    """True when the show match is settled but episode mapping has issues:
+    a conflict, an unmapped primary file, or a below-threshold row.
+    """
+    table = state.assignments
+    if table is not None:
+        if table.conflicts():
+            return True
+        if table.unassigned_files():
+            return True
+    return any(item.is_episode_review for item in state.preview_items)
+
+
 def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.queued:
         return "queued"
@@ -125,12 +134,10 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
         return "duplicate"
     if state.show_id is None:
         return "unmatched"
-    if (
-        state.duplicate_of is not None
-        or state.needs_review
-        or any(item.is_episode_review for item in state.preview_items)
-    ):
-        return "review"
+    if state.needs_review or state.duplicate_of is not None:
+        return "review-match"
+    if has_episode_problems(state):
+        return "review-episodes"
     if is_plex_ready_state(state):
         return "plex-ready"
     return "matched"

@@ -220,7 +220,8 @@ class MediaWorkspaceRosterPanel(QFrame):
             ("queued", "Queued"),
             ("plex-ready", "Plex Ready"),
             ("matched", "Matched"),
-            ("review", "Needs Review"),
+            ("review-match", "Review Match"),
+            ("review-episodes", "Review Episode Matching"),
             ("unmatched", "No Match Found"),
             ("duplicate", "Duplicates"),
         ]

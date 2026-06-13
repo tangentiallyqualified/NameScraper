@@ -3587,7 +3587,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self._app.processEvents()
 
         self._assert_roster_section_title(workspace, 0, "MATCHED")
-        self._assert_roster_section_title(workspace, 2, "NEEDS REVIEW")
+        self._assert_roster_section_title(workspace, 2, "REVIEW EPISODE MATCHING")
 
         matched_widget = self._roster_widget_for_index(workspace, 0)
         review_widget = self._roster_widget_for_index(workspace, 1)
