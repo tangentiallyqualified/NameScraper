@@ -9,7 +9,7 @@ from pathlib import Path
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import extract_episode, extract_season_number, is_extras_folder
 from ._episode_resolution import resolve_file
-from .episode_assignments import EpisodeAssignmentTable, EpisodeSlot
+from .episode_assignments import REASON_AMBIGUOUS_RUN, EpisodeAssignmentTable, EpisodeSlot
 from .models import SeasonFolderEntry, iter_season_folder_paths
 
 _SPECIAL_STEM_PREFIX_RE = re.compile(
@@ -67,14 +67,17 @@ def _resolve_into_table(
         season_titles=season_titles,
     )
     if resolution.episodes:
-        table.assign(
-            entry.file_id,
-            season_num,
-            list(resolution.episodes),
-            origin="auto",
-            confidence=resolution.confidence,
-            evidence=resolution.evidence,
-        )
+        try:
+            table.assign(
+                entry.file_id,
+                season_num,
+                list(resolution.episodes),
+                origin="auto",
+                confidence=resolution.confidence,
+                evidence=resolution.evidence,
+            )
+        except ValueError:
+            table.mark_unassigned(entry.file_id, REASON_AMBIGUOUS_RUN)
     else:
         table.mark_unassigned(entry.file_id, resolution.reason or "")
 

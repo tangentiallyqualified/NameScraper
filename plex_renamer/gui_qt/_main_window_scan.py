@@ -76,9 +76,8 @@ class MainWindowScanCoordinator:
         workspace = self.active_workspace()
         states = window.media_ctrl.library_states
         window._update_media_badges(states)
-        needs_tv_bulk_scan = self._needs_tv_bulk_scan(states)
 
-        if window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states and not needs_tv_bulk_scan:
+        if window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states:
             workspace.scan_progress_widget.finish()
             workspace.show_ready()
         elif window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:

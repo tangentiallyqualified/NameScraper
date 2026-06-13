@@ -688,6 +688,64 @@ class QtMainWindowTests(QtSmokeBase):
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
+    def test_main_window_shows_ready_after_bulk_scan_even_if_some_shows_failed(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        scanned_state = ScanState(
+            folder=Path("C:/library/tv/GoodShow.2020"),
+            media_info={"id": 42, "name": "Good Show", "year": "2020"},
+            scanned=True,
+        )
+        failed_state = ScanState(
+            folder=Path("C:/library/tv/BadShow.2021"),
+            media_info={"id": 99, "name": "Bad Show", "year": "2021"},
+            scanned=False,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [scanned_state, failed_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.READY,
+            phase="Scan complete",
+            message="Scanned 2 shows",
+        )
+        window._tv_workspace.show_scanning()
+        window._tv_workspace.show_ready = MagicMock()
+
+        window._on_library_changed()
+
+        window._tv_workspace.show_ready.assert_called_once()
+        window.close()
+
+    def test_main_window_does_not_show_ready_during_discovery_library_changed(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        matched_unscanned_state = ScanState(
+            folder=Path("C:/library/tv/PartialShow.2022"),
+            media_info={"id": 77, "name": "Partial Show", "year": "2022"},
+            scanned=False,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [matched_unscanned_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Scanning shows",
+            message="Scanning...",
+        )
+        window._tv_workspace.show_ready = MagicMock()
+
+        window._on_library_changed()
+
+        window._tv_workspace.show_ready.assert_not_called()
+        window.close()
+
     def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 

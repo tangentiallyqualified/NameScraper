@@ -26,6 +26,7 @@ REASON_NOT_IN_SEASON = "episode not in TMDB season"
 REASON_LOST_CONFLICT = "lost conflict"
 REASON_DISPLACED = "reassigned to another file"
 REASON_MANUAL_UNASSIGN = "manually unassigned"
+REASON_AMBIGUOUS_RUN = "ambiguous multi-episode numbering"
 
 
 @dataclass(frozen=True, slots=True)
