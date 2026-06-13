@@ -145,3 +145,43 @@ class TestProjection:
         assert [item.file_id for item in items] == [
             ep1.file_id, ep2.file_id, unparsed.file_id,
         ]
+
+
+class TestQueueBoundaryParity:
+    def test_projection_feeds_rename_ops(self, tmp_path):
+        """scan -> table -> projection -> RenameOps stays well-formed."""
+        from plex_renamer.engine._queue_bridge import build_rename_job_from_state
+        from plex_renamer.engine.models import ScanState
+
+        root = tmp_path / "Demo Show (2020)"
+        season = root / "Season 01"
+        season.mkdir(parents=True)
+        (season / "Demo Show S01E01.mkv").touch()
+        (season / "Demo Show S01E02 - Heist.mkv").touch()
+
+        table = make_table()
+        first = table.add_file(
+            season / "Demo Show S01E01.mkv", is_season_relative=True,
+        )
+        second = table.add_file(
+            season / "Demo Show S01E02 - Heist.mkv",
+            is_season_relative=True, raw_title="Heist",
+        )
+        table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.96)
+        table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.96)
+
+        state = ScanState(folder=root, media_info=SHOW_INFO)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=SHOW_INFO, root=root, media_fields=MEDIA_FIELDS,
+        )
+        state.scanned = True
+        checked = {0, 1}
+        job = build_rename_job_from_state(
+            state, tmp_path, tmp_path, checked_indices=checked,
+        )
+        video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+        assert len(video_ops) == 2
+        assert all(op.new_name for op in video_ops)
+        assert video_ops[0].episodes == [1]
+        assert video_ops[1].episodes == [2]
