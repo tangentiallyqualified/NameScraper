@@ -41,6 +41,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     sxe = re.search(r"S(\d+)((?:E\d+)+)", name, re.IGNORECASE)
     if sxe:
         points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
+        initial_count = len(points)
         rest = name[sxe.end():]
         segment_re = re.compile(
             r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
@@ -52,10 +53,12 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                 break
             points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
             rest = rest[seg.end():]
-        # Expand only a lone gapped endpoint (e.g. S01E01-E04) as a range;
-        # 3+ chained points (incl. a multi-ep prefix + bare end like
-        # S01E01E02-04 -> [1,2,4]) are kept verbatim and validated downstream.
-        if len(points) == 2 and points[1] - points[0] > 1:
+        # Expand only a lone *dash-introduced* gapped endpoint (e.g.
+        # S01E01-E04) as a range. Concatenated explicit episodes
+        # (S01E03E05 -> [3, 5]) and 3+ chained points (incl. a multi-ep
+        # prefix + bare end like S01E01E02-04 -> [1, 2, 4]) are kept
+        # verbatim and validated downstream.
+        if initial_count == 1 and len(points) == 2 and points[1] - points[0] > 1:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
