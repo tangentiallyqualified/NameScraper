@@ -65,6 +65,7 @@ def _resolve_into_table(
         raw_title=title_evidence,
         is_season_relative=is_season_relative,
         season_titles=season_titles,
+        season=season_num,
     )
     if resolution.episodes:
         try:

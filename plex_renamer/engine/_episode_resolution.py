@@ -32,6 +32,7 @@ CONF_TITLE_WINS = 0.90       # rule 2: strong title overrides number
 CONF_WEAK_TITLE_NUMBER_CAP = 0.60   # rule 3: weak title disagreement caps number
 CONF_NUMBER_RELATIVE = 0.86  # rule 4: S##E## number only
 CONF_NUMBER_INFERRED = 0.50  # rule 4: bare/absolute number only
+CONF_SPECIAL_NUMBER_ONLY = 0.50  # season-0 number with no title match -> REVIEW
 CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
 
 _TITLE_EXACT = 1.0
@@ -171,6 +172,7 @@ def resolve_file(
     raw_title: str | None,
     is_season_relative: bool,
     season_titles: dict[int, str],
+    season: int | None = None,
 ) -> Resolution:
     """Apply the 6-rule resolution policy for one file against one season."""
     valid_numbers = tuple(e for e in parsed_episodes if e in season_titles)
@@ -204,6 +206,14 @@ def resolve_file(
                 episodes=valid_numbers,
                 confidence=CONF_WEAK_TITLE_NUMBER_CAP,
                 evidence=frozenset({"number", "title-ambiguous"}),
+            )
+        if season == 0:
+            # Season-0 numbering varies by source; a bare number is not
+            # trustworthy on its own -> force review.
+            return Resolution(
+                episodes=valid_numbers,
+                confidence=CONF_SPECIAL_NUMBER_ONLY,
+                evidence=frozenset({"number", "special-number-only"}),
             )
         # rule 4: no usable title evidence
         confidence = CONF_NUMBER_RELATIVE if is_season_relative else CONF_NUMBER_INFERRED
@@ -317,7 +327,7 @@ def apply_confidence_adjustments(
         entry = table.files[assignment.file_id]
         confidence = assignment.confidence
 
-        if entry.is_season_relative:
+        if entry.is_season_relative and assignment.season != 0:
             confidence = max(confidence, EXPLICIT_EPISODE_FLOOR)
 
         source_title = extract_source_title_prefix(entry.path.name)
@@ -328,7 +338,7 @@ def apply_confidence_adjustments(
                 or source_norm.startswith(show_norm)
                 or show_norm.startswith(source_norm)
             )
-            if compatible and entry.is_season_relative:
+            if compatible and entry.is_season_relative and assignment.season != 0:
                 confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
             if not compatible:
                 contradicted.add(assignment.file_id)

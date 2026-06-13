@@ -150,6 +150,7 @@ from plex_renamer.engine._episode_resolution import (
     CONF_AGREE,
     CONF_NUMBER_INFERRED,
     CONF_NUMBER_RELATIVE,
+    CONF_SPECIAL_NUMBER_ONLY,
     CONF_TITLE_ONLY,
     CONF_TITLE_WINS,
     CONF_WEAK_TITLE_NUMBER_CAP,
@@ -157,6 +158,7 @@ from plex_renamer.engine._episode_resolution import (
     match_title_in_titles,
     resolve_file,
 )
+from plex_renamer.engine._state import DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
 
 S0_TITLES = {1: "Inauguration Part 1", 2: "Special A", 3: "Special C"}
 S1_TITLES = {1: "Pilot", 2: "The Heist", 3: "Endgame", 4: "Coda"}
@@ -288,6 +290,36 @@ class TestResolutionRules:
         assert res.confidence <= CONF_WEAK_TITLE_NUMBER_CAP
 
 
+class TestSpecialsTrust:
+    def test_special_number_only_forces_review(self):
+        res = resolve_file(
+            parsed_episodes=(8,), raw_title=None,
+            is_season_relative=True,
+            season_titles={8: "How to Draw Eddy"}, season=0,
+        )
+        assert res.episodes == (8,)
+        assert res.confidence == CONF_SPECIAL_NUMBER_ONLY
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_special_strong_title_still_wins(self):
+        # Exact title for E12 overrides the parsed S00E08 number.
+        res = resolve_file(
+            parsed_episodes=(8,), raw_title="The Grim Adventures of the KND",
+            is_season_relative=True,
+            season_titles={8: "How to Draw Eddy", 12: "The Grim Adventures of the KND"},
+            season=0,
+        )
+        assert res.episodes == (12,)
+        assert res.confidence == CONF_TITLE_WINS
+
+    def test_regular_season_number_only_unchanged(self):
+        res = resolve_file(
+            parsed_episodes=(4,), raw_title=None,
+            is_season_relative=True, season_titles=S1_TITLES, season=1,
+        )
+        assert res.confidence == CONF_NUMBER_RELATIVE
+
+
 from pathlib import Path
 
 from plex_renamer.engine.episode_assignments import (
@@ -364,4 +396,24 @@ class TestConfidenceAdjustments:
         assert (
             table.assignment_for(entry.file_id).confidence
             <= CONTRADICTORY_PREFIX_CAP
+        )
+
+    def test_special_number_only_survives_adjustments(self):
+        from plex_renamer.engine._episode_resolution import CONF_SPECIAL_NUMBER_ONLY
+        from plex_renamer.engine._state import DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=0, episode=8, title="How to Draw Eddy"))
+        entry = table.add_file(
+            Path("Demo Show - S00E08 - Some Special.mkv"),
+            is_season_relative=True, raw_title="Some Special",
+        )
+        table.assign(
+            entry.file_id, 0, [8], origin=ORIGIN_AUTO,
+            confidence=CONF_SPECIAL_NUMBER_ONLY,
+            evidence=frozenset({"number", "special-number-only"}),
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert (
+            table.assignment_for(entry.file_id).confidence
+            < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
         )
