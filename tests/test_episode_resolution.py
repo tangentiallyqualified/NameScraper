@@ -55,6 +55,28 @@ class TestMultiEpisodeRuns:
         assert eps == [1, 2, 3, 4]
         assert rel is True
 
+    def test_chained_dash_e_run_three(self):
+        eps, _, rel = extract_episode(
+            "ChalkZone.S01E01-E02-E03.DVDRip.1080p.mkv"
+        )
+        assert eps == [1, 2, 3]
+        assert rel is True
+
+    def test_chained_dash_e_run_four(self):
+        eps, _, rel = extract_episode("Show S01E01-E02-E03-E04.mkv")
+        assert eps == [1, 2, 3, 4]
+        assert rel is True
+
+    def test_chained_nxnn_run_three(self):
+        eps, _, rel = extract_episode("Show 1x01-1x02-1x03.mkv")
+        assert eps == [1, 2, 3]
+        assert rel is True
+
+    def test_chained_nxnn_bare_run_three(self):
+        eps, _, rel = extract_episode("Show 1x01-02-03.mkv")
+        assert eps == [1, 2, 3]
+        assert rel is True
+
 
 class TestRangeFalsePositives:
     """Regression tests: digit-leading titles must NOT be parsed as range ends."""

@@ -38,40 +38,52 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
     #   ' - E04'   (spaced dash, E prefix)      → range
     #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
-    match = re.search(
-        r"S(\d+)((?:E\d+)+)"
-        r"(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)?"
-        r"\s*[-.]?\s*(.*)",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        episodes = [int(num) for num in re.findall(r"E(\d+)", match.group(2), re.IGNORECASE)]
-        range_end_str = match.group(3) or match.group(4) or match.group(5)
-        if range_end_str:
-            episodes = _expand_range(episodes[0], int(range_end_str))
-        title = match.group(6).strip() if match.group(6) else None
+    sxe = re.search(r"S(\d+)((?:E\d+)+)", name, re.IGNORECASE)
+    if sxe:
+        points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
+        rest = name[sxe.end():]
+        segment_re = re.compile(
+            r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
+            re.IGNORECASE,
+        )
+        while True:
+            seg = segment_re.match(rest)
+            if not seg:
+                break
+            points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
+            rest = rest[seg.end():]
+        if len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
+        else:
+            episodes = points
+        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
         return episodes, title, True
 
     # NxNN range-end rules (mirrors S##E## logic):
     #   -1x04  or  -04  (no spaces)             → range, bare end not followed by letter
     #   ' - 1x04'       (spaced, N×NN prefix)   → range
     #   ' - 04 …'       (spaced, bare digits)   → NOT a range (title)
-    match = re.search(
-        r"\b(\d{1,2})x(\d{2,3})"
-        r"(?:-(?:\1x)?(\d{2,3})(?![a-zA-Z])|\s+-\s+\1x(\d{2,3})(?![a-zA-Z]))?"
-        r"(?!\d)\s*[-.]?\s*(.*)",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        start_num = int(match.group(2))
-        range_end_str = match.group(3) or match.group(4)
-        if range_end_str:
-            episodes = _expand_range(start_num, int(range_end_str))
+    nxn = re.search(r"\b(\d{1,2})x(\d{2,3})", name, re.IGNORECASE)
+    if nxn:
+        season_prefix = nxn.group(1)
+        points = [int(nxn.group(2))]
+        rest = name[nxn.end():]
+        segment_re = re.compile(
+            rf"^(?:-(?:{season_prefix}x)?(\d{{2,3}})(?![a-zA-Z])"
+            rf"|\s+-\s+{season_prefix}x(\d{{2,3}})(?![a-zA-Z]))",
+            re.IGNORECASE,
+        )
+        while True:
+            seg = segment_re.match(rest)
+            if not seg:
+                break
+            points.append(int(seg.group(1) or seg.group(2)))
+            rest = rest[seg.end():]
+        if len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
         else:
-            episodes = [start_num]
-        title = match.group(5).strip() if match.group(5) else None
+            episodes = points
+        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
         return episodes, title, True
 
     match = re.search(
