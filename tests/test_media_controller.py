@@ -1115,6 +1115,65 @@ class RematchStateTests(_ControllerTestCase):
         self.ctrl.apply_runtime_settings()
         self.assertEqual(item.status, "OK")
 
+    def test_apply_runtime_settings_table_backed_respects_approved_and_unapproved(self):
+        """Table-backed state: approved below-threshold stays OK; unapproved becomes REVIEW."""
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.engine._episode_projection import project_preview_items
+
+        folder = self.tmp / "Show.2024"
+        show_info = {"id": 10, "name": "Show", "year": "2024"}
+        media_fields = {"media_id": 10, "media_name": "Show"}
+
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+
+        # Approved assignment at 60% confidence.
+        approved_entry = table.add_file(folder / "Show.S01E01.mkv")
+        table.assign(approved_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.6)
+        table.set_approved(approved_entry.file_id)
+
+        # Unapproved assignment at 60% confidence.
+        unapproved_entry = table.add_file(folder / "Show.S01E02.mkv")
+        table.assign(unapproved_entry.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.6)
+
+        state = ScanState(
+            folder=folder,
+            media_info=show_info,
+            confidence=1.0,
+            checked=True,
+        )
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder, media_fields=media_fields,
+        )
+        # Ensure threshold starts low so both items project as OK initially.
+        self.ctrl.settings.episode_auto_accept_threshold = 0.5
+        self.ctrl.apply_runtime_settings()
+        # Reproject after threshold is set.
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder, media_fields=media_fields,
+        )
+        self.set_tv_session([state], batch_mode=False)
+
+        # Both are OK at threshold 0.5 (confidence 0.6 > 0.5).
+        approved_item = next(i for i in state.preview_items if i.file_id == approved_entry.file_id)
+        unapproved_item = next(i for i in state.preview_items if i.file_id == unapproved_entry.file_id)
+        self.assertEqual(approved_item.status, "OK")
+        self.assertEqual(unapproved_item.status, "OK")
+
+        # Raise threshold to 0.85 — unapproved must flip to REVIEW, approved stays OK.
+        self.ctrl.settings.episode_auto_accept_threshold = 0.85
+        self.ctrl.apply_runtime_settings()
+        approved_item = next(i for i in state.preview_items if i.file_id == approved_entry.file_id)
+        unapproved_item = next(i for i in state.preview_items if i.file_id == unapproved_entry.file_id)
+        self.assertEqual(approved_item.status, "OK", "Approved row must not flip to REVIEW")
+        self.assertTrue(unapproved_item.is_episode_review, "Unapproved row must flip to REVIEW")
+
     def test_rematch_tv_state_keeps_runner_up_suggestions_without_score_threshold(self):
         state = ScanState(
             folder=self.tmp / "Man.DOk.Ngew.2016",

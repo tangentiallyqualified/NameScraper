@@ -199,6 +199,30 @@ class TestIngestion:
         assert len(table.unassigned_files()) == 1
         assert ok_item.file_id is not None
 
+    def test_ingest_strips_skip_prefix_so_projection_does_not_double_mint(self):
+        """Consolidated-path items with 'SKIP: ...' status must not produce 'SKIP: SKIP: ...'."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import EpisodeSlot
+
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Ep 1"))
+        skip_item = PreviewItem(
+            original=Path("episode.mkv"), new_name=None, target_dir=None,
+            season=None, episodes=[], status="SKIP: could not match episode title to TMDB",
+        )
+        ingest_preview_items(table, [skip_item])
+        items = project_preview_items(
+            table,
+            show_info={"id": 1, "name": "Test", "year": "2020"},
+            root=Path("C:/lib/Test"),
+            media_fields={"media_id": 1, "media_name": "Test"},
+        )
+        assert len(items) == 1
+        assert not items[0].status.startswith("SKIP: SKIP:"), (
+            f"Double-prefixed status: {items[0].status!r}"
+        )
+        assert items[0].status.startswith("SKIP")
+
     def test_ingest_duplicate_claims_conflict(self):
         table = make_table()
         items = [
@@ -212,7 +236,7 @@ class TestIngestion:
         assert (1, 2) in table.conflicts()
 
 
-from plex_renamer.engine.episode_assignments import merge_tables
+from plex_renamer.engine.episode_assignments import merge_tables, ROLE_VERSION
 
 
 class TestMergeTables:
@@ -234,6 +258,23 @@ class TestMergeTables:
         sibling.mark_unassigned(entry.file_id, "could not parse episode number")
         merge_tables(primary, sibling)
         assert len(primary.unassigned_files()) == 1
+
+    def test_merge_preserves_role(self):
+        """role=ROLE_VERSION must round-trip through merge_tables."""
+        from dataclasses import replace as dc_replace
+        primary = make_table()
+        sibling = make_table()
+        entry = sibling.add_file(Path("version.mkv"))
+        sibling.assign(entry.file_id, 0, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        # Manually set ROLE_VERSION on the assignment in the sibling table.
+        sibling._assignments[entry.file_id] = dc_replace(
+            sibling._assignments[entry.file_id], role=ROLE_VERSION,
+        )
+        id_map = merge_tables(primary, sibling)
+        new_id = id_map[entry.file_id]
+        merged_assignment = primary.assignment_for(new_id)
+        assert merged_assignment is not None
+        assert merged_assignment.role == ROLE_VERSION
 
 
 class TestManualCarryOver:

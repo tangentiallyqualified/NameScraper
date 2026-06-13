@@ -288,7 +288,11 @@ def ingest_preview_items(
                     continue
                 except ValueError:
                     pass  # non-contiguous run at a season boundary
-        table.mark_unassigned(entry.file_id, item.status or REASON_NO_PARSE)
+        raw_reason = item.status or REASON_NO_PARSE
+        # Strip a leading "SKIP: " prefix so projection doesn't double-mint it.
+        if raw_reason.startswith("SKIP: "):
+            raw_reason = raw_reason[len("SKIP: "):]
+        table.mark_unassigned(entry.file_id, raw_reason)
 
 
 def merge_tables(
@@ -314,7 +318,7 @@ def merge_tables(
         id_map[old_id] = new_entry.file_id
         assignment = other.assignment_for(old_id)
         if assignment is not None:
-            primary.assign(
+            new_assignment = primary.assign(
                 new_entry.file_id,
                 assignment.season,
                 list(assignment.episodes),
@@ -322,6 +326,10 @@ def merge_tables(
                 confidence=assignment.confidence,
                 evidence=assignment.evidence,
             )
+            if assignment.role != new_assignment.role:
+                primary._assignments[new_entry.file_id] = replace(
+                    new_assignment, role=assignment.role,
+                )
             if assignment.approved:
                 primary.set_approved(new_entry.file_id)
         else:

@@ -102,6 +102,15 @@ class TestProjection:
         assert items[0].new_name is None
         assert items[0].status == "SKIP: could not parse episode number"
 
+    def test_unassigned_empty_reason_emits_plain_skip(self):
+        """Empty unassigned reason must produce 'SKIP', not 'SKIP: ' with trailing space."""
+        table = make_table()
+        entry = table.add_file(ROOT / "mystery.mkv")
+        table.mark_unassigned(entry.file_id, "")
+        items = project(table)
+        assert items[0].status == "SKIP"
+        assert not items[0].status.endswith(" ")
+
     def test_unassigned_special_is_unmatched_not_silent_ok(self):
         table = make_table()
         entry = table.add_file(
@@ -149,7 +158,7 @@ class TestProjection:
 
 class TestQueueBoundaryParity:
     def test_projection_feeds_rename_ops(self, tmp_path):
-        """scan -> table -> projection -> RenameOps stays well-formed."""
+        """table -> projection -> RenameOps stays well-formed (no scanner runs)."""
         from plex_renamer.engine._queue_bridge import build_rename_job_from_state
         from plex_renamer.engine.models import ScanState
 
@@ -176,12 +185,18 @@ class TestQueueBoundaryParity:
             table, show_info=SHOW_INFO, root=root, media_fields=MEDIA_FIELDS,
         )
         state.scanned = True
-        checked = {0, 1}
+        # Only check index 1 (second file); first file is unchecked.
+        checked_indices = {1}
         job = build_rename_job_from_state(
-            state, tmp_path, tmp_path, checked_indices=checked,
+            state, tmp_path, tmp_path, checked_indices=checked_indices,
         )
         video_ops = [op for op in job.rename_ops if op.file_type == "video"]
         assert len(video_ops) == 2
-        assert all(op.new_name for op in video_ops)
+        # Unchecked op (index 0) is not selected; checked op (index 1) is.
+        assert video_ops[0].selected is False
+        assert video_ops[1].selected is True
+        # Each op's new_name matches the corresponding preview item.
+        assert video_ops[0].new_name == state.preview_items[0].new_name
+        assert video_ops[1].new_name == state.preview_items[1].new_name
         assert video_ops[0].episodes == [1]
         assert video_ops[1].episodes == [2]

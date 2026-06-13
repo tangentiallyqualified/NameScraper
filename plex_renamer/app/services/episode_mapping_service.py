@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...engine import PreviewItem, ScanState
@@ -295,29 +294,6 @@ class EpisodeMappingService:
             return "No Match Found"
         pct = max(0, min(100, round(preview.episode_confidence * 100)))
         return f"{pct}%"
-
-    @staticmethod
-    def _target_dir_for_episode(state: ScanState, preview: PreviewItem, season: int) -> Path:
-        target_dir = preview.target_dir or preview.original.parent
-        parent = target_dir
-        if target_dir.name.lower().startswith("season ") or target_dir.name.lower() == "specials":
-            parent = target_dir.parent
-        elif preview.target_dir is None:
-            parent = state.folder
-        folder_name = "Specials" if season == 0 else f"Season {season:02d}"
-        return parent / folder_name
-
-    @staticmethod
-    def _retarget_companions(preview: PreviewItem, old_video_name: str) -> None:
-        if preview.new_name is None:
-            return
-        old_stem = Path(old_video_name).stem if old_video_name else preview.original.stem
-        new_stem = Path(preview.new_name).stem
-        for companion in preview.companions:
-            if companion.new_name and companion.new_name.startswith(old_stem):
-                companion.new_name = new_stem + companion.new_name[len(old_stem):]
-            else:
-                companion.new_name = new_stem + companion.original.suffix
 
     @staticmethod
     def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:

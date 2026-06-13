@@ -2296,6 +2296,77 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(assignment.episodes, (2,))
         workspace.close()
 
+    def test_assign_file_dialog_does_not_double_list_unmatched_extras(self):
+        """UNMATCHED extras rows must appear only in 'unassigned', not also in 'assigned'."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        # Assigned file (appears in assigned list).
+        e01_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        table.assign(e01_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        # Unmatched extras file: has new_name set by projection but no table assignment.
+        from plex_renamer.engine.episode_assignments import EpisodeSlot as _Slot, REASON_NO_TITLE_MATCH
+        extras_entry = table.add_file(
+            folder / "Season 01" / "Extras" / "bts.mkv",
+            folder_season=0, from_extras_folder=True,
+        )
+        table.mark_unassigned(extras_entry.file_id, REASON_NO_TITLE_MATCH)
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        # Sanity: the extras item has a new_name (unmatched-extras projection sets it).
+        extras_preview = next(i for i in state.preview_items if i.file_id == extras_entry.file_id)
+        self.assertIsNotNone(extras_preview.new_name)
+        self.assertTrue(extras_preview.is_unmatched)
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=None)
+
+        # Capture what pick_file receives.
+        captured_unassigned: list = []
+        captured_assigned: list = []
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_file(*, unassigned, assigned, **_kwargs):
+                captured_unassigned.extend(unassigned)
+                captured_assigned.extend(assigned)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_file", assign_dialog=_CapturingDialog,
+        )
+
+        # extras_entry must appear in unassigned only, not in assigned.
+        unassigned_ids = {fid for fid, _label in captured_unassigned}
+        assigned_ids = {fid for fid, _name in captured_assigned}
+        self.assertIn(extras_entry.file_id, unassigned_ids)
+        self.assertNotIn(
+            extras_entry.file_id, assigned_ids,
+            "UNMATCHED extras file must not appear in the 'Already assigned' list",
+        )
+        workspace.close()
+
     def test_episode_row_action_error_calls_warning_box_no_crash(self):
         """If the service raises ValueError, warning_box.warning is called; no hang."""
         from plex_renamer.app.models.state_models import EpisodeGuideRow

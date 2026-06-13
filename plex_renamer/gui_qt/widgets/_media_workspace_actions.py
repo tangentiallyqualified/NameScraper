@@ -198,10 +198,13 @@ class MediaWorkspaceActionCoordinator:
                 message = "Episode mapping updated."
             elif action_id == "assign_file":
                 unassigned = service.unassigned_file_choices(state)
+                unassigned_ids = {fid for fid, _label in unassigned}
                 assigned = [
                     (item.file_id, item.original.name)
                     for item in state.preview_items
-                    if item.file_id is not None and item.new_name is not None
+                    if item.file_id is not None
+                    and item.new_name is not None
+                    and item.file_id not in unassigned_ids
                 ]
                 file_id = assign_dialog.pick_file(
                     parent=workspace,

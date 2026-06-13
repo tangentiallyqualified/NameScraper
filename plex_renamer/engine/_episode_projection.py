@@ -67,7 +67,7 @@ def _unassigned_item(
             **media_fields,
         )
 
-    status = _UNASSIGNED_STATUS.get(reason, f"SKIP: {reason}")
+    status = _UNASSIGNED_STATUS.get(reason) or (f"SKIP: {reason}" if reason else "SKIP")
     return PreviewItem(
         original=entry.path,
         new_name=None,
