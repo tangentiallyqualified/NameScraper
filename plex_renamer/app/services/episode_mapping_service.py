@@ -72,6 +72,37 @@ class EpisodeMappingService:
         )
         self.reproject(state)
 
+    def assign_or_extend_file(
+        self,
+        state: ScanState,
+        preview: PreviewItem,
+        *,
+        season: int,
+        episode: int,
+    ) -> None:
+        """Assign a file to one episode, extending its run when contiguous.
+
+        If the file already has an assignment in *season* whose run is
+        adjacent to *episode*, the episode is added to that run; otherwise
+        the file is assigned to just *episode* (replacing any prior run).
+        """
+        from ...engine.episode_assignments import ORIGIN_MANUAL
+
+        table = self._require_table(state)
+        if preview.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        episodes = [episode]
+        existing = table.assignment_for(preview.file_id)
+        if existing is not None and existing.season == season:
+            run = sorted(existing.episodes)
+            if episode == run[0] - 1 or episode == run[-1] + 1:
+                episodes = sorted(set(run) | {episode})
+        table.assign(
+            preview.file_id, season, episodes,
+            origin=ORIGIN_MANUAL, displace=True,
+        )
+        self.reproject(state)
+
     def unassign_file(self, state: ScanState, preview: PreviewItem) -> None:
         table = self._require_table(state)
         if preview.file_id is None:

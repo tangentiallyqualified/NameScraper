@@ -220,8 +220,8 @@ class MediaWorkspaceActionCoordinator:
                 )
                 if target is None:
                     return
-                service.assign_file(
-                    state, target, season=row.season, episodes=[row.episode],
+                service.assign_or_extend_file(
+                    state, target, season=row.season, episode=row.episode,
                 )
                 message = "File assigned."
             else:

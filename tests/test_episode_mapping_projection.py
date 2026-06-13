@@ -220,6 +220,23 @@ class TestTableBackedService:
         )
         assert displaced.new_name is None  # back to unassigned
 
+    def test_assign_or_extend_extends_contiguous(self):
+        state = table_state()  # e1.mkv auto-assigned to [1]; slots 1-4 exist
+        service = EpisodeMappingService()
+        e1 = next(p for p in state.preview_items if p.status == "OK")
+        service.assign_or_extend_file(state, e1, season=1, episode=2)
+        updated = next(p for p in state.preview_items if p.original.name == "e1.mkv")
+        assert updated.episodes == [1, 2]
+        assert updated.episode_confidence == 1.0
+
+    def test_assign_or_extend_replaces_when_not_contiguous(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        e1 = next(p for p in state.preview_items if p.status == "OK")
+        service.assign_or_extend_file(state, e1, season=1, episode=4)
+        updated = next(p for p in state.preview_items if p.original.name == "e1.mkv")
+        assert updated.episodes == [4]
+
     def test_unassign_file(self):
         state = table_state()
         service = EpisodeMappingService()
