@@ -248,24 +248,16 @@ class TVScanner:
     ) -> list[PreviewItem]:
         from ._episode_projection import project_preview_items
         from ._episode_resolution import apply_confidence_adjustments
-        from ._tv_scanner_normal import _register_season_slots
-        from .episode_assignments import ingest_preview_items
+        from ._tv_scanner_consolidated import build_consolidated_table
 
-        items = _build_consolidated_preview(
+        table = build_consolidated_table(
             season_dirs=season_dirs,
             tmdb_seasons=tmdb_seasons,
-            root=self.root,
+            tmdb=self.tmdb,
             show_info=self.show_info,
-            media_fields=self._media_fields,
+            root=self.root,
             store_tmdb_data=self._store_tmdb_data,
         )
-        table = EpisodeAssignmentTable()
-        for season_num, season_data in tmdb_seasons.items():
-            _register_season_slots(
-                table, season_num,
-                season_data.get("titles", {}), season_data.get("episodes", {}),
-            )
-        ingest_preview_items(table, items)
         apply_confidence_adjustments(
             table,
             show_info=self.show_info,

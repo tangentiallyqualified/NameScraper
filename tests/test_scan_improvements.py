@@ -531,7 +531,11 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[2]].season, 2)
             self.assertEqual(by_name[filenames[2]].episodes, [1])
             self.assertTrue(all(item.status == "OK" for item in items))
-            self.assertTrue(all(item.episode_confidence == 0.92 for item in items))
+            # The consolidated path now reconciles each file through the shared
+            # resolution policy: an explicit S##E## number agreeing with the
+            # TMDB episode title yields CONF_AGREE (0.96), same as the normal
+            # path, rather than the old bare-number title-match floor (0.92).
+            self.assertTrue(all(item.episode_confidence == 0.96 for item in items))
 
     def test_title_prefix_mismatch_caps_explicit_episode_confidence(self):
         seasons = {

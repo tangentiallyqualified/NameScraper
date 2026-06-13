@@ -9,6 +9,12 @@ from pathlib import Path
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import build_tv_name, extract_episode, extract_season_number, normalize_for_specials
 from ._movie_scanner import _build_subtitle_companions
+from .episode_assignments import (
+    REASON_AMBIGUOUS_RUN,
+    REASON_NO_PARSE,
+    REASON_NOT_IN_SEASON,
+    EpisodeAssignmentTable,
+)
 from .models import PreviewItem
 
 AbsoluteFileEntry = tuple[Path, int, str | None, list[int], bool, int | None]
@@ -266,3 +272,122 @@ def build_consolidated_preview(
         items.append(item)
 
     return items
+
+
+def _apply_resolution(table, file_id, season, resolution) -> None:
+    if resolution.episodes:
+        try:
+            table.assign(
+                file_id,
+                season,
+                list(resolution.episodes),
+                origin="auto",
+                confidence=resolution.confidence,
+                evidence=resolution.evidence,
+            )
+            return
+        except ValueError:
+            table.mark_unassigned(file_id, REASON_AMBIGUOUS_RUN)
+            return
+    table.mark_unassigned(file_id, resolution.reason or "")
+
+
+def build_consolidated_table(
+    *,
+    season_dirs: list[tuple[Path, int]],
+    tmdb_seasons: dict,
+    tmdb,
+    show_info: dict,
+    root: Path,
+    store_tmdb_data: Callable[[int, dict, dict, dict | None], None],
+) -> EpisodeAssignmentTable:
+    """Build the assignment table for flat/mixed multi-season folders.
+
+    Registers every TMDB season's slots (including Season 0), routes
+    specials through the specials policy, and reconciles each regular
+    file's absolute-mapped candidate through ``resolve_file`` so title
+    evidence applies (the normal path already does this per file).
+    """
+    from ._episode_resolution import resolve_file
+    from ._tv_scanner_normal import _SPECIAL_STEM_PREFIX_RE, _register_season_slots
+
+    table = EpisodeAssignmentTable()
+
+    for season_num in sorted(s for s in tmdb_seasons if s != 0):
+        season_data = tmdb_seasons[season_num]
+        _register_season_slots(
+            table, season_num,
+            season_data.get("titles", {}), season_data.get("episodes", {}),
+        )
+        store_tmdb_data(
+            season_num, season_data.get("titles", {}),
+            season_data.get("posters", {}), season_data.get("episodes", {}),
+        )
+
+    if 0 in tmdb_seasons:
+        s0_data = tmdb_seasons[0]
+    else:
+        s0_data = tmdb.get_season(show_info["id"], 0)
+    s0_titles = s0_data.get("titles", {})
+    if s0_titles:
+        _register_season_slots(table, 0, s0_titles, s0_data.get("episodes", {}))
+        store_tmdb_data(
+            0, s0_titles, s0_data.get("posters", {}), s0_data.get("episodes", {}),
+        )
+
+    items = build_consolidated_preview(
+        season_dirs=season_dirs,
+        tmdb_seasons=tmdb_seasons,
+        root=root,
+        show_info=show_info,
+        media_fields={},
+        store_tmdb_data=store_tmdb_data,
+    )
+    mapped_by_path = {item.original: item for item in items}
+
+    for (
+        file_path, _abs_num, raw_title, episode_numbers,
+        is_season_relative, season_hint,
+    ) in collect_absolute_files(season_dirs):
+        entry = table.add_file(
+            file_path,
+            parsed_episodes=tuple(episode_numbers),
+            raw_title=raw_title,
+            is_season_relative=is_season_relative,
+            season_hint=season_hint if is_season_relative else None,
+            folder_season=season_hint,
+        )
+
+        if season_hint == 0:
+            title_evidence = raw_title or (
+                _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip() or None
+            )
+            resolution = resolve_file(
+                parsed_episodes=tuple(episode_numbers),
+                raw_title=title_evidence,
+                is_season_relative=is_season_relative,
+                season_titles=s0_titles,
+                season=0,
+            )
+            _apply_resolution(table, entry.file_id, 0, resolution)
+            continue
+
+        item = mapped_by_path.get(file_path)
+        if item is not None and item.season and item.episodes and item.season != 0:
+            cand_season = item.season
+            cand_titles = tmdb_seasons.get(cand_season, {}).get("titles", {})
+            resolution = resolve_file(
+                parsed_episodes=tuple(item.episodes),
+                raw_title=raw_title,
+                is_season_relative=is_season_relative,
+                season_titles=cand_titles,
+                season=cand_season,
+            )
+            _apply_resolution(table, entry.file_id, cand_season, resolution)
+        else:
+            table.mark_unassigned(
+                entry.file_id,
+                REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
+            )
+
+    return table
