@@ -276,6 +276,17 @@ class TestResolutionRules:
         assert res.episodes == (3,)
         assert res.confidence == CONF_NUMBER_RELATIVE
 
+    def test_substring_offnumber_does_not_override_valid_number(self):
+        # Parsed E2 is valid; title substring-matches E3 only. Keep the
+        # number (capped to review) rather than silently renumbering to E3.
+        res = resolve_file(
+            parsed_episodes=(2,), raw_title="Endgame",
+            is_season_relative=True,
+            season_titles={1: "Pilot", 2: "The Heist", 3: "Endgame Saga"},
+        )
+        assert res.episodes == (2,)
+        assert res.confidence <= CONF_WEAK_TITLE_NUMBER_CAP
+
 
 from pathlib import Path
 

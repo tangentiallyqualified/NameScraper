@@ -186,7 +186,7 @@ def resolve_file(
                 confidence=CONF_AGREE,
                 evidence=frozenset({"number", "title-agree"}),
             )
-        if strong_title:
+        if strong_title and title_match.strength >= _TITLE_EXACT:
             return Resolution(  # rule 2
                 episodes=(title_match.episode,),
                 confidence=CONF_TITLE_WINS,
