@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
-from ._parsing_titles import clean_name
+from ._parsing_titles import clean_name, clean_title_evidence
 
 _MAX_RANGE_SPAN = 12
 
@@ -31,7 +31,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             for anime).
     """
     raw_stem = Path(filename).stem
-    name = clean_name(raw_stem)
+    name = clean_title_evidence(raw_stem)
 
     # Range-end rules (prevents digit-leading titles from being eaten):
     #   -E04   or  -E04 (no spaces, E prefix)  → range

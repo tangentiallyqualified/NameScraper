@@ -146,6 +146,26 @@ class TestRangeFalsePositives:
         assert eps == [1, 80]
 
 
+class TestDescriptiveParentheticals:
+    def test_pilot_parenthetical_preserved(self):
+        _eps, title, _rel = extract_episode(
+            "Adventure Time (2008) - S00E01 - Adventure Time (Pilot) (480p TVRip x265 ImE).mkv"
+        )
+        assert title == "Adventure Time (Pilot)"
+
+    def test_again_parenthetical_preserved(self):
+        _eps, title, _rel = extract_episode(
+            "Adventure Time (2008) - S00E13 - Frog Seasons Spring (Again) (1080p BluRay x265 ImE).mkv"
+        )
+        assert title == "Frog Seasons Spring (Again)"
+
+    def test_quality_parenthetical_stripped(self):
+        _eps, title, _rel = extract_episode(
+            "Show - S01E05 - The Wizard Hunt (1080p BluRay x265 ImE).mkv"
+        )
+        assert title == "The Wizard Hunt"
+
+
 from plex_renamer.engine._episode_resolution import (
     CONF_AGREE,
     CONF_NUMBER_INFERRED,
