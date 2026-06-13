@@ -77,6 +77,15 @@ class TestMultiEpisodeRuns:
         assert eps == [1, 2, 3]
         assert rel is True
 
+    def test_mixed_prefix_and_bare_range_end(self):
+        # Documented deviation: a multi-episode E-prefix followed by a bare
+        # range-end appends the endpoint as an explicit point rather than
+        # expanding from the first episode (S01E01E02-04 -> [1, 2, 4], not
+        # [1, 2, 3, 4]). A non-contiguous run like this is rejected downstream.
+        eps, _, rel = extract_episode("Show S01E01E02-04.mkv")
+        assert eps == [1, 2, 4]
+        assert rel is True
+
 
 class TestRangeFalsePositives:
     """Regression tests: digit-leading titles must NOT be parsed as range ends."""

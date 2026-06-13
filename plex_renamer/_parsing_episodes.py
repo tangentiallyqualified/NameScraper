@@ -52,6 +52,9 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                 break
             points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
             rest = rest[seg.end():]
+        # Expand only a lone gapped endpoint (e.g. S01E01-E04) as a range;
+        # 3+ chained points (incl. a multi-ep prefix + bare end like
+        # S01E01E02-04 -> [1,2,4]) are kept verbatim and validated downstream.
         if len(points) == 2 and points[1] - points[0] > 1:
             episodes = _expand_range(points[0], points[1])
         else:
