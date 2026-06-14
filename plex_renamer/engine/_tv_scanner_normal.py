@@ -12,6 +12,7 @@ from .._parsing_titles import clean_title_evidence
 from ._episode_resolution import (
     CONF_TITLE_WINS_INEXACT,
     STRONG_TITLE_STRENGTH,
+    _TITLE_EXACT,
     Resolution,
     match_title_in_titles,
     resolve_file,
@@ -95,10 +96,11 @@ def _resolve_into_table(
                     season=0, episode=s0_match.episode,
                     title=specials_titles[s0_match.episode],
                 ))
+            exact_title = "title-strong" if s0_match.strength >= _TITLE_EXACT else "title-strong-inexact"
             resolution = Resolution(
                 episodes=(s0_match.episode,),
                 confidence=CONF_TITLE_WINS_INEXACT,
-                evidence=frozenset({"title-strong", "cross-season-special"}),
+                evidence=frozenset({exact_title, "cross-season-special"}),
             )
             season_for_assign = 0
     if resolution.episodes:

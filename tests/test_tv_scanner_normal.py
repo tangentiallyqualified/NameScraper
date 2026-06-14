@@ -100,6 +100,24 @@ def test_cross_season_does_not_pull_normal_episode():
     assert assignment.episodes == (2,)
 
 
+def test_cross_season_substring_pull_tagged_inexact():
+    table = make_season1_table()  # S1 slots 1-5
+    _resolve_into_table(
+        table,
+        file_path=Path("Show S01E01 - The Lost Pilot Episode.mkv"),
+        season_num=1,
+        season_titles={1: "Completely Different", 2: "Also Different"},
+        specials_titles={1: "The Lost Pilot"},
+    )
+    entry = next(iter(table.files.values()))
+    assignment = table.assignment_for(entry.file_id)
+    assert assignment is not None
+    assert assignment.season == 0
+    assert "cross-season-special" in assignment.evidence
+    assert "title-strong-inexact" in assignment.evidence
+    assert "title-strong" not in assignment.evidence
+
+
 def test_specials_title_evidence_strips_quality_tags():
     table = EpisodeAssignmentTable()
     table.add_slot(EpisodeSlot(season=0, episode=2, title="The Writers Flipped, They Have No Script"))
