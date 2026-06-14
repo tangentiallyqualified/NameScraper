@@ -196,6 +196,31 @@ class MediaWorkspaceActionCoordinator:
                 episodes = [episode for _season, episode in selection]
                 service.assign_file(state, preview, season=season, episodes=episodes)
                 message = "Episode mapping updated."
+            elif action_id == "assign_to_more" and preview is not None:
+                if preview.season is None or not preview.episodes:
+                    return
+                season = preview.season
+                run = sorted(preview.episodes)
+                neighbors = {run[0] - 1, run[-1] + 1}
+                slots = [
+                    choice for choice in service.episode_slot_choices(state)
+                    if choice.season == season and choice.episode in neighbors
+                ]
+                if not slots:
+                    workspace.status_message.emit(
+                        "No adjacent episode to extend into.", 4000,
+                    )
+                    return
+                selection = assign_dialog.pick_episodes(
+                    parent=workspace,
+                    title=f"Extend \"{preview.original.name}\"",
+                    slots=slots,
+                )
+                if selection is None:
+                    return
+                episodes = sorted(set(run) | {episode for _season, episode in selection})
+                service.assign_file(state, preview, season=season, episodes=episodes)
+                message = "File extended to additional episode(s)."
             elif action_id == "assign_file":
                 unassigned = service.unassigned_file_choices(state)
                 unassigned_ids = {fid for fid, _label in unassigned}

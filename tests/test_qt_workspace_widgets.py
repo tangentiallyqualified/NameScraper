@@ -516,3 +516,25 @@ class EpisodeGuideRowActionsTests(QtSmokeBase):
         self.assertFalse(mapped.approve_button().isVisibleTo(mapped))
         review.close()
         mapped.close()
+
+
+def test_matched_row_offers_assign_to_more():
+    from plex_renamer.gui_qt.widgets._media_workspace_preview import (
+        MediaWorkspacePreviewPanel,
+    )
+
+    class _Row:
+        status = "Mapped"
+
+    actions = MediaWorkspacePreviewPanel._episode_row_actions(_Row())
+    ids = [a for a, _label in actions]
+    assert "assign_to_more" in ids
+    assert "reassign" in ids
+    # Missing File rows should NOT offer assign_to_more
+
+    class _MissingRow:
+        status = "Missing File"
+
+    missing_ids = [a for a, _label in MediaWorkspacePreviewPanel._episode_row_actions(_MissingRow())]
+    assert "assign_to_more" not in missing_ids
+    assert missing_ids == ["assign_file"]

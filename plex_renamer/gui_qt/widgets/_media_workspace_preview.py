@@ -798,12 +798,14 @@ class MediaWorkspacePreviewPanel(QFrame):
             return [
                 ("keep_this", "Keep this file (unassign others)"),
                 ("reassign", "Reassign..."),
+                ("assign_to_more", "Assign to more..."),
                 ("unassign", "Unassign"),
             ]
         actions: list[tuple[str, str]] = []
         if row.status == "Review":
             actions.append(("approve", "Approve"))
         actions.append(("reassign", "Reassign..."))
+        actions.append(("assign_to_more", "Assign to more..."))
         actions.append(("unassign", "Unassign"))
         return actions
 
