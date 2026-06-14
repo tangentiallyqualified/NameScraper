@@ -9,7 +9,13 @@ from pathlib import Path
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import extract_episode, extract_season_number, is_extras_folder
 from .._parsing_titles import clean_title_evidence
-from ._episode_resolution import resolve_file
+from ._episode_resolution import (
+    CONF_TITLE_WINS_INEXACT,
+    STRONG_TITLE_STRENGTH,
+    Resolution,
+    match_title_in_titles,
+    resolve_file,
+)
 from .episode_assignments import REASON_AMBIGUOUS_RUN, EpisodeAssignmentTable, EpisodeSlot
 from .models import SeasonFolderEntry, iter_season_folder_paths
 
@@ -41,6 +47,7 @@ def _resolve_into_table(
     file_path: Path,
     season_num: int,
     season_titles: dict[int, str],
+    specials_titles: dict[int, str] | None = None,
     from_extras_folder: bool = False,
 ) -> None:
     episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
@@ -69,11 +76,36 @@ def _resolve_into_table(
         season_titles=season_titles,
         season=season_num,
     )
+    season_for_assign = season_num
+    if (
+        season_num != 0
+        and specials_titles
+        and title_evidence
+        and "title-agree" not in resolution.evidence
+    ):
+        own_match = match_title_in_titles(title_evidence, season_titles)
+        s0_match = match_title_in_titles(title_evidence, specials_titles)
+        if (
+            s0_match is not None
+            and s0_match.strength >= STRONG_TITLE_STRENGTH
+            and (own_match is None or s0_match.strength > own_match.strength)
+        ):
+            if (0, s0_match.episode) not in table.slots:
+                table.add_slot(EpisodeSlot(
+                    season=0, episode=s0_match.episode,
+                    title=specials_titles[s0_match.episode],
+                ))
+            resolution = Resolution(
+                episodes=(s0_match.episode,),
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"title-strong", "cross-season-special"}),
+            )
+            season_for_assign = 0
     if resolution.episodes:
         try:
             table.assign(
                 entry.file_id,
-                season_num,
+                season_for_assign,
                 list(resolution.episodes),
                 origin="auto",
                 confidence=resolution.confidence,
@@ -179,6 +211,7 @@ def build_normal_table(
                         file_path=entry_path,
                         season_num=season_num,
                         season_titles=titles,
+                        specials_titles=ensure_s0_titles(),
                     )
             elif entry_path.is_dir() and season_num != 0 and is_extras_folder(entry_path.name):
                 for extras_file in sorted(entry_path.iterdir()):

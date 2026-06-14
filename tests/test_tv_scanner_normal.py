@@ -67,6 +67,39 @@ def test_resolve_into_table_noncontiguous_file_does_not_raise():
     assert bad_entry.file_id in unassigned_ids
 
 
+def test_cross_season_pulls_pilot_to_specials():
+    table = make_season1_table()  # S1 slots 1-5
+    _resolve_into_table(
+        table,
+        file_path=Path("Tigtone S01E01 - Tigtone and the Pilot.mkv"),
+        season_num=1,
+        season_titles={1: "Tigtone and His Fellowship Of", 2: "Tigtone and the Beautiful War"},
+        specials_titles={1: "Tigtone and the Pilot"},
+    )
+    entry = next(e for e in table.files.values() if "Pilot" in e.path.name)
+    assignment = table.assignment_for(entry.file_id)
+    assert assignment is not None
+    assert assignment.season == 0
+    assert assignment.episodes == (1,)
+    assert "cross-season-special" in assignment.evidence
+
+
+def test_cross_season_does_not_pull_normal_episode():
+    table = make_season1_table()
+    _resolve_into_table(
+        table,
+        file_path=Path("Show S01E02 - Ep 2.mkv"),
+        season_num=1,
+        season_titles=SEASON_TITLES,           # {1:"Ep 1", ... 5:"Ep 5"}
+        specials_titles={1: "Ep 2 Behind the Scenes"},
+    )
+    entry = next(iter(table.files.values()))
+    assignment = table.assignment_for(entry.file_id)
+    assert assignment is not None
+    assert assignment.season == 1            # own-season title agreement wins
+    assert assignment.episodes == (2,)
+
+
 def test_specials_title_evidence_strips_quality_tags():
     table = EpisodeAssignmentTable()
     table.add_slot(EpisodeSlot(season=0, episode=2, title="The Writers Flipped, They Have No Script"))
