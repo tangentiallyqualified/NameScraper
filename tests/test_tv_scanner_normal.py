@@ -65,3 +65,22 @@ def test_resolve_into_table_noncontiguous_file_does_not_raise():
     assert table.assignment_for(bad_entry.file_id) is None
     unassigned_ids = {entry.file_id for entry, _ in table.unassigned_files()}
     assert bad_entry.file_id in unassigned_ids
+
+
+def test_specials_title_evidence_strips_quality_tags():
+    table = EpisodeAssignmentTable()
+    table.add_slot(EpisodeSlot(season=0, episode=2, title="The Writers Flipped, They Have No Script"))
+    _resolve_into_table(
+        table,
+        file_path=Path("The Writers Flipped, They Have No Script (480p DVD x265 HEVC 10bit AAC 2.0 Ghost).mkv"),
+        season_num=0,
+        season_titles={2: "The Writers Flipped, They Have No Script"},
+    )
+    entry = next(iter(table.files.values()))
+    # raw_title must be set (not None) and must not contain quality noise
+    assert entry.raw_title is not None, "raw_title should be the cleaned stem, not None"
+    assert "480p" not in entry.raw_title
+    assignment = table.assignment_for(entry.file_id)
+    assert assignment is not None
+    assert assignment.episodes == (2,)
+    assert assignment.confidence >= 0.85

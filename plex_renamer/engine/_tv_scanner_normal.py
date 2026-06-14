@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import extract_episode, extract_season_number, is_extras_folder
+from .._parsing_titles import clean_title_evidence
 from ._episode_resolution import resolve_file
 from .episode_assignments import REASON_AMBIGUOUS_RUN, EpisodeAssignmentTable, EpisodeSlot
 from .models import SeasonFolderEntry, iter_season_folder_paths
@@ -44,22 +45,23 @@ def _resolve_into_table(
 ) -> None:
     episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
     season_hint = extract_season_number(file_path.name) if is_season_relative else None
+    title_evidence = raw_title
+    if season_num == 0 and not title_evidence:
+        # Specials numbering varies across sources; the filename itself is
+        # often the only title evidence. Clean it so quality tags don't
+        # pollute the match (mirrors the retired match_special stem fallback).
+        cleaned_stem = clean_title_evidence(file_path.stem)
+        cleaned_stem = _SPECIAL_STEM_PREFIX_RE.sub("", cleaned_stem).strip()
+        title_evidence = cleaned_stem or None
     entry = table.add_file(
         file_path,
         parsed_episodes=tuple(episode_numbers),
-        raw_title=raw_title,
+        raw_title=title_evidence,
         is_season_relative=is_season_relative,
         season_hint=season_hint,
         folder_season=season_num,
         from_extras_folder=from_extras_folder,
     )
-    title_evidence = raw_title
-    if season_num == 0 and not title_evidence:
-        # Specials numbering varies across sources; the filename itself is
-        # often the only title evidence (mirrors the retired match_special
-        # stem fallback).
-        cleaned_stem = _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip()
-        title_evidence = cleaned_stem or None
     resolution = resolve_file(
         parsed_episodes=tuple(episode_numbers),
         raw_title=title_evidence,
