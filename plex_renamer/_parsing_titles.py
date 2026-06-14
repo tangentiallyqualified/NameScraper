@@ -112,16 +112,29 @@ def clean_name(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip()
 
 
+_YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
+
+
 def _strip_quality_parens(text: str) -> str:
-    """Remove only parenthetical groups that contain a release-noise token.
+    """Remove parenthetical groups that contain a release-noise token or a year.
 
     Keeps descriptive groups like ``(Pilot)``/``(Again)`` and part numbers
-    like ``(1)`` while dropping ``(480p BluRay x265 ImE)`` and similar.
+    like ``(1)`` while dropping ``(480p BluRay x265 ImE)``, ``(2008)``, etc.
+
+    Noise check is done per-token (via ``_is_release_noise_token``) so the
+    special case that treats "it" (the English word) as non-noise is respected.
     """
     def repl(match: re.Match) -> str:
         inner = match.group(1)
-        if RELEASE_NOISE.search(f" {inner} "):
+        # Check each whitespace-delimited token for release noise
+        tokens = inner.split()
+        if any(_is_release_noise_token(t) for t in tokens):
             return " "
+        # Check for a standalone 4-digit year within the plausible range
+        for m in _YEAR_RE.finditer(inner):
+            year = int(m.group(1))
+            if YEAR_MIN_EXTRACT <= year <= YEAR_MAX:
+                return " "
         return match.group(0)
 
     return re.sub(r"\(([^()]*)\)", repl, text)

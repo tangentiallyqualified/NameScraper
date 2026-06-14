@@ -166,6 +166,67 @@ class TestDescriptiveParentheticals:
         assert title == "The Wizard Hunt"
 
 
+# ─── Direct unit tests for _strip_quality_parens / clean_title_evidence ───────
+
+from plex_renamer._parsing_titles import _strip_quality_parens, clean_title_evidence
+
+
+class TestStripQualityParens:
+    """Unit tests for Finding 1 (year stripping) and Finding 2 (noise via token)."""
+
+    # Finding 1 — year-only group is stripped
+    def test_year_group_stripped(self):
+        result = _strip_quality_parens("Some Title (2008)")
+        assert "(2008)" not in result
+
+    def test_year_group_stripped_mid_stem(self):
+        # year appearing before episode title segment
+        result = clean_title_evidence("My Show (2008) - The (2009) Pilot (480p DVD x265 Ghost)")
+        assert "2008" not in result
+        assert "2009" not in result
+        assert "480p" not in result
+        assert "Pilot" in result
+
+    def test_year_not_in_clean_title_evidence(self):
+        result = clean_title_evidence("My Show (2008) - The Pilot")
+        assert "(2008)" not in result
+
+    # Descriptive / part groups must survive (Finding 1 must not over-strip)
+    def test_pilot_survives(self):
+        result = clean_title_evidence("Adventure Time (Pilot)")
+        assert "(Pilot)" in result
+
+    def test_again_survives(self):
+        result = clean_title_evidence("Show (Again)")
+        assert "(Again)" in result
+
+    def test_part_2_survives(self):
+        result = clean_title_evidence("Episode (Part 2)")
+        assert "(Part 2)" in result
+
+    def test_single_digit_1_survives(self):
+        result = _strip_quality_parens("Episode (1)")
+        assert "(1)" in result
+
+    def test_single_digit_2_survives(self):
+        result = _strip_quality_parens("Episode (2)")
+        assert "(2)" in result
+
+    # Finding 2 — group of exactly "(it)" (lowercase) is NOT stripped as noise
+    def test_it_lowercase_not_stripped(self):
+        result = clean_title_evidence("Show (it)")
+        assert "(it)" in result
+
+    # Regression — quality groups still stripped
+    def test_complex_quality_group_still_stripped(self):
+        result = clean_title_evidence("Show (480p DVD x265 HEVC 10bit AAC 2.0 Ghost)")
+        assert "480p" not in result
+
+    def test_bluray_quality_group_still_stripped(self):
+        result = clean_title_evidence("Show (1080p BluRay x265 ImE)")
+        assert "1080p" not in result
+
+
 from plex_renamer.engine._episode_resolution import (
     CONF_AGREE,
     CONF_NUMBER_INFERRED,
