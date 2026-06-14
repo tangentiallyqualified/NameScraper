@@ -374,9 +374,10 @@ class TestResolutionRules:
         assert "title-strong-inexact" in res.evidence
 
     def test_title_matching_own_number_is_not_overridden(self):
-        # Regression (As Told By Ginger S02E06 "Sibling Revile-ry"): a title
-        # that matches its OWN parsed number is rule-1 agreement, NOT a
-        # rule-2b inexact override. Must stay on E06 at full confidence.
+        # When a title matches its OWN parsed number it is rule-1 agreement,
+        # NOT a rule-2b inexact override. (Generic principle guard; the real
+        # As Told By Ginger S02E06 release is title-offset and handled by the
+        # conflict-resolution path, not this rule.)
         res = resolve_file(
             parsed_episodes=(6,), raw_title="Sibling Revile-ry",
             is_season_relative=True,
@@ -425,6 +426,8 @@ from pathlib import Path
 
 from plex_renamer.engine.episode_assignments import (
     ORIGIN_AUTO,
+    ORIGIN_MANUAL,
+    REASON_LOST_CONFLICT,
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
@@ -569,3 +572,70 @@ class TestConfidenceAdjustments:
         # exactly CONF_TITLE_WINS_INEXACT.
         assert capped == CONF_TITLE_WINS_INEXACT
         assert capped < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+
+class TestConflictResolution:
+    def _two_claimants(self, *, title_ev, num_ev, num_origin=ORIGIN_AUTO):
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=2, episode=10, title="Sibling Revile-ry"))
+        title_file = table.add_file(
+            Path("ATBG - S02E06 - Sibling Revile-ry.mkv"),
+            raw_title="Sibling Revile-ry",
+        )
+        num_file = table.add_file(
+            Path("ATBG - S02E10 - April's Fools.mkv"), is_season_relative=True,
+        )
+        table.assign(
+            title_file.file_id, 2, [10], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS, evidence=frozenset(title_ev),
+        )
+        table.assign(
+            num_file.file_id, 2, [10], origin=num_origin,
+            confidence=CONF_NUMBER_RELATIVE, evidence=frozenset(num_ev),
+        )
+        return table, title_file, num_file
+
+    def test_exact_title_beats_number_only(self):
+        table, title_file, num_file = self._two_claimants(
+            title_ev={"title-strong", "number-disagree"},
+            num_ev={"number", "season-relative"},
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(title_file.file_id) is not None
+        assert table.assignment_for(title_file.file_id).episodes == (10,)
+        assert table.assignment_for(num_file.file_id) is None
+        assert table.unassigned_reasons[num_file.file_id] == REASON_LOST_CONFLICT
+        assert (2, 10) not in table.conflicts()
+
+    def test_title_agree_also_wins(self):
+        table, title_file, num_file = self._two_claimants(
+            title_ev={"number", "title-agree"},
+            num_ev={"number", "season-relative"},
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(num_file.file_id) is None
+        assert (2, 10) not in table.conflicts()
+
+    def test_two_number_only_stays_conflict(self):
+        table, title_file, num_file = self._two_claimants(
+            title_ev={"number", "season-relative"},
+            num_ev={"number", "season-relative"},
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert (2, 10) in table.conflicts()
+
+    def test_inexact_title_does_not_evict(self):
+        table, title_file, num_file = self._two_claimants(
+            title_ev={"title-strong-inexact", "number-disagree"},
+            num_ev={"number", "season-relative"},
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert (2, 10) in table.conflicts()
+
+    def test_manual_claim_not_evicted(self):
+        table, title_file, num_file = self._two_claimants(
+            title_ev={"title-strong", "number-disagree"},
+            num_ev={"number"}, num_origin=ORIGIN_MANUAL,
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert (2, 10) in table.conflicts()

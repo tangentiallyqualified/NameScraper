@@ -259,6 +259,12 @@ SINGLE_SEASON_PERFECT_SHOW_EXACT_COVERAGE_FLOOR = 0.85
 NEAR_COMPLETE_COVERAGE_FLOOR = 0.74
 CONTRADICTORY_PREFIX_CAP = 0.45
 
+# Evidence tags that mark a claimant as an EXACT title match (rule 1 agree or
+# rule 2 exact override). Used to auto-resolve a conflict in favour of the
+# exact-title file over a weaker number-only claim. Excludes the substring
+# rule-2b tag "title-strong-inexact" on purpose.
+_EXACT_TITLE_EVIDENCE = frozenset({"title-agree", "title-strong"})
+
 
 def _parse_air_date(value: object) -> date | None:
     if not isinstance(value, str) or not value:
@@ -296,6 +302,25 @@ def _expected_for_season(slots: list[EpisodeSlot]) -> set[int]:
     return {slot.episode for slot in candidates}
 
 
+def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
+    """Award a conflicted slot to its sole exact-title claimant.
+
+    When a slot is claimed by exactly one auto file with exact-title evidence
+    (``title-agree``/``title-strong``) and the other claimants are weaker
+    (number-only / no exact-title evidence), the exact-title file keeps the
+    slot and the rest are marked ``REASON_LOST_CONFLICT``. Slots with no
+    exact-title claimant, with two or more exact-title claimants, or with any
+    manual claimant are left untouched for manual resolution.
+    """
+    for (season, episode), claims in list(table.conflicts().items()):
+        if any(claim.origin == ORIGIN_MANUAL for claim in claims):
+            continue
+        winners = [claim for claim in claims if claim.evidence & _EXACT_TITLE_EVIDENCE]
+        if len(winners) != 1:
+            continue
+        table.resolve_conflict(season, episode, winner_file_id=winners[0].file_id)
+
+
 def apply_confidence_adjustments(
     table: EpisodeAssignmentTable,
     *,
@@ -303,6 +328,7 @@ def apply_confidence_adjustments(
     show_match_confidence: float | None = None,
 ) -> None:
     """Raise/cap auto-assignment confidence from corroborating evidence."""
+    _auto_resolve_strong_title_conflicts(table)
     show_name = show_info.get("name", "")
     show_norm = normalize_for_match(show_name)
     conflicted = table.conflicted_file_ids()
