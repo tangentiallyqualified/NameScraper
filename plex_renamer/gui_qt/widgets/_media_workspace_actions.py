@@ -224,18 +224,24 @@ class MediaWorkspaceActionCoordinator:
             elif action_id == "assign_file":
                 unassigned = service.unassigned_file_choices(state)
                 unassigned_ids = {fid for fid, _label in unassigned}
+                shareable = service.shareable_file_choices(
+                    state, season=row.season, episode=row.episode,
+                )
+                shareable_ids = {fid for fid, _label in shareable}
                 assigned = [
                     (item.file_id, item.original.name)
                     for item in state.preview_items
                     if item.file_id is not None
                     and item.new_name is not None
                     and item.file_id not in unassigned_ids
+                    and item.file_id not in shareable_ids
                 ]
                 file_id = assign_dialog.pick_file(
                     parent=workspace,
                     title=f"Assign file to S{row.season:02d}E{row.episode:02d}",
                     unassigned=unassigned,
                     assigned=assigned,
+                    shareable=shareable,
                 )
                 if file_id is None:
                     return

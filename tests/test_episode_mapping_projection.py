@@ -278,3 +278,16 @@ class TestTableBackedService:
         assert guide.unmapped_primary_files[0].reason == (
             "could not parse episode number"
         )
+
+    def test_shareable_file_choices_lists_adjacent_assigned(self):
+        state = table_state()  # e1.mkv -> [1]; slots 1-4 exist
+        service = EpisodeMappingService()
+        choices = service.shareable_file_choices(state, season=1, episode=2)
+        names = [name for _fid, name in choices]
+        assert any("e1.mkv" in name for name in names)
+
+    def test_shareable_file_choices_excludes_nonadjacent(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        choices = service.shareable_file_choices(state, season=1, episode=4)
+        assert choices == []

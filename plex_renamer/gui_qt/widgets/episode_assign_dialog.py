@@ -170,6 +170,7 @@ class EpisodeAssignDialog(QDialog):
         title: str,
         unassigned: list[tuple[int, str]],
         assigned: list[tuple[int, str]],
+        shareable: list[tuple[int, str]] | None = None,
     ) -> int | None:
         """Single-select file picker; returns the chosen file_id."""
         dialog = QDialog(parent)
@@ -193,6 +194,7 @@ class EpisodeAssignDialog(QDialog):
                 list_widget.addItem(item)
 
         add_group("Unassigned files", unassigned)
+        add_group("Share / extend (keeps current episode)", shareable or [])
         add_group("Already assigned (will be reassigned)", assigned)
         list_widget.itemDoubleClicked.connect(lambda _item: dialog.accept())
         layout.addWidget(list_widget)

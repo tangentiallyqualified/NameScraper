@@ -176,6 +176,25 @@ class EpisodeMappingService:
             result.append((candidate.file_id, label))
         return result
 
+    def shareable_file_choices(
+        self, state: ScanState, *, season: int, episode: int,
+    ) -> list[tuple[int, str]]:
+        """Assigned files whose run is contiguous-adjacent to (season, episode).
+
+        These can be extended into the target episode without unassigning
+        them from their current run.
+        """
+        table = self._require_table(state)
+        result: list[tuple[int, str]] = []
+        for assignment in table.assignments():
+            if assignment.season != season:
+                continue
+            run = sorted(assignment.episodes)
+            if episode == run[0] - 1 or episode == run[-1] + 1:
+                entry = table.files[assignment.file_id]
+                result.append((assignment.file_id, entry.path.name))
+        return result
+
     def build_episode_guide(self, state: ScanState) -> EpisodeGuide:
         source_id = state.active_episode_source or "tmdb"
         guide = EpisodeGuide(
