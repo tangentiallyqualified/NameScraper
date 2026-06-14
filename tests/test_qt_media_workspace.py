@@ -2266,6 +2266,53 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_approve_all_with_remaining_conflict_stays_in_review_no_checkbox(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_helpers import is_state_queue_approvable
+
+        folder = Path("C:/library/tv/Conflicted")
+        show_info = {"id": 77, "name": "Conflicted", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        for ep, title in [(1, "Pilot"), (2, "Two"), (3, "Three")]:
+            table.add_slot(EpisodeSlot(season=1, episode=ep, title=title))
+        # A below-threshold review row (Approve All will approve it)...
+        low = table.add_file(folder / "Season 01" / "low.mkv")
+        table.assign(low.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.5)
+        # ...plus a hard conflict on E01 that Approve All does NOT resolve.
+        a = table.add_file(folder / "Season 01" / "a.mkv")
+        b = table.add_file(folder / "Season 01" / "b.mkv")
+        table.assign(a.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        table.assign(b.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 77, "media_name": "Conflicted"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+
+        workspace._approve_all_episode_mappings()
+        self._app.processEvents()
+
+        # Conflict remains: the show stays in review with no checkbox / unchecked,
+        # so the checkbox stays consistent with the section header.
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
+        self.assertFalse(state.checked)
+        workspace.close()
+
     def test_reassign_opens_empty_with_current_tagged(self):
         from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
