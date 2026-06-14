@@ -118,6 +118,22 @@ class MediaWorkspaceActionCoordinator:
     def approve_match(self, state: ScanState) -> None:
         _approve_match(self._workspace, state)
 
+    def _auto_check_for_queue(self, state: ScanState) -> None:
+        """Pre-tick a show for queueing after Approve All.
+
+        Sets every actionable item's check binding and the state-level checked
+        flag. refresh_from_controller's normalize_queue_selection keeps these
+        when the state is queue-approvable, or clears them if a conflict or
+        unmapped file still blocks it (the show then stays in review).
+        """
+        workspace = self._workspace
+        workspace._ensure_check_bindings(state)
+        for index, item in enumerate(state.preview_items):
+            binding = state.check_vars.get(str(index))
+            if binding is not None and item.is_actionable:
+                binding.set(True)
+        state.checked = True
+
     def approve_all_episode_mappings(self) -> None:
         workspace = self._workspace
         state = workspace._selected_state()
@@ -141,10 +157,9 @@ class MediaWorkspaceActionCoordinator:
                 count += 1
             if count == 0:
                 return
-        workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
-        workspace._populate_preview(state)
-        workspace._update_action_bar()
+        self._auto_check_for_queue(state)
+        workspace.refresh_from_controller()
         workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
 
     def handle_episode_row_action(
@@ -260,10 +275,8 @@ class MediaWorkspaceActionCoordinator:
         except ValueError as exc:
             warning_box.warning(workspace, "Episode Assignment Failed", str(exc))
             return
-        workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
-        workspace._populate_preview(state)
-        workspace._update_action_bar()
+        workspace.refresh_from_controller()
         workspace.status_message.emit(message, 3000)
 
     def prompt_assign_season(

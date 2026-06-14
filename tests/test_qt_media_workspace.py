@@ -2238,6 +2238,34 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(assignment.episodes, (2,))
         workspace.close()
 
+    def test_approve_all_recategorizes_and_auto_checks_show(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_helpers import (
+            is_state_queue_approvable,
+        )
+
+        # _make_episode_table_state assigns the only file at confidence 0.5,
+        # so the show starts under "Review Episode Matching".
+        state, _table, _file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
+
+        workspace._approve_all_episode_mappings()
+        self._app.processEvents()
+
+        # The roster widget re-syncs out of review and the show is auto-checked.
+        self._assert_roster_section_title(workspace, 0, "MATCHED")
+        self.assertTrue(is_state_queue_approvable(state, media_type="tv"))
+        self.assertTrue(state.checked)
+
+        workspace.close()
+
     def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
         """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
         from plex_renamer.engine._episode_projection import project_preview_items
