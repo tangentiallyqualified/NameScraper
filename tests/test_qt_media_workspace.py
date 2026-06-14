@@ -2266,6 +2266,70 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_reassign_opens_empty_with_current_tagged(self):
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        captured: dict = {}
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_episodes(**kwargs):
+                captured.update(kwargs)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "reassign", assign_dialog=_CapturingDialog,
+        )
+
+        self.assertIsNone(captured.get("preselected"))
+        self.assertEqual(set(captured.get("current_keys") or set()), {(1, 1)})
+        workspace.close()
+
+    def test_assign_to_more_preselects_current_run(self):
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        # _make_episode_table_state has slots E01 and E02; the file is at E01.
+        state, _table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        captured: dict = {}
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_episodes(**kwargs):
+                captured.update(kwargs)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_to_more", assign_dialog=_CapturingDialog,
+        )
+
+        self.assertEqual(set(captured.get("preselected") or set()), {(1, 1)})
+        self.assertEqual(set(captured.get("current_keys") or set()), {(1, 1)})
+        slot_keys = {(c.season, c.episode) for c in captured.get("slots", [])}
+        self.assertIn((1, 1), slot_keys)
+        self.assertIn((1, 2), slot_keys)
+        workspace.close()
+
     def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
         """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
         from plex_renamer.engine._episode_projection import project_preview_items

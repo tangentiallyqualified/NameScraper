@@ -190,20 +190,22 @@ class MediaWorkspaceActionCoordinator:
                 service.resolve_conflict(state, row.season, row.episode, preview)
                 message = "Conflict resolved."
             elif action_id == "reassign" and preview is not None:
-                preselected = [
-                    (preview.season, episode)
-                    for episode in preview.episodes
-                    if preview.season is not None
-                ]
                 slots = service.episode_slot_choices(state)
                 if not slots:
                     workspace.status_message.emit("No episode choices are available.", 4000)
                     return
+                current_keys = {
+                    (preview.season, episode)
+                    for episode in preview.episodes
+                    if preview.season is not None
+                }
                 selection = assign_dialog.pick_episodes(
                     parent=workspace,
-                    title=f"Assign \"{preview.original.name}\"",
+                    title="Reassign Episode",
                     slots=slots,
-                    preselected=preselected or None,
+                    preselected=None,
+                    current_keys=current_keys or None,
+                    file_label=preview.original.name,
                 )
                 if selection is None:
                     return
@@ -216,20 +218,25 @@ class MediaWorkspaceActionCoordinator:
                     return
                 season = preview.season
                 run = sorted(preview.episodes)
-                neighbors = {run[0] - 1, run[-1] + 1}
+                relevant = set(run) | {run[0] - 1, run[-1] + 1}
                 slots = [
                     choice for choice in service.episode_slot_choices(state)
-                    if choice.season == season and choice.episode in neighbors
+                    if choice.season == season and choice.episode in relevant
                 ]
-                if not slots:
+                # slots always includes the run itself; need a neighbor to extend into.
+                if len(slots) <= len(run):
                     workspace.status_message.emit(
                         "No adjacent episode to extend into.", 4000,
                     )
                     return
+                current_keys = {(season, episode) for episode in run}
                 selection = assign_dialog.pick_episodes(
                     parent=workspace,
-                    title=f"Extend \"{preview.original.name}\"",
+                    title="Assign to More Episodes",
                     slots=slots,
+                    preselected=[(season, episode) for episode in run],
+                    current_keys=current_keys,
+                    file_label=preview.original.name,
                 )
                 if selection is None:
                     return
