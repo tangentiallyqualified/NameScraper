@@ -162,6 +162,47 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         self.assertEqual(preflight.review_required, 1)
         self.assertIn("1 review", preflight.summary_text)
 
+    def test_missing_specials_render_alongside_missing_regular_episodes(self):
+        completeness = CompletenessReport(
+            seasons={
+                1: SeasonCompleteness(
+                    season=1,
+                    expected=2,
+                    matched=1,
+                    missing=[(2, "Second")],
+                    matched_episodes=[(1, "Pilot")],
+                )
+            },
+            specials=SeasonCompleteness(
+                season=0,
+                expected=2,
+                matched=1,
+                missing=[(2, "Holiday Special")],
+                matched_episodes=[(1, "Pilot Special")],
+            ),
+            total_expected=2,
+            total_matched=1,
+            total_missing=[(1, 2, "Second")],
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Show"),
+            media_info={"id": 10, "name": "Show", "year": "2024"},
+            preview_items=[_preview("Show.S01E01.mkv")],
+            completeness=completeness,
+            scanned=True,
+        )
+
+        guide = self.service.build_episode_guide(state)
+
+        missing_keys = {
+            (row.season, row.episode)
+            for row in guide.rows
+            if row.status == "Missing File"
+        }
+        self.assertIn((1, 2), missing_keys)
+        self.assertIn((0, 2), missing_keys)
+        self.assertEqual(guide.summary.missing_episodes, 2)
+
 
 
 if __name__ == "__main__":

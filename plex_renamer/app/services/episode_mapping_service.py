@@ -378,12 +378,12 @@ class EpisodeMappingService:
         completeness = state.completeness
         if completeness is None:
             return []
-        if completeness.total_missing:
-            return list(completeness.total_missing)
-
-        rows: list[tuple[int, int, str]] = []
+        # total_missing covers regular seasons only (specials are excluded from
+        # the completeness %); always append specials so missing S0 rows render.
+        rows: list[tuple[int, int, str]] = list(completeness.total_missing)
         if completeness.specials is not None:
-            rows.extend((0, episode, title) for episode, title in completeness.specials.missing)
-        for season_num, season in completeness.seasons.items():
-            rows.extend((season_num, episode, title) for episode, title in season.missing)
+            rows.extend(
+                (0, episode, title)
+                for episode, title in completeness.specials.missing
+            )
         return rows
