@@ -4346,3 +4346,43 @@ class TestEpisodeAssignDialog(QtSmokeBase):
         dialog.set_checked([(1, 2), (1, 3)])
         self.assertEqual(dialog.selected_episodes(), [(1, 2), (1, 3)])
         dialog.close()
+
+    def test_current_slot_tagged_current_not_claimed(self):
+        slots = [
+            EpisodeSlotChoice(season=2, episode=5, title="Goodbye", claimed_by="file.mkv"),
+        ]
+        dialog = EpisodeAssignDialog(slots=slots, current_keys={(2, 5)})
+        text = dialog.slot_row_text(2, 5)
+        self.assertIn("[current]", text)
+        self.assertNotIn("claimed by", text)
+        dialog.close()
+
+    def test_focus_season_expanded_others_collapsed(self):
+        slots = [
+            EpisodeSlotChoice(season=0, episode=1, title="Special"),
+            EpisodeSlotChoice(season=1, episode=1, title="Pilot"),
+            EpisodeSlotChoice(season=2, episode=5, title="Goodbye"),
+        ]
+        dialog = EpisodeAssignDialog(slots=slots, current_keys={(2, 5)})
+        self.assertTrue(dialog.is_season_expanded(2))
+        self.assertFalse(dialog.is_season_expanded(0))
+        self.assertFalse(dialog.is_season_expanded(1))
+        dialog.close()
+
+    def test_preselected_keys_start_checked(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices(), preselected=[(1, 2)])
+        self.assertEqual(dialog.selected_episodes(), [(1, 2)])
+        dialog.close()
+
+    def test_dialog_is_dpi_sized_with_no_horizontal_scrollbar(self):
+        from plex_renamer.gui_qt import _scale
+
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        self.assertGreaterEqual(dialog.minimumWidth(), _scale.px(460))
+        self.assertGreaterEqual(dialog.minimumHeight(), _scale.px(420))
+        self.assertGreaterEqual(dialog.width(), dialog.minimumWidth())
+        self.assertEqual(
+            dialog._tree.horizontalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        dialog.close()
