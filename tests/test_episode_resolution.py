@@ -410,6 +410,7 @@ from plex_renamer.engine.episode_assignments import (
 )
 from plex_renamer.engine._episode_resolution import (
     COMPATIBLE_PREFIX_FLOOR,
+    CONF_TITLE_ONLY,
     CONTRADICTORY_PREFIX_CAP,
     EPISODE_TITLE_MATCH_FLOOR,
     EXACT_COVERAGE_FLOOR,
@@ -478,6 +479,34 @@ class TestConfidenceAdjustments:
             table.assignment_for(entry.file_id).confidence
             <= CONTRADICTORY_PREFIX_CAP
         )
+
+    def test_season0_title_only_not_capped_by_prefix(self):
+        # Real Animaniacs featurette: the "(480p ...)" quality suffix makes
+        # extract_source_title_prefix latch the "480" and return the episode
+        # TITLE itself as a bogus show prefix, which does not match
+        # SHOW["name"] == "Demo Show". Without the season-0 guard the
+        # contradictory-prefix cap fires and drops confidence to
+        # CONTRADICTORY_PREFIX_CAP (0.45); with the guard it must stay
+        # >= CONF_TITLE_ONLY.
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(
+            season=0, episode=2, title="The Writers Flipped, They Have No Script",
+        ))
+        entry = table.add_file(
+            Path(
+                "The Writers Flipped, They Have No Script "
+                "(480p DVD x265 HEVC 10bit AAC 2.0 Ghost).mkv"
+            ),
+            is_season_relative=False,
+            raw_title="The Writers Flipped, They Have No Script",
+            folder_season=0,
+        )
+        table.assign(
+            entry.file_id, 0, [2], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_ONLY, evidence=frozenset({"title-strong"}),
+        )
+        apply_confidence_adjustments(table, show_info=SHOW)
+        assert table.assignment_for(entry.file_id).confidence >= CONF_TITLE_ONLY
 
     def test_special_number_only_survives_adjustments(self):
         from plex_renamer.engine._episode_resolution import CONF_SPECIAL_NUMBER_ONLY

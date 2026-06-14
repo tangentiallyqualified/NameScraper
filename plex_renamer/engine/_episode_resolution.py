@@ -340,7 +340,7 @@ def apply_confidence_adjustments(
             )
             if compatible and entry.is_season_relative and assignment.season != 0:
                 confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
-            if not compatible:
+            if not compatible and assignment.season != 0:
                 contradicted.add(assignment.file_id)
 
         first_slot = table.slots.get((assignment.season, assignment.episodes[0]))
