@@ -33,6 +33,7 @@ CONF_WEAK_TITLE_NUMBER_CAP = 0.60   # rule 3: weak title disagreement caps numbe
 CONF_NUMBER_RELATIVE = 0.86  # rule 4: S##E## number only
 CONF_NUMBER_INFERRED = 0.50  # rule 4: bare/absolute number only
 CONF_SPECIAL_NUMBER_ONLY = 0.50  # season-0 number with no title match -> REVIEW
+CONF_TITLE_WINS_INEXACT = 0.70  # strong-but-inexact title overrides number -> REVIEW
 CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
 
 _TITLE_EXACT = 1.0
@@ -189,10 +190,16 @@ def resolve_file(
                 evidence=frozenset({"number", "title-agree"}),
             )
         if strong_title and title_match.strength >= _TITLE_EXACT:
-            return Resolution(  # rule 2
+            return Resolution(  # rule 2: exact title overrides, auto-accept
                 episodes=(title_match.episode,),
                 confidence=CONF_TITLE_WINS,
                 evidence=frozenset({"title-strong", "number-disagree"}),
+            )
+        if strong_title:
+            return Resolution(  # rule 2b: strong inexact title overrides, REVIEW
+                episodes=(title_match.episode,),
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"title-strong-inexact", "number-disagree"}),
             )
         return Resolution(  # rule 3
             episodes=valid_numbers,
@@ -407,4 +414,13 @@ def apply_confidence_adjustments(
         if assignment is not None:
             table.set_confidence(
                 file_id, min(assignment.confidence, CONTRADICTORY_PREFIX_CAP),
+            )
+
+    # Review-locked evidence (inexact title override, cross-season special)
+    # must stay below threshold no matter what floors ran above.
+    for assignment in table.assignments():
+        if assignment.evidence & {"title-strong-inexact", "cross-season-special"}:
+            table.set_confidence(
+                assignment.file_id,
+                min(assignment.confidence, CONF_TITLE_WINS_INEXACT),
             )

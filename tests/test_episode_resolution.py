@@ -234,6 +234,7 @@ from plex_renamer.engine._episode_resolution import (
     CONF_SPECIAL_NUMBER_ONLY,
     CONF_TITLE_ONLY,
     CONF_TITLE_WINS,
+    CONF_TITLE_WINS_INEXACT,
     CONF_WEAK_TITLE_NUMBER_CAP,
     STRONG_TITLE_STRENGTH,
     match_title_in_titles,
@@ -359,16 +360,35 @@ class TestResolutionRules:
         assert res.episodes == (3,)
         assert res.confidence == CONF_NUMBER_RELATIVE
 
-    def test_substring_offnumber_does_not_override_valid_number(self):
-        # Parsed E2 is valid; title substring-matches E3 only. Keep the
-        # number (capped to review) rather than silently renumbering to E3.
+    def test_substring_offnumber_overrides_into_review(self):
+        # Parsed E2 is valid; title substring-matches E3 only. Title wins,
+        # but lands in review (below threshold) rather than auto-accepting.
         res = resolve_file(
             parsed_episodes=(2,), raw_title="Endgame",
             is_season_relative=True,
             season_titles={1: "Pilot", 2: "The Heist", 3: "Endgame Saga"},
         )
-        assert res.episodes == (2,)
-        assert res.confidence <= CONF_WEAK_TITLE_NUMBER_CAP
+        assert res.episodes == (3,)
+        assert res.confidence == CONF_TITLE_WINS_INEXACT
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+        assert "title-strong-inexact" in res.evidence
+
+    def test_title_matching_own_number_is_not_overridden(self):
+        # Regression (As Told By Ginger S02E06 "Sibling Revile-ry"): a title
+        # that matches its OWN parsed number is rule-1 agreement, NOT a
+        # rule-2b inexact override. Must stay on E06 at full confidence.
+        res = resolve_file(
+            parsed_episodes=(6,), raw_title="Sibling Revile-ry",
+            is_season_relative=True,
+            season_titles={
+                5: "Hello Stranger",
+                6: "Sibling Revile-ry",
+                7: "Of Lice and Friends",
+            },
+        )
+        assert res.episodes == (6,)
+        assert res.confidence == CONF_AGREE
+        assert "title-agree" in res.evidence
 
 
 class TestSpecialsTrust:
@@ -411,6 +431,7 @@ from plex_renamer.engine.episode_assignments import (
 from plex_renamer.engine._episode_resolution import (
     COMPATIBLE_PREFIX_FLOOR,
     CONF_TITLE_ONLY,
+    CONF_TITLE_WINS_INEXACT,
     CONTRADICTORY_PREFIX_CAP,
     EPISODE_TITLE_MATCH_FLOOR,
     EXACT_COVERAGE_FLOOR,
@@ -527,3 +548,24 @@ class TestConfidenceAdjustments:
             table.assignment_for(entry.file_id).confidence
             < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
         )
+
+    def test_inexact_title_override_survives_floors(self):
+        table = EpisodeAssignmentTable()
+        for ep in range(1, 4):
+            table.add_slot(EpisodeSlot(season=1, episode=ep, title=f"Ep {ep}"))
+        entry = table.add_file(
+            Path("Demo Show - S01E02 - Ep 1 extras.mkv"),
+            is_season_relative=True, raw_title="Ep 1 extras",
+        )
+        table.assign(
+            entry.file_id, 1, [1], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-strong-inexact", "number-disagree"}),
+        )
+        apply_confidence_adjustments(table, show_info=SHOW, show_match_confidence=1.0)
+        capped = table.assignment_for(entry.file_id).confidence
+        # The compatible-prefix / explicit-episode floors (0.86-0.88) would
+        # otherwise lift it above threshold; the cap-last loop pins it to
+        # exactly CONF_TITLE_WINS_INEXACT.
+        assert capped == CONF_TITLE_WINS_INEXACT
+        assert capped < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
