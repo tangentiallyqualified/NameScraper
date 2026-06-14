@@ -22,6 +22,11 @@ from ._settings_schema import (
     MAX_RECENT_FOLDERS,
     build_valid_settings_data,
 )
+from .output_destination_service import (
+    OutputDestinationStatus,
+    validate_output_folder,
+    validate_scan_output_relationship,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -77,6 +82,50 @@ class SettingsService:
         if "-" in lang:
             return lang.split("-", 1)[1]
         return lang.upper()
+
+    @property
+    def tv_output_folder(self) -> str:
+        """Configured output root for completed TV show jobs."""
+        return str(self.get("tv_output_folder") or "")
+
+    @tv_output_folder.setter
+    def tv_output_folder(self, value: str) -> None:
+        self.set("tv_output_folder", str(value or ""))
+
+    @property
+    def movie_output_folder(self) -> str:
+        """Configured output root for completed movie jobs."""
+        return str(self.get("movie_output_folder") or "")
+
+    @movie_output_folder.setter
+    def movie_output_folder(self, value: str) -> None:
+        self.set("movie_output_folder", str(value or ""))
+
+    @property
+    def valid_tv_output_folder(self) -> Path | None:
+        status = validate_output_folder(self.tv_output_folder)
+        return status.path if status.valid else None
+
+    @property
+    def valid_movie_output_folder(self) -> Path | None:
+        status = validate_output_folder(self.movie_output_folder)
+        return status.path if status.valid else None
+
+    def validate_output_folder(self, path_value: str | Path | None) -> OutputDestinationStatus:
+        return validate_output_folder(path_value)
+
+    def validate_tv_output_folder(self) -> OutputDestinationStatus:
+        return validate_output_folder(self.tv_output_folder)
+
+    def validate_movie_output_folder(self) -> OutputDestinationStatus:
+        return validate_output_folder(self.movie_output_folder)
+
+    def validate_scan_output_relationship(
+        self,
+        source_folder: str | Path,
+        output_folder: str | Path,
+    ) -> OutputDestinationStatus:
+        return validate_scan_output_relationship(source_folder, output_folder)
 
     # ── Display ────────────────────────────────────────────────────────
 

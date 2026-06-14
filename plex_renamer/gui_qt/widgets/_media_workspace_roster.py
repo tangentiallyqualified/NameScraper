@@ -10,6 +10,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -186,6 +187,8 @@ class MediaWorkspaceRosterPanel(QFrame):
 
         desired_entries = list(self._desired_entries(states, collapsed_groups))
         for target_row, entry in enumerate(desired_entries):
+            if target_row and target_row % 25 == 0:
+                QApplication.processEvents()
             key = entry["key"]
             items_for_key = existing_items.get(key)
             item = items_for_key.pop(0) if items_for_key else None
@@ -217,7 +220,8 @@ class MediaWorkspaceRosterPanel(QFrame):
             ("queued", "Queued"),
             ("plex-ready", "Plex Ready"),
             ("matched", "Matched"),
-            ("review", "Needs Review"),
+            ("review-match", "Review Match"),
+            ("review-episodes", "Review Episode Matching"),
             ("unmatched", "No Match Found"),
             ("duplicate", "Duplicates"),
         ]

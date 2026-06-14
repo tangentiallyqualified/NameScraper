@@ -1,4 +1,4 @@
-"""Normal per-season preview helpers for TVScanner."""
+"""Normal per-season table building for TVScanner."""
 
 from __future__ import annotations
 
@@ -7,72 +7,169 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
-from ..parsing import (
-    build_tv_name,
-    extract_episode,
-    extract_season_number,
-    get_season,
-    is_extras_folder,
+from ..parsing import extract_episode, extract_season_number, is_extras_folder
+from .._parsing_titles import clean_title_evidence
+from ._episode_resolution import (
+    CONF_TITLE_WINS_INEXACT,
+    STRONG_TITLE_STRENGTH,
+    _TITLE_EXACT,
+    Resolution,
+    match_title_in_titles,
+    resolve_file,
 )
-from ._movie_scanner import _build_subtitle_companions
-from ._tv_scanner_specials import (
-    build_title_lookup,
-    fuzzy_match_special,
-    load_specials_context,
-    match_special,
-    scan_nested_extras,
+from .episode_assignments import REASON_AMBIGUOUS_RUN, EpisodeAssignmentTable, EpisodeSlot
+from .models import SeasonFolderEntry, iter_season_folder_paths
+
+_SPECIAL_STEM_PREFIX_RE = re.compile(
+    r"^(?:Season|S)\s*\d+\s*[-._]\s*", re.IGNORECASE,
 )
-from .models import PreviewItem, SeasonFolderEntry, iter_season_folder_paths
 
 
-def build_normal_preview(
+def _register_season_slots(
+    table: EpisodeAssignmentTable,
+    season_num: int,
+    titles: dict,
+    episodes_meta: dict,
+) -> None:
+    for episode_num, title in titles.items():
+        meta = (episodes_meta or {}).get(episode_num, {}) or {}
+        table.add_slot(EpisodeSlot(
+            season=season_num,
+            episode=episode_num,
+            title=title,
+            air_date=str(meta.get("air_date", "") or ""),
+            overview=str(meta.get("overview", "") or ""),
+        ))
+
+
+def _resolve_into_table(
+    table: EpisodeAssignmentTable,
+    *,
+    file_path: Path,
+    season_num: int,
+    season_titles: dict[int, str],
+    specials_titles: dict[int, str] | None = None,
+    from_extras_folder: bool = False,
+) -> None:
+    episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
+    season_hint = extract_season_number(file_path.name) if is_season_relative else None
+    title_evidence = raw_title
+    if season_num == 0 and not title_evidence:
+        # Specials numbering varies across sources; the filename itself is
+        # often the only title evidence. Clean it so quality tags don't
+        # pollute the match (mirrors the retired match_special stem fallback).
+        cleaned_stem = clean_title_evidence(file_path.stem)
+        cleaned_stem = _SPECIAL_STEM_PREFIX_RE.sub("", cleaned_stem).strip()
+        title_evidence = cleaned_stem or None
+    entry = table.add_file(
+        file_path,
+        parsed_episodes=tuple(episode_numbers),
+        raw_title=title_evidence,
+        is_season_relative=is_season_relative,
+        season_hint=season_hint,
+        folder_season=season_num,
+        from_extras_folder=from_extras_folder,
+    )
+    resolution = resolve_file(
+        parsed_episodes=tuple(episode_numbers),
+        raw_title=title_evidence,
+        is_season_relative=is_season_relative,
+        season_titles=season_titles,
+        season=season_num,
+    )
+    season_for_assign = season_num
+    if (
+        season_num != 0
+        and specials_titles
+        and title_evidence
+        and "title-agree" not in resolution.evidence
+    ):
+        own_match = match_title_in_titles(title_evidence, season_titles)
+        s0_match = match_title_in_titles(title_evidence, specials_titles)
+        if (
+            s0_match is not None
+            and s0_match.strength >= STRONG_TITLE_STRENGTH
+            and (own_match is None or s0_match.strength > own_match.strength)
+        ):
+            if (0, s0_match.episode) not in table.slots:
+                table.add_slot(EpisodeSlot(
+                    season=0, episode=s0_match.episode,
+                    title=specials_titles[s0_match.episode],
+                ))
+            exact_title = "title-strong" if s0_match.strength >= _TITLE_EXACT else "title-strong-inexact"
+            resolution = Resolution(
+                episodes=(s0_match.episode,),
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({exact_title, "cross-season-special"}),
+            )
+            season_for_assign = 0
+    if resolution.episodes:
+        try:
+            table.assign(
+                entry.file_id,
+                season_for_assign,
+                list(resolution.episodes),
+                origin="auto",
+                confidence=resolution.confidence,
+                evidence=resolution.evidence,
+            )
+        except ValueError:
+            table.mark_unassigned(entry.file_id, REASON_AMBIGUOUS_RUN)
+    else:
+        table.mark_unassigned(entry.file_id, resolution.reason or "")
+
+
+def build_normal_table(
     *,
     season_dirs: list[tuple[Path, int]],
     tmdb_seasons: dict,
     tmdb,
     show_info: dict,
     root: Path,
-    media_fields: dict,
     season_folders: dict[int, SeasonFolderEntry] | None,
     store_tmdb_data: Callable[[int, dict, dict, dict | None], None],
-    resolve_duplicate_episodes: Callable[[list[PreviewItem]], None],
-) -> list[PreviewItem]:
-    items: list[PreviewItem] = []
+) -> EpisodeAssignmentTable:
+    table = EpisodeAssignmentTable()
+    s0_titles: dict[int, str] | None = None
 
-    specials_context = None
+    def ensure_s0_titles() -> dict[int, str]:
+        nonlocal s0_titles
+        if s0_titles is None:
+            if 0 in tmdb_seasons:
+                data = tmdb_seasons[0]
+            else:
+                data = tmdb.get_season(show_info["id"], 0)
+            s0_titles = data.get("titles", {})
+            if s0_titles:
+                store_tmdb_data(0, s0_titles, data.get("posters", {}), data.get("episodes", {}))
+                _register_season_slots(table, 0, s0_titles, data.get("episodes", {}))
+        return s0_titles
 
-    def ensure_specials_data():
-        nonlocal specials_context
-        if specials_context is None:
-            specials_context = load_specials_context(
-                tmdb=tmdb,
-                show_info=show_info,
-                tmdb_seasons=tmdb_seasons,
-                store_tmdb_data=store_tmdb_data,
-            )
-        return specials_context
-
-    specials_target = root / "Season 00"
-
+    registered_seasons: set[int] = set()
     for season_dir, season_num in season_dirs:
         if season_num in tmdb_seasons:
-            titles = tmdb_seasons[season_num]["titles"]
-            posters = tmdb_seasons[season_num]["posters"]
-            episodes = tmdb_seasons[season_num].get("episodes", {})
+            season_data = tmdb_seasons[season_num]
         else:
             season_data = tmdb.get_season(show_info["id"], season_num)
-            titles = season_data["titles"]
-            posters = season_data["posters"]
-            episodes = season_data.get("episodes", {})
-
-        store_tmdb_data(season_num, titles, posters, episodes)
-
+        titles = season_data.get("titles", {})
+        store_tmdb_data(
+            season_num, titles,
+            season_data.get("posters", {}), season_data.get("episodes", {}),
+        )
         if season_num == 0:
-            context = ensure_specials_data()
-            titles = context.titles
-            tmdb_title_lookup = context.title_lookup
+            ensure_s0_titles()
+            titles = s0_titles or titles
         else:
-            tmdb_title_lookup = build_title_lookup(titles)
+            # TMDB's episode count can run ahead of its listed titles
+            # (newly airing seasons). Untitled placeholder slots keep
+            # those episode numbers assignable instead of SKIPped.
+            count = int(season_data.get("count", 0) or 0)
+            titles = dict(titles)
+            for episode_num in range(1, count + 1):
+                titles.setdefault(episode_num, "")
+            if season_num not in registered_seasons:
+                _register_season_slots(table, season_num, titles, season_data.get("episodes", {}))
+                registered_seasons.add(season_num)
 
         explicit_season_folder = season_dir == root
         if not explicit_season_folder and season_folders:
@@ -81,14 +178,10 @@ def build_normal_preview(
                 for folder_entry in season_folders.values()
                 for folder in iter_season_folder_paths(folder_entry)
             )
-        nested_specials_folder = bool(
-            re.search(
-                r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",
-                season_dir.name,
-                re.IGNORECASE,
-            )
-        )
-
+        nested_specials_folder = bool(re.search(
+            r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",
+            season_dir.name, re.IGNORECASE,
+        ))
         extras_folder = (
             season_num == 0
             and not explicit_season_folder
@@ -99,140 +192,41 @@ def build_normal_preview(
             )
         )
 
-        for entry in sorted(season_dir.iterdir()):
-            if entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS:
-                file_path = entry
-                episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
-                file_season = extract_season_number(file_path.name) if is_season_relative else None
-
-                if file_season == 0 and season_num != 0:
-                    context = ensure_specials_data()
-                    items.append(
-                        match_special(
-                            file_path=file_path,
-                            episode_numbers=episode_numbers,
-                            raw_title=raw_title,
-                            titles=context.titles,
-                            tmdb_title_lookup=context.title_lookup,
-                            specials_target=specials_target,
-                            media_fields=media_fields,
-                            show_info=show_info,
-                            root=root,
-                            from_extras_folder=False,
+        for entry_path in sorted(season_dir.iterdir()):
+            if entry_path.is_file() and entry_path.suffix.lower() in VIDEO_EXTENSIONS:
+                _, _, is_season_relative = extract_episode(entry_path.name)
+                file_season = (
+                    extract_season_number(entry_path.name)
+                    if is_season_relative else None
+                )
+                if season_num == 0 or file_season == 0:
+                    _resolve_into_table(
+                        table,
+                        file_path=entry_path,
+                        season_num=0,
+                        season_titles=ensure_s0_titles(),
+                        from_extras_folder=extras_folder and season_num == 0,
+                    )
+                else:
+                    _resolve_into_table(
+                        table,
+                        file_path=entry_path,
+                        season_num=season_num,
+                        season_titles=titles,
+                        specials_titles=ensure_s0_titles(),
+                    )
+            elif entry_path.is_dir() and season_num != 0 and is_extras_folder(entry_path.name):
+                for extras_file in sorted(entry_path.iterdir()):
+                    if (
+                        extras_file.is_file()
+                        and extras_file.suffix.lower() in VIDEO_EXTENSIONS
+                    ):
+                        _resolve_into_table(
+                            table,
+                            file_path=extras_file,
+                            season_num=0,
+                            season_titles=ensure_s0_titles(),
+                            from_extras_folder=True,
                         )
-                    )
-                    continue
 
-                if season_num == 0:
-                    items.append(
-                        match_special(
-                            file_path=file_path,
-                            episode_numbers=episode_numbers,
-                            raw_title=raw_title,
-                            titles=titles,
-                            tmdb_title_lookup=tmdb_title_lookup,
-                            specials_target=specials_target,
-                            media_fields=media_fields,
-                            show_info=show_info,
-                            root=root,
-                            from_extras_folder=extras_folder,
-                        )
-                    )
-                    continue
-
-                if not episode_numbers:
-                    items.append(PreviewItem(
-                        original=file_path,
-                        new_name=None,
-                        target_dir=None,
-                        season=season_num,
-                        episodes=[],
-                        status="SKIP: could not parse episode number",
-                        **media_fields,
-                    ))
-                    continue
-
-                max_ep = max(episode_numbers)
-                season_episode_count = len(titles)
-                if (
-                    season_episode_count > 0
-                    and max_ep > season_episode_count * 1.5
-                    and max_ep > season_episode_count + 10
-                    and not is_season_relative
-                ):
-                    items.append(PreviewItem(
-                        original=file_path,
-                        new_name=None,
-                        target_dir=None,
-                        season=season_num,
-                        episodes=episode_numbers,
-                        status=(
-                            f"REVIEW: parsed episode {max_ep} but season only has {season_episode_count} episodes "
-                            f"- likely a mis-parsed filename"
-                        ),
-                        **media_fields,
-                    ))
-                    continue
-
-                # If the filename has a title, check whether it matches a
-                # different TMDB episode than the parsed number.  Episode
-                # numbering across sources can drift (especially for older
-                # shows), but the embedded title is usually reliable.
-                if raw_title and len(episode_numbers) == 1:
-                    title_ep, title_name = fuzzy_match_special(
-                        raw_title, tmdb_title_lookup,
-                    )
-                    if title_ep is not None and title_ep != episode_numbers[0]:
-                        episode_numbers = [title_ep]
-
-                episode_titles = [
-                    titles.get(episode_num, raw_title or f"Episode {episode_num}")
-                    for episode_num in episode_numbers
-                ]
-
-                target_dir = season_dir
-                if (
-                    season_dir == root
-                    or get_season(season_dir) is None
-                    or season_folders
-                ):
-                    target_dir = root / f"Season {season_num:02d}"
-
-                new_name = build_tv_name(
-                    show_info["name"],
-                    show_info["year"],
-                    season_num,
-                    episode_numbers,
-                    episode_titles,
-                    file_path.suffix,
-                )
-
-                item = PreviewItem(
-                    original=file_path,
-                    new_name=new_name,
-                    target_dir=target_dir,
-                    season=season_num,
-                    episodes=episode_numbers,
-                    status="OK",
-                    episode_confidence=0.86 if is_season_relative else 0.5,
-                    **media_fields,
-                )
-                item.companions = _build_subtitle_companions(file_path, new_name)
-                items.append(item)
-
-            elif entry.is_dir() and season_num != 0 and is_extras_folder(entry.name):
-                context = ensure_specials_data()
-                items.extend(
-                    scan_nested_extras(
-                        extras_dir=entry,
-                        titles=context.titles,
-                        tmdb_title_lookup=context.title_lookup,
-                        specials_target=specials_target,
-                        media_fields=media_fields,
-                        show_info=show_info,
-                        root=root,
-                    )
-                )
-
-    resolve_duplicate_episodes(items)
-    return items
+    return table

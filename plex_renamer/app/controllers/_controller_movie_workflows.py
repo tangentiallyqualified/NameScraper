@@ -35,6 +35,10 @@ class MediaControllerMovieWorkflow:
             scanner,
             self._controller._movie_folder,
         )
+        movie_output = self._controller._settings.valid_movie_output_folder
+        if movie_output is not None:
+            for state in self._controller._movie_library_states:
+                state.output_root = movie_output
 
     def rematch_state(
         self,

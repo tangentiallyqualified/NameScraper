@@ -28,6 +28,7 @@ class _MatchStateController(Protocol):
     _movie_preview_items: list[PreviewItem]
     _movie_scanner: Any
     _movie_folder: Path | None
+    _settings: Any
 
     def _notify(self, event: str, *args: Any) -> None: ...
 
@@ -94,6 +95,11 @@ def rematch_controller_tv_state(
         pick_alternate_matches=pick_alternate_matches,
     )
     controller._batch_states = result.batch_states
+    tv_output = controller._settings.valid_tv_output_folder
+    if tv_output is not None and result.effective_state.scanned:
+        from ._tv_batch_helpers import retarget_tv_state_to_output
+
+        retarget_tv_state_to_output(result.effective_state, tv_output)
     controller._notify("library_changed", routed_library_states(controller))
     return result.effective_state
 
@@ -116,6 +122,12 @@ def rematch_controller_movie_state(
         extract_year=extract_year,
         score_results=score_results,
     )
+    movie_output = controller._settings.valid_movie_output_folder
+    if movie_output is not None:
+        from ._movie_batch_helpers import retarget_movie_items_to_output
+
+        retarget_movie_items_to_output(state.preview_items, movie_output)
+        state.output_root = movie_output
     controller._movie_preview_items = result.movie_preview_items
     controller._notify("library_changed", routed_library_states(controller))
 

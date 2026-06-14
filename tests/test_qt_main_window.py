@@ -61,9 +61,22 @@ class QtMainWindowTests(QtSmokeBase):
             def start_tv_batch(self, folder, tmdb):
                 return None
 
+        class _FakeOutputStatus:
+            valid = True
+            path = Path("D:/library-output")
+            reason = ""
+
+        class _FakeSettingsService:
+            def validate_tv_output_folder(self):
+                return _FakeOutputStatus()
+
+            def validate_scan_output_relationship(self, folder, output_folder):
+                return _FakeOutputStatus()
+
         class _FakeWindow:
             def __init__(self):
                 self.media_ctrl = _FakeMediaController()
+                self.settings_service = _FakeSettingsService()
                 self._tv_workspace = _FakeWorkspace()
                 self._movie_workspace = _FakeWorkspace()
                 self._status = _FakeStatusBar()
@@ -98,6 +111,68 @@ class QtMainWindowTests(QtSmokeBase):
             window._tv_workspace.scan_progress_widget.updates[-1]["current_item"],
             "Example Show",
         )
+
+    def test_tv_scan_is_blocked_without_output_folder(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-tv"
+            source.mkdir()
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.tv_output_folder = ""
+
+            window._scan_coordinator.start_tv_scan(str(source))
+            self._app.processEvents()
+
+            self.assertIsNone(window.media_ctrl.tv_root_folder)
+            if hasattr(window._tv_workspace, "is_showing_empty"):
+                self.assertTrue(window._tv_workspace.is_showing_empty())
+            else:
+                self.assertEqual(window._tv_workspace._stack.currentIndex(), 0)
+            window.close()
+
+    def test_workspace_folder_selection_without_output_stays_empty(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-tv"
+            source.mkdir()
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.tv_output_folder = ""
+
+            window._tv_workspace.load_folder(str(source))
+            self._app.processEvents()
+
+            self.assertEqual(window._tv_workspace._stack.currentIndex(), 0)
+            self.assertFalse(window._tv_workspace.scan_progress_widget._animation_timer.isActive())
+            self.assertFalse(window.media_ctrl.cancel_scan())
+            window.close()
+
+    def test_movie_scan_is_blocked_when_output_is_nested_under_source(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "incoming-movies"
+            output = source / "ready"
+            output.mkdir(parents=True)
+            window = MainWindow()
+            window._tmdb = MagicMock()
+            window._tmdb.export_cache_snapshot.return_value = {}
+            window.settings_service.movie_output_folder = str(output)
+
+            window._scan_coordinator.start_movie_scan(str(source))
+            self._app.processEvents()
+
+            self.assertIsNone(window.media_ctrl.movie_folder)
+            if hasattr(window._movie_workspace, "is_showing_empty"):
+                self.assertTrue(window._movie_workspace.is_showing_empty())
+            else:
+                self.assertEqual(window._movie_workspace._stack.currentIndex(), 0)
+            window.close()
 
     def test_transient_popup_filter_hides_tool_windows(self):
         from PySide6.QtCore import QEvent
@@ -204,7 +279,52 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertGreaterEqual(window._toast_manager.toast_count(), 2)
         window.close()
 
-    def test_main_window_batches_quick_success_toasts(self):
+    def test_queue_bridge_batches_bursty_queue_changed_refreshes(self):
+        from plex_renamer.gui_qt._main_window_bridges import QueueBridge
+
+        bridge = QueueBridge()
+        changed: list[object] = []
+        started: list[object] = []
+        completed: list[tuple[object, object]] = []
+        bridge.changed.connect(changed.append)
+        bridge.job_started.connect(started.append)
+        bridge.job_completed.connect(lambda job, result: completed.append((job, result)))
+
+        jobs = [object() for _ in range(20)]
+        results = [object() for _ in jobs]
+        for job, result in zip(jobs, results):
+            bridge.on_job_started(job)
+            bridge.on_job_completed(job, result)
+
+        self._app.processEvents()
+        self.assertEqual(len(started), 20)
+        self.assertEqual(len(completed), 20)
+
+        QTest.qWait(150)
+
+        self.assertEqual(len(changed), 1)
+
+    def test_queue_bridge_flushes_pending_refresh_when_queue_finishes(self):
+        from plex_renamer.gui_qt._main_window_bridges import QueueBridge
+
+        bridge = QueueBridge()
+        changed: list[object] = []
+        finished: list[bool] = []
+        bridge.changed.connect(changed.append)
+        bridge.queue_finished.connect(lambda: finished.append(True))
+
+        bridge.on_job_started(object())
+        bridge.on_queue_finished()
+        self._app.processEvents()
+
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(len(changed), 1)
+
+        QTest.qWait(150)
+
+        self.assertEqual(len(changed), 1)
+
+    def test_main_window_updates_one_running_queue_toast_until_finished(self):
         from plex_renamer.constants import JobStatus
         from plex_renamer.engine import RenameResult
         from plex_renamer.gui_qt.main_window import MainWindow
@@ -218,16 +338,30 @@ class QtMainWindowTests(QtSmokeBase):
             status=JobStatus.RUNNING,
         )
 
+        window.queue_ctrl.executor._running = True
         window._on_job_started(job)
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "Queue running")
+
         window._on_job_completed(job, RenameResult(renamed_count=12))
         window._on_job_completed(job, RenameResult(renamed_count=8))
-        self.assertEqual(window._toast_manager.toast_count(), 0)
 
         QTest.qWait(450)
 
         self.assertEqual(window._toast_manager.toast_count(), 1)
         toast = window._toast_manager._layout.itemAt(0).widget()
-        self.assertEqual(toast._title_label.text(), "2 jobs completed")
+        self.assertEqual(toast._title_label.text(), "Queue running")
+        self.assertIn("2 completed", toast._message_label.text())
+        self.assertIn("20 files renamed", toast._message_label.text())
+
+        window.queue_ctrl.executor._running = False
+        window._on_queue_finished()
+
+        self.assertEqual(window._toast_manager.toast_count(), 1)
+        toast = window._toast_manager._layout.itemAt(0).widget()
+        self.assertEqual(toast._title_label.text(), "Queue finished")
+        self.assertIn("2 completed", toast._message_label.text())
         self.assertIn("20 files renamed", toast._message_label.text())
         window.close()
 
@@ -281,6 +415,113 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertFalse(tab._advanced_group.isVisible())
         tab.close()
 
+    def test_settings_tab_cache_stats_and_clear_use_tmdb_namespace_prefix(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb", "client_snapshot", {"movie_cache": {"1": {}}})
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            cache.put("tmdb.poster_image", "poster::200", {"png_base64": "abc"})
+            cache.put("other", "key1", {"v": 3})
+            dropped_runtime_clients: list[bool] = []
+
+            tab = SettingsTab(
+                cache_service=cache,
+                clear_tmdb_callback=lambda: dropped_runtime_clients.append(True),
+            )
+
+            try:
+                self.assertIn("3 entries", tab._cache_stats.text())
+
+                tab._on_clear_cache()
+                self._app.processEvents()
+
+                self.assertEqual(dropped_runtime_clients, [True])
+                self.assertEqual(tab._cache_confirm.text(), "Cleared 3 TMDB cache entries.")
+                self.assertIn("0 entries", tab._cache_stats.text())
+                self.assertTrue(cache.get("other", "key1").is_hit)
+            finally:
+                tab.close()
+
+    def test_settings_tab_has_destination_category_and_controls(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            self._app.processEvents()
+
+            self.assertGreaterEqual(tab._settings_nav.count(), 1)
+            self.assertEqual(tab._settings_nav.item(0).text(), "Destinations")
+            self.assertIs(tab._settings_stack.currentWidget(), tab._destinations_page)
+            self.assertEqual(tab._tv_output_input.text(), "")
+            self.assertEqual(tab._movie_output_input.text(), "")
+
+            tab.close()
+
+    def test_settings_tab_category_page_controls_stay_top_aligned(self):
+        from PySide6.QtWidgets import QLabel
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            tab.resize(_scale.px(1400), _scale.px(800))
+            tab.show()
+            self._app.processEvents()
+
+            tab._settings_nav.setCurrentRow(1)
+            self._app.processEvents()
+
+            page = tab._settings_stack.currentWidget()
+            labels = {label.text(): label for label in page.findChildren(QLabel)}
+
+            self.assertLess(labels["Default view mode"].mapTo(page, QPoint(0, 0)).y(), _scale.px(120))
+            self.assertLess(labels["Display"].height(), _scale.px(80))
+            tab.close()
+
+    def test_settings_tab_saves_existing_destination_paths(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tv = root / "TV"
+            movies = root / "Movies"
+            tv.mkdir()
+            movies.mkdir()
+            settings = SettingsService(path=root / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+
+            tab._tv_output_input.setText(str(tv))
+            tab._movie_output_input.setText(str(movies))
+            tab._on_save_destinations()
+            self._app.processEvents()
+
+            self.assertEqual(Path(settings.tv_output_folder), tv.resolve())
+            self.assertEqual(Path(settings.movie_output_folder), movies.resolve())
+            self.assertIn("saved", tab._destinations_status.text().lower())
+
+            tab.close()
+
+    def test_settings_tab_rejects_missing_destination_path(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+
+            tab._tv_output_input.setText(str(Path(tmp) / "missing-tv"))
+            tab._movie_output_input.setText("")
+            tab._on_save_destinations()
+            self._app.processEvents()
+
+            self.assertEqual(settings.tv_output_folder, "")
+            self.assertIn("does not exist", tab._destinations_status.text().lower())
+
+            tab.close()
+
     def test_settings_tab_has_independent_episode_threshold_slider(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
@@ -316,6 +557,9 @@ class QtMainWindowTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -324,12 +568,13 @@ class QtMainWindowTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -441,6 +686,64 @@ class QtMainWindowTests(QtSmokeBase):
 
         window._tv_workspace.show_ready.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
+        window.close()
+
+    def test_main_window_shows_ready_after_bulk_scan_even_if_some_shows_failed(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        scanned_state = ScanState(
+            folder=Path("C:/library/tv/GoodShow.2020"),
+            media_info={"id": 42, "name": "Good Show", "year": "2020"},
+            scanned=True,
+        )
+        failed_state = ScanState(
+            folder=Path("C:/library/tv/BadShow.2021"),
+            media_info={"id": 99, "name": "Bad Show", "year": "2021"},
+            scanned=False,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [scanned_state, failed_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.READY,
+            phase="Scan complete",
+            message="Scanned 2 shows",
+        )
+        window._tv_workspace.show_scanning()
+        window._tv_workspace.show_ready = MagicMock()
+
+        window._on_library_changed()
+
+        window._tv_workspace.show_ready.assert_called_once()
+        window.close()
+
+    def test_main_window_does_not_show_ready_during_discovery_library_changed(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        matched_unscanned_state = ScanState(
+            folder=Path("C:/library/tv/PartialShow.2022"),
+            media_info={"id": 77, "name": "Partial Show", "year": "2022"},
+            scanned=False,
+        )
+        window.media_ctrl._active_content_mode = "tv"
+        window.media_ctrl._active_library_mode = "tv"
+        window.media_ctrl._batch_mode = True
+        window.media_ctrl._batch_states = [matched_unscanned_state]
+        window.media_ctrl._scan_progress = window.media_ctrl.scan_progress.__class__(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Scanning shows",
+            message="Scanning...",
+        )
+        window._tv_workspace.show_ready = MagicMock()
+
+        window._on_library_changed()
+
+        window._tv_workspace.show_ready.assert_not_called()
         window.close()
 
     def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):

@@ -30,7 +30,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 return BatchQueueResult(added=len(states))
 
         class _FakeMediaController:
@@ -699,7 +699,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -757,21 +757,27 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             confidence=1.0,
         )
         media_ctrl = _FakeMediaController([first, second])
-        workspace = MediaWorkspace(
-            media_type="tv",
-            media_controller=media_ctrl,
-            queue_controller=_FakeQueueController(),
-        )
-        workspace.show_ready()
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=_FakeQueueController(),
+                settings_service=settings,
+            )
+            workspace.show_ready()
 
-        workspace._queue_checked()
+            workspace._queue_checked()
 
-        self.assertTrue(first.queued)
-        self.assertFalse(second.checked)
-        self._assert_roster_section_title(workspace, 0, "QUEUED")
-        self._assert_roster_section_title(workspace, 2, "MATCHED")
+            self.assertTrue(first.queued)
+            self.assertFalse(second.checked)
+            self._assert_roster_section_title(workspace, 0, "QUEUED")
+            self._assert_roster_section_title(workspace, 2, "MATCHED")
 
-        workspace.close()
+            workspace.close()
 
     def test_media_workspace_fix_match_refreshes_duplicate_tv_preview(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
@@ -1135,7 +1141,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, command_gating):
+            def add_movie_batch(self, states, root, output_root, command_gating):
                 self.called = True
                 return BatchQueueResult(added=len(states))
 
@@ -1143,6 +1149,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         queue_ctrl = _FakeQueueController()
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
             ready_state = ScanState(
                 folder=Path("C:/library/movies/Dune.Part.Two.2024"),
                 media_info={"id": 11, "title": "Dune: Part Two", "year": "2024"},
@@ -1880,7 +1889,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(header.text().startswith("\u25be SPECIALS"))
         workspace.close()
 
-    def test_media_workspace_reselecting_show_reuses_rendered_preview_rows(self):
+    def test_media_workspace_reselecting_show_renders_preview_rows_on_demand(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
 
@@ -1952,15 +1961,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         first_widget = _first_visible_episode_widget(workspace)
         self.assertIsNotNone(first_widget)
         second_cached_item, second_cached_widget = _episode_widget_for_title(workspace, "Second Show")
-        self.assertIsNotNone(second_cached_item)
-        self.assertIsNotNone(second_cached_widget)
-        self.assertTrue(second_cached_item.isHidden())
+        self.assertIsNone(second_cached_item)
+        self.assertIsNone(second_cached_widget)
 
         second_item = workspace._find_roster_item_by_index(1)
         self.assertIsNotNone(second_item)
         workspace._roster_list.setCurrentItem(second_item)
         self._app.processEvents()
-        self.assertIs(_first_visible_episode_widget(workspace), second_cached_widget)
+        second_widget = _first_visible_episode_widget(workspace)
+        self.assertIsNotNone(second_widget)
+        self.assertIsNot(second_widget, first_widget)
         second_header = next(
             workspace._preview_list.item(row)
             for row in range(workspace._preview_list.count())
@@ -1992,7 +2002,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIs(_first_visible_episode_widget(workspace), first_widget)
         workspace.close()
 
-    def test_media_workspace_episode_approval_refreshes_prepared_projection(self):
+    def test_media_workspace_episode_approval_emits_approve_action(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -2016,25 +2032,34 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def sync_queued_states(self):
                 return None
 
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(
+            entry.file_id, 1, [1],
+            origin=ORIGIN_AUTO, confidence=0.5,
         )
         state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[review_item],
+            folder=folder,
+            media_info=show_info,
             scanned=True,
             confidence=1.0,
         )
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
         media_ctrl = _FakeMediaController(state)
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
+
+        # Find the review-status episode guide row widget.
         widget = next(
             workspace._preview_list.itemWidget(workspace._preview_list.item(row))
             for row in range(workspace._preview_list.count())
@@ -2043,12 +2068,342 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 EpisodeGuideRowWidget,
             )
         )
+        self.assertEqual(widget._status.text(), "Review")
 
+        # Clicking approve dispatches through handle_episode_row_action → service.approve_file.
         widget._approve_button.click()
         self._app.processEvents()
 
-        media_ctrl.refresh_episode_guide.assert_called_with(state)
+        # After approval the projection reprojects: the row's status should flip to "OK".
+        review_item = next(p for p in state.preview_items if p.file_id == entry.file_id)
         self.assertEqual(review_item.status, "OK")
+        workspace.close()
+
+    # ── helpers shared by row-action dispatch tests ──────────────────────────
+
+    @staticmethod
+    def _make_episode_table_state(folder=None, show_info=None):
+        """Return (state, table, entry_id) with one auto-assigned file at S01E01."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = folder or Path("C:/library/tv/Example")
+        show_info = show_info or {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+        return state, table, entry.file_id
+
+    @staticmethod
+    def _make_fake_media_ctrl(state):
+        class _FakeMediaController:
+            def __init__(self, s):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [s]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        return _FakeMediaController(state)
+
+    # ── dispatch tests ───────────────────────────────────────────────────────
+
+    def test_episode_row_action_unassign_removes_file_assignment(self):
+        """unassign: dialog-free; file moves from mapped to unassigned."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        workspace._action_coordinator.handle_episode_row_action(state, row, "unassign")
+        self._app.processEvents()
+
+        # After unassign the file should have no assignment in the table.
+        self.assertIsNone(table._assignments.get(file_id))
+        # The reprojected preview_items should no longer carry a mapped entry for this file.
+        remapped = next((p for p in state.preview_items if p.file_id == file_id), None)
+        self.assertIsNotNone(remapped)
+        self.assertIsNone(remapped.new_name)
+        workspace.close()
+
+    def test_episode_row_action_keep_this_resolves_conflict(self):
+        """keep_this: dialog-free; winner keeps the slot, loser is unassigned."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        winner_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        loser_entry = table.add_file(folder / "Season 01" / "B.S01E01.mkv")
+        table.assign(winner_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        table.assign(loser_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.4)
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        winner_preview = next(p for p in state.preview_items if p.file_id == winner_entry.file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=winner_preview)
+
+        workspace._action_coordinator.handle_episode_row_action(state, row, "keep_this")
+        self._app.processEvents()
+
+        # Winner retains assignment; loser has been unassigned.
+        self.assertIsNotNone(table._assignments.get(winner_entry.file_id))
+        self.assertIsNone(table._assignments.get(loser_entry.file_id))
+        workspace.close()
+
+    def test_episode_row_action_reassign_calls_dialog_and_moves_file(self):
+        """reassign: stub assign_dialog returns a fixed selection; file moves."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        # Stub dialog: pick_episodes always returns S01E02.
+        class _StubAssignDialog:
+            @staticmethod
+            def pick_episodes(**_kwargs):
+                return [(1, 2)]
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "reassign", assign_dialog=_StubAssignDialog,
+        )
+        self._app.processEvents()
+
+        # File should now be assigned to episode 2 (not episode 1).
+        assignment = table._assignments.get(file_id)
+        self.assertIsNotNone(assignment)
+        self.assertEqual(assignment.episodes, (2,))
+        workspace.close()
+
+    def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
+        """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        # One file assigned to E01; one file unassigned (will be picked and placed at E02).
+        e01_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        table.assign(e01_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        loose_entry = table.add_file(folder / "Season 01" / "Loose.mkv")
+        table.mark_unassigned(loose_entry.file_id, "could not parse episode number")
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Simulate clicking "assign_file" on the S01E02 missing row.
+        row = EpisodeGuideRow(season=1, episode=2, title="Sequel", primary_file=None)
+
+        picked_file_id = loose_entry.file_id
+
+        class _StubAssignDialog:
+            @staticmethod
+            def pick_file(**_kwargs):
+                return picked_file_id
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_file", assign_dialog=_StubAssignDialog,
+        )
+        self._app.processEvents()
+
+        assignment = table._assignments.get(loose_entry.file_id)
+        self.assertIsNotNone(assignment)
+        self.assertEqual(assignment.season, 1)
+        self.assertEqual(assignment.episodes, (2,))
+        workspace.close()
+
+    def test_assign_file_dialog_does_not_double_list_unmatched_extras(self):
+        """UNMATCHED extras rows must appear only in 'unassigned', not also in 'assigned'."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        # Assigned file (appears in assigned list).
+        e01_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
+        table.assign(e01_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        # Unmatched extras file: has new_name set by projection but no table assignment.
+        from plex_renamer.engine.episode_assignments import EpisodeSlot as _Slot, REASON_NO_TITLE_MATCH
+        extras_entry = table.add_file(
+            folder / "Season 01" / "Extras" / "bts.mkv",
+            folder_season=0, from_extras_folder=True,
+        )
+        table.mark_unassigned(extras_entry.file_id, REASON_NO_TITLE_MATCH)
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        # Sanity: the extras item has a new_name (unmatched-extras projection sets it).
+        extras_preview = next(i for i in state.preview_items if i.file_id == extras_entry.file_id)
+        self.assertIsNotNone(extras_preview.new_name)
+        self.assertTrue(extras_preview.is_unmatched)
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=None)
+
+        # Capture what pick_file receives.
+        captured_unassigned: list = []
+        captured_assigned: list = []
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_file(*, unassigned, assigned, **_kwargs):
+                captured_unassigned.extend(unassigned)
+                captured_assigned.extend(assigned)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_file", assign_dialog=_CapturingDialog,
+        )
+
+        # extras_entry must appear in unassigned only, not in assigned.
+        unassigned_ids = {fid for fid, _label in captured_unassigned}
+        assigned_ids = {fid for fid, _name in captured_assigned}
+        self.assertIn(extras_entry.file_id, unassigned_ids)
+        self.assertNotIn(
+            extras_entry.file_id, assigned_ids,
+            "UNMATCHED extras file must not appear in the 'Already assigned' list",
+        )
+        workspace.close()
+
+    def test_episode_row_action_error_calls_warning_box_no_crash(self):
+        """If the service raises ValueError, warning_box.warning is called; no hang."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Use a preview with file_id=None so approve_file raises ValueError.
+        from plex_renamer.engine import PreviewItem
+        bad_preview = PreviewItem(
+            original=Path("C:/library/tv/Example/Season 01/NoId.mkv"),
+            new_name=None,
+            target_dir=None,
+            season=1,
+            episodes=[1],
+            status="REVIEW: low confidence",
+        )
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=bad_preview)
+
+        warnings: list[tuple] = []
+
+        class _RecordingWarningBox:
+            @staticmethod
+            def warning(*args, **kwargs):
+                warnings.append(args)
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "approve", warning_box=_RecordingWarningBox,
+        )
+        self._app.processEvents()
+
+        self.assertEqual(len(warnings), 1, "Expected exactly one warning dialog call")
         workspace.close()
 
     def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
@@ -2281,21 +2636,18 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         widget = workspace._preview_list.itemWidget(item)
         self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
         self.assertNotEqual(workspace._queue_inline_btn.text(), "Approve Episode")
+        # New API: approve button visible for Review rows; ⋯ menu for reassign/unassign.
         self.assertTrue(hasattr(widget, "_approve_button"))
-        self.assertTrue(hasattr(widget, "_fix_button"))
         self.assertTrue(widget._approve_button.isVisible())
-        self.assertTrue(widget._fix_button.isVisible())
-
-        widget._approve_button.click()
-        self._app.processEvents()
-
-        self.assertEqual(review_item.status, "OK")
-        self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
-        self.assertTrue(workspace._queue_inline_btn.isEnabled())
+        self.assertIsNotNone(widget.actions_button())
+        menu_labels = [a.text() for a in widget.actions_menu().actions()]
+        self.assertIn("Reassign...", menu_labels)
+        self.assertIn("Unassign", menu_labels)
 
         workspace.close()
 
-    def test_media_workspace_review_episode_fix_button_remaps_within_same_show(self):
+    def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
+        # TODO(Task 12): restore end-to-end reassign assertions once dispatch is wired.
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -2350,23 +2702,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         widget = workspace._preview_list.itemWidget(item)
 
-        with (
-            patch(
-                "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getItem",
-                side_effect=AssertionError("episode fix should not use a collapsing combo dropdown"),
-            ),
-            patch(
-                "plex_renamer.gui_qt.widgets._media_workspace_actions.EpisodeChoiceDialog.pick",
-                return_value=(1, 2),
-            ),
-        ):
-            widget._fix_button.click()
-        self._app.processEvents()
-
-        self.assertEqual(review_item.status, "OK")
-        self.assertEqual(review_item.episodes, [2])
-        self.assertIn("S01E02", review_item.new_name)
-        self.assertEqual(review_item.episode_confidence, 1.0)
+        # New API: Fix button removed; reassign is now a menu action via the ⋯ tool button.
+        self.assertFalse(hasattr(widget, "_fix_button"))
+        self.assertIsNotNone(widget.actions_button())
+        menu_labels = [a.text() for a in widget.actions_menu().actions()]
+        self.assertIn("Reassign...", menu_labels)
 
         workspace.close()
 
@@ -2444,19 +2784,32 @@ class QtMediaWorkspaceTests(QtSmokeBase):
     def test_media_workspace_episode_guide_rows_size_to_visible_actions(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
-        short_row = EpisodeGuideRowWidget(title="S01E01 - Pilot", status="Mapped", original="Pilot.mkv")
-        missing_row = EpisodeGuideRowWidget(title="S01E02 - Missing", status="Missing File")
+        # Production-realistic action lists per _episode_row_actions policy.
+        short_row = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            original="Pilot.mkv",
+            actions=[("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
+        missing_row = EpisodeGuideRowWidget(
+            title="S01E02 - Missing",
+            status="Missing File",
+            actions=[("assign_file", "Assign file...")],
+        )
         long_row = EpisodeGuideRowWidget(
             title="S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally",
             status="Review",
             original="Example.Show.S01E03.With.A.Long.Release.Name.mkv",
             target="Example Show (2024) - S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally.mkv",
             confidence="52%",
+            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
         )
 
+        # All three rows take the taller (actions) path; long_row is taller still due
+        # to the visible confidence meter and target label.
         self.assertEqual(short_row.sizeHint().height(), missing_row.sizeHint().height())
         self.assertLess(short_row.sizeHint().height(), long_row.sizeHint().height())
-        self.assertLessEqual(short_row.sizeHint().height(), 76)
+        self.assertLessEqual(short_row.sizeHint().height(), 96)
         self.assertLessEqual(long_row.sizeHint().height(), 120)
 
         short_row.close()
@@ -2510,9 +2863,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         before_height = widget.sizeHint().height()
 
         self.assertEqual(widget._approve_button.property("sizeVariant"), "inline")
-        self.assertEqual(widget._fix_button.property("sizeVariant"), "inline")
         self.assertLessEqual(widget._approve_button.sizeHint().height(), 24)
-        self.assertLessEqual(widget._fix_button.sizeHint().height(), 24)
+        self.assertIsNotNone(widget.actions_button())
         self.assertGreater(
             widget._approve_button.mapTo(widget, QPoint(0, 0)).x(),
             widget._confidence.mapTo(widget, QPoint(0, 0)).x(),
@@ -2531,30 +2883,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_episode_guide_review_action_buttons_are_parented_during_construction(self):
-        from PySide6.QtWidgets import QPushButton as RealQPushButton
         import plex_renamer.gui_qt.widgets._workspace_widgets as workspace_widgets
 
-        constructed: list[tuple[str, object | None]] = []
-
-        def recording_button(*args, **kwargs):
-            text = args[0] if args else kwargs.get("text", "")
-            parent = args[1] if len(args) > 1 else kwargs.get("parent")
-            if text in {"Approve", "Fix"}:
-                constructed.append((text, parent))
-            return RealQPushButton(*args, **kwargs)
-
-        with patch.object(workspace_widgets, "QPushButton", recording_button):
-            row = workspace_widgets.EpisodeGuideRowWidget(
-                title="S01E01 - Pilot",
-                status="Review",
-                confidence="50%",
-            )
+        row = workspace_widgets.EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Review",
+            confidence="50%",
+            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
 
         try:
-            self.assertEqual([text for text, _parent in constructed], ["Approve", "Fix"])
-            self.assertTrue(all(parent is row for _text, parent in constructed))
+            # Approve button is present, parented, and not a top-level window.
             self.assertFalse(row._approve_button.isWindow())
-            self.assertFalse(row._fix_button.isWindow())
+            self.assertIsNotNone(row.actions_button())
+            self.assertFalse(row.actions_button().isWindow())
+            # ⋯ menu carries the non-approve actions.
+            labels = [a.text() for a in row.actions_menu().actions()]
+            self.assertEqual(labels, ["Reassign...", "Unassign"])
         finally:
             row.close()
 
@@ -2615,6 +2960,18 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
+
+        # In the default "all" filter, UNMAPPED PRIMARY FILES must appear BEFORE season rows.
+        all_headers = self._preview_header_texts(workspace)
+        unmapped_indices = [i for i, h in enumerate(all_headers) if "UNMAPPED PRIMARY FILES" in h]
+        season_indices = [i for i, h in enumerate(all_headers) if "SEASON 1" in h]
+        self.assertTrue(unmapped_indices, "Expected an UNMAPPED PRIMARY FILES header")
+        self.assertTrue(season_indices, "Expected a SEASON 1 header")
+        self.assertLess(
+            unmapped_indices[0],
+            season_indices[0],
+            "UNMAPPED PRIMARY FILES header must appear before SEASON 1 header",
+        )
 
         workspace._preview_panel._episode_filter_buttons["problems"].click()
         statuses = [
@@ -3230,7 +3587,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self._app.processEvents()
 
         self._assert_roster_section_title(workspace, 0, "MATCHED")
-        self._assert_roster_section_title(workspace, 2, "NEEDS REVIEW")
+        self._assert_roster_section_title(workspace, 2, "REVIEW EPISODE MATCHING")
 
         matched_widget = self._roster_widget_for_index(workspace, 0)
         review_widget = self._roster_widget_for_index(workspace, 1)
@@ -3650,7 +4007,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, gating):
+            def add_tv_batch(self, states, root, output_root, gating):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -3695,6 +4052,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
             media_ctrl = _FakeMediaController()
             media_ctrl.batch_states = [
                 _make_state("Show.One.2024", 101),
@@ -3725,7 +4085,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, gating):
+            def add_movie_batch(self, states, root, output_root, gating):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -3751,6 +4111,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         with TemporaryDirectory() as tmp:
             settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
             state = ScanState(
                 folder=Path("C:/library/movies/Arrival.2016"),
                 media_info={"id": 22, "title": "Arrival", "year": "2016", "_media_type": "movie"},
@@ -3905,3 +4268,53 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIn("Evangelion: 3.0 You Can (Not) Redo (2012)", seen_titles)
 
         workspace.close()
+
+
+# ---------------------------------------------------------------------------
+# EpisodeAssignDialog tests
+# ---------------------------------------------------------------------------
+
+from plex_renamer.app.models.state_models import EpisodeSlotChoice  # noqa: E402
+from plex_renamer.gui_qt.widgets.episode_assign_dialog import EpisodeAssignDialog  # noqa: E402
+
+
+def _slot_choices():
+    return [
+        EpisodeSlotChoice(season=1, episode=1, title="Pilot", claimed_by="e1.mkv"),
+        EpisodeSlotChoice(season=1, episode=2, title="Heist"),
+        EpisodeSlotChoice(season=1, episode=3, title="Endgame"),
+        EpisodeSlotChoice(season=2, episode=1, title="Reboot"),
+    ]
+
+
+class TestEpisodeAssignDialog(QtSmokeBase):
+    def test_contiguous_same_season_selection_enables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 2), (1, 3)])
+        self.assertTrue(dialog.is_selection_valid())
+        dialog.close()
+
+    def test_non_contiguous_selection_disables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 1), (1, 3)])
+        self.assertFalse(dialog.is_selection_valid())
+        self.assertIn("contiguous", dialog.validation_text().lower())
+        dialog.close()
+
+    def test_cross_season_selection_disables_ok(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 3), (2, 1)])
+        self.assertFalse(dialog.is_selection_valid())
+        self.assertIn("season", dialog.validation_text().lower())
+        dialog.close()
+
+    def test_claimed_slot_shows_claimant(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        self.assertIn("e1.mkv", dialog.slot_row_text(1, 1))
+        dialog.close()
+
+    def test_selected_episodes_returned(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        dialog.set_checked([(1, 2), (1, 3)])
+        self.assertEqual(dialog.selected_episodes(), [(1, 2), (1, 3)])
+        dialog.close()

@@ -93,6 +93,7 @@ class QueueController:
         tmdb_id: int,
         media_name: str,
         library_root: Path,
+        output_root: Path,
         source_folder: Path,
         show_folder_rename: str | None = None,
         poster_path: str | None = None,
@@ -110,6 +111,7 @@ class QueueController:
             tmdb_id=tmdb_id,
             media_name=media_name,
             library_root=library_root,
+            output_root=output_root,
             source_folder=source_folder,
             show_folder_rename=show_folder_rename,
             poster_path=poster_path,
@@ -119,6 +121,7 @@ class QueueController:
         self,
         states: list[ScanState],
         library_root: Path,
+        output_root: Path,
         command_gating: CommandGatingService,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all checked TV shows.
@@ -131,6 +134,7 @@ class QueueController:
             self.job_store,
             states=states,
             library_root=library_root,
+            output_root=output_root,
             command_gating=command_gating,
         )
 
@@ -138,6 +142,7 @@ class QueueController:
         self,
         states: list[ScanState],
         library_root: Path,
+        output_root: Path,
         command_gating: CommandGatingService,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all eligible movies.
@@ -149,6 +154,7 @@ class QueueController:
             self.job_store,
             states=states,
             library_root=library_root,
+            output_root=output_root,
             command_gating=command_gating,
         )
 

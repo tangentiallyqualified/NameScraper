@@ -122,9 +122,14 @@ def queue_states(
             if root is None:
                 workspace.status_message.emit("No movie folder is loaded.", 4000)
                 return
+            output_root = workspace._settings.valid_movie_output_folder if workspace._settings else None
+            if output_root is None:
+                workspace.status_message.emit("Set a Movies output folder in Settings before queueing.", 4000)
+                return
             result = workspace._queue_ctrl.add_movie_batch(
                 states,
                 root,
+                output_root,
                 workspace._media_ctrl.command_gating,
             )
         else:
@@ -132,9 +137,14 @@ def queue_states(
             if root is None:
                 workspace.status_message.emit("No TV folder is loaded.", 4000)
                 return
+            output_root = workspace._settings.valid_tv_output_folder if workspace._settings else None
+            if output_root is None:
+                workspace.status_message.emit("Set a TV Shows output folder in Settings before queueing.", 4000)
+                return
             result = workspace._queue_ctrl.add_tv_batch(
                 states,
                 root,
+                output_root,
                 workspace._media_ctrl.command_gating,
             )
     except Exception as exc:

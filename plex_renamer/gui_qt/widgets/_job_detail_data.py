@@ -11,7 +11,7 @@ from ...job_store import RenameJob
 
 
 def build_job_summary(job: RenameJob) -> str:
-    companion = len(job.companion_ops)
+    companion = job.selected_companion_count
     parts: list[str] = []
     if companion:
         parts.append(f"{companion} companion file(s)")
@@ -41,12 +41,16 @@ def format_job_timestamp(value: str) -> str:
 
 
 def build_job_fact_values(job: RenameJob) -> dict[str, str]:
-    companions = len(job.companion_ops)
-    files_text = f"{job.selected_count} selected"
+    companions = job.selected_companion_count
+    files_text = f"{job.selected_video_count} selected"
     companions_text = str(companions) if companions else "None"
     return {
         "media": {"tv": "TV Show", "movie": "Movie"}.get(job.media_type, job.media_type.title()),
-        "action": job.job_kind.title(),
+        "action": (
+            "Move and Rename"
+            if job.output_root and job.job_kind == "rename"
+            else job.job_kind.title()
+        ),
         "files": files_text,
         "companions": companions_text,
     }
@@ -112,18 +116,24 @@ def target_paths(job: RenameJob) -> list[Path]:
     seen: set[Path] = set()
     ops = job.selected_ops or job.rename_ops
     for op in ops:
-        target = Path(job.library_root) / final_target_dir_relative(job, op)
+        target = job_target_root(job) / final_target_dir_relative(job, op)
         if target not in seen:
             seen.add(target)
             paths.append(target)
     if not paths and job.show_folder_rename:
         source_folder = Path(job.source_folder)
-        if job.source_folder in ("", "."):
+        if job.output_root:
+            fallback = Path(job.output_root) / job.show_folder_rename
+        elif job.source_folder in ("", "."):
             fallback = Path(job.library_root) / job.show_folder_rename
         else:
             fallback = Path(job.library_root) / source_folder.parent / job.show_folder_rename
         paths.append(fallback)
     return paths
+
+
+def job_target_root(job: RenameJob) -> Path:
+    return Path(job.output_root) if job.output_root else Path(job.library_root)
 
 
 def primary_target_path(job: RenameJob) -> Path | None:

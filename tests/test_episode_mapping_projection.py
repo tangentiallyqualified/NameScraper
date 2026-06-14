@@ -162,62 +162,132 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         self.assertEqual(preflight.review_required, 1)
         self.assertIn("1 review", preflight.summary_text)
 
-    def test_remap_preview_item_to_selected_episode_recomputes_name_and_companions(self):
-        companion = CompanionFile(
-            original=Path("C:/library/tv/Show/Season 01/Show.S01E01.eng.sup.mks"),
-            new_name="Show (2024) - S01E01 - Pilot.eng.sup.mks",
-            file_type="subtitle",
-        )
-        review_item = _preview(
-            "Show.S01E01.mkv",
-            status="REVIEW: episode confidence below threshold",
-            companions=[companion],
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Show"),
-            media_info={"id": 10, "name": "Show", "year": "2024"},
-            scanner=type(
-                "Scanner",
-                (),
-                {"episode_meta": {(1, 1): {"name": "Pilot"}, (1, 2): {"name": "Second"}}},
-            )(),
-            preview_items=[review_item],
-            completeness=CompletenessReport(
-                seasons={
-                    1: SeasonCompleteness(
-                        season=1,
-                        expected=2,
-                        matched=1,
-                        missing=[(2, "Second")],
-                        matched_episodes=[(1, "Pilot")],
-                    )
-                },
-                specials=None,
-                total_expected=2,
-                total_matched=1,
-                total_missing=[(1, 2, "Second")],
-            ),
-            scanned=True,
-        )
-
-        self.service.remap_preview_to_episode(state, review_item, season=1, episode=2)
-
-        self.assertEqual(review_item.status, "OK")
-        self.assertEqual(review_item.season, 1)
-        self.assertEqual(review_item.episodes, [2])
-        self.assertEqual(review_item.episode_confidence, 1.0)
-        self.assertEqual(review_item.new_name, "Show (2024) - S01E02 - Second.mkv")
-        self.assertEqual(
-            companion.new_name,
-            "Show (2024) - S01E02 - Second.eng.sup.mks",
-        )
-        guide = self.service.build_episode_guide(state)
-        mapped_rows = [row for row in guide.rows if row.primary_file is review_item]
-        self.assertEqual([row.episode_key for row in mapped_rows], [(1, 2)])
-        preflight = self.service.build_queue_preflight(state)
-        self.assertTrue(preflight.enabled)
-        self.assertEqual(preflight.review_required, 0)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
+from plex_renamer.engine._episode_projection import project_preview_items
+
+ROOT = Path("C:/lib/Demo Show (2020)")
+SHOW = {"id": 9, "name": "Demo Show", "year": "2020"}
+
+
+def table_state() -> ScanState:
+    table = EpisodeAssignmentTable()
+    for episode, title in [(1, "Pilot"), (2, "Heist"), (3, "Endgame"), (4, "Coda")]:
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=title))
+    ok = table.add_file(ROOT / "e1.mkv")
+    table.assign(ok.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+    stray = table.add_file(ROOT / "stray.mkv")
+    table.mark_unassigned(stray.file_id, "could not parse episode number")
+    state = ScanState(folder=ROOT, media_info=SHOW)
+    state.assignments = table
+    state.preview_items = project_preview_items(
+        table, show_info=SHOW, root=ROOT,
+        media_fields={"media_id": 9, "media_name": "Demo Show"},
+    )
+    state.scanned = True
+    return state
+
+
+class TestTableBackedService:
+    def test_assign_unassigned_file_to_missing_episodes(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        stray = next(p for p in state.preview_items if p.new_name is None)
+        service.assign_file(state, stray, season=1, episodes=[2, 3])
+        updated = next(
+            p for p in state.preview_items if p.original.name == "stray.mkv"
+        )
+        assert updated.episodes == [2, 3]
+        assert updated.status == "OK"
+        assert updated.episode_confidence == 1.0
+
+    def test_assign_displaces_existing_claimant(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        stray = next(p for p in state.preview_items if p.new_name is None)
+        service.assign_file(state, stray, season=1, episodes=[1])
+        displaced = next(
+            p for p in state.preview_items if p.original.name == "e1.mkv"
+        )
+        assert displaced.new_name is None  # back to unassigned
+
+    def test_assign_or_extend_extends_contiguous(self):
+        state = table_state()  # e1.mkv auto-assigned to [1]; slots 1-4 exist
+        service = EpisodeMappingService()
+        e1 = next(p for p in state.preview_items if p.status == "OK")
+        service.assign_or_extend_file(state, e1, season=1, episode=2)
+        updated = next(p for p in state.preview_items if p.original.name == "e1.mkv")
+        assert updated.episodes == [1, 2]
+        assert updated.episode_confidence == 1.0
+
+    def test_assign_or_extend_replaces_when_not_contiguous(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        e1 = next(p for p in state.preview_items if p.status == "OK")
+        service.assign_or_extend_file(state, e1, season=1, episode=4)
+        updated = next(p for p in state.preview_items if p.original.name == "e1.mkv")
+        assert updated.episodes == [4]
+
+    def test_unassign_file(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        mapped = next(p for p in state.preview_items if p.status == "OK")
+        service.unassign_file(state, mapped)
+        assert all(
+            p.new_name is None
+            for p in state.preview_items if p.original.name == "e1.mkv"
+        )
+
+    def test_approve_file(self):
+        state = table_state()
+        table = state.assignments
+        low = table.add_file(ROOT / "low.mkv")
+        table.assign(low.file_id, 1, [4], origin=ORIGIN_AUTO, confidence=0.5)
+        service = EpisodeMappingService()
+        service.reproject(state)
+        review = next(p for p in state.preview_items if p.is_episode_review)
+        service.approve_file(state, review)
+        approved = next(
+            p for p in state.preview_items if p.original.name == "low.mkv"
+        )
+        assert approved.status == "OK"
+
+    def test_slot_choices_show_claim_state(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        choices = service.episode_slot_choices(state)
+        claimed = next(c for c in choices if (c.season, c.episode) == (1, 1))
+        free = next(c for c in choices if (c.season, c.episode) == (1, 2))
+        assert claimed.claimed_by == "e1.mkv"
+        assert free.claimed_by is None
+
+    def test_guide_lists_unassigned_with_reason(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        guide = service.build_episode_guide(state)
+        assert guide.summary.unmapped_primary_files == 1
+        assert guide.unmapped_primary_files[0].reason == (
+            "could not parse episode number"
+        )
+
+    def test_shareable_file_choices_lists_adjacent_assigned(self):
+        state = table_state()  # e1.mkv -> [1]; slots 1-4 exist
+        service = EpisodeMappingService()
+        choices = service.shareable_file_choices(state, season=1, episode=2)
+        names = [name for _fid, name in choices]
+        assert any("e1.mkv" in name for name in names)
+
+    def test_shareable_file_choices_excludes_nonadjacent(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        choices = service.shareable_file_choices(state, season=1, episode=4)
+        assert choices == []

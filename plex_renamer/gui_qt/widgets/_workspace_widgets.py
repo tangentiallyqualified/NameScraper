@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QSizePolicy,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -418,8 +420,7 @@ class PreviewRowWidget(ClickableRow):
 # ── Folder preview row widget ────────────────────────────────────────
 
 class EpisodeGuideRowWidget(ClickableRow):
-    approve_requested = Signal()
-    fix_requested = Signal()
+    action_requested = Signal(str)
     _COMPACT_ROW_MIN_HEIGHT_GRID_UNITS = 72
     _STATUS_PILL_HORIZONTAL_CHROME = 18
 
@@ -436,6 +437,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         target: str = "",
         confidence: str = "",
         companions: list[str] | None = None,
+        actions: list[tuple[str, str]] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -446,22 +448,26 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._selected = False
         self._row_height = self._COMPACT_ROW_MIN_HEIGHT
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        show_actions = status == "Review"
+
+        actions_list = list(actions) if actions is not None else []
+        has_approve = any(action_id == "approve" for action_id, _label in actions_list)
+        non_approve_actions = [(action_id, label) for action_id, label in actions_list if action_id != "approve"]
+        show_actions = bool(actions_list)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 7, 8, 7)
-        layout.setSpacing(8)
+        layout.setContentsMargins(_scale.margins(7, 8))
+        layout.setSpacing(_scale.px(8))
 
         self._check = ToggleSwitch(False, self)
         self._check.hide()
         layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
 
         body = QVBoxLayout()
-        body.setSpacing(3)
+        body.setSpacing(_scale.px(3))
         layout.addLayout(body, stretch=1)
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(8)
+        top_row.setSpacing(_scale.px(8))
         self._title = ElidedLabel(
             title,
             elide_mode=Qt.TextElideMode.ElideRight,
@@ -533,29 +539,45 @@ class EpisodeGuideRowWidget(ClickableRow):
         )
         self._confidence_percent.setVisible(confidence_value is not None)
 
+        # Inline Approve button — shown only when an ("approve", ...) action is present.
         self._approve_button = QPushButton("Approve", self)
         self._approve_button.setProperty("cssClass", "primary")
         self._approve_button.setProperty("sizeVariant", "inline")
         self._approve_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
-        self._approve_button.setVisible(show_actions)
-        self._approve_button.clicked.connect(self.approve_requested.emit)
+        self._approve_button.setVisible(has_approve)
+        self._approve_button.clicked.connect(lambda: self.action_requested.emit("approve"))
 
-        self._fix_button = QPushButton("Fix", self)
-        self._fix_button.setProperty("cssClass", "secondary")
-        self._fix_button.setProperty("sizeVariant", "inline")
-        self._fix_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
-        self._fix_button.setVisible(show_actions)
-        self._fix_button.clicked.connect(self.fix_requested.emit)
+        # ⋯ tool button with popup menu for all non-approve actions.
+        if non_approve_actions:
+            self._actions_button: QToolButton | None = QToolButton(self)
+            self._actions_button.setText("⋯")
+            self._actions_button.setToolTip("More actions")
+            self._actions_button.setAccessibleName("More actions")
+            self._actions_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            self._actions_button.setFixedHeight(_scale.row_height(rows=1, padding=10))
+            self._actions_button.setFixedWidth(_scale.px(28))
+            self._actions_menu = QMenu(self._actions_button)
+            for action_id, label in non_approve_actions:
+                q_action = QAction(label, self._actions_menu)
+                q_action.triggered.connect(
+                    lambda _checked=False, aid=action_id: self.action_requested.emit(aid)
+                )
+                self._actions_menu.addAction(q_action)
+            self._actions_button.setMenu(self._actions_menu)
+        else:
+            self._actions_button = None
+            self._actions_menu: QMenu | None = None
 
         if confidence_value is not None or show_actions:
             confidence_row = QHBoxLayout()
             confidence_row.setContentsMargins(0, 0, 0, 0)
-            confidence_row.setSpacing(8)
+            confidence_row.setSpacing(_scale.px(8))
             confidence_row.addWidget(self._confidence_label)
             confidence_row.addWidget(self._confidence)
             confidence_row.addWidget(self._confidence_percent)
             confidence_row.addWidget(self._approve_button)
-            confidence_row.addWidget(self._fix_button)
+            if self._actions_button is not None:
+                confidence_row.addWidget(self._actions_button)
             confidence_row.addStretch(1)
             body.addLayout(confidence_row)
             if show_actions:
@@ -564,6 +586,18 @@ class EpisodeGuideRowWidget(ClickableRow):
         self._row_height = self._preferred_row_height(show_actions)
         self.setFixedHeight(self._row_height)
         self._apply_style()
+
+    def actions_button(self) -> QToolButton | None:
+        """Return the ⋯ tool button, or None if no non-approve actions were supplied."""
+        return self._actions_button
+
+    def actions_menu(self) -> QMenu | None:
+        """Return the popup menu attached to the ⋯ tool button, or None if no tool button exists."""
+        return self._actions_menu
+
+    def approve_button(self) -> QPushButton:
+        """Return the inline Approve push button."""
+        return self._approve_button
 
     def sizeHint(self) -> QSize:  # noqa: N802
         hint = super().sizeHint()
@@ -597,7 +631,7 @@ class EpisodeGuideRowWidget(ClickableRow):
         return max(self._COMPACT_ROW_MIN_HEIGHT, content_height)
 
     def _action_bottom_extra(self) -> int:
-        return max(1, self._fix_button.fontMetrics().height() // 3)
+        return max(1, self._approve_button.fontMetrics().height() // 3)
 
     @staticmethod
     def _band_for_status(status: str) -> str:

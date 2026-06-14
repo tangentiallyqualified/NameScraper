@@ -70,7 +70,7 @@ class _CheckableHeaderView(QHeaderView):
             self.style().drawControl(QStyle.ControlElement.CE_CheckBox, option, painter)
 
     def mousePressEvent(self, event) -> None:
-        logical = self.logicalIndexAt(event.pos())
+        logical = self.logicalIndexAt(event.position().toPoint())
         if logical == 0:
             next_state = (
                 Qt.CheckState.Unchecked
@@ -184,11 +184,9 @@ class _JobListTab(QWidget):
         self._toolbar.setProperty("panelVariant", "square")
         self._toolbar_layout = QHBoxLayout(self._toolbar)
         self._toolbar_layout.setContentsMargins(12, 12, 12, 12)
-        self._root.addWidget(self._toolbar)
+        self._actions_layout_has_stretch = False
 
         self._actions_bar = QFrame()
-        self._actions_bar.setProperty("cssClass", "panel")
-        self._actions_bar.setProperty("panelVariant", "square")
         self._actions_layout = QHBoxLayout(self._actions_bar)
         self._actions_layout.setContentsMargins(0, 0, 0, 0)
         self._actions_layout.setSpacing(8)
@@ -258,24 +256,44 @@ class _JobListTab(QWidget):
         self._model.dataChanged.connect(self._on_checked_jobs_changed)
         self._model.modelReset.connect(self._sync_selection_widgets)
 
-    def _finish_toolbar(self, filters: dict[str, set[str] | None], *, current_text: str = "All") -> None:
+    def _finish_toolbar(
+        self,
+        filters: dict[str, set[str] | None],
+        *,
+        current_text: str = "All",
+        position: str = "top",
+    ) -> None:
         self._filters = dict(filters)
         self._filter_control = SegmentedControl(filters.keys(), current_text=current_text)
         self._filter_control.currentTextChanged.connect(self._apply_filter)
-        self._toolbar_layout.addWidget(self._filter_control)
 
-        self._toolbar_layout.addWidget(self._selection_status)
+        toolbar_layout = self._toolbar_layout
+        status_stretch = 1
+        if position == "bottom":
+            toolbar_layout = self._actions_layout
+            self._actions_layout.insertWidget(0, self._filter_control)
+            self._actions_layout.insertWidget(1, self._selection_status)
+            status_stretch = 0
+        else:
+            self._root.insertWidget(0, self._toolbar)
+            toolbar_layout.addWidget(self._filter_control)
+            toolbar_layout.addWidget(self._selection_status)
 
         self._status = QLabel("")
         self._status.setProperty("cssClass", "text-dim")
-        self._toolbar_layout.addWidget(self._status, stretch=1)
+        toolbar_layout.insertWidget(2, self._status, stretch=status_stretch)
+        if position == "bottom":
+            toolbar_layout.insertStretch(3, 1)
+            self._actions_layout_has_stretch = True
 
     def _insert_panel_before_detail(self, widget: QWidget) -> None:
         self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
 
     def _finish_list_pane(self) -> None:
         self._list_layout.addWidget(self._table, stretch=1)
-        self._actions_layout.insertStretch(0, 1)
+        if not self._actions_layout_has_stretch:
+            self._actions_layout.insertStretch(0, 1)
+            self._actions_layout_has_stretch = True
         self._list_layout.addWidget(self._actions_bar)
 
     def select_job(self, job_id: str) -> None:
@@ -311,12 +329,12 @@ class _JobListTab(QWidget):
         self.refresh()
 
     def _select_all(self) -> None:
-        self._model.set_jobs_checked(self._visible_job_ids(), True)
+        self._model.set_jobs_checked(self._visible_job_ids(checkable_only=True), True)
 
     def _clear_selection(self) -> None:
         self._model.clear_checked()
 
-    def _visible_job_ids(self) -> set[str]:
+    def _visible_job_ids(self, *, checkable_only: bool = False) -> set[str]:
         job_ids: set[str] = set()
         for row in range(self._proxy.rowCount()):
             proxy_index = self._proxy.index(row, 0)
@@ -324,12 +342,13 @@ class _JobListTab(QWidget):
             if not source_index.isValid():
                 continue
             job = self._model.job_at(source_index.row())
-            if job is not None:
+            if job is not None and (not checkable_only or self._model.is_checkable_job(job)):
                 job_ids.add(job.job_id)
         return job_ids
 
     def _retain_visible_checked_jobs(self) -> None:
-        self._model.set_checked_job_ids(self._model.checked_job_ids() & self._visible_job_ids())
+        visible_checkable_ids = self._visible_job_ids(checkable_only=True)
+        self._model.set_checked_job_ids(self._model.checked_job_ids() & visible_checkable_ids)
 
     def _on_master_check_changed(self, state: int) -> None:
         if self._master_check_syncing:
@@ -338,6 +357,7 @@ class _JobListTab(QWidget):
             self._select_all()
         elif state == Qt.CheckState.Unchecked.value:
             self._clear_selection()
+        self._sync_selection_widgets()
 
     def _on_cell_entered(self, index: QModelIndex) -> None:
         self._hover_delegate.set_hover_row(index.row() if index.isValid() else -1)
@@ -388,7 +408,7 @@ class _JobListTab(QWidget):
         self._update_job_controls()
 
     def _sync_selection_widgets(self) -> None:
-        visible_ids = self._visible_job_ids()
+        visible_ids = self._visible_job_ids(checkable_only=True)
         checked_ids = self._model.checked_job_ids()
         checked_visible = len(visible_ids & checked_ids)
         total_checked = len(checked_ids)

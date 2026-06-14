@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .constants import ensure_log_dir
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     media_name      TEXT NOT NULL,
     poster_path     TEXT,
     library_root    TEXT NOT NULL,
+    output_root     TEXT,
     source_folder   TEXT NOT NULL,
     show_folder_rename TEXT,
     status          TEXT NOT NULL DEFAULT 'pending',
@@ -83,3 +84,11 @@ def migrate_job_store(conn: sqlite3.Connection, current_version: int) -> None:
         if "poster_path" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN poster_path TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (2,))
+        version = 2
+    if version < 3:
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        if "output_root" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN output_root TEXT")
+        conn.execute("UPDATE schema_version SET version = ?", (3,))

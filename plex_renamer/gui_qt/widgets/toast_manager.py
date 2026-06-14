@@ -144,6 +144,7 @@ class ToastManager(QWidget):
         self._layout.setSpacing(8)
         self._layout.addStretch()
         self._summary_toast: _ToastCard | None = None
+        self._keyed_toasts: dict[str, _ToastCard] = {}
         self._overflow_count = 0
         self.hide()
 
@@ -176,6 +177,47 @@ class ToastManager(QWidget):
         self.raise_()
         self._reposition()
 
+    def show_or_update_toast(
+        self,
+        *,
+        key: str,
+        title: str,
+        message: str,
+        tone: str = "accent",
+        duration_ms: int = 0,
+        action_text: str | None = None,
+        action_callback: Callable[[], None] | None = None,
+    ) -> None:
+        toast = self._keyed_toasts.get(key)
+        if toast is not None:
+            toast.update_message(title=title, message=message)
+            self.show()
+            self.raise_()
+            self._reposition()
+            return
+        toast = _ToastCard(
+            title=title,
+            message=message,
+            tone=tone,
+            duration_ms=duration_ms,
+            action_text=action_text,
+            action_callback=action_callback,
+            parent=self,
+        )
+        self._keyed_toasts[key] = toast
+        toast.dismissed.connect(self._remove_toast)
+        self._layout.insertWidget(0, toast)
+        self.show()
+        self.raise_()
+        self._reposition()
+
+    def dismiss_toast(self, key: str) -> bool:
+        toast = self._keyed_toasts.get(key)
+        if toast is None:
+            return False
+        toast.dismiss()
+        return True
+
     def dismiss_topmost(self) -> bool:
         """Dismiss the newest visible toast. Returns True if one was dismissed."""
         for index in range(self._layout.count()):
@@ -190,6 +232,9 @@ class ToastManager(QWidget):
 
     def _remove_toast(self, toast: _ToastCard) -> None:
         self._layout.removeWidget(toast)
+        for key, keyed_toast in list(self._keyed_toasts.items()):
+            if keyed_toast is toast:
+                del self._keyed_toasts[key]
         if toast is self._summary_toast:
             self._summary_toast = None
             self._overflow_count = 0

@@ -878,6 +878,61 @@ QFrame[cssClass="settings-section"] {
     padding: 16px;
 }
 
+QFrame[cssClass="settings-section"][sectionRole="page"] {
+    background-color: #151515;
+    border-color: #2a2a2a;
+}
+
+QListWidget[cssClass="settings-nav"] {
+    background-color: #151515;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+QListWidget[cssClass="settings-nav"]::item {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    margin: 2px 0px;
+    padding: 9px 10px;
+}
+
+QListWidget[cssClass="settings-nav"]::item:selected {
+    background-color: #1f1a0e;
+    border-color: #e5a00d;
+    color: #e5a00d;
+}
+
+QStackedWidget[cssClass="settings-stack"] {
+    background-color: transparent;
+    border: none;
+}
+
+QLineEdit[cssClass="path-input"] {
+    background-color: #252525;
+    border: 1px solid #3a3a3a;
+    border-radius: 5px;
+    padding: 7px 9px;
+}
+
+QLineEdit[cssClass="path-input"]:focus {
+    border-color: #e5a00d;
+}
+
+QLabel[cssClass="field-label"] {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+QLabel[cssClass="caption"][tone="success"] {
+    color: #3ea463;
+}
+
+QLabel[cssClass="caption"][tone="error"] {
+    color: #d44040;
+}
+
 
 /* ─── Drop zone ──────────────────────────────────────────────────── */
 

@@ -57,7 +57,10 @@ def run_batch_search(
             completed[0] += 1
             count = completed[0]
         if progress_callback:
-            progress_callback(count, total)
+            try:
+                progress_callback(count, total, query)
+            except TypeError:
+                progress_callback(count, total)
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = []

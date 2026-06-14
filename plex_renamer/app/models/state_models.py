@@ -21,6 +21,9 @@ class ScanLifecycle(StrEnum):
     DISCOVERING = "discovering"
     MATCHING = "matching"
     SCANNING = "scanning"
+    BUILDING_PREVIEWS = "building_previews"
+    RECONCILING = "reconciling"
+    PREPARING_REVIEW = "preparing_review"
     REFRESHING_CACHE = "refreshing_cache"
     READY = "ready"
     WARNING = "warning"
@@ -84,6 +87,9 @@ class ScanProgress:
             ScanLifecycle.DISCOVERING,
             ScanLifecycle.MATCHING,
             ScanLifecycle.SCANNING,
+            ScanLifecycle.BUILDING_PREVIEWS,
+            ScanLifecycle.RECONCILING,
+            ScanLifecycle.PREPARING_REVIEW,
             ScanLifecycle.REFRESHING_CACHE,
         }
 
@@ -179,6 +185,23 @@ class UnmappedFileRow:
     reason: str
     preview: Any | None = None
     ignored: bool = False
+
+
+@dataclass(slots=True)
+class EpisodeSlotChoice:
+    """One pickable episode slot for the assignment dialog."""
+
+    season: int
+    episode: int
+    title: str = ""
+    claimed_by: str | None = None
+
+    @property
+    def label(self) -> str:
+        text = f"S{self.season:02d}E{self.episode:02d}"
+        if self.title:
+            text = f"{text} - {self.title}"
+        return text
 
 
 @dataclass(slots=True)

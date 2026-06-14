@@ -261,5 +261,74 @@ class TestSettingsValidation(unittest.TestCase):
         self.assertEqual(svc.match_language, "en-US")
 
 
+class TestOutputDestinations(unittest.TestCase):
+    """Persistent TV/movie output folder settings and validation."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.path = self.root / "settings.json"
+        self.svc = SettingsService(path=self.path)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_output_folders_default_to_empty(self):
+        self.assertEqual(self.svc.tv_output_folder, "")
+        self.assertEqual(self.svc.movie_output_folder, "")
+        self.assertIsNone(self.svc.valid_tv_output_folder)
+        self.assertIsNone(self.svc.valid_movie_output_folder)
+
+    def test_output_folders_roundtrip(self):
+        tv = self.root / "TV Output"
+        movies = self.root / "Movie Output"
+        tv.mkdir()
+        movies.mkdir()
+
+        self.svc.tv_output_folder = str(tv)
+        self.svc.movie_output_folder = str(movies)
+
+        reloaded = SettingsService(path=self.path)
+        self.assertEqual(Path(reloaded.tv_output_folder), tv)
+        self.assertEqual(Path(reloaded.movie_output_folder), movies)
+        self.assertEqual(reloaded.valid_tv_output_folder, tv.resolve())
+        self.assertEqual(reloaded.valid_movie_output_folder, movies.resolve())
+
+    def test_output_folder_validation_requires_existing_directory(self):
+        missing = self.root / "missing"
+        status = self.svc.validate_output_folder(str(missing))
+
+        self.assertFalse(status.valid)
+        self.assertIn("does not exist", status.reason)
+
+    def test_scan_output_relationship_rejects_same_directory(self):
+        output = self.root / "media"
+        output.mkdir()
+
+        status = self.svc.validate_scan_output_relationship(output, output)
+
+        self.assertFalse(status.valid)
+        self.assertIn("cannot be the same", status.reason)
+
+    def test_scan_output_relationship_rejects_output_nested_under_source(self):
+        source = self.root / "source"
+        output = source / "ready"
+        output.mkdir(parents=True)
+
+        status = self.svc.validate_scan_output_relationship(source, output)
+
+        self.assertFalse(status.valid)
+        self.assertIn("cannot be inside", status.reason)
+
+    def test_scan_output_relationship_allows_source_nested_under_output(self):
+        output = self.root / "library"
+        source = output / "incoming"
+        source.mkdir(parents=True)
+
+        status = self.svc.validate_scan_output_relationship(source, output)
+
+        self.assertTrue(status.valid)
+
+
 if __name__ == "__main__":
     unittest.main()

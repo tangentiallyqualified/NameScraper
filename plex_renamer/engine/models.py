@@ -22,6 +22,7 @@ from ._state import get_auto_accept_threshold
 
 if TYPE_CHECKING:
     from ._tv_scanner import TVScanner  # noqa: F401
+    from .episode_assignments import EpisodeAssignmentTable  # noqa: F401
 
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
@@ -74,6 +75,7 @@ class PreviewItem:
     companions: list[CompanionFile] = field(default_factory=list)
     episode_confidence: float = 1.0
     source_relative_folder: str = ""
+    file_id: int | None = None   # Link back to EpisodeAssignmentTable.files
 
     def is_move(self) -> bool:
         """True if this rename also moves the file to a different folder."""
@@ -170,6 +172,7 @@ class ScanState:
     source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
     completeness: CompletenessReport | None = None
+    assignments: "EpisodeAssignmentTable | None" = None
 
     # Match metadata
     confidence: float = 0.0
@@ -177,6 +180,7 @@ class ScanState:
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
     relative_folder: str = ""
+    output_root: Path | None = None
     parent_relative_folder: str | None = None
     duplicate_of_relative_folder: str | None = None
     discovery_reason: str = ""
@@ -279,6 +283,7 @@ class ScanState:
         self.scanner = None
         self.preview_items.clear()
         self.completeness = None
+        self.assignments = None
         self.scanned = False
         self.reset_gui_state()
 
@@ -346,7 +351,7 @@ def infer_explicit_season_assignment(
         return season_num
 
     direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
-    explicit_seasons = {item.season_num for item in direct_evidence if item.season_num > 0}
+    explicit_seasons = {item.season_num for item in direct_evidence}
     if len(explicit_seasons) == 1:
         return next(iter(explicit_seasons))
 

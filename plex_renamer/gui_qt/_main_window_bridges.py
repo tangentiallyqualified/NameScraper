@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Qt, Signal
 
 from ..app.models import ScanProgress
+
+_QUEUE_REFRESH_DEBOUNCE_MS = 75
 
 
 class ControllerBridge(QObject):
@@ -35,21 +37,47 @@ class QueueBridge(QObject):
     job_failed = Signal(object, object)
     queue_finished = Signal()
     poster_backfill_finished = Signal(int)
+    _change_requested = Signal(bool)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._change_timer = QTimer(self)
+        self._change_timer.setSingleShot(True)
+        self._change_timer.setInterval(_QUEUE_REFRESH_DEBOUNCE_MS)
+        self._change_timer.timeout.connect(self._emit_changed)
+        self._change_requested.connect(
+            self._schedule_changed,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
     def on_job_started(self, job) -> None:
         self.job_started.emit(job)
-        self.changed.emit(None)
+        self._request_changed()
 
     def on_job_completed(self, job, result) -> None:
         self.job_completed.emit(job, result)
-        self.changed.emit(None)
+        self._request_changed()
 
     def on_job_failed(self, job, error) -> None:
         self.job_failed.emit(job, error)
-        self.changed.emit(None)
+        self._request_changed()
 
     def on_queue_finished(self) -> None:
         self.queue_finished.emit()
+        self._request_changed(force=True)
+
+    def _request_changed(self, *, force: bool = False) -> None:
+        self._change_requested.emit(force)
+
+    def _schedule_changed(self, force: bool) -> None:
+        if force:
+            self._change_timer.stop()
+            self._emit_changed()
+            return
+        if not self._change_timer.isActive():
+            self._change_timer.start()
+
+    def _emit_changed(self) -> None:
         self.changed.emit(None)
 
     def on_poster_backfill_finished(self, updated: int) -> None:

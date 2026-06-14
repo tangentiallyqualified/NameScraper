@@ -9,6 +9,7 @@ from typing import Any, Protocol
 
 from ...constants import MediaType
 from ...engine import BatchTVOrchestrator, ScanCancelledError, ScanState
+from ...parsing import build_show_folder_name
 from ...thread_pool import submit as _submit_bg
 from ..models import ScanLifecycle
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
@@ -25,6 +26,7 @@ class _TVBatchController(Protocol):
     _batch_states: list[ScanState]
     _active_scan: ScanState | None
     _library_selected_index: int | None
+    _settings: Any
 
     @property
     def command_gating(self) -> Any: ...
@@ -85,15 +87,30 @@ def start_tv_batch_session(
     orchestrator = controller._batch_orchestrator
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int) -> None:
+    def _progress(
+        done: int,
+        total: int,
+        current_item: str | None = None,
+        phase: str | None = None,
+    ) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
+        phase_text = phase or "Matching shows..."
+        preparing_matches = phase_text == "Preparing matched shows..."
+        suffix = (
+            f" - {current_item}"
+            if current_item and preparing_matches
+            else f" - last matched: {current_item}" if current_item else ""
+        )
         controller._set_progress(
-            ScanLifecycle.MATCHING,
-            phase="Matching shows...",
+            ScanLifecycle.BUILDING_PREVIEWS if preparing_matches else ScanLifecycle.MATCHING,
+            phase=phase_text,
             done=done,
             total=total,
-            message=f"Matching shows... {done}/{total}",
+            current_item=current_item or None,
+            message=(
+                f"{phase_text} {done}/{total}" if total else phase_text
+            ) + suffix,
         )
 
     def _worker() -> None:
@@ -124,24 +141,35 @@ def scan_all_tv_batch_shows(controller: _TVBatchController) -> None:
         return
 
     controller._set_progress(
-        ScanLifecycle.SCANNING,
-        phase="Scanning episodes...",
-        message="Scanning episodes...",
+        ScanLifecycle.BUILDING_PREVIEWS,
+        phase="Building episode previews...",
+        message="Building episode previews...",
     )
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int, current_item: str | None = None) -> None:
+    def _progress(
+        done: int,
+        total: int,
+        current_item: str | None = None,
+        phase: str | None = None,
+    ) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
         current_name = current_item or _current_batch_scan_name(controller._batch_states, done)
+        phase_text = phase or "Building episode previews..."
+        lifecycle = (
+            ScanLifecycle.RECONCILING
+            if phase and "Reconciling" in phase
+            else ScanLifecycle.BUILDING_PREVIEWS
+        )
+        progress_text = f"{phase_text} {done}/{total}" if total else phase_text
         controller._set_progress(
-            ScanLifecycle.SCANNING,
-            phase="Scanning episodes...",
+            lifecycle,
+            phase=phase_text,
             done=done,
             total=total,
             current_item=current_name or None,
-            message=f"Scanning episodes... {done}/{total}"
-            + (f" — {current_name}" if current_name else ""),
+            message=progress_text + (f" - {current_name}" if current_name else ""),
         )
 
     def _worker() -> None:
@@ -208,6 +236,10 @@ def _complete_tv_batch_discovery(
         return
 
     controller._batch_states = states or []
+    tv_output = controller._settings.valid_tv_output_folder
+    if tv_output is not None:
+        for state in controller._batch_states:
+            state.output_root = tv_output
     if not controller._batch_states:
         controller._set_progress(
             ScanLifecycle.WARNING,
@@ -222,12 +254,12 @@ def _complete_tv_batch_discovery(
 
     needs_review = sum(1 for state in controller._batch_states if state.needs_review)
     controller._set_progress(
-        ScanLifecycle.READY,
+        ScanLifecycle.BUILDING_PREVIEWS,
         phase="Discovery complete",
         message=(
             f"Found {len(controller._batch_states)} shows"
-            + (f" — {needs_review} need review" if needs_review else "")
-            + " — scanning episodes..."
+            + (f" - {needs_review} need review" if needs_review else "")
+            + " - scanning episodes..."
         ),
     )
     controller._notify("library_changed", controller._batch_states)
@@ -247,7 +279,7 @@ def _cancel_tv_bulk_scan(
     controller._set_progress(
         ScanLifecycle.CANCELLED,
         phase="Batch scan cancelled",
-        message=f"Cancelled after scanning {scanned} show(s) — {total_files} total files",
+        message=f"Cancelled after scanning {scanned} show(s) - {total_files} total files",
     )
     controller._notify("library_changed", controller._batch_states)
     controller._finish_scan_operation(cancel_event)
@@ -260,6 +292,11 @@ def _complete_tv_bulk_scan(
     if not controller._is_current_scan_operation(cancel_event):
         return
 
+    tv_output = controller._settings.valid_tv_output_folder
+    if tv_output is not None:
+        for state in controller._batch_states:
+            if state.scanned:
+                retarget_tv_state_to_output(state, tv_output)
     _clear_plex_ready_checks(controller)
     scanned, total_files = _summarize_scanned_batch_states(controller._batch_states)
     prepared_states = [
@@ -269,7 +306,7 @@ def _complete_tv_bulk_scan(
     total_prepared = len(prepared_states)
     if total_prepared:
         controller._set_progress(
-            ScanLifecycle.SCANNING,
+            ScanLifecycle.PREPARING_REVIEW,
             phase="Preparing episode list...",
             done=0,
             total=total_prepared,
@@ -277,21 +314,48 @@ def _complete_tv_bulk_scan(
         )
     for index, state in enumerate(prepared_states, start=1):
         controller._set_progress(
-            ScanLifecycle.SCANNING,
+            ScanLifecycle.PREPARING_REVIEW,
+            phase="Preparing episode list...",
+            done=index - 1,
+            total=total_prepared,
+            current_item=state.display_name,
+            message=f"Preparing episode list... {index - 1}/{total_prepared} - {state.display_name}",
+        )
+        controller.prepare_episode_guides([state])
+        controller._set_progress(
+            ScanLifecycle.PREPARING_REVIEW,
             phase="Preparing episode list...",
             done=index,
             total=total_prepared,
             current_item=state.display_name,
-            message=f"Preparing episode list... {index}/{total_prepared} - {state.display_name}",
+            message=f"Prepared episode list... {index}/{total_prepared} - {state.display_name}",
         )
-        controller.prepare_episode_guides([state])
     controller._set_progress(
         ScanLifecycle.READY,
         phase="Batch scan complete",
-        message=f"Scanned {scanned} shows — {total_files} total files",
+        message=f"Scanned {scanned} shows - {total_files} total files",
     )
     controller._notify("library_changed", controller._batch_states)
     controller._finish_scan_operation(cancel_event)
+
+
+def retarget_tv_state_to_output(state: ScanState, output_root: Path) -> None:
+    """Retarget actionable TV preview items into the configured output root."""
+    resolved_output = output_root.resolve()
+    state.output_root = resolved_output
+    show_folder = build_show_folder_name(
+        state.media_info.get("name", ""),
+        state.media_info.get("year", ""),
+    )
+    if not show_folder:
+        show_folder = state.display_name
+
+    for item in state.preview_items:
+        if not item.new_name or item.season is None:
+            continue
+        if item.status != "OK" and not item.is_review:
+            continue
+        item.target_dir = resolved_output / show_folder / f"Season {item.season:02d}"
 
 
 def _clear_plex_ready_checks(controller: _TVBatchController) -> None:

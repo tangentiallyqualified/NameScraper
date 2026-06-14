@@ -52,6 +52,7 @@ class MainWindowBootstrapCoordinator:
         window = self._window
         window._toast_manager = toast_manager_factory(window)
         window._queue_run_started = False
+        window._queue_run_is_background = False
         window._queue_completed_count = 0
         window._queue_failed_count = 0
         window._pending_success_jobs = 0

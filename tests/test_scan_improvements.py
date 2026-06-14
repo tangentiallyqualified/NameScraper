@@ -9,7 +9,6 @@ from unittest.mock import patch
 from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, score_tv_results, TVScanner
-from plex_renamer.engine._tv_scanner_postprocess import apply_episode_confidence_adjustments
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 from plex_renamer.parsing import best_tv_match_title, clean_folder_name, extract_episode, extract_season_number
@@ -532,7 +531,11 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[2]].season, 2)
             self.assertEqual(by_name[filenames[2]].episodes, [1])
             self.assertTrue(all(item.status == "OK" for item in items))
-            self.assertTrue(all(item.episode_confidence == 0.92 for item in items))
+            # The consolidated path now reconciles each file through the shared
+            # resolution policy: an explicit S##E## number agreeing with the
+            # TMDB episode title yields CONF_AGREE (0.96), same as the normal
+            # path, rather than the old bare-number title-match floor (0.92).
+            self.assertTrue(all(item.episode_confidence == 0.96 for item in items))
 
     def test_title_prefix_mismatch_caps_explicit_episode_confidence(self):
         seasons = {
@@ -585,7 +588,9 @@ class ScanImprovementTests(unittest.TestCase):
 
             items, _has_mismatch = scanner.scan()
 
-            self.assertEqual(items[0].episode_confidence, 0.92)
+            # Number and TMDB title agree -> CONF_AGREE from the shared
+            # resolution policy (was a 0.92 title-match floor pre-table).
+            self.assertEqual(items[0].episode_confidence, 0.96)
             self.assertEqual(items[0].status, "OK")
 
     def test_already_plex_ready_episode_gets_perfect_confidence(self):
@@ -899,44 +904,9 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue(any("duplicate episode" in item.status for item in items))
             self.assertTrue(all(item.episode_confidence < 0.80 for item in items))
 
-    def test_conflict_regular_episode_claims_prevent_coverage_floor(self):
-        items = [
-            PreviewItem(
-                Path("C:/tv/Show/Show 01.mkv"),
-                "Show (2020) - S01E01 - One.mkv",
-                Path("C:/tv/Show/Season 01"),
-                1,
-                [1],
-                "OK",
-                episode_confidence=0.5,
-            ),
-            PreviewItem(
-                Path("C:/tv/Show/Other 01.mkv"),
-                "Show (2020) - S01E01 - One.mkv",
-                Path("C:/tv/Show/Season 01"),
-                1,
-                [1],
-                "CONFLICT: same target as Show 01.mkv",
-                episode_confidence=0.5,
-            ),
-        ]
-        tmdb_seasons = {
-            1: {
-                "name": "Season 1",
-                "titles": {1: "One"},
-                "posters": {},
-                "episodes": {},
-                "count": 1,
-            }
-        }
-
-        apply_episode_confidence_adjustments(
-            items,
-            tmdb_seasons,
-            {"id": 4000, "name": "Show", "year": "2020"},
-        )
-
-        self.assertEqual(items[0].episode_confidence, 0.5)
+    # test_conflict_regular_episode_claims_prevent_coverage_floor moved to
+    # tests/test_episode_resolution.py::TestConfidenceAdjustments::
+    # test_conflicted_season_gets_no_coverage_floor (table-based).
 
     def test_currently_airing_season_uses_aired_episode_count_for_coverage(self):
         seasons = {
@@ -966,7 +936,7 @@ class ScanImprovementTests(unittest.TestCase):
                 root,
             )
 
-            with patch("plex_renamer.engine._tv_scanner_postprocess.date") as fake_date:
+            with patch("plex_renamer.engine._episode_resolution.date") as fake_date:
                 fake_date.today.return_value = date(2026, 5, 15)
                 fake_date.fromisoformat.side_effect = date.fromisoformat
                 items, _has_mismatch = scanner.scan()
@@ -1205,14 +1175,22 @@ class ScanImprovementTests(unittest.TestCase):
 
             self.assertEqual(
                 sorted(item.episodes[0] for item in ok_items if item.season == 4),
-                [1, 9, 10],
+                [1, 10],
             )
-            self.assertEqual(len(conflict_items), 1)
-            self.assertEqual(conflict_items[0].episodes, [9])
-            self.assertIn("duplicate episode claim S04E09", conflict_items[0].status)
+            # Spec: 2+ claims on a slot are a conflict record — both
+            # claimants surfaced, neither wins silently.
+            self.assertEqual(len(conflict_items), 2)
+            self.assertTrue(all(item.episodes == [9] for item in conflict_items))
+            self.assertTrue(all(
+                "duplicate episode claim S04E09" in item.status
+                for item in conflict_items
+            ))
             self.assertEqual(
-                conflict_items[0].source_relative_folder,
-                overlapping_folder.relative_to(root).as_posix(),
+                sorted(item.source_relative_folder for item in conflict_items),
+                sorted([
+                    season_folder.relative_to(root).as_posix(),
+                    overlapping_folder.relative_to(root).as_posix(),
+                ]),
             )
 
     def test_fully_redundant_same_show_sibling_becomes_conflict_evidence(self):
@@ -1247,12 +1225,16 @@ class ScanImprovementTests(unittest.TestCase):
                 item for item in succession_states[0].preview_items if item.is_conflict
             ]
 
-            self.assertEqual(len(conflict_items), 2)
-            self.assertTrue(
-                all(
-                    item.source_relative_folder == redundant_folder.relative_to(root).as_posix()
-                    for item in conflict_items
-                )
+            # Spec: both claimants of each duplicated slot are conflicts —
+            # neither folder's copy wins silently.
+            self.assertEqual(len(conflict_items), 4)
+            conflict_sources = {item.source_relative_folder for item in conflict_items}
+            self.assertEqual(
+                conflict_sources,
+                {
+                    season_folder.relative_to(root).as_posix(),
+                    redundant_folder.relative_to(root).as_posix(),
+                },
             )
 
     def test_best_tv_match_title_falls_back_when_episode_titles_disagree(self):
@@ -1567,6 +1549,455 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue((source_root / "Disc 02" / "Bleach - 002.mkv").exists())
             self.assertFalse((library_root / "Bleach (2004)").exists())
 
+    def test_destination_aware_tv_job_moves_files_to_output_and_preserves_source_dirs(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_dir = source_root / "Bleach" / "Disc 01"
+            source_dir.mkdir(parents=True)
+            output_root.mkdir()
+            episode = source_dir / "Bleach - 001.mkv"
+            note = source_dir / "notes.txt"
+            episode.write_text("ep1")
+            note.write_text("keep")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Bleach",
+                media_name="Bleach",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/Bleach - 001.mkv",
+                        new_name="Bleach (2004) - S01E01.mkv",
+                        target_dir_relative="Bleach (2004)/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Bleach/Disc 01/notes.txt",
+                        new_name="notes.txt",
+                        target_dir_relative="Bleach (2004)/Season 01/Unmatched Files",
+                        status="UNMATCHED",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 1)
+            self.assertTrue((output_root / "Bleach (2004)" / "Season 01" / "Bleach (2004) - S01E01.mkv").exists())
+            self.assertFalse(episode.exists())
+            self.assertTrue(source_dir.exists())
+            self.assertTrue(note.exists())
+            self.assertFalse((output_root / "Bleach (2004)" / "Season 01" / "Unmatched Files").exists())
+
+    def test_revert_destination_job_restores_files_and_removes_empty_output_dirs_only(self):
+        from plex_renamer.job_executor import _execute_rename, revert_job
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_dir = source_root / "Show" / "Disc 01"
+            source_dir.mkdir(parents=True)
+            output_root.mkdir()
+            original = source_dir / "Show.001.mkv"
+            original.write_text("x")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Show/Disc 01/Show.001.mkv",
+                        new_name="Show (2024) - S01E01.mkv",
+                        target_dir_relative="Show (2024)/Season 01",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            result = _execute_rename(job)
+            job.undo_data = result.log_entry
+
+            ok, errors = revert_job(job)
+
+            self.assertTrue(ok, errors)
+            self.assertTrue(original.exists())
+            self.assertTrue(source_dir.exists())
+            self.assertTrue(output_root.exists())
+            self.assertFalse((output_root / "Show (2024)").exists())
+
+    def test_revert_destination_job_preserves_output_folder_with_unrelated_files(self):
+        from plex_renamer.job_executor import _execute_rename, revert_job
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            output_root.mkdir()
+            original = source_root / "Alien.1979.mkv"
+            original.write_text("x")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Alien",
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Alien.1979.mkv",
+                        new_name="Alien (1979).mkv",
+                        target_dir_relative="Alien (1979)",
+                        status="OK",
+                        selected=True,
+                    )
+                ],
+            )
+
+            result = _execute_rename(job)
+            unrelated = output_root / "Alien (1979)" / "poster.jpg"
+            unrelated.write_text("keep")
+            job.undo_data = result.log_entry
+
+            ok, errors = revert_job(job)
+
+            self.assertTrue(ok, errors)
+            self.assertTrue(original.exists())
+            self.assertTrue(unrelated.exists())
+
+    def test_revert_destination_job_rejects_undo_paths_outside_roots(self):
+        from plex_renamer.job_executor import revert_job
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_output = Path(tmp) / "outside-output.mkv"
+            outside_output.write_text("outside")
+            outside_source = Path(tmp) / "outside-source" / "restored.mkv"
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                undo_data={
+                    "renames": [
+                        {
+                            "old": str(outside_source),
+                            "new": str(outside_output),
+                        }
+                    ],
+                    "created_dirs": [],
+                    "removed_dirs": [],
+                    "renamed_dirs": [],
+                },
+            )
+
+            ok, errors = revert_job(job)
+
+            self.assertFalse(ok)
+            self.assertTrue(any("outside the output root" in error for error in errors))
+            self.assertTrue(any("outside the source root" in error for error in errors))
+            self.assertTrue(outside_output.exists())
+            self.assertEqual(outside_output.read_text(), "outside")
+            self.assertFalse(outside_source.exists())
+
+    def test_revert_destination_job_rejects_folder_undo_paths_outside_roots(self):
+        from plex_renamer.job_executor import revert_job
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_renamed_dir = Path(tmp) / "outside-renamed"
+            outside_renamed_dir.mkdir()
+            outside_restore_dir = Path(tmp) / "outside-restored"
+            outside_removed_dir = Path(tmp) / "outside-removed"
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder="Show",
+                media_name="Show",
+                undo_data={
+                    "renames": [],
+                    "created_dirs": [],
+                    "removed_dirs": [str(outside_removed_dir)],
+                    "renamed_dirs": [
+                        {
+                            "old": str(outside_restore_dir),
+                            "new": str(outside_renamed_dir),
+                        }
+                    ],
+                },
+            )
+
+            ok, errors = revert_job(job)
+
+            self.assertFalse(ok)
+            self.assertTrue(any("outside the output root" in error for error in errors))
+            self.assertTrue(any("outside the source root" in error for error in errors))
+            self.assertTrue(outside_renamed_dir.exists())
+            self.assertFalse(outside_restore_dir.exists())
+            self.assertFalse(outside_removed_dir.exists())
+
+    def test_destination_collision_routes_whole_job_to_numbered_top_folder(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            existing_dir = output_root / "Toy Story (1995)"
+            existing_dir.mkdir(parents=True)
+            existing_file = existing_dir / "Toy Story (1995).mkv"
+            existing_file.write_text("existing")
+            movie_file = source_root / "Toy.Story.1995.mkv"
+            movie_file.write_text("movie")
+            subtitle = source_root / "Toy.Story.1995.srt"
+            subtitle.write_text("subtitle")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Toy Story",
+                media_type=MediaType.MOVIE,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Toy.Story.1995.mkv",
+                        new_name="Toy Story (1995).mkv",
+                        target_dir_relative="Toy Story (1995)",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Toy.Story.1995.srt",
+                        new_name="Toy Story (1995).srt",
+                        target_dir_relative="Toy Story (1995)",
+                        status="REVIEW_SUBTITLE",
+                        selected=True,
+                        file_type="subtitle",
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            numbered_dir = output_root / "Toy Story (1995) (1)"
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 2)
+            self.assertTrue(existing_file.exists())
+            self.assertEqual(existing_file.read_text(), "existing")
+            self.assertTrue((numbered_dir / "Toy Story (1995).mkv").exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).srt").exists())
+            self.assertFalse(movie_file.exists())
+            self.assertFalse(subtitle.exists())
+
+    def test_destination_existing_top_folder_routes_whole_job_to_numbered_folder(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "Movies"
+            source_root.mkdir()
+            existing_dir = output_root / "Toy Story (1995)"
+            existing_dir.mkdir(parents=True)
+            unrelated = existing_dir / "poster.jpg"
+            unrelated.write_text("existing")
+            movie_file = source_root / "Toy.Story.1995.mkv"
+            movie_file.write_text("movie")
+            subtitle = source_root / "Toy.Story.1995.srt"
+            subtitle.write_text("subtitle")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Toy Story",
+                media_type=MediaType.MOVIE,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="Toy.Story.1995.mkv",
+                        new_name="Toy Story (1995).mkv",
+                        target_dir_relative="Toy Story (1995)",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="Toy.Story.1995.srt",
+                        new_name="Toy Story (1995).srt",
+                        target_dir_relative="Toy Story (1995)",
+                        status="REVIEW_SUBTITLE",
+                        selected=True,
+                        file_type="subtitle",
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            numbered_dir = output_root / "Toy Story (1995) (1)"
+            self.assertEqual(result.errors, [])
+            self.assertEqual(result.renamed_count, 2)
+            self.assertTrue(unrelated.exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).mkv").exists())
+            self.assertTrue((numbered_dir / "Toy Story (1995).srt").exists())
+            self.assertFalse((existing_dir / "Toy Story (1995).mkv").exists())
+
+    def test_destination_job_rejects_paths_outside_source_or_output_roots(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            outside_source = Path(tmp) / "outside.mkv"
+            outside_source.write_text("outside")
+            inside_source = source_root / "episode.mkv"
+            inside_source.write_text("inside")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Escapes",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="../outside.mkv",
+                        new_name="Outside.mkv",
+                        target_dir_relative="Escapes/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="episode.mkv",
+                        new_name="Inside.mkv",
+                        target_dir_relative="../Escaped",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("outside the source root" in error for error in result.errors))
+            self.assertTrue(any("outside the output root" in error for error in result.errors))
+            self.assertTrue(outside_source.exists())
+            self.assertTrue(inside_source.exists())
+            self.assertFalse((Path(tmp) / "Escaped").exists())
+
+    def test_destination_job_rejects_duplicate_selected_targets_before_moving(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            first = source_root / "first.mkv"
+            second = source_root / "second.mkv"
+            first.write_text("first")
+            second.write_text("second")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Duplicate",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="first.mkv",
+                        new_name="Duplicate.mkv",
+                        target_dir_relative="Duplicate/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                    RenameOp(
+                        original_relative="second.mkv",
+                        new_name="Duplicate.mkv",
+                        target_dir_relative="Duplicate/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("Duplicate target" in error for error in result.errors))
+            self.assertTrue(first.exists())
+            self.assertTrue(second.exists())
+            self.assertFalse((output_root / "Duplicate").exists())
+
+    def test_destination_job_rejects_new_name_that_escapes_output_root(self):
+        from plex_renamer.constants import MediaType
+        from plex_renamer.job_executor import _execute_rename
+        from plex_renamer.job_store import RenameOp
+
+        with TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "Incoming"
+            output_root = Path(tmp) / "TV Output"
+            source_root.mkdir()
+            output_root.mkdir()
+            episode = source_root / "episode.mkv"
+            episode.write_text("inside")
+            outside_collision = Path(tmp) / "escaped.mkv"
+            outside_collision.write_text("outside")
+
+            job = RenameJob(
+                library_root=str(source_root),
+                output_root=str(output_root),
+                source_folder=".",
+                media_name="Escaped Name",
+                media_type=MediaType.TV,
+                rename_ops=[
+                    RenameOp(
+                        original_relative="episode.mkv",
+                        new_name="../../../escaped.mkv",
+                        target_dir_relative="Escaped Name/Season 01",
+                        status="OK",
+                        selected=True,
+                    ),
+                ],
+            )
+
+            result = _execute_rename(job)
+
+            self.assertEqual(result.renamed_count, 0)
+            self.assertTrue(any("outside the output root" in error for error in result.errors))
+            self.assertTrue(episode.exists())
+            self.assertEqual(outside_collision.read_text(), "outside")
 
     def test_movie_at_library_root_does_not_move_sibling_content(self):
         """Movies in the library root must not cause sibling dirs/files
@@ -1778,3 +2209,141 @@ class ScanImprovementTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeTMDB:
+    """Minimal TMDB stand-in for table-driven scanner tests."""
+
+    def __init__(self, seasons: dict):
+        # seasons: {num: {"titles": {ep: title}, "posters": {}, "episodes": {}, "count": n}}
+        self._seasons = seasons
+        self.language = "en-US"
+
+    def get_season_map(self, show_id):
+        return self._seasons, None
+
+    def get_season(self, show_id, season_num):
+        return self._seasons.get(
+            season_num, {"titles": {}, "posters": {}, "episodes": {}},
+        )
+
+    def get_tv_details(self, show_id):
+        return {"seasons": []}
+
+
+SHOW_INFO = {"id": 5, "name": "Demo Show", "year": "2020"}
+
+
+def _seasons(spec: dict[int, dict[int, str]]) -> dict:
+    return {
+        num: {
+            "titles": titles,
+            "posters": {},
+            "episodes": {},
+            "count": len(titles),
+        }
+        for num, titles in spec.items()
+    }
+
+
+def make_scanner(root, seasons):
+    from plex_renamer.engine._tv_scanner import TVScanner
+
+    return TVScanner(FakeTMDB(_seasons(seasons)), SHOW_INFO, root)
+
+
+class TestTableDrivenScan:
+    def test_scan_produces_assignment_table(self, tmp_path):
+        season_dir = tmp_path / "Season 01"
+        season_dir.mkdir()
+        (season_dir / "Demo Show S01E01.mkv").touch()
+        scanner = make_scanner(tmp_path, {1: {1: "Pilot", 2: "Two"}})
+        items, _ = scanner.scan()
+        assert scanner.assignment_table is not None
+        assert len(scanner.assignment_table.files) == 1
+        assert items[0].file_id is not None
+        assert items[0].status == "OK"
+
+    def test_special_title_beats_wrong_number(self, tmp_path):
+        # The headline bug: local S00E03 named "Special A" while TMDB
+        # says e02 is "Special A" -> must map to e02, not e03.
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E03 - Special A.mkv").touch()
+        scanner = make_scanner(
+            tmp_path,
+            {0: {1: "Opening", 2: "Special A", 3: "Special C"},
+             1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.episodes == [2]
+        assert special.episode_confidence < 1.0
+
+    def test_unmatched_special_is_not_silent_ok(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "random home video.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.is_unmatched
+
+    def test_same_named_specials_in_two_seasons_conflict(self, tmp_path):
+        for season_name in ("Season 01", "Season 02"):
+            directory = tmp_path / season_name
+            directory.mkdir()
+            (directory / "S00E01 - Opening.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
+        )
+        items, _ = scanner.scan()
+        conflicted = [item for item in items if item.is_conflict]
+        assert len(conflicted) == 2
+        assert scanner.assignment_table.conflicts()
+
+    def test_episode_confidence_set_on_specials(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01.mkv").touch()  # number only, no title
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        special = next(item for item in items if item.season == 0)
+        assert special.episode_confidence < 1.0
+
+
+class TestSpecialsOnlyShow:
+    def test_specials_only_folder_scans_season_zero(self, tmp_path):
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01 - Opening.mkv").touch()
+        scanner = make_scanner(
+            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+        )
+        items, _ = scanner.scan()
+        assert all(item.season == 0 for item in items)
+
+    def test_infer_season_assignment_returns_zero_for_all_s00_evidence(self):
+        from plex_renamer.engine.models import (
+            DirectEpisodeEvidence,
+            infer_explicit_season_assignment,
+        )
+        evidence = [
+            DirectEpisodeEvidence(0, 1, "Opening"),
+            DirectEpisodeEvidence(0, 2, "Recap"),
+        ]
+        assert infer_explicit_season_assignment(
+            Path("Some Show"), evidence,
+        ) == 0
+
+    def test_collect_evidence_descends_specials_folder(self, tmp_path):
+        from plex_renamer.engine.models import collect_direct_episode_evidence
+        specials = tmp_path / "Specials"
+        specials.mkdir()
+        (specials / "S00E01 - Opening.mkv").touch()
+        evidence = collect_direct_episode_evidence(tmp_path)
+        assert any(item.season_num == 0 for item in evidence)

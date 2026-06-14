@@ -112,6 +112,48 @@ def clean_name(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip()
 
 
+_YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
+
+
+def _strip_quality_parens(text: str) -> str:
+    """Remove parenthetical groups that contain a release-noise token or a year.
+
+    Keeps descriptive groups like ``(Pilot)``/``(Again)`` and part numbers
+    like ``(1)`` while dropping ``(480p BluRay x265 ImE)``, ``(2008)``, etc.
+
+    Noise check is done per-token (via ``_is_release_noise_token``) so the
+    special case that treats "it" (the English word) as non-noise is respected.
+    """
+    def repl(match: re.Match) -> str:
+        inner = match.group(1)
+        # Check each whitespace-delimited token for release noise
+        tokens = inner.split()
+        if any(_is_release_noise_token(t) for t in tokens):
+            return " "
+        # Check for a standalone 4-digit year within the plausible range
+        for m in _YEAR_RE.finditer(inner):
+            year = int(m.group(1))
+            if YEAR_MIN_EXTRACT <= year <= YEAR_MAX:
+                return " "
+        return match.group(0)
+
+    return re.sub(r"\(([^()]*)\)", repl, text)
+
+
+def clean_title_evidence(name: str) -> str:
+    """Normalize a filename for episode-TITLE extraction.
+
+    Like ``clean_name`` but PRESERVES descriptive parentheticals such as
+    ``(Pilot)``/``(Again)`` (so specials match their TMDB titles) while still
+    dropping quality/source parentheticals. Strips square-bracketed tags and
+    turns dots/underscores into spaces.
+    """
+    name = re.sub(r"\[.*?\]", "", name)
+    name = _strip_quality_parens(name)
+    name = name.replace(".", " ").replace("_", " ")
+    return re.sub(r"\s+", " ", name).strip()
+
+
 def sanitize_filename(name: str) -> str:
     """
     Remove or replace characters that are illegal in filenames on

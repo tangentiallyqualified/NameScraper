@@ -87,8 +87,8 @@ class JobTableModel(QAbstractTableModel):
 
         self.beginResetModel()
         self._jobs = list(jobs)
-        valid_ids = {job.job_id for job in self._jobs}
-        self._checked_job_ids &= valid_ids
+        checkable_ids = {job.job_id for job in self._jobs if self.is_checkable_job(job)}
+        self._checked_job_ids &= checkable_ids
         self.endResetModel()
 
     def _clear_highlights(self) -> None:
@@ -109,17 +109,22 @@ class JobTableModel(QAbstractTableModel):
     def checked_jobs(self) -> list[RenameJob]:
         return [job for job in self._jobs if job.job_id in self._checked_job_ids]
 
+    def is_checkable_job(self, job: RenameJob) -> bool:
+        if self._history:
+            return job.status == JobStatus.COMPLETED and bool(job.undo_data)
+        return job.status == JobStatus.PENDING
+
     def set_checked_job_ids(self, job_ids: set[str]) -> None:
-        valid_ids = {job.job_id for job in self._jobs}
-        normalized = set(job_ids) & valid_ids
+        checkable_ids = {job.job_id for job in self._jobs if self.is_checkable_job(job)}
+        normalized = set(job_ids) & checkable_ids
         if normalized == self._checked_job_ids:
             return
         self._checked_job_ids = normalized
         self._emit_check_state_changed()
 
     def set_jobs_checked(self, job_ids: set[str], checked: bool) -> None:
-        valid_ids = {job.job_id for job in self._jobs}
-        target_ids = set(job_ids) & valid_ids
+        checkable_ids = {job.job_id for job in self._jobs if self.is_checkable_job(job)}
+        target_ids = set(job_ids) & checkable_ids
         if not target_ids:
             return
         next_checked = set(self._checked_job_ids)
@@ -168,7 +173,7 @@ class JobTableModel(QAbstractTableModel):
         value_column = column - 1
 
         if role == Qt.ItemDataRole.CheckStateRole and column == 0:
-            if job.status in (JobStatus.REVERTED, JobStatus.REVERT_FAILED):
+            if not self.is_checkable_job(job):
                 return None
             return Qt.CheckState.Checked if job.job_id in self._checked_job_ids else Qt.CheckState.Unchecked
 
@@ -184,9 +189,9 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return job.job_kind.title()
             if value_column == 4:
-                return str(job.selected_count)
+                return str(job.selected_video_count)
             if value_column == 5:
-                comp = len(job.companion_ops)
+                comp = job.selected_companion_count
                 return str(comp) if comp else ""
             if value_column == 6:
                 return _fmt_dt(job.updated_at if self._history else job.created_at)
@@ -219,9 +224,9 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return (job.job_kind or "").casefold()
             if value_column == 4:
-                return int(job.selected_count or 0)
+                return int(job.selected_video_count or 0)
             if value_column == 5:
-                return len(job.companion_ops)
+                return job.selected_companion_count
             if value_column == 6:
                 return job.updated_at if self._history else job.created_at
 
@@ -231,6 +236,8 @@ class JobTableModel(QAbstractTableModel):
         if not index.isValid() or index.column() != 0 or role != Qt.ItemDataRole.CheckStateRole:
             return False
         job = self._jobs[index.row()]
+        if not self.is_checkable_job(job):
+            return False
         checked = value == Qt.CheckState.Checked
         if checked:
             if job.job_id in self._checked_job_ids:
@@ -249,7 +256,7 @@ class JobTableModel(QAbstractTableModel):
         base = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         if index.column() == 0:
             job = self._jobs[index.row()]
-            if job.status in (JobStatus.REVERTED, JobStatus.REVERT_FAILED):
+            if not self.is_checkable_job(job):
                 return base
             return base | Qt.ItemFlag.ItemIsUserCheckable
         return base

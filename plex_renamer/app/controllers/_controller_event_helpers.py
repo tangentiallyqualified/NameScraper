@@ -9,6 +9,7 @@ from typing import Any
 from ...constants import MediaType
 from ...engine import ScanState, set_auto_accept_threshold, set_episode_auto_accept_threshold
 from ...engine._tv_scanner_postprocess import apply_episode_review_threshold
+from ..services.episode_mapping_service import EpisodeMappingService
 from ..models import ScanLifecycle, ScanProgress
 
 ListenerEntry = dict[str, Callable[..., Any] | None]
@@ -73,8 +74,15 @@ def apply_runtime_settings_to_states(
 ) -> None:
     set_auto_accept_threshold(auto_accept_threshold)
     set_episode_auto_accept_threshold(episode_auto_accept_threshold)
+    _service = EpisodeMappingService()
     for state in states:
-        apply_episode_review_threshold(state.preview_items)
+        if state.assignments is not None:
+            # Table-backed: reproject so projection semantics (approved rows,
+            # manual assignments) are respected instead of flipping statuses in
+            # place, which would cause approved/manual rows to flip-flop.
+            _service.reproject(state)
+        else:
+            apply_episode_review_threshold(state.preview_items)
         if any(item.is_review for item in state.preview_items):
             state.checked = False
         if state.match_origin == "manual":

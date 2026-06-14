@@ -9,6 +9,8 @@ from typing import Any, Callable
 from ..engine import RenameResult
 from ..job_store import RenameJob
 
+_QUEUE_PROGRESS_TOAST_KEY = "queue-progress"
+
 
 class MainWindowFeedbackCoordinator:
     def __init__(
@@ -101,11 +103,14 @@ class MainWindowFeedbackCoordinator:
         window = self._window
         if not window._queue_run_started:
             window._queue_run_started = True
+            window._queue_run_is_background = bool(window.queue_ctrl.is_running)
             window._queue_completed_count = 0
             window._queue_failed_count = 0
             window._pending_success_jobs = 0
             window._pending_success_files = 0
             window._success_toast_timer.stop()
+        if window._queue_run_is_background:
+            self._show_queue_progress_toast()
 
     def on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
         window = self._window
@@ -123,16 +128,22 @@ class MainWindowFeedbackCoordinator:
             return
         window._pending_success_jobs += 1
         window._pending_success_files += renamed
+        if window._queue_run_is_background:
+            self._show_queue_progress_toast()
+            return
         window._success_toast_timer.start()
 
     def flush_success_toast_batch(self) -> None:
         window = self._window
-        if window._pending_success_jobs <= 0 or not window._queue_run_started:
+        if not window._queue_run_started or window._queue_run_is_background:
             return
         jobs = window._pending_success_jobs
         files = window._pending_success_files
         window._pending_success_jobs = 0
         window._pending_success_files = 0
+        if jobs <= 0:
+            self._reset_queue_run_state()
+            return
         job_noun = "job" if jobs == 1 else "jobs"
         file_noun = "file" if files == 1 else "files"
         window._toast_manager.show_toast(
@@ -141,10 +152,15 @@ class MainWindowFeedbackCoordinator:
             tone="success",
             duration_ms=3000,
         )
+        self._reset_queue_run_state()
 
     def on_job_failed(self, job: RenameJob, error: str) -> None:
         window = self._window
         window._queue_failed_count += 1
+        if window._queue_run_started and window._queue_run_is_background:
+            self._show_queue_progress_toast()
+        elif window._queue_run_started:
+            window._success_toast_timer.start()
         detail = error or job.error_message or "Unknown error"
         window._toast_manager.show_toast(
             title=f"Job failed: {job.media_name}",
@@ -160,17 +176,60 @@ class MainWindowFeedbackCoordinator:
         if not window._queue_run_started:
             return
         window._success_toast_timer.stop()
-        window._pending_success_jobs = 0
-        window._pending_success_files = 0
-        summary = f"{window._queue_completed_count} completed"
-        if window._queue_failed_count:
-            summary += f", {window._queue_failed_count} failed"
+        if window._queue_run_is_background:
+            window._toast_manager.dismiss_toast(_QUEUE_PROGRESS_TOAST_KEY)
+        summary = self._format_queue_finished_message()
         window._toast_manager.show_toast(
             title="Queue finished",
             message=summary,
             tone="accent",
             duration_ms=5000,
         )
+        self._reset_queue_run_state()
+
+    def _show_queue_progress_toast(self) -> None:
+        window = self._window
+        window._toast_manager.show_or_update_toast(
+            key=_QUEUE_PROGRESS_TOAST_KEY,
+            title="Queue running",
+            message=self._format_queue_progress_message(),
+            tone="accent",
+            duration_ms=0,
+        )
+
+    def _format_queue_progress_message(self) -> str:
+        window = self._window
+        counts = window.queue_ctrl.count_by_status()
+        running = counts.get("running", 0)
+        pending = counts.get("pending", 0)
+        parts: list[str] = []
+        if running:
+            parts.append(f"{running} running")
+        if pending:
+            parts.append(f"{pending} pending")
+        parts.append(f"{window._queue_completed_count} completed")
+        if window._queue_failed_count:
+            parts.append(f"{window._queue_failed_count} failed")
+        if window._pending_success_files:
+            file_noun = "file" if window._pending_success_files == 1 else "files"
+            parts.append(f"{window._pending_success_files} {file_noun} renamed")
+        return " • ".join(parts)
+
+    def _format_queue_finished_message(self) -> str:
+        window = self._window
+        parts = [f"{window._queue_completed_count} completed"]
+        if window._queue_failed_count:
+            parts.append(f"{window._queue_failed_count} failed")
+        if window._queue_completed_count or window._pending_success_files:
+            file_noun = "file" if window._pending_success_files == 1 else "files"
+            parts.append(f"{window._pending_success_files} {file_noun} renamed")
+        return ", ".join(parts)
+
+    def _reset_queue_run_state(self) -> None:
+        window = self._window
         window._queue_run_started = False
+        window._queue_run_is_background = False
         window._queue_completed_count = 0
         window._queue_failed_count = 0
+        window._pending_success_jobs = 0
+        window._pending_success_files = 0

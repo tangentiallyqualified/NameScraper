@@ -53,12 +53,13 @@ class RenameOp:
     """
     One file's rename plan — fully serializable, no Path objects.
 
-    Paths are stored relative to the job's library_root so they survive
-    drive remounts and are portable across machines.
+    Source paths are stored relative to the job's library_root.  Target
+    directories are relative to output_root for destination-aware jobs and
+    library_root for completed legacy jobs.
     """
     original_relative: str          # Relative path from library_root
     new_name: str                   # Target filename
-    target_dir_relative: str        # Relative path from library_root to target dir
+    target_dir_relative: str        # Relative path from target root to target dir
     status: str                     # "OK", "UNMATCHED", etc.
     season: int | None = None
     episodes: list[int] = field(default_factory=list)
@@ -100,7 +101,8 @@ class RenameJob:
     poster_path: str | None = None
 
     # Paths
-    library_root: str = ""          # Absolute path to the library root
+    library_root: str = ""          # Absolute path to the source root
+    output_root: str | None = None  # Optional destination root for output files
     source_folder: str = ""         # Relative path from library_root to show/movie folder
 
     # What to rename
@@ -144,6 +146,22 @@ class RenameJob:
         return sum(1 for op in self.rename_ops if op.selected)
 
     @property
+    def selected_video_ops(self) -> list[RenameOp]:
+        return [op for op in self.selected_ops if op.file_type == "video"]
+
+    @property
+    def selected_video_count(self) -> int:
+        return len(self.selected_video_ops)
+
+    @property
+    def selected_companion_ops(self) -> list[RenameOp]:
+        return [op for op in self.selected_ops if op.file_type != "video"]
+
+    @property
+    def selected_companion_count(self) -> int:
+        return len(self.selected_companion_ops)
+
+    @property
     def video_ops(self) -> list[RenameOp]:
         """Ops for the primary media files (file_type == 'video')."""
         return [op for op in self.rename_ops if op.file_type == "video"]
@@ -163,6 +181,11 @@ class RenameJob:
     def source_path(self) -> Path:
         """Absolute path to the show/movie folder."""
         return Path(self.library_root) / self.source_folder
+
+    @property
+    def output_path(self) -> Path | None:
+        """Absolute path to the configured output destination."""
+        return Path(self.output_root) if self.output_root else None
 
     @property
     def is_actionable(self) -> bool:
@@ -263,18 +286,18 @@ class JobStore:
                 conn.execute("""
                     INSERT INTO jobs (
                         job_id, created_at, updated_at, media_type, tmdb_id,
-                        media_name, poster_path, library_root, source_folder,
-                        show_folder_rename, status, error_message, position,
-                        undo_data, job_kind, data_source, depends_on,
-                        rename_ops
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        media_name, poster_path, library_root, output_root,
+                        source_folder, show_folder_rename, status,
+                        error_message, position, undo_data, job_kind,
+                        data_source, depends_on, rename_ops
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job.job_id, job.created_at, job.updated_at,
                     job.media_type, job.tmdb_id,
-                    job.media_name, job.poster_path, job.library_root, job.source_folder,
-                    job.show_folder_rename, job.status, job.error_message,
-                    job.position, undo_json, job.job_kind, job.data_source,
-                    job.depends_on, ops_json,
+                    job.media_name, job.poster_path, job.library_root,
+                    job.output_root, job.source_folder, job.show_folder_rename,
+                    job.status, job.error_message, job.position, undo_json,
+                    job.job_kind, job.data_source, job.depends_on, ops_json,
                 ))
                 conn.commit()
             except sqlite3.IntegrityError as e:

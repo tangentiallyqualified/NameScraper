@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...app.models.state_models import EpisodeGuideRow as _EpisodeGuideRow
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import PreviewItem, ScanState
 from ._media_helpers import (
@@ -55,8 +57,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         settings_service: "SettingsService | None" = None,
         set_item_check_state_callback=None,
         episode_filter_changed_callback=None,
-        approve_episode_callback=None,
-        fix_episode_callback=None,
+        episode_row_action_callback=None,
         approve_all_episode_callback=None,
         episode_guide_provider=None,
         parent: QWidget | None = None,
@@ -66,8 +67,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._settings = settings_service
         self._set_item_check_state = set_item_check_state_callback
         self._episode_filter_changed = episode_filter_changed_callback
-        self._approve_episode = approve_episode_callback
-        self._fix_episode = fix_episode_callback
+        self._episode_row_action = episode_row_action_callback
         self._approve_all_episode = approve_all_episode_callback
         self._episode_guide_provider = episode_guide_provider
         self._episode_filter = "all"
@@ -330,6 +330,41 @@ class MediaWorkspacePreviewPanel(QFrame):
                 continue
             rows_by_season.setdefault(row.season, []).append(row)
 
+        if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
+            self.add_static_header(
+                f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})",
+                render_key=render_key,
+            )
+            for unmapped in guide.unmapped_primary_files:
+                index = state.preview_items.index(unmapped.preview) if unmapped.preview in state.preview_items else None
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self._add_rendered_item(item, render_key)
+                _up = unmapped.preview
+                synthetic_row = _EpisodeGuideRow(
+                    season=(_up.season or 0) if _up is not None else 0,
+                    episode=(_up.episodes[0] if _up.episodes else 0) if _up is not None else 0,
+                    status="Unassigned",
+                    primary_file=unmapped.preview,
+                )
+                widget = _EpisodeGuideRowWidget(
+                    title=unmapped.original.name,
+                    status="Unassigned",
+                    original=str(unmapped.reason),
+                    actions=[("reassign", "Assign to episode...")],
+                    parent=self._list_widget,
+                )
+                if self._episode_row_action is not None:
+                    widget.action_requested.connect(
+                        lambda action_id, s=state, r=synthetic_row: self._episode_row_action(s, r, action_id)
+                    )
+                widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
+                self._sync_item_height(item, widget)
+                self._list_widget.setItemWidget(item, widget)
+
+        rendered_rows = 0
         for season_num, rows in sorted(rows_by_season.items()):
             section_key = f"episode-guide-season:{season_num}"
             auto_collapsed_key = f"{section_key}:auto-collapsed"
@@ -348,6 +383,9 @@ class MediaWorkspacePreviewPanel(QFrame):
             prefix = _SECTION_COLLAPSED_PREFIX if is_collapsed else _SECTION_EXPANDED_PREFIX
             self.add_header(prefix + season_title, section_key, render_key=render_key)
             for row in rows:
+                rendered_rows += 1
+                if rendered_rows % 30 == 0:
+                    QApplication.processEvents()
                 item = self._build_episode_guide_item(state, row)
                 self._add_rendered_item(
                     item,
@@ -357,28 +395,6 @@ class MediaWorkspacePreviewPanel(QFrame):
                 )
                 item.setHidden(is_collapsed)
                 self._attach_episode_guide_widget(item, state, row)
-
-        if self._episode_filter in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
-            self.add_static_header(
-                f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})",
-                render_key=render_key,
-            )
-            for unmapped in guide.unmapped_primary_files:
-                index = state.preview_items.index(unmapped.preview) if unmapped.preview in state.preview_items else None
-                item = QListWidgetItem()
-                item.setData(Qt.ItemDataRole.UserRole, index)
-                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "unmapped")
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                self._add_rendered_item(item, render_key)
-                widget = _EpisodeGuideRowWidget(
-                    title=unmapped.original.name,
-                    status="Unmapped",
-                    original=unmapped.reason,
-                    parent=self._list_widget,
-                )
-                widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
-                self._sync_item_height(item, widget)
-                self._list_widget.setItemWidget(item, widget)
 
         if self._episode_filter in {"all", "problems", "unmapped"} and guide.orphan_companion_files:
             self.add_static_header(
@@ -753,6 +769,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         title = f"S{row.season:02d}E{row.episode:02d}"
         if row.title:
             title = f"{title} - {row.title}"
+        actions = self._episode_row_actions(row)
         widget = _EpisodeGuideRowWidget(
             title=title,
             status=row.status,
@@ -760,26 +777,37 @@ class MediaWorkspacePreviewPanel(QFrame):
             target=row.target_rename,
             confidence=row.confidence_label,
             companions=companions,
+            actions=actions,
             parent=self._list_widget,
         )
-        if row.primary_file is not None:
-            widget.approve_requested.connect(
-                lambda preview=row.primary_file, state=state: (
-                    self._approve_episode(state, preview)
-                    if self._approve_episode is not None
-                    else None
-                )
-            )
-            widget.fix_requested.connect(
-                lambda preview=row.primary_file, state=state: (
-                    self._fix_episode(state, preview)
-                    if self._fix_episode is not None
-                    else None
+        if self._episode_row_action is not None:
+            widget.action_requested.connect(
+                lambda action_id, state=state, row=row: self._episode_row_action(
+                    state, row, action_id,
                 )
             )
         widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
         self._sync_item_height(item, widget)
         self._list_widget.setItemWidget(item, widget)
+
+    @staticmethod
+    def _episode_row_actions(row) -> list[tuple[str, str]]:
+        if row.status == "Missing File":
+            return [("assign_file", "Assign file...")]
+        if row.status == "Conflict":
+            return [
+                ("keep_this", "Keep this file (unassign others)"),
+                ("reassign", "Reassign..."),
+                ("assign_to_more", "Assign to more..."),
+                ("unassign", "Unassign"),
+            ]
+        actions: list[tuple[str, str]] = []
+        if row.status == "Review":
+            actions.append(("approve", "Approve"))
+        actions.append(("reassign", "Reassign..."))
+        actions.append(("assign_to_more", "Assign to more..."))
+        actions.append(("unassign", "Unassign"))
+        return actions
 
     def _add_folder_preview_section(
         self,

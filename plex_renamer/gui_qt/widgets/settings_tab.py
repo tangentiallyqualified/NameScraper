@@ -13,12 +13,15 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
+    QHBoxLayout,
+    QListWidget,
     QMessageBox,
     QScrollArea,
-    QVBoxLayout,
+    QStackedWidget,
     QWidget,
 )
 
+from .. import _scale
 from ...thread_pool import submit as _submit_bg
 from ._settings_tab_actions import SettingsTabActionsCoordinator
 from ._settings_tab_sections import SettingsTabSectionsBuilder
@@ -105,10 +108,35 @@ class SettingsTab(QScrollArea):
         self.setFrameShape(QFrame.Shape.NoFrame)
 
         content = QWidget()
-        self._layout = QVBoxLayout(content)
-        self._layout.setContentsMargins(32, 24, 32, 24)
-        self._layout.setSpacing(16)
+        shell = QHBoxLayout(content)
+        shell.setContentsMargins(
+            _scale.px(24),
+            _scale.px(20),
+            _scale.px(24),
+            _scale.px(20),
+        )
+        shell.setSpacing(_scale.px(16))
 
+        self._settings_nav = QListWidget()
+        self._settings_nav.setProperty("cssClass", "settings-nav")
+        self._settings_nav.setFixedWidth(_scale.px(180))
+        self._settings_nav.addItems(
+            [
+                "Destinations",
+                "Display",
+                "Matching",
+                "API Keys",
+                "Cache",
+                "Data",
+            ]
+        )
+        shell.addWidget(self._settings_nav)
+
+        self._settings_stack = QStackedWidget()
+        self._settings_stack.setProperty("cssClass", "settings-stack")
+        shell.addWidget(self._settings_stack, stretch=1)
+
+        self._build_destinations_section()
         self._build_display_section()
         self._build_matching_section()
         self._build_api_keys_section()
@@ -116,9 +144,13 @@ class SettingsTab(QScrollArea):
         self._build_data_management_section()
         self._build_advanced_section()
 
-        self._layout.addStretch()
+        self._settings_nav.currentRowChanged.connect(self._settings_stack.setCurrentIndex)
+        self._settings_nav.setCurrentRow(0)
         self.setWidget(content)
         self._refresh_cache_stats()
+
+    def _build_destinations_section(self) -> None:
+        self._sections_builder.build_destinations_section()
 
     # ── Display ──────────────────────────────────────────────────
 
@@ -187,6 +219,15 @@ class SettingsTab(QScrollArea):
 
     def _on_confidence_bars(self, checked: bool) -> None:
         self._state_coordinator.on_confidence_bars(checked)
+
+    def _on_save_destinations(self) -> None:
+        self._state_coordinator.on_save_destinations()
+
+    def _on_browse_tv_output(self) -> None:
+        self._state_coordinator.browse_output_folder("tv")
+
+    def _on_browse_movie_output(self) -> None:
+        self._state_coordinator.browse_output_folder("movie")
 
     def _on_save_key(self) -> None:
         self._actions_coordinator.save_key()

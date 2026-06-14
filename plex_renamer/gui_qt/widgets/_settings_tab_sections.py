@@ -29,8 +29,14 @@ class SettingsSectionCard(QFrame):
         self.setProperty("cssClass", "settings-section")
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(16, 16, 16, 16)
-        self._layout.setSpacing(12)
+        self._layout.setContentsMargins(
+            _scale.px(16),
+            _scale.px(16),
+            _scale.px(16),
+            _scale.px(16),
+        )
+        self._layout.setSpacing(_scale.px(12))
+        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         heading = QLabel(title)
         heading.setProperty("cssClass", "heading")
@@ -48,6 +54,12 @@ class SettingsSectionCard(QFrame):
     def add_layout(self, layout) -> None:
         self._layout.addLayout(layout)
 
+    @classmethod
+    def page(cls, title: str) -> "SettingsSectionCard":
+        card = cls(title)
+        card.setProperty("sectionRole", "page")
+        return card
+
 
 class SettingsTabSectionsBuilder:
     def __init__(
@@ -61,9 +73,86 @@ class SettingsTabSectionsBuilder:
         self._language_options = language_options
         self._tag_to_display = tag_to_display
 
+    def _add_page(self, page: QWidget) -> None:
+        self._tab._settings_stack.addWidget(page)
+
+    def _path_row(
+        self,
+        *,
+        label: str,
+        attr_name: str,
+        browse_callback,
+        initial_value: str,
+        help_text: str,
+    ) -> QVBoxLayout:
+        tab = self._tab
+        wrapper = QVBoxLayout()
+        wrapper.setSpacing(_scale.px(6))
+
+        title = QLabel(label)
+        title.setProperty("cssClass", "field-label")
+        wrapper.addWidget(title)
+
+        row = QHBoxLayout()
+        row.setSpacing(_scale.px(8))
+
+        path_input = QLineEdit()
+        path_input.setProperty("cssClass", "path-input")
+        path_input.setPlaceholderText(help_text)
+        path_input.setText(initial_value)
+        setattr(tab, attr_name, path_input)
+        row.addWidget(path_input, stretch=1)
+
+        browse_btn = QPushButton("Browse")
+        browse_btn.setProperty("cssClass", "secondary")
+        browse_btn.clicked.connect(browse_callback)
+        row.addWidget(browse_btn)
+
+        wrapper.addLayout(row)
+        return wrapper
+
+    def build_destinations_section(self) -> None:
+        tab = self._tab
+        section = SettingsSectionCard.page("Destinations")
+        tab._destinations_page = section
+
+        tv_value = tab._settings.tv_output_folder if tab._settings else ""
+        movie_value = tab._settings.movie_output_folder if tab._settings else ""
+        section.add_layout(
+            self._path_row(
+                label="TV output folder",
+                attr_name="_tv_output_input",
+                browse_callback=tab._on_browse_tv_output,
+                initial_value=tv_value,
+                help_text="Choose where renamed TV episodes are moved...",
+            )
+        )
+        section.add_layout(
+            self._path_row(
+                label="Movie output folder",
+                attr_name="_movie_output_input",
+                browse_callback=tab._on_browse_movie_output,
+                initial_value=movie_value,
+                help_text="Choose where renamed movies are moved...",
+            )
+        )
+
+        action_row = QHBoxLayout()
+        tab._save_destinations_btn = QPushButton("Save Destinations")
+        tab._save_destinations_btn.clicked.connect(tab._on_save_destinations)
+        action_row.addWidget(tab._save_destinations_btn)
+        action_row.addStretch()
+        section.add_layout(action_row)
+
+        tab._destinations_status = QLabel("")
+        tab._destinations_status.setProperty("cssClass", "caption")
+        section.add_widget(tab._destinations_status)
+
+        self._add_page(section)
+
     def build_display_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard("Display")
+        section = SettingsSectionCard.page("Display")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Default view mode"))
@@ -88,11 +177,11 @@ class SettingsTabSectionsBuilder:
         tab._discovery_cb.toggled.connect(tab._on_discovery)
         section.add_widget(tab._discovery_cb)
 
-        tab._layout.addWidget(section)
+        self._add_page(section)
 
     def build_matching_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard("Matching")
+        section = SettingsSectionCard.page("Matching")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Match language"))
@@ -154,11 +243,11 @@ class SettingsTabSectionsBuilder:
         tab._confidence_cb.toggled.connect(tab._on_confidence_bars)
         section.add_widget(tab._confidence_cb)
 
-        tab._layout.addWidget(section)
+        self._add_page(section)
 
     def build_api_keys_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard("API Keys")
+        section = SettingsSectionCard.page("API Keys")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
@@ -196,11 +285,11 @@ class SettingsTabSectionsBuilder:
         tab._key_status.setProperty("cssClass", "caption")
         section.add_widget(tab._key_status)
 
-        tab._layout.addWidget(section)
+        self._add_page(section)
 
     def build_cache_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard("Cache")
+        section = SettingsSectionCard.page("Cache")
 
         tab._cache_stats = QLabel("Cache statistics will appear here after first scan.")
         tab._cache_stats.setProperty("cssClass", "text-dim")
@@ -226,11 +315,11 @@ class SettingsTabSectionsBuilder:
         tab._cache_confirm.setProperty("cssClass", "caption")
         section.add_widget(tab._cache_confirm)
 
-        tab._layout.addWidget(section)
+        self._add_page(section)
 
     def build_data_management_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard("Data Management")
+        section = SettingsSectionCard.page("Data Management")
 
         row = QHBoxLayout()
         tab._clear_history_btn = QPushButton("Clear Job History")
@@ -245,7 +334,7 @@ class SettingsTabSectionsBuilder:
         tab._history_confirm.setProperty("cssClass", "caption")
         section.add_widget(tab._history_confirm)
 
-        tab._layout.addWidget(section)
+        self._add_page(section)
 
     def build_advanced_section(self) -> None:
         tab = self._tab
@@ -266,4 +355,5 @@ class SettingsTabSectionsBuilder:
         tab._export_log_btn.setFixedWidth(200)
         group_layout.addWidget(tab._export_log_btn)
 
-        tab._layout.addWidget(tab._advanced_group)
+        if hasattr(tab, "_layout"):
+            tab._layout.addWidget(tab._advanced_group)

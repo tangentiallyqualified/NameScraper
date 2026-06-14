@@ -20,7 +20,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             checked=False,
         )
 
-        self.assertEqual(roster_group(duplicate_state, media_type="tv"), "review")
+        self.assertEqual(roster_group(duplicate_state, media_type="tv"), "review-match")
         self.assertEqual(roster_group(duplicate_state, media_type="movie"), "duplicate")
 
     def test_master_checkbox_toggles_like_binary_control(self):
@@ -83,13 +83,14 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             target="Bartender (2006) - S01E01 - Bartender.mkv",
             confidence="50%",
             companions=["[Kawaiika-Raws] Bartender 01 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
         )
         widget.resize(780, widget.sizeHint().height())
         widget.show()
         self._app.processEvents()
 
-        buttons = widget.findChildren(QPushButton)
-        button_bottom = max(button.geometry().bottom() for button in buttons if button.isVisible())
+        buttons = [b for b in widget.findChildren(QPushButton) if b.isVisible()]
+        button_bottom = max(b.geometry().bottom() for b in buttons)
         button_bottom_clearance = widget.contentsRect().bottom() - button_bottom
 
         self.assertGreaterEqual(widget.sizeHint().height(), 96)
@@ -129,6 +130,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             target="Bartender (2006) - S01E03 - Glass of Regret.mkv",
             confidence="50%",
             companions=["[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng[BD].sup.mks"],
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
         )
 
         self.assertLess(compact.sizeHint().height(), detailed.sizeHint().height())
@@ -217,6 +219,123 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             "setFixedWidth(100)",
         ):
             self.assertNotIn(literal, source)
+
+    def test_scan_progress_resets_phase_local_progress_between_lifecycles(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.MATCHING,
+            phase="Matching shows...",
+            done=5,
+            total=5,
+            message="Matching shows... 5/5",
+        )
+        self.assertEqual(widget._progress_bar.value(), 100)
+
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=0,
+            total=3,
+            message="Building episode previews... 0/3",
+        )
+
+        self.assertEqual(widget._progress_bar.value(), 0)
+        self.assertEqual(widget._count_label.text(), "0/3")
+        widget.close()
+
+    def test_scan_progress_terminal_state_stops_animation(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="movie")
+        widget.start()
+        self.assertTrue(widget._animation_timer.isActive())
+
+        widget.update_progress(
+            lifecycle=ScanLifecycle.READY,
+            phase="Movie scan complete",
+            message="Movie scan complete",
+        )
+
+        self.assertFalse(widget._animation_timer.isActive())
+        widget.close()
+
+    def test_scan_progress_completes_prior_phases_when_lifecycle_skips_ahead(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="movie")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.PREPARING_REVIEW,
+            phase="Preparing review list...",
+            message="Preparing review list...",
+        )
+
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.DISCOVERING].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.MATCHING].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.BUILDING_PREVIEWS].property("phaseState"),
+            "done",
+        )
+        self.assertEqual(
+            widget._phase_rows[ScanLifecycle.PREPARING_REVIEW].property("phaseState"),
+            "active",
+        )
+        self.assertEqual(widget._progress_bar.value(), 0)
+        self.assertEqual(widget._count_label.text(), "Working")
+        widget.close()
+
+    def test_scan_progress_throttles_fast_text_updates_but_keeps_count_current(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=1,
+            total=5,
+            current_item="Show A",
+            message="Building episode previews... 1/5 - Show A",
+        )
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="Building episode previews...",
+            done=2,
+            total=5,
+            current_item="Show B",
+            message="Building episode previews... 2/5 - Show B",
+        )
+
+        self.assertEqual(widget._count_label.text(), "2/5")
+        self.assertEqual(widget._current_label.text(), "Current: Show A")
+        widget.close()
+
+    def test_scan_progress_checklist_matches_media_type(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        tv_widget = ScanProgressWidget(media_type="tv")
+        movie_widget = ScanProgressWidget(media_type="movie")
+
+        self.assertIn(ScanLifecycle.RECONCILING, tv_widget._phase_rows)
+        self.assertNotIn(ScanLifecycle.RECONCILING, movie_widget._phase_rows)
+        self.assertIn(ScanLifecycle.PREPARING_REVIEW, movie_widget._phase_rows)
+
+        tv_widget.close()
+        movie_widget.close()
 
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path
@@ -339,3 +458,83 @@ class MoviePreviewRowCheckboxTests(QtSmokeBase):
             media_type="tv",
         )
         self.assertTrue(widget._check.isVisibleTo(widget))
+
+
+class EpisodeGuideRowActionsTests(QtSmokeBase):
+    def test_actions_menu_button_present(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            actions=[("reassign", "Reassign..."), ("unassign", "Unassign")],
+        )
+        self.assertIsNotNone(widget.actions_button())
+        labels = [action.text() for action in widget.actions_menu().actions()]
+        self.assertEqual(labels, ["Reassign...", "Unassign"])
+        widget.close()
+
+    def test_action_signal_carries_action_id(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E01 - Pilot",
+            status="Mapped",
+            actions=[("unassign", "Unassign")],
+        )
+        fired: list[str] = []
+        widget.action_requested.connect(fired.append)
+        widget.actions_menu().actions()[0].trigger()
+        self.assertEqual(fired, ["unassign"])
+        widget.close()
+
+    def test_no_actions_hides_button(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        widget = EpisodeGuideRowWidget(
+            title="S01E02 - Missing",
+            status="Missing File",
+            actions=[],
+        )
+        self.assertIsNone(widget.actions_button())
+        widget.close()
+
+    def test_approve_quick_button_only_for_review(self):
+        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+
+        review = EpisodeGuideRowWidget(
+            title="S01E01",
+            status="Review",
+            actions=[("approve", "Approve"), ("reassign", "Reassign...")],
+        )
+        mapped = EpisodeGuideRowWidget(
+            title="S01E01",
+            status="Mapped",
+            actions=[("reassign", "Reassign...")],
+        )
+        self.assertTrue(review.approve_button().isVisibleTo(review))
+        self.assertFalse(mapped.approve_button().isVisibleTo(mapped))
+        review.close()
+        mapped.close()
+
+
+def test_matched_row_offers_assign_to_more():
+    from plex_renamer.gui_qt.widgets._media_workspace_preview import (
+        MediaWorkspacePreviewPanel,
+    )
+
+    class _Row:
+        status = "Mapped"
+
+    actions = MediaWorkspacePreviewPanel._episode_row_actions(_Row())
+    ids = [a for a, _label in actions]
+    assert "assign_to_more" in ids
+    assert "reassign" in ids
+    # Missing File rows should NOT offer assign_to_more
+
+    class _MissingRow:
+        status = "Missing File"
+
+    missing_ids = [a for a, _label in MediaWorkspacePreviewPanel._episode_row_actions(_MissingRow())]
+    assert "assign_to_more" not in missing_ids
+    assert missing_ids == ["assign_file"]

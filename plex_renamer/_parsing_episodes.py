@@ -6,7 +6,16 @@ import re
 from pathlib import Path
 
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
-from ._parsing_titles import clean_name
+from ._parsing_titles import clean_name, clean_title_evidence
+
+_MAX_RANGE_SPAN = 12
+
+
+def _expand_range(start: int, end: int) -> list[int]:
+    """Expand an inclusive episode range, capping absurd spans."""
+    if end >= start and (end - start) <= _MAX_RANGE_SPAN:
+        return list(range(start, end + 1))
+    return [start, end]
 
 
 def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
@@ -22,30 +31,65 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             for anime).
     """
     raw_stem = Path(filename).stem
-    name = clean_name(raw_stem)
+    name = clean_title_evidence(raw_stem)
 
-    match = re.search(
-        r"S(\d+)E(\d+)(?:[E-]?E?(\d+))?\s*[-.]?\s*(.*)",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        episodes = [int(match.group(2))]
-        if match.group(3):
-            episodes.append(int(match.group(3)))
-        title = match.group(4).strip() if match.group(4) else None
+    # Range-end rules (prevents digit-leading titles from being eaten):
+    #   -E04   or  -E04 (no spaces, E prefix)  → range
+    #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
+    #   ' - E04'   (spaced dash, E prefix)      → range
+    #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
+    sxe = re.search(r"S(\d+)((?:E\d+)+)", name, re.IGNORECASE)
+    if sxe:
+        points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
+        initial_count = len(points)
+        rest = name[sxe.end():]
+        segment_re = re.compile(
+            r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
+            re.IGNORECASE,
+        )
+        while True:
+            seg = segment_re.match(rest)
+            if not seg:
+                break
+            points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
+            rest = rest[seg.end():]
+        # Expand only a lone *dash-introduced* gapped endpoint (e.g.
+        # S01E01-E04) as a range. Concatenated explicit episodes
+        # (S01E03E05 -> [3, 5]) and 3+ chained points (incl. a multi-ep
+        # prefix + bare end like S01E01E02-04 -> [1, 2, 4]) are kept
+        # verbatim and validated downstream.
+        if initial_count == 1 and len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
+        else:
+            episodes = points
+        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
         return episodes, title, True
 
-    match = re.search(
-        r"\b(\d{1,2})x(\d{2,3})(?:[x-](\d{2,3}))?(?!\d)\s*[-.]?\s*(.*)",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        episodes = [int(match.group(2))]
-        if match.group(3):
-            episodes.append(int(match.group(3)))
-        title = match.group(4).strip() if match.group(4) else None
+    # NxNN range-end rules (mirrors S##E## logic):
+    #   -1x04  or  -04  (no spaces)             → range, bare end not followed by letter
+    #   ' - 1x04'       (spaced, N×NN prefix)   → range
+    #   ' - 04 …'       (spaced, bare digits)   → NOT a range (title)
+    nxn = re.search(r"\b(\d{1,2})x(\d{2,3})", name, re.IGNORECASE)
+    if nxn:
+        season_prefix = nxn.group(1)
+        points = [int(nxn.group(2))]
+        rest = name[nxn.end():]
+        segment_re = re.compile(
+            rf"^(?:-(?:{season_prefix}x)?(\d{{2,3}})(?![a-zA-Z])"
+            rf"|\s+-\s+{season_prefix}x(\d{{2,3}})(?![a-zA-Z]))",
+            re.IGNORECASE,
+        )
+        while True:
+            seg = segment_re.match(rest)
+            if not seg:
+                break
+            points.append(int(seg.group(1) or seg.group(2)))
+            rest = rest[seg.end():]
+        if len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
+        else:
+            episodes = points
+        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
         return episodes, title, True
 
     match = re.search(
@@ -106,11 +150,11 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 def extract_season_number(filename: str) -> int | None:
     """Extract the explicit season number from a season/episode filename pattern."""
     name = clean_name(Path(filename).stem)
-    match = re.search(r"S(\d+)E\d+(?:[E-]?E?\d+)?", name, re.IGNORECASE)
+    match = re.search(r"S(\d+)(?:E\d+)+", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
-    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:[x-]\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 

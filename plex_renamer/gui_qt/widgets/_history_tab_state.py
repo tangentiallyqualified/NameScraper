@@ -36,8 +36,12 @@ def sync_pending_revert_job_ids(pending_job_ids: list[str], jobs: list) -> list[
     return [job_id for job_id in pending_job_ids if job_id in available_job_ids]
 
 
+def is_revertible_job(job) -> bool:
+    return job.status == JobStatus.COMPLETED and bool(job.undo_data)
+
+
 def completed_revertible_jobs(jobs: list) -> list:
-    return [job for job in jobs if job.status == JobStatus.COMPLETED and job.undo_data]
+    return [job for job in jobs if is_revertible_job(job)]
 
 
 def can_revert_checked_jobs(jobs: list) -> bool:
@@ -65,11 +69,7 @@ def begin_revert_banner_state(jobs: list) -> HistoryRevertBannerState | None:
 
 def collect_confirm_revert_jobs(history_jobs: list, pending_job_ids: list[str]) -> list:
     pending = set(pending_job_ids)
-    return [
-        job
-        for job in history_jobs
-        if job.job_id in pending and job.status == JobStatus.COMPLETED and job.undo_data
-    ]
+    return [job for job in history_jobs if job.job_id in pending and is_revertible_job(job)]
 
 
 def revert_jobs(queue_controller, jobs: list) -> list[str]:

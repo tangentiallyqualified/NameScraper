@@ -19,6 +19,57 @@ from conftest_qt import QtSmokeBase
 
 
 class QtQueueHistoryTests(QtSmokeBase):
+    def test_job_table_file_and_companion_columns_do_not_double_count(self):
+        from plex_renamer.gui_qt.models.job_table_model import JobTableModel, SORT_ROLE
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/Example Show - S01E01.mkv",
+                    new_name="Example Show - S01E01.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E01.eng.srt",
+                    new_name="Example Show - S01E01.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=True,
+                    file_type="subtitle",
+                ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E02.mkv",
+                    new_name="Example Show - S01E02.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=False,
+                    file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/Example Show - S01E02.eng.srt",
+                    new_name="Example Show - S01E02.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK",
+                    selected=False,
+                    file_type="subtitle",
+                ),
+            ],
+        )
+        model = JobTableModel(history=False)
+        model.set_jobs([job])
+
+        self.assertEqual(model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.data(model.index(0, 5), SORT_ROLE), 1)
+        self.assertEqual(model.data(model.index(0, 6), SORT_ROLE), 1)
+
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
         from plex_renamer.gui_qt.widgets._image_utils import build_placeholder_pixmap
@@ -75,6 +126,107 @@ class QtQueueHistoryTests(QtSmokeBase):
             history_tab.close()
             queue_ctrl.close()
 
+    def test_history_header_and_revert_use_only_revertible_checked_jobs(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp) / "jobs.sqlite3")
+            queue_ctrl = QueueController(store)
+            revertible = RenameJob(
+                library_root="C:/library",
+                source_folder="Show",
+                media_name="Revertible Show",
+                status=JobStatus.COMPLETED,
+                undo_data={"renames": [{"old": "a", "new": "b"}, {"old": "c", "new": "d"}]},
+            )
+            completed_without_undo = RenameJob(
+                library_root="C:/library",
+                source_folder="NoUndo",
+                media_name="No Undo Show",
+                status=JobStatus.COMPLETED,
+                undo_data=None,
+            )
+            failed_with_undo = RenameJob(
+                library_root="C:/library",
+                source_folder="Failed",
+                media_name="Failed Show",
+                status=JobStatus.FAILED,
+                undo_data={"renames": [{"old": "e", "new": "f"}]},
+            )
+            store.add_job(revertible)
+            store.add_job(completed_without_undo)
+            store.add_job(failed_with_undo)
+
+            history_tab = HistoryTab(queue_ctrl)
+            self._app.processEvents()
+            history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
+
+            self.assertEqual(history_tab._model.checked_job_ids(), {revertible.job_id})
+            self.assertEqual(history_tab._selection_status.text(), "1 job checked")
+
+            def check_state_for(job_id: str):
+                for row, job in enumerate(history_tab._model.jobs()):
+                    if job.job_id == job_id:
+                        return history_tab._model.data(
+                            history_tab._model.index(row, 0),
+                            Qt.ItemDataRole.CheckStateRole,
+                        )
+                self.fail(f"Missing job {job_id}")
+
+            self.assertEqual(check_state_for(revertible.job_id), Qt.CheckState.Checked)
+            self.assertIsNone(check_state_for(completed_without_undo.job_id))
+            self.assertIsNone(check_state_for(failed_with_undo.job_id))
+
+            history_tab._revert_selected()
+
+            self.assertEqual(history_tab._pending_revert_job_ids, [revertible.job_id])
+            self.assertIn("1 job, 2 files", history_tab._revert_info.text())
+
+            history_tab.close()
+            queue_ctrl.close()
+
+    def test_history_header_click_resyncs_when_no_visible_revertible_jobs(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.job_store import JobStore, RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp) / "jobs.sqlite3")
+            queue_ctrl = QueueController(store)
+            job = RenameJob(
+                library_root="C:/library",
+                source_folder="NoUndo",
+                media_name="No Undo Show",
+                status=JobStatus.COMPLETED,
+                undo_data=None,
+            )
+            store.add_job(job)
+
+            history_tab = HistoryTab(queue_ctrl)
+            try:
+                history_tab.show()
+                self._app.processEvents()
+
+                QTest.mouseClick(
+                    history_tab._header.viewport(),
+                    Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier,
+                    QPoint(
+                        history_tab._header.sectionViewportPosition(0)
+                        + history_tab._header.sectionSize(0) // 2,
+                        history_tab._header.height() // 2,
+                    ),
+                )
+
+                self.assertEqual(history_tab._model.checked_job_ids(), set())
+                self.assertEqual(history_tab._selection_status.text(), "0 jobs checked")
+                self.assertEqual(history_tab._header.check_state(), Qt.CheckState.Unchecked)
+            finally:
+                history_tab.close()
+                queue_ctrl.close()
+
     def test_queue_and_history_tabs_refresh(self):
         from PySide6.QtWidgets import QHeaderView
         from plex_renamer.app.controllers.queue_controller import QueueController
@@ -105,6 +257,7 @@ class QtQueueHistoryTests(QtSmokeBase):
                     tmdb_id=456,
                     status=JobStatus.COMPLETED,
                     rename_ops=[],
+                    undo_data={"renames": [{"old": "a", "new": "b"}]},
                 )
             )
 
@@ -352,6 +505,9 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -360,12 +516,13 @@ class QtQueueHistoryTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -409,6 +566,9 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window = MainWindow()
         self._reset_main_window_queue(window)
+        output_root = Path(self._main_window_tmp.name) / "TV Output"
+        output_root.mkdir()
+        window.settings_service.tv_output_folder = str(output_root)
 
         state = ScanState(
             folder=Path("C:/library/tv/Example.Show.2024"),
@@ -417,12 +577,13 @@ class QtQueueHistoryTests(QtSmokeBase):
                 PreviewItem(
                     original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
                     episodes=[1],
                     status="OK",
                 )
             ],
+            output_root=output_root,
             scanned=True,
             checked=True,
             confidence=1.0,
@@ -451,7 +612,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         window._tv_workspace._roster_collapsed["plex-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
-        self.assertEqual(state.folder, Path("C:/library/tv/Example Show (2024)"))
+        self.assertEqual(state.folder, output_root / "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
         self._assert_roster_section_title(window._tv_workspace, 0, "PLEX READY")

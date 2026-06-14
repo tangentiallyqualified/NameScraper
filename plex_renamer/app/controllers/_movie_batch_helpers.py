@@ -24,6 +24,7 @@ class _MovieBatchController(Protocol):
     _movie_library_states: list[Any]
     _movie_media_info: dict | None
     _library_selected_index: int | None
+    _settings: Any
 
     def _set_progress(
         self,
@@ -65,24 +66,36 @@ def start_movie_batch_session(
     controller._library_selected_index = None
 
     controller._set_progress(
-        ScanLifecycle.SCANNING,
-        phase="Scanning movies...",
-        message="Scanning movies...",
+        ScanLifecycle.DISCOVERING,
+        phase="Discovering movie files...",
+        message="Discovering movie files...",
     )
     controller._notify("mode_changed", controller._active_content_mode, controller._active_library_mode)
 
     scanner = controller._movie_scanner
     cancel_event = controller._begin_scan_operation()
 
-    def _progress(done: int, total: int, phase: str = "Scanning movies...") -> None:
+    def _progress(
+        done: int,
+        total: int,
+        phase: str = "Scanning movies...",
+        current_item: str | None = None,
+    ) -> None:
         if cancel_event.is_set():
             raise ScanCancelledError("Scan cancelled")
+        lifecycle = (
+            ScanLifecycle.MATCHING
+            if "TMDB" in phase
+            else ScanLifecycle.BUILDING_PREVIEWS
+        )
+        suffix = f" - last matched: {current_item}" if current_item and lifecycle == ScanLifecycle.MATCHING else ""
         controller._set_progress(
-            ScanLifecycle.SCANNING,
+            lifecycle,
             phase=phase,
             done=done,
             total=total,
-            message=f"{phase} {done}/{total}",
+            current_item=current_item or None,
+            message=f"{phase} {done}/{total}{suffix}",
         )
 
     def _worker() -> None:
@@ -143,6 +156,14 @@ def _complete_movie_batch_scan(
     if not controller._is_current_scan_operation(cancel_event):
         return
 
+    controller._set_progress(
+        ScanLifecycle.PREPARING_REVIEW,
+        phase="Preparing review list...",
+        message="Preparing review list...",
+    )
+    movie_output = controller._settings.valid_movie_output_folder
+    if movie_output is not None:
+        retarget_movie_items_to_output(items, movie_output)
     controller._movie_preview_items = items
     controller._build_movie_library_states(items, scanner)
     controller.sync_queued_states()
@@ -163,3 +184,15 @@ def _complete_movie_batch_scan(
     controller._notify("library_changed", controller._movie_library_states)
     controller._notify("scan_complete", None)
     controller._finish_scan_operation(cancel_event)
+
+
+def retarget_movie_items_to_output(items: list[Any], output_root: Path) -> None:
+    """Retarget actionable movie preview items into the configured output root."""
+    resolved_output = output_root.resolve()
+    for item in items:
+        if not getattr(item, "new_name", None) or getattr(item, "target_dir", None) is None:
+            continue
+        if getattr(item, "media_type", None) != MediaType.MOVIE:
+            continue
+        target_name = Path(item.target_dir).name
+        item.target_dir = resolved_output / target_name
