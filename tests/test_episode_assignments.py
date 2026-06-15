@@ -119,7 +119,16 @@ class TestConflictsAndDisplacement:
         table.resolve_conflict(1, 2, winner_file_id=a.file_id)
         assert table.conflicts() == {}
         assert table.claimant(1, 2).file_id == a.file_id
-        assert table.unassigned_reasons[b.file_id] == REASON_LOST_CONFLICT
+        assert table.unassigned_reasons[b.file_id].startswith(REASON_LOST_CONFLICT)
+
+    def test_resolve_conflict_reason_names_the_lost_slot(self):
+        table = make_table()
+        a = table.add_file(Path("a.mkv"))
+        b = table.add_file(Path("b.mkv"))
+        table.assign(a.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.9)
+        table.assign(b.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
+        table.resolve_conflict(1, 2, winner_file_id=a.file_id)
+        assert table.unassigned_reasons[b.file_id] == "lost conflict for S01E02"
 
 
 class TestQueries:

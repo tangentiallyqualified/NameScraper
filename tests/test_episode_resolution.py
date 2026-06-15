@@ -604,7 +604,7 @@ class TestConflictResolution:
         assert table.assignment_for(title_file.file_id) is not None
         assert table.assignment_for(title_file.file_id).episodes == (10,)
         assert table.assignment_for(num_file.file_id) is None
-        assert table.unassigned_reasons[num_file.file_id] == REASON_LOST_CONFLICT
+        assert table.unassigned_reasons[num_file.file_id].startswith(REASON_LOST_CONFLICT)
         assert (2, 10) not in table.conflicts()
 
     def test_title_agree_also_wins(self):

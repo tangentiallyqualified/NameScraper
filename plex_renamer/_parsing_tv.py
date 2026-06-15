@@ -58,6 +58,15 @@ _TV_COMPANION_VIDEO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# A clean show-title prefix never contains a season/episode marker. When the
+# extracted candidate still embeds one (e.g. "S03E04 - Vindicators" or
+# "3x02 Money Train"), the filename led with the episode number and the match
+# actually swallowed the episode title — reject it.
+_PREFIX_EPISODE_MARKER_RE = re.compile(
+    r"S\d{1,2}\s*E\d{1,3}|\b\d{1,2}x\d{2,3}\b",
+    re.IGNORECASE,
+)
+
 _TV_TITLE_PREFIX_PATTERNS = (
     re.compile(
         r"^(?P<title>.+?)[ ._\-]+S\d{1,2}E\d{1,3}(?:[E\-]?E?\d{1,3})?(?=[ ._\-]|$)",
@@ -136,6 +145,8 @@ def extract_source_title_prefix(filename: str) -> str | None:
     for pattern in _TV_TITLE_PREFIX_PATTERNS:
         match = pattern.search(stem)
         if not match:
+            continue
+        if _PREFIX_EPISODE_MARKER_RE.search(match.group("title")):
             continue
         title = clean_folder_name(match.group("title"), include_year=False)
         title = re.sub(r"\s+", " ", title).strip(" ._-")

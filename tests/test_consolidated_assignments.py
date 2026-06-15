@@ -65,3 +65,15 @@ def test_special_number_only_lands_in_review(tmp_path):
     assignment = table.claims(0, 8)
     assert assignment, "expected the special to map by number"
     assert assignment[0].confidence == CONF_SPECIAL_NUMBER_ONLY
+
+
+def test_multi_episode_run_maps_to_all_episodes(tmp_path):
+    # Season-relative multi-episode files (S01E01-E02) must claim the whole run
+    # in the consolidated path, not collapse to the first episode.
+    table = _build(tmp_path, ["Demo Show - S01E01-E02 - Pilot & The Heist.mkv"])
+
+    first = table.claimant(1, 1)
+    second = table.claimant(1, 2)
+    assert first is not None and second is not None
+    assert first is second, "both episodes must be claimed by the same file"
+    assert table.assignment_for(first.file_id).episodes == (1, 2)

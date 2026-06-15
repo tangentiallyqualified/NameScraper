@@ -97,6 +97,17 @@ class TVCompanionVideoPatternTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(extract_source_title_prefix(name), expected)
 
+    def test_source_title_prefix_ignores_episode_titles_with_trailing_numbers(self):
+        # These filenames lead with an episode marker and have no show-title
+        # prefix; a trailing number in the EPISODE title must not be read as a
+        # bogus show prefix (it later trips the contradictory-prefix cap).
+        for name in (
+            "3x02. Money Train 2 (1998).mp4",
+            "S03E04 - Vindicators 3 - The Return of Worldender.mkv",
+        ):
+            with self.subTest(name=name):
+                self.assertIsNone(extract_source_title_prefix(name))
+
 
 class CombinedFansubEpisodeRangeTests(unittest.TestCase):
     """Fansub multi-episode ranges should classify as TV and parse correctly."""

@@ -38,7 +38,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
     #   ' - E04'   (spaced dash, E prefix)      → range
     #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
-    sxe = re.search(r"S(\d+)((?:E\d+)+)", name, re.IGNORECASE)
+    sxe = re.search(r"S(\d+)[\s._-]*((?:E\d+)+)", name, re.IGNORECASE)
     if sxe:
         points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
         initial_count = len(points)
@@ -150,7 +150,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 def extract_season_number(filename: str) -> int | None:
     """Extract the explicit season number from a season/episode filename pattern."""
     name = clean_name(Path(filename).stem)
-    match = re.search(r"S(\d+)(?:E\d+)+", name, re.IGNORECASE)
+    match = re.search(r"S(\d+)[\s._-]*(?:E\d+)+", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 

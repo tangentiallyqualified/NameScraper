@@ -338,6 +338,16 @@ class ScanImprovementTests(unittest.TestCase):
         self.assertEqual(extract_episode(name), ([5], "Gun Fever", True))
         self.assertEqual(extract_season_number(name), 1)
 
+    def test_extract_episode_handles_space_between_season_and_episode(self):
+        # CatDog source uses "S01 E01-E02" (space between season and episode).
+        name = "CatDog - S01 E01-E02 - Dog Gone and All You Can't Eat (1080p - Web-DL).mp4"
+
+        self.assertEqual(
+            extract_episode(name),
+            ([1, 2], "Dog Gone and All You Can't Eat", True),
+        )
+        self.assertEqual(extract_season_number(name), 1)
+
     def test_tv_scanner_maps_nxnn_files_to_their_episode_numbers(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "It's Always Sunny in Philadelphia S01-02"

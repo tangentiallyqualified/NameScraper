@@ -22,6 +22,20 @@ AbsoluteFileEntry = tuple[Path, int, str | None, list[int], bool, int | None]
 _RE_LEADING_ABS_NUM = re.compile("^(\\d{1,4})\\s*[-–]\\s*")
 
 
+def _contiguous_run(episode_numbers: list[int], season_titles: dict) -> list[int]:
+    """Contiguous episode run from ``episode_numbers[0]``, limited to slots
+    that exist in ``season_titles``. A single-episode file yields ``[ep]``."""
+    if not episode_numbers:
+        return []
+    run = [episode_numbers[0]]
+    for episode in episode_numbers[1:]:
+        if episode == run[-1] + 1 and episode in season_titles:
+            run.append(episode)
+        else:
+            break
+    return run
+
+
 def collect_absolute_files(
     season_dirs: list[tuple[Path, int]],
 ) -> list[AbsoluteFileEntry]:
@@ -127,7 +141,8 @@ def try_title_based_matching(
                 title = season_data["titles"].get(episode_num)
                 if title and (season_hint, episode_num) not in used:
                     match = (season_hint, episode_num, title)
-                    used.add((match[0], match[1]))
+                    for episode in _contiguous_run(episode_numbers, season_data["titles"]):
+                        used.add((season_hint, episode))
                     matches.append(match)
                     continue
 
@@ -188,21 +203,31 @@ def build_consolidated_preview(
                 ))
                 continue
             season_num, episode_num, title = match
+            season_titles = tmdb_seasons.get(season_num, {}).get("titles", {})
+            if (
+                is_season_relative
+                and season_hint == season_num
+                and len(episode_numbers) > 1
+                and episode_numbers[0] == episode_num
+            ):
+                run = _contiguous_run(episode_numbers, season_titles)
+            else:
+                run = [episode_num]
+            run_titles = [season_titles.get(episode, title) for episode in run]
             target_dir = root / f"Season {season_num:02d}"
             new_name = build_tv_name(
                 show_info["name"],
                 show_info["year"],
                 season_num,
-                [episode_num],
-                [title],
+                run,
+                run_titles,
                 file_path.suffix,
             )
             episode_confidence = 0.7
             if (
                 is_season_relative
                 and season_hint == season_num
-                and len(episode_numbers) == 1
-                and episode_numbers[0] == episode_num
+                and episode_numbers == run
             ):
                 episode_confidence = 0.86
             item = PreviewItem(
@@ -210,7 +235,7 @@ def build_consolidated_preview(
                 new_name=new_name,
                 target_dir=target_dir,
                 season=season_num,
-                episodes=[episode_num],
+                episodes=run,
                 status="OK",
                 episode_confidence=episode_confidence,
                 **media_fields,
