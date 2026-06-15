@@ -464,6 +464,19 @@ QPushButton[cssClass="secondary"][sizeVariant="compact"] {
     font-size: 11px;
 }
 
+QPushButton[cssClass="secondary"][sizeVariant="compact"]:checked {
+    background-color: #1f1a0e;
+    color: #e5a00d;
+    border-color: #e5a00d;
+    font-weight: 600;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="compact"]:checked:hover {
+    background-color: #2a2410;
+    color: #e5a00d;
+    border-color: #e5a00d;
+}
+
 QPushButton[cssClass="secondary"][sizeVariant="inline"] {
     text-align: center;
     padding: 1px 8px;

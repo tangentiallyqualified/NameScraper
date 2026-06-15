@@ -504,6 +504,27 @@ class TestConfidenceAdjustments:
             <= CONTRADICTORY_PREFIX_CAP
         )
 
+    def test_franchise_prefix_source_is_not_contradictory(self):
+        """Andor S2 regression: files named "Star.Wars.Andor.S02E01..." match
+        the TMDB show "Andor". The franchise prefix "Star Wars" must NOT make
+        the source title contradictory — the show name appears as a trailing
+        token group, so confidence must stay at the explicit-episode floor
+        (auto-acceptable), not be capped at CONTRADICTORY_PREFIX_CAP.
+        """
+        show = {"id": 9, "name": "Andor", "year": "2022"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=2, episode=1, title="Ep 1"))
+        entry = table.add_file(
+            Path("Star.Wars.Andor.S02E01.2160p.DSNP.WEB-DL.mkv"),
+            is_season_relative=True,
+        )
+        table.assign(entry.file_id, 2, [1], origin=ORIGIN_AUTO, confidence=0.86)
+        apply_confidence_adjustments(table, show_info=show)
+        assert (
+            table.assignment_for(entry.file_id).confidence
+            >= EXPLICIT_EPISODE_FLOOR
+        )
+
     def test_season0_title_only_not_capped_by_prefix(self):
         # Real Animaniacs featurette: the "(480p ...)" quality suffix makes
         # extract_source_title_prefix latch the "480" and return the episode

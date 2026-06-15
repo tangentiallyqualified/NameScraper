@@ -142,9 +142,15 @@ class MediaDetailWorkflowCoordinator:
         target_width = panel._artwork_fetch_width(artwork_mode)
 
         def _worker() -> None:
-            payload = panel._build_payload(tmdb, state, preview, queue_reason, folder_plan, target_width)
             try:
-                panel._bridge.metadata_ready.emit(payload[0], payload[1], token)
+                payload = panel._build_payload(tmdb, state, preview, queue_reason, folder_plan, target_width)
+                result = (payload[0], payload[1])
+            except Exception:
+                # A failed metadata/poster fetch must still clear the loading
+                # animation on the main thread instead of spinning forever.
+                result = (None, None)
+            try:
+                panel._bridge.metadata_ready.emit(result[0], result[1], token)
             except RuntimeError:
                 pass
 
@@ -165,6 +171,13 @@ class MediaDetailWorkflowCoordinator:
         panel = self._panel
         panel._loading_tokens.discard(token)
         if payload is None:
+            # Fetch failed or returned nothing: stop the spinner and fall back
+            # to the empty placeholder rather than leaving it animating.
+            if token == panel._current_token:
+                panel._stop_shimmer()
+                panel._poster_pixmap = None
+                title = panel._current_state.display_name if panel._current_state is not None else ""
+                panel._show_artwork_placeholder(title)
             return
 
         if isinstance(image_data, QPixmap):

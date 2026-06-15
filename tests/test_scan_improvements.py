@@ -1069,6 +1069,28 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(clean_folder_name(show.name, include_year=False), "The IT Crowd")
             self.assertEqual(tmdb.queries, [("The IT Crowd", "2006")])
 
+    def test_clean_folder_name_drops_dangling_trailing_article(self):
+        """A trailing article left when 'The Complete Series' is stripped at the
+        'Complete' noise token must not pollute the search/score title.
+
+        Real case: "Lucy, The Daughter of The Devil The Complete Series[...]"
+        previously cleaned to "Lucy, The Daughter of The Devil The".
+        """
+        name = (
+            "Lucy, The Daughter of The Devil The Complete Series"
+            "[DVDRip 480p AC3][AtaraxiaPrime]"
+        )
+        self.assertEqual(
+            clean_folder_name(name, include_year=False),
+            "Lucy, The Daughter of The Devil",
+        )
+
+    def test_clean_folder_name_preserves_leading_article(self):
+        """The dangling-article cleanup must never strip a legitimate leading
+        article like 'The' in 'The Office'."""
+        self.assertEqual(clean_folder_name("The Office", include_year=False), "The Office")
+        self.assertEqual(clean_folder_name("The", include_year=False), "The")
+
     def test_disjoint_same_season_sibling_is_consolidated_into_multi_season_card(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2215,6 +2237,64 @@ class ScanImprovementTests(unittest.TestCase):
         )
         self.assertEqual(best["id"], 1002,
                          "4 season subdirs must pick the 4-season series")
+
+    def test_episode_tiebreak_uses_per_season_count_for_single_season_evidence(self):
+        """Euphoria S01 regression: a single-season folder (8 files, all S01)
+        must compare against each candidate's SEASON 1 episode count, not the
+        whole-show total.
+
+        The wrong show (2012, 10 total eps, S1=10) is closer to 8 by total
+        count than the correct HBO show (24 total eps, S1=8). Comparing the
+        right season makes HBO (|8-8|=0) win over 2012 (|10-8|=2).
+        """
+        from plex_renamer.engine import score_results, BatchTVOrchestrator
+
+        results = [
+            {"name": "Euphoria", "year": "2019", "id": 85552},
+            {"name": "Euphoria", "year": "2012", "id": 90417},
+        ]
+        # No year hint → pure title tie, both score equal (within threshold).
+        scored = score_results(results, "Euphoria", None, title_key="name")
+        self.assertLessEqual(abs(scored[0][1] - scored[1][1]), 0.10)
+
+        class _FakeTMDB:
+            language = "en-US"
+            def get_tv_details(self, show_id):
+                if show_id == 85552:  # HBO 2019
+                    return {
+                        "number_of_seasons": 3,
+                        "number_of_episodes": 24,
+                        "first_air_date": "2019-06-16",
+                        "status": "Ended",
+                        "seasons": [
+                            {"season_number": 1, "episode_count": 8},
+                            {"season_number": 2, "episode_count": 8},
+                            {"season_number": 3, "episode_count": 8},
+                        ],
+                    }
+                if show_id == 90417:  # 2012 Israeli
+                    return {
+                        "number_of_seasons": 1,
+                        "number_of_episodes": 10,
+                        "first_air_date": "2012-01-01",
+                        "status": "Ended",
+                        "seasons": [
+                            {"season_number": 1, "episode_count": 10},
+                        ],
+                    }
+                return None
+
+        orch = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orch.tmdb = _FakeTMDB()
+
+        # Without season context the old behaviour picks the wrong show.
+        best, _ = orch._episode_count_tiebreak(
+            scored, file_count=8, threshold=0.10, explicit_seasons={1},
+        )
+        self.assertEqual(
+            best["id"], 85552,
+            "Single-season evidence must compare against S1 ep count, picking HBO",
+        )
 
 
 if __name__ == "__main__":

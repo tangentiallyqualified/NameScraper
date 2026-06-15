@@ -19,6 +19,7 @@ from ._media_workspace_action_state import (
     can_fix_match as _can_fix_match,
     can_inline_approve as _can_inline_approve,
     can_inline_assign_season as _can_inline_assign_season,
+    can_unassign_all as _can_unassign_all,
     fix_match_label as _fix_match_label,
     media_noun as _media_noun,
     needs_inline_match_choice as _needs_inline_match_choice,
@@ -161,6 +162,40 @@ class MediaWorkspaceActionCoordinator:
         self._auto_check_for_queue(state)
         workspace.refresh_from_controller()
         workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
+
+    def unassign_all_episode_mappings(self) -> None:
+        """Unassign every currently-assigned file in the selected show.
+
+        Reuses the same per-file unassign path used by the episode row
+        ``unassign`` action so the bulk action stays in lock-step with it.
+        """
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued or state.scanning:
+            return
+        if state.assignments is None:
+            return
+        service = EpisodeMappingService()
+        assigned_previews = [
+            preview
+            for preview in state.preview_items
+            if preview.file_id is not None
+            and state.assignments.assignment_for(preview.file_id) is not None
+        ]
+        if not assigned_previews:
+            return
+        count = 0
+        for preview in assigned_previews:
+            try:
+                service.unassign_file(state, preview)
+            except ValueError:
+                continue
+            count += 1
+        if count == 0:
+            return
+        _refresh_episode_projection(workspace, state)
+        workspace.refresh_from_controller()
+        workspace.status_message.emit(f"Unassigned {count} file(s).", 3000)
 
     def handle_episode_row_action(
         self,
@@ -337,3 +372,6 @@ class MediaWorkspaceActionCoordinator:
 
     def can_fix_match(self, state: ScanState) -> bool:
         return _can_fix_match(state)
+
+    def can_unassign_all(self, state: ScanState | None) -> bool:
+        return _can_unassign_all(state)

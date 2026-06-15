@@ -2266,6 +2266,86 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_unassign_all_button_clears_every_assigned_file(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        first = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        second = table.add_file(folder / "Season 01" / "Example.S01E02.mkv")
+        table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Both files start assigned, so the bulk button is shown and enabled.
+        self.assertFalse(workspace._unassign_all_btn.isHidden())
+        self.assertTrue(workspace._unassign_all_btn.isEnabled())
+        self.assertIsNotNone(table._assignments.get(first.file_id))
+        self.assertIsNotNone(table._assignments.get(second.file_id))
+
+        workspace._unassign_all_btn.click()
+        self._app.processEvents()
+
+        # Every file is now unassigned in the table...
+        self.assertIsNone(table._assignments.get(first.file_id))
+        self.assertIsNone(table._assignments.get(second.file_id))
+        # ...and the reprojected previews carry no rename target.
+        for preview in state.preview_items:
+            self.assertIsNone(preview.new_name)
+        # Nothing left to unassign, so the button disables itself.
+        self.assertFalse(workspace._unassign_all_btn.isEnabled())
+
+        workspace.close()
+
+    def test_episode_filter_active_state_tracks_selected_filter(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table, _file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        panel = workspace._preview_panel
+        buttons = panel.episode_filter_buttons
+
+        # Default filter is "all": exactly one button is checked and it matches.
+        self.assertEqual(panel.episode_filter, "all")
+        checked = [key for key, button in buttons.items() if button.isChecked()]
+        self.assertEqual(checked, ["all"])
+
+        # Switching the filter moves the checked (active) state to the new button.
+        buttons["problems"].click()
+        self._app.processEvents()
+
+        self.assertEqual(panel.episode_filter, "problems")
+        checked = [key for key, button in buttons.items() if button.isChecked()]
+        self.assertEqual(checked, ["problems"])
+        self.assertFalse(buttons["all"].isChecked())
+
+        workspace.close()
+
     def test_approve_all_with_remaining_conflict_stays_in_review_no_checkbox(self):
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (

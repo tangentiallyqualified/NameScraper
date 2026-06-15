@@ -86,6 +86,14 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
         title_tokens.append(token)
 
     title = " ".join(title_tokens).strip().rstrip("-").strip()
+
+    # Drop a dangling trailing article left when a phrase like
+    # "The Complete Series" is cut at its release-noise token ("Complete"),
+    # e.g. "...The Devil The Complete Series" -> "...The Devil The".  Only
+    # strip when more than one token remains so a bare "The" title survives.
+    if len(title_tokens) > 1 and title_tokens[-1].lower() in ("the", "a", "an"):
+        title = " ".join(title_tokens[:-1]).strip().rstrip("-").strip()
+
     if len(title) < 2:
         title = re.sub(r"\s+", " ", text).strip()
 

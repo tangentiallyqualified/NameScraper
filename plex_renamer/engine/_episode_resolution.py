@@ -266,6 +266,36 @@ CONTRADICTORY_PREFIX_CAP = 0.45
 _EXACT_TITLE_EVIDENCE = frozenset({"title-agree", "title-strong"})
 
 
+def _source_prefix_compatible(source_norm: str, show_norm: str) -> bool:
+    """Return True when a file's source-title prefix corroborates the show.
+
+    Handles three cases:
+      - exact / prefix / suffix containment of the full normalized strings
+        (e.g. "The Office US" vs "The Office"), and
+      - a *franchise prefix* where the show name forms a contiguous trailing
+        or leading token group of the source title. Release groups often add
+        a franchise label TMDB omits, e.g. "Star Wars Andor" for the show
+        "Andor". Matching on whole-token boundaries (not raw substring) keeps
+        genuinely different shows ("Andromeda") contradictory.
+    """
+    if not source_norm or not show_norm:
+        return False
+    if (
+        source_norm == show_norm
+        or source_norm.startswith(show_norm)
+        or show_norm.startswith(source_norm)
+    ):
+        return True
+    source_tokens = source_norm.split()
+    show_tokens = show_norm.split()
+    if not show_tokens or len(show_tokens) > len(source_tokens):
+        return False
+    return (
+        source_tokens[-len(show_tokens):] == show_tokens
+        or source_tokens[: len(show_tokens)] == show_tokens
+    )
+
+
 def _parse_air_date(value: object) -> date | None:
     if not isinstance(value, str) or not value:
         return None
@@ -366,11 +396,7 @@ def apply_confidence_adjustments(
         source_title = extract_source_title_prefix(entry.path.name)
         if source_title:
             source_norm = normalize_for_match(source_title)
-            compatible = bool(show_norm) and (
-                source_norm == show_norm
-                or source_norm.startswith(show_norm)
-                or show_norm.startswith(source_norm)
-            )
+            compatible = _source_prefix_compatible(source_norm, show_norm)
             if compatible and entry.is_season_relative and assignment.season != 0:
                 confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
             if not compatible and assignment.season != 0:

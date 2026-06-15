@@ -481,6 +481,51 @@ class QtMediaDetailPanelTests(QtSmokeBase):
 
         panel.close()
 
+    def test_media_detail_panel_failed_poster_fetch_stops_loading_animation(self):
+        """A poster fetch that raises must clear the shimmer, not spin forever."""
+        from plex_renamer.gui_qt.widgets.media_detail_panel import MediaDetailPanel
+
+        tmdb = MagicMock()
+        tmdb.get_tv_details.side_effect = RuntimeError("network down")
+        tmdb.fetch_poster.side_effect = RuntimeError("network down")
+
+        preview = PreviewItem(
+            original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+            new_name="Review Show (2024) - S01E01 - Pilot.mkv",
+            target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
+            season=1,
+            episodes=[1],
+            status="REVIEW",
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Review.Show.2024"),
+            media_info={"id": 102, "name": "Review Show", "year": "2024"},
+            preview_items=[preview],
+            scanned=True,
+            confidence=0.42,
+        )
+
+        panel = MediaDetailPanel(tmdb_provider=lambda: tmdb)
+        panel.show()
+
+        # Run the background worker synchronously so the failure path resolves
+        # inside this test, then pump the queued signal to apply_payload.
+        with patch(
+            "plex_renamer.gui_qt.widgets._media_detail_workflow._submit_bg",
+            side_effect=lambda fn: fn(),
+        ):
+            panel.set_selection(state, preview=preview)
+        self._app.processEvents()
+
+        # The fetch failed: the shimmer must be torn down and a placeholder shown.
+        self.assertIsNone(panel._poster_shimmer)
+        self.assertEqual(len(panel._loading_tokens), 0)
+        self.assertIsNone(panel._poster_pixmap)
+        self.assertIsNotNone(panel._poster.pixmap())
+        self.assertFalse(panel._poster.pixmap().isNull())
+
+        panel.close()
+
     def test_media_detail_panel_uses_scale_helper(self):
         from pathlib import Path
 

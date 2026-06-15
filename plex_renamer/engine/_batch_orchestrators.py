@@ -112,6 +112,7 @@ class BatchTVOrchestrator:
         file_count: int,
         threshold: float = 0.10,
         compare_seasons: bool = False,
+        explicit_seasons: set[int] | None = None,
     ) -> tuple[dict, float]:
         return _episode_count_tiebreak(
             self.tmdb,
@@ -119,6 +120,7 @@ class BatchTVOrchestrator:
             file_count,
             threshold=threshold,
             compare_seasons=compare_seasons,
+            explicit_seasons=explicit_seasons,
         )
 
     @staticmethod
@@ -253,6 +255,10 @@ class BatchTVOrchestrator:
             _raise_if_cancelled(cancel_event)
             file_count = _count_tv_season_subdirs(candidate.folder)
             use_seasons = True
+        # When direct files carry explicit S##E## evidence, the file count is
+        # one season's worth of episodes — compare against the candidates'
+        # matching-season episode counts rather than whole-show totals.
+        explicit_seasons = {item.season_num for item in episode_evidence} or None
         if file_count > 0 and len(scored) >= 2:
             runner_up, runner_up_score = scored[1]
             if best_score - runner_up_score <= 0.10:
@@ -261,6 +267,7 @@ class BatchTVOrchestrator:
                     file_count,
                     threshold=0.10,
                     compare_seasons=use_seasons,
+                    explicit_seasons=None if use_seasons else explicit_seasons,
                 )
 
         ep_file_count = file_count if not use_seasons else candidate.direct_episode_file_count

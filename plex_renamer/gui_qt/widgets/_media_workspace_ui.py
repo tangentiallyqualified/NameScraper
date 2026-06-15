@@ -114,6 +114,7 @@ class MediaWorkspaceUiCoordinator:
             ),
             episode_row_action_callback=lambda state, row, action_id: workspace._action_coordinator.handle_episode_row_action(state, row, action_id),
             approve_all_episode_callback=workspace._approve_all_episode_mappings,
+            unassign_all_episode_callback=workspace._unassign_all_episode_mappings,
             episode_guide_provider=(
                 workspace._media_ctrl.episode_guide_for_state
                 if workspace._media_ctrl is not None
@@ -126,6 +127,7 @@ class MediaWorkspaceUiCoordinator:
         workspace._preview_check_summary = workspace._preview_panel.check_summary
         workspace._fix_match_btn = workspace._preview_panel.fix_match_button
         workspace._queue_inline_btn = workspace._preview_panel.primary_action_button
+        workspace._unassign_all_btn = workspace._preview_panel.unassign_all_button
         workspace._folder_plan_label = workspace._preview_panel.folder_plan_label
         workspace._preview_summary = workspace._preview_panel.summary_label
         workspace._sticky_header = workspace._preview_panel.sticky_header
