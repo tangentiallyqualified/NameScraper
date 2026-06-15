@@ -6,6 +6,7 @@ place; see docs/superpowers/specs/2026-06-11-episode-assignment-redesign-design.
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -17,6 +18,7 @@ from ..parsing import (
     normalize_for_specials,
 )
 from .episode_assignments import (
+    ORIGIN_AUTO,
     ORIGIN_MANUAL,
     REASON_NO_PARSE,
     REASON_NO_TITLE_MATCH,
@@ -167,6 +169,82 @@ def match_title_in_titles(
     return None
 
 
+# Segment separators inside a combined multi-episode title
+# ("Barbeque Story & Waiter, There's A Baby" / "Foo and Bar"). Note "and"
+# also appears INSIDE titles ("Armed and Dangerous"), so segmentation tries
+# every grouping rather than splitting greedily.
+_SEGMENT_SEP = re.compile(r"\s*(?:&|/|,|\band\b)\s*", re.IGNORECASE)
+_MAX_SEGMENT_ATOMS = 12  # guard against combinatorial blowups on odd titles
+
+
+def _segment_atom_spans(text: str) -> list[tuple[int, int]]:
+    """Character spans of the atoms lying between segment separators."""
+    spans: list[tuple[int, int]] = []
+    pos = 0
+    for sep in _SEGMENT_SEP.finditer(text):
+        spans.append((pos, sep.start()))
+        pos = sep.end()
+    spans.append((pos, len(text)))
+    return spans
+
+
+def match_segmented_title_run(
+    raw_title: str | None,
+    titles: dict[int, str],
+    expected_count: int,
+) -> tuple[int, ...] | None:
+    """Resolve a combined multi-segment title into an episode run by titles.
+
+    Splits *raw_title* on segment separators and merges adjacent atoms into
+    exactly *expected_count* groups so each group is an EXACT TMDB title for a
+    distinct episode. Because separators ("and"/","/"&") also occur *inside*
+    titles, every grouping is tried; the run is accepted only when exactly one
+    grouping matches and the episodes form a contiguous run. Otherwise None,
+    and the caller falls back to the number-based rules.
+    """
+    if not raw_title or expected_count < 2 or not titles:
+        return None
+    spans = _segment_atom_spans(raw_title)
+    atom_count = len(spans)
+    if atom_count < expected_count or atom_count > _MAX_SEGMENT_ATOMS:
+        return None
+    # Exact normalized title -> episode, excluding duplicate titles (a
+    # duplicated title can't disambiguate which episode a segment means).
+    seen: dict[str, int] = {}
+    duplicates: set[str] = set()
+    for episode, title in titles.items():
+        norm = normalize_for_specials(title)
+        if not norm:
+            continue
+        if norm in seen:
+            duplicates.add(norm)
+        else:
+            seen[norm] = episode
+    norm_to_episode = {n: e for n, e in seen.items() if n not in duplicates}
+    if not norm_to_episode:
+        return None
+    matched_runs: set[tuple[int, ...]] = set()
+    for cuts in itertools.combinations(range(1, atom_count), expected_count - 1):
+        bounds = (0, *cuts, atom_count)
+        episodes: list[int] = []
+        for group in range(expected_count):
+            lo, hi = bounds[group], bounds[group + 1]
+            piece = raw_title[spans[lo][0]:spans[hi - 1][1]]
+            episode = norm_to_episode.get(normalize_for_specials(piece))
+            if episode is None:
+                break
+            episodes.append(episode)
+        else:
+            if len(set(episodes)) == expected_count:
+                matched_runs.add(tuple(sorted(episodes)))
+    if len(matched_runs) != 1:
+        return None
+    run = next(iter(matched_runs))
+    if any(b - a != 1 for a, b in zip(run, run[1:])):
+        return None
+    return run
+
+
 def resolve_file(
     *,
     parsed_episodes: tuple[int, ...],
@@ -181,6 +259,28 @@ def resolve_file(
     strong_title = (
         title_match is not None and title_match.strength >= STRONG_TITLE_STRENGTH
     )
+
+    # Multi-episode files often carry a combined title ("A and B"); when every
+    # segment is an exact distinct TMDB title forming a contiguous run, trust
+    # the titles over the (frequently mis-numbered) source episode numbers.
+    if len(parsed_episodes) >= 2:
+        seg_run = match_segmented_title_run(
+            raw_title, season_titles, len(parsed_episodes),
+        )
+        if seg_run is not None:
+            if valid_numbers and set(seg_run) == set(valid_numbers):
+                return Resolution(  # segmented agreement (rule-1-like)
+                    episodes=seg_run,
+                    confidence=CONF_AGREE,
+                    evidence=frozenset({"number", "title-agree", "title-segmented"}),
+                )
+            return Resolution(  # segment titles override the source numbers
+                episodes=seg_run,
+                confidence=CONF_TITLE_WINS,
+                evidence=frozenset(
+                    {"title-strong", "title-segmented", "number-disagree"},
+                ),
+            )
 
     if valid_numbers and title_match is not None:
         if title_match.episode in valid_numbers:
@@ -468,11 +568,65 @@ def apply_confidence_adjustments(
                 file_id, min(assignment.confidence, CONTRADICTORY_PREFIX_CAP),
             )
 
-    # Review-locked evidence (inexact title override, cross-season special)
-    # must stay below threshold no matter what floors ran above.
+    # Review-locked evidence (inexact title override, cross-season special,
+    # cross-season title rescue) must stay below threshold no matter what
+    # floors ran above.
     for assignment in table.assignments():
-        if assignment.evidence & {"title-strong-inexact", "cross-season-special"}:
+        if assignment.evidence & {
+            "title-strong-inexact", "cross-season-special", "cross-season-rescue",
+        }:
             table.set_confidence(
                 assignment.file_id,
                 min(assignment.confidence, CONF_TITLE_WINS_INEXACT),
             )
+
+
+def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
+    """Rescue single-episode files SKIPped as 'episode not in TMDB season'
+    whose exact title is an unclaimed slot in a *different* regular season.
+
+    Source season folders sometimes hold episodes TMDB lists under another
+    regular season (As Told By Ginger's Season 1 folder holds S2E1-E4, named
+    S01E17-E20). The parsed number is wrong, but an exact title in exactly one
+    unclaimed regular-season slot is trustworthy enough to rescue — at review
+    confidence, because the source numbering is known-bad. Ambiguous titles
+    (matching 2+ unclaimed regular seasons) and already-claimed targets are
+    left untouched.
+    """
+    title_index: dict[str, list[tuple[int, int]]] = {}
+    for (season, episode), slot in table.slots.items():
+        if season == 0 or not slot.title:
+            continue
+        norm = normalize_for_specials(slot.title)
+        if norm:
+            title_index.setdefault(norm, []).append((season, episode))
+
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+
+    for file_id, reason in list(table.unassigned_reasons.items()):
+        if reason != REASON_NOT_IN_SEASON:
+            continue
+        entry = table.files.get(file_id)
+        if entry is None or not entry.raw_title or len(entry.parsed_episodes) != 1:
+            continue
+        norm = normalize_for_specials(entry.raw_title)
+        if not norm:
+            continue
+        candidates = [
+            (season, episode)
+            for (season, episode) in title_index.get(norm, [])
+            if season != entry.folder_season and (season, episode) not in claimed
+        ]
+        if len(candidates) != 1:
+            continue
+        season, episode = candidates[0]
+        table.assign(
+            file_id, season, [episode], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-strong", "cross-season-rescue"}),
+        )
+        claimed.add((season, episode))

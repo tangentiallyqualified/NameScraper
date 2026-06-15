@@ -14,7 +14,7 @@ from ._parsing_names import (
     normalize_for_match,
     normalize_for_specials,
 )
-from ._parsing_seasons import get_season, is_season_only_name
+from ._parsing_seasons import get_season, get_year_season, is_season_only_name
 from ._parsing_subtitles import find_companion_subtitles
 from ._parsing_titles import clean_folder_name, clean_name, extract_year, sanitize_filename
 from ._parsing_tv import (
@@ -41,6 +41,7 @@ __all__ = [
     "extract_year",
     "find_companion_subtitles",
     "get_season",
+    "get_year_season",
     "is_companion_video_file",
     "is_already_complete",
     "is_extras_folder",

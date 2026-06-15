@@ -77,7 +77,10 @@ class TVLibraryDiscoveryService:
             #      flat show folder like "[FLE] Solo Leveling - S01 (…)/".
             is_season_root = (
                 root_classified.has_direct_season_subdirs
-                and self._season_children_are_majority(library_root)
+                and (
+                    self._season_children_are_majority(library_root)
+                    or self._classifier.year_season_children_are_majority(library_root)
+                )
             )
             is_flat_episode_root = (
                 not root_classified.has_direct_season_subdirs

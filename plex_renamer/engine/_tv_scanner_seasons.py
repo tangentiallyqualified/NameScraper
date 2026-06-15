@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 from logging import Logger
 from pathlib import Path
 
+from ..parsing import get_year_season
 from .models import SeasonFolderEntry, iter_season_folder_paths
 
 
@@ -68,6 +70,18 @@ def match_tv_dirs_to_tmdb_seasons(
     if not show_data:
         return []
 
+    results: list[tuple[Path, int]] = []
+
+    # Release-year folders (S2014, S2020) map onto the TMDB season whose
+    # episodes aired that year — a single show split across air-year folders
+    # (Adult Swim Infomercials). Multiple year folders may share one season.
+    year_dirs = [d for d in dirs if get_year_season(d.name) is not None]
+    if year_dirs:
+        results.extend(
+            _map_year_folders_to_seasons(year_dirs, show_data, tmdb, show_id, logger)
+        )
+
+    name_dirs = [d for d in dirs if get_year_season(d.name) is None]
     tmdb_season_names: dict[int, str] = {}
     for season_info in show_data.get("seasons", []):
         season_num = season_info.get("season_number", 0)
@@ -76,16 +90,15 @@ def match_tv_dirs_to_tmdb_seasons(
             tmdb_season_names[season_num] = name
 
     if not tmdb_season_names:
-        return []
+        return results
 
     show_title = clean_folder_name(
         show_info.get("name", ""),
         include_year=False,
     ).lower()
 
-    results: list[tuple[Path, int]] = []
     used_seasons: set[int] = set()
-    for directory in dirs:
+    for directory in name_dirs:
         best_season_num, best_score = _best_tmdb_season_name_match(
             directory.name,
             tmdb_season_names,
@@ -104,6 +117,70 @@ def match_tv_dirs_to_tmdb_seasons(
         results.append((directory, best_season_num))
         used_seasons.add(best_season_num)
 
+    return results
+
+
+def _map_year_folders_to_seasons(
+    year_dirs: list[Path],
+    show_data: dict,
+    tmdb,
+    show_id: int,
+    logger: Logger,
+) -> list[tuple[Path, int]]:
+    """Map ``S<YYYY>`` folders to the TMDB season airing that year.
+
+    Falls back to the show's sole regular season when no season has an episode
+    in that exact year (covers a year folder with no matching TMDB air date).
+    """
+    seasons_meta = show_data.get("seasons", []) or []
+    regular = [
+        int(season["season_number"])
+        for season in seasons_meta
+        if isinstance(season.get("season_number"), int)
+        and season["season_number"] > 0
+        and (season.get("episode_count", 0) or 0) > 0
+    ]
+    if not regular:
+        regular = [
+            int(season["season_number"])
+            for season in seasons_meta
+            if isinstance(season.get("season_number"), int)
+            and season["season_number"] > 0
+        ]
+    if not regular:
+        return []
+
+    season_year_counts: dict[int, Counter] = {}
+    for season_num in regular:
+        data = tmdb.get_season(show_id, season_num) or {}
+        counts: Counter = Counter()
+        for meta in (data.get("episodes") or {}).values():
+            air_year = str((meta or {}).get("air_date") or "")[:4]
+            if air_year.isdigit():
+                counts[int(air_year)] += 1
+        season_year_counts[season_num] = counts
+
+    single_season = regular[0] if len(regular) == 1 else None
+    results: list[tuple[Path, int]] = []
+    for directory in year_dirs:
+        year = get_year_season(directory.name)
+        candidates = [
+            (season_num, counts[year])
+            for season_num, counts in season_year_counts.items()
+            if counts.get(year, 0) > 0
+        ]
+        if candidates:
+            target = max(candidates, key=lambda item: (item[1], -item[0]))[0]
+        elif single_season is not None:
+            target = single_season
+        else:
+            continue
+        logger.info(
+            "Mapped release-year folder '%s' to TMDB season %d by air year",
+            directory.name,
+            target,
+        )
+        results.append((directory, target))
     return results
 
 

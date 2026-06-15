@@ -385,6 +385,107 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[4].name].episodes, [2])
             self.assertTrue(all(item.status == "OK" for item in items))
 
+    def test_get_year_season_recognizes_year_folders(self):
+        from plex_renamer.parsing import get_year_season
+        self.assertEqual(get_year_season("S2014"), 2014)
+        self.assertEqual(get_year_season("s2020"), 2020)
+        self.assertIsNone(get_year_season("S01"))
+        self.assertIsNone(get_year_season("S123"))
+        self.assertIsNone(get_year_season("Season 1"))
+
+    def test_year_season_umbrella_classified_as_single_show_root(self):
+        # Adult Swim Infomercials: children are release-year folders (S2014,
+        # S2020). The umbrella is ONE show, not a multi-show container.
+        with TemporaryDirectory() as tmp:
+            umbrella = Path(tmp) / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+            specials = umbrella / "S00"
+            specials.mkdir()
+            (specials / "Adult Swim Infomercials SPECIAL 0x1 Yule Log.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            self.assertEqual(
+                service.classify_directory(umbrella), TVDirectoryRole.SHOW_ROOT,
+            )
+
+    def test_year_season_umbrella_discovered_as_one_candidate(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            umbrella = root / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+            relative_paths = {candidate.relative_folder for candidate in candidates}
+
+            self.assertIn("Adult Swim Infomercials", relative_paths)
+            self.assertNotIn("Adult Swim Infomercials/S2014", relative_paths)
+            self.assertNotIn("Adult Swim Infomercials/S2020", relative_paths)
+
+    def test_year_season_umbrella_selected_directly_is_single_show(self):
+        # User points the scan directly at the umbrella folder.
+        with TemporaryDirectory() as tmp:
+            umbrella = Path(tmp) / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(umbrella)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].relative_folder, ".")
+
+    def test_year_folders_resolve_to_tmdb_season_by_air_year(self):
+        seasons = {
+            0: {
+                "titles": {1: "Yule Log"}, "posters": {},
+                "episodes": {1: {"air_date": "2014-12-25"}},
+                "count": 1, "name": "Specials",
+            },
+            1: {
+                "titles": {1: "Fartcopter", 2: "Too Many Cooks"}, "posters": {},
+                "episodes": {
+                    1: {"air_date": "2014-05-01"},
+                    2: {"air_date": "2016-06-01"},
+                },
+                "count": 2, "name": "Season 1",
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Adult Swim Infomercials"
+            d2014 = root / "S2014"
+            d2014.mkdir(parents=True)
+            (d2014 / "Adult Swim Infomercials S2014E01 Fartcopter.mkv").write_text("x")
+            d2016 = root / "S2016"
+            d2016.mkdir()
+            (d2016 / "Adult Swim Infomercials S2016E01 Too Many Cooks.mkv").write_text("x")
+            specials = root / "S00"
+            specials.mkdir()
+            (specials / "Adult Swim Infomercials SPECIAL 0x1 Yule Log.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 115657, "name": "Infomercials", "year": "2013"},
+                root,
+            )
+            items, has_mismatch = scanner.scan()
+
+            self.assertFalse(has_mismatch)
+            by_name = {item.original.name: item for item in items}
+            fartcopter = by_name["Adult Swim Infomercials S2014E01 Fartcopter.mkv"]
+            self.assertEqual(fartcopter.season, 1)
+            self.assertEqual(fartcopter.episodes, [1])
+            cooks = by_name["Adult Swim Infomercials S2016E01 Too Many Cooks.mkv"]
+            self.assertEqual(cooks.season, 1)
+            self.assertEqual(cooks.episodes, [2])
+
     def test_tv_classify_directory_marks_explicit_episode_folder_as_show_root(self):
         with TemporaryDirectory() as tmp:
             show = Path(tmp) / "Yuru Camp△"

@@ -216,7 +216,10 @@ class TVScanner:
         tmdb_seasons: dict,
     ) -> list[PreviewItem]:
         from ._episode_projection import project_preview_items
-        from ._episode_resolution import apply_confidence_adjustments
+        from ._episode_resolution import (
+            apply_confidence_adjustments,
+            rescue_cross_season_titles,
+        )
         from ._tv_scanner_normal import build_normal_table
 
         table = build_normal_table(
@@ -228,6 +231,7 @@ class TVScanner:
             season_folders=self._season_folders,
             store_tmdb_data=self._store_tmdb_data,
         )
+        rescue_cross_season_titles(table)
         apply_confidence_adjustments(
             table,
             show_info=self.show_info,

@@ -88,7 +88,45 @@ These bugs are NOT diagnosable from reading code; reproduce against real files +
 
 ## Definition of done
 
-- [ ] Each task reproduced, fixed test-first, and verified end-to-end against the `P:` folder named above.
-- [ ] `776+` non-GUI tests and `161+` Qt smoke still green (counts only grow with new tests).
-- [ ] Throwaway harness scripts deleted.
-- [ ] Changes committed with a chat-approved message; not pushed unless asked.
+- [x] Each task reproduced, fixed test-first, and verified end-to-end against the `P:` folder named above.
+- [x] `776+` non-GUI tests and `161+` Qt smoke still green — now **794 non-GUI + 161 Qt smoke**.
+- [x] Throwaway harness scripts deleted.
+- [x] Changes committed with a chat-approved message; not pushed unless asked.
+
+---
+
+## Outcome (2026-06-15)
+
+All three tasks shipped, test-first, verified against the `P:` folders.
+
+**Task 1 — As Told By Ginger:** `rescue_cross_season_titles` post-pass in
+`_episode_resolution.py` (run from `_build_normal_preview`). A file SKIPped as
+`REASON_NOT_IN_SEASON` whose exact title is an *unclaimed* slot in one other
+regular season is rescued there at review confidence (`cross-season-rescue`
+evidence, review-locked by the cap loop). S01E17-E20 (`I Spy a Witch`, …) now
+rescue to S2E1-E4. Single-episode only.
+
+**Task 2 — CatDog/Rugrats:** `match_segmented_title_run` in
+`_episode_resolution.py`, used by `resolve_file`. A combined multi-episode
+title is partitioned (handling separators that also occur *inside* titles,
+e.g. "Armed and Dangerous") so each segment is an exact distinct TMDB title; a
+unique contiguous run is assigned by title over the source numbers
+(auto-accept when it agrees, `CONF_TITLE_WINS` override otherwise). CatDog S1
+mis-numbering fixed (4 conflicts → 0). Rugrats: 114 confirmed, 0 collisions.
+
+**Task 3 — Adult Swim Infomercials:** `get_year_season` (`_parsing_seasons.py`)
+recognizes bare `S<YYYY>` folders; `year_season_children_are_majority`
+classifies a year-folder umbrella as a single SHOW_ROOT (classification +
+discovery root guard); `_map_year_folders_to_seasons` (`_tv_scanner_seasons.py`)
+maps each year folder to the TMDB season airing that year (single-season
+fallback). The umbrella is one show; ~40/47 episodes resolve by title.
+
+**Known residuals (not regressions; flagged for review, never silently wrong):**
+- CatDog/Ginger **cross-season-boundary** multi-episode drift (source S3 files
+  that are really TMDB S2; "Sumo Enchanted Evening …") — cross-season rescue is
+  single-episode only, so these land in review/lost-conflict.
+- **Title-variant/typo** mismatches resolve by number and may lose a conflict:
+  Ginger "April's Fools" vs TMDB "April Fools"; CatDog "Curiousity"; Adult Swim
+  "Live Forever" vs "Life Forever", "Big Grams".
+- Multi-part specials not listed as TMDB regular episodes (Ginger "Far From
+  Home (1)(2)(3)", "No Turning Back").

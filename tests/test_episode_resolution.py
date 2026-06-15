@@ -392,6 +392,117 @@ class TestResolutionRules:
         assert "title-agree" in res.evidence
 
 
+class TestMultiSegmentTitleRun:
+    """Combined-title multi-episode files (CatDog/Rugrats) must resolve by
+    segment titles, not by the (often mis-numbered) source episode numbers.
+
+    Each segment of the combined title is one episode's exact title; the run
+    is assigned by those titles when they form a unique contiguous run.
+    """
+
+    # TMDB Season 1 where the source's numbering is shuffled vs TMDB order.
+    CATDOG_S1 = {
+        1: "Dog Gone", 2: "All You Can't Eat",
+        5: "Full Moon Fever", 6: "War of the CatDog",
+        13: "The Island", 14: "All You Need is Lube",
+        25: "Armed and Dangerous", 26: "Fistful of Mail!",
+    }
+
+    def test_number_maps_wrong_but_segment_titles_win(self):
+        # The doc's case: file labelled E05-E06 but its titles live at E13-E14.
+        res = resolve_file(
+            parsed_episodes=(5, 6),
+            raw_title="The Island and All You Need is Lube",
+            is_season_relative=True,
+            season_titles=self.CATDOG_S1,
+            season=1,
+        )
+        assert res.episodes == (13, 14)
+        assert res.confidence >= DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_internal_and_in_segment_title_disambiguated(self):
+        # "Armed and Dangerous" is ONE title containing "and"; the constrained
+        # partition must pick {Armed and Dangerous}{Fistful of Mail}, not
+        # {Armed}{Dangerous and Fistful of Mail}.
+        res = resolve_file(
+            parsed_episodes=(13, 14),
+            raw_title="Armed and Dangerous and Fistful of Mail",
+            is_season_relative=True,
+            season_titles=self.CATDOG_S1,
+            season=1,
+        )
+        assert res.episodes == (25, 26)
+
+    def test_segments_agreeing_with_number_are_high_confidence(self):
+        # Correct file: titles match the parsed numbers -> rule-1-like agreement.
+        res = resolve_file(
+            parsed_episodes=(1, 2),
+            raw_title="Dog Gone and All You Can't Eat",
+            is_season_relative=True,
+            season_titles=self.CATDOG_S1,
+            season=1,
+        )
+        assert res.episodes == (1, 2)
+        assert res.confidence >= CONF_AGREE
+        assert "title-agree" in res.evidence
+
+    def test_three_segment_run(self):
+        titles = {
+            1: "Send in the CatDog", 2: "Fishing For Trouble", 3: "Fetch",
+            10: "Decoy", 11: "Decoy 2", 12: "Decoy 3",
+        }
+        res = resolve_file(
+            parsed_episodes=(10, 11, 12),
+            raw_title="Send in the CatDog and Fishing For Trouble and Fetch",
+            is_season_relative=True,
+            season_titles=titles,
+            season=2,
+        )
+        assert res.episodes == (1, 2, 3)
+
+    def test_typo_segment_not_auto_accepted(self):
+        # Source typo "Curiousity" must NOT exact-match, so the multi-segment
+        # partition must NOT fire and fabricate a confident (37, 38) run. The
+        # file lands in review (existing inexact-title path), never auto-accept.
+        titles = {
+            31: "Decoy A", 32: "Decoy B",
+            37: "Neferkitty", 38: "Curiosity Almost Killed The Cat",
+        }
+        res = resolve_file(
+            parsed_episodes=(31, 32),
+            raw_title="Neferkitty and Curiousity Almost Killed The Cat",
+            is_season_relative=True,
+            season_titles=titles,
+            season=1,
+        )
+        assert res.episodes != (37, 38)
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_noncontiguous_title_run_falls_back_to_number(self):
+        # Segments map to non-adjacent episodes -> not a valid run -> number.
+        titles = {1: "Alpha", 2: "Beta", 5: "Gamma"}
+        res = resolve_file(
+            parsed_episodes=(1, 2),
+            raw_title="Alpha and Gamma",
+            is_season_relative=True,
+            season_titles=titles,
+            season=1,
+        )
+        assert res.episodes == (1, 2)
+
+    def test_ambiguous_partition_falls_back_to_number(self):
+        # Two different partitions each match -> ambiguous -> keep number.
+        titles = {1: "A", 2: "B and C", 3: "A and B", 4: "C"}
+        res = resolve_file(
+            parsed_episodes=(1, 2),
+            raw_title="A and B and C",
+            is_season_relative=True,
+            season_titles=titles,
+            season=1,
+        )
+        assert res.episodes == (1, 2)
+
+
 class TestSpecialsTrust:
     def test_special_number_only_forces_review(self):
         res = resolve_file(
@@ -593,6 +704,100 @@ class TestConfidenceAdjustments:
         # exactly CONF_TITLE_WINS_INEXACT.
         assert capped == CONF_TITLE_WINS_INEXACT
         assert capped < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+
+from plex_renamer.engine.episode_assignments import REASON_NO_TITLE_MATCH, REASON_NOT_IN_SEASON
+from plex_renamer.engine._episode_resolution import rescue_cross_season_titles
+
+
+class TestCrossSeasonTitleRescue:
+    """As Told By Ginger: the source's Season 1 folder holds episodes TMDB
+    lists under Season 2 (S01E17 'I Spy a Witch' == TMDB S2E1). They SKIP as
+    'not in TMDB season'; rescue them by exact title into the unclaimed
+    regular-season slot, at review confidence (the source numbering is wrong).
+    """
+
+    def _ginger_table(self) -> EpisodeAssignmentTable:
+        table = EpisodeAssignmentTable()
+        for episode in range(1, 14):
+            table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"S1 Ep {episode}"))
+        table.add_slot(EpisodeSlot(season=2, episode=1, title="I Spy a Witch"))
+        table.add_slot(EpisodeSlot(season=2, episode=2, title="Deja Who?"))
+        table.add_slot(EpisodeSlot(season=2, episode=3, title="An Even Steven Holiday Special"))
+        return table
+
+    def test_rescues_exact_title_into_other_regular_season(self):
+        table = self._ginger_table()
+        entry = table.add_file(
+            Path("ATBG - S01E17 - I Spy a Witch.mkv"),
+            parsed_episodes=(17,), raw_title="I Spy a Witch",
+            folder_season=1, is_season_relative=True,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
+        rescue_cross_season_titles(table)
+        assignment = table.assignment_for(entry.file_id)
+        assert assignment is not None
+        assert assignment.season == 2
+        assert assignment.episodes == (1,)
+        assert assignment.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_rescue_tolerates_trailing_punctuation(self):
+        # Source "Deja Who" (no '?') must still match TMDB "Deja Who?".
+        table = self._ginger_table()
+        entry = table.add_file(
+            Path("ATBG - S01E18 - Deja Who.mkv"),
+            parsed_episodes=(18,), raw_title="Deja Who",
+            folder_season=1, is_season_relative=True,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
+        rescue_cross_season_titles(table)
+        assignment = table.assignment_for(entry.file_id)
+        assert assignment is not None and assignment.episodes == (2,)
+
+    def test_does_not_rescue_when_target_slot_claimed(self):
+        table = self._ginger_table()
+        claimer = table.add_file(Path("other - S02E01.mkv"), is_season_relative=True)
+        table.assign(claimer.file_id, 2, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        entry = table.add_file(
+            Path("ATBG - S01E17 - I Spy a Witch.mkv"),
+            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
+        rescue_cross_season_titles(table)
+        assert table.assignment_for(entry.file_id) is None
+
+    def test_does_not_rescue_when_title_ambiguous_across_seasons(self):
+        table = self._ginger_table()
+        # Same title appears unclaimed in two regular seasons -> ambiguous.
+        table.add_slot(EpisodeSlot(season=3, episode=5, title="I Spy a Witch"))
+        entry = table.add_file(
+            Path("ATBG - S01E17 - I Spy a Witch.mkv"),
+            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
+        rescue_cross_season_titles(table)
+        assert table.assignment_for(entry.file_id) is None
+
+    def test_does_not_rescue_other_unassigned_reasons(self):
+        table = self._ginger_table()
+        entry = table.add_file(
+            Path("ATBG - S01E17 - I Spy a Witch.mkv"),
+            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NO_TITLE_MATCH)
+        rescue_cross_season_titles(table)
+        assert table.assignment_for(entry.file_id) is None
+
+    def test_does_not_rescue_into_specials(self):
+        table = self._ginger_table()
+        table.add_slot(EpisodeSlot(season=0, episode=4, title="A Bonus Special"))
+        entry = table.add_file(
+            Path("ATBG - S01E21 - A Bonus Special.mkv"),
+            parsed_episodes=(21,), raw_title="A Bonus Special", folder_season=1,
+        )
+        table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
+        rescue_cross_season_titles(table)
+        assert table.assignment_for(entry.file_id) is None
 
 
 class TestConflictResolution:

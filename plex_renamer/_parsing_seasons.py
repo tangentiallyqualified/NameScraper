@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .constants import YEAR_MAX, YEAR_MIN
+
+_YEAR_SEASON_RE = re.compile(r"S(\d{4})", re.IGNORECASE)
 
 _SPECIALS_PATTERN = re.compile(
     r"^(?:"
@@ -109,3 +112,21 @@ def get_season(folder: Path) -> int | None:
 def is_season_only_name(folder_name: str) -> bool:
     """Return True if *folder_name* is primarily a season label."""
     return _SEASON_ONLY_NAME_RE.fullmatch(folder_name.strip()) is not None
+
+
+def get_year_season(folder_name: str) -> int | None:
+    """Return the 4-digit release year of a bare ``S<YYYY>`` season folder.
+
+    Some sources organize a show into release-year folders (``S2014``,
+    ``S2020``). ``get_season`` deliberately ignores these — it caps season
+    numbers at two digits so release years aren't mistaken for seasons — so
+    this recognizes them explicitly for the year-folder umbrella handling
+    (a single show split across air-year folders, e.g. Adult Swim
+    Infomercials). Only plausible years (``YEAR_MIN``..``YEAR_MAX``) qualify.
+    """
+    match = _YEAR_SEASON_RE.fullmatch(folder_name.strip())
+    if match:
+        year = int(match.group(1))
+        if YEAR_MIN <= year <= YEAR_MAX:
+            return year
+    return None
