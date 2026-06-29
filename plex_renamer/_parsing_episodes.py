@@ -10,6 +10,28 @@ from ._parsing_titles import clean_name, clean_title_evidence
 
 _MAX_RANGE_SPAN = 12
 
+# Words that turn an adjacent number into a quantity/volume label rather than an
+# episode: "No.6" / "Number 6" / "Vol 2" / "Part 3" — not episode numbers.
+_NUMBER_WORD_PREFIXES = frozenset(
+    {"no", "number", "vol", "volume", "part", "pt", "chapter", "ch"}
+)
+
+
+def _is_titleish_bare_number(name: str, digit_start: int, digit_end: int) -> bool:
+    """True when a bare number is part of the title, not an episode number.
+
+    Two cases, both observed in real filenames:
+      - a digit flanked by a trailing letter ("Se7en") — embedded in a word.
+      - a number-word prefix ("Blue Submarine No.6", "Vol 2") — a quantity.
+    """
+    if digit_end < len(name) and name[digit_end].isalpha():
+        return True
+    before = name[:digit_start].rstrip()
+    if before.endswith("#"):
+        return True
+    word = re.search(r"([A-Za-z]+)$", before)
+    return bool(word and word.group(1).lower() in _NUMBER_WORD_PREFIXES)
+
 
 def _expand_range(start: int, end: int) -> list[int]:
     """Expand an inclusive episode range, capping absurd spans."""
@@ -141,8 +163,25 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                 prefix = name[max(0, start - 1):start]
                 if prefix.lower() in ("x", "h"):
                     return [], None, False
+            if _is_titleish_bare_number(name, match.start(1), match.end(1)):
+                return [], None, False
             title = match.group(2).strip() if match.group(2) else None
             return [num], title, False
+
+    # Bracketed absolute episode numbers in fansub names, e.g.
+    #   [DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv
+    # Only a bracket whose entire content is a bare episode number (optionally a
+    # version suffix) qualifies; resolution/quality/version/hash/year brackets
+    # are excluded because their content is not pure 1-3 digits. Runs last so it
+    # never overrides an S##E##, NxNN, Ep##, or dash-delimited parse. Requires a
+    # leading bracket so plain titles like "Apollo 13" are never affected. The
+    # number is absolute (anime convention) -> is_season_relative is False.
+    if raw_stem.lstrip().startswith("["):
+        for bracket in re.finditer(r"\[(\d{1,3})(?:v\d+)?\]", raw_stem):
+            num = int(bracket.group(1))
+            if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
+                continue
+            return [num], None, False
 
     return [], None, False
 

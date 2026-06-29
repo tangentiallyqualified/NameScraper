@@ -14,7 +14,13 @@ _TV_EPISODE_PATTERNS = [
     re.compile(r"\b\d{1,2}x\d{2,3}\b", re.IGNORECASE),
     re.compile(r"\b(?:Episode|Ep)[\s._-]*\d{1,3}\b", re.IGNORECASE),
     re.compile(r"^\d{1,3}\.\s+\w"),
+    # Fansub layout: [Group][Show Title][NN]... where [NN] is a pure-numeric
+    # episode bracket (resolution/version/hash brackets are not pure digits).
+    re.compile(r"^\[[^\]]+\].*\[\d{1,3}\]"),
 ]
+
+# A bracket whose entire content is a bare episode number (optional version).
+_BRACKET_EPISODE_RE = re.compile(r"\[(\d{1,3})(?:v\d+)?\]")
 
 _FANSUB_EPISODE_PATTERN = re.compile(
     r"^\[.+?\]"
@@ -137,9 +143,33 @@ def looks_like_tv_episode(filepath: Path) -> bool:
     return False
 
 
+def _bracket_layout_title(stem: str) -> str | None:
+    """Title from a fully-bracketed fansub name: [Group][Title][NN]...
+
+    Returns the bracket group immediately preceding the first pure-numeric
+    episode bracket (the show title in `[DBD-Raws][Wolf's Rain][01]...`).
+    The folder name for such releases is often unusable (CJK), so this
+    per-file English title is the only clean show-search signal.
+    """
+    groups = list(re.finditer(r"\[([^\[\]]+)\]", stem))
+    for index, group in enumerate(groups):
+        if index >= 1 and _BRACKET_EPISODE_RE.fullmatch(group.group(0)):
+            candidate = clean_folder_name(groups[index - 1].group(1), include_year=False)
+            candidate = re.sub(r"\s+", " ", candidate).strip(" ._-")
+            if len(candidate) >= 2 and re.search(r"[A-Za-z]", candidate):
+                return candidate
+            return None
+    return None
+
+
 def extract_source_title_prefix(filename: str) -> str | None:
     """Extract a conservative show-title prefix from an episodic filename."""
-    stem = TRAILING_GROUP.sub("", Path(filename).stem)
+    raw_stem = Path(filename).stem
+    bracket_title = _bracket_layout_title(raw_stem)
+    if bracket_title is not None:
+        return bracket_title
+
+    stem = TRAILING_GROUP.sub("", raw_stem)
     stem = re.sub(r"\[[^\[\]]*\]", "", stem).strip()
 
     for pattern in _TV_TITLE_PREFIX_PATTERNS:
