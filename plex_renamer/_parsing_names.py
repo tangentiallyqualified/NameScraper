@@ -6,6 +6,46 @@ import re
 
 from ._parsing_titles import sanitize_filename
 
+# Trailing words trimmed from a common title base so multi-part runs collapse
+# cleanly ("Sozin's Comet - The Phoenix King"/"...Part 1:..." -> "Sozin's Comet").
+_BASE_TRIM_WORDS = frozenset(
+    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an"}
+)
+_BASE_TRIM_CHARS = " -–,:;"
+
+# Cap on a generated TV filename (including extension). Keeps full paths well
+# under the 255-char component limit with headroom for the output directory.
+MAX_FILENAME = 150
+
+
+def _common_title_base(unique_titles: list[str]) -> str | None:
+    """Return the shared leading title of a multi-part run, or None.
+
+    Computes the longest common word-prefix across the (already de-duplicated)
+    titles, then trims trailing separators, part-words, and dangling articles.
+    Returns the base only when it is non-trivial and an actual shortening.
+    """
+    if len(unique_titles) < 2:
+        return None
+    word_lists = [title.split() for title in unique_titles]
+    prefix: list[str] = []
+    for column in zip(*word_lists):
+        head = column[0]
+        if all(word.casefold() == head.casefold() for word in column):
+            prefix.append(head)
+        else:
+            break
+    while prefix:
+        token = prefix[-1].strip(_BASE_TRIM_CHARS).casefold()
+        if token == "" or token in _BASE_TRIM_WORDS:
+            prefix.pop()
+        else:
+            break
+    base = " ".join(prefix).strip(_BASE_TRIM_CHARS)
+    if len(base) >= 3 and len(base) < len("-".join(unique_titles)):
+        return base
+    return None
+
 
 def build_tv_name(
     show: str,
@@ -26,6 +66,9 @@ def build_tv_name(
 
     if len(episodes) == 1:
         ep_part = f"E{episodes[0]:02d}"
+    elif episodes == list(range(episodes[0], episodes[-1] + 1)):
+        # Contiguous ascending run -> first-last range (E18-E21), not E18-E19-...
+        ep_part = f"E{episodes[0]:02d}-E{episodes[-1]:02d}"
     else:
         ep_part = "-".join(f"E{ep:02d}" for ep in episodes)
 
@@ -35,10 +78,23 @@ def build_tv_name(
         title_part = titles[0]
     else:
         unique = list(dict.fromkeys(titles))
-        title_part = "-".join(unique)
+        base = _common_title_base(unique)
+        title_part = base if base is not None else "-".join(unique)
 
-    raw = f"{show}{year_part} - S{season:02d}{ep_part} - {title_part}{ext}"
-    return sanitize_filename(raw)
+    stem = f"{show}{year_part} - S{season:02d}{ep_part}"
+    name = sanitize_filename(f"{stem} - {title_part}{ext}")
+    if len(name) > MAX_FILENAME:
+        # Trim the title segment word-by-word (never the marker/extension),
+        # appending an ellipsis, until the whole filename fits the cap.
+        words = title_part.split()
+        while True:
+            words = words[:-1]
+            candidate = " ".join(words)
+            trial = f"{stem} - {candidate}…{ext}" if candidate else f"{stem}{ext}"
+            name = sanitize_filename(trial)
+            if len(name) <= MAX_FILENAME or not candidate:
+                break
+    return name
 
 
 def build_movie_name(title: str, year: str, ext: str) -> str:
