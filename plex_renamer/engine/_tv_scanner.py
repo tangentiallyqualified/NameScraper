@@ -218,6 +218,7 @@ class TVScanner:
         from ._episode_projection import project_preview_items
         from ._episode_resolution import (
             apply_confidence_adjustments,
+            apply_uniform_offset_rescue,
             rescue_cross_season_titles,
         )
         from ._tv_scanner_normal import build_normal_table
@@ -232,6 +233,7 @@ class TVScanner:
             store_tmdb_data=self._store_tmdb_data,
         )
         rescue_cross_season_titles(table)
+        apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
             table,
             show_info=self.show_info,
@@ -251,7 +253,10 @@ class TVScanner:
         tmdb_seasons: dict,
     ) -> list[PreviewItem]:
         from ._episode_projection import project_preview_items
-        from ._episode_resolution import apply_confidence_adjustments
+        from ._episode_resolution import (
+            apply_confidence_adjustments,
+            apply_uniform_offset_rescue,
+        )
         from ._tv_scanner_consolidated import build_consolidated_table
 
         table = build_consolidated_table(
@@ -262,6 +267,7 @@ class TVScanner:
             root=self.root,
             store_tmdb_data=self._store_tmdb_data,
         )
+        apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
             table,
             show_info=self.show_info,

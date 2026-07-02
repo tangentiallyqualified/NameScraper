@@ -176,6 +176,9 @@ def sanitize_filename(name: str) -> str:
     return name
 
 
+_YEAR_RANGE_RE = re.compile(r"(?<!\d)(\d{4})\s*[-–]\s*(\d{4})(?!\d)")
+
+
 def extract_year(text: str) -> str | None:
     """
     Extract a plausible release year (1920-2099) from a string.
@@ -189,11 +192,23 @@ def extract_year(text: str) -> str | None:
     Falls back to the last year found when no noise boundary is present,
     which correctly handles Plex-format names like "2001 A Space Odyssey (1968)".
 
+    A run range "(2001-2013)" counts as its START year: TMDB indexes shows by
+    first-air date, so the range end would match the wrong entry.
+
     Returns the year as a string, or None if not found.
     """
+    range_end_starts = {
+        match.start(2)
+        for match in _YEAR_RANGE_RE.finditer(text)
+        if (
+            YEAR_MIN_EXTRACT <= int(match.group(1)) <= YEAR_MAX
+            and int(match.group(2)) >= int(match.group(1))
+        )
+    }
     all_years = [
         match for match in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
         if YEAR_MIN_EXTRACT <= int(match.group(1)) <= YEAR_MAX
+        and match.start(1) not in range_end_starts
     ]
     if not all_years:
         return None

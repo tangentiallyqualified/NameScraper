@@ -290,7 +290,12 @@ def build_consolidated_preview(
             season=target_season,
             episodes=file_eps,
             status="OK",
-            episode_confidence=0.86 if is_season_relative else 0.3,
+            episode_confidence=(
+                0.86
+                if is_season_relative
+                and (_season_hint is None or _season_hint == target_season)
+                else 0.3
+            ),
             **media_fields,
         )
         item.companions = _build_subtitle_companions(file_path, new_name)
@@ -369,11 +374,14 @@ def build_consolidated_table(
         store_tmdb_data=store_tmdb_data,
     )
     mapped_by_path = {item.original: item for item in items}
+    show_name_norm = normalize_for_specials(show_info.get("name") or "")
 
     for (
         file_path, _abs_num, raw_title, episode_numbers,
         is_season_relative, season_hint,
     ) in collect_absolute_files(season_dirs):
+        if raw_title and normalize_for_specials(raw_title) == show_name_norm:
+            raw_title = None
         entry = table.add_file(
             file_path,
             parsed_episodes=tuple(episode_numbers),
@@ -401,10 +409,14 @@ def build_consolidated_table(
         if item is not None and item.season and item.episodes and item.season != 0:
             cand_season = item.season
             cand_titles = tmdb_seasons.get(cand_season, {}).get("titles", {})
+            # A file's explicit S## only vouches for its number within THAT
+            # season. When the consolidated mapping lands in a different
+            # TMDB season, the number is inferred, not season-relative.
+            hint_matches = season_hint is None or season_hint == cand_season
             resolution = resolve_file(
                 parsed_episodes=tuple(item.episodes),
                 raw_title=raw_title,
-                is_season_relative=is_season_relative,
+                is_season_relative=is_season_relative and hint_matches,
                 season_titles=cand_titles,
                 season=cand_season,
             )

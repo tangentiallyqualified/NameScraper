@@ -17,9 +17,36 @@ import pytest
 from plex_renamer.parsing import (
     extract_episode,
     extract_source_title_prefix,
+    extract_year,
     looks_like_tv_episode,
 )
 from pathlib import Path
+
+
+# ── Year hints from run-range folder names ──────────────────────────
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        # A YYYY-YYYY run range names the show's whole run; TMDB indexes by
+        # FIRST-AIR year, so the hint must be the range START. (Jimmy Neutron
+        # matched "Rich, Jimmy & Kait's Castle" (2013) via the range end.)
+        (
+            "JIMMY NEUTRON (2001-2013) - Complete Movie, ANIMATED TV Series,"
+            " and Planet Sheen - 576p-1080p x264",
+            "2001",
+        ),
+        ("Specials (1998-2003)", "1998"),
+        ("The Wild Thornberries (1998 - 2004)", "1998"),
+        # Non-range names keep existing behavior.
+        ("The.Matrix.1999.1080p", "1999"),
+        ("2001.A.Space.Odyssey.1968.2160p", "1968"),
+        ("2001 A Space Odyssey (1968)", "1968"),
+        ("Watchmen.S01.2160p.MAX.WEB-DL", None),
+    ],
+)
+def test_extract_year_uses_range_start(name, expected):
+    assert extract_year(name) == expected
 
 
 # ── Item 1: bracketed [NN] episode numbers ──────────────────────────

@@ -11,6 +11,7 @@ from ...parsing import (
     clean_folder_name,
     get_season,
     get_year_season,
+    has_explicit_special_episode,
     is_extras_folder,
     is_season_only_name,
     looks_like_tv_episode,
@@ -57,15 +58,25 @@ class TVDirectoryClassifier:
                 discovered_via_symlink=directory.is_symlink(),
             )
         if is_extras_folder(directory.name):
-            return ClassifiedDirectory(
-                role=TVDirectoryRole.NON_TV_LEAF,
-                child_dirs=[],
-                discovery_reason="extras_folder",
-                has_direct_season_subdirs=False,
-                direct_episode_file_count=0,
-                direct_video_file_count=0,
-                discovered_via_symlink=directory.is_symlink(),
+            # A bare "Specials" folder holding explicit S00E## episode files
+            # is a real specials season (The Brak Show: empty Season 1-3 +
+            # Specials/S00E01): fall through to normal classification.
+            has_explicit_specials = any(
+                child.is_file
+                and child.path.suffix.lower() in VIDEO_EXTENSIONS
+                and has_explicit_special_episode(child.path.name)
+                for child in self.scan_children(directory)
             )
+            if not has_explicit_specials:
+                return ClassifiedDirectory(
+                    role=TVDirectoryRole.NON_TV_LEAF,
+                    child_dirs=[],
+                    discovery_reason="extras_folder",
+                    has_direct_season_subdirs=False,
+                    direct_episode_file_count=0,
+                    direct_video_file_count=0,
+                    discovered_via_symlink=directory.is_symlink(),
+                )
 
         season_num = get_season(directory)
         if season_num is not None:

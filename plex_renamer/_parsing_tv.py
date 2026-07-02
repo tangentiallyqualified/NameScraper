@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from .constants import TRAILING_GROUP, VIDEO_EXTENSIONS
+from ._parsing_seasons import is_season_only_name
 from ._parsing_titles import clean_folder_name, extract_year
 
 
@@ -50,6 +51,14 @@ EXTRAS_FOLDER_PATTERN = re.compile(
 )
 
 _SAMPLE_FILE_RE = re.compile(r"(?i)(?:^|[\s.\-_])sample(?:[\s.\-_]|$)")
+
+# An explicit season-0 episode marker in a FILE name (S00E01). Folder-based
+# episode heuristics don't count here: every file inside an extras folder
+# "looks like" an episode via its parent name.
+_EXPLICIT_SPECIAL_EPISODE_RE = re.compile(
+    r"(?:^|[\s._\-\[(])S00E\d{1,3}(?=[\s._\-\])]|$)",
+    re.IGNORECASE,
+)
 
 _FILENAME_SEASON_PATTERN = re.compile(
     r"(?:^|[\s._\-])(?:Season|Staffel|Saison|Temporada|Stagione)"
@@ -96,6 +105,11 @@ _TV_TITLE_PREFIX_PATTERNS = (
 def is_extras_folder(name: str) -> bool:
     """Check if a folder name indicates supplemental/extras content."""
     return bool(EXTRAS_FOLDER_PATTERN.match(name.strip()))
+
+
+def has_explicit_special_episode(filename: str) -> bool:
+    """Return True when a file name carries an explicit S00E## marker."""
+    return bool(_EXPLICIT_SPECIAL_EPISODE_RE.search(filename))
 
 
 def is_sample_file(filepath: Path) -> bool:
@@ -224,8 +238,18 @@ def _infer_tv_title_from_direct_episode_files(folder: Path) -> str | None:
     return title_examples[best_key]
 
 
-def best_tv_match_title(folder: Path, *, include_year: bool = True) -> str:
-    """Return the best available TV title for matching/search."""
+def best_tv_match_title(
+    folder: Path,
+    *,
+    include_year: bool = True,
+    name_fallback_folder: Path | None = None,
+) -> str:
+    """Return the best available TV title for matching/search.
+
+    ``name_fallback_folder`` substitutes the folder whose NAME is used when
+    no title can be inferred from the episode files — a generic
+    "Specials (1998-2003)"/"Series" candidate inherits its parent's name.
+    """
     inferred = _infer_tv_title_from_direct_episode_files(folder)
     if inferred is not None:
         if include_year:
@@ -233,4 +257,26 @@ def best_tv_match_title(folder: Path, *, include_year: bool = True) -> str:
             if year:
                 return f"{inferred} ({year})"
         return inferred
-    return clean_folder_name(folder.name, include_year=include_year)
+    name_source = name_fallback_folder if name_fallback_folder is not None else folder
+    return clean_folder_name(name_source.name, include_year=include_year)
+
+
+# Folder names that label a collection level rather than a show ("Series",
+# "Episodes"): meaningless as search queries, like bare season labels.
+_GENERIC_SHOW_FOLDER_LABELS = frozenset({"series", "episodes", "collection"})
+
+
+def is_generic_show_folder_name(name: str) -> bool:
+    """True when *name* is only a season/collection label, not a show title.
+
+    Catches bare season-level names once release junk and years are cleaned
+    away ("Specials (1998-2003)" -> "Specials", "season 0") plus generic
+    collection labels ("Series"). Names that carry a show title alongside
+    the label ("Yuru Camp Specials") are NOT generic.
+    """
+    cleaned = clean_folder_name(name, include_year=False).strip()
+    if not cleaned:
+        return False
+    if cleaned.casefold() in _GENERIC_SHOW_FOLDER_LABELS:
+        return True
+    return is_season_only_name(cleaned)

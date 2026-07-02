@@ -36,6 +36,23 @@ class _SingleShowScanController(Protocol):
     def refresh_episode_guide(self, state: ScanState) -> Any: ...
 
 
+def _retarget_to_output(controller: Any, state: ScanState) -> None:
+    """Point actionable preview items at the configured TV output root.
+
+    The bulk-scan path retargets every scanned state when it completes;
+    single-show rescans (e.g. after a manual rematch) must do the same or
+    queued jobs keep source-rooted target dirs and fail execution with
+    "Target path is outside the output root".
+    """
+    settings = getattr(controller, "_settings", None)
+    tv_output = getattr(settings, "valid_tv_output_folder", None)
+    if tv_output is None or not state.scanned:
+        return
+    from ._tv_batch_helpers import retarget_tv_state_to_output
+
+    retarget_tv_state_to_output(state, tv_output)
+
+
 def start_single_show_scan(
     controller: _SingleShowScanController,
     state: ScanState,
@@ -78,6 +95,8 @@ def start_single_show_scan(
                 controller._batch_states = orchestrator.states
                 if claim_reconciled is not None:
                     final_state = claim_reconciled
+
+            _retarget_to_output(controller, final_state)
         except Exception as exc:
             _log.exception("Single-show scan failed: %s", exc)
         finally:

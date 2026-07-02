@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..parsing import get_season
+from ..parsing import clean_folder_name, get_season, normalize_for_match
 from ..tmdb import TMDBClient
 
 
@@ -87,3 +87,36 @@ def episode_count_tiebreak(
         key=lambda candidate: (candidate[3], abs(candidate[2] - file_count), -candidate[1]),
     )
     return best[0], best[1]
+
+
+def primary_name_breaks_tie(
+    best: dict,
+    runner_up: dict,
+    query_name: str,
+    year_hint: str | None,
+) -> bool:
+    """True when the winner's identity evidence clearly beats the runner-up's.
+
+    Alt-title and episode-evidence boosts can level a franchise spin-off
+    ("Watchmen: Motion Comic", alt-titled just "Watchmen") with the show whose
+    PRIMARY name is the query; both saturate near 1.0 and the near-zero margin
+    reads as a tie. An exact primary-name match the runner-up lacks resolves
+    that tie — unless a year hint argues for the runner-up instead.
+    """
+    query_norm = normalize_for_match(
+        clean_folder_name(query_name, include_year=False),
+    )
+    if not query_norm:
+        return False
+    best_exact = normalize_for_match(best.get("name") or "") == query_norm
+    runner_exact = normalize_for_match(runner_up.get("name") or "") == query_norm
+    if not best_exact or runner_exact:
+        return False
+    if year_hint and best.get("year") and runner_up.get("year"):
+        try:
+            best_diff = abs(int(best["year"]) - int(year_hint))
+            runner_diff = abs(int(runner_up["year"]) - int(year_hint))
+        except (ValueError, TypeError):
+            return True
+        return best_diff <= runner_diff
+    return True

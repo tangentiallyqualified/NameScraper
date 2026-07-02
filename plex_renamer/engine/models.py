@@ -350,6 +350,12 @@ def infer_explicit_season_assignment(
     if season_num is not None:
         return season_num
 
+    # "Specials (1998-2003)": the year range hides the bare specials label
+    # from get_season; retry on the cleaned name.
+    cleaned_name = clean_folder_name(folder.name, include_year=False).strip()
+    if cleaned_name and cleaned_name != folder.name and get_season(Path(cleaned_name)) == 0:
+        return 0
+
     direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
     explicit_seasons = {item.season_num for item in direct_evidence}
     if len(explicit_seasons) == 1:

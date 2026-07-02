@@ -7,7 +7,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
-from ..parsing import extract_episode, extract_season_number, is_extras_folder
+from ..parsing import (
+    extract_episode,
+    extract_season_number,
+    is_companion_video_file,
+    is_extras_folder,
+    normalize_for_specials,
+)
 from .._parsing_titles import clean_title_evidence
 from ._episode_resolution import (
     CONF_TITLE_WINS_INEXACT,
@@ -50,10 +56,38 @@ def _resolve_into_table(
     season_titles: dict[int, str],
     specials_titles: dict[int, str] | None = None,
     from_extras_folder: bool = False,
+    show_name: str | None = None,
 ) -> None:
     episode_numbers, raw_title, is_season_relative = extract_episode(file_path.name)
     season_hint = extract_season_number(file_path.name) if is_season_relative else None
+    if from_extras_folder and not is_season_relative:
+        # A bare number in an extras filename ("Season 2 Extra 1", "NCED2")
+        # is not an episode number; claiming numbered S0 slots from it
+        # produced mass conflicts. Only explicit S00E## numbering counts.
+        episode_numbers = []
+    if is_companion_video_file(file_path):
+        entry = table.add_file(
+            file_path,
+            parsed_episodes=(),
+            raw_title=raw_title,
+            is_season_relative=is_season_relative,
+            season_hint=season_hint,
+            folder_season=season_num,
+            from_extras_folder=True,
+        )
+        table.mark_unassigned(entry.file_id, "companion extra (NCOP/NCED)")
+        return
     title_evidence = raw_title
+    if (
+        title_evidence
+        and show_name
+        and normalize_for_specials(title_evidence) == normalize_for_specials(show_name)
+    ):
+        # A "title" that is just the show name ("Trailer Park Boys -
+        # S10E01 - Trailer Park Boys") carries no episode information and
+        # must not match episodes/specials whose titles contain the show
+        # name.
+        title_evidence = None
     if season_num == 0 and not title_evidence:
         # Specials numbering varies across sources; the filename itself is
         # often the only title evidence. Clean it so quality tags don't
@@ -86,6 +120,17 @@ def _resolve_into_table(
     ):
         own_match = match_title_in_titles(title_evidence, season_titles)
         s0_match = match_title_in_titles(title_evidence, specials_titles)
+        if (
+            s0_match is not None
+            and show_name
+            and normalize_for_specials(specials_titles[s0_match.episode])
+            == normalize_for_specials(show_name)
+        ):
+            # A special titled exactly like the show ("Trailer Park Boys"
+            # S00E03) matches any show-name-prefixed file title; that carries
+            # no episode information and must not ride over valid own-season
+            # numbers.
+            s0_match = None
         if (
             s0_match is not None
             and s0_match.strength >= STRONG_TITLE_STRENGTH
@@ -146,6 +191,7 @@ def build_normal_table(
         return s0_titles
 
     registered_seasons: set[int] = set()
+    season_dir_paths = {season_dir for season_dir, _ in season_dirs}
     for season_dir, season_num in season_dirs:
         if season_num in tmdb_seasons:
             season_data = tmdb_seasons[season_num]
@@ -206,6 +252,7 @@ def build_normal_table(
                         season_num=0,
                         season_titles=ensure_s0_titles(),
                         from_extras_folder=extras_folder and season_num == 0,
+                        show_name=show_info.get('name'),
                     )
                 else:
                     _resolve_into_table(
@@ -214,8 +261,14 @@ def build_normal_table(
                         season_num=season_num,
                         season_titles=titles,
                         specials_titles=ensure_s0_titles(),
+                        show_name=show_info.get('name'),
                     )
-            elif entry_path.is_dir() and season_num != 0 and is_extras_folder(entry_path.name):
+            elif (
+                entry_path.is_dir()
+                and season_num != 0
+                and is_extras_folder(entry_path.name)
+                and entry_path not in season_dir_paths
+            ):
                 for extras_file in sorted(entry_path.iterdir()):
                     if (
                         extras_file.is_file()
@@ -227,6 +280,24 @@ def build_normal_table(
                             season_num=0,
                             season_titles=ensure_s0_titles(),
                             from_extras_folder=True,
+                            show_name=show_info.get('name'),
+                        )
+            elif entry_path.is_dir() and season_num == 0 and extras_folder:
+                # An extras folder may group its bonus videos one level
+                # deeper ("Extras/The Mayfly of Space/…"); scan those files
+                # as specials too so titled OVAs aren't silently dropped.
+                for nested_file in sorted(entry_path.iterdir()):
+                    if (
+                        nested_file.is_file()
+                        and nested_file.suffix.lower() in VIDEO_EXTENSIONS
+                    ):
+                        _resolve_into_table(
+                            table,
+                            file_path=nested_file,
+                            season_num=0,
+                            season_titles=ensure_s0_titles(),
+                            from_extras_folder=True,
+                            show_name=show_info.get('name'),
                         )
 
     return table

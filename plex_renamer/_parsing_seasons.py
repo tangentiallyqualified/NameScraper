@@ -41,6 +41,25 @@ _ORDINAL_WORDS: dict[str, int] = {
 
 _ORDINAL_SUFFIX_RE = re.compile(r"(\d{1,2})(?:st|nd|rd|th)", re.IGNORECASE)
 
+# A season RANGE ("S01-S14", "Season 1-8", "S01-08") labels a multi-season
+# collection, not one season. Blank such tokens before single-season parsing
+# so umbrella folders don't masquerade as their first season.
+_SEASON_RANGE_RE = re.compile(
+    r"(?:season|staffel|saison|temporada|stagione|s)[\s._\-]*(\d{1,2})"
+    r"\s*[-–]\s*"
+    r"(?:(?:season|staffel|saison|temporada|stagione|s)[\s._\-]*)?(\d{1,3})(?!\d)",
+    re.IGNORECASE,
+)
+
+
+def _blank_season_ranges(name: str) -> str:
+    def _replace(match: re.Match) -> str:
+        if int(match.group(2)) > int(match.group(1)):
+            return " "
+        return match.group(0)
+
+    return _SEASON_RANGE_RE.sub(_replace, name)
+
 _SEASON_ONLY_NAME_RE = re.compile(
     r"^(?:"
     r"specials?|extras?|bonus|OVAs?|OADs?|ONAs?|movies?|shorts?"
@@ -76,6 +95,8 @@ def get_season(folder: Path) -> int | None:
         return 0
     if _SPECIALS_SUFFIX.search(name):
         return 0
+
+    name = _blank_season_ranges(name)
 
     match = re.search(r"season\s*(\d{1,2})(?!\d)", name, re.IGNORECASE)
     if match and not re.match(r"\d{1,2}\s*,\s*\d", name[match.start(1):]):

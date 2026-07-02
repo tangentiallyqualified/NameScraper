@@ -7,6 +7,7 @@ from collections.abc import Callable
 from logging import Logger
 from pathlib import Path
 
+from ..constants import VIDEO_EXTENSIONS
 from ..parsing import get_year_season
 from .models import SeasonFolderEntry, iter_season_folder_paths
 
@@ -46,6 +47,20 @@ def resolve_tv_season_dirs(
             {season_num for _, season_num in dirs_with_season},
         )
         dirs_with_season.extend(matched_via_tmdb)
+
+    # When the only season-like children are specials/extras (Season 0), the
+    # real episodes live as direct files in the root — keep scanning them
+    # (e.g. a flat anime folder with an "Extras" subdir).
+    if dirs_with_season and all(num == 0 for _, num in dirs_with_season):
+        try:
+            has_root_videos = any(
+                entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS
+                for entry in root.iterdir()
+            )
+        except OSError:
+            has_root_videos = False
+        if has_root_videos:
+            dirs_with_season.append((root, 1 if season_hint is None else season_hint))
 
     dirs_with_season.sort(key=lambda item: item[1])
     if dirs_with_season:

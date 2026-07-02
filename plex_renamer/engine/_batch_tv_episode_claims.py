@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from ._batch_tv_duplicates import normalized_relative_folder
 from ._episode_projection import project_preview_items
+from ._episode_resolution import resolve_table_conflicts
 from .episode_assignments import merge_tables
 from .models import PreviewItem, ScanState
 
@@ -58,6 +59,10 @@ def reconcile_scanned_episode_claims(
                     merge_tables(primary.assignments, state.assignments)
                     removed.add(id(state))
                     replacements[id(state)] = primary
+            # Merging sibling tables can create new same-slot claims
+            # (duplicate copies of a season in two source roots); resolve
+            # them so an episode is never listed twice in conflict.
+            resolve_table_conflicts(primary.assignments)
             primary.preview_items = project_preview_items(
                 primary.assignments,
                 show_info=primary.media_info,

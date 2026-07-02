@@ -14,6 +14,7 @@ from ..parsing import (
     clean_folder_name,
     extract_year,
     get_season,
+    is_generic_show_folder_name,
     is_sample_file,
     looks_like_tv_episode,
 )
@@ -29,6 +30,7 @@ from ._batch_tv_episode_claims import (
 from ._batch_tv_match_policy import (
     count_season_subdirs as _count_tv_season_subdirs,
     episode_count_tiebreak as _episode_count_tiebreak,
+    primary_name_breaks_tie as _primary_name_breaks_tie,
 )
 from ._batch_tv_season_merge import (
     expanded_season_folders as _expanded_tv_season_folders,
@@ -164,10 +166,29 @@ class BatchTVOrchestrator:
         candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
-            cleaned = best_tv_match_title(candidate.folder, include_year=False)
-            score_name = best_tv_match_title(candidate.folder)
-            folder_score_name = clean_folder_name(candidate.folder.name)
+            # A candidate named only with a season/collection label
+            # ("Specials (1998-2003)", "Series") — typical when an umbrella's
+            # season folders are empty on disk — would search TMDB for a show
+            # literally called "Specials". Inherit the parent folder's title
+            # (the parent must be inside the library, not the root itself).
+            name_fallback = None
+            if (
+                candidate.parent_relative_folder is not None
+                and is_generic_show_folder_name(candidate.folder.name)
+            ):
+                name_fallback = candidate.folder.parent
+            cleaned = best_tv_match_title(
+                candidate.folder, include_year=False, name_fallback_folder=name_fallback,
+            )
+            score_name = best_tv_match_title(
+                candidate.folder, name_fallback_folder=name_fallback,
+            )
+            folder_score_name = clean_folder_name(
+                (name_fallback or candidate.folder).name,
+            )
             year_hint = extract_year(candidate.folder.name)
+            if year_hint is None and name_fallback is not None:
+                year_hint = extract_year(name_fallback.name)
             episode_evidence = self._collect_direct_episode_evidence(candidate.folder)
             candidates.append((
                 candidate,
@@ -290,7 +311,17 @@ class BatchTVOrchestrator:
         if len(scored) >= 2:
             for result, score in scored:
                 if result.get("id") != best.get("id"):
-                    if best_score - score <= SCORE_TIE_MARGIN and best_score >= get_auto_accept_threshold():
+                    # Compare on the same clamped scale as best_score:
+                    # stacked boosts push raw scores past 1.0 while the
+                    # winner's was clamped, faking a huge negative margin.
+                    runner_score = min(score, 1.0)
+                    if (
+                        best_score - runner_score <= SCORE_TIE_MARGIN
+                        and best_score >= get_auto_accept_threshold()
+                        and not _primary_name_breaks_tie(
+                            best, result, score_name, year_hint,
+                        )
+                    ):
                         tie_detected = True
                     break
 

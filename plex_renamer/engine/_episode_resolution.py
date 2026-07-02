@@ -20,6 +20,7 @@ from ..parsing import (
 from .episode_assignments import (
     ORIGIN_AUTO,
     ORIGIN_MANUAL,
+    REASON_LOST_CONFLICT,
     REASON_NO_PARSE,
     REASON_NO_TITLE_MATCH,
     REASON_NOT_IN_SEASON,
@@ -281,6 +282,38 @@ def resolve_file(
                     {"title-strong", "title-segmented", "number-disagree"},
                 ),
             )
+    elif (
+        len(parsed_episodes) == 1
+        and raw_title
+        and (title_match is None or title_match.strength < _TITLE_EXACT)
+    ):
+        # Disc-grouped sources put SEVERAL segment-indexed episodes behind
+        # ONE file number (Animaniacs, Catscratch); the combined title is
+        # then the only signal for the real run. Try plausible run sizes and
+        # accept only an unambiguous result. An exact full-title match is
+        # excluded above: when TMDB itself lists the combined title, that
+        # agreement outranks decomposing it.
+        runs = {
+            run
+            for expected in (2, 3, 4)
+            if (run := match_segmented_title_run(raw_title, season_titles, expected))
+            is not None
+        }
+        if len(runs) == 1:
+            seg_run = next(iter(runs))
+            if valid_numbers and set(valid_numbers) <= set(seg_run):
+                return Resolution(  # number lies inside the titled run
+                    episodes=seg_run,
+                    confidence=CONF_AGREE,
+                    evidence=frozenset({"number", "title-agree", "title-segmented"}),
+                )
+            return Resolution(  # segment titles override the grouping number
+                episodes=seg_run,
+                confidence=CONF_TITLE_WINS,
+                evidence=frozenset(
+                    {"title-strong", "title-segmented", "number-disagree"},
+                ),
+            )
 
     if valid_numbers and title_match is not None:
         if title_match.episode in valid_numbers:
@@ -309,10 +342,16 @@ def resolve_file(
 
     if valid_numbers:
         if _has_ambiguous_title_evidence(raw_title, season_titles):  # rule 3 (ambiguous)
+            evidence = {"number", "title-ambiguous"}
+            if len(_segment_atom_spans(raw_title)) >= 2:
+                # A combined multi-segment title that matched several titles
+                # but resolved to no unique run: the number is a disc
+                # grouping index, not a season position — review-locked.
+                evidence.add("title-multi-segment")
             return Resolution(
                 episodes=valid_numbers,
                 confidence=CONF_WEAK_TITLE_NUMBER_CAP,
-                evidence=frozenset({"number", "title-ambiguous"}),
+                evidence=frozenset(evidence),
             )
         if season == 0:
             # Season-0 numbering varies by source; a bare number is not
@@ -386,14 +425,56 @@ def _source_prefix_compatible(source_norm: str, show_norm: str) -> bool:
         or show_norm.startswith(source_norm)
     ):
         return True
+    # Punctuation splits tokens apart ("M*A*S*H" -> "m a s h", "Hell's" ->
+    # "hell s"); compare space-collapsed compact forms so those source
+    # spellings aren't treated as a different show.
+    source_compact = source_norm.replace(" ", "")
+    show_compact = show_norm.replace(" ", "")
+    if source_compact and show_compact and (
+        source_compact == show_compact
+        or source_compact.startswith(show_compact)
+        or show_compact.startswith(source_compact)
+    ):
+        return True
     source_tokens = source_norm.split()
     show_tokens = show_norm.split()
+    if _acronym_prefix_compatible(source_tokens, show_tokens):
+        return True
     if not show_tokens or len(show_tokens) > len(source_tokens):
         return False
     return (
         source_tokens[-len(show_tokens):] == show_tokens
         or source_tokens[: len(show_tokens)] == show_tokens
     )
+
+
+_ACRONYM_STOPWORDS = frozenset({"the", "a", "an", "of", "and"})
+
+
+def _acronym_prefix_compatible(
+    source_tokens: list[str],
+    show_tokens: list[str],
+) -> bool:
+    """True when the source abbreviates the show's tail as an acronym.
+
+    Release names shorten long show names ("Star Trek TNG" for "Star Trek:
+    The Next Generation"): shared leading tokens, then one source token equal
+    to the initials of the remaining show tokens (stopwords optional).
+    """
+    if len(source_tokens) < 2 or len(show_tokens) <= len(source_tokens):
+        return False
+    shared = len(source_tokens) - 1
+    if source_tokens[:shared] != show_tokens[:shared]:
+        return False
+    tail = show_tokens[shared:]
+    if len(tail) < 2:
+        return False
+    acronym = "".join(token[0] for token in tail if token)
+    acronym_no_stop = "".join(
+        token[0] for token in tail if token and token not in _ACRONYM_STOPWORDS
+    )
+    candidate = source_tokens[-1]
+    return len(candidate) >= 2 and candidate in (acronym, acronym_no_stop)
 
 
 def _parse_air_date(value: object) -> date | None:
@@ -432,23 +513,185 @@ def _expected_for_season(slots: list[EpisodeSlot]) -> set[int]:
     return {slot.episode for slot in candidates}
 
 
-def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
-    """Award a conflicted slot to its sole exact-title claimant.
+def _claim_strength(claim) -> int:
+    """Evidence ladder: exact title > (inexact/segmented title ~ explicit
+    season-relative number) > bare/special number.
 
-    When a slot is claimed by exactly one auto file with exact-title evidence
-    (``title-agree``/``title-strong``) and the other claimants are weaker
-    (number-only / no exact-title evidence), the exact-title file keeps the
-    slot and the rest are marked ``REASON_LOST_CONFLICT``. Slots with no
-    exact-title claimant, with two or more exact-title claimants, or with any
-    manual claimant are left untouched for manual resolution.
+    Inexact titles and explicit S##E## numbers deliberately TIE — neither may
+    evict the other automatically — while both beat a bare or special-only
+    number (specials numbering varies wildly across sources).
+    """
+    if claim.evidence & _EXACT_TITLE_EVIDENCE:
+        return 3
+    if claim.evidence & {"title-strong-inexact", "title-segmented"}:
+        return 2
+    if "season-relative" in claim.evidence and "special-number-only" not in claim.evidence:
+        return 2
+    return 0
+
+
+def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) -> bool:
+    """True when tied claims are copies of the SAME episode from parallel
+    source folders: identical parsed numbers and a shared real title (one
+    normalized title may extend another with release junk, e.g.
+    "Need for Weed" vs "Need for Weed 1080p H265 …")."""
+    parsed = {table.files[claim.file_id].parsed_episodes for claim in claims}
+    if len(parsed) != 1:
+        return False
+    titles = [
+        normalize_for_specials(table.files[claim.file_id].raw_title or "")
+        for claim in claims
+    ]
+    if any(not title for title in titles):
+        return False
+    shortest = min(titles, key=len)
+    return all(title.startswith(shortest) for title in titles)
+
+
+def _trim_run_edge_conflicts(table: EpisodeAssignmentTable) -> None:
+    """Trim a multi-episode run whose edge collides with an exact-title single.
+
+    TMDB often lists a feature-length premiere as ONE episode ("Emissary" =
+    S01E01) while the source numbers it E01-E02. The run's own title anchors
+    at a different episode of the run, and the disputed edge slot belongs by
+    exact title to another file — shrink the run instead of conflicting.
     """
     for (season, episode), claims in list(table.conflicts().items()):
         if any(claim.origin == ORIGIN_MANUAL for claim in claims):
             continue
-        winners = [claim for claim in claims if claim.evidence & _EXACT_TITLE_EVIDENCE]
-        if len(winners) != 1:
+        singles = [
+            claim for claim in claims
+            if len(claim.episodes) == 1 and claim.evidence & _EXACT_TITLE_EVIDENCE
+        ]
+        if len(singles) != 1:
             continue
-        table.resolve_conflict(season, episode, winner_file_id=winners[0].file_id)
+        for claim in claims:
+            if len(claim.episodes) < 2:
+                continue
+            if episode not in (claim.episodes[0], claim.episodes[-1]):
+                continue
+            entry = table.files[claim.file_id]
+            run_titles = {
+                ep: table.slots[(season, ep)].title
+                for ep in claim.episodes
+                if (season, ep) in table.slots and table.slots[(season, ep)].title
+            }
+            match = match_title_in_titles(entry.raw_title, run_titles)
+            if match is None or match.episode == episode or match.strength < _TITLE_EXACT:
+                continue
+            remaining = tuple(ep for ep in claim.episodes if ep != episode)
+            table.assign(
+                claim.file_id, season, list(remaining),
+                origin=claim.origin,
+                confidence=claim.confidence,
+                evidence=claim.evidence | {"run-trimmed"},
+            )
+
+
+def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
+    """Slide a whole-run claim off a segmented run's slot when possible.
+
+    A segmented-title run pins each episode by its own exact segment title;
+    an overlapping rule-1 run (combined title matching one episode of the
+    run) is less precise. If shifting the rule-1 run one step away keeps its
+    title anchor inside the run and lands on free slots, shift it.
+    """
+    for (season, episode), claims in list(table.conflicts().items()):
+        if any(claim.origin == ORIGIN_MANUAL for claim in claims):
+            continue
+        segmented = [c for c in claims if "title-segmented" in c.evidence]
+        movable = [
+            c for c in claims
+            if "title-segmented" not in c.evidence
+            and c.evidence & _EXACT_TITLE_EVIDENCE
+            and len(c.episodes) >= 2
+            and episode in (c.episodes[0], c.episodes[-1])
+        ]
+        if len(segmented) != 1 or len(movable) != 1:
+            continue
+        claim = movable[0]
+        shift = 1 if episode == claim.episodes[0] else -1
+        proposed = tuple(ep + shift for ep in claim.episodes)
+        if any((season, ep) not in table.slots for ep in proposed):
+            continue
+        entry = table.files[claim.file_id]
+        proposed_titles = {
+            ep: table.slots[(season, ep)].title
+            for ep in proposed
+            if table.slots[(season, ep)].title
+        }
+        seg_run = match_segmented_title_run(
+            entry.raw_title, proposed_titles, len(proposed),
+        )
+        if seg_run != proposed:
+            match = match_title_in_titles(entry.raw_title, proposed_titles)
+            if match is None:
+                continue
+        occupied = {
+            (assignment.season, ep)
+            for assignment in table.assignments()
+            if assignment.file_id != claim.file_id
+            for ep in assignment.episodes
+        }
+        if any((season, ep) in occupied for ep in proposed):
+            continue
+        table.assign(
+            claim.file_id, season, list(proposed),
+            origin=claim.origin,
+            confidence=min(claim.confidence, CONF_TITLE_WINS),
+            evidence=claim.evidence | {"run-shifted"},
+        )
+
+
+def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
+    """Resolve slot conflicts so no episode is listed twice unresolved.
+
+    Order: trim double-episode run edges, slide whole-run claims off
+    segmented runs, then per remaining slot award the unique strongest
+    claimant on the evidence ladder. Tied claimants that are byte-for-byte
+    duplicate copies (same parsed numbers + same title, different source
+    folders) resolve to the first-registered file; other single-episode ties
+    are unassigned as ambiguous. Slots with manual claimants are untouched.
+    """
+    _trim_run_edge_conflicts(table)
+    _shift_run_off_segmented_conflict(table)
+    for (season, episode), claims in list(table.conflicts().items()):
+        if any(claim.origin == ORIGIN_MANUAL for claim in claims):
+            continue
+        strengths = {claim.file_id: _claim_strength(claim) for claim in claims}
+        top = max(strengths.values())
+        winners = [claim for claim in claims if strengths[claim.file_id] == top]
+        if len(winners) == 1:
+            table.resolve_conflict(season, episode, winner_file_id=winners[0].file_id)
+            continue
+
+        if _claims_are_duplicate_copies(table, winners):
+            # Same parsed numbers AND the same real title from parallel
+            # source folders = duplicate copies of one episode, not a
+            # genuine conflict. Keep the first-registered (primary) copy.
+            keep = min(winners, key=lambda claim: claim.file_id)
+            table.resolve_conflict(season, episode, winner_file_id=keep.file_id)
+            for claim in winners:
+                if claim.file_id != keep.file_id:
+                    table.mark_unassigned(
+                        claim.file_id,
+                        f"duplicate copy of S{season:02d}E{episode:02d}",
+                    )
+            continue
+
+        if len(claims) >= 3 and all(len(claim.episodes) == 1 for claim in claims):
+            # A pile-up of 3+ distinct files on one slot means the shared
+            # title fragment matched them all; none is trustworthy.
+            for claim in claims:
+                table.mark_unassigned(
+                    claim.file_id,
+                    f"ambiguous claim for S{season:02d}E{episode:02d}",
+                )
+
+
+def resolve_table_conflicts(table: EpisodeAssignmentTable) -> None:
+    """Public entry: resolve slot conflicts (used after sibling table merges)."""
+    _auto_resolve_strong_title_conflicts(table)
 
 
 def apply_confidence_adjustments(
@@ -490,14 +733,25 @@ def apply_confidence_adjustments(
         entry = table.files[assignment.file_id]
         confidence = assignment.confidence
 
-        if entry.is_season_relative and assignment.season != 0:
+        # A season-relative floor is only justified when the file's explicit
+        # season actually IS the assigned season; an S03E06 file mapped into
+        # season 1 has disputed numbering and must stay reviewable.
+        hint_matches_assignment = (
+            entry.season_hint is None or entry.season_hint == assignment.season
+        )
+        if entry.is_season_relative and assignment.season != 0 and hint_matches_assignment:
             confidence = max(confidence, EXPLICIT_EPISODE_FLOOR)
 
         source_title = extract_source_title_prefix(entry.path.name)
         if source_title:
             source_norm = normalize_for_match(source_title)
             compatible = _source_prefix_compatible(source_norm, show_norm)
-            if compatible and entry.is_season_relative and assignment.season != 0:
+            if (
+                compatible
+                and entry.is_season_relative
+                and assignment.season != 0
+                and hint_matches_assignment
+            ):
                 confidence = max(confidence, COMPATIBLE_PREFIX_FLOOR)
             if not compatible and assignment.season != 0:
                 contradicted.add(assignment.file_id)
@@ -574,11 +828,128 @@ def apply_confidence_adjustments(
     for assignment in table.assignments():
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
+            "offset-inferred", "title-multi-segment",
         }:
             table.set_confidence(
                 assignment.file_id,
                 min(assignment.confidence, CONF_TITLE_WINS_INEXACT),
             )
+
+
+_ANCHOR_TITLE_EVIDENCE = frozenset({
+    "title-agree", "title-strong", "title-strong-inexact", "title-segmented",
+})
+_NUMBER_ONLY_EVIDENCE = frozenset({"number", "season-relative", "special-number-only"})
+
+
+def apply_uniform_offset_rescue(table: EpisodeAssignmentTable) -> None:
+    """Follow a uniform title-anchor offset for number-only siblings.
+
+    When every title-matched file of one source season lands at the SAME
+    nonzero offset from its parsed number (JJK source S3 -> TMDB S1 E48+,
+    Rawhide S5 shifted by one), the source numbering is systematically off.
+    Number-only assignments and lost-conflict/not-in-season files in that
+    group are re-mapped to ``parsed + offset`` at review confidence — never
+    auto-accepted, because the offset is inferred, not observed.
+    """
+    groups: dict[int, list[int]] = {}
+    for file_id, entry in table.files.items():
+        source_season = entry.season_hint if entry.season_hint is not None else entry.folder_season
+        if source_season is None or source_season == 0:
+            continue
+        if not entry.parsed_episodes:
+            continue
+        groups.setdefault(source_season, []).append(file_id)
+
+    for file_ids in groups.values():
+        _rescue_group(table, file_ids)
+
+
+def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
+    anchors: list[tuple[int, int]] = []  # (target_season, offset)
+    for file_id in file_ids:
+        assignment = table.assignment_for(file_id)
+        if assignment is None or assignment.origin == ORIGIN_MANUAL:
+            continue
+        if not assignment.evidence & _ANCHOR_TITLE_EVIDENCE:
+            continue
+        entry = table.files[file_id]
+        anchors.append(
+            (assignment.season, assignment.episodes[0] - entry.parsed_episodes[0])
+        )
+
+    if len(anchors) < 2:
+        return
+    seasons = {season for season, _ in anchors}
+    offsets = {offset for _, offset in anchors}
+    if len(seasons) != 1 or len(offsets) != 1:
+        return
+    target_season = next(iter(seasons))
+    offset = next(iter(offsets))
+    if offset == 0:
+        return
+
+    movers: list[tuple[int, tuple[int, ...]]] = []
+    vacated: set[tuple[int, int]] = set()
+    for file_id in file_ids:
+        entry = table.files[file_id]
+        proposed = tuple(episode + offset for episode in entry.parsed_episodes)
+        if any((target_season, episode) not in table.slots for episode in proposed):
+            continue
+        assignment = table.assignment_for(file_id)
+        if assignment is not None:
+            if assignment.origin == ORIGIN_MANUAL:
+                continue
+            if assignment.evidence & _ANCHOR_TITLE_EVIDENCE:
+                continue
+            if not assignment.evidence <= _NUMBER_ONLY_EVIDENCE:
+                continue
+            if assignment.season != target_season:
+                continue
+            if assignment.episodes == proposed:
+                continue
+            vacated.update((assignment.season, ep) for ep in assignment.episodes)
+            movers.append((file_id, proposed))
+        else:
+            reason = table.unassigned_reasons.get(file_id, "")
+            if reason != REASON_NOT_IN_SEASON and not reason.startswith(
+                REASON_LOST_CONFLICT
+            ):
+                continue
+            movers.append((file_id, proposed))
+
+    if not movers:
+        return
+
+    claimed: set[tuple[int, int]] = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    claimed -= vacated
+
+    proposed_slots: set[tuple[int, int]] = set()
+    accepted: list[tuple[int, tuple[int, ...]]] = []
+    for file_id, proposed in movers:
+        slots = {(target_season, episode) for episode in proposed}
+        if slots & claimed or slots & proposed_slots:
+            continue
+        proposed_slots |= slots
+        accepted.append((file_id, proposed))
+
+    for file_id, proposed in accepted:
+        entry = table.files[file_id]
+        evidence = {"number", "offset-inferred"}
+        if entry.is_season_relative:
+            evidence.add("season-relative")
+        table.assign(
+            file_id,
+            target_season,
+            list(proposed),
+            origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset(evidence),
+        )
 
 
 def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:

@@ -503,6 +503,158 @@ class TestMultiSegmentTitleRun:
         assert res.episodes == (1, 2)
 
 
+class TestSingleNumberSegmentedRun:
+    """Disc-grouped files carry ONE episode number but a multi-segment title
+    (Animaniacs 1993, Catscratch): TMDB indexes each segment as its own
+    episode, so the segment titles must drive the run even though only one
+    number parsed. When the segments can't fully resolve, the bare number
+    must stay reviewable — not get floored to auto-accept.
+    """
+
+    # Segment-indexed TMDB season; source discs number files 1..N.
+    ANIMANIACS_S1 = {
+        5: "Piano Rag",
+        6: "Win Big",
+        12: "Taming of the Screwy",
+        16: "Flipper Parody",
+        17: "Temporary Insanity",
+        18: "Operation Lollipop",
+    }
+
+    def test_single_number_with_full_segment_titles_resolves_run(self):
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title="Flipper Parody & Temporary Insanity & Operation Lollipop",
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        assert res.episodes == (16, 17, 18)
+        assert "title-segmented" in res.evidence
+
+    def test_single_number_inside_resolved_run_is_agreement(self):
+        res = resolve_file(
+            parsed_episodes=(16,),
+            raw_title="Flipper Parody & Temporary Insanity",
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        assert res.episodes == (16, 17)
+        assert "title-agree" in res.evidence
+        assert res.confidence >= CONF_AGREE
+
+    def test_partial_segment_titles_keep_number_review_marked(self):
+        # Two segments match E16/E17 but the third is unknown: no unique run,
+        # so the bare number survives — flagged as a multi-segment title so
+        # the confidence floors cannot lift it to auto-accept.
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title="Flipper Parody & Temporary Insanity & Missing Thing",
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        assert res.episodes == (6,)
+        assert "title-multi-segment" in res.evidence
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_multi_segment_number_claim_not_floored_to_auto_accept(self):
+        # End-to-end through apply_confidence_adjustments: season-relative +
+        # compatible source prefix floors must NOT lift the ambiguous
+        # multi-segment number claim to 0.88 (the reproduced Animaniacs bug).
+        from pathlib import Path
+        from plex_renamer.engine.episode_assignments import (
+            EpisodeAssignmentTable, EpisodeSlot,
+        )
+        from plex_renamer.engine._episode_resolution import (
+            apply_confidence_adjustments,
+        )
+
+        raw_title = "Flipper Parody & Temporary Insanity & Missing Thing"
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title=raw_title,
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        table = EpisodeAssignmentTable()
+        for episode, title in self.ANIMANIACS_S1.items():
+            table.add_slot(EpisodeSlot(season=1, episode=episode, title=title))
+        entry = table.add_file(
+            Path(f"Demo Show - S01E06 - {raw_title}.mkv"),
+            parsed_episodes=(6,),
+            raw_title=raw_title,
+            is_season_relative=True,
+            season_hint=1,
+            folder_season=1,
+        )
+        table.assign(
+            entry.file_id, 1, list(res.episodes),
+            origin="auto", confidence=res.confidence, evidence=res.evidence,
+        )
+        apply_confidence_adjustments(
+            table, show_info={"id": 3, "name": "Demo Show", "year": "1993"},
+        )
+        assert (
+            table.assignment_for(entry.file_id).confidence
+            < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+        )
+
+    def test_exact_full_title_match_beats_segmentation(self):
+        # TMDB lists the combined title as ONE episode and the segments
+        # separately: the exact full-title agreement must win.
+        titles = {
+            6: "Cat Tales & Dog Tales",
+            16: "Cat Tales",
+            17: "Dog Tales",
+        }
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title="Cat Tales & Dog Tales",
+            is_season_relative=True,
+            season_titles=titles,
+            season=1,
+        )
+        assert res.episodes == (6,)
+        assert "title-agree" in res.evidence
+
+    def test_unresolvable_segments_fall_back_to_number(self):
+        # Conflicting partitions across grouping sizes: no unique run, keep
+        # the number at review with the multi-segment marker.
+        titles = {
+            1: "Alpha",
+            2: "Beta & Gamma",
+            6: "Win",
+            11: "Alpha & Beta",
+            12: "Gamma",
+        }
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title="Alpha & Beta & Gamma",
+            is_season_relative=True,
+            season_titles=titles,
+            season=1,
+        )
+        assert res.episodes == (6,)
+        assert "title-multi-segment" in res.evidence
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_single_atom_title_unaffected(self):
+        # Plain single-title files keep the existing rule flow (rule 2 exact
+        # override here), no segmentation attempt.
+        res = resolve_file(
+            parsed_episodes=(5,),
+            raw_title="Taming of the Screwy",
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        assert res.episodes == (12,)
+        assert res.evidence == frozenset({"title-strong", "number-disagree"})
+
+
 class TestSpecialsTrust:
     def test_special_number_only_forces_review(self):
         res = resolve_file(
