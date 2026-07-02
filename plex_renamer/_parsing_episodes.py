@@ -131,7 +131,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             title = strip_release_junk_title(match.group(3).strip()) if match.group(3) else None
             return episodes, title, False
 
-    bare_match = re.match(r"(\d{1,3})\.\s+(.*)", raw_stem)
+    bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
     if bare_match:
         num = int(bare_match.group(1))
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
@@ -140,7 +140,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             return [num], strip_release_junk_title(title_text or None), False
 
     match = re.search(
-        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
         name,
         re.IGNORECASE,
     )
