@@ -162,6 +162,26 @@ def clean_title_evidence(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip()
 
 
+def strip_release_junk_title(title: str | None) -> str | None:
+    """Truncate an extracted episode title at the first release-noise token.
+
+    Episode titles pulled from release filenames keep trailing junk
+    ("Execution 1080p CR WEB-DL …"), downgrading exact title evidence to
+    substring matches. Token-walk left-to-right and cut at the first
+    release-noise token (same strategy as clean_folder_name). Returns None
+    when nothing survives.
+    """
+    if not title:
+        return None
+    kept: list[str] = []
+    for token in title.split():
+        if _is_release_noise_token(token):
+            break
+        kept.append(token)
+    result = " ".join(kept).strip(" -–")
+    return result or None
+
+
 def sanitize_filename(name: str) -> str:
     """
     Remove or replace characters that are illegal in filenames on

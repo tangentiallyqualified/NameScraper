@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
-from ._parsing_titles import clean_name, clean_title_evidence
+from ._parsing_titles import clean_name, clean_title_evidence, strip_release_junk_title
 
 _MAX_RANGE_SPAN = 12
 
@@ -84,7 +84,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
-        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
     # NxNN range-end rules (mirrors S##E## logic):
@@ -111,7 +111,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
-        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
     match = re.search(
@@ -128,7 +128,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                     episodes = list(range(start_num, end_num + 1))
                 else:
                     episodes.append(end_num)
-            title = match.group(3).strip() if match.group(3) else None
+            title = strip_release_junk_title(match.group(3).strip()) if match.group(3) else None
             return episodes, title, False
 
     bare_match = re.match(r"(\d{1,3})\.\s+(.*)", raw_stem)
@@ -137,7 +137,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
             title_text = bare_match.group(2).strip()
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
-            return [num], title_text or None, False
+            return [num], strip_release_junk_title(title_text or None), False
 
     match = re.search(
         r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
@@ -147,7 +147,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     if match:
         num = int(match.group(1))
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
-            title = match.group(2).strip() if match.group(2) else None
+            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
     match = re.search(
@@ -165,7 +165,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                     return [], None, False
             if _is_titleish_bare_number(name, match.start(1), match.end(1)):
                 return [], None, False
-            title = match.group(2).strip() if match.group(2) else None
+            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
     # Bracketed absolute episode numbers in fansub names, e.g.
