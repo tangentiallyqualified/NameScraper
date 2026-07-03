@@ -9,13 +9,11 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, Qt
 
 _log = logging.getLogger(__name__)
 
-_THEME_PATH = Path(__file__).parent / "resources" / "theme.qss"
 _DEBUG_TRANSIENT_WINDOWS = os.environ.get(
     "PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS", ""
 ).strip().lower() not in {"", "0", "false", "no"}
@@ -139,11 +137,12 @@ def run() -> None:
     app.installEventFilter(popup_filter)
     app._popup_filter = popup_filter
 
-    # Load the global theme stylesheet
-    if _THEME_PATH.exists():
-        app.setStyleSheet(_THEME_PATH.read_text(encoding="utf-8"))
-    else:
-        _log.warning("Theme file not found at %s", _THEME_PATH)
+    # Load the global theme stylesheet (rendered from theme.qss.tmpl)
+    from . import theme as _theme
+    try:
+        app.setStyleSheet(_theme.load_stylesheet())
+    except (OSError, KeyError) as exc:
+        _log.warning("Theme stylesheet failed to load: %s", exc)
 
     window = MainWindow()
     window.showMaximized()

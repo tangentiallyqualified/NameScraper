@@ -71,9 +71,10 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
     def test_episode_review_row_reserves_moderate_space_for_actions_and_review_pill(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
+        from plex_renamer.gui_qt import theme as _theme
+
         original_stylesheet = self._app.styleSheet()
-        theme = Path("plex_renamer/gui_qt/resources/theme.qss").read_text(encoding="utf-8")
-        self._app.setStyleSheet(theme)
+        self._app.setStyleSheet(_theme.load_stylesheet())
         self.addCleanup(lambda: self._app.setStyleSheet(original_stylesheet))
 
         widget = EpisodeGuideRowWidget(
@@ -105,9 +106,10 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
     def test_episode_rows_without_actions_do_not_reserve_action_space(self):
         from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
+        from plex_renamer.gui_qt import theme as _theme
+
         original_stylesheet = self._app.styleSheet()
-        theme = Path("plex_renamer/gui_qt/resources/theme.qss").read_text(encoding="utf-8")
-        self._app.setStyleSheet(theme)
+        self._app.setStyleSheet(_theme.load_stylesheet())
         self.addCleanup(lambda: self._app.setStyleSheet(original_stylesheet))
 
         compact = EpisodeGuideRowWidget(
