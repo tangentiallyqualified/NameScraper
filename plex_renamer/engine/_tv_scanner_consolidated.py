@@ -500,6 +500,7 @@ def build_consolidated_table(
     file's absolute-mapped candidate through ``resolve_file`` so title
     evidence applies (the normal path already does this per file).
     """
+    from .._parsing_titles import clean_title_evidence
     from ._episode_resolution import Resolution, resolve_file
     from ._tv_scanner_normal import _SPECIAL_STEM_PREFIX_RE, _register_season_slots
 
@@ -629,6 +630,23 @@ def build_consolidated_table(
                     )
                     if candidate.episodes:
                         fallback = (season_hint, candidate)
+            if fallback is None and not episode_numbers and not raw_title and s0_titles:
+                # No parsed episode and no extracted title: the cleaned
+                # filename itself is the only evidence — root specials like
+                # "The Henry & June Show (1999).mp4" live in flat consolidated
+                # folders too (RC26).
+                stem = clean_title_evidence(file_path.stem)
+                stem = _SPECIAL_STEM_PREFIX_RE.sub("", stem).strip()
+                if stem:
+                    candidate = resolve_file(
+                        parsed_episodes=(),
+                        raw_title=stem,
+                        is_season_relative=False,
+                        season_titles=s0_titles,
+                        season=0,
+                    )
+                    if candidate.episodes:
+                        fallback = (0, candidate)
             if fallback is not None:
                 _apply_resolution(table, entry.file_id, fallback[0], fallback[1])
             else:

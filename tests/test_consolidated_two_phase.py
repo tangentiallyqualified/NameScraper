@@ -97,6 +97,35 @@ def test_hint_missing_files_are_not_sequence_mapped(tmp_path):
     assert table.assignment_for(s7_entry.file_id) is None
 
 
+def test_root_special_matches_s0_by_stem_in_consolidated_scan(tmp_path):
+    # RC26 in the consolidated path: a flat show root holds numbered
+    # "1x01. Title" episodes plus an unparseable special whose stem IS the
+    # S0 title ("The Henry & June Show (1999).mp4").
+    root = tmp_path / "KaBlam!"
+    root.mkdir()
+    (root / "1x01. Your Real Best Friend (1996).mp4").touch()
+    (root / "1x02. It's Flavorific (1996).mp4").touch()
+    (root / "The Henry & June Show (1999).mp4").touch()
+    tmdb = _seasons({
+        1: {1: "Your Real Best Friend!", 2: "It's Flavorific!"},
+        0: {2: "The Henry & June Show", 3: "An Off-Beats Valentine's"},
+    })
+    table = build_consolidated_table(
+        season_dirs=[(root, 1)],
+        tmdb_seasons=tmdb,
+        tmdb=_NoTmdb(),
+        show_info={"id": 1, "name": "KaBlam!", "year": "1996"},
+        root=root,
+        store_tmdb_data=lambda *args: None,
+    )
+    special = next(
+        e for e in table.files.values() if e.path.name.startswith("The Henry")
+    )
+    assignment = table.assignment_for(special.file_id)
+    assert assignment is not None
+    assert assignment.season == 0 and assignment.episodes == (2,)
+
+
 def test_consolidated_title_pick_carries_marker_tag(tmp_path):
     (tmp_path / "Season 1").mkdir()
     f = tmp_path / "Season 1" / "Show - S01E01 - The Pilot.mkv"
