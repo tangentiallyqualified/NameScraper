@@ -1,6 +1,43 @@
 # Batch TV Bug Investigation — Round 2 Root Causes (2026-07-02)
 
-**Status: investigated, not yet fixed.** Follow-up to
+**Status: fixed — see [2026-07-02-batch-tv-round2-fixes.md](2026-07-02-batch-tv-round2-fixes.md)**
+(RC29 deferred by design). Regression tests per RC:
+RC16 `tests/test_symbol_folding.py` + `tests/test_show_scoring_no_year.py`;
+RC17 `tests/test_release_junk_titles.py`;
+RC18a/b/d + RC18c/e `tests/test_consolidated_two_phase.py`;
+RC19 `tests/test_air_date_clusters.py`;
+RC20(1) `tests/test_symbol_folding.py`; RC20(2) `tests/test_fuzzy_title_matching.py`;
+RC20(3) `tests/test_run_extension.py`; RC20(4) `tests/test_same_season_rescue.py`;
+RC21 `tests/test_underscore_segments.py`;
+RC22 `tests/test_multisegment_zero_match.py`;
+RC23/RC24b/RC25/RC26 `tests/test_specials_guards.py` (+ RC26 consolidated-path
+case in `tests/test_consolidated_two_phase.py`);
+RC27 `tests/test_bare_episode_prefix_titles.py`;
+RC28 `tests/test_duplicate_copies.py`.
+
+Re-validated 2026-07-02 against the real library via `scripts/scan_real_library.py`
+(dumps in `.scan-dumps\`); all Task-19 checks met. Notes from validation:
+- CatDog's "Sumo Enchanted Evening and Hotel CatDog" lands at S02E35-E36 at
+  0.96 via the two-phase title claim (stronger than the review-level
+  cross-season rescue the plan predicted — same destination).
+- Rugrats' mis-filed S7 packs cross-season-rescue to their true S8 slots at
+  0.70; known residual: single-atom mis-titled files with an agreeing number
+  ("S07E01 - Finsterella" → 0.88 OK) are excluded from the RC22 cap by design
+  (the cap requires ≥2 parsed episodes so ordinary "X and Y" single-episode
+  titles keep auto-accepting).
+- Catscratch: exact segmented runs auto-accept at 0.90 (title-strong);
+  only the fuzzy-atom runs (Bringin'/Livesavers) park at 0.70 review.
+- Reno 911: no S01E01 interleave; S1-6 title-anchored at 0.96 (sibling
+  Complete Series copies); S7/S8 files park as SKIP not-in-season. The ~9
+  revival episodes that also exist as S0 46-54 are NOT S0-matched — the
+  S7/S8-only umbrella fails the consolidated title-pass 50% gate and
+  alternate-entry probing is RC29 (deferred).
+- KaBlam's root specials needed an RC26 follow-up: the show scans via the
+  consolidated path, so the stem-title S0 fallback was added to
+  `build_consolidated_table` too (Henry & June → S00E02, Off-Beats →
+  S00E03, Loopy Gala-Bration → S00E01 at 0.88).
+
+Follow-up to
 [2026-07-01-batch-tv-bug-investigation.md](2026-07-01-batch-tv-bug-investigation.md)
 (RC1–RC15, all fixed). User review after the 7-01 fixes produced a new bug
 list; every item is reproduced and root-caused below. RC numbering continues
