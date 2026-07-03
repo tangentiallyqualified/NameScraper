@@ -158,6 +158,7 @@ class EpisodeGuideSummary:
     orphan_companion_files: int = 0
     conflicts: int = 0
     review_required: int = 0
+    duplicate_files: int = 0
 
 
 @dataclass(slots=True)
@@ -210,6 +211,7 @@ class EpisodeGuide:
     source_label: str = "TMDB"
     rows: list[EpisodeGuideRow] = field(default_factory=list)
     unmapped_primary_files: list[UnmappedFileRow] = field(default_factory=list)
+    duplicate_files: list[UnmappedFileRow] = field(default_factory=list)
     orphan_companion_files: list[Any] = field(default_factory=list)
     summary: EpisodeGuideSummary = field(default_factory=EpisodeGuideSummary)
 

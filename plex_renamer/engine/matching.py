@@ -26,12 +26,35 @@ _log = logging.getLogger(__name__)
 _ALT_TITLE_CANDIDATES = 5
 
 
+def _token_subset_score(a: str, b: str) -> float | None:
+    """Strong score when one title's TOKENS all appear, in order, in the other.
+
+    'jimmy neutron' inside 'adventures of jimmy neutron boy genius' is the
+    same show named longer — the plain length ratio (0.33) buried it below
+    prefix-sharing strangers ('Jimmy Kimmel Live!'). Requires >=2 tokens on
+    the contained side so single-word prefixes keep proportional scoring.
+    """
+    a_tokens, b_tokens = a.split(), b.split()
+    if not a_tokens or not b_tokens or len(a_tokens) == len(b_tokens):
+        return None
+    shorter, longer = (
+        (a_tokens, b_tokens) if len(a_tokens) < len(b_tokens) else (b_tokens, a_tokens)
+    )
+    if len(shorter) < 2:
+        return None
+    iterator = iter(longer)
+    if all(token in iterator for token in shorter):
+        return 0.65 + 0.35 * (len(shorter) / len(longer))
+    return None
+
+
 def title_similarity(a: str, b: str) -> float:
     """
     Compute a simple title similarity score between 0.0 and 1.0.
 
     Uses the longest common subsequence ratio, which handles:
       - Exact matches → 1.0
+      - Ordered token-subset containment → strong (0.65+)
       - Substring matches (Daybreakers vs Daybreak) → high but < 1.0
       - Partial overlaps → proportional score
       - Completely different → near 0.0
@@ -42,6 +65,10 @@ def title_similarity(a: str, b: str) -> float:
         return 0.0
     if a == b:
         return 1.0
+
+    token_score = _token_subset_score(a, b)
+    if token_score is not None:
+        return token_score
 
     # Quick check: one is substring of the other
     if a in b or b in a:
@@ -109,7 +136,12 @@ def score_results(
             except (ValueError, TypeError):
                 pass
 
-        score = (t_score * 0.7) + (year_score * 0.3)
+        if year_hint:
+            score = (t_score * 0.7) + (year_score * 0.3)
+        else:
+            # No year in the source folder: don't forfeit the year weight —
+            # an exact title must be able to reach auto-accept on its own.
+            score = t_score
 
         if query_norm == title_norm:
             score += 0.15
@@ -316,15 +348,29 @@ def _tv_episode_evidence_adjustment(
 
     exact_episode_hits = 0
     title_scores: list[float] = []
+    merged_titles: dict[int, str] | None = None
     limited_evidence = evidence[:8]
     for item in limited_evidence:
         season_data = tmdb_seasons.get(item.season_num)
-        if not season_data:
+        if season_data:
+            season_titles = season_data.get("titles", {})
+            if item.episode_num in season_titles:
+                exact_episode_hits += 1
+            title_scores.append(
+                _best_episode_title_similarity(item.raw_title, season_titles)
+            )
             continue
-        season_titles = season_data.get("titles", {})
-        if item.episode_num in season_titles:
-            exact_episode_hits += 1
-        title_scores.append(_best_episode_title_similarity(item.raw_title, season_titles))
+        # The hinted season is missing from TMDB (consolidated shows): match
+        # the title evidence against every season instead of skipping, so
+        # real episode titles still corroborate the show (RC16).
+        if merged_titles is None:
+            merged_titles = {}
+            for data in tmdb_seasons.values():
+                for title in data.get("titles", {}).values():
+                    merged_titles[len(merged_titles)] = title
+        title_scores.append(
+            _best_episode_title_similarity(item.raw_title, merged_titles)
+        )
 
     if limited_evidence:
         adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10

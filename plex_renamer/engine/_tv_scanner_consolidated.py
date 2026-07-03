@@ -4,12 +4,21 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
-from ..parsing import build_tv_name, extract_episode, extract_season_number, normalize_for_specials
+from ..parsing import (
+    build_tv_name,
+    extract_episode,
+    extract_season_number,
+    normalize_for_specials,
+    normalize_for_specials_spaced,
+)
+from ._episode_resolution import CONF_TITLE_WINS_INEXACT, _fuzzy_title_equal
 from ._movie_scanner import _build_subtitle_companions
 from .episode_assignments import (
+    ORIGIN_AUTO,
     REASON_AMBIGUOUS_RUN,
     REASON_NO_PARSE,
     REASON_NOT_IN_SEASON,
@@ -20,6 +29,22 @@ from .models import PreviewItem
 AbsoluteFileEntry = tuple[Path, int, str | None, list[int], bool, int | None]
 
 _RE_LEADING_ABS_NUM = re.compile("^(\\d{1,4})\\s*[-–]\\s*")
+
+_MIN_LOOKUP_SUBSTRING_LEN = 4
+
+
+def _contiguous_run(episode_numbers: list[int], season_titles: dict) -> list[int]:
+    """Contiguous episode run from ``episode_numbers[0]``, limited to slots
+    that exist in ``season_titles``. A single-episode file yields ``[ep]``."""
+    if not episode_numbers:
+        return []
+    run = [episode_numbers[0]]
+    for episode in episode_numbers[1:]:
+        if episode == run[-1] + 1 and episode in season_titles:
+            run.append(episode)
+        else:
+            break
+    return run
 
 
 def collect_absolute_files(
@@ -44,6 +69,7 @@ def match_file_title_to_tmdb(
     title_lookup: dict[str, tuple[int, int, str]],
     number_lookup: dict[int, tuple[int, int, str]],
     used: set[tuple[int, int]],
+    spaced_lookup: dict[str, tuple[int, int, str]] | None = None,
 ) -> tuple[int, int, str] | None:
     """Match a file's title against the cross-season TMDB title lookup."""
     if not raw_title:
@@ -68,14 +94,13 @@ def match_file_title_to_tmdb(
         if (result[0], result[1]) not in used:
             return result
 
-    minimum_substring_len = 8
-    if len(normalized) < minimum_substring_len:
+    if len(normalized) < _MIN_LOOKUP_SUBSTRING_LEN:
         return None
 
     best: tuple[int, int, str] | None = None
     best_len = 0
     for key, value in title_lookup.items():
-        if len(key) < minimum_substring_len:
+        if len(key) < _MIN_LOOKUP_SUBSTRING_LEN:
             continue
         if (value[0], value[1]) in used:
             continue
@@ -83,31 +108,73 @@ def match_file_title_to_tmdb(
             if len(key) > best_len:
                 best = value
                 best_len = len(key)
+    if best is not None:
+        return best
 
-    return best
+    if spaced_lookup:
+        spaced = normalize_for_specials_spaced(cleaned_title)
+        hits = [
+            value
+            for key_spaced, value in spaced_lookup.items()
+            if (value[0], value[1]) not in used
+            and _fuzzy_title_equal(
+                normalized, spaced,
+                re.sub(r"[^a-z0-9]", "", key_spaced), key_spaced,
+            )
+        ]
+        if len(hits) == 1:
+            return hits[0]
+    return None
 
 
 def try_title_based_matching(
     all_files: list[AbsoluteFileEntry],
     tmdb_seasons: dict,
+    show_name: str | None = None,
 ) -> list[tuple[int, int, str] | None] | None:
-    """Try to match files to TMDB episodes by title or absolute number."""
+    """Two-phase matching: title claims first (all seasons incl. S0), then
+    explicit season-hint number fills, then absolute-number prefixes. Title
+    claims MUST run first so a mis-numbered file can't squat on a slot a
+    genuinely-titled file owns (RC18a).
+
+    A leftover title that is just the SHOW name carries no episode
+    information and must not title-claim anything ('Futurama S09E01
+    Futurama.mkv' grabbing 'The Futurama Holiday Spectacular'; RC44) —
+    such files fall through to their explicit season-hint numbers.
+    """
+    show_norm = normalize_for_specials(show_name) if show_name else ""
+    if show_norm:
+        all_files = [
+            (
+                path, abs_num,
+                None if raw_title and normalize_for_specials(raw_title) == show_norm
+                else raw_title,
+                eps, rel, hint,
+            )
+            for path, abs_num, raw_title, eps, rel, hint in all_files
+        ]
     title_lookup: dict[str, tuple[int, int, str]] = {}
+    spaced_lookup: dict[str, tuple[int, int, str]] = {}
     file_count = len(all_files)
     qualifying_seasons = [
         season_num for season_num, season_data in tmdb_seasons.items()
         if season_num != 0 and season_data["count"] >= file_count
     ]
     number_lookup: dict[int, tuple[int, int, str]] = {}
-    for season_num in sorted(tmdb_seasons.keys()):
-        if season_num == 0:
-            continue
-        for episode_num, title in tmdb_seasons[season_num]["titles"].items():
+    # Regular seasons first so an S0 special never shadows a same-titled
+    # regular episode; S0 keys fill the remaining gaps (RC18d).
+    for season_num in sorted(tmdb_seasons.keys(), key=lambda s: (s == 0, s)):
+        season_data = tmdb_seasons[season_num]
+        for episode_num, title in season_data["titles"].items():
             normalized = normalize_for_specials(title)
             if normalized and normalized not in title_lookup:
                 title_lookup[normalized] = (season_num, episode_num, title)
+                spaced_lookup[normalize_for_specials_spaced(title)] = (
+                    season_num, episode_num, title,
+                )
             if (
-                len(qualifying_seasons) == 1
+                season_num != 0
+                and len(qualifying_seasons) == 1
                 and season_num == qualifying_seasons[0]
                 and episode_num not in number_lookup
             ):
@@ -116,30 +183,53 @@ def try_title_based_matching(
     if not title_lookup:
         return None
 
-    matches: list[tuple[int, int, str] | None] = []
+    matches: list[tuple[int, int, str] | None] = [None] * file_count
     used: set[tuple[int, int]] = set()
 
-    for _file_path, _abs_num, raw_title, episode_numbers, is_season_relative, season_hint in all_files:
-        if is_season_relative and season_hint is not None and episode_numbers:
-            season_data = tmdb_seasons.get(season_hint)
-            if season_data:
-                episode_num = episode_numbers[0]
-                title = season_data["titles"].get(episode_num)
-                if title and (season_hint, episode_num) not in used:
-                    match = (season_hint, episode_num, title)
-                    used.add((match[0], match[1]))
-                    matches.append(match)
-                    continue
+    def _reserve(match, episode_numbers, is_season_relative, season_hint):
+        season_num, episode_num, _title = match
+        used.add((season_num, episode_num))
+        season_data = tmdb_seasons.get(season_num)
+        if (
+            season_data
+            and is_season_relative
+            and season_hint == season_num
+            and episode_numbers
+            and episode_numbers[0] == episode_num
+        ):
+            for episode in _contiguous_run(episode_numbers, season_data["titles"]):
+                used.add((season_num, episode))
 
-        match = match_file_title_to_tmdb(raw_title, title_lookup, number_lookup, used)
+    # Phase 1: pure title claims.
+    for index, (_fp, _abs, raw_title, eps, rel, hint) in enumerate(all_files):
+        match = match_file_title_to_tmdb(
+            raw_title, title_lookup, {}, used, spaced_lookup=spaced_lookup,
+        )
         if match is not None:
+            matches[index] = match
+            _reserve(match, eps, rel, hint)
+
+    # Phase 2: explicit season-hint number fills; Phase 3: absolute prefixes.
+    for index, (_fp, _abs, raw_title, eps, rel, hint) in enumerate(all_files):
+        if matches[index] is not None:
+            continue
+        if rel and hint is not None and eps:
+            season_data = tmdb_seasons.get(hint)
+            if season_data:
+                title = season_data["titles"].get(eps[0])
+                if title and (hint, eps[0]) not in used:
+                    match = (hint, eps[0], title)
+                    matches[index] = match
+                    _reserve(match, eps, rel, hint)
+                    continue
+        match = match_file_title_to_tmdb(raw_title, {}, number_lookup, used)
+        if match is not None:
+            matches[index] = match
             used.add((match[0], match[1]))
-        matches.append(match)
 
     matched_count = sum(1 for match in matches if match is not None)
     if matched_count < len(all_files) * 0.5:
         return None
-
     return matches
 
 
@@ -171,7 +261,9 @@ def build_consolidated_preview(
             season_data.get("episodes", {}),
         )
 
-    title_matches = try_title_based_matching(all_files, tmdb_seasons)
+    title_matches = try_title_based_matching(
+        all_files, tmdb_seasons, show_name=show_info.get("name"),
+    )
     if title_matches is not None:
         items: list[PreviewItem] = []
         for index, (file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, season_hint) in enumerate(all_files):
@@ -188,21 +280,31 @@ def build_consolidated_preview(
                 ))
                 continue
             season_num, episode_num, title = match
+            season_titles = tmdb_seasons.get(season_num, {}).get("titles", {})
+            if (
+                is_season_relative
+                and season_hint == season_num
+                and len(episode_numbers) > 1
+                and episode_numbers[0] == episode_num
+            ):
+                run = _contiguous_run(episode_numbers, season_titles)
+            else:
+                run = [episode_num]
+            run_titles = [season_titles.get(episode, title) for episode in run]
             target_dir = root / f"Season {season_num:02d}"
             new_name = build_tv_name(
                 show_info["name"],
                 show_info["year"],
                 season_num,
-                [episode_num],
-                [title],
+                run,
+                run_titles,
                 file_path.suffix,
             )
             episode_confidence = 0.7
             if (
                 is_season_relative
                 and season_hint == season_num
-                and len(episode_numbers) == 1
-                and episode_numbers[0] == episode_num
+                and episode_numbers == run
             ):
                 episode_confidence = 0.86
             item = PreviewItem(
@@ -210,7 +312,7 @@ def build_consolidated_preview(
                 new_name=new_name,
                 target_dir=target_dir,
                 season=season_num,
-                episodes=[episode_num],
+                episodes=run,
                 status="OK",
                 episode_confidence=episode_confidence,
                 **media_fields,
@@ -223,6 +325,24 @@ def build_consolidated_preview(
     tmdb_index = 0
 
     for file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, _season_hint in all_files:
+        if (
+            is_season_relative
+            and _season_hint is not None
+            and _season_hint not in tmdb_seasons
+        ):
+            # An explicit S## that TMDB doesn't know can't be sequence-
+            # mapped — the interleave corrupts every later slot (RC18c).
+            items.append(PreviewItem(
+                original=file_path,
+                new_name=None,
+                target_dir=None,
+                season=0,
+                episodes=episode_numbers,
+                status="SKIP: explicit season not in TMDB",
+                **media_fields,
+            ))
+            continue
+
         num_eps = max(1, len(episode_numbers))
 
         if tmdb_index >= len(tmdb_list):
@@ -265,13 +385,105 @@ def build_consolidated_preview(
             season=target_season,
             episodes=file_eps,
             status="OK",
-            episode_confidence=0.86 if is_season_relative else 0.3,
+            episode_confidence=(
+                0.86
+                if is_season_relative
+                and (_season_hint is None or _season_hint == target_season)
+                else 0.3
+            ),
             **media_fields,
         )
         item.companions = _build_subtitle_companions(file_path, new_name)
         items.append(item)
 
     return items
+
+
+_CLUSTER_GAP_DAYS = 60
+
+
+def _parse_air_date(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _air_date_clusters(season_data: dict) -> list[list[int]]:
+    """Split a season's episodes into airing runs at multi-month gaps.
+
+    Returns [] when any episode lacks a parseable air date — a partial
+    clustering would mis-place everything after the hole.
+    """
+    episodes_meta = season_data.get("episodes", {}) or {}
+    dated: list[tuple[int, date]] = []
+    for episode_num in sorted(season_data.get("titles", {})):
+        meta = episodes_meta.get(episode_num) or {}
+        air = _parse_air_date(meta.get("air_date"))
+        if air is None:
+            return []
+        dated.append((episode_num, air))
+    if not dated:
+        return []
+    clusters: list[list[int]] = [[dated[0][0]]]
+    previous = dated[0][1]
+    for episode_num, air in dated[1:]:
+        if (air - previous).days > _CLUSTER_GAP_DAYS:
+            clusters.append([])
+        clusters[-1].append(episode_num)
+        previous = air
+    return clusters
+
+
+def apply_air_date_cluster_mapping(
+    table: EpisodeAssignmentTable,
+    tmdb_seasons: dict,
+) -> None:
+    """Map folder-season-N files onto the Nth airing cluster of a single
+    consolidated TMDB season (Oshi no Ko S03 -> S01E25.., RC19). Review
+    confidence — the mapping is inferred from air dates, not observed."""
+    regular = [season for season in tmdb_seasons if season != 0]
+    if len(regular) != 1:
+        return
+    target_season = regular[0]
+    clusters = _air_date_clusters(tmdb_seasons[target_season])
+    if len(clusters) < 2:
+        return
+    groups: dict[int, list[int]] = {}
+    for file_id in table.unassigned_reasons:
+        entry = table.files[file_id]
+        hint = entry.season_hint
+        if hint is None or hint == 0 or hint in tmdb_seasons:
+            continue
+        if not entry.parsed_episodes:
+            continue
+        groups.setdefault(hint, []).append(file_id)
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for hint, file_ids in groups.items():
+        if hint > len(clusters):
+            continue
+        cluster = clusters[hint - 1]
+        for file_id in sorted(
+            file_ids, key=lambda f: table.files[f].parsed_episodes[0],
+        ):
+            entry = table.files[file_id]
+            index = entry.parsed_episodes[0] - 1
+            if index < 0 or index + len(entry.parsed_episodes) > len(cluster):
+                continue
+            proposed = cluster[index : index + len(entry.parsed_episodes)]
+            slots = {(target_season, episode) for episode in proposed}
+            if slots & claimed:
+                continue
+            table.assign(
+                file_id, target_season, list(proposed), origin=ORIGIN_AUTO,
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"number", "air-date-cluster"}),
+            )
+            claimed |= slots
 
 
 def _apply_resolution(table, file_id, season, resolution) -> None:
@@ -308,7 +520,8 @@ def build_consolidated_table(
     file's absolute-mapped candidate through ``resolve_file`` so title
     evidence applies (the normal path already does this per file).
     """
-    from ._episode_resolution import resolve_file
+    from .._parsing_titles import clean_title_evidence
+    from ._episode_resolution import Resolution, resolve_file
     from ._tv_scanner_normal import _SPECIAL_STEM_PREFIX_RE, _register_season_slots
 
     table = EpisodeAssignmentTable()
@@ -344,11 +557,14 @@ def build_consolidated_table(
         store_tmdb_data=store_tmdb_data,
     )
     mapped_by_path = {item.original: item for item in items}
+    show_name_norm = normalize_for_specials(show_info.get("name") or "")
 
     for (
         file_path, _abs_num, raw_title, episode_numbers,
         is_season_relative, season_hint,
     ) in collect_absolute_files(season_dirs):
+        if raw_title and normalize_for_specials(raw_title) == show_name_norm:
+            raw_title = None
         entry = table.add_file(
             file_path,
             parsed_episodes=tuple(episode_numbers),
@@ -359,35 +575,111 @@ def build_consolidated_table(
         )
 
         if season_hint == 0:
-            title_evidence = raw_title or (
-                _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip() or None
-            )
+            title_evidence = raw_title
+            if not title_evidence and not episode_numbers:
+                # Only titleless, numberless files fall back to the stem —
+                # a stem that is just the episode marker ('S00E01') is not
+                # title evidence (RC34).
+                title_evidence = (
+                    _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip() or None
+                )
             resolution = resolve_file(
                 parsed_episodes=tuple(episode_numbers),
                 raw_title=title_evidence,
                 is_season_relative=is_season_relative,
                 season_titles=s0_titles,
                 season=0,
+                season_hint=entry.season_hint,
             )
             _apply_resolution(table, entry.file_id, 0, resolution)
             continue
 
         item = mapped_by_path.get(file_path)
-        if item is not None and item.season and item.episodes and item.season != 0:
+        if (
+            item is not None
+            and item.season is not None
+            and item.episodes
+            # SKIP items carry season=0 as a sentinel plus their parsed
+            # numbers; only a REAL mapping (named target) may resolve here —
+            # sentinels fall through to the hinted-season fallback.
+            and item.new_name is not None
+        ):
             cand_season = item.season
-            cand_titles = tmdb_seasons.get(cand_season, {}).get("titles", {})
+            if cand_season == 0:
+                cand_titles = s0_titles
+            else:
+                cand_titles = tmdb_seasons.get(cand_season, {}).get("titles", {})
+            # A file's explicit S## only vouches for its number within THAT
+            # season. When the consolidated mapping lands in a different
+            # TMDB season, the number is inferred, not season-relative.
+            hint_matches = season_hint is None or season_hint == cand_season
             resolution = resolve_file(
                 parsed_episodes=tuple(item.episodes),
                 raw_title=raw_title,
-                is_season_relative=is_season_relative,
+                is_season_relative=is_season_relative and hint_matches,
                 season_titles=cand_titles,
                 season=cand_season,
             )
+            if cand_season == 0 and (season_hint or 0) != 0 and resolution.episodes:
+                # A hinted regular-season file landing in S0 is a
+                # cross-season special pull -> review, never auto (RC18d).
+                resolution = Resolution(
+                    episodes=resolution.episodes,
+                    confidence=min(resolution.confidence, CONF_TITLE_WINS_INEXACT),
+                    evidence=resolution.evidence | {"cross-season-special"},
+                )
+            if resolution.episodes:
+                # The consolidated pass picked this slot BY TITLE and
+                # resolve_file re-matched the same title against it —
+                # 'title-agree' here is self-confirming, so mark the origin.
+                resolution = Resolution(
+                    episodes=resolution.episodes,
+                    confidence=resolution.confidence,
+                    evidence=resolution.evidence | {"title-consolidated"},
+                    reason=resolution.reason,
+                )
             _apply_resolution(table, entry.file_id, cand_season, resolution)
         else:
-            table.mark_unassigned(
-                entry.file_id,
-                REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
-            )
+            # A file the consolidated pass couldn't place still deserves a
+            # real resolve_file run against its OWN hinted season — seg-run
+            # and fuzzy title evidence live there (RC18e).
+            fallback = None
+            if season_hint is not None and season_hint != 0:
+                hinted_titles = tmdb_seasons.get(season_hint, {}).get("titles", {})
+                if hinted_titles:
+                    candidate = resolve_file(
+                        parsed_episodes=tuple(episode_numbers),
+                        raw_title=raw_title,
+                        is_season_relative=is_season_relative,
+                        season_titles=hinted_titles,
+                        season=season_hint,
+                    )
+                    if candidate.episodes:
+                        fallback = (season_hint, candidate)
+            if fallback is None and not episode_numbers and not raw_title and s0_titles:
+                # No parsed episode and no extracted title: the cleaned
+                # filename itself is the only evidence — root specials like
+                # "The Henry & June Show (1999).mp4" live in flat consolidated
+                # folders too (RC26).
+                stem = clean_title_evidence(file_path.stem)
+                stem = _SPECIAL_STEM_PREFIX_RE.sub("", stem).strip()
+                if stem:
+                    candidate = resolve_file(
+                        parsed_episodes=(),
+                        raw_title=stem,
+                        is_season_relative=False,
+                        season_titles=s0_titles,
+                        season=0,
+                    )
+                    if candidate.episodes:
+                        fallback = (0, candidate)
+            if fallback is not None:
+                _apply_resolution(table, entry.file_id, fallback[0], fallback[1])
+            else:
+                table.mark_unassigned(
+                    entry.file_id,
+                    REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
+                )
 
+    apply_air_date_cluster_mapping(table, tmdb_seasons)
     return table

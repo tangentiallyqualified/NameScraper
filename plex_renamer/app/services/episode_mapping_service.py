@@ -206,7 +206,26 @@ class EpisodeMappingService:
         companion_count = 0
         conflict_count = 0
 
+        # Conflicted slots render one row per claimant; number them so the
+        # pair reads as ONE contested episode, not two copies of it (RC39).
+        conflict_totals: dict[tuple[int, int], int] = {}
         for preview in state.preview_items:
+            if preview.is_conflict and self._is_episode_mapped(preview):
+                for episode in preview.episodes:
+                    key = (preview.season or 0, episode)
+                    conflict_totals[key] = conflict_totals.get(key, 0) + 1
+        conflict_seen: dict[tuple[int, int], int] = {}
+
+        for preview in state.preview_items:
+            if preview.is_duplicate:
+                guide.duplicate_files.append(
+                    UnmappedFileRow(
+                        original=preview.original,
+                        reason=preview.status.removeprefix("DUPLICATE: "),
+                        preview=preview,
+                    )
+                )
+                continue
             if not self._is_episode_mapped(preview):
                 reason = preview.status
                 if state.assignments is not None and preview.file_id is not None:
@@ -231,6 +250,13 @@ class EpisodeMappingService:
             for episode in preview.episodes:
                 key = (preview.season or 0, episode)
                 mapped_keys.add(key)
+                confidence_label = self._confidence_label(preview)
+                if preview.is_conflict and conflict_totals.get(key, 0) > 1:
+                    conflict_seen[key] = conflict_seen.get(key, 0) + 1
+                    confidence_label = (
+                        f"Conflict — file {conflict_seen[key]}"
+                        f" of {conflict_totals[key]}"
+                    )
                 guide.rows.append(
                     EpisodeGuideRow(
                         season=key[0],
@@ -241,7 +267,7 @@ class EpisodeMappingService:
                         companions=companions,
                         target_rename=preview.new_name or "",
                         status=self._status_label(preview),
-                        confidence_label=self._confidence_label(preview),
+                        confidence_label=confidence_label,
                         overview=self._episode_meta_value(state, key, "overview"),
                         air_date=self._episode_meta_value(state, key, "air_date"),
                     )
@@ -273,6 +299,7 @@ class EpisodeMappingService:
             orphan_companion_files=len(guide.orphan_companion_files),
             conflicts=conflict_count,
             review_required=sum(1 for row in guide.rows if row.status == "Review"),
+            duplicate_files=len(guide.duplicate_files),
         )
         return guide
 
@@ -378,12 +405,12 @@ class EpisodeMappingService:
         completeness = state.completeness
         if completeness is None:
             return []
-        if completeness.total_missing:
-            return list(completeness.total_missing)
-
-        rows: list[tuple[int, int, str]] = []
+        # total_missing covers regular seasons only (specials are excluded from
+        # the completeness %); always append specials so missing S0 rows render.
+        rows: list[tuple[int, int, str]] = list(completeness.total_missing)
         if completeness.specials is not None:
-            rows.extend((0, episode, title) for episode, title in completeness.specials.missing)
-        for season_num, season in completeness.seasons.items():
-            rows.extend((season_num, episode, title) for episode, title in season.missing)
+            rows.extend(
+                (0, episode, title)
+                for episode, title in completeness.specials.missing
+            )
         return rows

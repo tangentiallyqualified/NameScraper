@@ -13,16 +13,19 @@ from ._parsing_names import (
     is_already_complete,
     normalize_for_match,
     normalize_for_specials,
+    normalize_for_specials_spaced,
 )
-from ._parsing_seasons import get_season, is_season_only_name
+from ._parsing_seasons import get_season, get_year_season, is_season_only_name
 from ._parsing_subtitles import find_companion_subtitles
 from ._parsing_titles import clean_folder_name, clean_name, extract_year, sanitize_filename
 from ._parsing_tv import (
     EXTRAS_FOLDER_PATTERN,
     best_tv_match_title,
     extract_source_title_prefix,
+    has_explicit_special_episode,
     is_companion_video_file,
     is_extras_folder,
+    is_generic_show_folder_name,
     is_sample_file,
     looks_like_tv_episode,
 )
@@ -41,13 +44,17 @@ __all__ = [
     "extract_year",
     "find_companion_subtitles",
     "get_season",
+    "get_year_season",
+    "has_explicit_special_episode",
     "is_companion_video_file",
     "is_already_complete",
     "is_extras_folder",
+    "is_generic_show_folder_name",
     "is_sample_file",
     "is_season_only_name",
     "looks_like_tv_episode",
     "normalize_for_match",
     "normalize_for_specials",
+    "normalize_for_specials_spaced",
     "sanitize_filename",
 ]

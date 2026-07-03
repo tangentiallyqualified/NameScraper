@@ -76,6 +76,17 @@ class CommandGatingService:
         eligible_selected = sorted(index for index in selected if index in actionable)
         blocked_counts = self._blocked_counts(items)
 
+        if blocked_counts.get("conflict"):
+            # A live conflict blocks the WHOLE item from queueing, even when
+            # other rows are selected and actionable (RC39) — queueing around
+            # an unresolved duplicate claim ships the wrong file.
+            return QueueEligibility(
+                command_state=QueueCommandState.DISABLED_CONFLICT,
+                reason="Resolve conflicting targets before queueing.",
+                actionable_indices=actionable,
+                blocked_counts=blocked_counts,
+            )
+
         if require_resolved_review:
             review_selected = sorted(
                 index
@@ -106,14 +117,6 @@ class CommandGatingService:
             return QueueEligibility(
                 command_state=QueueCommandState.DISABLED_NO_SELECTION,
                 reason="Select at least one actionable file.",
-                actionable_indices=actionable,
-                blocked_counts=blocked_counts,
-            )
-
-        if blocked_counts.get("conflict"):
-            return QueueEligibility(
-                command_state=QueueCommandState.DISABLED_CONFLICT,
-                reason="Resolve conflicting targets before queueing.",
                 actionable_indices=actionable,
                 blocked_counts=blocked_counts,
             )

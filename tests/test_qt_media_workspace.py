@@ -2238,6 +2238,225 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(assignment.episodes, (2,))
         workspace.close()
 
+    def test_approve_all_recategorizes_and_auto_checks_show(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_helpers import (
+            is_state_queue_approvable,
+        )
+
+        # _make_episode_table_state assigns the only file at confidence 0.5,
+        # so the show starts under "Review Episode Matching".
+        state, _table, _file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
+
+        workspace._approve_all_episode_mappings()
+        self._app.processEvents()
+
+        # The roster widget re-syncs out of review and the show is auto-checked.
+        self._assert_roster_section_title(workspace, 0, "MATCHED")
+        self.assertTrue(is_state_queue_approvable(state, media_type="tv"))
+        self.assertTrue(state.checked)
+
+        workspace.close()
+
+    def test_unassign_all_button_clears_every_assigned_file(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Sequel"))
+        first = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        second = table.add_file(folder / "Season 01" / "Example.S01E02.mkv")
+        table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        # Both files start assigned, so the bulk button is shown and enabled.
+        self.assertFalse(workspace._unassign_all_btn.isHidden())
+        self.assertTrue(workspace._unassign_all_btn.isEnabled())
+        self.assertIsNotNone(table._assignments.get(first.file_id))
+        self.assertIsNotNone(table._assignments.get(second.file_id))
+
+        workspace._unassign_all_btn.click()
+        self._app.processEvents()
+
+        # Every file is now unassigned in the table...
+        self.assertIsNone(table._assignments.get(first.file_id))
+        self.assertIsNone(table._assignments.get(second.file_id))
+        # ...and the reprojected previews carry no rename target.
+        for preview in state.preview_items:
+            self.assertIsNone(preview.new_name)
+        # Nothing left to unassign, so the button disables itself.
+        self.assertFalse(workspace._unassign_all_btn.isEnabled())
+
+        workspace.close()
+
+    def test_episode_filter_active_state_tracks_selected_filter(self):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table, _file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        panel = workspace._preview_panel
+        buttons = panel.episode_filter_buttons
+
+        # Default filter is "all": exactly one button is checked and it matches.
+        self.assertEqual(panel.episode_filter, "all")
+        checked = [key for key, button in buttons.items() if button.isChecked()]
+        self.assertEqual(checked, ["all"])
+
+        # Switching the filter moves the checked (active) state to the new button.
+        buttons["problems"].click()
+        self._app.processEvents()
+
+        self.assertEqual(panel.episode_filter, "problems")
+        checked = [key for key, button in buttons.items() if button.isChecked()]
+        self.assertEqual(checked, ["problems"])
+        self.assertFalse(buttons["all"].isChecked())
+
+        workspace.close()
+
+    def test_approve_all_with_remaining_conflict_stays_in_review_no_checkbox(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+        from plex_renamer.gui_qt.widgets._media_helpers import is_state_queue_approvable
+
+        folder = Path("C:/library/tv/Conflicted")
+        show_info = {"id": 77, "name": "Conflicted", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        for ep, title in [(1, "Pilot"), (2, "Two"), (3, "Three")]:
+            table.add_slot(EpisodeSlot(season=1, episode=ep, title=title))
+        # A below-threshold review row (Approve All will approve it)...
+        low = table.add_file(folder / "Season 01" / "low.mkv")
+        table.assign(low.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.5)
+        # ...plus a hard conflict on E01 that Approve All does NOT resolve.
+        a = table.add_file(folder / "Season 01" / "a.mkv")
+        b = table.add_file(folder / "Season 01" / "b.mkv")
+        table.assign(a.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        table.assign(b.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table, show_info=show_info, root=folder,
+            media_fields={"media_id": 77, "media_name": "Conflicted"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+
+        workspace._approve_all_episode_mappings()
+        self._app.processEvents()
+
+        # Conflict remains: the show stays in review with no checkbox / unchecked,
+        # so the checkbox stays consistent with the section header.
+        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
+        self.assertFalse(state.checked)
+        workspace.close()
+
+    def test_reassign_opens_empty_with_current_tagged(self):
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        captured: dict = {}
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_episodes(**kwargs):
+                captured.update(kwargs)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "reassign", assign_dialog=_CapturingDialog,
+        )
+
+        self.assertIsNone(captured.get("preselected"))
+        self.assertEqual(set(captured.get("current_keys") or set()), {(1, 1)})
+        workspace.close()
+
+    def test_assign_to_more_preselects_current_run(self):
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        # _make_episode_table_state has slots E01 and E02; the file is at E01.
+        state, _table, file_id = self._make_episode_table_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = next(p for p in state.preview_items if p.file_id == file_id)
+        row = EpisodeGuideRow(season=1, episode=1, title="Pilot", primary_file=preview)
+
+        captured: dict = {}
+
+        class _CapturingDialog:
+            @staticmethod
+            def pick_episodes(**kwargs):
+                captured.update(kwargs)
+                return None  # cancel
+
+        workspace._action_coordinator.handle_episode_row_action(
+            state, row, "assign_to_more", assign_dialog=_CapturingDialog,
+        )
+
+        self.assertEqual(set(captured.get("preselected") or set()), {(1, 1)})
+        self.assertEqual(set(captured.get("current_keys") or set()), {(1, 1)})
+        slot_keys = {(c.season, c.episode) for c in captured.get("slots", [])}
+        self.assertIn((1, 1), slot_keys)
+        self.assertIn((1, 2), slot_keys)
+        workspace.close()
+
     def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
         """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
         from plex_renamer.engine._episode_projection import project_preview_items
@@ -4317,4 +4536,44 @@ class TestEpisodeAssignDialog(QtSmokeBase):
         dialog = EpisodeAssignDialog(slots=_slot_choices())
         dialog.set_checked([(1, 2), (1, 3)])
         self.assertEqual(dialog.selected_episodes(), [(1, 2), (1, 3)])
+        dialog.close()
+
+    def test_current_slot_tagged_current_not_claimed(self):
+        slots = [
+            EpisodeSlotChoice(season=2, episode=5, title="Goodbye", claimed_by="file.mkv"),
+        ]
+        dialog = EpisodeAssignDialog(slots=slots, current_keys={(2, 5)})
+        text = dialog.slot_row_text(2, 5)
+        self.assertIn("[current]", text)
+        self.assertNotIn("claimed by", text)
+        dialog.close()
+
+    def test_focus_season_expanded_others_collapsed(self):
+        slots = [
+            EpisodeSlotChoice(season=0, episode=1, title="Special"),
+            EpisodeSlotChoice(season=1, episode=1, title="Pilot"),
+            EpisodeSlotChoice(season=2, episode=5, title="Goodbye"),
+        ]
+        dialog = EpisodeAssignDialog(slots=slots, current_keys={(2, 5)})
+        self.assertTrue(dialog.is_season_expanded(2))
+        self.assertFalse(dialog.is_season_expanded(0))
+        self.assertFalse(dialog.is_season_expanded(1))
+        dialog.close()
+
+    def test_preselected_keys_start_checked(self):
+        dialog = EpisodeAssignDialog(slots=_slot_choices(), preselected=[(1, 2)])
+        self.assertEqual(dialog.selected_episodes(), [(1, 2)])
+        dialog.close()
+
+    def test_dialog_is_dpi_sized_with_no_horizontal_scrollbar(self):
+        from plex_renamer.gui_qt import _scale
+
+        dialog = EpisodeAssignDialog(slots=_slot_choices())
+        self.assertGreaterEqual(dialog.minimumWidth(), _scale.px(460))
+        self.assertGreaterEqual(dialog.minimumHeight(), _scale.px(420))
+        self.assertGreaterEqual(dialog.width(), dialog.minimumWidth())
+        self.assertEqual(
+            dialog._tree.horizontalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
         dialog.close()

@@ -24,6 +24,21 @@ REASON_NO_PARSE = "could not parse episode number"
 REASON_NO_TITLE_MATCH = "no TMDB title match"
 REASON_NOT_IN_SEASON = "episode not in TMDB season"
 REASON_LOST_CONFLICT = "lost conflict"
+
+
+def lost_conflict_reason(season: int, episode: int) -> str:
+    """Lost-conflict reason naming the slot the file lost the match for."""
+    return f"{REASON_LOST_CONFLICT} for S{season:02d}E{episode:02d}"
+
+
+REASON_DUPLICATE_COPY = "duplicate copy"
+
+
+def duplicate_copy_reason(season: int, episode: int) -> str:
+    """Reason marking a losing duplicate copy of one episode."""
+    return f"{REASON_DUPLICATE_COPY} of S{season:02d}E{episode:02d}"
+
+
 REASON_DISPLACED = "reassigned to another file"
 REASON_MANUAL_UNASSIGN = "manually unassigned"
 REASON_AMBIGUOUS_RUN = "ambiguous multi-episode numbering"
@@ -169,7 +184,9 @@ class EpisodeAssignmentTable:
             )
         for claim in claimants:
             if claim.file_id != winner_file_id:
-                self.mark_unassigned(claim.file_id, REASON_LOST_CONFLICT)
+                self.mark_unassigned(
+                    claim.file_id, lost_conflict_reason(season, episode),
+                )
 
     def set_approved(self, file_id: int, approved: bool = True) -> None:
         assignment = self._assignments.get(file_id)

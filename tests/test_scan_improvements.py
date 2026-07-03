@@ -331,11 +331,233 @@ class _FakeSeasonMapTMDB(_FakeTMDB):
         )
 
 
+class _FakeWatchmenTMDB(_FakeTMDB):
+    """Real show + a spin-off whose ALT title equals the query.
+
+    The alt-title boost levels their scores and the winner's saturates at
+    1.0, so tie detection must fall back to identity evidence.
+    """
+
+    REAL = {"id": 79788, "name": "Watchmen", "year": "2019",
+            "poster_path": None, "overview": ""}
+    SPINOFF = {"id": 18096, "name": "Watchmen: Motion Comic", "year": "2008",
+               "poster_path": None, "overview": ""}
+
+    def __init__(self, spinoff_name: str = "Watchmen: Motion Comic"):
+        self._spinoff = dict(self.SPINOFF, name=spinoff_name)
+
+    def search_tv_batch(self, queries, progress_callback=None):
+        return [[dict(self.REAL), dict(self._spinoff)] for _ in queries]
+
+    def get_alternative_titles(self, media_id, media_type="tv"):
+        if media_id == self.SPINOFF["id"]:
+            return [("Watchmen", "US")]
+        return []
+
+    def _count(self, show_id):
+        return 9 if show_id == self.REAL["id"] else 12
+
+    def get_tv_details(self, show_id):
+        count = self._count(show_id)
+        return {
+            "number_of_seasons": 1,
+            "number_of_episodes": count,
+            "seasons": [
+                {"season_number": 1, "name": "Season 1", "episode_count": count},
+            ],
+        }
+
+    def get_season_map(self, show_id):
+        count = self._count(show_id)
+        titles = {episode: f"Chapter {episode}" for episode in range(1, count + 1)}
+        return {1: {"titles": titles, "posters": {}, "episodes": {}, "count": count}}, count
+
+    def get_season(self, show_id, season_num):
+        seasons, _total = self.get_season_map(show_id)
+        return seasons.get(
+            season_num, {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+
+class SaturatedTieBreakTests(unittest.TestCase):
+    """RC13: alt-title + evidence boosts saturate both candidates above 1.0;
+    the exact primary-name match must break the tie instead of flagging it."""
+
+    def _discover(self, tmdb):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "Watchmen.S01.2160p.MAX.WEB-DL.x265.10bit.HDR.DTS-HD.MA.5.1-NTb[rartv]"
+            show.mkdir()
+            for episode in range(1, 10):
+                (show / (
+                    f"Watchmen.S01E{episode:02d}.2160p.MAX.WEB-DL"
+                    ".DTS-HD.MA.5.1.HDR.DV.HEVC-NTb.mkv"
+                )).write_text("x")
+            orchestrator = BatchTVOrchestrator(
+                tmdb, root, discovery_service=TVLibraryDiscoveryService(),
+            )
+            return orchestrator.discover_shows()
+
+    def test_exact_primary_name_breaks_saturated_tie(self):
+        states = self._discover(_FakeWatchmenTMDB())
+        self.assertEqual(len(states), 1)
+        self.assertEqual(states[0].show_id, 79788)
+        self.assertFalse(states[0].tie_detected)
+
+    def test_two_exact_primary_names_keep_the_tie(self):
+        # A GENUINE ambiguity — both literally named "Watchmen" AND
+        # indistinguishable by episode count — must still surface as a tie.
+        class _EqualCounts(_FakeWatchmenTMDB):
+            def _count(self, show_id):
+                return 9
+
+        states = self._discover(_EqualCounts(spinoff_name="Watchmen"))
+        self.assertEqual(len(states), 1)
+        self.assertTrue(states[0].tie_detected)
+
+    def test_episode_count_discrimination_breaks_same_name_tie(self):
+        # RC38 (Limitless): same primary name, but the folder's 9 files
+        # exactly match the real show's episode count (spinoff has 12) —
+        # the count evidence identifies the show, so no tie flag.
+        states = self._discover(_FakeWatchmenTMDB(spinoff_name="Watchmen"))
+        self.assertEqual(len(states), 1)
+        self.assertEqual(states[0].show_id, 79788)
+        self.assertFalse(states[0].tie_detected)
+
+
+class SpecialsLeafDiscoveryTests(unittest.TestCase):
+    """A bare "Specials" folder holding explicit S00E## episode files must be
+    discoverable even though its name matches the extras-folder pattern (The
+    Brak Show: empty Season 1-3 + Specials/ with one S00E01 file produced NO
+    candidate). Extras folders with only bonus junk stay undiscovered.
+    """
+
+    def test_specials_folder_with_explicit_s00_files_is_discovered(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "The Brak Show (2000)"
+            for season in (1, 2, 3):
+                (show / f"Season {season}").mkdir(parents=True)
+            specials = show / "Specials"
+            specials.mkdir()
+            (specials / "The Brak Show (2000) S00E01 - Brak Presents.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+
+            relative = {candidate.relative_folder for candidate in candidates}
+            self.assertIn("The Brak Show (2000)/Specials", relative)
+
+    def test_extras_folder_without_explicit_specials_stays_leaf(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            extras = root / "Some Show (2001)" / "Extras"
+            extras.mkdir(parents=True)
+            (extras / "Behind the Scenes.mkv").write_text("x")
+            (extras / "Bloopers.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+
+            self.assertEqual(candidates, [])
+
+
+class GenericCandidateTitleInheritanceTests(unittest.TestCase):
+    """A discovered candidate named only with a season/collection label
+    ("Specials (1998-2003)", "Series") carries no show identity: searching
+    TMDB with it matches shows literally called "Specials". Such candidates
+    must search with the PARENT folder's title instead.
+    """
+
+    def _discover(self, root: Path):
+        tmdb = _RecordingTVTMDB()
+        orchestrator = BatchTVOrchestrator(
+            tmdb, root, discovery_service=TVLibraryDiscoveryService(),
+        )
+        states = orchestrator.discover_shows()
+        return tmdb, states
+
+    def test_specials_child_of_empty_umbrella_inherits_parent_search_title(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            show = root / "The Wild Thornberries (1998)"
+            for season in range(1, 6):
+                (show / f"Season {season}").mkdir(parents=True)
+            specials = show / "Specials (1998-2003)"
+            specials.mkdir()
+            for name in ("The Origin of Donnie.avi", "Sir Nigel.avi", "Gold Fever.avi"):
+                (specials / name).write_text("x")
+
+            tmdb, states = self._discover(root)
+
+            queries = [name for name, _year in tmdb.queries]
+            self.assertEqual(len(states), 1)
+            self.assertIn("The Wild Thornberries", queries)
+            self.assertNotIn("Specials", queries)
+            self.assertEqual(states[0].season_assignment, 0)
+
+    def test_generic_series_child_inherits_parent_search_title(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            series = root / "Bobs Burgers (2011) Complete" / "Series"
+            series.mkdir(parents=True)
+            for name in ("Human Flesh.mp4", "Crawl Space.mp4", "Sacred Cow.mp4"):
+                (series / name).write_text("x")
+
+            tmdb, states = self._discover(root)
+
+            queries = [name for name, _year in tmdb.queries]
+            self.assertEqual(len(states), 1)
+            self.assertIn("Bobs Burgers", queries)
+            self.assertNotIn("Series", queries)
+
+    def test_top_level_specials_folder_keeps_own_name(self):
+        # Directly under the library root there is no parent show folder to
+        # inherit from; the candidate keeps its own (odd) name.
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            specials = root / "Specials (1998-2003)"
+            specials.mkdir()
+            for name in ("A.avi", "B.avi", "C.avi"):
+                (specials / name).write_text("x")
+
+            tmdb, states = self._discover(root)
+
+            queries = [name for name, _year in tmdb.queries]
+            self.assertEqual(queries, ["Specials"])
+
+    def test_show_named_specials_child_keeps_own_name(self):
+        # "Yuru Camp Specials" carries the show title; it must NOT be
+        # replaced by the (junk-laden) parent bundle name.
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "[UDF] Camp Bundle (BDRip 1080p x264 FLAC)"
+            specials = bundle / "Yuru Camp Specials"
+            specials.mkdir(parents=True)
+            for name in ("01.mkv", "02.mkv", "03.mkv"):
+                (specials / name).write_text("x")
+
+            tmdb, states = self._discover(root)
+
+            queries = [name for name, _year in tmdb.queries]
+            self.assertEqual(queries, ["Yuru Camp Specials"])
+
+
 class ScanImprovementTests(unittest.TestCase):
     def test_extract_episode_parses_nxnn_filenames_as_season_relative(self):
         name = "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv"
 
         self.assertEqual(extract_episode(name), ([5], "Gun Fever", True))
+        self.assertEqual(extract_season_number(name), 1)
+
+    def test_extract_episode_handles_space_between_season_and_episode(self):
+        # CatDog source uses "S01 E01-E02" (space between season and episode).
+        name = "CatDog - S01 E01-E02 - Dog Gone and All You Can't Eat (1080p - Web-DL).mp4"
+
+        self.assertEqual(
+            extract_episode(name),
+            ([1, 2], "Dog Gone and All You Can't Eat", True),
+        )
         self.assertEqual(extract_season_number(name), 1)
 
     def test_tv_scanner_maps_nxnn_files_to_their_episode_numbers(self):
@@ -374,6 +596,107 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertEqual(by_name[filenames[3].name].episodes, [1])
             self.assertEqual(by_name[filenames[4].name].episodes, [2])
             self.assertTrue(all(item.status == "OK" for item in items))
+
+    def test_get_year_season_recognizes_year_folders(self):
+        from plex_renamer.parsing import get_year_season
+        self.assertEqual(get_year_season("S2014"), 2014)
+        self.assertEqual(get_year_season("s2020"), 2020)
+        self.assertIsNone(get_year_season("S01"))
+        self.assertIsNone(get_year_season("S123"))
+        self.assertIsNone(get_year_season("Season 1"))
+
+    def test_year_season_umbrella_classified_as_single_show_root(self):
+        # Adult Swim Infomercials: children are release-year folders (S2014,
+        # S2020). The umbrella is ONE show, not a multi-show container.
+        with TemporaryDirectory() as tmp:
+            umbrella = Path(tmp) / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+            specials = umbrella / "S00"
+            specials.mkdir()
+            (specials / "Adult Swim Infomercials SPECIAL 0x1 Yule Log.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            self.assertEqual(
+                service.classify_directory(umbrella), TVDirectoryRole.SHOW_ROOT,
+            )
+
+    def test_year_season_umbrella_discovered_as_one_candidate(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            umbrella = root / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(root)
+            relative_paths = {candidate.relative_folder for candidate in candidates}
+
+            self.assertIn("Adult Swim Infomercials", relative_paths)
+            self.assertNotIn("Adult Swim Infomercials/S2014", relative_paths)
+            self.assertNotIn("Adult Swim Infomercials/S2020", relative_paths)
+
+    def test_year_season_umbrella_selected_directly_is_single_show(self):
+        # User points the scan directly at the umbrella folder.
+        with TemporaryDirectory() as tmp:
+            umbrella = Path(tmp) / "Adult Swim Infomercials"
+            for year in ("S2014", "S2016", "S2020"):
+                year_dir = umbrella / year
+                year_dir.mkdir(parents=True)
+                (year_dir / f"Adult Swim Infomercials {year}E01 Thing.mkv").write_text("x")
+
+            service = TVLibraryDiscoveryService()
+            candidates = service.discover_show_roots(umbrella)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].relative_folder, ".")
+
+    def test_year_folders_resolve_to_tmdb_season_by_air_year(self):
+        seasons = {
+            0: {
+                "titles": {1: "Yule Log"}, "posters": {},
+                "episodes": {1: {"air_date": "2014-12-25"}},
+                "count": 1, "name": "Specials",
+            },
+            1: {
+                "titles": {1: "Fartcopter", 2: "Too Many Cooks"}, "posters": {},
+                "episodes": {
+                    1: {"air_date": "2014-05-01"},
+                    2: {"air_date": "2016-06-01"},
+                },
+                "count": 2, "name": "Season 1",
+            },
+        }
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Adult Swim Infomercials"
+            d2014 = root / "S2014"
+            d2014.mkdir(parents=True)
+            (d2014 / "Adult Swim Infomercials S2014E01 Fartcopter.mkv").write_text("x")
+            d2016 = root / "S2016"
+            d2016.mkdir()
+            (d2016 / "Adult Swim Infomercials S2016E01 Too Many Cooks.mkv").write_text("x")
+            specials = root / "S00"
+            specials.mkdir()
+            (specials / "Adult Swim Infomercials SPECIAL 0x1 Yule Log.mkv").write_text("x")
+
+            scanner = TVScanner(
+                _FakeSeasonMapTMDB(seasons),
+                {"id": 115657, "name": "Infomercials", "year": "2013"},
+                root,
+            )
+            items, has_mismatch = scanner.scan()
+
+            self.assertFalse(has_mismatch)
+            by_name = {item.original.name: item for item in items}
+            fartcopter = by_name["Adult Swim Infomercials S2014E01 Fartcopter.mkv"]
+            self.assertEqual(fartcopter.season, 1)
+            self.assertEqual(fartcopter.episodes, [1])
+            cooks = by_name["Adult Swim Infomercials S2016E01 Too Many Cooks.mkv"]
+            self.assertEqual(cooks.season, 1)
+            self.assertEqual(cooks.episodes, [2])
 
     def test_tv_classify_directory_marks_explicit_episode_folder_as_show_root(self):
         with TemporaryDirectory() as tmp:
@@ -1058,6 +1381,28 @@ class ScanImprovementTests(unittest.TestCase):
 
             self.assertEqual(clean_folder_name(show.name, include_year=False), "The IT Crowd")
             self.assertEqual(tmdb.queries, [("The IT Crowd", "2006")])
+
+    def test_clean_folder_name_drops_dangling_trailing_article(self):
+        """A trailing article left when 'The Complete Series' is stripped at the
+        'Complete' noise token must not pollute the search/score title.
+
+        Real case: "Lucy, The Daughter of The Devil The Complete Series[...]"
+        previously cleaned to "Lucy, The Daughter of The Devil The".
+        """
+        name = (
+            "Lucy, The Daughter of The Devil The Complete Series"
+            "[DVDRip 480p AC3][AtaraxiaPrime]"
+        )
+        self.assertEqual(
+            clean_folder_name(name, include_year=False),
+            "Lucy, The Daughter of The Devil",
+        )
+
+    def test_clean_folder_name_preserves_leading_article(self):
+        """The dangling-article cleanup must never strip a legitimate leading
+        article like 'The' in 'The Office'."""
+        self.assertEqual(clean_folder_name("The Office", include_year=False), "The Office")
+        self.assertEqual(clean_folder_name("The", include_year=False), "The")
 
     def test_disjoint_same_season_sibling_is_consolidated_into_multi_season_card(self):
         with TemporaryDirectory() as tmp:
@@ -2200,11 +2545,69 @@ class ScanImprovementTests(unittest.TestCase):
         orch = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
         orch.tmdb = _FakeTMDB()
 
-        best, _ = orch._episode_count_tiebreak(
+        best, _, _ = orch._episode_count_tiebreak(
             scored, file_count=4, threshold=0.10, compare_seasons=True,
         )
         self.assertEqual(best["id"], 1002,
                          "4 season subdirs must pick the 4-season series")
+
+    def test_episode_tiebreak_uses_per_season_count_for_single_season_evidence(self):
+        """Euphoria S01 regression: a single-season folder (8 files, all S01)
+        must compare against each candidate's SEASON 1 episode count, not the
+        whole-show total.
+
+        The wrong show (2012, 10 total eps, S1=10) is closer to 8 by total
+        count than the correct HBO show (24 total eps, S1=8). Comparing the
+        right season makes HBO (|8-8|=0) win over 2012 (|10-8|=2).
+        """
+        from plex_renamer.engine import score_results, BatchTVOrchestrator
+
+        results = [
+            {"name": "Euphoria", "year": "2019", "id": 85552},
+            {"name": "Euphoria", "year": "2012", "id": 90417},
+        ]
+        # No year hint → pure title tie, both score equal (within threshold).
+        scored = score_results(results, "Euphoria", None, title_key="name")
+        self.assertLessEqual(abs(scored[0][1] - scored[1][1]), 0.10)
+
+        class _FakeTMDB:
+            language = "en-US"
+            def get_tv_details(self, show_id):
+                if show_id == 85552:  # HBO 2019
+                    return {
+                        "number_of_seasons": 3,
+                        "number_of_episodes": 24,
+                        "first_air_date": "2019-06-16",
+                        "status": "Ended",
+                        "seasons": [
+                            {"season_number": 1, "episode_count": 8},
+                            {"season_number": 2, "episode_count": 8},
+                            {"season_number": 3, "episode_count": 8},
+                        ],
+                    }
+                if show_id == 90417:  # 2012 Israeli
+                    return {
+                        "number_of_seasons": 1,
+                        "number_of_episodes": 10,
+                        "first_air_date": "2012-01-01",
+                        "status": "Ended",
+                        "seasons": [
+                            {"season_number": 1, "episode_count": 10},
+                        ],
+                    }
+                return None
+
+        orch = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
+        orch.tmdb = _FakeTMDB()
+
+        # Without season context the old behaviour picks the wrong show.
+        best, _, _ = orch._episode_count_tiebreak(
+            scored, file_count=8, threshold=0.10, explicit_seasons={1},
+        )
+        self.assertEqual(
+            best["id"], 85552,
+            "Single-season evidence must compare against S1 ep count, picking HBO",
+        )
 
 
 if __name__ == "__main__":
@@ -2291,7 +2694,9 @@ class TestTableDrivenScan:
         special = next(item for item in items if item.season == 0)
         assert special.is_unmatched
 
-    def test_same_named_specials_in_two_seasons_conflict(self, tmp_path):
+    def test_same_named_specials_in_two_seasons_resolve_as_duplicate_copies(self, tmp_path):
+        """Identical special files stored in two season folders are duplicate
+        copies: one keeps the slot, the other is flagged, never a conflict."""
         for season_name in ("Season 01", "Season 02"):
             directory = tmp_path / season_name
             directory.mkdir()
@@ -2300,9 +2705,18 @@ class TestTableDrivenScan:
             tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
         )
         items, _ = scanner.scan()
-        conflicted = [item for item in items if item.is_conflict]
-        assert len(conflicted) == 2
-        assert scanner.assignment_table.conflicts()
+        table = scanner.assignment_table
+        assert not table.conflicts()
+        assigned = [
+            entry for entry in table.files.values()
+            if table.assignment_for(entry.file_id) is not None
+        ]
+        assert len(assigned) == 1
+        duplicate_reasons = [
+            reason for reason in table.unassigned_reasons.values()
+            if "duplicate copy" in reason
+        ]
+        assert len(duplicate_reasons) == 1
 
     def test_episode_confidence_set_on_specials(self, tmp_path):
         specials = tmp_path / "Specials"

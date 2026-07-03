@@ -86,6 +86,14 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
         title_tokens.append(token)
 
     title = " ".join(title_tokens).strip().rstrip("-").strip()
+
+    # Drop a dangling trailing article left when a phrase like
+    # "The Complete Series" is cut at its release-noise token ("Complete"),
+    # e.g. "...The Devil The Complete Series" -> "...The Devil The".  Only
+    # strip when more than one token remains so a bare "The" title survives.
+    if len(title_tokens) > 1 and title_tokens[-1].lower() in ("the", "a", "an"):
+        title = " ".join(title_tokens[:-1]).strip().rstrip("-").strip()
+
     if len(title) < 2:
         title = re.sub(r"\s+", " ", text).strip()
 
@@ -147,11 +155,47 @@ def clean_title_evidence(name: str) -> str:
     ``(Pilot)``/``(Again)`` (so specials match their TMDB titles) while still
     dropping quality/source parentheticals. Strips square-bracketed tags and
     turns dots/underscores into spaces.
+
+    In dot-spaced release names a lone '_' is the boundary BETWEEN two
+    segment titles (Catscratch.S01E01.To.The.Moon_Bringin'.Down.The.Mouse);
+    flattening it to a space would erase the only segment separator, so it
+    becomes ' & ' instead — but only when BOTH sides of the underscore are
+    themselves dot-spaced. A dot-less side is a duplicate/version marker
+    (S01E04.M.Night.Shaym-Aliens!_new), not a second title. Names that use
+    '_' as their word separator (no dot spacing) keep the plain-space
+    behavior.
     """
     name = re.sub(r"\[.*?\]", "", name)
     name = _strip_quality_parens(name)
+    if name.count(".") >= 3 and 1 <= name.count("_") <= 3:
+        parts = name.split("_")
+        rebuilt = parts[0]
+        for prev, part in zip(parts, parts[1:]):
+            sep = " & " if "." in prev and "." in part else " "
+            rebuilt += sep + part
+        name = rebuilt
     name = name.replace(".", " ").replace("_", " ")
     return re.sub(r"\s+", " ", name).strip()
+
+
+def strip_release_junk_title(title: str | None) -> str | None:
+    """Truncate an extracted episode title at the first release-noise token.
+
+    Episode titles pulled from release filenames keep trailing junk
+    ("Execution 1080p CR WEB-DL …"), downgrading exact title evidence to
+    substring matches. Token-walk left-to-right and cut at the first
+    release-noise token (same strategy as clean_folder_name). Returns None
+    when nothing survives.
+    """
+    if not title:
+        return None
+    kept: list[str] = []
+    for token in title.split():
+        if _is_release_noise_token(token):
+            break
+        kept.append(token)
+    result = " ".join(kept).strip(" -–")
+    return result or None
 
 
 def sanitize_filename(name: str) -> str:
@@ -168,6 +212,9 @@ def sanitize_filename(name: str) -> str:
     return name
 
 
+_YEAR_RANGE_RE = re.compile(r"(?<!\d)(\d{4})\s*[-–]\s*(\d{4})(?!\d)")
+
+
 def extract_year(text: str) -> str | None:
     """
     Extract a plausible release year (1920-2099) from a string.
@@ -181,11 +228,23 @@ def extract_year(text: str) -> str | None:
     Falls back to the last year found when no noise boundary is present,
     which correctly handles Plex-format names like "2001 A Space Odyssey (1968)".
 
+    A run range "(2001-2013)" counts as its START year: TMDB indexes shows by
+    first-air date, so the range end would match the wrong entry.
+
     Returns the year as a string, or None if not found.
     """
+    range_end_starts = {
+        match.start(2)
+        for match in _YEAR_RANGE_RE.finditer(text)
+        if (
+            YEAR_MIN_EXTRACT <= int(match.group(1)) <= YEAR_MAX
+            and int(match.group(2)) >= int(match.group(1))
+        )
+    }
     all_years = [
         match for match in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
         if YEAR_MIN_EXTRACT <= int(match.group(1)) <= YEAR_MAX
+        and match.start(1) not in range_end_starts
     ]
     if not all_years:
         return None

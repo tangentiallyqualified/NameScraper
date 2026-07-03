@@ -22,11 +22,24 @@ def _is_queue_actionable(item: PreviewItem) -> bool:
     return item.is_actionable and not item.is_unmatched
 
 
+def _fallback_target_relative(
+    item: PreviewItem,
+    target_dir: Path,
+    show_folder: str | None,
+) -> str:
+    if show_folder:
+        if item.season is not None:
+            return str(Path(show_folder) / f"Season {item.season:02d}")
+        return show_folder
+    return str(target_dir)
+
+
 def _build_rename_ops(
     items: list[PreviewItem],
     checked_indices: set[int],
     source_root: Path,
     output_root: Path,
+    show_folder: str | None = None,
 ) -> list:
     """Convert preview items into serializable RenameOp rows."""
     from ..job_store import RenameOp
@@ -46,7 +59,11 @@ def _build_rename_ops(
         try:
             target_rel = str(target_dir.relative_to(output_root))
         except ValueError:
-            target_rel = str(target_dir)
+            # A target dir outside the output root means the preview was
+            # never retargeted (it still points into the scan source). An
+            # absolute path here would make the executor reject the job, so
+            # rebuild the canonical output-relative destination instead.
+            target_rel = _fallback_target_relative(item, target_dir, show_folder)
 
         is_selected = index in checked_indices
         ops.append(RenameOp(
@@ -90,8 +107,20 @@ def build_rename_job_from_state(
     """Create a RenameJob from a TV batch scan state."""
     from ..job_store import RenameJob
 
+    from ..parsing import build_show_folder_name
+
     checked_indices = checked_indices or get_checked_indices_from_state(state)
-    ops = _build_rename_ops(state.preview_items, checked_indices, library_root, output_root)
+    fallback_folder = show_folder_rename or build_show_folder_name(
+        state.media_info.get("name", ""),
+        state.media_info.get("year", ""),
+    )
+    ops = _build_rename_ops(
+        state.preview_items,
+        checked_indices,
+        library_root,
+        output_root,
+        show_folder=fallback_folder or None,
+    )
 
     if state.relative_folder:
         source_folder = state.relative_folder
@@ -129,7 +158,13 @@ def build_rename_job_from_items(
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob
 
-    ops = _build_rename_ops(items, checked_indices, library_root, output_root)
+    ops = _build_rename_ops(
+        items,
+        checked_indices,
+        library_root,
+        output_root,
+        show_folder=show_folder_rename,
+    )
 
     if media_type == MediaType.MOVIE:
         try:

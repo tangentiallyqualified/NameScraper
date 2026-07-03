@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from ._batch_tv_duplicates import normalized_relative_folder
 from ._episode_projection import project_preview_items
+from ._episode_resolution import resolve_table_conflicts
 from .episode_assignments import merge_tables
 from .models import PreviewItem, ScanState
 
@@ -58,6 +59,10 @@ def reconcile_scanned_episode_claims(
                     merge_tables(primary.assignments, state.assignments)
                     removed.add(id(state))
                     replacements[id(state)] = primary
+            # Merging sibling tables can create new same-slot claims
+            # (duplicate copies of a season in two source roots); resolve
+            # them so an episode is never listed twice in conflict.
+            resolve_table_conflicts(primary.assignments)
             primary.preview_items = project_preview_items(
                 primary.assignments,
                 show_info=primary.media_info,
@@ -101,7 +106,10 @@ def reconcile_scanned_episode_claims(
         primary.direct_episode_file_count = sum(state.direct_episode_file_count for state in group)
         primary.duplicate_of = None
         primary.duplicate_of_relative_folder = None
-        primary.checked = any(item.is_actionable for item in primary.preview_items)
+        # States are created unchecked and only the user (or explicit queue
+        # actions) checks them; merging must preserve that, not re-check the
+        # primary just because rows are actionable (RC47).
+        primary.checked = any(state.checked for state in group)
         primary.reset_gui_state()
         if primary.scanner is not None:
             checked = {

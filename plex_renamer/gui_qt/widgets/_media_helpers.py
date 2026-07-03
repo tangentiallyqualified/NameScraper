@@ -65,6 +65,8 @@ def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QCol
         return "Queued", QColor("#4a9eda")
     if state.scanning:
         return "Scanning", QColor("#e5a00d")
+    if state.scan_error:
+        return "Scan Failed", QColor("#d44040")
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "Duplicate", QColor("#777777")
     if state.show_id is None:
@@ -85,6 +87,8 @@ def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
         return "info"
     if state.scanning:
         return "accent"
+    if state.scan_error:
+        return "error"
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "muted"
     if state.show_id is None:
@@ -103,11 +107,19 @@ def is_plex_ready_state(state: ScanState) -> bool:
 
 
 def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
-    if state.queued or state.scanning:
+    if state.queued or state.scanning or state.scan_error:
         return False
     if state.duplicate_of is not None or state.show_id is None:
         return False
     if state.needs_review or is_plex_ready_state(state):
+        return False
+    # Conflicts and unapproved review rows block queueing. Unmapped primary
+    # files deliberately do NOT (RC39): they route the show into "Review
+    # Episode Matching" for the initial left-panel sorting, but the user must
+    # be able to approve and queue the mapped files anyway — the unmapped
+    # files simply produce no jobs.
+    table = state.assignments
+    if table is not None and table.conflicts():
         return False
     if any(item.is_review for item in state.preview_items):
         return False
@@ -134,6 +146,8 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
         return "duplicate"
     if state.show_id is None:
         return "unmatched"
+    if state.scan_error:
+        return "review-episodes"
     if state.needs_review or state.duplicate_of is not None:
         return "review-match"
     if has_episode_problems(state):

@@ -9,7 +9,11 @@ from plex_renamer.engine.episode_assignments import (
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
-from plex_renamer.gui_qt.widgets._media_helpers import has_episode_problems, roster_group
+from plex_renamer.gui_qt.widgets._media_helpers import (
+    has_episode_problems,
+    is_state_queue_approvable,
+    roster_group,
+)
 
 ROOT = Path("C:/lib/Demo Show (2020)")
 SHOW = {"id": 9, "name": "Demo Show", "year": "2020"}
@@ -79,3 +83,59 @@ def test_clean_show_is_not_a_review_bucket():
     state = _state(table)
     assert has_episode_problems(state) is False
     assert roster_group(state, media_type="tv") not in {"review-match", "review-episodes"}
+
+
+def test_conflict_with_other_mapped_files_is_not_queue_approvable():
+    # The checkbox (is_state_queue_approvable) must agree with the section
+    # header (roster_group): a conflict keeps the show out of the approvable
+    # set even though other files are cleanly mapped and actionable.
+    table = _table(count=3)
+    e2 = table.add_file(ROOT / "e2.mkv")
+    table.assign(e2.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=1.0)
+    e3 = table.add_file(ROOT / "e3.mkv")
+    table.assign(e3.file_id, 1, [3], origin=ORIGIN_AUTO, confidence=1.0)
+    a = table.add_file(ROOT / "a.mkv")
+    b = table.add_file(ROOT / "b.mkv")
+    table.assign(a.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+    table.assign(b.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+    state = _state(table)
+    assert roster_group(state, media_type="tv") == "review-episodes"
+    assert any(item.is_actionable for item in state.preview_items)
+    assert is_state_queue_approvable(state, media_type="tv") is False
+
+
+def test_unmapped_primary_still_routes_but_is_queue_approvable():
+    # RC39: unmapped primary files keep routing the show into "Review
+    # Episode Matching" for initial sorting, but must NOT block approving
+    # and queueing the mapped files — they just produce no jobs.
+    table = _table(count=2)
+    ok = table.add_file(ROOT / "ok.mkv")
+    table.assign(ok.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+    stray = table.add_file(ROOT / "stray.mkv")
+    table.mark_unassigned(stray.file_id, "could not parse episode number")
+    state = _state(table)
+    assert roster_group(state, media_type="tv") == "review-episodes"
+    assert any(item.is_actionable for item in state.preview_items)
+    assert is_state_queue_approvable(state, media_type="tv") is True
+
+
+def test_manual_unassign_then_approve_all_stays_queueable():
+    # RC39: unassigning one file must not lock the show out of queueing.
+    table = _table(count=2)
+    first = table.add_file(ROOT / "e1.mkv")
+    table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+    second = table.add_file(ROOT / "e2.mkv")
+    table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=1.0)
+    table.unassign(second.file_id)
+    state = _state(table)
+    assert is_state_queue_approvable(state, media_type="tv") is True
+
+
+def test_clean_show_is_queue_approvable():
+    table = _table()
+    for episode in range(1, 4):
+        entry = table.add_file(ROOT / f"e{episode}.mkv")
+        table.assign(entry.file_id, 1, [episode], origin=ORIGIN_AUTO, confidence=1.0)
+    state = _state(table)
+    assert has_episode_problems(state) is False
+    assert is_state_queue_approvable(state, media_type="tv") is True

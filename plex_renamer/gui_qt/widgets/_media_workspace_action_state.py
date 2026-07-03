@@ -64,3 +64,17 @@ def can_inline_approve(state: ScanState) -> bool:
 
 def can_fix_match(state: ScanState) -> bool:
     return not state.queued and not state.scanning
+
+
+def can_unassign_all(state: ScanState | None) -> bool:
+    """True when the selected show has at least one assigned file to clear."""
+    if state is None or state.queued or state.scanning:
+        return False
+    table = state.assignments
+    if table is None:
+        return False
+    return any(
+        preview.file_id is not None
+        and table.assignment_for(preview.file_id) is not None
+        for preview in state.preview_items
+    )

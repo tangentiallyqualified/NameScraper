@@ -316,6 +316,9 @@ class MediaWorkspace(QWidget):
     def _approve_all_episode_mappings(self) -> None:
         self._action_coordinator.approve_all_episode_mappings()
 
+    def _unassign_all_episode_mappings(self) -> None:
+        self._action_coordinator.unassign_all_episode_mappings()
+
     def _prompt_assign_season(self, state: ScanState) -> None:
         self._action_coordinator.prompt_assign_season(
             state,

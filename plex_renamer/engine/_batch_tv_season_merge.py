@@ -41,6 +41,8 @@ def represented_seasons(state: ScanState) -> set[int]:
     seasons = set(state.season_folders.keys())
     if state.season_assignment is not None:
         seasons.add(state.season_assignment)
+    if not seasons and state.has_direct_season_subdirs:
+        seasons = set(_enumerate_direct_season_subdirs(state.folder))
     if not seasons:
         inferred = preview_single_season(state)
         if inferred is not None:
@@ -58,6 +60,10 @@ def expanded_season_folders(state: ScanState) -> dict[int, SeasonFolderEntry]:
                 state.season_assignment,
             )
         }
+    if state.has_direct_season_subdirs:
+        subdirs = _enumerate_direct_season_subdirs(state.folder)
+        if subdirs:
+            return dict(subdirs)
     inferred = preview_single_season(state)
     if inferred is not None:
         return {
@@ -282,7 +288,13 @@ def merge_umbrella_siblings(states: list[ScanState]) -> list[ScanState]:
             if state.season_assignment is None and state.has_direct_season_subdirs
         ]
         explicit = [state for state in group if state.season_assignment is not None]
-        if not umbrellas or not explicit:
+        folder_siblings = [
+            state for state in group
+            if state.season_assignment is None
+            and state.season_folders
+            and state not in umbrellas
+        ]
+        if not umbrellas or not (explicit or folder_siblings):
             continue
 
         umbrellas.sort(key=lambda state: (-state.confidence, state.display_name.lower()))
@@ -299,6 +311,22 @@ def merge_umbrella_siblings(states: list[ScanState]) -> list[ScanState]:
                 sibling.folder,
                 season_num,
             )
+            for named_season, name in sibling.season_names.items():
+                primary.season_names.setdefault(named_season, name)
+            primary.direct_video_file_count += sibling.direct_video_file_count
+            primary.direct_episode_file_count += sibling.direct_episode_file_count
+            removed.add(id(sibling))
+
+        # A merged multi-season sibling (e.g. standalone S08..S13 release
+        # folders) is absorbed whole when its seasons don't overlap the
+        # umbrella's; overlapping siblings stay for duplicate labeling.
+        for sibling in folder_siblings:
+            sibling_map = expanded_season_folders(sibling)
+            if not sibling_map or any(
+                season_num in primary_subdirs for season_num in sibling_map
+            ):
+                continue
+            primary_subdirs.update(sibling_map)
             for named_season, name in sibling.season_names.items():
                 primary.season_names.setdefault(named_season, name)
             primary.direct_video_file_count += sibling.direct_video_file_count

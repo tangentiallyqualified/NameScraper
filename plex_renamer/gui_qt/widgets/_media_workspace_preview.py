@@ -59,6 +59,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         episode_filter_changed_callback=None,
         episode_row_action_callback=None,
         approve_all_episode_callback=None,
+        unassign_all_episode_callback=None,
         episode_guide_provider=None,
         parent: QWidget | None = None,
     ) -> None:
@@ -69,6 +70,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self._episode_filter_changed = episode_filter_changed_callback
         self._episode_row_action = episode_row_action_callback
         self._approve_all_episode = approve_all_episode_callback
+        self._unassign_all_episode = unassign_all_episode_callback
         self._episode_guide_provider = episode_guide_provider
         self._episode_filter = "all"
         self._master_syncing = False
@@ -115,6 +117,14 @@ class MediaWorkspacePreviewPanel(QFrame):
     def master_syncing(self) -> bool:
         return self._master_syncing
 
+    @property
+    def episode_filter(self) -> str:
+        return self._episode_filter
+
+    @property
+    def episode_filter_buttons(self) -> dict[str, QPushButton]:
+        return self._episode_filter_buttons
+
     def _build_ui(self) -> None:
         self.setProperty("cssClass", "panel")
         self.setProperty("panelVariant", "square")
@@ -145,6 +155,13 @@ class MediaWorkspacePreviewPanel(QFrame):
             button.clicked.connect(lambda _checked=False, value=key: self._set_episode_filter(value))
             self._episode_filter_buttons[key] = button
             header.addWidget(button)
+
+        self._unassign_all_button = QPushButton("Unassign All")
+        self._unassign_all_button.setProperty("cssClass", "secondary")
+        self._unassign_all_button.setProperty("sizeVariant", "compact")
+        self._unassign_all_button.hide()
+        self._unassign_all_button.clicked.connect(self._on_unassign_all_clicked)
+        header.addWidget(self._unassign_all_button)
 
         self._approve_all_button = QPushButton("Approve All")
         self._approve_all_button.setProperty("cssClass", "primary")
@@ -317,6 +334,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         guide = self._episode_guide_for_state(state)
         self.set_summary("")
         self._approve_all_button.setVisible(any(row.status == "Review" for row in guide.rows))
+        self._sync_unassign_all_button(state)
 
         collapsed = preview_group_state.setdefault(_state_key(state), set())
         all_rows_by_season: dict[int, list] = {}
@@ -361,6 +379,34 @@ class MediaWorkspacePreviewPanel(QFrame):
                         lambda action_id, s=state, r=synthetic_row: self._episode_row_action(s, r, action_id)
                     )
                 widget.clicked.connect(lambda item=item: self._list_widget.setCurrentItem(item))
+                self._sync_item_height(item, widget)
+                self._list_widget.setItemWidget(item, widget)
+
+        if self._episode_filter in {"all", "problems"} and guide.duplicate_files:
+            self.add_static_header(
+                f"Duplicate Copies ({len(guide.duplicate_files)})",
+                render_key=render_key,
+            )
+            for duplicate in guide.duplicate_files:
+                index = (
+                    state.preview_items.index(duplicate.preview)
+                    if duplicate.preview in state.preview_items else None
+                )
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "duplicate")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self._add_rendered_item(item, render_key)
+                widget = _EpisodeGuideRowWidget(
+                    title=duplicate.original.name,
+                    status="Duplicate",
+                    original=str(duplicate.reason),
+                    actions=[],
+                    parent=self._list_widget,
+                )
+                widget.clicked.connect(
+                    lambda item=item: self._list_widget.setCurrentItem(item)
+                )
                 self._sync_item_height(item, widget)
                 self._list_widget.setItemWidget(item, widget)
 
@@ -423,6 +469,7 @@ class MediaWorkspacePreviewPanel(QFrame):
             button.setVisible(visible)
         if not visible:
             self._approve_all_button.hide()
+            self._unassign_all_button.hide()
 
     def _episode_guide_for_state(self, state: ScanState):
         if self._episode_guide_provider is not None:
@@ -600,6 +647,7 @@ class MediaWorkspacePreviewPanel(QFrame):
         self.set_summary("")
         guide = self._episode_guide_for_state(state)
         self._approve_all_button.setVisible(any(row.status == "Review" for row in guide.rows))
+        self._sync_unassign_all_button(state)
 
     @staticmethod
     def _render_key_for_state(state: ScanState) -> str:
@@ -727,6 +775,26 @@ class MediaWorkspacePreviewPanel(QFrame):
     def _on_approve_all_clicked(self) -> None:
         if self._approve_all_episode is not None:
             self._approve_all_episode()
+
+    def _on_unassign_all_clicked(self) -> None:
+        if self._unassign_all_episode is not None:
+            self._unassign_all_episode()
+
+    @property
+    def unassign_all_button(self) -> QPushButton:
+        return self._unassign_all_button
+
+    def _sync_unassign_all_button(self, state: ScanState) -> None:
+        table = state.assignments
+        has_assignments = table is not None and any(
+            preview.file_id is not None
+            and table.assignment_for(preview.file_id) is not None
+            for preview in state.preview_items
+        )
+        self._unassign_all_button.setVisible(has_assignments)
+        self._unassign_all_button.setEnabled(
+            has_assignments and not state.queued and not state.scanning
+        )
 
     @staticmethod
     def _episode_summary_text(summary) -> str:

@@ -10,6 +10,8 @@ from ...constants import VIDEO_EXTENSIONS
 from ...parsing import (
     clean_folder_name,
     get_season,
+    get_year_season,
+    has_explicit_special_episode,
     is_extras_folder,
     is_season_only_name,
     looks_like_tv_episode,
@@ -56,15 +58,25 @@ class TVDirectoryClassifier:
                 discovered_via_symlink=directory.is_symlink(),
             )
         if is_extras_folder(directory.name):
-            return ClassifiedDirectory(
-                role=TVDirectoryRole.NON_TV_LEAF,
-                child_dirs=[],
-                discovery_reason="extras_folder",
-                has_direct_season_subdirs=False,
-                direct_episode_file_count=0,
-                direct_video_file_count=0,
-                discovered_via_symlink=directory.is_symlink(),
+            # A bare "Specials" folder holding explicit S00E## episode files
+            # is a real specials season (The Brak Show: empty Season 1-3 +
+            # Specials/S00E01): fall through to normal classification.
+            has_explicit_specials = any(
+                child.is_file
+                and child.path.suffix.lower() in VIDEO_EXTENSIONS
+                and has_explicit_special_episode(child.path.name)
+                for child in self.scan_children(directory)
             )
+            if not has_explicit_specials:
+                return ClassifiedDirectory(
+                    role=TVDirectoryRole.NON_TV_LEAF,
+                    child_dirs=[],
+                    discovery_reason="extras_folder",
+                    has_direct_season_subdirs=False,
+                    direct_episode_file_count=0,
+                    direct_video_file_count=0,
+                    discovered_via_symlink=directory.is_symlink(),
+                )
 
         season_num = get_season(directory)
         if season_num is not None:
@@ -175,6 +187,21 @@ class TVDirectoryClassifier:
         if specials_dirs and not has_regular_season_subdirs and direct_episode_file_count == 0:
             child_dirs = [*child_dirs, *specials_dirs]
 
+        # A folder whose children are predominantly bare release-year season
+        # dirs (S2014, S2020) is a SINGLE show organized by air year (Adult
+        # Swim Infomercials), not a multi-show container. Treat it as a show
+        # root so it is searched/scanned as one show, not fanned out.
+        if child_dirs and self.year_season_children_are_majority(directory):
+            return ClassifiedDirectory(
+                role=TVDirectoryRole.SHOW_ROOT,
+                child_dirs=[],
+                discovery_reason="year_season_subdirs",
+                has_direct_season_subdirs=True,
+                direct_episode_file_count=direct_episode_file_count,
+                direct_video_file_count=len(direct_video_files),
+                discovered_via_symlink=directory.is_symlink(),
+            )
+
         if child_dirs:
             return ClassifiedDirectory(
                 role=TVDirectoryRole.CONTAINER,
@@ -282,6 +309,35 @@ class TVDirectoryClassifier:
         if total == 0:
             return False
         return season_count > total / 2
+
+    def year_season_children_are_majority(self, directory: Path) -> bool:
+        """True when the child dirs are predominantly bare ``S<YYYY>`` folders.
+
+        Such an umbrella is one show organized by release year (Adult Swim
+        Infomercials' S2009..S2020), not a multi-show container. Season-0
+        (specials) children are ignored so a lone specials folder neither
+        helps nor blocks the decision.
+        """
+        children = self.scan_children(directory)
+        year_count = 0
+        non_year_count = 0
+        for child in children:
+            if not child.is_dir:
+                continue
+            if child.path.name.casefold() in self.ignored_system_names:
+                continue
+            if is_extras_folder(child.path.name):
+                continue
+            if get_season(child.path) == 0:
+                continue
+            if get_year_season(child.path.name) is not None:
+                year_count += 1
+            else:
+                non_year_count += 1
+        total = year_count + non_year_count
+        if total == 0:
+            return False
+        return year_count > total / 2
 
     @staticmethod
     def child_title_matches_parent(child_name: str, parent_title_cf: str) -> bool:

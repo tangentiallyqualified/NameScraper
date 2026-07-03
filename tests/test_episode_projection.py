@@ -52,7 +52,8 @@ class TestProjection:
         table.assign(entry.file_id, 1, [1, 2, 3], origin=ORIGIN_MANUAL)
         items = project(table)
         assert items[0].episodes == [1, 2, 3]
-        assert "S01E01-E02-E03" in items[0].new_name
+        # Contiguous run collapses to a first-last range (not E01-E02-E03).
+        assert "S01E01-E03" in items[0].new_name
 
     def test_specials_target_dir(self):
         table = make_table()

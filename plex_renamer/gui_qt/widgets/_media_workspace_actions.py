@@ -19,6 +19,7 @@ from ._media_workspace_action_state import (
     can_fix_match as _can_fix_match,
     can_inline_approve as _can_inline_approve,
     can_inline_assign_season as _can_inline_assign_season,
+    can_unassign_all as _can_unassign_all,
     fix_match_label as _fix_match_label,
     media_noun as _media_noun,
     needs_inline_match_choice as _needs_inline_match_choice,
@@ -118,6 +119,22 @@ class MediaWorkspaceActionCoordinator:
     def approve_match(self, state: ScanState) -> None:
         _approve_match(self._workspace, state)
 
+    def _auto_check_for_queue(self, state: ScanState) -> None:
+        """Pre-tick a show for queueing after Approve All.
+
+        Sets every actionable item's check binding and the state-level checked
+        flag. refresh_from_controller's normalize_queue_selection keeps these
+        when the state is queue-approvable, or clears them if a conflict or
+        unmapped file still blocks it (the show then stays in review).
+        """
+        workspace = self._workspace
+        workspace._ensure_check_bindings(state)
+        for index, item in enumerate(state.preview_items):
+            binding = state.check_vars.get(str(index))
+            if binding is not None and item.is_actionable:
+                binding.set(True)
+        state.checked = True
+
     def approve_all_episode_mappings(self) -> None:
         workspace = self._workspace
         state = workspace._selected_state()
@@ -141,11 +158,44 @@ class MediaWorkspaceActionCoordinator:
                 count += 1
             if count == 0:
                 return
-        workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
-        workspace._populate_preview(state)
-        workspace._update_action_bar()
+        self._auto_check_for_queue(state)
+        workspace.refresh_from_controller()
         workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
+
+    def unassign_all_episode_mappings(self) -> None:
+        """Unassign every currently-assigned file in the selected show.
+
+        Reuses the same per-file unassign path used by the episode row
+        ``unassign`` action so the bulk action stays in lock-step with it.
+        """
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued or state.scanning:
+            return
+        if state.assignments is None:
+            return
+        service = EpisodeMappingService()
+        assigned_previews = [
+            preview
+            for preview in state.preview_items
+            if preview.file_id is not None
+            and state.assignments.assignment_for(preview.file_id) is not None
+        ]
+        if not assigned_previews:
+            return
+        count = 0
+        for preview in assigned_previews:
+            try:
+                service.unassign_file(state, preview)
+            except ValueError:
+                continue
+            count += 1
+        if count == 0:
+            return
+        _refresh_episode_projection(workspace, state)
+        workspace.refresh_from_controller()
+        workspace.status_message.emit(f"Unassigned {count} file(s).", 3000)
 
     def handle_episode_row_action(
         self,
@@ -175,20 +225,22 @@ class MediaWorkspaceActionCoordinator:
                 service.resolve_conflict(state, row.season, row.episode, preview)
                 message = "Conflict resolved."
             elif action_id == "reassign" and preview is not None:
-                preselected = [
-                    (preview.season, episode)
-                    for episode in preview.episodes
-                    if preview.season is not None
-                ]
                 slots = service.episode_slot_choices(state)
                 if not slots:
                     workspace.status_message.emit("No episode choices are available.", 4000)
                     return
+                current_keys = {
+                    (preview.season, episode)
+                    for episode in preview.episodes
+                    if preview.season is not None
+                }
                 selection = assign_dialog.pick_episodes(
                     parent=workspace,
-                    title=f"Assign \"{preview.original.name}\"",
+                    title="Reassign Episode",
                     slots=slots,
-                    preselected=preselected or None,
+                    preselected=None,
+                    current_keys=current_keys or None,
+                    file_label=preview.original.name,
                 )
                 if selection is None:
                     return
@@ -201,20 +253,25 @@ class MediaWorkspaceActionCoordinator:
                     return
                 season = preview.season
                 run = sorted(preview.episodes)
-                neighbors = {run[0] - 1, run[-1] + 1}
+                relevant = set(run) | {run[0] - 1, run[-1] + 1}
                 slots = [
                     choice for choice in service.episode_slot_choices(state)
-                    if choice.season == season and choice.episode in neighbors
+                    if choice.season == season and choice.episode in relevant
                 ]
-                if not slots:
+                # slots always includes the run itself; need a neighbor to extend into.
+                if len(slots) <= len(run):
                     workspace.status_message.emit(
                         "No adjacent episode to extend into.", 4000,
                     )
                     return
+                current_keys = {(season, episode) for episode in run}
                 selection = assign_dialog.pick_episodes(
                     parent=workspace,
-                    title=f"Extend \"{preview.original.name}\"",
+                    title="Assign to More Episodes",
                     slots=slots,
+                    preselected=[(season, episode) for episode in run],
+                    current_keys=current_keys,
+                    file_label=preview.original.name,
                 )
                 if selection is None:
                     return
@@ -260,10 +317,8 @@ class MediaWorkspaceActionCoordinator:
         except ValueError as exc:
             warning_box.warning(workspace, "Episode Assignment Failed", str(exc))
             return
-        workspace._ensure_check_bindings(state)
         _refresh_episode_projection(workspace, state)
-        workspace._populate_preview(state)
-        workspace._update_action_bar()
+        workspace.refresh_from_controller()
         workspace.status_message.emit(message, 3000)
 
     def prompt_assign_season(
@@ -317,3 +372,6 @@ class MediaWorkspaceActionCoordinator:
 
     def can_fix_match(self, state: ScanState) -> bool:
         return _can_fix_match(state)
+
+    def can_unassign_all(self, state: ScanState | None) -> bool:
+        return _can_unassign_all(state)

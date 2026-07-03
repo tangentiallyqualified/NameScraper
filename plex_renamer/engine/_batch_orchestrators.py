@@ -14,6 +14,7 @@ from ..parsing import (
     clean_folder_name,
     extract_year,
     get_season,
+    is_generic_show_folder_name,
     is_sample_file,
     looks_like_tv_episode,
 )
@@ -29,6 +30,7 @@ from ._batch_tv_episode_claims import (
 from ._batch_tv_match_policy import (
     count_season_subdirs as _count_tv_season_subdirs,
     episode_count_tiebreak as _episode_count_tiebreak,
+    primary_name_breaks_tie as _primary_name_breaks_tie,
 )
 from ._batch_tv_season_merge import (
     expanded_season_folders as _expanded_tv_season_folders,
@@ -112,13 +114,15 @@ class BatchTVOrchestrator:
         file_count: int,
         threshold: float = 0.10,
         compare_seasons: bool = False,
-    ) -> tuple[dict, float]:
+        explicit_seasons: set[int] | None = None,
+    ) -> tuple[dict, float, bool]:
         return _episode_count_tiebreak(
             self.tmdb,
             scored,
             file_count,
             threshold=threshold,
             compare_seasons=compare_seasons,
+            explicit_seasons=explicit_seasons,
         )
 
     @staticmethod
@@ -162,10 +166,34 @@ class BatchTVOrchestrator:
         candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
-            cleaned = best_tv_match_title(candidate.folder, include_year=False)
-            score_name = best_tv_match_title(candidate.folder)
-            folder_score_name = clean_folder_name(candidate.folder.name)
-            year_hint = extract_year(candidate.folder.name)
+            # A candidate named only with a season/collection label
+            # ("Specials (1998-2003)", "Series") — typical when an umbrella's
+            # season folders are empty on disk — would search TMDB for a show
+            # literally called "Specials". Inherit the parent folder's title
+            # (the parent must be inside the library, not the root itself).
+            name_fallback = None
+            if (
+                candidate.parent_relative_folder is not None
+                and is_generic_show_folder_name(candidate.folder.name)
+            ):
+                name_fallback = candidate.folder.parent
+            cleaned = best_tv_match_title(
+                candidate.folder, include_year=False, name_fallback_folder=name_fallback,
+            )
+            score_name = best_tv_match_title(
+                candidate.folder, name_fallback_folder=name_fallback,
+            )
+            folder_score_name = clean_folder_name(
+                (name_fallback or candidate.folder).name,
+            )
+            # When the generic-name fallback is active, the PARENT carries the
+            # show's year; the child's own year range ("Specials (2003-06)")
+            # is special air dates, not the show year (RC37).
+            year_hint = None
+            if name_fallback is not None:
+                year_hint = extract_year(name_fallback.name)
+            if year_hint is None:
+                year_hint = extract_year(candidate.folder.name)
             episode_evidence = self._collect_direct_episode_evidence(candidate.folder)
             candidates.append((
                 candidate,
@@ -253,14 +281,20 @@ class BatchTVOrchestrator:
             _raise_if_cancelled(cancel_event)
             file_count = _count_tv_season_subdirs(candidate.folder)
             use_seasons = True
+        # When direct files carry explicit S##E## evidence, the file count is
+        # one season's worth of episodes — compare against the candidates'
+        # matching-season episode counts rather than whole-show totals.
+        explicit_seasons = {item.season_num for item in episode_evidence} or None
+        tie_broken_by_counts = False
         if file_count > 0 and len(scored) >= 2:
             runner_up, runner_up_score = scored[1]
             if best_score - runner_up_score <= 0.10:
-                best, best_score = self._episode_count_tiebreak(
+                best, best_score, tie_broken_by_counts = self._episode_count_tiebreak(
                     scored,
                     file_count,
                     threshold=0.10,
                     compare_seasons=use_seasons,
+                    explicit_seasons=None if use_seasons else explicit_seasons,
                 )
 
         ep_file_count = file_count if not use_seasons else candidate.direct_episode_file_count
@@ -280,10 +314,20 @@ class BatchTVOrchestrator:
         )
 
         tie_detected = False
-        if len(scored) >= 2:
+        if len(scored) >= 2 and not tie_broken_by_counts:
             for result, score in scored:
                 if result.get("id") != best.get("id"):
-                    if best_score - score <= SCORE_TIE_MARGIN and best_score >= get_auto_accept_threshold():
+                    # Compare on the same clamped scale as best_score:
+                    # stacked boosts push raw scores past 1.0 while the
+                    # winner's was clamped, faking a huge negative margin.
+                    runner_score = min(score, 1.0)
+                    if (
+                        best_score - runner_score <= SCORE_TIE_MARGIN
+                        and best_score >= get_auto_accept_threshold()
+                        and not _primary_name_breaks_tie(
+                            best, result, score_name, year_hint,
+                        )
+                    ):
                         tie_detected = True
                     break
 
@@ -511,6 +555,7 @@ class BatchTVOrchestrator:
         _raise_if_cancelled(cancel_event)
 
         state.scanning = True
+        state.scan_error = None
         _log.info("Scanning episodes for: %s", state.display_name)
 
         try:
@@ -566,7 +611,8 @@ class BatchTVOrchestrator:
             "Scan complete for '%s': %d total items, seasons: %s",
             state.display_name,
             len(items),
-            dict(sorted(by_season.items())),
+            # None seasons (unparseable root files) must not break the sort.
+            dict(sorted(by_season.items(), key=lambda kv: (kv[0] is None, kv[0] or 0))),
         )
 
     def scan_all(
@@ -589,7 +635,10 @@ class BatchTVOrchestrator:
             except Exception as error:
                 if isinstance(error, ScanCancelledError):
                     raise
-                _log.error("Failed to scan %s: %s", state.display_name, error)
+                # Keep the failure user-visible: an empty show with no
+                # explanation reads as "no episodes found" (RC40).
+                state.scan_error = str(error)
+                _log.exception("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
         _emit_scan_progress(

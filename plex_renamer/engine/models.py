@@ -93,6 +93,10 @@ class PreviewItem:
         return self.status.startswith("SKIP")
 
     @property
+    def is_duplicate(self) -> bool:
+        return self.status.startswith("DUPLICATE")
+
+    @property
     def is_review(self) -> bool:
         return self.status.startswith("REVIEW")
 
@@ -211,6 +215,9 @@ class ScanState:
     duplicate_of: str | None = None
     queued: bool = False
     tie_detected: bool = False
+    # Set when the per-show episode scan raised; the show must surface as an
+    # error in the GUI instead of silently showing no episodes.
+    scan_error: str | None = None
 
     @property
     def show_id(self) -> int | None:
@@ -285,6 +292,7 @@ class ScanState:
         self.completeness = None
         self.assignments = None
         self.scanned = False
+        self.scan_error = None
         self.reset_gui_state()
 
 
@@ -349,6 +357,12 @@ def infer_explicit_season_assignment(
     season_num = get_season(folder)
     if season_num is not None:
         return season_num
+
+    # "Specials (1998-2003)": the year range hides the bare specials label
+    # from get_season; retry on the cleaned name.
+    cleaned_name = clean_folder_name(folder.name, include_year=False).strip()
+    if cleaned_name and cleaned_name != folder.name and get_season(Path(cleaned_name)) == 0:
+        return 0
 
     direct_evidence = evidence if evidence is not None else collect_direct_episode_evidence(folder)
     explicit_seasons = {item.season_num for item in direct_evidence}

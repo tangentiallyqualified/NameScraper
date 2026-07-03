@@ -6,9 +6,31 @@ import re
 from pathlib import Path
 
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
-from ._parsing_titles import clean_name, clean_title_evidence
+from ._parsing_titles import clean_name, clean_title_evidence, strip_release_junk_title
 
 _MAX_RANGE_SPAN = 12
+
+# Words that turn an adjacent number into a quantity/volume label rather than an
+# episode: "No.6" / "Number 6" / "Vol 2" / "Part 3" — not episode numbers.
+_NUMBER_WORD_PREFIXES = frozenset(
+    {"no", "number", "vol", "volume", "part", "pt", "chapter", "ch"}
+)
+
+
+def _is_titleish_bare_number(name: str, digit_start: int, digit_end: int) -> bool:
+    """True when a bare number is part of the title, not an episode number.
+
+    Two cases, both observed in real filenames:
+      - a digit flanked by a trailing letter ("Se7en") — embedded in a word.
+      - a number-word prefix ("Blue Submarine No.6", "Vol 2") — a quantity.
+    """
+    if digit_end < len(name) and name[digit_end].isalpha():
+        return True
+    before = name[:digit_start].rstrip()
+    if before.endswith("#"):
+        return True
+    word = re.search(r"([A-Za-z]+)$", before)
+    return bool(word and word.group(1).lower() in _NUMBER_WORD_PREFIXES)
 
 
 def _expand_range(start: int, end: int) -> list[int]:
@@ -38,7 +60,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
     #   ' - E04'   (spaced dash, E prefix)      → range
     #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
-    sxe = re.search(r"S(\d+)((?:E\d+)+)", name, re.IGNORECASE)
+    sxe = re.search(r"S(\d+)[\s._-]*((?:E\d+)+)", name, re.IGNORECASE)
     if sxe:
         points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
         initial_count = len(points)
@@ -62,7 +84,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
-        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
     # NxNN range-end rules (mirrors S##E## logic):
@@ -89,7 +111,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
-        title = re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
     match = re.search(
@@ -106,26 +128,26 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                     episodes = list(range(start_num, end_num + 1))
                 else:
                     episodes.append(end_num)
-            title = match.group(3).strip() if match.group(3) else None
+            title = strip_release_junk_title(match.group(3).strip()) if match.group(3) else None
             return episodes, title, False
 
-    bare_match = re.match(r"(\d{1,3})\.\s+(.*)", raw_stem)
+    bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
     if bare_match:
         num = int(bare_match.group(1))
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
             title_text = bare_match.group(2).strip()
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
-            return [num], title_text or None, False
+            return [num], strip_release_junk_title(title_text or None), False
 
     match = re.search(
-        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
         name,
         re.IGNORECASE,
     )
     if match:
         num = int(match.group(1))
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
-            title = match.group(2).strip() if match.group(2) else None
+            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
     match = re.search(
@@ -141,8 +163,25 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                 prefix = name[max(0, start - 1):start]
                 if prefix.lower() in ("x", "h"):
                     return [], None, False
-            title = match.group(2).strip() if match.group(2) else None
+            if _is_titleish_bare_number(name, match.start(1), match.end(1)):
+                return [], None, False
+            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
+
+    # Bracketed absolute episode numbers in fansub names, e.g.
+    #   [DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv
+    # Only a bracket whose entire content is a bare episode number (optionally a
+    # version suffix) qualifies; resolution/quality/version/hash/year brackets
+    # are excluded because their content is not pure 1-3 digits. Runs last so it
+    # never overrides an S##E##, NxNN, Ep##, or dash-delimited parse. Requires a
+    # leading bracket so plain titles like "Apollo 13" are never affected. The
+    # number is absolute (anime convention) -> is_season_relative is False.
+    if raw_stem.lstrip().startswith("["):
+        for bracket in re.finditer(r"\[(\d{1,3})(?:v\d+)?\]", raw_stem):
+            num = int(bracket.group(1))
+            if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
+                continue
+            return [num], None, False
 
     return [], None, False
 
@@ -150,7 +189,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 def extract_season_number(filename: str) -> int | None:
     """Extract the explicit season number from a season/episode filename pattern."""
     name = clean_name(Path(filename).stem)
-    match = re.search(r"S(\d+)(?:E\d+)+", name, re.IGNORECASE)
+    match = re.search(r"S(\d+)[\s._-]*(?:E\d+)+", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
