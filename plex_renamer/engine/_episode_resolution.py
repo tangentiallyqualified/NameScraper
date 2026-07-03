@@ -42,6 +42,7 @@ CONF_TITLE_WINS_INEXACT = 0.70  # strong-but-inexact title overrides number -> R
 CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
 
 _TITLE_EXACT = 1.0
+_TITLE_NEAR_EXACT = 0.95     # typo-level edit or stopword-only difference (RC46)
 _TITLE_SUBSTRING = 0.90
 _TITLE_FUZZY = 0.86          # unique bounded-fuzzy title hit (typos, variants)
 _TITLE_PART_NUMBER = 0.80
@@ -192,6 +193,72 @@ def _token_multisets_equal(a_spaced: str, b_spaced: str) -> bool:
     return len(a) >= 3 and a == b
 
 
+# Connective words whose presence/absence does not change which episode a
+# title names ("Incident At The Trail's End" == "Incident of the Trail's
+# End"). Leading articles are already stripped by normalize_for_match.
+_TITLE_STOPWORDS = frozenset(
+    {"a", "an", "the", "of", "at", "in", "on", "to", "and", "or", "for", "with", "by"}
+)
+
+
+def _content_tokens(spaced: str) -> tuple[str, ...]:
+    return tuple(token for token in spaced.split() if token not in _TITLE_STOPWORDS)
+
+
+def _acronym_folded_equal(a_spaced: str, b_spaced: str) -> bool:
+    """Token walk treating an acronym as equal to the initials of a
+    consecutive token run on the other side (tng == the next generation;
+    RC48). Every other token must match exactly."""
+
+    def _walk(a: list[str], b: list[str]) -> bool:
+        i = j = 0
+        folded = False
+        while i < len(a) and j < len(b):
+            if a[i] == b[j]:
+                i += 1
+                j += 1
+                continue
+            token = a[i]
+            span = len(token)
+            if (
+                2 <= span <= 8
+                and token.isalpha()
+                and token not in _TITLE_STOPWORDS
+                and j + span <= len(b)
+                and "".join(word[0] for word in b[j:j + span]) == token
+            ):
+                i += 1
+                j += span
+                folded = True
+                continue
+            return False
+        return folded and i == len(a) and j == len(b)
+
+    a_tokens, b_tokens = a_spaced.split(), b_spaced.split()
+    return _walk(a_tokens, b_tokens) or _walk(b_tokens, a_tokens)
+
+
+def _near_exact_title_equal(
+    input_compact: str,
+    input_spaced: str,
+    key_compact: str,
+    key_spaced: str,
+) -> bool:
+    """Typo-level variants of one title: compact forms within edit distance
+    2, identical content tokens once stopwords are dropped (RC46), or
+    acronym-folded token equality (RC48)."""
+    if (
+        len(input_compact) >= _MIN_FUZZY_LEN
+        and len(key_compact) >= _MIN_FUZZY_LEN
+        and _edit_distance_at_most(input_compact, key_compact, 2)
+    ):
+        return True
+    content = _content_tokens(input_spaced)
+    if content and content == _content_tokens(key_spaced):
+        return True
+    return _acronym_folded_equal(input_spaced, key_spaced)
+
+
 def _fuzzy_title_equal(
     input_compact: str,
     input_spaced: str,
@@ -234,8 +301,23 @@ def match_title_in_titles(
     if hit is not None:
         return TitleMatch(episode=hit[0], title=hit[1], strength=_TITLE_EXACT)
 
+    spaced = normalize_for_specials_spaced(raw_text)
+
+    # Typo-level variants of exactly one title rank just below exact: the
+    # whole input IS that title modulo a small edit or stopword swap (RC46).
+    # Ambiguity falls through — the part-number tier may still resolve it.
+    near_hits = [
+        (episode, title)
+        for key, (episode, title) in lookup.items()
+        if _near_exact_title_equal(
+            normalized, spaced, key, normalize_for_specials_spaced(title),
+        )
+    ]
+    if len(near_hits) == 1:
+        episode, title = near_hits[0]
+        return TitleMatch(episode=episode, title=title, strength=_TITLE_NEAR_EXACT)
+
     if len(normalized) >= _MIN_SUBSTRING_LEN:
-        spaced = normalize_for_specials_spaced(raw_text)
         substring_hits = _substring_candidates(normalized, spaced, lookup)
         if len(substring_hits) == 1:
             episode, title = substring_hits[0]
@@ -269,7 +351,6 @@ def match_title_in_titles(
                     episode=episode, title=title, strength=_TITLE_PART_NUMBER,
                 )
 
-    spaced = normalize_for_specials_spaced(raw_text)
     fuzzy_hits = [
         (episode, title)
         for key, (episode, title) in lookup.items()
@@ -372,6 +453,15 @@ def match_segmented_title_run(
             lo, hi = bounds[group], bounds[group + 1]
             piece = raw_title[spans[lo][0]:spans[hi - 1][1]]
             episode, exact = _match_piece(piece)
+            if episode is None and hi - lo > 1:
+                # A merged group's raw span keeps the separator ('&' folds to
+                # the word "and"), but TMDB often titles the combined segment
+                # with a colon ('Goodfeathers: The Beginning'); the
+                # separator-stripped join bridges that spelling (RC41).
+                joined = " ".join(raw_title[s:e] for s, e in spans[lo:hi])
+                episode, exact = _match_piece(joined)
+                if episode is not None:
+                    piece = joined
             episodes.append(episode)
             exacts.append(exact)
             pieces.append(piece)
@@ -402,6 +492,19 @@ def match_segmented_title_run(
                 slot_norm = normalize_for_specials(titles[candidate])
                 episodes[index] = candidate
                 if not piece_norm or piece_norm != slot_norm:
+                    # An unverified fill must still share evidence with the
+                    # slot: a piece with NO tokens in common ('Flipper
+                    # Parody' vs 'Taming of the Screwy') is naming some
+                    # OTHER segment, not this slot (RC42).
+                    piece_tokens = set(
+                        _content_tokens(normalize_for_specials_spaced(pieces[index]))
+                    )
+                    slot_tokens = set(
+                        _content_tokens(normalize_for_specials_spaced(titles[candidate]))
+                    )
+                    if not piece_tokens & slot_tokens:
+                        unverified = 99
+                        break
                     unverified += 1
                     exacts[index] = False
                 else:
@@ -420,6 +523,14 @@ def match_segmented_title_run(
     return run, all_exact
 
 
+def _atom_is_title_fragment(atom_text: str, title: str) -> bool:
+    """True when the atom's compact form is a PROPER substring of the
+    title's — the atom is a piece of the title, not a name for it (RC43)."""
+    atom_norm = normalize_for_specials(atom_text)
+    title_norm = normalize_for_specials(title)
+    return bool(atom_norm) and atom_norm != title_norm and atom_norm in title_norm
+
+
 def _extend_partial_title_run(
     raw_title: str,
     matched_episode: int,
@@ -435,6 +546,12 @@ def _extend_partial_title_run(
     exactly one atom matches that episode, every unmatched atom looks like a
     real title (>=2 words — a leftover 'new'/'Tigtone' fragment is noise,
     not a neighbor episode; RC30), and every slot exists.
+
+    An atom anchors only when it NAMES the episode — equal to (or
+    containing) the matched title. An atom that is merely a fragment of
+    the title ('Unenlightened Peoples' inside 'Comparative Wickedness of
+    Civilized and Unenlightened Peoples') is the tail of a title the
+    separator split apart, not a neighbor list (RC43).
     """
     spans = _segment_atom_spans(raw_title)
     run_length = max(parsed_count, len(spans))
@@ -444,7 +561,9 @@ def _extend_partial_title_run(
         index
         for index, (lo, hi) in enumerate(spans)
         for match in [match_title_in_titles(raw_title[lo:hi], season_titles)]
-        if match is not None and match.episode == matched_episode
+        if match is not None
+        and match.episode == matched_episode
+        and not _atom_is_title_fragment(raw_title[lo:hi], match.title)
     ]
     if len(matching_indexes) != 1:
         return None
@@ -510,7 +629,7 @@ def resolve_file(
     elif (
         len(parsed_episodes) == 1
         and raw_title
-        and (title_match is None or title_match.strength < _TITLE_EXACT)
+        and (title_match is None or title_match.strength < _TITLE_NEAR_EXACT)
     ):
         # Disc-grouped sources put SEVERAL segment-indexed episodes behind
         # ONE file number (Animaniacs, Catscratch); the combined title is
@@ -549,7 +668,7 @@ def resolve_file(
 
     if valid_numbers and title_match is not None:
         if title_match.episode in valid_numbers:
-            if raw_title and title_match.strength < _TITLE_EXACT:
+            if raw_title and title_match.strength < _TITLE_NEAR_EXACT:
                 # The parsed number agrees, but a combined title with MORE
                 # atoms than parsed numbers means the file holds neighbors
                 # too ("S04E21 - The Mattress & Looking for Jack" = E20-E21).
@@ -579,12 +698,13 @@ def resolve_file(
                 confidence=CONF_AGREE,
                 evidence=frozenset({"number", "title-agree"}),
             )
-        if strong_title and title_match.strength >= _TITLE_EXACT:
-            # An EXACT full-title match consumes the whole title: there is no
-            # leftover segment naming a neighbor, so a single-number file
-            # never extends here ("Tigtone and the Wine Crisis" = exactly one
-            # slot even though "and" splits it into atoms; RC30). Multi-number
-            # files may still extend from the matched anchor.
+        if strong_title and title_match.strength >= _TITLE_NEAR_EXACT:
+            # An EXACT (or typo-level near-exact; RC46) full-title match
+            # consumes the whole title: there is no leftover segment naming a
+            # neighbor, so a single-number file never extends here ("Tigtone
+            # and the Wine Crisis" = exactly one slot even though "and"
+            # splits it into atoms; RC30). Multi-number files may still
+            # extend from the matched anchor.
             run = None
             if raw_title and len(parsed_episodes) >= 2:
                 run = _extend_partial_title_run(
@@ -875,7 +995,8 @@ def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) ->
     """True when tied claims share the SAME real title — copies of one
     episode from parallel source folders, even when their parsed numbers
     differ (a mislabeled copy: "S01E34 - Dexter's Rival"). One normalized
-    title may extend another with release junk."""
+    title may extend another with release junk or season branding
+    ('Danger Island Comparative Wickedness...'; RC43)."""
     titles = [
         normalize_for_specials(table.files[claim.file_id].raw_title or "")
         for claim in claims
@@ -883,7 +1004,7 @@ def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) ->
     if any(not title for title in titles):
         return False
     shortest = min(titles, key=len)
-    return all(title.startswith(shortest) for title in titles)
+    return all(shortest in title for title in titles)
 
 
 def _trim_run_edge_conflicts(table: EpisodeAssignmentTable) -> None:
@@ -1398,6 +1519,44 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
         claimed.add((season, episode))
 
 
+def rescue_explicit_hint_slots(table: EpisodeAssignmentTable) -> None:
+    """Re-anchor lost-conflict files to their explicit S##E## slots (RC44).
+
+    A file that carried an explicit season-relative number but was dragged
+    onto (and lost) some other slot — a bare-show-name title match, a
+    positional guess — still names its own slot in the filename. When every
+    ``(hint, episode)`` slot exists and is unclaimed, assign there at review
+    confidence; a titled rescue that already claimed the file wins by
+    running earlier.
+    """
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for file_id, reason in list(table.unassigned_reasons.items()):
+        if not reason.startswith(REASON_LOST_CONFLICT):
+            continue
+        entry = table.files.get(file_id)
+        if (
+            entry is None
+            or not entry.is_season_relative
+            or not entry.season_hint
+            or not entry.parsed_episodes
+        ):
+            continue
+        slots = {(entry.season_hint, episode) for episode in entry.parsed_episodes}
+        if any(slot not in table.slots for slot in slots) or slots & claimed:
+            continue
+        table.assign(
+            file_id, entry.season_hint, list(entry.parsed_episodes),
+            origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"number", "season-relative", "hint-rescue"}),
+        )
+        claimed |= slots
+
+
 def _scattered_atom_seasons(
     raw_title: str,
     titles_by_season: dict[int, dict[int, str]],
@@ -1488,22 +1647,34 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
         for assignment in table.assignments()
         for episode in assignment.episodes
     }
-    for file_id, season, run in run_moves:
-        assignment = table.assignment_for(file_id)
-        own = (
-            {(assignment.season, e) for e in assignment.episodes}
-            if assignment is not None else set()
-        )
-        run_slots = {(season, episode) for episode in run}
-        if run_slots & (claimed - own):
-            continue
-        table.assign(
-            file_id, season, list(run), origin=ORIGIN_AUTO,
-            confidence=CONF_TITLE_WINS_INEXACT,
-            evidence=frozenset({"title-segmented", "cross-season-rescue"}),
-        )
-        claimed -= own
-        claimed |= run_slots
+    # Movers can block each other in chains ('Back To School' squats the
+    # slots 'Cat Got Your Tongue' needs until it moves to ITS titled run);
+    # iterate to a fixpoint so every vacated slot can host the next move
+    # regardless of iteration order (RC45).
+    pending = list(run_moves)
+    progress = True
+    while pending and progress:
+        progress = False
+        remaining: list[tuple[int, int, tuple[int, ...]]] = []
+        for file_id, season, run in pending:
+            assignment = table.assignment_for(file_id)
+            own = (
+                {(assignment.season, e) for e in assignment.episodes}
+                if assignment is not None else set()
+            )
+            run_slots = {(season, episode) for episode in run}
+            if run_slots & (claimed - own):
+                remaining.append((file_id, season, run))
+                continue
+            table.assign(
+                file_id, season, list(run), origin=ORIGIN_AUTO,
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"title-segmented", "cross-season-rescue"}),
+            )
+            claimed -= own
+            claimed |= run_slots
+            progress = True
+        pending = remaining
 
 
 def rescue_same_season_fuzzy_titles(table: EpisodeAssignmentTable) -> None:

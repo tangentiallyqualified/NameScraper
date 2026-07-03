@@ -45,6 +45,37 @@ def test_differing_numbers_same_title_resolve_as_duplicates():
     assert reason.startswith(REASON_DUPLICATE_COPY)
 
 
+def test_branded_copy_resolves_as_duplicate():
+    # RC43 follow-up: one copy carries the season branding in its title
+    # ('Danger Island Comparative Wickedness...'); still the same episode.
+    table = EpisodeAssignmentTable()
+    title = "Comparative Wickedness of Civilized and Unenlightened Peoples"
+    table.add_slot(EpisodeSlot(season=9, episode=7, title=title))
+    clean = table.add_file(
+        Path("Archer.S09E07.Comparative.Wickedness.mkv"),
+        parsed_episodes=(7,), raw_title=title,
+        is_season_relative=True, season_hint=9, folder_season=9,
+    )
+    branded = table.add_file(
+        Path("Archer.S09E07.Danger.Island.Comparative.Wickedness.mkv"),
+        parsed_episodes=(7,), raw_title=f"Danger Island {title}",
+        is_season_relative=True, season_hint=9, folder_season=9,
+    )
+    for entry in (clean, branded):
+        table.assign(entry.file_id, 9, [7], origin="auto",
+                     confidence=CONF_AGREE,
+                     evidence=frozenset({"number", "title-agree"}))
+    resolve_table_conflicts(table)
+    assert table.conflicts() == {}
+    winners = [
+        entry for entry in (clean, branded)
+        if table.assignment_for(entry.file_id) is not None
+    ]
+    assert len(winners) == 1
+    loser = clean if winners[0] is branded else branded
+    assert table.unassigned_reasons[loser.file_id].startswith(REASON_DUPLICATE_COPY)
+
+
 def test_duplicate_projects_with_duplicate_status(tmp_path):
     table, _agreeing, mislabeled = _dexter_table()
     resolve_table_conflicts(table)

@@ -106,7 +106,10 @@ def reconcile_scanned_episode_claims(
         primary.direct_episode_file_count = sum(state.direct_episode_file_count for state in group)
         primary.duplicate_of = None
         primary.duplicate_of_relative_folder = None
-        primary.checked = any(item.is_actionable for item in primary.preview_items)
+        # States are created unchecked and only the user (or explicit queue
+        # actions) checks them; merging must preserve that, not re-check the
+        # primary just because rows are actionable (RC47).
+        primary.checked = any(state.checked for state in group)
         primary.reset_gui_state()
         if primary.scanner is not None:
             checked = {

@@ -547,9 +547,25 @@ class TestSingleNumberSegmentedRun:
         assert res.confidence >= CONF_AGREE
 
     def test_partial_segment_titles_fill_positionally_at_review(self):
-        # Two segments match E16/E17 and the third is unknown: RC31 fills
-        # the run positionally at review confidence instead of keeping the
-        # bare (wrong) disc number — still never auto-accepted.
+        # Two segments match E16/E17 and the third is a retitled variant
+        # sharing a token with E18: RC31 fills the run positionally at
+        # review confidence instead of keeping the bare (wrong) disc number
+        # — still never auto-accepted. (A fill with NO shared tokens is
+        # rejected outright since RC42.)
+        res = resolve_file(
+            parsed_episodes=(6,),
+            raw_title="Flipper Parody & Temporary Insanity & Operation Thing",
+            is_season_relative=True,
+            season_titles=self.ANIMANIACS_S1,
+            season=1,
+        )
+        assert res.episodes == (16, 17, 18)
+        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
+    def test_partial_segment_titles_with_alien_atom_do_not_fill(self):
+        # RC42: 'Missing Thing' shares nothing with E18 'Operation
+        # Lollipop'; presuming it IS E18 produced wrong runs and killed the
+        # correct decompositions (Animaniacs E06, Rugrats S7).
         res = resolve_file(
             parsed_episodes=(6,),
             raw_title="Flipper Parody & Temporary Insanity & Missing Thing",
@@ -557,8 +573,7 @@ class TestSingleNumberSegmentedRun:
             season_titles=self.ANIMANIACS_S1,
             season=1,
         )
-        assert res.episodes == (16, 17, 18)
-        assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+        assert res.episodes != (16, 17, 18)
 
     def test_multi_segment_number_claim_not_floored_to_auto_accept(self):
         # End-to-end through apply_confidence_adjustments: season-relative +

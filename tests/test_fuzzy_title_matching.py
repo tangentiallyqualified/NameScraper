@@ -1,6 +1,6 @@
 """RC20(2): bounded fuzzy matching for titles and segmented-run atoms."""
 from plex_renamer.engine._episode_resolution import (
-    _TITLE_FUZZY,
+    _TITLE_NEAR_EXACT,
     CONF_AGREE,
     CONF_TITLE_WINS_INEXACT,
     match_segmented_title_run,
@@ -14,7 +14,8 @@ def test_single_typo_fuzzy_match():
     match = match_title_in_titles("Curiousity Almost Killed The Cat", titles)
     assert match is not None
     assert match.episode == 38
-    assert match.strength == _TITLE_FUZZY
+    # A unique typo-level hit ranks near-exact since RC46.
+    assert match.strength == _TITLE_NEAR_EXACT
 
 
 def test_token_prefix_fuzzy_match():

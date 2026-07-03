@@ -130,11 +130,29 @@ def match_file_title_to_tmdb(
 def try_title_based_matching(
     all_files: list[AbsoluteFileEntry],
     tmdb_seasons: dict,
+    show_name: str | None = None,
 ) -> list[tuple[int, int, str] | None] | None:
     """Two-phase matching: title claims first (all seasons incl. S0), then
     explicit season-hint number fills, then absolute-number prefixes. Title
     claims MUST run first so a mis-numbered file can't squat on a slot a
-    genuinely-titled file owns (RC18a)."""
+    genuinely-titled file owns (RC18a).
+
+    A leftover title that is just the SHOW name carries no episode
+    information and must not title-claim anything ('Futurama S09E01
+    Futurama.mkv' grabbing 'The Futurama Holiday Spectacular'; RC44) —
+    such files fall through to their explicit season-hint numbers.
+    """
+    show_norm = normalize_for_specials(show_name) if show_name else ""
+    if show_norm:
+        all_files = [
+            (
+                path, abs_num,
+                None if raw_title and normalize_for_specials(raw_title) == show_norm
+                else raw_title,
+                eps, rel, hint,
+            )
+            for path, abs_num, raw_title, eps, rel, hint in all_files
+        ]
     title_lookup: dict[str, tuple[int, int, str]] = {}
     spaced_lookup: dict[str, tuple[int, int, str]] = {}
     file_count = len(all_files)
@@ -243,7 +261,9 @@ def build_consolidated_preview(
             season_data.get("episodes", {}),
         )
 
-    title_matches = try_title_based_matching(all_files, tmdb_seasons)
+    title_matches = try_title_based_matching(
+        all_files, tmdb_seasons, show_name=show_info.get("name"),
+    )
     if title_matches is not None:
         items: list[PreviewItem] = []
         for index, (file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, season_hint) in enumerate(all_files):

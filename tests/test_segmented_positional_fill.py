@@ -43,7 +43,12 @@ def test_disc_grouped_file_resolves_through_duplicate_title():
     assert resolution.confidence == CONF_TITLE_WINS
 
 
-def test_one_unknown_atom_fills_at_review():
+def test_zero_overlap_atom_does_not_fill():
+    # RC42 tightened RC31's fill: 'Flipper Parody' shares no tokens with
+    # 'Garage Sale', so it names some OTHER (unlisted) segment — mapping it
+    # onto E12 was the wrong-map behind the Animaniacs E06 cascade. Fills
+    # that DO share tokens still land at review
+    # (tests/test_positional_fill_overlap.py).
     titles = {
         12: "Garage Sale",
         13: "Temporary Insanity",
@@ -53,10 +58,7 @@ def test_one_unknown_atom_fills_at_review():
     seg = match_segmented_title_run(
         "Flipper Parody, Temporary Insanity & Operation Lollipop", titles, 3,
     )
-    assert seg is not None
-    run, all_exact = seg
-    assert run == (12, 13, 14)
-    assert all_exact is False  # one atom unverified -> review confidence
+    assert seg is None
 
 
 def test_two_unknown_atoms_do_not_fill():
