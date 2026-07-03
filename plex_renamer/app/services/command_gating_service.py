@@ -13,7 +13,7 @@ class CommandGatingService:
     """Compute queue eligibility independently of any GUI toolkit."""
 
     @staticmethod
-    def is_plex_ready_state(state: ScanState) -> bool:
+    def is_fully_ready_state(state: ScanState) -> bool:
         """True when a scanned entry is already fully organized and non-queueable."""
         if not state.scanned or not state.preview_items:
             return False

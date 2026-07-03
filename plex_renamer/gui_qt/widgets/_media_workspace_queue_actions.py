@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QMessageBox
 from ...engine import ScanState
 from ._media_helpers import (
     format_batch_result as _format_batch_result,
-    is_plex_ready_state as _is_plex_ready_state,
+    is_fully_ready_state as _is_fully_ready_state,
     is_state_queue_approvable as _is_state_queue_approvable,
     roster_selection_key as _roster_selection_key,
 )
@@ -87,7 +87,7 @@ def summarize_skip_reasons(workspace, states: list[ScanState]) -> dict[str, int]
             reasons["needs review"] = reasons.get("needs review", 0) + 1
         elif state.duplicate_of is not None:
             reasons["duplicate"] = reasons.get("duplicate", 0) + 1
-        elif _is_plex_ready_state(state):
+        elif _is_fully_ready_state(state):
             reasons["already fully ready"] = reasons.get("already fully ready", 0) + 1
         else:
             reasons["ineligible"] = reasons.get("ineligible", 0) + 1

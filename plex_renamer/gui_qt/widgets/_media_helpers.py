@@ -73,7 +73,7 @@ def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QCol
         return "Review Episode Matching", theme.qcolor("warning")
     if state.match_origin == "manual":
         return "Approved", theme.qcolor("info")
-    if is_plex_ready_state(state):
+    if is_fully_ready_state(state):
         return "Fully Ready", theme.qcolor("success")
     return "Matched", theme.qcolor("info")
 
@@ -93,13 +93,13 @@ def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
         return "accent"
     if has_episode_problems(state):
         return "accent"
-    if is_plex_ready_state(state):
+    if is_fully_ready_state(state):
         return "success"
     return "info"
 
 
-def is_plex_ready_state(state: ScanState) -> bool:
-    return CommandGatingService.is_plex_ready_state(state)
+def is_fully_ready_state(state: ScanState) -> bool:
+    return CommandGatingService.is_fully_ready_state(state)
 
 
 def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
@@ -107,7 +107,7 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if state.duplicate_of is not None or state.show_id is None:
         return False
-    if state.needs_review or is_plex_ready_state(state):
+    if state.needs_review or is_fully_ready_state(state):
         return False
     # Conflicts and unapproved review rows block queueing. Unmapped primary
     # files deliberately do NOT (RC39): they route the show into "Review
@@ -135,6 +135,27 @@ def has_episode_problems(state: ScanState) -> bool:
     return any(item.is_episode_review for item in state.preview_items)
 
 
+def is_specials_unmapped_only_state(state: ScanState) -> bool:
+    """All regular (season >= 1) episodes mapped cleanly; the remaining
+    problems involve only specials/extras/unknown-season files (spec §3.1)."""
+    if not has_episode_problems(state):
+        return False
+    completeness = state.completeness
+    if completeness is None or not completeness.seasons:
+        return False
+    if not all(season.is_complete for season in completeness.seasons.values()):
+        return False
+    table = state.assignments
+    if table is not None and any(season >= 1 for (season, _episode) in table.conflicts()):
+        return False
+    for item in state.preview_items:
+        if item.season is not None and item.season >= 1 and (
+            item.is_conflict or item.is_episode_review or item.is_unmatched
+        ):
+            return False
+    return True
+
+
 def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.queued:
         return "queued"
@@ -147,8 +168,10 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.needs_review or state.duplicate_of is not None:
         return "review-match"
     if has_episode_problems(state):
+        if is_specials_unmapped_only_state(state):
+            return "specials-unmapped"
         return "review-episodes"
-    if is_plex_ready_state(state):
+    if is_fully_ready_state(state):
         return "fully-ready"
     return "matched"
 

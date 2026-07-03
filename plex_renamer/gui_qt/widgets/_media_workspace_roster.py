@@ -218,10 +218,11 @@ class MediaWorkspaceRosterPanel(QFrame):
     def _desired_entries(self, states: list[ScanState], collapsed_groups: dict[str, bool]):
         groups = [
             ("queued", "Queued"),
-            ("fully-ready", "Fully Ready"),
+            ("review-match", "Needs Review — Match"),
+            ("review-episodes", "Needs Review — Episodes"),
+            ("specials-unmapped", "Specials & Unmapped Only"),
             ("matched", "Matched"),
-            ("review-match", "Review Match"),
-            ("review-episodes", "Review Episode Matching"),
+            ("fully-ready", "Fully Ready"),
             ("unmatched", "No Match Found"),
             ("duplicate", "Duplicates"),
         ]

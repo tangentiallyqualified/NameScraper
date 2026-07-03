@@ -2132,6 +2132,45 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         return _FakeMediaController(state)
 
+    # ── grouping / classification tests ───────────────────────────────────────
+
+    def test_specials_unmapped_only_grouping(self):
+        from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
+        from plex_renamer.gui_qt.widgets._media_helpers import roster_group
+
+        complete_s1 = SeasonCompleteness(season=1, expected=2, matched=2, missing=[])
+        incomplete_s1 = SeasonCompleteness(season=1, expected=3, matched=2, missing=[(3, "Three")])
+
+        # A) regular seasons complete; one unmatched specials-ish extra file -> specials-unmapped
+        state_a, _table_a, _file_id_a = self._make_episode_table_state()  # existing factory producing has_episode_problems=True
+        state_a.completeness = CompletenessReport(
+            seasons={1: complete_s1}, specials=None,
+            total_expected=2, total_matched=2, total_missing=[],
+        )
+        for item in state_a.preview_items:                    # force problems onto non-regular rows
+            if item.is_episode_review or item.is_unmatched or item.is_conflict:
+                item.season = None
+        self.assertEqual(roster_group(state_a, media_type="tv"), "specials-unmapped")
+
+        # B) same problems but a regular season is incomplete -> stays review-episodes
+        state_b, _table_b, _file_id_b = self._make_episode_table_state()
+        state_b.completeness = CompletenessReport(
+            seasons={1: incomplete_s1}, specials=None,
+            total_expected=3, total_matched=2, total_missing=[(1, 3, "Three")],
+        )
+        self.assertEqual(roster_group(state_b, media_type="tv"), "review-episodes")
+
+        # C) a problem row on a regular season -> stays review-episodes
+        state_c, _table_c, _file_id_c = self._make_episode_table_state()
+        state_c.completeness = CompletenessReport(
+            seasons={1: complete_s1}, specials=None,
+            total_expected=2, total_matched=2, total_missing=[],
+        )
+        for item in state_c.preview_items:
+            if item.is_episode_review or item.is_unmatched or item.is_conflict:
+                item.season = 1
+        self.assertEqual(roster_group(state_c, media_type="tv"), "review-episodes")
+
     # ── dispatch tests ───────────────────────────────────────────────────────
 
     def test_episode_row_action_unassign_removes_file_assignment(self):
@@ -2245,7 +2284,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
 
         # _make_episode_table_state assigns the only file at confidence 0.5,
-        # so the show starts under "Review Episode Matching".
+        # so the show starts under "Needs Review — Episodes".
         state, _table, _file_id = self._make_episode_table_state()
         workspace = MediaWorkspace(
             media_type="tv",
@@ -2253,7 +2292,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
         self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
 
         workspace._approve_all_episode_mappings()
@@ -2381,14 +2420,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_controller=self._make_fake_media_ctrl(state),
         )
         workspace.show_ready()
-        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
 
         workspace._approve_all_episode_mappings()
         self._app.processEvents()
 
         # Conflict remains: the show stays in review with no checkbox / unchecked,
         # so the checkbox stays consistent with the section header.
-        self._assert_roster_section_title(workspace, 0, "REVIEW EPISODE MATCHING")
+        self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
         self.assertFalse(is_state_queue_approvable(state, media_type="tv"))
         self.assertFalse(state.checked)
         workspace.close()
@@ -3805,8 +3844,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        self._assert_roster_section_title(workspace, 0, "MATCHED")
-        self._assert_roster_section_title(workspace, 2, "REVIEW EPISODE MATCHING")
+        self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
+        self._assert_roster_section_title(workspace, 2, "MATCHED")
 
         matched_widget = self._roster_widget_for_index(workspace, 0)
         review_widget = self._roster_widget_for_index(workspace, 1)

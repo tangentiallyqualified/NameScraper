@@ -1745,7 +1745,7 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
         self.assertEqual(state.relative_folder, "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original, self.tmp / "Example Show (2024)" / "Season 01" / "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
-        self.assertTrue(self.ctrl.command_gating.is_plex_ready_state(state))
+        self.assertTrue(self.ctrl.command_gating.is_fully_ready_state(state))
 
     def test_apply_completed_destination_tv_job_updates_state_to_output_root(self):
         source_root = self.tmp / "Incoming"

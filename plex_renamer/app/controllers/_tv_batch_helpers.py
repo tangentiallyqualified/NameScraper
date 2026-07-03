@@ -360,7 +360,7 @@ def retarget_tv_state_to_output(state: ScanState, output_root: Path) -> None:
 
 def _clear_plex_ready_checks(controller: _TVBatchController) -> None:
     for state in controller._batch_states:
-        if controller.command_gating.is_plex_ready_state(state):
+        if controller.command_gating.is_fully_ready_state(state):
             state.checked = False
 
 
