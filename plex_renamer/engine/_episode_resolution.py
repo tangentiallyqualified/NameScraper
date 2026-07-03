@@ -566,6 +566,26 @@ def resolve_file(
                 confidence=CONF_WEAK_TITLE_NUMBER_CAP,
                 evidence=frozenset(evidence),
             )
+        if (
+            raw_title
+            and title_match is None
+            and len(valid_numbers) >= 2
+            and len(_segment_atom_spans(raw_title)) >= 2
+            and any(title for title in season_titles.values())
+        ):
+            # A multi-EPISODE file whose rich multi-segment title matches
+            # NOTHING in a titled season means the numbers are disc/source
+            # indexes, not season positions (Rugrats S7 overflow, CatDog
+            # mis-filed seasons). Review-locked. Single-number files stay on
+            # rule 4 — an ordinary title containing "and" splits into atoms
+            # too ("Church and State").
+            return Resolution(
+                episodes=valid_numbers,
+                confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+                evidence=frozenset(
+                    {"number", "title-no-match", "title-multi-segment"},
+                ),
+            )
         if season == 0:
             # Season-0 numbering varies by source; a bare number is not
             # trustworthy on its own -> force review.
@@ -1220,3 +1240,62 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
             evidence=frozenset({"title-strong", "cross-season-rescue"}),
         )
         claimed.add((season, episode))
+
+
+def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
+    """Re-home multi-segment files whose titles match nothing in their
+    assigned season but form an EXACT segmented run in exactly one OTHER
+    regular season (CatDog 'Season 3' files holding S2 content). Review
+    confidence — the parsed numbers are known-wrong."""
+    titles_by_season: dict[int, dict[int, str]] = {}
+    for (season, episode), slot in table.slots.items():
+        if season != 0 and slot.title:
+            titles_by_season.setdefault(season, {})[episode] = slot.title
+
+    candidates: list[tuple[int, int | None]] = []
+    for assignment in list(table.assignments()):
+        if assignment.origin == ORIGIN_MANUAL:
+            continue
+        if "title-no-match" not in assignment.evidence:
+            continue
+        candidates.append((assignment.file_id, assignment.season))
+    for file_id, reason in table.unassigned_reasons.items():
+        if reason != REASON_NOT_IN_SEASON:
+            continue
+        entry = table.files[file_id]
+        if entry.raw_title and len(entry.parsed_episodes) >= 2:
+            candidates.append((file_id, entry.folder_season))
+
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for file_id, current_season in candidates:
+        entry = table.files[file_id]
+        expected = max(len(entry.parsed_episodes), 2)
+        hits: list[tuple[int, tuple[int, ...]]] = []
+        for season, titles in titles_by_season.items():
+            if season == current_season:
+                continue
+            seg = match_segmented_title_run(entry.raw_title, titles, expected)
+            if seg is not None and seg[1]:  # exact runs only across seasons
+                hits.append((season, seg[0]))
+        if len(hits) != 1:
+            continue
+        season, run = hits[0]
+        assignment = table.assignment_for(file_id)
+        own = (
+            {(assignment.season, e) for e in assignment.episodes}
+            if assignment is not None else set()
+        )
+        run_slots = {(season, episode) for episode in run}
+        if run_slots & (claimed - own):
+            continue
+        table.assign(
+            file_id, season, list(run), origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-segmented", "cross-season-rescue"}),
+        )
+        claimed -= own
+        claimed |= run_slots
