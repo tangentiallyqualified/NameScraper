@@ -303,6 +303,24 @@ def build_consolidated_preview(
     tmdb_index = 0
 
     for file_path, _abs_num, _raw_title, episode_numbers, is_season_relative, _season_hint in all_files:
+        if (
+            is_season_relative
+            and _season_hint is not None
+            and _season_hint not in tmdb_seasons
+        ):
+            # An explicit S## that TMDB doesn't know can't be sequence-
+            # mapped — the interleave corrupts every later slot (RC18c).
+            items.append(PreviewItem(
+                original=file_path,
+                new_name=None,
+                target_dir=None,
+                season=0,
+                episodes=episode_numbers,
+                status="SKIP: explicit season not in TMDB",
+                **media_fields,
+            ))
+            continue
+
         num_eps = max(1, len(episode_numbers))
 
         if tmdb_index >= len(tmdb_list):
@@ -461,7 +479,15 @@ def build_consolidated_table(
             continue
 
         item = mapped_by_path.get(file_path)
-        if item is not None and item.season is not None and item.episodes:
+        if (
+            item is not None
+            and item.season is not None
+            and item.episodes
+            # SKIP items carry season=0 as a sentinel plus their parsed
+            # numbers; only a REAL mapping (named target) may resolve here —
+            # sentinels fall through to the hinted-season fallback.
+            and item.new_name is not None
+        ):
             cand_season = item.season
             if cand_season == 0:
                 cand_titles = s0_titles
@@ -488,9 +514,28 @@ def build_consolidated_table(
                 )
             _apply_resolution(table, entry.file_id, cand_season, resolution)
         else:
-            table.mark_unassigned(
-                entry.file_id,
-                REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
-            )
+            # A file the consolidated pass couldn't place still deserves a
+            # real resolve_file run against its OWN hinted season — seg-run
+            # and fuzzy title evidence live there (RC18e).
+            fallback = None
+            if season_hint is not None and season_hint != 0:
+                hinted_titles = tmdb_seasons.get(season_hint, {}).get("titles", {})
+                if hinted_titles:
+                    candidate = resolve_file(
+                        parsed_episodes=tuple(episode_numbers),
+                        raw_title=raw_title,
+                        is_season_relative=is_season_relative,
+                        season_titles=hinted_titles,
+                        season=season_hint,
+                    )
+                    if candidate.episodes:
+                        fallback = (season_hint, candidate)
+            if fallback is not None:
+                _apply_resolution(table, entry.file_id, fallback[0], fallback[1])
+            else:
+                table.mark_unassigned(
+                    entry.file_id,
+                    REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
+                )
 
     return table
