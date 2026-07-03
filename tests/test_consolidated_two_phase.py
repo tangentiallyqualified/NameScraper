@@ -97,6 +97,22 @@ def test_hint_missing_files_are_not_sequence_mapped(tmp_path):
     assert table.assignment_for(s7_entry.file_id) is None
 
 
+def test_consolidated_title_pick_carries_marker_tag(tmp_path):
+    (tmp_path / "Season 1").mkdir()
+    f = tmp_path / "Season 1" / "Show - S01E01 - The Pilot.mkv"
+    f.touch()
+    tmdb = _seasons({1: {1: "The Pilot", 2: "Fireworks"}, 0: {}})
+    table = build_consolidated_table(
+        season_dirs=[(tmp_path / "Season 1", 1)],
+        tmdb_seasons=tmdb, tmdb=_NoTmdb(),
+        show_info={"id": 1, "name": "Show", "year": "2020"},
+        root=tmp_path, store_tmdb_data=lambda *args: None,
+    )
+    entry = next(iter(table.files.values()))
+    assignment = table.assignment_for(entry.file_id)
+    assert "title-consolidated" in assignment.evidence
+
+
 def test_leftover_files_re_resolved_against_hinted_season(tmp_path):
     (tmp_path / "Season 3").mkdir()
     # Both segment titles carry a typo so the cross-season title pass cannot

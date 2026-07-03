@@ -1200,7 +1200,9 @@ def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
     for file_id, proposed in accepted:
         entry = table.files[file_id]
         evidence = {"number", "offset-inferred"}
-        if entry.is_season_relative:
+        if entry.is_season_relative and (
+            entry.season_hint is None or entry.season_hint == target_season
+        ):
             evidence.add("season-relative")
         table.assign(
             file_id,

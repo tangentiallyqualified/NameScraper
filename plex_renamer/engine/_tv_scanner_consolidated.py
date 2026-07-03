@@ -601,6 +601,16 @@ def build_consolidated_table(
                     confidence=min(resolution.confidence, CONF_TITLE_WINS_INEXACT),
                     evidence=resolution.evidence | {"cross-season-special"},
                 )
+            if resolution.episodes:
+                # The consolidated pass picked this slot BY TITLE and
+                # resolve_file re-matched the same title against it —
+                # 'title-agree' here is self-confirming, so mark the origin.
+                resolution = Resolution(
+                    episodes=resolution.episodes,
+                    confidence=resolution.confidence,
+                    evidence=resolution.evidence | {"title-consolidated"},
+                    reason=resolution.reason,
+                )
             _apply_resolution(table, entry.file_id, cand_season, resolution)
         else:
             # A file the consolidated pass couldn't place still deserves a
