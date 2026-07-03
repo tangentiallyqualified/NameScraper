@@ -107,17 +107,19 @@ def is_plex_ready_state(state: ScanState) -> bool:
 
 
 def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
-    if state.queued or state.scanning:
+    if state.queued or state.scanning or state.scan_error:
         return False
     if state.duplicate_of is not None or state.show_id is None:
         return False
     if state.needs_review or is_plex_ready_state(state):
         return False
-    # Keep the roster checkbox consistent with the section header: a show with
-    # episode problems (a conflict, an unmapped file, or a below-threshold row)
-    # sits under "Review Episode Matching" and must not be queue-approvable,
-    # even when other files are cleanly mapped and actionable.
-    if has_episode_problems(state):
+    # Conflicts and unapproved review rows block queueing. Unmapped primary
+    # files deliberately do NOT (RC39): they route the show into "Review
+    # Episode Matching" for the initial left-panel sorting, but the user must
+    # be able to approve and queue the mapped files anyway — the unmapped
+    # files simply produce no jobs.
+    table = state.assignments
+    if table is not None and table.conflicts():
         return False
     if any(item.is_review for item in state.preview_items):
         return False

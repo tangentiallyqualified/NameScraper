@@ -104,7 +104,10 @@ def test_conflict_with_other_mapped_files_is_not_queue_approvable():
     assert is_state_queue_approvable(state, media_type="tv") is False
 
 
-def test_unmapped_primary_with_mapped_file_is_not_queue_approvable():
+def test_unmapped_primary_still_routes_but_is_queue_approvable():
+    # RC39: unmapped primary files keep routing the show into "Review
+    # Episode Matching" for initial sorting, but must NOT block approving
+    # and queueing the mapped files — they just produce no jobs.
     table = _table(count=2)
     ok = table.add_file(ROOT / "ok.mkv")
     table.assign(ok.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
@@ -113,7 +116,19 @@ def test_unmapped_primary_with_mapped_file_is_not_queue_approvable():
     state = _state(table)
     assert roster_group(state, media_type="tv") == "review-episodes"
     assert any(item.is_actionable for item in state.preview_items)
-    assert is_state_queue_approvable(state, media_type="tv") is False
+    assert is_state_queue_approvable(state, media_type="tv") is True
+
+
+def test_manual_unassign_then_approve_all_stays_queueable():
+    # RC39: unassigning one file must not lock the show out of queueing.
+    table = _table(count=2)
+    first = table.add_file(ROOT / "e1.mkv")
+    table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+    second = table.add_file(ROOT / "e2.mkv")
+    table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=1.0)
+    table.unassign(second.file_id)
+    state = _state(table)
+    assert is_state_queue_approvable(state, media_type="tv") is True
 
 
 def test_clean_show_is_queue_approvable():

@@ -139,18 +139,19 @@ class CommandGatingServiceTests(unittest.TestCase):
         result = self.svc.evaluate_preview_items(items, selected_indices={0})
         self.assertEqual(result.command_state, QueueCommandState.DISABLED_CONFLICT)
 
-    def test_blocked_counts_include_skip_and_conflict(self):
+    def test_blocked_counts_include_skip_without_conflict(self):
         items = [
             _item(status="OK"),
             _item(status="SKIP: no match", original="b.mkv"),
-            _item(status="CONFLICT: dup", original="c.mkv"),
         ]
         result = self.svc.evaluate_preview_items(items, selected_indices={0})
         self.assertTrue(result.enabled)
         self.assertEqual(result.blocked_counts.get("skip"), 1)
-        self.assertEqual(result.blocked_counts.get("conflict"), 1)
 
-    def test_selected_conflicts_do_not_block_unique_actionable_rows(self):
+    def test_selected_conflicts_block_queueing(self):
+        # RC39: a live conflict blocks the whole item from queueing, even
+        # when another actionable row is selected — queueing around an
+        # unresolved duplicate claim ships the wrong file.
         items = [
             _item(status="OK", original="ep01.mkv", new_name="Show - S01E01.mkv"),
             _item(
@@ -162,9 +163,8 @@ class CommandGatingServiceTests(unittest.TestCase):
 
         result = self.svc.evaluate_preview_items(items, selected_indices={0, 1})
 
-        self.assertTrue(result.enabled)
-        self.assertEqual(result.selected_indices, [0])
-        self.assertEqual(result.eligible_file_count, 1)
+        self.assertFalse(result.enabled)
+        self.assertEqual(result.command_state, QueueCommandState.DISABLED_CONFLICT)
         self.assertEqual(result.blocked_counts.get("conflict"), 1)
 
     def test_selected_conflicts_do_not_emit_rename_ops(self):
