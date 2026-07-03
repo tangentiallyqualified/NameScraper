@@ -405,6 +405,24 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         self.assertIn("_scale", source)
         self.assertNotIn("setFixedHeight(30)", source)
 
+    def test_paint_statics_render_without_error(self):
+        from PySide6.QtCore import QRect, QRectF, Qt
+        from PySide6.QtGui import QImage, QPainter
+        from plex_renamer.gui_qt import theme
+        from plex_renamer.gui_qt.widgets._workspace_widget_primitives import (
+            paint_check_indicator,
+            paint_mini_progress,
+        )
+
+        image = QImage(64, 64, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(0)
+        painter = QPainter(image)
+        for state in (Qt.CheckState.Unchecked, Qt.CheckState.PartiallyChecked, Qt.CheckState.Checked):
+            paint_check_indicator(painter, QRectF(2, 2, 20, 20), state)
+        paint_mini_progress(painter, QRect(2, 40, 60, 4), value=55, color=theme.qcolor("success"))
+        painter.end()
+        self.assertFalse(image.isNull())
+
 
 class MoviePreviewRowCheckboxTests(QtSmokeBase):
     def _make_movie_preview(self):
