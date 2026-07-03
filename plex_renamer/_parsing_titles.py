@@ -159,13 +159,21 @@ def clean_title_evidence(name: str) -> str:
     In dot-spaced release names a lone '_' is the boundary BETWEEN two
     segment titles (Catscratch.S01E01.To.The.Moon_Bringin'.Down.The.Mouse);
     flattening it to a space would erase the only segment separator, so it
-    becomes ' & ' instead. Names that use '_' as their word separator (no
-    dot spacing) keep the plain-space behavior.
+    becomes ' & ' instead — but only when BOTH sides of the underscore are
+    themselves dot-spaced. A dot-less side is a duplicate/version marker
+    (S01E04.M.Night.Shaym-Aliens!_new), not a second title. Names that use
+    '_' as their word separator (no dot spacing) keep the plain-space
+    behavior.
     """
     name = re.sub(r"\[.*?\]", "", name)
     name = _strip_quality_parens(name)
     if name.count(".") >= 3 and 1 <= name.count("_") <= 3:
-        name = name.replace("_", " & ")
+        parts = name.split("_")
+        rebuilt = parts[0]
+        for prev, part in zip(parts, parts[1:]):
+            sep = " & " if "." in prev and "." in part else " "
+            rebuilt += sep + part
+        name = rebuilt
     name = name.replace(".", " ").replace("_", " ")
     return re.sub(r"\s+", " ", name).strip()
 

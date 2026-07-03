@@ -549,6 +549,7 @@ class BatchTVOrchestrator:
         _raise_if_cancelled(cancel_event)
 
         state.scanning = True
+        state.scan_error = None
         _log.info("Scanning episodes for: %s", state.display_name)
 
         try:
@@ -604,7 +605,8 @@ class BatchTVOrchestrator:
             "Scan complete for '%s': %d total items, seasons: %s",
             state.display_name,
             len(items),
-            dict(sorted(by_season.items())),
+            # None seasons (unparseable root files) must not break the sort.
+            dict(sorted(by_season.items(), key=lambda kv: (kv[0] is None, kv[0] or 0))),
         )
 
     def scan_all(
@@ -627,7 +629,10 @@ class BatchTVOrchestrator:
             except Exception as error:
                 if isinstance(error, ScanCancelledError):
                     raise
-                _log.error("Failed to scan %s: %s", state.display_name, error)
+                # Keep the failure user-visible: an empty show with no
+                # explanation reads as "no episodes found" (RC40).
+                state.scan_error = str(error)
+                _log.exception("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
         _emit_scan_progress(

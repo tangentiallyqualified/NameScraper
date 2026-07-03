@@ -9,13 +9,13 @@ from ._parsing_titles import sanitize_filename
 # Trailing words trimmed from a common title base so multi-part runs collapse
 # cleanly ("Sozin's Comet - The Phoenix King"/"...Part 1:..." -> "Sozin's Comet").
 _BASE_TRIM_WORDS = frozenset(
-    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an"}
+    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an", "and", "or", "&"}
 )
 _BASE_TRIM_CHARS = " -–,:;"
 
 # Cap on a generated TV filename (including extension). Keeps full paths well
 # under the 255-char component limit with headroom for the output directory.
-MAX_FILENAME = 150
+MAX_FILENAME = 170
 
 
 def _common_title_base(unique_titles: list[str]) -> str | None:

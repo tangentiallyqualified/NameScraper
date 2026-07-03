@@ -81,20 +81,44 @@ def _strip_part_number(normalized: str) -> tuple[str, str]:
     return normalized, ""
 
 
+def _token_run_contains(container_spaced: str, contained_spaced: str) -> bool:
+    """True when *contained_spaced* appears as a contiguous TOKEN run inside
+    *container_spaced*. 'blues' is a compact substring of 'blue submarine…'
+    but not a token run of it — such cross-boundary hits are noise (RC33)."""
+    if not container_spaced or not contained_spaced:
+        return False
+    return f" {contained_spaced} " in f" {container_spaced} "
+
+
 def _substring_candidates(
     normalized: str,
+    spaced: str,
     lookup: dict[str, tuple[int, str]],
 ) -> list[tuple[int, str]]:
-    """Return all (episode, title) pairs where *normalized* and the key overlap.
+    """Return all (episode, title) pairs where *normalized* and the key overlap
+    at a token boundary.
 
-    A key participates only when ``len(key) >= _MIN_KEY_SUBSTRING_LEN``.
+    Compact containment alone is unsafe ('blues' ⊂ 'bluesubmarine…'), so a hit
+    must also align as a whole-token run in the spaced normalizations. Keys
+    shorter than ``_MIN_KEY_SUBSTRING_LEN`` are allowed ONLY via the
+    token-run check ('Sex' inside 'sex off the air adult swim').
     Called only when ``len(normalized) >= _MIN_SUBSTRING_LEN``.
     """
-    return [
-        (episode, title)
-        for key, (episode, title) in lookup.items()
-        if len(key) >= _MIN_KEY_SUBSTRING_LEN and (normalized in key or key in normalized)
-    ]
+    hits: list[tuple[int, str]] = []
+    for key, (episode, title) in lookup.items():
+        if not key:
+            continue
+        key_spaced = normalize_for_specials_spaced(title)
+        if len(key) >= _MIN_KEY_SUBSTRING_LEN:
+            if normalized in key:
+                if _token_run_contains(key_spaced, spaced):
+                    hits.append((episode, title))
+                continue
+            if key in normalized and _token_run_contains(spaced, key_spaced):
+                hits.append((episode, title))
+        elif _token_run_contains(spaced, key_spaced):
+            hits.append((episode, title))
+    return hits
 
 
 def _has_ambiguous_title_evidence(
@@ -116,7 +140,8 @@ def _has_ambiguous_title_evidence(
         for episode, title in season_titles.items()
         if normalize_for_specials(title)
     }
-    return len(_substring_candidates(normalized, lookup)) > 1
+    spaced = normalize_for_specials_spaced(raw_title)
+    return len(_substring_candidates(normalized, spaced, lookup)) > 1
 
 
 def _edit_distance_at_most(a: str, b: str, limit: int) -> bool:
@@ -210,7 +235,8 @@ def match_title_in_titles(
         return TitleMatch(episode=hit[0], title=hit[1], strength=_TITLE_EXACT)
 
     if len(normalized) >= _MIN_SUBSTRING_LEN:
-        substring_hits = _substring_candidates(normalized, lookup)
+        spaced = normalize_for_specials_spaced(raw_text)
+        substring_hits = _substring_candidates(normalized, spaced, lookup)
         if len(substring_hits) == 1:
             episode, title = substring_hits[0]
             return TitleMatch(episode=episode, title=title, strength=_TITLE_SUBSTRING)
@@ -373,7 +399,9 @@ def _extend_partial_title_run(
     block the rest) still names its neighbors by position: n atoms with the
     match at index i mean episodes [matched-i .. matched-i+n-1]. Only
     extends when the atom count is unambiguous (== max(parsed, atoms) >= 2),
-    exactly one atom matches that episode, and every slot exists.
+    exactly one atom matches that episode, every unmatched atom looks like a
+    real title (>=2 words — a leftover 'new'/'Tigtone' fragment is noise,
+    not a neighbor episode; RC30), and every slot exists.
     """
     spans = _segment_atom_spans(raw_title)
     run_length = max(parsed_count, len(spans))
@@ -386,6 +414,12 @@ def _extend_partial_title_run(
         if match is not None and match.episode == matched_episode
     ]
     if len(matching_indexes) != 1:
+        return None
+    if any(
+        len(raw_title[lo:hi].split()) < 2
+        for index, (lo, hi) in enumerate(spans)
+        if index != matching_indexes[0]
+    ):
         return None
     start = matched_episode - matching_indexes[0]
     run = tuple(range(start, start + run_length))
@@ -512,10 +546,13 @@ def resolve_file(
                 evidence=frozenset({"number", "title-agree"}),
             )
         if strong_title and title_match.strength >= _TITLE_EXACT:
+            # An EXACT full-title match consumes the whole title: there is no
+            # leftover segment naming a neighbor, so a single-number file
+            # never extends here ("Tigtone and the Wine Crisis" = exactly one
+            # slot even though "and" splits it into atoms; RC30). Multi-number
+            # files may still extend from the matched anchor.
             run = None
-            if raw_title and (
-                len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
-            ):
+            if raw_title and len(parsed_episodes) >= 2:
                 run = _extend_partial_title_run(
                     raw_title, title_match.episode, season_titles,
                     len(parsed_episodes),
@@ -910,7 +947,13 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
     """
     _trim_run_edge_conflicts(table)
     _shift_run_off_segmented_conflict(table)
-    for (season, episode), claims in list(table.conflicts().items()):
+    for season, episode in list(table.conflicts().keys()):
+        # Re-fetch per slot: resolving an earlier slot can unassign a file
+        # that claimed this one too, and a stale winner crashes
+        # resolve_conflict ("File N does not claim S##E##" — RC32).
+        claims = table.claims(season, episode)
+        if len(claims) < 2:
+            continue
         if any(claim.origin == ORIGIN_MANUAL for claim in claims):
             continue
         strengths = {claim.file_id: _claim_strength(claim) for claim in claims}

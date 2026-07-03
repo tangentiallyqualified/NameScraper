@@ -65,6 +65,8 @@ def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QCol
         return "Queued", QColor("#4a9eda")
     if state.scanning:
         return "Scanning", QColor("#e5a00d")
+    if state.scan_error:
+        return "Scan Failed", QColor("#d44040")
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "Duplicate", QColor("#777777")
     if state.show_id is None:
@@ -85,6 +87,8 @@ def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
         return "info"
     if state.scanning:
         return "accent"
+    if state.scan_error:
+        return "error"
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
         return "muted"
     if state.show_id is None:
@@ -140,6 +144,8 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
         return "duplicate"
     if state.show_id is None:
         return "unmatched"
+    if state.scan_error:
+        return "review-episodes"
     if state.needs_review or state.duplicate_of is not None:
         return "review-match"
     if has_episode_problems(state):

@@ -79,21 +79,21 @@ def test_single_episode_title_unchanged():
     assert name == "Show (2000) - S01E05 - Gun Fever.mkv"
 
 
-# ── Part 3: 150-char length cap ─────────────────────────────────────
+# ── Part 3: 170-char length cap ─────────────────────────────────────
 
 def test_long_distinct_titles_capped_with_ellipsis():
     titles = [
-        "Alpha the First Very Long Episode Title Goes Here",
-        "Bravo Another Considerably Long Episode Title Indeed",
-        "Charlie Yet One More Lengthy Episode Title To Add",
+        "Alpha the First Very Long Episode Title Goes Here And More",
+        "Bravo Another Considerably Long Episode Title Indeed For Sure",
+        "Charlie Yet One More Lengthy Episode Title To Add On Top",
     ]
     name = build_tv_name("Some Show", "2001", 1, [5, 6, 7], titles, ".mkv")
-    assert len(name) <= 150
+    assert len(name) <= 170
     assert name.endswith("….mkv")  # truncated with an ellipsis
     assert name.startswith("Some Show (2001) - S01E05-E07 - ")  # marker preserved
 
 
 def test_short_name_not_capped():
     name = build_tv_name("Show", "2000", 1, [1], ["Pilot"], ".mkv")
-    assert len(name) <= 150
+    assert len(name) <= 170
     assert "…" not in name

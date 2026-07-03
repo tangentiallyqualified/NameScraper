@@ -215,6 +215,9 @@ class ScanState:
     duplicate_of: str | None = None
     queued: bool = False
     tie_detected: bool = False
+    # Set when the per-show episode scan raised; the show must surface as an
+    # error in the GUI instead of silently showing no episodes.
+    scan_error: str | None = None
 
     @property
     def show_id(self) -> int | None:
@@ -289,6 +292,7 @@ class ScanState:
         self.completeness = None
         self.assignments = None
         self.scanned = False
+        self.scan_error = None
         self.reset_gui_state()
 
 
