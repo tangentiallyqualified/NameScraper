@@ -14,3 +14,6 @@ __pycache__/
 plex_renamer/test_library.zip
 docs/test_library/
 docs/local/
+
+# SDD scratch (task briefs, reports, progress ledger)
+.superpowers/
