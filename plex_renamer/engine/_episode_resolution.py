@@ -72,7 +72,11 @@ class Resolution:
 def _strip_part_number(normalized: str) -> tuple[str, str]:
     match = re.search(r"\d{1,2}", normalized)
     if match:
-        return normalized[: match.start()] + normalized[match.end():], match.group()
+        base = normalized[: match.start()] + normalized[match.end():]
+        # 'Heart of Archness Part 1' vs key 'Heart of Archness (1)': the
+        # digit is gone but the word 'part' still blocks base equality.
+        base = re.sub(r"(?:part|pt)$", "", base)
+        return base, match.group()
     return normalized, ""
 
 
@@ -212,20 +216,9 @@ def match_title_in_titles(
         if len(substring_hits) > 1:
             return None
 
-    spaced = normalize_for_specials_spaced(raw_text)
-    fuzzy_hits = [
-        (episode, title)
-        for key, (episode, title) in lookup.items()
-        if _fuzzy_title_equal(
-            normalized, spaced, key, normalize_for_specials_spaced(title),
-        )
-    ]
-    if len(fuzzy_hits) == 1:
-        episode, title = fuzzy_hits[0]
-        return TitleMatch(episode=episode, title=title, strength=_TITLE_FUZZY)
-    if len(fuzzy_hits) > 1:
-        return None
-
+    # Part-number bases are checked BEFORE the fuzzy tier: when both could
+    # match ("Heart of Archness Part 1" vs "(1)"), the part correspondence
+    # is the more specific claim and callers key policy off its strength.
     input_base, input_part = _strip_part_number(normalized)
     if input_base:
         base_hits = [
@@ -248,6 +241,20 @@ def match_title_in_titles(
                 return TitleMatch(
                     episode=episode, title=title, strength=_TITLE_PART_NUMBER,
                 )
+
+    spaced = normalize_for_specials_spaced(raw_text)
+    fuzzy_hits = [
+        (episode, title)
+        for key, (episode, title) in lookup.items()
+        if _fuzzy_title_equal(
+            normalized, spaced, key, normalize_for_specials_spaced(title),
+        )
+    ]
+    if len(fuzzy_hits) == 1:
+        episode, title = fuzzy_hits[0]
+        return TitleMatch(episode=episode, title=title, strength=_TITLE_FUZZY)
+    if len(fuzzy_hits) > 1:
+        return None
 
     return None
 
@@ -547,6 +554,14 @@ def resolve_file(
                 confidence=CONF_TITLE_WINS_INEXACT,
                 evidence=frozenset({"title-strong-inexact", "number-disagree"}),
             )
+        if season == 0 and title_match.strength >= _TITLE_PART_NUMBER:
+            # Specials numbering is source-unreliable; a unique titled part
+            # match outranks a disagreeing S0 number (review).
+            return Resolution(
+                episodes=(title_match.episode,),
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"title-part-number", "number-disagree"}),
+            )
         return Resolution(  # rule 3
             episodes=valid_numbers,
             confidence=CONF_WEAK_TITLE_NUMBER_CAP,
@@ -762,7 +777,10 @@ def _claim_strength(claim) -> int:
     """
     if claim.evidence & _EXACT_TITLE_EVIDENCE:
         return 3
-    if claim.evidence & {"title-strong-inexact", "title-segmented", "title-fuzzy"}:
+    if claim.evidence & {
+        "title-strong-inexact", "title-segmented", "title-fuzzy",
+        "title-part-number",
+    }:
         return 2
     if "season-relative" in claim.evidence and "special-number-only" not in claim.evidence:
         return 2
@@ -1068,7 +1086,7 @@ def apply_confidence_adjustments(
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
             "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
-            "same-season-rescue",
+            "same-season-rescue", "title-part-number",
         }:
             table.set_confidence(
                 assignment.file_id,

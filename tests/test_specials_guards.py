@@ -1,6 +1,11 @@
 """RC24(b)/RC25/RC26/RC23: specials-path guards."""
 from pathlib import Path
 
+from plex_renamer.engine._episode_resolution import (
+    CONF_TITLE_WINS_INEXACT,
+    _strip_part_number,
+    resolve_file,
+)
 from plex_renamer.engine._tv_scanner_normal import _resolve_into_table
 from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
 
@@ -122,3 +127,30 @@ def test_offbeats_valentines_stem_substring(tmp_path):
     assignment = table.assignment_for(0)
     assert assignment is not None
     assert assignment.season == 0 and assignment.episodes == (3,)
+
+
+ARCHER_S0 = {
+    3: "Heart of Archness (1)",
+    4: "Heart of Archness (2)",
+    5: "Heart of Archness (3)",
+    6: "L'Espion Mal Fait",
+}
+
+
+def test_strip_part_number_removes_part_word():
+    base, part = _strip_part_number("heartofarchnesspart1")
+    assert base == "heartofarchness"
+    assert part == "1"
+
+
+def test_specials_part_number_overrides_wrong_s0_number():
+    resolution = resolve_file(
+        parsed_episodes=(4,),
+        raw_title="Heart of Archness Part 1",
+        is_season_relative=True,
+        season_titles=ARCHER_S0,
+        season=0,
+    )
+    assert resolution.episodes == (3,)
+    assert resolution.confidence == CONF_TITLE_WINS_INEXACT
+    assert "title-part-number" in resolution.evidence
