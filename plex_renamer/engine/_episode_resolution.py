@@ -1068,6 +1068,7 @@ def apply_confidence_adjustments(
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
             "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
+            "same-season-rescue",
         }:
             table.set_confidence(
                 assignment.file_id,
@@ -1299,3 +1300,44 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
         )
         claimed -= own
         claimed |= run_slots
+
+
+def rescue_same_season_fuzzy_titles(table: EpisodeAssignmentTable) -> None:
+    """Lost-conflict / no-match / not-in-season files whose (possibly fuzzy)
+    title hits exactly ONE unclaimed slot in their own season -> review-assign
+    (Angry Beavers: 3 unmapped files <-> 3 unclaimed same-title slots)."""
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for file_id, reason in list(table.unassigned_reasons.items()):
+        if not (
+            reason in (REASON_NOT_IN_SEASON, REASON_NO_TITLE_MATCH)
+            or reason.startswith(REASON_LOST_CONFLICT)
+        ):
+            continue
+        entry = table.files.get(file_id)
+        if entry is None or not entry.raw_title:
+            continue
+        season = (
+            entry.season_hint if entry.season_hint is not None
+            else entry.folder_season
+        )
+        if season is None or season == 0:
+            continue
+        unclaimed_titles = {
+            episode: slot.title
+            for (slot_season, episode), slot in table.slots.items()
+            if slot_season == season and slot.title
+            and (slot_season, episode) not in claimed
+        }
+        match = match_title_in_titles(entry.raw_title, unclaimed_titles)
+        if match is None or match.strength < STRONG_TITLE_STRENGTH:
+            continue
+        table.assign(
+            file_id, season, [match.episode], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-fuzzy", "same-season-rescue"}),
+        )
+        claimed.add((season, match.episode))

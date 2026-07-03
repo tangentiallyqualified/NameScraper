@@ -221,6 +221,7 @@ class TVScanner:
             apply_uniform_offset_rescue,
             rescue_cross_season_segmented,
             rescue_cross_season_titles,
+            rescue_same_season_fuzzy_titles,
         )
         from ._tv_scanner_normal import build_normal_table
 
@@ -235,6 +236,7 @@ class TVScanner:
         )
         rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
+        rescue_same_season_fuzzy_titles(table)
         apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
             table,
@@ -259,6 +261,7 @@ class TVScanner:
             apply_confidence_adjustments,
             apply_uniform_offset_rescue,
             rescue_cross_season_segmented,
+            rescue_same_season_fuzzy_titles,
         )
         from ._tv_scanner_consolidated import build_consolidated_table
 
@@ -271,6 +274,7 @@ class TVScanner:
             store_tmdb_data=self._store_tmdb_data,
         )
         rescue_cross_season_segmented(table)
+        rescue_same_season_fuzzy_titles(table)
         apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
             table,
