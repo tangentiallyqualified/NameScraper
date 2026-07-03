@@ -3,26 +3,26 @@
 > **Purpose:** live handoff so a fresh session can resume mid-stream. Update after every milestone.
 > **Branch:** `dev/GUI4` (created 2026-07-03 from `dev/GUI3` @ 9794499)
 
-## Current status (updated 2026-07-03, end of design/planning session)
+## Current status (updated 2026-07-03, end of Plan 1 execution session)
 
 - [x] Branch `dev/GUI4` created and checked out
 - [x] Codebase exploration (findings below)
 - [x] Design spec: [docs/superpowers/specs/2026-07-03-gui-v4-design.md](../specs/2026-07-03-gui-v4-design.md) — self-reviewed, committed
 - [x] Roadmap index: [2026-07-03-gui-v4-implementation.md](2026-07-03-gui-v4-implementation.md) (9 plans mapped to spec sections)
 - [x] Plan 1 (theme foundation + de-Plex + chrome fixes): [2026-07-03-gui-v4-plan1-theme-foundation.md](2026-07-03-gui-v4-plan1-theme-foundation.md) — complete, executable, TDD steps
-- [ ] **USER REVIEW GATE (blocking):** user must review spec + Plan 1 and pick an execution mode. NO IMPLEMENTATION until approved.
+- [x] User review gate cleared: user approved spec + Plan 1, confirmed app name **"NameScraper"**, capped execution at 4 subagents
+- [x] **Plan 1 LANDED** (2026-07-03, commits `6c82086..d421d37`): theme.py tokens + theme.qss.tmpl (Jellyfin palette, fringes gone, radii normalized), all gui_qt hex → tokens with permanent no-hex guard, de-Plex strings ("NameScraper", "Fully Ready"/`fully-ready`) with AST guard, Ctrl+Z undo removed, recent-folder menus switch tabs. Final review: 0 Critical/Important; fast 928/928, smoke 163/163.
 - [ ] Plans 2–9: NOT written yet — write each with `superpowers:writing-plans` when its predecessor lands (see roadmap standing rules)
 
 ## How to resume
 
-1. **If the user has approved spec + Plan 1:** execute Plan 1 with `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. Plan 1 is fully self-contained (exact code, tests, commands, commits).
-2. **If the user requested spec/plan changes:** edit the spec first, re-run its self-review, cascade changes into the roadmap/Plan 1, re-commit, re-ask.
-3. **If Plan 1 has landed:** write Plan 2 (roster model/delegate + grouping, spec §3.1/§4/§7) via `superpowers:writing-plans`, then continue down the roadmap table.
-4. Always update this file + the roadmap status column at each milestone.
+1. **Next step: write Plan 2** (roster model/delegate + grouping, spec §3.1/§4/§7) via `superpowers:writing-plans`, then continue down the roadmap table.
+2. Plan 2 carry-overs from Plan 1's final review (all Minor, adjudicated): drop dead `history_index` ctor param in `MainWindowShellCoordinator` (`_main_window_shell.py`); add symmetric TV-path test for `_load_recent` in `tests/test_qt_chrome.py`; rename `is_plex_ready_state` (already scheduled); optionally broaden the no-hex guard regex to 3/8-digit hex (user decision — plan mandated `{6}`).
+3. Always update this file + the roadmap status column at each milestone.
 
 ## Open questions for the user (also in spec §15)
 
-1. **App display name** — spec assumes **"NameScraper"** replaces "Plex Renamer" (window title, app name, About). Confirm or supply another.
+1. ~~App display name~~ — **RESOLVED 2026-07-03: "NameScraper"** (implemented in Plan 1).
 2. Episode description + air date placement = expanded episode row; show overview = work-panel header (spec §3.2). Confirm.
 3. Roster poster size ~64×94 logical. Confirm/adjust.
 4. Bulk Assign MVP scope (spec §6, §15.7). Confirm.
@@ -53,3 +53,4 @@
 ## Session log
 
 - 2026-07-03: branch created → exploration → spec written + self-reviewed → committed 32cee9a → roadmap + Plan 1 written → this handoff updated → committed (see git log) → session ended at user review gate.
+- 2026-07-03 (later): user approved (app name "NameScraper", ≤4 subagents) → Plan 1 executed via subagent-driven development (3 implementer batches: tasks 1-2, 3, 4-6; 1 final whole-branch reviewer on `380d5f7..d421d37`) → review verdict "ready to merge", 0 Critical/Important, minors deferred to Plan 2 (listed under "How to resume") → full suites green (fast 928/928, smoke 163/163) + offscreen themed-window screenshot sanity check → roadmap/handoff updated. Notable during execution: plan's Task 5 test snippet had a shiboken object-lifetime bug (root-caused, fixed in `tests/test_qt_chrome.py`); `tab_badge.failure_visible()` hex-substring check fixed so it keeps working post-tokenization; `.superpowers/` added to `.gitignore` (SDD scratch).

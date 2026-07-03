@@ -3,13 +3,13 @@
 > **For agentic workers:** this is the index, not an executable plan. Execute the per-milestone plan files listed below (REQUIRED SUB-SKILL: superpowers:subagent-driven-development or superpowers:executing-plans). Write each missing plan file with superpowers:writing-plans **when its predecessor lands**, so plans are authored against real code, not stale predictions.
 
 **Spec:** [2026-07-03-gui-v4-design.md](../specs/2026-07-03-gui-v4-design.md) — approved design is the source of truth.
-**Branch:** `dev/GUI4`. **Gate:** user must approve spec + Plan 1 before any implementation.
+**Branch:** `dev/GUI4`. **Gate:** cleared 2026-07-03 — user approved spec + Plan 1 and confirmed the app name "NameScraper".
 
 ## Plan sequence
 
 | # | Plan file | Spec sections | Status |
 |---|---|---|---|
-| 1 | [2026-07-03-gui-v4-plan1-theme-foundation.md](2026-07-03-gui-v4-plan1-theme-foundation.md) | §8 theme tokens/palette/de-Plex, §14 shortcuts + recent-menus + About | **Written — awaiting user approval** |
+| 1 | [2026-07-03-gui-v4-plan1-theme-foundation.md](2026-07-03-gui-v4-plan1-theme-foundation.md) | §8 theme tokens/palette/de-Plex, §14 shortcuts + recent-menus + About | **Landed** 2026-07-03 (commits 6c82086..d421d37, review clean) |
 | 2 | `gui-v4-plan2-roster.md` (to write) | §3.1 roster panel, §4 roster chips, §7 roster model/delegate | not written |
 | 3 | `gui-v4-plan3-work-panel.md` (to write) | §3.2 work panel, §3.3 movie parity, §4 season strip, §5 info removal, §7 episode table model/delegate/expansion | not written |
 | 4 | `gui-v4-plan4-bulk-assign.md` (to write) | §6 bulk assign + unassign-all treatment | not written |
