@@ -120,30 +120,51 @@ def build_show_folder_name(show: str, year: str) -> str:
     return sanitize_filename(f"{show}{year_part}")
 
 
+_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
+
+
+def _fold_title_symbols(text: str) -> str:
+    """Fold notation variants ('&' vs 'and', '#1' vs 'No. 1', 'H²', "I'm")
+    to one spelling so title comparison is notation-blind. Applied before
+    punctuation stripping so contractions still carry their apostrophes."""
+    text = text.translate(_SUPERSCRIPT_DIGITS)
+    text = re.sub(r"\b[Ii]['’]m\b", "I am", text)
+    text = text.replace("&", " and ")
+    text = re.sub(r"#\s*(?=\d)", " number ", text)
+    text = re.sub(r"\bno\.?\s*(?=\d)", " number ", text, flags=re.IGNORECASE)
+    return text
+
+
 def normalize_for_match(text: str) -> str:
     """
     Normalize a title for fuzzy comparison.
 
     Strips year suffixes, punctuation, articles, and extra whitespace.
+    Apostrophes are REMOVED (not spaced) so "Hell's" == "Hells".
     Returns lowercase with single spaces.  Used by both movie/TV scoring
     and specials fuzzy matching for consistency.
     """
     text = re.sub(r"\s*\(\d{4}\)\s*$", "", text)
+    text = text.replace("’", "'").replace("'", "")
     text = re.sub(r"[^\w\s]", " ", text)
     text = text.lower().strip()
     text = re.sub(r"^(?:the|a|an)\s+", "", text)
     return re.sub(r"\s+", " ", text)
 
 
+def normalize_for_specials_spaced(text: str) -> str:
+    """Symbol-folded, space-tokenized normal form (for token-level fuzzy)."""
+    return normalize_for_match(_fold_title_symbols(text))
+
+
 def normalize_for_specials(text: str) -> str:
     """
     Normalize text for specials/extras fuzzy matching.
 
-    Strips everything except lowercase alphanumerics. Delegates to
-    normalize_for_match first to get article stripping etc., then
-    removes remaining whitespace for substring matching.
+    Symbol folding + normalize_for_match, then strip everything except
+    lowercase alphanumerics for substring matching.
     """
-    text = normalize_for_match(text)
+    text = normalize_for_specials_spaced(text)
     return re.sub(r"[^a-z0-9]", "", text)
 
 

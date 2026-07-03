@@ -13,6 +13,7 @@ from ._parsing_names import (
     is_already_complete,
     normalize_for_match,
     normalize_for_specials,
+    normalize_for_specials_spaced,
 )
 from ._parsing_seasons import get_season, get_year_season, is_season_only_name
 from ._parsing_subtitles import find_companion_subtitles
@@ -54,5 +55,6 @@ __all__ = [
     "looks_like_tv_episode",
     "normalize_for_match",
     "normalize_for_specials",
+    "normalize_for_specials_spaced",
     "sanitize_filename",
 ]
