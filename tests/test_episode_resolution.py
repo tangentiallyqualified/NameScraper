@@ -460,10 +460,11 @@ class TestMultiSegmentTitleRun:
         )
         assert res.episodes == (1, 2, 3)
 
-    def test_typo_segment_not_auto_accepted(self):
-        # Source typo "Curiousity" must NOT exact-match, so the multi-segment
-        # partition must NOT fire and fabricate a confident (37, 38) run. The
-        # file lands in review (existing inexact-title path), never auto-accept.
+    def test_typo_segment_resolves_fuzzily_at_review(self):
+        # Source typo "Curiousity" can't exact-match, but the bounded fuzzy
+        # tier (RC20-2) bridges it: the run resolves to (37, 38) at REVIEW
+        # confidence with review-locked "title-fuzzy" evidence — never
+        # auto-accept.
         titles = {
             31: "Decoy A", 32: "Decoy B",
             37: "Neferkitty", 38: "Curiosity Almost Killed The Cat",
@@ -475,7 +476,8 @@ class TestMultiSegmentTitleRun:
             season_titles=titles,
             season=1,
         )
-        assert res.episodes != (37, 38)
+        assert res.episodes == (37, 38)
+        assert "title-fuzzy" in res.evidence
         assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
 
     def test_noncontiguous_title_run_falls_back_to_number(self):

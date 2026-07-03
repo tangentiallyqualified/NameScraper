@@ -16,6 +16,7 @@ from ..parsing import (
     extract_source_title_prefix,
     normalize_for_match,
     normalize_for_specials,
+    normalize_for_specials_spaced,
 )
 from .episode_assignments import (
     ORIGIN_AUTO,
@@ -41,9 +42,11 @@ CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
 
 _TITLE_EXACT = 1.0
 _TITLE_SUBSTRING = 0.90
+_TITLE_FUZZY = 0.86          # unique bounded-fuzzy title hit (typos, variants)
 _TITLE_PART_NUMBER = 0.80
 _MIN_SUBSTRING_LEN = 6       # minimum length of the INPUT to enter substring matching
 _MIN_KEY_SUBSTRING_LEN = 4   # minimum length of a KEY to participate as a candidate
+_MIN_FUZZY_LEN = 6           # minimum compacted length for edit-distance fuzz
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +114,71 @@ def _has_ambiguous_title_evidence(
     return len(_substring_candidates(normalized, lookup)) > 1
 
 
+def _edit_distance_at_most(a: str, b: str, limit: int) -> bool:
+    """Banded Levenshtein: True when edit distance <= limit."""
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > limit:
+        return False
+    prev = list(range(len(b) + 1))
+    for i, ch_a in enumerate(a, 1):
+        curr = [i] + [0] * len(b)
+        best = curr[0]
+        for j, ch_b in enumerate(b, 1):
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + (ch_a != ch_b))
+            best = min(best, curr[j])
+        if best > limit:
+            return False
+        prev = curr
+    return prev[-1] <= limit
+
+
+def _tokens_prefix_equal(a_spaced: str, b_spaced: str) -> bool:
+    """Token-aligned near-equality: same token count, each pair equal or one
+    a prefix of the other (shorter side >=3 chars), and >=1 exact pair.
+    Catches 'Friend Alliance' vs 'Friendship Alliance'."""
+    a_tokens, b_tokens = a_spaced.split(), b_spaced.split()
+    if len(a_tokens) != len(b_tokens) or not a_tokens:
+        return False
+    exact = 0
+    for token_a, token_b in zip(a_tokens, b_tokens):
+        if token_a == token_b:
+            exact += 1
+            continue
+        short, long_ = (
+            (token_a, token_b) if len(token_a) <= len(token_b) else (token_b, token_a)
+        )
+        if len(short) < 3 or not long_.startswith(short):
+            return False
+    return exact >= 1
+
+
+def _token_multisets_equal(a_spaced: str, b_spaced: str) -> bool:
+    """Reordered-token equality ignoring part-words ('Tokyo No 1 Colony
+    Part 3' vs 'Tokyo Colony No. 1 (3)'). Requires >=3 tokens."""
+    strip = {"part", "pt"}
+    a = sorted(token for token in a_spaced.split() if token not in strip)
+    b = sorted(token for token in b_spaced.split() if token not in strip)
+    return len(a) >= 3 and a == b
+
+
+def _fuzzy_title_equal(
+    input_compact: str,
+    input_spaced: str,
+    key_compact: str,
+    key_spaced: str,
+) -> bool:
+    if (
+        len(input_compact) >= _MIN_FUZZY_LEN
+        and len(key_compact) >= _MIN_FUZZY_LEN
+        and _edit_distance_at_most(input_compact, key_compact, 2)
+    ):
+        return True
+    if _tokens_prefix_equal(input_spaced, key_spaced):
+        return True
+    return _token_multisets_equal(input_spaced, key_spaced)
+
+
 def match_title_in_titles(
     raw_text: str | None,
     titles: dict[int, str],
@@ -143,6 +211,20 @@ def match_title_in_titles(
             return TitleMatch(episode=episode, title=title, strength=_TITLE_SUBSTRING)
         if len(substring_hits) > 1:
             return None
+
+    spaced = normalize_for_specials_spaced(raw_text)
+    fuzzy_hits = [
+        (episode, title)
+        for key, (episode, title) in lookup.items()
+        if _fuzzy_title_equal(
+            normalized, spaced, key, normalize_for_specials_spaced(title),
+        )
+    ]
+    if len(fuzzy_hits) == 1:
+        episode, title = fuzzy_hits[0]
+        return TitleMatch(episode=episode, title=title, strength=_TITLE_FUZZY)
+    if len(fuzzy_hits) > 1:
+        return None
 
     input_base, input_part = _strip_part_number(normalized)
     if input_base:
@@ -193,11 +275,13 @@ def match_segmented_title_run(
     raw_title: str | None,
     titles: dict[int, str],
     expected_count: int,
-) -> tuple[int, ...] | None:
+) -> tuple[tuple[int, ...], bool] | None:
     """Resolve a combined multi-segment title into an episode run by titles.
 
+    Returns ``(run, all_exact)``; ``all_exact`` is False when any group
+    matched a TMDB title fuzzily — callers must then use review confidence.
     Splits *raw_title* on segment separators and merges adjacent atoms into
-    exactly *expected_count* groups so each group is an EXACT TMDB title for a
+    exactly *expected_count* groups so each group is a TMDB title for a
     distinct episode. Because separators ("and"/","/"&") also occur *inside*
     titles, every grouping is tried; the run is accepted only when exactly one
     grouping matches and the episodes form a contiguous run. Otherwise None,
@@ -224,26 +308,49 @@ def match_segmented_title_run(
     norm_to_episode = {n: e for n, e in seen.items() if n not in duplicates}
     if not norm_to_episode:
         return None
-    matched_runs: set[tuple[int, ...]] = set()
+    spaced_keys = {
+        norm: normalize_for_specials_spaced(titles[episode])
+        for norm, episode in norm_to_episode.items()
+    }
+
+    def _match_piece(piece: str) -> tuple[int | None, bool]:
+        compact = normalize_for_specials(piece)
+        episode = norm_to_episode.get(compact)
+        if episode is not None:
+            return episode, True
+        spaced = normalize_for_specials_spaced(piece)
+        hits = [
+            episode
+            for norm, episode in norm_to_episode.items()
+            if _fuzzy_title_equal(compact, spaced, norm, spaced_keys[norm])
+        ]
+        if len(hits) == 1:
+            return hits[0], False
+        return None, False
+
+    matched_runs: dict[tuple[int, ...], bool] = {}
     for cuts in itertools.combinations(range(1, atom_count), expected_count - 1):
         bounds = (0, *cuts, atom_count)
         episodes: list[int] = []
+        all_exact = True
         for group in range(expected_count):
             lo, hi = bounds[group], bounds[group + 1]
             piece = raw_title[spans[lo][0]:spans[hi - 1][1]]
-            episode = norm_to_episode.get(normalize_for_specials(piece))
+            episode, exact = _match_piece(piece)
             if episode is None:
                 break
             episodes.append(episode)
+            all_exact = all_exact and exact
         else:
             if len(set(episodes)) == expected_count:
-                matched_runs.add(tuple(sorted(episodes)))
+                run = tuple(sorted(episodes))
+                matched_runs[run] = matched_runs.get(run, False) or all_exact
     if len(matched_runs) != 1:
         return None
-    run = next(iter(matched_runs))
+    run, all_exact = next(iter(matched_runs.items()))
     if any(b - a != 1 for a, b in zip(run, run[1:])):
         return None
-    return run
+    return run, all_exact
 
 
 def resolve_file(
@@ -265,10 +372,19 @@ def resolve_file(
     # segment is an exact distinct TMDB title forming a contiguous run, trust
     # the titles over the (frequently mis-numbered) source episode numbers.
     if len(parsed_episodes) >= 2:
-        seg_run = match_segmented_title_run(
+        seg = match_segmented_title_run(
             raw_title, season_titles, len(parsed_episodes),
         )
-        if seg_run is not None:
+        if seg is not None:
+            seg_run, seg_exact = seg
+            if not seg_exact:
+                return Resolution(  # fuzzy atoms -> review
+                    episodes=seg_run,
+                    confidence=CONF_TITLE_WINS_INEXACT,
+                    evidence=frozenset(
+                        {"title-segmented", "title-fuzzy", "number-disagree"},
+                    ),
+                )
             if valid_numbers and set(seg_run) == set(valid_numbers):
                 return Resolution(  # segmented agreement (rule-1-like)
                     episodes=seg_run,
@@ -293,14 +409,21 @@ def resolve_file(
         # accept only an unambiguous result. An exact full-title match is
         # excluded above: when TMDB itself lists the combined title, that
         # agreement outranks decomposing it.
-        runs = {
-            run
-            for expected in (2, 3, 4)
-            if (run := match_segmented_title_run(raw_title, season_titles, expected))
-            is not None
-        }
+        runs: dict[tuple[int, ...], bool] = {}
+        for expected in (2, 3, 4):
+            seg = match_segmented_title_run(raw_title, season_titles, expected)
+            if seg is not None:
+                runs[seg[0]] = runs.get(seg[0], False) or seg[1]
         if len(runs) == 1:
-            seg_run = next(iter(runs))
+            seg_run, seg_exact = next(iter(runs.items()))
+            if not seg_exact:
+                return Resolution(  # fuzzy atoms -> review
+                    episodes=seg_run,
+                    confidence=CONF_TITLE_WINS_INEXACT,
+                    evidence=frozenset(
+                        {"title-segmented", "title-fuzzy", "number-disagree"},
+                    ),
+                )
             if valid_numbers and set(valid_numbers) <= set(seg_run):
                 return Resolution(  # number lies inside the titled run
                     episodes=seg_run,
@@ -373,10 +496,16 @@ def resolve_file(
         )
 
     if title_match is not None and strong_title:  # rule 5
-        return Resolution(
+        if title_match.strength >= _TITLE_SUBSTRING:
+            return Resolution(
+                episodes=(title_match.episode,),
+                confidence=CONF_TITLE_ONLY,
+                evidence=frozenset({"title-strong"}),
+            )
+        return Resolution(  # fuzzy-only match -> review
             episodes=(title_match.episode,),
-            confidence=CONF_TITLE_ONLY,
-            evidence=frozenset({"title-strong"}),
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-strong-inexact", "title-fuzzy"}),
         )
 
     if parsed_episodes:
@@ -523,7 +652,7 @@ def _claim_strength(claim) -> int:
     """
     if claim.evidence & _EXACT_TITLE_EVIDENCE:
         return 3
-    if claim.evidence & {"title-strong-inexact", "title-segmented"}:
+    if claim.evidence & {"title-strong-inexact", "title-segmented", "title-fuzzy"}:
         return 2
     if "season-relative" in claim.evidence and "special-number-only" not in claim.evidence:
         return 2
@@ -620,10 +749,10 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
             for ep in proposed
             if table.slots[(season, ep)].title
         }
-        seg_run = match_segmented_title_run(
+        seg = match_segmented_title_run(
             entry.raw_title, proposed_titles, len(proposed),
         )
-        if seg_run != proposed:
+        if seg is None or seg[0] != proposed:
             match = match_title_in_titles(entry.raw_title, proposed_titles)
             if match is None:
                 continue
@@ -828,7 +957,7 @@ def apply_confidence_adjustments(
     for assignment in table.assignments():
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
-            "offset-inferred", "title-multi-segment",
+            "offset-inferred", "title-multi-segment", "title-fuzzy",
         }:
             table.set_confidence(
                 assignment.file_id,
