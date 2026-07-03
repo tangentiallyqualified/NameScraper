@@ -90,3 +90,35 @@ def test_prequel_with_parent_number_does_not_claim_s0_number(tmp_path):
     assert assignment is not None
     assert assignment.season == 0
     assert assignment.episodes == (86,)
+
+
+def test_root_file_with_no_parse_matches_special_by_stem(tmp_path):
+    season_titles = {1: "Your Real Best Friend!", 2: "Why June?"}
+    s0_titles = {2: "The Henry & June Show", 3: "An Off-Beats Valentine's"}
+    table = _table_with(1, season_titles, s0_titles)
+    file_path = tmp_path / "The Henry & June Show (1999).mp4"
+    file_path.touch()
+    _resolve_into_table(
+        table, file_path=file_path, season_num=1,
+        season_titles=season_titles, specials_titles=s0_titles,
+        show_name="KaBlam!",
+    )
+    assignment = table.assignment_for(0)
+    assert assignment is not None
+    assert assignment.season == 0 and assignment.episodes == (2,)
+
+
+def test_offbeats_valentines_stem_substring(tmp_path):
+    season_titles = {1: "Your Real Best Friend!"}
+    s0_titles = {2: "The Henry & June Show", 3: "An Off-Beats Valentine's"}
+    table = _table_with(1, season_titles, s0_titles)
+    file_path = tmp_path / "The Off-Beats Valentine's Special (1998).mp4"
+    file_path.touch()
+    _resolve_into_table(
+        table, file_path=file_path, season_num=1,
+        season_titles=season_titles, specials_titles=s0_titles,
+        show_name="KaBlam!",
+    )
+    assignment = table.assignment_for(0)
+    assert assignment is not None
+    assert assignment.season == 0 and assignment.episodes == (3,)

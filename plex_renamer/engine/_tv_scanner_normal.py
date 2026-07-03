@@ -92,10 +92,10 @@ def _resolve_into_table(
         # must not match episodes/specials whose titles contain the show
         # name.
         title_evidence = None
-    if season_num == 0 and not title_evidence:
-        # Specials numbering varies across sources; the filename itself is
-        # often the only title evidence. Clean it so quality tags don't
-        # pollute the match (mirrors the retired match_special stem fallback).
+    if not title_evidence and (season_num == 0 or not episode_numbers):
+        # No parsed episode and no extracted title: the filename itself is
+        # the only evidence (root specials like "The Henry & June Show
+        # (1999).mp4"). Clean it so quality tags don't pollute the match.
         cleaned_stem = clean_title_evidence(file_path.stem)
         cleaned_stem = _SPECIAL_STEM_PREFIX_RE.sub("", cleaned_stem).strip()
         title_evidence = cleaned_stem or None
