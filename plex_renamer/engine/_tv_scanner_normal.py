@@ -131,10 +131,20 @@ def _resolve_into_table(
             # no episode information and must not ride over valid own-season
             # numbers.
             s0_match = None
+        own_explicit_valid = (
+            is_season_relative
+            and season_hint == season_num
+            and bool(episode_numbers)
+            and all(episode in season_titles for episode in episode_numbers)
+        )
         if (
             s0_match is not None
             and s0_match.strength >= STRONG_TITLE_STRENGTH
             and (own_match is None or s0_match.strength > own_match.strength)
+            and (
+                not own_explicit_valid
+                or (s0_match.strength >= _TITLE_EXACT and own_match is None)
+            )
         ):
             if (0, s0_match.episode) not in table.slots:
                 table.add_slot(EpisodeSlot(

@@ -102,9 +102,11 @@ def test_cross_season_does_not_pull_normal_episode():
 
 def test_cross_season_substring_pull_tagged_inexact():
     table = make_season1_table()  # S1 slots 1-5
+    # E07 is NOT a valid own-season episode, so the substring S0 pull is
+    # allowed (RC24b only protects VALID explicit own-season numbers).
     _resolve_into_table(
         table,
-        file_path=Path("Show S01E01 - The Lost Pilot Episode.mkv"),
+        file_path=Path("Show S01E07 - The Lost Pilot Episode.mkv"),
         season_num=1,
         season_titles={1: "Completely Different", 2: "Also Different"},
         specials_titles={1: "The Lost Pilot"},
@@ -116,6 +118,23 @@ def test_cross_season_substring_pull_tagged_inexact():
     assert "cross-season-special" in assignment.evidence
     assert "title-strong-inexact" in assignment.evidence
     assert "title-strong" not in assignment.evidence
+
+
+def test_inexact_s0_pull_blocked_for_valid_own_number():
+    table = make_season1_table()  # S1 slots 1-5
+    # Same substring hit, but E01 IS valid in the own season -> no pull (RC24b).
+    _resolve_into_table(
+        table,
+        file_path=Path("Show S01E01 - The Lost Pilot Episode.mkv"),
+        season_num=1,
+        season_titles={1: "Completely Different", 2: "Also Different"},
+        specials_titles={1: "The Lost Pilot"},
+    )
+    entry = next(iter(table.files.values()))
+    assignment = table.assignment_for(entry.file_id)
+    assert assignment is not None
+    assert assignment.season == 1
+    assert assignment.episodes == (1,)
 
 
 def test_specials_title_evidence_strips_quality_tags():
