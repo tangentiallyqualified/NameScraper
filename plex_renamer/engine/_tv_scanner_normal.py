@@ -65,6 +65,10 @@ def _resolve_into_table(
         # is not an episode number; claiming numbered S0 slots from it
         # produced mass conflicts. Only explicit S00E## numbering counts.
         episode_numbers = []
+    elif from_extras_folder and season_hint not in (None, 0):
+        # "Prequel - S07E13 - …": the S##E## names the PARENT episode the
+        # extra belongs to, not an S0 slot (RC25).
+        episode_numbers = []
     if is_companion_video_file(file_path):
         entry = table.add_file(
             file_path,
@@ -111,6 +115,30 @@ def _resolve_into_table(
         season_titles=season_titles,
         season=season_num,
     )
+    if (
+        season_num == 0
+        and not resolution.episodes
+        and title_evidence
+        and " - " in title_evidence
+    ):
+        # Extras often name themselves "Parent Title - Extra Title" while
+        # TMDB lists "Extra Title (Parent Title Prequel)"; per-segment
+        # matching bridges the recombination (RC25).
+        for segment in reversed(title_evidence.split(" - ")):
+            segment = segment.strip()
+            if len(segment) < 4:
+                continue
+            segment_match = match_title_in_titles(segment, season_titles)
+            if (
+                segment_match is not None
+                and segment_match.strength >= STRONG_TITLE_STRENGTH
+            ):
+                resolution = Resolution(
+                    episodes=(segment_match.episode,),
+                    confidence=CONF_TITLE_WINS_INEXACT,
+                    evidence=frozenset({"title-strong-inexact", "segment-title"}),
+                )
+                break
     season_for_assign = season_num
     if (
         season_num != 0

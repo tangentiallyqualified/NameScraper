@@ -67,3 +67,26 @@ def test_exact_s0_title_still_loses_to_valid_own_number_with_own_match(tmp_path)
     )
     assignment = table.assignment_for(0)
     assert assignment.season == 2 and assignment.episodes == (10,)
+
+
+def test_prequel_with_parent_number_does_not_claim_s0_number(tmp_path):
+    s0_titles = {
+        13: "Planet of the Dead",
+        85: "She Said, He Said (The Name of the Doctor Prequel)",
+        86: "Clarence and the Whispermen (The Name of the Doctor Prequel)",
+    }
+    table = _table_with(0, {}, s0_titles)
+    file_path = (
+        tmp_path
+        / "Prequel - S07E13 - The Name of the Doctor - Clarence and the Whispermen.mkv"
+    )
+    file_path.touch()
+    _resolve_into_table(
+        table, file_path=file_path, season_num=0,
+        season_titles=s0_titles, from_extras_folder=True,
+        show_name="Doctor Who",
+    )
+    assignment = table.assignment_for(0)
+    assert assignment is not None
+    assert assignment.season == 0
+    assert assignment.episodes == (86,)
