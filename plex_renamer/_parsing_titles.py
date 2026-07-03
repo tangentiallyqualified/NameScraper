@@ -155,9 +155,17 @@ def clean_title_evidence(name: str) -> str:
     ``(Pilot)``/``(Again)`` (so specials match their TMDB titles) while still
     dropping quality/source parentheticals. Strips square-bracketed tags and
     turns dots/underscores into spaces.
+
+    In dot-spaced release names a lone '_' is the boundary BETWEEN two
+    segment titles (Catscratch.S01E01.To.The.Moon_Bringin'.Down.The.Mouse);
+    flattening it to a space would erase the only segment separator, so it
+    becomes ' & ' instead. Names that use '_' as their word separator (no
+    dot spacing) keep the plain-space behavior.
     """
     name = re.sub(r"\[.*?\]", "", name)
     name = _strip_quality_parens(name)
+    if name.count(".") >= 3 and 1 <= name.count("_") <= 3:
+        name = name.replace("_", " & ")
     name = name.replace(".", " ").replace("_", " ")
     return re.sub(r"\s+", " ", name).strip()
 
