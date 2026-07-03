@@ -1,6 +1,10 @@
 """Menu-bar and shortcut safety checks (GUI V4 §14)."""
 from __future__ import annotations
 
+from tempfile import TemporaryDirectory
+from pathlib import Path
+from unittest.mock import MagicMock
+
 from PySide6.QtGui import QKeySequence
 
 from conftest_qt import QtSmokeBase
@@ -43,4 +47,24 @@ class QtChromeTests(QtSmokeBase):
         edit_menu = edit_action.menu()
         labels = [a.text() for a in edit_menu.actions() if a.text()]
         self.assertFalse(any("undo" in label.lower() for label in labels))
+        window.close()
+
+    def test_recent_movie_folder_switches_to_movies_tab(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        with TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+            folder = str(Path(tmp_dir) / "Movies")
+            window.settings_service.add_recent_movie_folder(folder)
+            window._rebuild_recent_menus()
+
+            window._movie_workspace.load_folder = MagicMock()
+
+            window._tabs.setCurrentIndex(1)  # TV tab active
+            window._recent_movie_menu.actions()[0].trigger()
+
+            self.assertEqual(
+                window._tabs.currentIndex(), 2, "movie folder must switch to Movies tab"
+            )
+            window._movie_workspace.load_folder.assert_called_once_with(folder)
         window.close()

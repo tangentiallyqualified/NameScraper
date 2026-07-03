@@ -91,7 +91,7 @@ class MainWindowStateCoordinator:
             path = Path(folder)
             action = window._recent_tv_menu.addAction(f"{path.name}  ({path})")
             action.triggered.connect(
-                lambda _=False, selected_folder=folder: window._tv_workspace.load_folder(selected_folder)
+                lambda _=False, selected=folder: self._load_recent(selected, media_type="tv")
             )
         window._recent_tv_menu.setEnabled(bool(window.settings_service.recent_tv_folders))
 
@@ -100,9 +100,19 @@ class MainWindowStateCoordinator:
             path = Path(folder)
             action = window._recent_movie_menu.addAction(f"{path.name}  ({path})")
             action.triggered.connect(
-                lambda _=False, selected_folder=folder: window._movie_workspace.load_folder(selected_folder)
+                lambda _=False, selected=folder: self._load_recent(selected, media_type="movie")
             )
         window._recent_movie_menu.setEnabled(bool(window.settings_service.recent_movie_folders))
+
+    def _load_recent(self, folder: str, *, media_type: str) -> None:
+        """Recent-folder click: land on the owning tab, then load (GUI V4 §14)."""
+        window = self._window
+        if media_type == "tv":
+            self.switch_to_tab(self._tv_index)
+            window._tv_workspace.load_folder(folder)
+            return
+        self.switch_to_tab(self._movies_index)
+        window._movie_workspace.load_folder(folder)
 
     def on_tab_changed(self, index: int) -> None:
         window = self._window
