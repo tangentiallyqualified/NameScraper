@@ -1,5 +1,35 @@
 # Batch TV Bug Investigation — Round 3 Root Causes (2026-07-02)
 
+**Status: fixed and re-validated 2026-07-02** against the real library via
+`scripts/scan_real_library.py` (fresh dumps in `.scan-dumps\`). Validation
+highlights: Tigtone S1 fully exact-mapped at 0.92 with zero conflicts;
+Jimmy Neutron's specials match 'The Adventures of Jimmy Neutron: Boy Genius'
+(2129) at 0.78; Limitless tie=False; Samurai Jack returns a full preview
+(its genuinely off-by-one roman-numeral naming parks as visible conflicts /
+review, per the "review over guessing" directive); IT Crowd S00E01 at 0.86
+`special-explicit`; Blue Submarine files park as honest no-title-match
+unmapped primaries (queueable, manual-assign workflow); Off the Air 'Sex' →
+S13E01 0.88; Rick and Morty S01E04 → 0.96 rule-1; Animaniacs E03 → S01E07-09
+0.90 via positional fill (unassigned count 11 → 9, the rest are 4-6-segment
+compilations left at review); Ren & Stimpy 'Son of Stimpy'/'Ol' Blue
+Nose'/'Stupid Sidekick Union' rescued to S03E05/S04E24/S04E25 at 0.70;
+Powerpuff Show & Tell → exact S00E10-12, only the legitimate Color/Pencil
+S00E01 conflict remains (numbered pair, hard-blocks queueing); Rocket Power
+'The Big Day' → S03E41 0.70; Rugrats 'Murmur' → S09E27, squatter packs
+unassign with "segment titles match Season N non-contiguously". Zero engine
+errors in the run (Samurai Jack and KaBlam crashes gone).
+Regression tests: RC30 `tests/test_run_extension_guards.py`;
+RC31 `tests/test_segmented_positional_fill.py`;
+RC32 `tests/test_conflict_snapshot_staleness.py`;
+RC33 `tests/test_token_aligned_substring.py`;
+RC34 `tests/test_explicit_special_numbers.py`;
+RC35 `tests/test_lost_conflict_rescue.py`;
+RC36 `tests/test_cross_season_number_claims.py`;
+RC37 `tests/test_show_scoring_token_subset.py`;
+RC38 `tests/test_tiebreak_discrimination.py` + `tests/test_scan_improvements.py`;
+RC39 `tests/test_conflict_queue_protection.py` + `tests/test_roster_classification.py`
++ `tests/test_command_gating_service.py`.
+
 Follow-up to
 [2026-07-02-batch-tv-bug-investigation-round2.md](2026-07-02-batch-tv-bug-investigation-round2.md)
 (RC16–RC28, fixed; RC29 deferred). User review after the round-2 fixes
