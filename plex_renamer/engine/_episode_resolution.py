@@ -27,6 +27,7 @@ from .episode_assignments import (
     REASON_NOT_IN_SEASON,
     EpisodeAssignmentTable,
     EpisodeSlot,
+    duplicate_copy_reason,
 )
 
 # ── calibration constants ───────────────────────────────────────────
@@ -788,13 +789,10 @@ def _claim_strength(claim) -> int:
 
 
 def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) -> bool:
-    """True when tied claims are copies of the SAME episode from parallel
-    source folders: identical parsed numbers and a shared real title (one
-    normalized title may extend another with release junk, e.g.
-    "Need for Weed" vs "Need for Weed 1080p H265 …")."""
-    parsed = {table.files[claim.file_id].parsed_episodes for claim in claims}
-    if len(parsed) != 1:
-        return False
+    """True when tied claims share the SAME real title — copies of one
+    episode from parallel source folders, even when their parsed numbers
+    differ (a mislabeled copy: "S01E34 - Dexter's Rival"). One normalized
+    title may extend another with release junk."""
     titles = [
         normalize_for_specials(table.files[claim.file_id].raw_title or "")
         for claim in claims
@@ -923,16 +921,20 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
             continue
 
         if _claims_are_duplicate_copies(table, winners):
-            # Same parsed numbers AND the same real title from parallel
-            # source folders = duplicate copies of one episode, not a
-            # genuine conflict. Keep the first-registered (primary) copy.
-            keep = min(winners, key=lambda claim: claim.file_id)
+            # Prefer the claimant whose parsed number agrees with the slot;
+            # fall back to the first-registered copy.
+            keep = next(
+                (
+                    claim for claim in winners
+                    if episode in table.files[claim.file_id].parsed_episodes
+                ),
+                min(winners, key=lambda claim: claim.file_id),
+            )
             table.resolve_conflict(season, episode, winner_file_id=keep.file_id)
             for claim in winners:
                 if claim.file_id != keep.file_id:
                     table.mark_unassigned(
-                        claim.file_id,
-                        f"duplicate copy of S{season:02d}E{episode:02d}",
+                        claim.file_id, duplicate_copy_reason(season, episode),
                     )
             continue
 

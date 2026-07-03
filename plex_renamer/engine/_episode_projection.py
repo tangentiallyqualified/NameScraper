@@ -12,6 +12,7 @@ from ._movie_scanner import _build_subtitle_companions
 from ._state import get_episode_auto_accept_threshold
 from .episode_assignments import (
     ORIGIN_MANUAL,
+    REASON_DUPLICATE_COPY,
     REASON_NO_PARSE,
     REASON_NO_TITLE_MATCH,
     EpisodeAssignmentTable,
@@ -42,6 +43,18 @@ def _unassigned_item(
     root: Path,
     media_fields: dict,
 ) -> PreviewItem:
+    if reason.startswith(REASON_DUPLICATE_COPY):
+        return PreviewItem(
+            original=entry.path,
+            new_name=None,
+            target_dir=None,
+            season=entry.folder_season,
+            episodes=list(entry.parsed_episodes),
+            status=f"DUPLICATE: {reason}",
+            file_id=entry.file_id,
+            source_relative_folder=entry.source_relative_folder,
+            **media_fields,
+        )
     if entry.folder_season == 0 and reason == REASON_NO_TITLE_MATCH:
         if entry.from_extras_folder:
             return PreviewItem(

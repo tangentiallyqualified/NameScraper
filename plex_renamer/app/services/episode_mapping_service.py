@@ -207,6 +207,15 @@ class EpisodeMappingService:
         conflict_count = 0
 
         for preview in state.preview_items:
+            if preview.is_duplicate:
+                guide.duplicate_files.append(
+                    UnmappedFileRow(
+                        original=preview.original,
+                        reason=preview.status.removeprefix("DUPLICATE: "),
+                        preview=preview,
+                    )
+                )
+                continue
             if not self._is_episode_mapped(preview):
                 reason = preview.status
                 if state.assignments is not None and preview.file_id is not None:
@@ -273,6 +282,7 @@ class EpisodeMappingService:
             orphan_companion_files=len(guide.orphan_companion_files),
             conflicts=conflict_count,
             review_required=sum(1 for row in guide.rows if row.status == "Review"),
+            duplicate_files=len(guide.duplicate_files),
         )
         return guide
 

@@ -382,6 +382,34 @@ class MediaWorkspacePreviewPanel(QFrame):
                 self._sync_item_height(item, widget)
                 self._list_widget.setItemWidget(item, widget)
 
+        if self._episode_filter in {"all", "problems"} and guide.duplicate_files:
+            self.add_static_header(
+                f"Duplicate Copies ({len(guide.duplicate_files)})",
+                render_key=render_key,
+            )
+            for duplicate in guide.duplicate_files:
+                index = (
+                    state.preview_items.index(duplicate.preview)
+                    if duplicate.preview in state.preview_items else None
+                )
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                item.setData(_PREVIEW_ENTRY_KIND_ROLE, "duplicate")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self._add_rendered_item(item, render_key)
+                widget = _EpisodeGuideRowWidget(
+                    title=duplicate.original.name,
+                    status="Duplicate",
+                    original=str(duplicate.reason),
+                    actions=[],
+                    parent=self._list_widget,
+                )
+                widget.clicked.connect(
+                    lambda item=item: self._list_widget.setCurrentItem(item)
+                )
+                self._sync_item_height(item, widget)
+                self._list_widget.setItemWidget(item, widget)
+
         rendered_rows = 0
         for season_num, rows in sorted(rows_by_season.items()):
             section_key = f"episode-guide-season:{season_num}"

@@ -93,6 +93,10 @@ class PreviewItem:
         return self.status.startswith("SKIP")
 
     @property
+    def is_duplicate(self) -> bool:
+        return self.status.startswith("DUPLICATE")
+
+    @property
     def is_review(self) -> bool:
         return self.status.startswith("REVIEW")
 

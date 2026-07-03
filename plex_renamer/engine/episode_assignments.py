@@ -29,6 +29,16 @@ REASON_LOST_CONFLICT = "lost conflict"
 def lost_conflict_reason(season: int, episode: int) -> str:
     """Lost-conflict reason naming the slot the file lost the match for."""
     return f"{REASON_LOST_CONFLICT} for S{season:02d}E{episode:02d}"
+
+
+REASON_DUPLICATE_COPY = "duplicate copy"
+
+
+def duplicate_copy_reason(season: int, episode: int) -> str:
+    """Reason marking a losing duplicate copy of one episode."""
+    return f"{REASON_DUPLICATE_COPY} of S{season:02d}E{episode:02d}"
+
+
 REASON_DISPLACED = "reassigned to another file"
 REASON_MANUAL_UNASSIGN = "manually unassigned"
 REASON_AMBIGUOUS_RUN = "ambiguous multi-episode numbering"
