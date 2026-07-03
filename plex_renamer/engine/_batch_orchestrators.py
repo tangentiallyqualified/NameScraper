@@ -115,7 +115,7 @@ class BatchTVOrchestrator:
         threshold: float = 0.10,
         compare_seasons: bool = False,
         explicit_seasons: set[int] | None = None,
-    ) -> tuple[dict, float]:
+    ) -> tuple[dict, float, bool]:
         return _episode_count_tiebreak(
             self.tmdb,
             scored,
@@ -186,9 +186,14 @@ class BatchTVOrchestrator:
             folder_score_name = clean_folder_name(
                 (name_fallback or candidate.folder).name,
             )
-            year_hint = extract_year(candidate.folder.name)
-            if year_hint is None and name_fallback is not None:
+            # When the generic-name fallback is active, the PARENT carries the
+            # show's year; the child's own year range ("Specials (2003-06)")
+            # is special air dates, not the show year (RC37).
+            year_hint = None
+            if name_fallback is not None:
                 year_hint = extract_year(name_fallback.name)
+            if year_hint is None:
+                year_hint = extract_year(candidate.folder.name)
             episode_evidence = self._collect_direct_episode_evidence(candidate.folder)
             candidates.append((
                 candidate,
@@ -280,10 +285,11 @@ class BatchTVOrchestrator:
         # one season's worth of episodes — compare against the candidates'
         # matching-season episode counts rather than whole-show totals.
         explicit_seasons = {item.season_num for item in episode_evidence} or None
+        tie_broken_by_counts = False
         if file_count > 0 and len(scored) >= 2:
             runner_up, runner_up_score = scored[1]
             if best_score - runner_up_score <= 0.10:
-                best, best_score = self._episode_count_tiebreak(
+                best, best_score, tie_broken_by_counts = self._episode_count_tiebreak(
                     scored,
                     file_count,
                     threshold=0.10,
@@ -308,7 +314,7 @@ class BatchTVOrchestrator:
         )
 
         tie_detected = False
-        if len(scored) >= 2:
+        if len(scored) >= 2 and not tie_broken_by_counts:
             for result, score in scored:
                 if result.get("id") != best.get("id"):
                     # Compare on the same clamped scale as best_score:

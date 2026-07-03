@@ -243,6 +243,12 @@ class TVScanner:
             show_info=self.show_info,
             show_match_confidence=self._show_match_confidence,
         )
+        # Conflict resolution (inside apply_confidence_adjustments) creates
+        # lost-conflict unassignments AFTER the rescues above ran; give those
+        # files one rescue pass too (RC35). Rescues only take unclaimed
+        # slots, so no new conflicts can appear.
+        rescue_cross_season_titles(table)
+        rescue_same_season_fuzzy_titles(table)
         self.assignment_table = table
         return project_preview_items(
             table,
@@ -261,6 +267,7 @@ class TVScanner:
             apply_confidence_adjustments,
             apply_uniform_offset_rescue,
             rescue_cross_season_segmented,
+            rescue_cross_season_titles,
             rescue_same_season_fuzzy_titles,
         )
         from ._tv_scanner_consolidated import build_consolidated_table
@@ -273,6 +280,7 @@ class TVScanner:
             root=self.root,
             store_tmdb_data=self._store_tmdb_data,
         )
+        rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
         rescue_same_season_fuzzy_titles(table)
         apply_uniform_offset_rescue(table)
@@ -281,6 +289,9 @@ class TVScanner:
             show_info=self.show_info,
             show_match_confidence=self._show_match_confidence,
         )
+        # Post-conflict rescue pass for lost-conflict files (RC35).
+        rescue_cross_season_titles(table)
+        rescue_same_season_fuzzy_titles(table)
         self.assignment_table = table
         return project_preview_items(
             table,

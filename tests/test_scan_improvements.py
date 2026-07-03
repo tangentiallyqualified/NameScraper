@@ -405,11 +405,24 @@ class SaturatedTieBreakTests(unittest.TestCase):
         self.assertFalse(states[0].tie_detected)
 
     def test_two_exact_primary_names_keep_the_tie(self):
-        # A genuine ambiguity (both results literally named "Watchmen")
-        # must still surface as a tie for review.
-        states = self._discover(_FakeWatchmenTMDB(spinoff_name="Watchmen"))
+        # A GENUINE ambiguity — both literally named "Watchmen" AND
+        # indistinguishable by episode count — must still surface as a tie.
+        class _EqualCounts(_FakeWatchmenTMDB):
+            def _count(self, show_id):
+                return 9
+
+        states = self._discover(_EqualCounts(spinoff_name="Watchmen"))
         self.assertEqual(len(states), 1)
         self.assertTrue(states[0].tie_detected)
+
+    def test_episode_count_discrimination_breaks_same_name_tie(self):
+        # RC38 (Limitless): same primary name, but the folder's 9 files
+        # exactly match the real show's episode count (spinoff has 12) —
+        # the count evidence identifies the show, so no tie flag.
+        states = self._discover(_FakeWatchmenTMDB(spinoff_name="Watchmen"))
+        self.assertEqual(len(states), 1)
+        self.assertEqual(states[0].show_id, 79788)
+        self.assertFalse(states[0].tie_detected)
 
 
 class SpecialsLeafDiscoveryTests(unittest.TestCase):
@@ -2532,7 +2545,7 @@ class ScanImprovementTests(unittest.TestCase):
         orch = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
         orch.tmdb = _FakeTMDB()
 
-        best, _ = orch._episode_count_tiebreak(
+        best, _, _ = orch._episode_count_tiebreak(
             scored, file_count=4, threshold=0.10, compare_seasons=True,
         )
         self.assertEqual(best["id"], 1002,
@@ -2588,7 +2601,7 @@ class ScanImprovementTests(unittest.TestCase):
         orch.tmdb = _FakeTMDB()
 
         # Without season context the old behaviour picks the wrong show.
-        best, _ = orch._episode_count_tiebreak(
+        best, _, _ = orch._episode_count_tiebreak(
             scored, file_count=8, threshold=0.10, explicit_seasons={1},
         )
         self.assertEqual(

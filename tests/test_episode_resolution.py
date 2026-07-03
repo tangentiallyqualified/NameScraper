@@ -546,10 +546,10 @@ class TestSingleNumberSegmentedRun:
         assert "title-agree" in res.evidence
         assert res.confidence >= CONF_AGREE
 
-    def test_partial_segment_titles_keep_number_review_marked(self):
-        # Two segments match E16/E17 but the third is unknown: no unique run,
-        # so the bare number survives — flagged as a multi-segment title so
-        # the confidence floors cannot lift it to auto-accept.
+    def test_partial_segment_titles_fill_positionally_at_review(self):
+        # Two segments match E16/E17 and the third is unknown: RC31 fills
+        # the run positionally at review confidence instead of keeping the
+        # bare (wrong) disc number — still never auto-accepted.
         res = resolve_file(
             parsed_episodes=(6,),
             raw_title="Flipper Parody & Temporary Insanity & Missing Thing",
@@ -557,8 +557,7 @@ class TestSingleNumberSegmentedRun:
             season_titles=self.ANIMANIACS_S1,
             season=1,
         )
-        assert res.episodes == (6,)
-        assert "title-multi-segment" in res.evidence
+        assert res.episodes == (16, 17, 18)
         assert res.confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
 
     def test_multi_segment_number_claim_not_floored_to_auto_accept(self):

@@ -365,20 +365,53 @@ def match_segmented_title_run(
     matched_runs: dict[tuple[int, ...], bool] = {}
     for cuts in itertools.combinations(range(1, atom_count), expected_count - 1):
         bounds = (0, *cuts, atom_count)
-        episodes: list[int] = []
-        all_exact = True
+        episodes: list[int | None] = []
+        exacts: list[bool] = []
+        pieces: list[str] = []
         for group in range(expected_count):
             lo, hi = bounds[group], bounds[group + 1]
             piece = raw_title[spans[lo][0]:spans[hi - 1][1]]
             episode, exact = _match_piece(piece)
-            if episode is None:
-                break
             episodes.append(episode)
-            all_exact = all_exact and exact
-        else:
-            if len(set(episodes)) == expected_count:
-                run = tuple(sorted(episodes))
-                matched_runs[run] = matched_runs.get(run, False) or all_exact
+            exacts.append(exact)
+            pieces.append(piece)
+
+        matched = [(i, e) for i, e in enumerate(episodes) if e is not None]
+        if len(matched) < expected_count:
+            # Positional fill (RC31): >=2 groups matched a consistent
+            # contiguous layout; an unmatched group's slot is start+i. The
+            # fill stays EXACT when the group's title equals that slot's
+            # title (a duplicate title the unique-lookup had to exclude),
+            # and drops to review when the slot title differs (at most one
+            # such unverified group).
+            if len(matched) < 2:
+                continue
+            starts = {episode - index for index, episode in matched}
+            if len(starts) != 1:
+                continue
+            start = starts.pop()
+            unverified = 0
+            for index, episode in enumerate(episodes):
+                if episode is not None:
+                    continue
+                candidate = start + index
+                if candidate not in titles:
+                    unverified = 99
+                    break
+                piece_norm = normalize_for_specials(pieces[index])
+                slot_norm = normalize_for_specials(titles[candidate])
+                episodes[index] = candidate
+                if not piece_norm or piece_norm != slot_norm:
+                    unverified += 1
+                    exacts[index] = False
+                else:
+                    exacts[index] = True
+            if unverified > 1:
+                continue
+        all_exact = all(exacts)
+        if len(set(episodes)) == expected_count:
+            run = tuple(sorted(episodes))  # type: ignore[arg-type]
+            matched_runs[run] = matched_runs.get(run, False) or all_exact
     if len(matched_runs) != 1:
         return None
     run, all_exact = next(iter(matched_runs.items()))
@@ -435,6 +468,7 @@ def resolve_file(
     is_season_relative: bool,
     season_titles: dict[int, str],
     season: int | None = None,
+    season_hint: int | None = None,
 ) -> Resolution:
     """Apply the 6-rule resolution policy for one file against one season."""
     valid_numbers = tuple(e for e in parsed_episodes if e in season_titles)
@@ -640,6 +674,18 @@ def resolve_file(
                 ),
             )
         if season == 0:
+            if is_season_relative and season_hint == 0 and not raw_title:
+                # An explicit S00E## in the FILENAME with no contradicting
+                # title is the author's own specials labeling, not an
+                # inferred guess (IT Crowd 'S00E01.mkv'; RC34). Files whose
+                # rich titles match nothing keep the review lock below.
+                return Resolution(
+                    episodes=valid_numbers,
+                    confidence=CONF_NUMBER_RELATIVE,
+                    evidence=frozenset(
+                        {"number", "season-relative", "special-explicit"},
+                    ),
+                )
             # Season-0 numbering varies by source; a bare number is not
             # trustworthy on its own -> force review.
             return Resolution(
@@ -1258,16 +1304,17 @@ def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
 
 
 def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
-    """Rescue single-episode files SKIPped as 'episode not in TMDB season'
-    whose exact title is an unclaimed slot in a *different* regular season.
+    """Rescue single-episode files SKIPped as 'episode not in TMDB season' —
+    or unassigned after LOSING a conflict (RC35) — whose exact title is an
+    unclaimed slot in a *different* regular season.
 
     Source season folders sometimes hold episodes TMDB lists under another
     regular season (As Told By Ginger's Season 1 folder holds S2E1-E4, named
-    S01E17-E20). The parsed number is wrong, but an exact title in exactly one
-    unclaimed regular-season slot is trustworthy enough to rescue — at review
-    confidence, because the source numbering is known-bad. Ambiguous titles
-    (matching 2+ unclaimed regular seasons) and already-claimed targets are
-    left untouched.
+    S01E17-E20; Ren & Stimpy's S5 files hold S4E24-25 content). The parsed
+    number is wrong — or already beaten by a stronger claimant — but an exact
+    title in exactly one unclaimed regular-season slot is trustworthy enough
+    to rescue at review confidence. Ambiguous titles (matching 2+ unclaimed
+    regular seasons) and already-claimed targets are left untouched.
     """
     title_index: dict[str, list[tuple[int, int]]] = {}
     for (season, episode), slot in table.slots.items():
@@ -1284,7 +1331,10 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
     }
 
     for file_id, reason in list(table.unassigned_reasons.items()):
-        if reason != REASON_NOT_IN_SEASON:
+        if not (
+            reason == REASON_NOT_IN_SEASON
+            or reason.startswith(REASON_LOST_CONFLICT)
+        ):
             continue
         entry = table.files.get(file_id)
         if entry is None or not entry.raw_title or len(entry.parsed_episodes) != 1:
@@ -1307,12 +1357,82 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
         )
         claimed.add((season, episode))
 
+    # RC36: a number-only claim whose title matches NOTHING in its titled
+    # season but exactly matches a unique unclaimed slot elsewhere is a
+    # mis-filed episode ('S08E18 - Murmur On The Ornery Express' living at
+    # S09E27) — move it at review confidence instead of auto-accepting the
+    # number.
+    number_only = frozenset({"number", "season-relative"})
+    for assignment in list(table.assignments()):
+        if assignment.origin == ORIGIN_MANUAL:
+            continue
+        if not (assignment.evidence and assignment.evidence <= number_only):
+            continue
+        entry = table.files.get(assignment.file_id)
+        if entry is None or not entry.raw_title or len(entry.parsed_episodes) != 1:
+            continue
+        own_has_titles = any(
+            slot.title
+            for (slot_season, _episode), slot in table.slots.items()
+            if slot_season == assignment.season
+        )
+        if not own_has_titles:
+            continue
+        norm = normalize_for_specials(entry.raw_title)
+        if not norm:
+            continue
+        candidates = [
+            (season, episode)
+            for (season, episode) in title_index.get(norm, [])
+            if season != assignment.season and (season, episode) not in claimed
+        ]
+        if len(candidates) != 1:
+            continue
+        season, episode = candidates[0]
+        claimed -= {(assignment.season, e) for e in assignment.episodes}
+        table.assign(
+            assignment.file_id, season, [episode], origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-strong", "cross-season-rescue"}),
+        )
+        claimed.add((season, episode))
+
+
+def _scattered_atom_seasons(
+    raw_title: str,
+    titles_by_season: dict[int, dict[int, str]],
+    current_season: int | None,
+) -> set[int]:
+    """Seasons (other than *current_season*) where >=2 of the title's atoms
+    exact-match episode titles WITHOUT forming a run (RC36)."""
+    spans = _segment_atom_spans(raw_title)
+    if len(spans) < 2:
+        return set()
+    atom_norms = [
+        normalize_for_specials(raw_title[lo:hi]) for lo, hi in spans
+    ]
+    seasons: set[int] = set()
+    for season, titles in titles_by_season.items():
+        if season == current_season:
+            continue
+        norms = {normalize_for_specials(title) for title in titles.values() if title}
+        matched = {norm for norm in atom_norms if norm and norm in norms}
+        if len(matched) >= 2:
+            seasons.add(season)
+    return seasons
+
 
 def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
     """Re-home multi-segment files whose titles match nothing in their
     assigned season but form an EXACT segmented run in exactly one OTHER
     regular season (CatDog 'Season 3' files holding S2 content). Review
-    confidence — the parsed numbers are known-wrong."""
+    confidence — the parsed numbers are known-wrong.
+
+    Files whose atoms exact-match another season NON-contiguously cannot be
+    a run there; their number claim is known-wrong too, so they unassign to
+    review (RC36). Unassignments are applied before run moves so the freed
+    slots can host other rescues in the same pass.
+    """
     titles_by_season: dict[int, dict[int, str]] = {}
     for (season, episode), slot in table.slots.items():
         if season != 0 and slot.title:
@@ -1332,11 +1452,8 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
         if entry.raw_title and len(entry.parsed_episodes) >= 2:
             candidates.append((file_id, entry.folder_season))
 
-    claimed = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    run_moves: list[tuple[int, int, tuple[int, ...]]] = []
+    scattered_unassigns: list[tuple[int, int]] = []
     for file_id, current_season in candidates:
         entry = table.files[file_id]
         expected = max(len(entry.parsed_episodes), 2)
@@ -1347,9 +1464,31 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
             seg = match_segmented_title_run(entry.raw_title, titles, expected)
             if seg is not None and seg[1]:  # exact runs only across seasons
                 hits.append((season, seg[0]))
-        if len(hits) != 1:
+        if len(hits) == 1:
+            run_moves.append((file_id, hits[0][0], hits[0][1]))
             continue
-        season, run = hits[0]
+        if hits:
+            continue  # ambiguous across seasons — leave for review
+        if table.assignment_for(file_id) is None:
+            continue
+        scattered = _scattered_atom_seasons(
+            entry.raw_title or "", titles_by_season, current_season,
+        )
+        if len(scattered) == 1:
+            scattered_unassigns.append((file_id, scattered.pop()))
+
+    for file_id, season in scattered_unassigns:
+        table.mark_unassigned(
+            file_id,
+            f"segment titles match Season {season} non-contiguously",
+        )
+
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for file_id, season, run in run_moves:
         assignment = table.assignment_for(file_id)
         own = (
             {(assignment.season, e) for e in assignment.episodes}

@@ -555,15 +555,21 @@ def build_consolidated_table(
         )
 
         if season_hint == 0:
-            title_evidence = raw_title or (
-                _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip() or None
-            )
+            title_evidence = raw_title
+            if not title_evidence and not episode_numbers:
+                # Only titleless, numberless files fall back to the stem —
+                # a stem that is just the episode marker ('S00E01') is not
+                # title evidence (RC34).
+                title_evidence = (
+                    _SPECIAL_STEM_PREFIX_RE.sub("", file_path.stem).strip() or None
+                )
             resolution = resolve_file(
                 parsed_episodes=tuple(episode_numbers),
                 raw_title=title_evidence,
                 is_season_relative=is_season_relative,
                 season_titles=s0_titles,
                 season=0,
+                season_hint=entry.season_hint,
             )
             _apply_resolution(table, entry.file_id, 0, resolution)
             continue

@@ -44,7 +44,7 @@ def episode_count_tiebreak(
     threshold: float = 0.10,
     compare_seasons: bool = False,
     explicit_seasons: set[int] | None = None,
-) -> tuple[dict, float]:
+) -> tuple[dict, float, bool]:
     """Re-rank near-tied TMDB candidates by episode/season count proximity.
 
     When *explicit_seasons* is supplied (and we are comparing episode counts,
@@ -53,6 +53,11 @@ def episode_count_tiebreak(
     a multi-season show's whole-show episode total — the Euphoria S01 bug,
     where the wrong show's total (10) was closer to 8 files than the correct
     show's total (24), even though the correct show's S1 has exactly 8.
+
+    Returns ``(best, score, discriminated)``; *discriminated* is True when
+    the winner's count distance is strictly better than every other
+    contender's — real identity evidence that should also break a same-name
+    tie (RC38), not just reorder it.
     """
     detail_key = "number_of_seasons" if compare_seasons else "number_of_episodes"
     use_season_subset = bool(explicit_seasons) and not compare_seasons
@@ -80,13 +85,19 @@ def episode_count_tiebreak(
         contenders.append((result, score, count, unaired))
 
     if not contenders:
-        return scored[0]
+        return scored[0][0], scored[0][1], False
 
     best = min(
         contenders,
         key=lambda candidate: (candidate[3], abs(candidate[2] - file_count), -candidate[1]),
     )
-    return best[0], best[1]
+    best_distance = abs(best[2] - file_count)
+    discriminated = len(contenders) >= 2 and all(
+        abs(candidate[2] - file_count) > best_distance
+        for candidate in contenders
+        if candidate[0] is not best[0]
+    )
+    return best[0], best[1], discriminated
 
 
 def primary_name_breaks_tie(
