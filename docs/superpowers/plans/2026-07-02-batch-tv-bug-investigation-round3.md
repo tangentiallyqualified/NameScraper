@@ -305,10 +305,13 @@ conflicted slot into one guide entry (single episode row listing both
 files with keep-this actions), so a conflict reads as one problem, not
 two episodes.
 
-d) **`_common_title_base` produced "Tigtone and".** 'and'/'&'/'or' are
-not in `_BASE_TRIM_WORDS`, so the collapsed base for a (wrongly
-extended, RC30) run kept a dangling conjunction — this is what the user
-took for length truncation. Trim conjunctions.
+d) **`_common_title_base` produced "Tigtone and".** The collapsed base for
+a (wrongly extended, RC30) run kept a dangling conjunction — this is what
+the user took for length truncation. Per user correction: episode titles
+containing "and" must never be truncated; the real fix is RC30 (each
+Tigtone file is ONE episode and keeps its full title). For genuine runs
+whose common prefix ends in a conjunction, `_common_title_base` returns
+None so the FULL joined titles are used — no trimming.
 
 e) **Raise `MAX_FILENAME` 150 → 170** (explicit user request;
 _parsing_names.py:18).

@@ -114,11 +114,45 @@ def test_mattress_case_still_extends():
     assert "run-extended" in resolution.evidence
 
 
-def test_common_base_trims_conjunctions():
+def test_dangling_conjunction_base_keeps_full_titles():
+    # "Tigtone and the" is a fragment of the episode titles, not a shared
+    # series name — no collapse, no truncation (user directive: episode
+    # titles containing 'and' must survive intact).
     base = _common_title_base(
         ["Tigtone and the Beautiful War", "Tigtone and the Wine Crisis"]
     )
-    assert base == "Tigtone"
+    assert base is None
+
+
+def test_genuine_shared_base_still_collapses():
+    base = _common_title_base(["Sozin's Comet - Part 1", "Sozin's Comet - Part 2"])
+    assert base == "Sozin's Comet"
+
+
+def test_base_with_interior_conjunction_kept():
+    base = _common_title_base(["Rock and Roll Part 1", "Rock and Roll Part 2"])
+    assert base == "Rock and Roll"
+
+
+def test_single_episode_tigtone_keeps_full_title():
+    from plex_renamer._parsing_names import build_tv_name
+
+    name = build_tv_name(
+        "Tigtone", "2019", 1, [3], ["Tigtone and the Wine Crisis"], ".mkv"
+    )
+    assert name == "Tigtone (2019) - S01E03 - Tigtone and the Wine Crisis.mkv"
+
+
+def test_conjunction_prefix_run_keeps_both_full_titles():
+    from plex_renamer._parsing_names import build_tv_name
+
+    name = build_tv_name(
+        "Tigtone", "2019", 1, [2, 3],
+        ["Tigtone and the Beautiful War", "Tigtone and the Wine Crisis"],
+        ".mkv",
+    )
+    assert "Tigtone and the Beautiful War" in name
+    assert "Tigtone and the Wine Crisis" in name
 
 
 def test_max_filename_is_170():

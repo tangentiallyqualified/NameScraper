@@ -9,8 +9,11 @@ from ._parsing_titles import sanitize_filename
 # Trailing words trimmed from a common title base so multi-part runs collapse
 # cleanly ("Sozin's Comet - The Phoenix King"/"...Part 1:..." -> "Sozin's Comet").
 _BASE_TRIM_WORDS = frozenset(
-    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an", "and", "or", "&"}
+    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an"}
 )
+# A base ENDING in a conjunction ("Tigtone and") is a fragment of the episode
+# titles, not a shared name — such runs keep their full joined titles.
+_DANGLING_CONJUNCTIONS = frozenset({"and", "or", "&"})
 _BASE_TRIM_CHARS = " -–,:;"
 
 # Cap on a generated TV filename (including extension). Keeps full paths well
@@ -41,6 +44,11 @@ def _common_title_base(unique_titles: list[str]) -> str | None:
             prefix.pop()
         else:
             break
+    if prefix and prefix[-1].strip(_BASE_TRIM_CHARS).casefold() in _DANGLING_CONJUNCTIONS:
+        # "Tigtone and the Beautiful War" / "Tigtone and the Wine Crisis"
+        # share "Tigtone and the" — a title fragment, not a series-within-a-
+        # series name. No collapse: the caller joins the full titles.
+        return None
     base = " ".join(prefix).strip(_BASE_TRIM_CHARS)
     if len(base) >= 3 and len(base) < len("-".join(unique_titles)):
         return base
