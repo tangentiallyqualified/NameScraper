@@ -353,6 +353,39 @@ def match_segmented_title_run(
     return run, all_exact
 
 
+def _extend_partial_title_run(
+    raw_title: str,
+    matched_episode: int,
+    season_titles: dict[int, str],
+    parsed_count: int,
+) -> tuple[int, ...] | None:
+    """Anchor a run at the one atom that title-matched (RC20(3)).
+
+    A combined multi-segment title where only ONE segment matched (typos
+    block the rest) still names its neighbors by position: n atoms with the
+    match at index i mean episodes [matched-i .. matched-i+n-1]. Only
+    extends when the atom count is unambiguous (== max(parsed, atoms) >= 2),
+    exactly one atom matches that episode, and every slot exists.
+    """
+    spans = _segment_atom_spans(raw_title)
+    run_length = max(parsed_count, len(spans))
+    if run_length < 2 or len(spans) != run_length:
+        return None
+    matching_indexes = [
+        index
+        for index, (lo, hi) in enumerate(spans)
+        for match in [match_title_in_titles(raw_title[lo:hi], season_titles)]
+        if match is not None and match.episode == matched_episode
+    ]
+    if len(matching_indexes) != 1:
+        return None
+    start = matched_episode - matching_indexes[0]
+    run = tuple(range(start, start + run_length))
+    if any(episode not in season_titles for episode in run):
+        return None
+    return run
+
+
 def resolve_file(
     *,
     parsed_episodes: tuple[int, ...],
@@ -440,18 +473,75 @@ def resolve_file(
 
     if valid_numbers and title_match is not None:
         if title_match.episode in valid_numbers:
+            if raw_title and title_match.strength < _TITLE_EXACT:
+                # The parsed number agrees, but a combined title with MORE
+                # atoms than parsed numbers means the file holds neighbors
+                # too ("S04E21 - The Mattress & Looking for Jack" = E20-E21).
+                # Only when the matched title sits INSIDE the raw title —
+                # an input that is merely a prefix of a longer TMDB title
+                # names nothing extra.
+                spans = _segment_atom_spans(raw_title)
+                if (
+                    len(spans) > len(valid_numbers)
+                    and normalize_for_specials(title_match.title)
+                    in normalize_for_specials(raw_title)
+                ):
+                    run = _extend_partial_title_run(
+                        raw_title, title_match.episode, season_titles,
+                        len(parsed_episodes),
+                    )
+                    if run is not None and set(valid_numbers) <= set(run):
+                        return Resolution(  # extended run -> review
+                            episodes=run,
+                            confidence=CONF_TITLE_WINS_INEXACT,
+                            evidence=frozenset(
+                                {"number", "title-strong-inexact", "run-extended"},
+                            ),
+                        )
             return Resolution(  # rule 1
                 episodes=valid_numbers,
                 confidence=CONF_AGREE,
                 evidence=frozenset({"number", "title-agree"}),
             )
         if strong_title and title_match.strength >= _TITLE_EXACT:
+            run = None
+            if raw_title and (
+                len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
+            ):
+                run = _extend_partial_title_run(
+                    raw_title, title_match.episode, season_titles,
+                    len(parsed_episodes),
+                )
+            if run is not None and len(run) > 1:
+                return Resolution(  # extended run -> review (partly unverified)
+                    episodes=run,
+                    confidence=CONF_TITLE_WINS_INEXACT,
+                    evidence=frozenset(
+                        {"title-strong-inexact", "number-disagree", "run-extended"},
+                    ),
+                )
             return Resolution(  # rule 2: exact title overrides, auto-accept
                 episodes=(title_match.episode,),
                 confidence=CONF_TITLE_WINS,
                 evidence=frozenset({"title-strong", "number-disagree"}),
             )
         if strong_title:
+            run = None
+            if raw_title and (
+                len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
+            ):
+                run = _extend_partial_title_run(
+                    raw_title, title_match.episode, season_titles,
+                    len(parsed_episodes),
+                )
+            if run is not None and len(run) > 1:
+                return Resolution(
+                    episodes=run,
+                    confidence=CONF_TITLE_WINS_INEXACT,
+                    evidence=frozenset(
+                        {"title-strong-inexact", "number-disagree", "run-extended"},
+                    ),
+                )
             return Resolution(  # rule 2b: strong inexact title overrides, REVIEW
                 episodes=(title_match.episode,),
                 confidence=CONF_TITLE_WINS_INEXACT,
@@ -957,7 +1047,7 @@ def apply_confidence_adjustments(
     for assignment in table.assignments():
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
-            "offset-inferred", "title-multi-segment", "title-fuzzy",
+            "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
         }:
             table.set_confidence(
                 assignment.file_id,
