@@ -74,7 +74,7 @@ def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QCol
     if state.match_origin == "manual":
         return "Approved", theme.qcolor("info")
     if is_plex_ready_state(state):
-        return "Plex Ready", theme.qcolor("success")
+        return "Fully Ready", theme.qcolor("success")
     return "Matched", theme.qcolor("info")
 
 
@@ -149,7 +149,7 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if has_episode_problems(state):
         return "review-episodes"
     if is_plex_ready_state(state):
-        return "plex-ready"
+        return "fully-ready"
     return "matched"
 
 

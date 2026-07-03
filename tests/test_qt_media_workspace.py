@@ -3713,7 +3713,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 settings_service=settings,
             )
             workspace.show_ready()
-            workspace._roster_collapsed["plex-ready"] = False
+            workspace._roster_collapsed["fully-ready"] = False
             workspace.refresh_from_controller()
 
             matched_widget = self._roster_widget_for_index(workspace, 0)

@@ -88,7 +88,7 @@ def summarize_skip_reasons(workspace, states: list[ScanState]) -> dict[str, int]
         elif state.duplicate_of is not None:
             reasons["duplicate"] = reasons.get("duplicate", 0) + 1
         elif _is_plex_ready_state(state):
-            reasons["already Plex-ready"] = reasons.get("already Plex-ready", 0) + 1
+            reasons["already fully ready"] = reasons.get("already fully ready", 0) + 1
         else:
             reasons["ineligible"] = reasons.get("ineligible", 0) + 1
     return reasons

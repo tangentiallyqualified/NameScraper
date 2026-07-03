@@ -68,7 +68,7 @@ class SettingsService:
 
     @property
     def hide_already_named(self) -> bool:
-        """Whether to hide Plex-ready items from the library roster."""
+        """Whether to hide fully-ready items from the library roster."""
         return bool(self.get("hide_already_named"))
 
     @hide_already_named.setter

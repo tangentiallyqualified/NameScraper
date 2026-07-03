@@ -132,7 +132,7 @@ def run() -> None:
     )
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Plex Renamer")
+    app.setApplicationName("NameScraper")
     popup_filter = _SuppressTransientPopups(app)
     app.installEventFilter(popup_filter)
     app._popup_filter = popup_filter

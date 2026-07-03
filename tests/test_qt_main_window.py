@@ -23,7 +23,7 @@ class QtMainWindowTests(QtSmokeBase):
         from plex_renamer.gui_qt.main_window import MainWindow
 
         window = MainWindow()
-        self.assertEqual(window.windowTitle(), "Plex Renamer")
+        self.assertEqual(window.windowTitle(), "NameScraper")
         self.assertEqual(window.centralWidget().__class__.__name__, "QTabWidget")
         self.assertEqual(window.centralWidget().currentIndex(), 0)
         self.assertEqual(window.centralWidget().tabText(0), "Settings")

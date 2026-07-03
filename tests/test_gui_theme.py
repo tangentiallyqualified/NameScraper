@@ -1,6 +1,7 @@
 """Theme token module and stylesheet rendering guards."""
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -75,4 +76,30 @@ def test_no_hex_literals_outside_theme_module():
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if _HEX_RE.search(line):
                 offenders.append(f"{path.relative_to(_GUI_ROOT)}:{lineno}: {line.strip()}")
+    assert offenders == [], "\n".join(offenders)
+
+
+_PLEX_ALLOWED_SUBSTRINGS = ("plex_renamer", "PLEX_RENAMER", "plex-renamer")  # package/env names, not UI copy
+
+
+def _plex_literals(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    hits: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+            if "plex" not in text.lower():
+                continue
+            cleaned = text
+            for allowed in _PLEX_ALLOWED_SUBSTRINGS:
+                cleaned = cleaned.replace(allowed, "")
+            if "plex" in cleaned.lower():
+                hits.append(f"{path.name}:{node.lineno}: {text!r}")
+    return hits
+
+
+def test_no_plex_string_literals_in_gui():
+    offenders: list[str] = []
+    for path in sorted(_GUI_ROOT.rglob("*.py")):
+        offenders.extend(_plex_literals(path))
     assert offenders == [], "\n".join(offenders)

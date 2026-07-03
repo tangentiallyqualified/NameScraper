@@ -14,7 +14,7 @@ class CommandGatingService:
 
     @staticmethod
     def is_plex_ready_state(state: ScanState) -> bool:
-        """True when a scanned entry is already fully Plex-ready and non-queueable."""
+        """True when a scanned entry is already fully organized and non-queueable."""
         if not state.scanned or not state.preview_items:
             return False
         if state.duplicate_of is not None or state.queued:

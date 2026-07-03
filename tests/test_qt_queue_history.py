@@ -609,13 +609,13 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window._switch_to_tab(1)
         self._app.processEvents()
-        window._tv_workspace._roster_collapsed["plex-ready"] = False
+        window._tv_workspace._roster_collapsed["fully-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
         self.assertEqual(state.folder, output_root / "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
-        self._assert_roster_section_title(window._tv_workspace, 0, "PLEX READY")
+        self._assert_roster_section_title(window._tv_workspace, 0, "FULLY READY")
 
         window.close()
 

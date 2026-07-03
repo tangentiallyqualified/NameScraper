@@ -72,7 +72,7 @@ class MediaWorkspace(QWidget):
         self._roster_syncing = False
         self._preview_syncing = False
         self._preview_group_state: dict[str, set[int | str]] = {}
-        self._roster_collapsed: dict[str, bool] = {"plex-ready": True}
+        self._roster_collapsed: dict[str, bool] = {"fully-ready": True}
         self._roster_selection_is_auto = False
         self._pending_roster_selection_auto: bool | None = None
         self._action_coordinator = MediaWorkspaceActionCoordinator(self)

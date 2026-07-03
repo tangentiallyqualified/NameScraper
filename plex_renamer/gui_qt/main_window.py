@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Plex Renamer")
+        self.setWindowTitle("NameScraper")
         self.setMinimumSize(_scale.px(960), _scale.px(600))
         self.statusBar().setSizeGripEnabled(False)
         self.statusBar().hide()

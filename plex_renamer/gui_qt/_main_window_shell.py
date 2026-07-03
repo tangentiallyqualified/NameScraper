@@ -71,10 +71,10 @@ class MainWindowShellCoordinator:
     def show_about(self, *, message_box_api: Any) -> None:
         message_box_api.about(
             self._window,
-            "About Plex Renamer",
-            "Plex Renamer — GUI3 (PySide6)\n\n"
-            "Automatically rename and organize media files\n"
-            "into Plex-compatible naming conventions.\n\n"
+            "About NameScraper",
+            "NameScraper — GUI4 (PySide6)\n\n"
+            "Rename and organize media files into clean,\n"
+            "server-friendly naming conventions.\n\n"
             "Metadata provided by TMDB.",
         )
 
