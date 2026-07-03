@@ -402,6 +402,25 @@ def match_segmented_title_run(
     grouping matches and the episodes form a contiguous run. Otherwise None,
     and the caller falls back to the number-based rules.
     """
+    scored = _match_segmented_title_run_scored(raw_title, titles, expected_count)
+    if scored is None:
+        return None
+    return scored[0], scored[1]
+
+
+def _match_segmented_title_run_scored(
+    raw_title: str | None,
+    titles: dict[int, str],
+    expected_count: int,
+) -> tuple[tuple[int, ...], bool, int] | None:
+    """``match_segmented_title_run`` plus a quality score.
+
+    Returns ``(run, all_exact, direct)`` where ``direct`` counts the groups
+    whose text matched their episode's title (exactly, fuzzily, or as a
+    verified duplicate-title fill) — i.e. groups NOT placed by an unverified
+    positional fill. Callers comparing runs of different sizes rank on it
+    (RC49).
+    """
     if not raw_title or expected_count < 2 or not titles:
         return None
     spans = _segment_atom_spans(raw_title)
@@ -443,9 +462,10 @@ def match_segmented_title_run(
             return hits[0], False
         return None, False
 
-    matched_runs: dict[tuple[int, ...], bool] = {}
+    matched_runs: dict[tuple[int, ...], tuple[bool, int]] = {}
     for cuts in itertools.combinations(range(1, atom_count), expected_count - 1):
         bounds = (0, *cuts, atom_count)
+        unverified = 0
         episodes: list[int | None] = []
         exacts: list[bool] = []
         pieces: list[str] = []
@@ -480,7 +500,6 @@ def match_segmented_title_run(
             if len(starts) != 1:
                 continue
             start = starts.pop()
-            unverified = 0
             for index, episode in enumerate(episodes):
                 if episode is not None:
                     continue
@@ -514,13 +533,18 @@ def match_segmented_title_run(
         all_exact = all(exacts)
         if len(set(episodes)) == expected_count:
             run = tuple(sorted(episodes))  # type: ignore[arg-type]
-            matched_runs[run] = matched_runs.get(run, False) or all_exact
+            direct = expected_count - unverified
+            prev = matched_runs.get(run)
+            if prev is None:
+                matched_runs[run] = (all_exact, direct)
+            else:
+                matched_runs[run] = (prev[0] or all_exact, max(prev[1], direct))
     if len(matched_runs) != 1:
         return None
-    run, all_exact = next(iter(matched_runs.items()))
+    run, (all_exact, direct) = next(iter(matched_runs.items()))
     if any(b - a != 1 for a, b in zip(run, run[1:])):
         return None
-    return run, all_exact
+    return run, all_exact, direct
 
 
 def _atom_is_title_fragment(atom_text: str, title: str) -> bool:
@@ -637,13 +661,24 @@ def resolve_file(
         # accept only an unambiguous result. An exact full-title match is
         # excluded above: when TMDB itself lists the combined title, that
         # agreement outranks decomposing it.
-        runs: dict[tuple[int, ...], bool] = {}
+        runs: dict[tuple[int, ...], tuple[bool, int]] = {}
         for expected in (2, 3, 4):
-            seg = match_segmented_title_run(raw_title, season_titles, expected)
+            seg = _match_segmented_title_run_scored(
+                raw_title, season_titles, expected,
+            )
             if seg is not None:
-                runs[seg[0]] = runs.get(seg[0], False) or seg[1]
+                runs[seg[0]] = (seg[1], seg[2])
+        if len(runs) > 1:
+            # Disagreeing sizes are not equal witnesses: a run grounded in
+            # more directly-matched groups outranks one that had to merge
+            # atoms and place the merged group by positional fill (RC49).
+            # Only a tie in that count is real ambiguity.
+            best = max(direct for _, direct in runs.values())
+            top = {run: q for run, q in runs.items() if q[1] == best}
+            if len(top) == 1:
+                runs = top
         if len(runs) == 1:
-            seg_run, seg_exact = next(iter(runs.items()))
+            seg_run, (seg_exact, _) = next(iter(runs.items()))
             if not seg_exact:
                 return Resolution(  # fuzzy atoms -> review
                     episodes=seg_run,
@@ -991,12 +1026,26 @@ def _claim_strength(claim) -> int:
     return 0
 
 
+_TRAILING_PARENTHETICAL = re.compile(r"\s*\(([^()]*)\)\s*$")
+
+
+def _strip_variant_tag(title: str) -> str:
+    """Drop one trailing NON-NUMERIC parenthesized qualifier ('(Color)',
+    '(Pencil)') — a print/version tag, not part numbering ('(1)' stays)."""
+    match = _TRAILING_PARENTHETICAL.search(title)
+    if match and not any(ch.isdigit() for ch in match.group(1)):
+        return title[: match.start()]
+    return title
+
+
 def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) -> bool:
     """True when tied claims share the SAME real title — copies of one
     episode from parallel source folders, even when their parsed numbers
     differ (a mislabeled copy: "S01E34 - Dexter's Rival"). One normalized
     title may extend another with release junk or season branding
-    ('Danger Island Comparative Wickedness...'; RC43)."""
+    ('Danger Island Comparative Wickedness...'; RC43), and one base title
+    may sit behind different trailing version tags ('(Color)' vs
+    '(Pencil)'; RC51) — numeric tags are part numbers and never fold."""
     titles = [
         normalize_for_specials(table.files[claim.file_id].raw_title or "")
         for claim in claims
@@ -1004,7 +1053,15 @@ def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) ->
     if any(not title for title in titles):
         return False
     shortest = min(titles, key=len)
-    return all(shortest in title for title in titles)
+    if all(shortest in title for title in titles):
+        return True
+    bases = {
+        normalize_for_specials(
+            _strip_variant_tag(table.files[claim.file_id].raw_title or "")
+        )
+        for claim in claims
+    }
+    return len(bases) == 1 and bool(next(iter(bases)))
 
 
 def _trim_run_edge_conflicts(table: EpisodeAssignmentTable) -> None:
@@ -1675,6 +1732,104 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
             claimed |= run_slots
             progress = True
         pending = remaining
+
+
+def _scattered_same_season_episodes(
+    raw_title: str,
+    titles: dict[int, str],
+) -> tuple[int, ...]:
+    """Episodes whose titles are exact-matched by the title's atom groups.
+
+    Adjacent atoms are also tried merged (sizes 1-3) so a separator INSIDE
+    one title ('Diapies and Dragons' splitting at 'and') still names its
+    episode. Duplicate titles are excluded — they cannot pin an episode.
+    """
+    spans = _segment_atom_spans(raw_title)
+    if len(spans) < 2 or len(spans) > _MAX_SEGMENT_ATOMS:
+        return ()
+    seen: dict[str, int] = {}
+    duplicates: set[str] = set()
+    for episode, title in titles.items():
+        norm = normalize_for_specials(title)
+        if not norm:
+            continue
+        if norm in seen:
+            duplicates.add(norm)
+        else:
+            seen[norm] = episode
+    norm_to_episode = {n: e for n, e in seen.items() if n not in duplicates}
+    matched: set[int] = set()
+    for size in (1, 2, 3):
+        for start in range(len(spans) - size + 1):
+            lo, hi = spans[start][0], spans[start + size - 1][1]
+            pieces = [raw_title[lo:hi]]
+            if size > 1:
+                pieces.append(
+                    " ".join(raw_title[a:b] for a, b in spans[start:start + size])
+                )
+            for piece in pieces:
+                episode = norm_to_episode.get(normalize_for_specials(piece))
+                if episode is not None:
+                    matched.add(episode)
+                    break
+    return tuple(sorted(matched))
+
+
+def unassign_same_season_scattered_titles(table: EpisodeAssignmentTable) -> None:
+    """Queue files whose segment titles pin >=2 episodes of their OWN season
+    at non-adjacent numbers (RC50: Rugrats S9 pairs segments by broadcast
+    half-hour while TMDB orders them differently).
+
+    Such a file cannot be a run anywhere in the season, so its weak number
+    claim (or lost-conflict fallback) presents wrong titles; unassigning
+    with the explicit reason the cross-season path already mints routes it
+    to the manual queue and keeps the single-slot fuzzy rescue from
+    half-claiming one of its segments. Only weak states qualify —
+    title-grounded assignments are never touched. Contiguous matches stay:
+    they are a real run another pass may still place.
+    """
+    weak_title_evidence = {"title-ambiguous", "title-no-match"}
+    candidates: list[tuple[int, int | None]] = []
+    for assignment in table.assignments():
+        if assignment.origin == ORIGIN_MANUAL:
+            continue
+        if not (assignment.evidence & weak_title_evidence):
+            continue
+        candidates.append((assignment.file_id, assignment.season))
+    for file_id, reason in table.unassigned_reasons.items():
+        if not (
+            reason in (REASON_NOT_IN_SEASON, REASON_NO_TITLE_MATCH)
+            or reason.startswith(REASON_LOST_CONFLICT)
+        ):
+            continue
+        entry = table.files[file_id]
+        season = (
+            entry.season_hint if entry.season_hint is not None
+            else entry.folder_season
+        )
+        candidates.append((file_id, season))
+
+    titles_by_season: dict[int, dict[int, str]] = {}
+    for (season, episode), slot in table.slots.items():
+        if season != 0 and slot.title:
+            titles_by_season.setdefault(season, {})[episode] = slot.title
+
+    for file_id, season in candidates:
+        if season is None or season == 0:
+            continue
+        entry = table.files[file_id]
+        titles = titles_by_season.get(season)
+        if not titles or not entry.raw_title:
+            continue
+        matched = _scattered_same_season_episodes(entry.raw_title, titles)
+        if len(matched) < 2:
+            continue
+        if all(b - a == 1 for a, b in zip(matched, matched[1:])):
+            continue
+        table.mark_unassigned(
+            file_id,
+            f"segment titles match Season {season} non-contiguously",
+        )
 
 
 def rescue_same_season_fuzzy_titles(table: EpisodeAssignmentTable) -> None:

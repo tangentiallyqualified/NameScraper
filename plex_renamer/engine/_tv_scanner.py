@@ -223,6 +223,7 @@ class TVScanner:
             rescue_cross_season_titles,
             rescue_explicit_hint_slots,
             rescue_same_season_fuzzy_titles,
+            unassign_same_season_scattered_titles,
         )
         from ._tv_scanner_normal import build_normal_table
 
@@ -237,6 +238,7 @@ class TVScanner:
         )
         rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
+        unassign_same_season_scattered_titles(table)
         rescue_same_season_fuzzy_titles(table)
         apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
@@ -250,6 +252,7 @@ class TVScanner:
         # slots, so no new conflicts can appear.
         rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
+        unassign_same_season_scattered_titles(table)
         rescue_same_season_fuzzy_titles(table)
         rescue_explicit_hint_slots(table)
         self.assignment_table = table
@@ -273,6 +276,7 @@ class TVScanner:
             rescue_cross_season_titles,
             rescue_explicit_hint_slots,
             rescue_same_season_fuzzy_titles,
+            unassign_same_season_scattered_titles,
         )
         from ._tv_scanner_consolidated import build_consolidated_table
 
@@ -286,6 +290,7 @@ class TVScanner:
         )
         rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
+        unassign_same_season_scattered_titles(table)
         rescue_same_season_fuzzy_titles(table)
         apply_uniform_offset_rescue(table)
         apply_confidence_adjustments(
@@ -296,6 +301,7 @@ class TVScanner:
         # Post-conflict rescue pass for lost-conflict files (RC35).
         rescue_cross_season_titles(table)
         rescue_cross_season_segmented(table)
+        unassign_same_season_scattered_titles(table)
         rescue_same_season_fuzzy_titles(table)
         rescue_explicit_hint_slots(table)
         self.assignment_table = table
