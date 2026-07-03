@@ -12,13 +12,15 @@
 - [x] Plan 1 (theme foundation + de-Plex + chrome fixes): [2026-07-03-gui-v4-plan1-theme-foundation.md](2026-07-03-gui-v4-plan1-theme-foundation.md) — complete, executable, TDD steps
 - [x] User review gate cleared: user approved spec + Plan 1, confirmed app name **"NameScraper"**, capped execution at 4 subagents
 - [x] **Plan 1 LANDED** (2026-07-03, commits `6c82086..d421d37`): theme.py tokens + theme.qss.tmpl (Jellyfin palette, fringes gone, radii normalized), all gui_qt hex → tokens with permanent no-hex guard, de-Plex strings ("NameScraper", "Fully Ready"/`fully-ready`) with AST guard, Ctrl+Z undo removed, recent-folder menus switch tabs. Final review: 0 Critical/Important; fast 928/928, smoke 163/163.
-- [ ] Plans 2–9: NOT written yet — write each with `superpowers:writing-plans` when its predecessor lands (see roadmap standing rules)
+- [x] Plan 2 (roster model/delegate + grouping + carry-overs): [2026-07-03-gui-v4-plan2-roster.md](2026-07-03-gui-v4-plan2-roster.md) — written + self-reviewed, 7 TDD tasks, absorbs Plan 1 carry-overs (`is_fully_ready_state` rename, dead `history_index`, TV recent-menu test)
+- [ ] Plans 3–9: NOT written yet — write each with `superpowers:writing-plans` when its predecessor lands (see roadmap standing rules)
 
 ## How to resume
 
-1. **Next step: write Plan 2** (roster model/delegate + grouping, spec §3.1/§4/§7) via `superpowers:writing-plans`, then continue down the roadmap table.
-2. Plan 2 carry-overs from Plan 1's final review (all Minor, adjudicated): drop dead `history_index` ctor param in `MainWindowShellCoordinator` (`_main_window_shell.py`); add symmetric TV-path test for `_load_recent` in `tests/test_qt_chrome.py`; rename `is_plex_ready_state` (already scheduled); optionally broaden the no-hex guard regex to 3/8-digit hex (user decision — plan mandated `{6}`).
-3. Always update this file + the roadmap status column at each milestone.
+1. **Next step: execute Plan 2** with `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. It is self-contained (exact code, migration tables, commands, commits).
+2. Still open from Plan 1's review (user decision, not scheduled): optionally broaden the no-hex guard regex to 3/8-digit hex (plan mandated `{6}`; zero such literals exist today).
+3. After Plan 2 lands: write Plan 3 (work panel, spec §3.2/§3.3/§5/§7) via `superpowers:writing-plans`.
+4. Always update this file + the roadmap status column at each milestone.
 
 ## Open questions for the user (also in spec §15)
 
@@ -54,3 +56,4 @@
 
 - 2026-07-03: branch created → exploration → spec written + self-reviewed → committed 32cee9a → roadmap + Plan 1 written → this handoff updated → committed (see git log) → session ended at user review gate.
 - 2026-07-03 (later): user approved (app name "NameScraper", ≤4 subagents) → Plan 1 executed via subagent-driven development (3 implementer batches: tasks 1-2, 3, 4-6; 1 final whole-branch reviewer on `380d5f7..d421d37`) → review verdict "ready to merge", 0 Critical/Important, minors deferred to Plan 2 (listed under "How to resume") → full suites green (fast 928/928, smoke 163/163) + offscreen themed-window screenshot sanity check → roadmap/handoff updated. Notable during execution: plan's Task 5 test snippet had a shiboken object-lifetime bug (root-caused, fixed in `tests/test_qt_chrome.py`); `tab_badge.failure_visible()` hex-substring check fixed so it keeps working post-tokenization; `.superpowers/` added to `.gitignore` (SDD scratch).
+- 2026-07-03 (later still): Plan 2 (roster) written via superpowers:writing-plans against the landed Plan 1 code — codebase re-explored (roster/coordinator touchpoint map, queue-tab model/view pattern, CompletenessReport/assignment-table shapes), 7 TDD tasks incl. cutover migration tables and Plan 1 carry-overs, self-reviewed, committed. Session paused offering execution options for Plan 2.
