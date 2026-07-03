@@ -24,13 +24,13 @@ from PySide6.QtWidgets import (
 )
 
 from ...job_store import RenameJob
+from .. import theme
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
 
-_HOVER_COLOR = QColor(36, 36, 36)  # #242424
-_SELECTED_ROW_COLOR = QColor(31, 26, 14)  # #1f1a0e
-_ROW_ACCENT_COLOR = QColor(229, 160, 13)  # #e5a00d
+_HOVER_COLOR = theme.qcolor("card_hover")
+_SELECTED_ROW_COLOR = theme.qcolor("selection_bg")
 
 
 class _CheckableHeaderView(QHeaderView):
@@ -111,11 +111,6 @@ class _HoverRowDelegate(QStyledItemDelegate):
 
         if index.row() == highlight_row:
             painter.fillRect(option.rect, _SELECTED_ROW_COLOR)
-            if index.column() == 0:
-                painter.fillRect(
-                    QRect(option.rect.left(), option.rect.top(), 4, option.rect.height()),
-                    _ROW_ACCENT_COLOR,
-                )
         elif index.row() == self._hover_row:
             painter.fillRect(option.rect, _HOVER_COLOR)
 

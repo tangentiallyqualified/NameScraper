@@ -65,3 +65,14 @@ def test_template_has_no_left_fringe_rules():
     for line in text.splitlines():
         if "border-left" in line and "transparent" not in line:
             raise AssertionError(f"left-fringe rule survived: {line.strip()}")
+
+
+def test_no_hex_literals_outside_theme_module():
+    offenders: list[str] = []
+    for path in sorted(_GUI_ROOT.rglob("*.py")):
+        if path.name == "theme.py":
+            continue
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _HEX_RE.search(line):
+                offenders.append(f"{path.relative_to(_GUI_ROOT)}:{lineno}: {line.strip()}")
+    assert offenders == [], "\n".join(offenders)

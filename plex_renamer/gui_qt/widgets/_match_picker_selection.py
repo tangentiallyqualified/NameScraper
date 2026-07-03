@@ -6,14 +6,14 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidgetItem
 
+from .. import theme
 from ._match_picker_results import build_match_picker_result_entries
 
 _NO_RESULTS_TEXT = "No results"
 _NO_SYNOPSIS_TEXT = "No synopsis available."
-_SUCCESS_COLOR = QColor("#3ea463")
+_SUCCESS_COLOR = theme.qcolor("success")
 
 
 class _MatchPickerSelectionDialog(Protocol):

@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
+from ..theme import qcolor as _theme_qcolor
 
 _HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "Companions", "When"]
 _STATUS_TEXT = {
@@ -32,13 +33,13 @@ _STATUS_SORT_ORDER = {
 
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
 _STATUS_COLOR = {
-    JobStatus.PENDING: QColor("#777777"),
-    JobStatus.RUNNING: QColor("#e5a00d"),
-    JobStatus.COMPLETED: QColor("#3ea463"),
-    JobStatus.FAILED: QColor("#d44040"),
-    JobStatus.CANCELLED: QColor("#4a4a4a"),
-    JobStatus.REVERTED: QColor("#4a9eda"),
-    JobStatus.REVERT_FAILED: QColor("#d44040"),
+    JobStatus.PENDING: _theme_qcolor("text_dim"),
+    JobStatus.RUNNING: _theme_qcolor("accent"),
+    JobStatus.COMPLETED: _theme_qcolor("success"),
+    JobStatus.FAILED: _theme_qcolor("error"),
+    JobStatus.CANCELLED: _theme_qcolor("text_muted"),
+    JobStatus.REVERTED: _theme_qcolor("info"),
+    JobStatus.REVERT_FAILED: _theme_qcolor("error"),
 }
 
 

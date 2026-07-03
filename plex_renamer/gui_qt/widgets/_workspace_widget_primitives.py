@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QSizePolicy, QWidget
 
-from .. import _scale
+from .. import _scale, theme
 
 
 class _CheckBinding:
@@ -36,12 +36,12 @@ class MasterCheckBox(QCheckBox):
     def _INDICATOR_SIZE(self) -> int:  # noqa: N802 — preserves original API
         return _scale.px(self._INDICATOR_GRID_UNITS)
 
-    _BG_OFF = QColor("#3a3a3a")
-    _BG_ON = QColor("#3ea463")
-    _BG_PARTIAL = QColor("#4a9eda")
-    _BORDER_OFF = QColor("#555555")
-    _BORDER_ON = QColor("#2d7a4a")
-    _CHECK_COLOR = QColor("#ffffff")
+    _BG_OFF = theme.qcolor("border_light")
+    _BG_ON = theme.qcolor("success")
+    _BG_PARTIAL = theme.qcolor("info")
+    _BORDER_OFF = theme.qcolor("border_light")
+    _BORDER_ON = theme.qcolor("success_dim")
+    _CHECK_COLOR = theme.qcolor("on_accent")
 
     def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
@@ -91,7 +91,7 @@ class MasterCheckBox(QCheckBox):
             painter.drawLine(int(size * 0.28), y, int(size * 0.72), y)
 
         text_rect = self.rect().adjusted(self._INDICATOR_SIZE + 8, 0, 0, 0)
-        painter.setPen(QColor("#8d8d8d") if not self.isEnabled() else QColor("#e0e0e0"))
+        painter.setPen(theme.qcolor("text_dim") if not self.isEnabled() else theme.qcolor("text"))
         painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
         painter.end()
 
@@ -165,12 +165,12 @@ class ToggleSwitch(QCheckBox):
     def _SIZE(self) -> int:  # noqa: N802 — preserves original API
         return _scale.px(self._GRID_UNITS)
 
-    _BG_OFF = QColor("#3a3a3a")
-    _BG_ON = QColor("#3ea463")
-    _BG_PARTIAL = QColor("#4a9eda")
-    _BORDER_OFF = QColor("#555555")
-    _BORDER_ON = QColor("#2d7a4a")
-    _CHECK_COLOR = QColor("#ffffff")
+    _BG_OFF = theme.qcolor("border_light")
+    _BG_ON = theme.qcolor("success")
+    _BG_PARTIAL = theme.qcolor("info")
+    _BORDER_OFF = theme.qcolor("border_light")
+    _BORDER_ON = theme.qcolor("success_dim")
+    _CHECK_COLOR = theme.qcolor("on_accent")
 
     def __init__(self, checked: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -243,7 +243,7 @@ class MiniProgressBar(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2a2a2a"))
+        painter.setBrush(theme.qcolor("border"))
         painter.drawRoundedRect(rect, 2, 2)
         fill_width = int(rect.width() * (self._value / 100.0))
         if fill_width <= 0:

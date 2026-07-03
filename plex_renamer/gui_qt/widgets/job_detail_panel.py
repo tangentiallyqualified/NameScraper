@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...job_store import RenameJob
-from .. import _scale
+from .. import _scale, theme
 from ._job_detail_data import (
     build_job_fact_values,
     build_job_meta_line,
@@ -405,7 +405,7 @@ class JobDetailPanel(QFrame):
             self._open_target_btn.setEnabled(False)
         if job.error_message:
             self._error.setText(job.error_message)
-            self._error.setStyleSheet("color: #d44040;")
+            self._error.setStyleSheet(f"color: {theme.color('error')};")
         else:
             self._error.setText("")
             self._error.setStyleSheet("")

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QListWidgetItem, QWidget
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
 from ...app.services.command_gating_service import CommandGatingService
+from .. import theme
 from ._formatting import percent_text
 
 
@@ -42,44 +43,39 @@ def confidence_band(score: float, *, state: ScanState | None = None, media_type:
 
 
 def confidence_fill_color(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
-    return {
-        "high": "#3ea463",
-        "medium": "#e5a00d",
-        "low": "#d44040",
-        "muted": "#777777",
-    }[confidence_band(score, state=state, media_type=media_type)]
+    return band_color(confidence_band(score, state=state, media_type=media_type))
 
 
 def band_color(band: str) -> str:
     return {
-        "high": "#3ea463",
-        "medium": "#e5a00d",
-        "low": "#d44040",
-        "muted": "#777777",
-        "error": "#d44040",
+        "high": theme.color("success"),
+        "medium": theme.color("warning"),
+        "low": theme.color("error"),
+        "muted": theme.color("text_dim"),
+        "error": theme.color("error"),
     }[band]
 
 
 def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QColor]:
     if state.queued:
-        return "Queued", QColor("#4a9eda")
+        return "Queued", theme.qcolor("info")
     if state.scanning:
-        return "Scanning", QColor("#e5a00d")
+        return "Scanning", theme.qcolor("warning")
     if state.scan_error:
-        return "Scan Failed", QColor("#d44040")
+        return "Scan Failed", theme.qcolor("error")
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
-        return "Duplicate", QColor("#777777")
+        return "Duplicate", theme.qcolor("text_dim")
     if state.show_id is None:
-        return "No Match Found", QColor("#d44040")
+        return "No Match Found", theme.qcolor("error")
     if state.needs_review or state.duplicate_of is not None:
-        return "Review Match", QColor("#e5a00d")
+        return "Review Match", theme.qcolor("warning")
     if has_episode_problems(state):
-        return "Review Episode Matching", QColor("#e5a00d")
+        return "Review Episode Matching", theme.qcolor("warning")
     if state.match_origin == "manual":
-        return "Approved", QColor("#4a9eda")
+        return "Approved", theme.qcolor("info")
     if is_plex_ready_state(state):
-        return "Plex Ready", QColor("#3ea463")
-    return "Matched", QColor("#4a9eda")
+        return "Plex Ready", theme.qcolor("success")
+    return "Matched", theme.qcolor("info")
 
 
 def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
@@ -352,8 +348,8 @@ def make_section_header(text: str, *, selectable: bool = False) -> QListWidgetIt
     if selectable:
         flags |= Qt.ItemFlag.ItemIsSelectable
     header.setFlags(flags)
-    header.setForeground(QColor("#f0b429"))
-    header.setBackground(QColor("#2a2110"))
+    header.setForeground(theme.qcolor("accent"))
+    header.setBackground(theme.qcolor("section_header_bg"))
     font = QFont()
     font.setBold(True)
     font.setPointSize(10)

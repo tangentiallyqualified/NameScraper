@@ -6,6 +6,8 @@ from PySide6.QtCore import Property, QPropertyAnimation, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QWidget
 
+from .. import theme
+
 
 def pil_to_raw(pil_image) -> tuple[bytes, int, int]:
     """Convert a PIL image into raw RGBA bytes for thread-safe transport."""
@@ -49,10 +51,11 @@ def build_placeholder_pixmap(
     *,
     title: str,
     subtitle: str = "",
-    accent: str = "#e5a00d",
+    accent: str | None = None,
     device_pixel_ratio: float = 1.0,
 ) -> QPixmap:
     """Create a styled placeholder artwork card for empty poster slots."""
+    accent = accent or theme.color("accent")
     ratio = max(1.0, float(device_pixel_ratio or 1.0))
     width = max(1, int(round(size.width() * ratio)))
     height = max(1, int(round(size.height() * ratio)))
@@ -67,11 +70,11 @@ def build_placeholder_pixmap(
     path.addRoundedRect(rect, 10, 10)
 
     gradient = QLinearGradient(0, 0, 0, float(height))
-    gradient.setColorAt(0.0, QColor("#262626"))
-    gradient.setColorAt(1.0, QColor("#151515"))
+    gradient.setColorAt(0.0, theme.qcolor("card_hover"))
+    gradient.setColorAt(1.0, theme.qcolor("surface"))
     painter.fillPath(path, gradient)
 
-    painter.setPen(QColor("#2a2a2a"))
+    painter.setPen(theme.qcolor("border"))
     painter.drawPath(path)
 
     accent_rect = QRectF(rect.left() + 8, rect.top() + 8, 4, max(20.0, rect.height() * 0.35))
@@ -79,7 +82,7 @@ def build_placeholder_pixmap(
     accent_path.addRoundedRect(accent_rect, 2, 2)
     painter.fillPath(accent_path, QColor(accent))
 
-    painter.setPen(QColor("#e0e0e0"))
+    painter.setPen(theme.qcolor("text"))
     title_font = QFont("Segoe UI", max(8, min(18, height // 7)))
     title_font.setBold(True)
     painter.setFont(title_font)
@@ -89,7 +92,7 @@ def build_placeholder_pixmap(
     if subtitle:
         subtitle_font = QFont("Segoe UI", max(7, min(11, height // 11)))
         painter.setFont(subtitle_font)
-        painter.setPen(QColor("#777777"))
+        painter.setPen(theme.qcolor("text_dim"))
         subtitle_rect = QRectF(text_rect.left(), text_rect.top() + max(18.0, rect.height() * 0.28), text_rect.width(), text_rect.height() - 18)
         painter.drawText(subtitle_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), subtitle)
 

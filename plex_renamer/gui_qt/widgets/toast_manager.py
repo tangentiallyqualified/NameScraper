@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import theme
 from ._toast_manager_layout import (
     count_direct_toasts,
     plan_toast_manager_geometry,
@@ -23,9 +24,9 @@ from ._toast_manager_layout import (
 )
 
 _BORDER_COLORS = {
-    "success": "#3ea463",
-    "error": "#d44040",
-    "accent": "#4a9eda",
+    "success": theme.color("success"),
+    "error": theme.color("error"),
+    "accent": theme.color("info"),
 }
 _MAX_VISIBLE_TOASTS = 4
 _MAX_DIRECT_TOASTS = 3
@@ -53,8 +54,8 @@ class _ToastCard(QFrame):
         self.setObjectName("toastCard")
         self.setStyleSheet(
             "QFrame#toastCard {"
-            f"background-color: #181818; border: 1px solid #2a2a2a; border-left: 4px solid {border};"
-            "border-radius: 10px; }"
+            f"background-color: {theme.color('surface')}; border: 1px solid {theme.color('border')}; border-radius: {theme.radius('lg')}px;"
+            "}"
         )
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
@@ -94,7 +95,7 @@ class _ToastCard(QFrame):
         self._progress.setTextVisible(False)
         self._progress.setFixedHeight(3)
         self._progress.setStyleSheet(
-            "QProgressBar { background: #2a2a2a; border: 0; border-radius: 1px; }"
+            f"QProgressBar {{ background: {theme.color('border')}; border: 0; border-radius: 1px; }}"
             f"QProgressBar::chunk {{ background: {border}; border-radius: 1px; }}"
         )
         if self._duration_ms > 0:

@@ -3967,9 +3967,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
+            from plex_renamer.gui_qt import theme
+
             row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
             self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertEqual(row_widget._confidence._color.name(), "#777777")
+            self.assertEqual(row_widget._confidence._color.name(), theme.color("text_dim"))
 
             workspace.close()
 

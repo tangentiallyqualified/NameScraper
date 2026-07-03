@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QLabel, QWidget
 
+from .. import theme
 from ._image_utils import (
     ShimmerOverlay,
     build_placeholder_pixmap,
@@ -87,7 +88,7 @@ def show_detail_artwork_placeholder(
         size,
         title=title,
         subtitle=subtitle,
-        accent="#4a9eda" if mode == "still" else "#e5a00d",
+        accent=theme.color("info") if mode == "still" else theme.color("accent"),
         device_pixel_ratio=detail_artwork_device_pixel_ratio(poster),
     )
     poster.setPixmap(placeholder)

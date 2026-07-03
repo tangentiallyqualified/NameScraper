@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QPointF, Qt, QElapsedTimer, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import _scale
+from .. import _scale, theme
 from ...app.models import ScanLifecycle
 
 
@@ -90,8 +90,8 @@ class _ScannerAnimation(QWidget):
         center = QPointF(rect.center())
         base_radius = min(rect.width(), rect.height()) * 0.43
         pulse = (math.sin(self._tick / 18.0) + 1.0) / 2.0 if self._active else 0.0
-        ring_color = QColor("#3a3a3a")
-        accent = QColor("#e5a00d")
+        ring_color = theme.qcolor("border_light")
+        accent = theme.qcolor("accent")
         accent.setAlpha(110 + int(80 * pulse))
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -108,12 +108,12 @@ class _ScannerAnimation(QWidget):
                 center.y() + math.sin(angle) * orbit,
             )
             dot_radius = _scale.px(5 + (index % 2))
-            painter.setBrush(accent if index == 0 else QColor("#242424"))
+            painter.setBrush(accent if index == 0 else theme.qcolor("card_hover"))
             painter.drawEllipse(point, dot_radius, dot_radius)
 
-        core = QColor("#1f1a0e")
+        core = theme.qcolor("selection_bg")
         painter.setBrush(core)
-        painter.setPen(QPen(QColor("#e5a00d"), _scale.px(4)))
+        painter.setPen(QPen(theme.qcolor("accent"), _scale.px(4)))
         painter.drawEllipse(center, _scale.px(8 + int(2 * pulse)), _scale.px(8 + int(2 * pulse)))
 
 
