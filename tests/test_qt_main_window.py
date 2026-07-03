@@ -219,36 +219,6 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(tooltip_window.windowOpacity(), 1.0)
         tooltip_window.close()
 
-    def test_main_window_undo_reverts_latest_job_and_switches_to_history(self):
-        from PySide6.QtWidgets import QMessageBox
-        from plex_renamer.constants import JobStatus
-        from plex_renamer.engine import RenameResult
-        from plex_renamer.gui_qt.main_window import MainWindow
-        from plex_renamer.job_store import RenameJob
-
-        window = MainWindow()
-        job = RenameJob(
-            library_root="C:/library",
-            source_folder="Show",
-            media_name="Example Show",
-            status=JobStatus.COMPLETED,
-            undo_data={"renames": [{"old": "a", "new": "b"}]},
-        )
-        window.queue_ctrl.get_latest_revertible_job = MagicMock(return_value=job)
-        window.queue_ctrl.revert_job = MagicMock(return_value=(True, []))
-        window._history_tab.select_job = MagicMock()
-
-        with patch(
-            "plex_renamer.gui_qt.main_window.QMessageBox.question",
-            return_value=QMessageBox.StandardButton.Yes,
-        ):
-            window._on_undo()
-
-        window.queue_ctrl.revert_job.assert_called_once_with(job.job_id)
-        window._history_tab.select_job.assert_called_once_with(job.job_id)
-        self.assertEqual(window.centralWidget().currentIndex(), 4)
-        window.close()
-
     def test_main_window_queue_events_create_toasts(self):
         from plex_renamer.constants import JobStatus
         from plex_renamer.engine import RenameResult

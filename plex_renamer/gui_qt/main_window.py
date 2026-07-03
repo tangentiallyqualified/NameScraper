@@ -339,9 +339,6 @@ class MainWindow(QMainWindow):
     def _capture_active_snapshot(self) -> None:
         self._state_coordinator.capture_active_snapshot()
 
-    def _on_undo(self) -> None:
-        self._shell_coordinator.undo_last_rename(message_box_api=QMessageBox)
-
     def _on_compact_toggled(self, checked: bool) -> None:
         self._apply_view_mode("compact" if checked else "normal")
 

@@ -40,12 +40,6 @@ class MainWindowChromeCoordinator:
 
         edit_menu = menu_bar.addMenu("&Edit")
 
-        undo_action = edit_menu.addAction("&Undo Last Rename")
-        undo_action.setShortcut(QKeySequence("Ctrl+Z"))
-        undo_action.triggered.connect(window._on_undo)
-
-        edit_menu.addSeparator()
-
         settings_action = edit_menu.addAction("&Settings")
         settings_action.setShortcut(QKeySequence("Ctrl+,"))
         settings_action.triggered.connect(

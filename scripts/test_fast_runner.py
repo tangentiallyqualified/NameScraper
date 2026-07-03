@@ -83,6 +83,7 @@ def main() -> int:
         "--ignore=tests/test_qt_media_detail_panel.py",
         "--ignore=tests/test_qt_media_workspace.py",
         "--ignore=tests/test_qt_queue_history.py",
+        "--ignore=tests/test_qt_chrome.py",
         "--ignore=tests/conftest_qt.py",
         "--color=no",
         f"--junitxml={junit_log}",

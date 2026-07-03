@@ -84,6 +84,7 @@ def main() -> int:
         "tests/test_qt_media_detail_panel.py",
         "tests/test_qt_media_workspace.py",
         "tests/test_qt_queue_history.py",
+        "tests/test_qt_chrome.py",
         "--color=no",
         f"--junitxml={junit_log}",
     ]
