@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS
@@ -14,9 +15,10 @@ from ..parsing import (
     normalize_for_specials,
     normalize_for_specials_spaced,
 )
-from ._episode_resolution import _fuzzy_title_equal
+from ._episode_resolution import CONF_TITLE_WINS_INEXACT, _fuzzy_title_equal
 from ._movie_scanner import _build_subtitle_companions
 from .episode_assignments import (
+    ORIGIN_AUTO,
     REASON_AMBIGUOUS_RUN,
     REASON_NO_PARSE,
     REASON_NOT_IN_SEASON,
@@ -377,6 +379,93 @@ def build_consolidated_preview(
     return items
 
 
+_CLUSTER_GAP_DAYS = 60
+
+
+def _parse_air_date(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _air_date_clusters(season_data: dict) -> list[list[int]]:
+    """Split a season's episodes into airing runs at multi-month gaps.
+
+    Returns [] when any episode lacks a parseable air date — a partial
+    clustering would mis-place everything after the hole.
+    """
+    episodes_meta = season_data.get("episodes", {}) or {}
+    dated: list[tuple[int, date]] = []
+    for episode_num in sorted(season_data.get("titles", {})):
+        meta = episodes_meta.get(episode_num) or {}
+        air = _parse_air_date(meta.get("air_date"))
+        if air is None:
+            return []
+        dated.append((episode_num, air))
+    if not dated:
+        return []
+    clusters: list[list[int]] = [[dated[0][0]]]
+    previous = dated[0][1]
+    for episode_num, air in dated[1:]:
+        if (air - previous).days > _CLUSTER_GAP_DAYS:
+            clusters.append([])
+        clusters[-1].append(episode_num)
+        previous = air
+    return clusters
+
+
+def apply_air_date_cluster_mapping(
+    table: EpisodeAssignmentTable,
+    tmdb_seasons: dict,
+) -> None:
+    """Map folder-season-N files onto the Nth airing cluster of a single
+    consolidated TMDB season (Oshi no Ko S03 -> S01E25.., RC19). Review
+    confidence — the mapping is inferred from air dates, not observed."""
+    regular = [season for season in tmdb_seasons if season != 0]
+    if len(regular) != 1:
+        return
+    target_season = regular[0]
+    clusters = _air_date_clusters(tmdb_seasons[target_season])
+    if len(clusters) < 2:
+        return
+    groups: dict[int, list[int]] = {}
+    for file_id in table.unassigned_reasons:
+        entry = table.files[file_id]
+        hint = entry.season_hint
+        if hint is None or hint == 0 or hint in tmdb_seasons:
+            continue
+        if not entry.parsed_episodes:
+            continue
+        groups.setdefault(hint, []).append(file_id)
+    claimed = {
+        (assignment.season, episode)
+        for assignment in table.assignments()
+        for episode in assignment.episodes
+    }
+    for hint, file_ids in groups.items():
+        if hint > len(clusters):
+            continue
+        cluster = clusters[hint - 1]
+        for file_id in sorted(
+            file_ids, key=lambda f: table.files[f].parsed_episodes[0],
+        ):
+            entry = table.files[file_id]
+            index = entry.parsed_episodes[0] - 1
+            if index < 0 or index + len(entry.parsed_episodes) > len(cluster):
+                continue
+            proposed = cluster[index : index + len(entry.parsed_episodes)]
+            slots = {(target_season, episode) for episode in proposed}
+            if slots & claimed:
+                continue
+            table.assign(
+                file_id, target_season, list(proposed), origin=ORIGIN_AUTO,
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset({"number", "air-date-cluster"}),
+            )
+            claimed |= slots
+
+
 def _apply_resolution(table, file_id, season, resolution) -> None:
     if resolution.episodes:
         try:
@@ -411,7 +500,7 @@ def build_consolidated_table(
     file's absolute-mapped candidate through ``resolve_file`` so title
     evidence applies (the normal path already does this per file).
     """
-    from ._episode_resolution import CONF_TITLE_WINS_INEXACT, Resolution, resolve_file
+    from ._episode_resolution import Resolution, resolve_file
     from ._tv_scanner_normal import _SPECIAL_STEM_PREFIX_RE, _register_season_slots
 
     table = EpisodeAssignmentTable()
@@ -538,4 +627,5 @@ def build_consolidated_table(
                     REASON_NO_PARSE if not episode_numbers else REASON_NOT_IN_SEASON,
                 )
 
+    apply_air_date_cluster_mapping(table, tmdb_seasons)
     return table

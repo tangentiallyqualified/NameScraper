@@ -1086,7 +1086,7 @@ def apply_confidence_adjustments(
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
             "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
-            "same-season-rescue", "title-part-number",
+            "same-season-rescue", "title-part-number", "air-date-cluster",
         }:
             table.set_confidence(
                 assignment.file_id,
