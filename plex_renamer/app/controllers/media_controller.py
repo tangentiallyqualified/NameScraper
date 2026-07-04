@@ -518,6 +518,17 @@ class MediaController:
     def episode_guide_for_state(self, state: ScanState) -> EpisodeGuide:
         return self._episode_projection_cache.guide_for_state(state)
 
+    def cached_episode_guide_for_state(self, state: ScanState) -> EpisodeGuide | None:
+        return self._episode_projection_cache.cached_guide_for_state(state)
+
+    def build_episode_guide_snapshot(self, state: ScanState) -> tuple[EpisodeGuide, tuple]:
+        return self._episode_projection_cache.build_guide_with_signature(state)
+
+    def store_episode_guide(
+        self, state: ScanState, guide: EpisodeGuide, signature: tuple
+    ) -> None:
+        self._episode_projection_cache.store_guide(state, guide, signature)
+
     def refresh_episode_guide(self, state: ScanState) -> EpisodeGuide:
         return self._episode_projection_cache.refresh_state(state)
 
