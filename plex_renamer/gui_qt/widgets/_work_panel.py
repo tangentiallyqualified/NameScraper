@@ -243,6 +243,7 @@ class MediaWorkPanel(QFrame):
         self._strip_layout.addStretch()
         self._strip_scroll.setWidget(strip_host)
         self._strip_buttons: list[QPushButton] = []
+        self._strip_key: tuple | None = None
         outer.addWidget(self._strip_scroll)
 
     def _build_toolbar(self, outer: QVBoxLayout) -> None:
@@ -539,17 +540,25 @@ class MediaWorkPanel(QFrame):
     # -- Season strip --------------------------------------------------------
 
     def _clear_strip(self) -> None:
+        self._strip_key = None
         for button in self._strip_buttons:
             button.setParent(None)
             button.deleteLater()
         self._strip_buttons = []
 
     def _refresh_strip(self, state: ScanState) -> None:
-        self._clear_strip()
         if self._media_type == "movie":
+            self._clear_strip()
             self._strip_scroll.hide()
             return
         specs = season_strip_specs(state.completeness)
+        key = tuple(
+            (season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs
+        )
+        if key == self._strip_key:
+            return                                   # same chips: no widget churn
+        self._clear_strip()
+        self._strip_key = key
         if not specs:
             self._strip_scroll.hide()
             return

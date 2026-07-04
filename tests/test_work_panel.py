@@ -118,3 +118,33 @@ class WorkPanelTests(QtSmokeBase):
         panel.show()
         self.assertFalse(panel.overflow_button.isVisible())
         panel.close()
+
+    def test_refresh_header_reuses_strip_buttons_when_seasons_unchanged(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        before = [id(button) for button in panel._strip_buttons]
+        self.assertTrue(before)                       # fixture renders at least one chip
+        panel.refresh_header(state)                   # action-bar sync repeats this constantly
+        panel.refresh_header(state)
+        self.assertEqual([id(button) for button in panel._strip_buttons], before)
+        panel.close()
+
+    def test_refresh_strip_rebuilds_after_completeness_change(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        before = [id(button) for button in panel._strip_buttons]
+        season = next(iter(state.completeness.seasons.values()))
+        season.matched += 1                           # chip text/tone derives from this
+        panel.refresh_header(state)
+        after = [id(button) for button in panel._strip_buttons]
+        self.assertNotEqual(after, before)
+        panel.close()
+
+    def test_clear_resets_strip_key_so_next_show_rebuilds(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.clear()
+        self.assertEqual(panel._strip_buttons, [])
+        panel.refresh_header(state)
+        self.assertTrue(panel._strip_buttons)
+        panel.close()
