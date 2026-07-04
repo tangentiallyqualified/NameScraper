@@ -163,39 +163,90 @@ class MediaWorkspaceActionCoordinator:
         workspace.refresh_from_controller()
         workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
 
-    def unassign_all_episode_mappings(self) -> None:
-        """Unassign every currently-assigned file in the selected show.
-
-        Reuses the same per-file unassign path used by the episode row
-        ``unassign`` action so the bulk action stays in lock-step with it.
-        """
+    def unassign_all_episode_mappings(self, *, warning_box: Any = QMessageBox) -> None:
+        """Danger-treated Unassign All: exact-count confirm + bulk-assign offer."""
         workspace = self._workspace
         state = workspace._selected_state()
         if state is None or state.queued or state.scanning:
             return
         if state.assignments is None:
             return
-        service = EpisodeMappingService()
-        assigned_previews = [
-            preview
-            for preview in state.preview_items
-            if preview.file_id is not None
-            and state.assignments.assignment_for(preview.file_id) is not None
-        ]
-        if not assigned_previews:
-            return
-        count = 0
-        for preview in assigned_previews:
-            try:
-                service.unassign_file(state, preview)
-            except ValueError:
-                continue
-            count += 1
+        count = len(state.assignments.assignments())
         if count == 0:
+            return
+        if warning_box is QMessageBox:
+            box = QMessageBox(workspace)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle("Unassign All")
+            box.setText(
+                f"Unassign all {count} assigned file(s) for {state.display_name}?\n"
+                "Every episode mapping for this show will be cleared."
+            )
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.YesToAll
+                | QMessageBox.StandardButton.Cancel
+            )
+            box.button(QMessageBox.StandardButton.Yes).setText("Unassign All")
+            box.button(QMessageBox.StandardButton.YesToAll).setText("Unassign && Bulk Assign…")
+            box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            answer = box.exec()
+        else:
+            answer = warning_box.question(
+                workspace, "Unassign All",
+                f"Unassign all {count} assigned file(s) for {state.display_name}?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.YesToAll
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+        if answer not in (
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.YesToAll,
+        ):
+            return
+        unassigned = EpisodeMappingService().unassign_all(state)
+        if unassigned == 0:
             return
         _refresh_episode_projection(workspace, state)
         workspace.refresh_from_controller()
-        workspace.status_message.emit(f"Unassigned {count} file(s).", 3000)
+        workspace.status_message.emit(f"Unassigned {unassigned} file(s).", 3000)
+        if answer == QMessageBox.StandardButton.YesToAll:
+            self.enter_bulk_assign()
+
+    def enter_bulk_assign(self) -> None:
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued or state.scanning:
+            return
+        if workspace._media_type == "movie" or state.assignments is None:
+            return
+        panel = workspace._work_panel
+        panel.bulk_panel.show_state(state, EpisodeMappingService())
+        panel.enter_bulk_assign()
+
+    def apply_bulk_assignments(self, pairs: list[tuple[int, int, int]]) -> None:
+        workspace = self._workspace
+        state = workspace._selected_state()
+        panel = workspace._work_panel
+        panel.exit_bulk_assign()
+        if state is None or not pairs:
+            return
+        applied, skipped = EpisodeMappingService().apply_assignments(state, pairs)
+        if applied == 0:
+            workspace.status_message.emit("No assignments were applied.", 4000)
+            return
+        _refresh_episode_projection(workspace, state)
+        workspace.refresh_from_controller()
+        message = f"Assigned {applied} file(s)."
+        if skipped:
+            message += f" {skipped} skipped."
+        workspace.toast_requested.emit("Bulk Assign", message, "success")
+
+    def cancel_bulk_assign(self) -> None:
+        workspace = self._workspace
+        workspace._work_panel.exit_bulk_assign()
+        workspace.status_message.emit("Bulk Assign cancelled - nothing was changed.", 3000)
 
     def handle_episode_row_action(
         self,

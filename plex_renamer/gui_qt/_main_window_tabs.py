@@ -87,6 +87,12 @@ class MainWindowTabsCoordinator:
         window._queue_tab.queue_changed.connect(window._on_queue_changed)
         window._tv_workspace.status_message.connect(window.statusBar().showMessage)
         window._movie_workspace.status_message.connect(window.statusBar().showMessage)
+        for workspace in (window._tv_workspace, window._movie_workspace):
+            workspace.toast_requested.connect(
+                lambda title, message, tone, window=window: window._toast_manager.show_toast(
+                    title=title, message=message, tone=tone, duration_ms=4000,
+                )
+            )
         window._history_tab.history_changed.connect(window._on_queue_changed)
         window._settings_tab.view_mode_changed.connect(window._apply_view_mode)
         window._settings_tab.companion_visibility_changed.connect(window._apply_companion_visibility)

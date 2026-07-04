@@ -2231,6 +2231,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_unassign_all_button_clears_every_assigned_file(self):
+        from PySide6.QtWidgets import QMessageBox
+
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
@@ -2268,7 +2270,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIsNotNone(table._assignments.get(first.file_id))
         self.assertIsNotNone(table._assignments.get(second.file_id))
 
-        unassign_all_btn.click()
+        # The click raises the danger confirm dialog (Plan 4 Task 4); stub the
+        # blocking modal exec() to auto-answer "Unassign All" (Yes) so the
+        # offscreen run still exercises the real click -> confirm -> unassign
+        # chain without sitting in a modal event loop.
+        with patch.object(
+            QMessageBox, "exec", return_value=QMessageBox.StandardButton.Yes,
+        ):
+            unassign_all_btn.click()
         self._app.processEvents()
 
         # Every file is now unassigned in the table...
@@ -4224,6 +4233,144 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIn("Evangelion: 3.0 You Can (Not) Redo (2012)", seen_titles)
 
         workspace.close()
+
+
+# ---------------------------------------------------------------------------
+# Bulk Assign workspace wiring tests (Plan 4, Task 4)
+# ---------------------------------------------------------------------------
+
+
+class BulkAssignWorkspaceTests(QtSmokeBase):
+    def _tv_workspace_with_table_state(self, *, assign_first: bool = False):
+        from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_MANUAL, EpisodeAssignmentTable, EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        table = EpisodeAssignmentTable()
+        for episode in range(1, 5):
+            table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+        file_ids: list[int] = []
+        for name in ("a.mkv", "b.mkv", "c.mkv"):
+            entry = table.add_file(Path(f"C:/library/tv/Show/{name}"))
+            table.mark_unassigned(entry.file_id, "no episode parsed")
+            file_ids.append(entry.file_id)
+        if assign_first:
+            table.assign(file_ids[0], 1, [1], origin=ORIGIN_MANUAL)
+            table.assign(file_ids[1], 1, [2], origin=ORIGIN_MANUAL)
+        state = ScanState(folder=Path("C:/library/tv/Show"),
+                          media_info={"id": 101, "name": "Show", "year": "2024"})
+        state.scanned = True
+        state.confidence = 1.0
+        state.assignments = table
+        EpisodeMappingService().reproject(state)
+
+        class _FakeQueueController:
+            def add_tv_batch(self, states, root, output_root, gating):
+                return None
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        tmp = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(tmp.cleanup)
+        settings = SettingsService(path=Path(tmp.name) / "settings.json")
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=_FakeMediaController(),
+            queue_controller=_FakeQueueController(),
+            settings_service=settings,
+        )
+        self.addCleanup(workspace.close)
+        workspace.resize(1200, 700)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+        self.assertIs(workspace._selected_state(), state)
+        return workspace
+
+    def test_overflow_entry_enters_bulk_mode(self):
+        workspace = self._tv_workspace_with_table_state()
+        workspace._enter_bulk_assign()
+        self.assertTrue(workspace._work_panel.bulk_assign_active())
+        # files pane populated from the state's unassigned previews
+        self.assertEqual(workspace._work_panel.bulk_panel._files_model.rowCount(), 3)
+
+    def test_apply_lands_assignments_and_exits_with_one_toast(self):
+        workspace = self._tv_workspace_with_table_state()
+        state = workspace._selected_state()
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel.bulk_panel
+        panel.auto_map_remaining()
+        toasts: list[tuple] = []
+        workspace.toast_requested.connect(lambda *a: toasts.append(a))
+        panel._apply_button.click()
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(len(toasts), 1)
+        self.assertEqual(toasts[0][2], "success")
+        self.assertIn("3", toasts[0][1])                    # "Assigned 3 file(s)."
+        table = state.assignments
+        self.assertEqual(len(table.assignments()), 3)
+
+    def test_cancel_discards_and_restores_table(self):
+        workspace = self._tv_workspace_with_table_state()
+        state = workspace._selected_state()
+        workspace._enter_bulk_assign()
+        workspace._work_panel.bulk_panel.auto_map_remaining()
+        workspace._work_panel.bulk_panel._cancel_button.click()
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(state.assignments.assignments(), [])   # nothing applied
+
+    def test_unassign_all_confirms_with_exact_count_and_offers_bulk(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        workspace = self._tv_workspace_with_table_state(assign_first=True)  # pre-assign 2 files
+        state = workspace._selected_state()
+        prompts: list[str] = []
+
+        class _Box:
+            StandardButton = QMessageBox.StandardButton
+
+            @staticmethod
+            def question(parent, title, text, buttons, default):
+                prompts.append(text)
+                return QMessageBox.StandardButton.Yes          # plain unassign
+
+        workspace._action_coordinator.unassign_all_episode_mappings(warning_box=_Box)
+        self.assertIn("2", prompts[0])                          # exact count in the prompt
+        self.assertEqual(state.assignments.assignments(), [])
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+
+    def test_unassign_all_bulk_offer_enters_mode(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        workspace = self._tv_workspace_with_table_state(assign_first=True)
+
+        class _Box:
+            StandardButton = QMessageBox.StandardButton
+
+            @staticmethod
+            def question(parent, title, text, buttons, default):
+                return QMessageBox.StandardButton.YesToAll      # "Unassign & Bulk Assign…"
+
+        workspace._action_coordinator.unassign_all_episode_mappings(warning_box=_Box)
+        self.assertTrue(workspace._work_panel.bulk_assign_active())
 
 
 # ---------------------------------------------------------------------------

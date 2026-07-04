@@ -128,6 +128,10 @@ class MediaWorkspaceUiCoordinator:
         panel.table_view.selectionModel().currentChanged.connect(workspace._on_table_current_changed)
         panel._delegate.expansion_card_provider = workspace._expansion_card_for_index
 
+        panel.bulk_assign_requested.connect(workspace._enter_bulk_assign)
+        panel.bulk_panel.apply_requested.connect(workspace._on_bulk_apply)
+        panel.bulk_panel.cancelled.connect(workspace._on_bulk_cancel)
+
     def _restore_splitter_positions(self) -> None:
         workspace = self._workspace
         if workspace._settings:

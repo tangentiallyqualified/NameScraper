@@ -46,6 +46,7 @@ class MediaWorkspace(QWidget):
     folder_selected = Signal(str)
     queue_changed = Signal()
     status_message = Signal(str, int)
+    toast_requested = Signal(str, str, str)   # title, message, tone ("success"/"info"/"error")
 
     def __init__(
         self,
@@ -301,6 +302,15 @@ class MediaWorkspace(QWidget):
 
     def _unassign_all_episode_mappings(self) -> None:
         self._action_coordinator.unassign_all_episode_mappings()
+
+    def _enter_bulk_assign(self) -> None:
+        self._action_coordinator.enter_bulk_assign()
+
+    def _on_bulk_apply(self, pairs: list) -> None:
+        self._action_coordinator.apply_bulk_assignments(pairs)
+
+    def _on_bulk_cancel(self) -> None:
+        self._action_coordinator.cancel_bulk_assign()
 
     def _prompt_assign_season(self, state: ScanState) -> None:
         self._action_coordinator.prompt_assign_season(
