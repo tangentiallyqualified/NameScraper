@@ -470,6 +470,8 @@ class MediaWorkPanel(QFrame):
     def _on_guide_loaded(self) -> None:
         """Async guide arrived: summary + toolbar depend on model.guide()."""
         self.update_footer()
+        if self.bulk_assign_active():
+            return    # bulk page hides approve/unassign; exit_bulk_assign re-derives
         self.update_toolbar(self._state)
 
     def update_toolbar(self, state: ScanState | None) -> None:

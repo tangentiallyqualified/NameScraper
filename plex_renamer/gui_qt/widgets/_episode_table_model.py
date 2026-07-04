@@ -340,15 +340,21 @@ class EpisodeTableModel(QAbstractListModel):
     def _resolve_guide_or_schedule(self, state: ScanState) -> EpisodeGuide | None:
         """Cached guide, or None after scheduling an off-thread build.
 
+        Every resolution bumps the token so any in-flight build is orphaned
+        by the newer render — a mutation path can synchronously refresh the
+        cache mid-flight, and without the bump the superseded build would
+        still deliver (rendering pre-mutation rows and clobbering the fresh
+        cache entry).
+
         Without async wiring (bare panels, existing tests) this stays the
         old synchronous pull.
         """
+        self._guide_token += 1
         if self._cached_guide_provider is None or self._guide_builder is None:
             return self._guide_for_state(state)
         guide = self._cached_guide_provider(state)
         if guide is not None:
             return guide
-        self._guide_token += 1
         token = self._guide_token
         builder = self._guide_builder
         bridge = self._guide_bridge
