@@ -79,3 +79,50 @@ class RosterDelegateTests(QtSmokeBase):
         QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rect.center())
         self.assertEqual(groups, ["matched"])
         view.close()
+
+    def test_chip_tooltip_hit_rects_match_painted_chips(self):
+        from unittest.mock import patch
+
+        from PySide6.QtCore import QEvent, QPoint
+        from PySide6.QtWidgets import QStyleOptionViewItem, QToolTip
+        from PySide6.QtGui import QHelpEvent
+        from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+        from plex_renamer.gui_qt.widgets.status_chip import (
+            chip_font_metrics,
+            chip_rects,
+            chip_row_height,
+        )
+
+        state = _make_state("A")
+        seasons = {
+            n: SeasonCompleteness(season=n, expected=100, matched=99, missing=[(50, "Ep")])
+            for n in (111, 112, 113)
+        }
+        state.completeness = CompletenessReport(
+            seasons=seasons, specials=None,
+            total_expected=300, total_matched=297, total_missing=[],
+        )
+        view, model, delegate = self._view([state])
+        view.show()
+        index = model.index(1, 0)
+        row_data = index.data(ROW_DATA_ROLE)
+        self.assertEqual(len(row_data.chips), 3)
+
+        option = QStyleOptionViewItem()
+        option.rect = view.visualRect(index)
+        body = delegate._body_rect(option.rect)
+        chip_y = body.bottom() - chip_row_height()
+        painted = chip_rects(body.x(), chip_y, row_data.chips, chip_font_metrics())
+        probe = QPoint(painted[2].left() + 1, painted[2].center().y())
+
+        shown: list[str] = []
+        with patch.object(
+            QToolTip, "showText",
+            side_effect=lambda _pos, text, *_args: shown.append(text),
+        ):
+            event = QHelpEvent(QEvent.Type.ToolTip, probe, view.viewport().mapToGlobal(probe))
+            handled = delegate.helpEvent(event, view, option, index)
+        self.assertTrue(handled)
+        self.assertEqual(shown, [row_data.chips[2].tooltip])
+        view.close()

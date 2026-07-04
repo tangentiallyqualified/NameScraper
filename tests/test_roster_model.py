@@ -83,3 +83,28 @@ class RosterModelTests(QtSmokeBase):
         model = self._model([_make_state("A")])
         self.assertFalse(model.flags(model.index(0, 0)) & Qt.ItemFlag.ItemIsSelectable)
         self.assertTrue(model.flags(model.index(1, 0)) & Qt.ItemFlag.ItemIsSelectable)
+
+    def test_poster_role_transitions_after_fetch(self):
+        from unittest.mock import patch
+
+        from PIL import Image
+
+        from plex_renamer.gui_qt.widgets import _roster_model as rm
+
+        state = _make_state("Frieren")
+        calls: list[tuple] = []
+
+        class _Tmdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append((show_id, media_type, target_width))
+                return Image.new("RGB", (4, 6), (10, 20, 30))
+
+        model = rm.RosterModel(media_type="tv", tmdb_provider=lambda: _Tmdb())
+        with patch.object(rm, "_submit_bg", side_effect=lambda fn: fn()):
+            model.set_states([state], collapsed_groups={})
+        row = model.row_for_state_index(0)
+        self.assertGreaterEqual(row, 0)
+        pixmap = model.index(row, 0).data(rm.POSTER_ROLE)
+        self.assertIsNotNone(pixmap)
+        self.assertFalse(pixmap.isNull())
+        self.assertEqual(len(calls), 1)

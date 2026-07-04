@@ -17,7 +17,7 @@ from .. import _scale, theme
 from ._image_utils import build_placeholder_pixmap, scale_pixmap_for_device
 from ._roster_model import GROUP_ROLE, KIND_ROLE, POSTER_ROLE, ROW_DATA_ROLE, RosterRowData
 from ._workspace_widget_primitives import paint_check_indicator, paint_mini_progress
-from .status_chip import chip_rects, paint_chip_row, chip_row_height
+from .status_chip import chip_font_metrics, chip_rects, chip_row_height, paint_chip_row
 
 _MARGIN_U = 8
 _TOGGLE_U = 20
@@ -190,9 +190,13 @@ class RosterDelegate(QStyledItemDelegate):
 
         painter.setPen(theme.qcolor("text"))
         title = row_data.title
-        first_line, remainder = self._split_title(title, metrics, first_line_rect.width())
+        if self._compact:
+            first_line = metrics.elidedText(title, Qt.TextElideMode.ElideRight, first_line_rect.width())
+            remainder = ""
+        else:
+            first_line, remainder = self._split_title(title, metrics, first_line_rect.width())
         painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), first_line)
-        if remainder and not self._compact:
+        if remainder:
             elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideRight, second_line_rect.width())
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), elided)
 
@@ -260,8 +264,7 @@ class RosterDelegate(QStyledItemDelegate):
 
         body_rect = self._body_rect(option.rect)
         chip_y = body_rect.bottom() - chip_row_height()
-        metrics = QFontMetrics(view.font())
-        rects = chip_rects(body_rect.x(), chip_y, row_data.chips, metrics)
+        rects = chip_rects(body_rect.x(), chip_y, row_data.chips, chip_font_metrics())
         point = event.pos()
         for chip, rect in zip(row_data.chips, rects):
             if rect.contains(point):

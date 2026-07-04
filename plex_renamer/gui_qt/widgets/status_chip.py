@@ -104,6 +104,12 @@ def _chip_font():
     return font
 
 
+def chip_font_metrics() -> QFontMetrics:
+    """Metrics for the chip font — hit-testing must use these, not the view
+    font, or tooltip rects drift off the painted chips."""
+    return QFontMetrics(_chip_font())
+
+
 def chip_row_height() -> int:
     return _scale.px(_CHIP_HEIGHT_UNITS)
 
@@ -130,9 +136,8 @@ def paint_chip_row(painter: QPainter, origin_x: int, origin_y: int, chips: Seque
     if not chips:
         return
     painter.save()
-    font = _chip_font()
-    painter.setFont(font)
-    metrics = QFontMetrics(font)
+    painter.setFont(_chip_font())
+    metrics = chip_font_metrics()
     radius = theme.radius("sm")
     for chip, rect in zip(chips, chip_rects(origin_x, origin_y, chips, metrics)):
         tone_token = _TONE_COLORS[chip.tone]
