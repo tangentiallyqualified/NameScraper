@@ -4461,3 +4461,17 @@ class TestEpisodeAssignDialog(QtSmokeBase):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         dialog.close()
+
+    def test_assign_dialog_shows_full_filename_unelided(self):
+        from plex_renamer.app.models.state_models import EpisodeSlotChoice
+        from plex_renamer.gui_qt.widgets.episode_assign_dialog import EpisodeAssignDialog
+
+        long_name = "Show.Name.2020.S01E01.Absurdly.Long.Release.Tag.Chain.1080p.WEB-DL.DDP5.1.H.264-GROUP.mkv"
+        dialog = EpisodeAssignDialog(
+            slots=[EpisodeSlotChoice(season=1, episode=1, title="One")],
+            file_label=long_name,
+        )
+        label = dialog._file_label
+        self.assertEqual(label.text(), long_name)      # no "…" elision
+        self.assertTrue(label.wordWrap())
+        dialog.close()

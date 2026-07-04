@@ -56,13 +56,10 @@ def _configure_tree(tree: QTreeWidget) -> None:
 
 
 def _file_name_label(file_label: str, parent) -> QLabel:
-    label = QLabel(parent)
+    label = QLabel(file_label, parent)
     label.setProperty("cssClass", "caption")
-    label.setToolTip(file_label)
-    metrics = label.fontMetrics()
-    label.setText(
-        metrics.elidedText(file_label, Qt.TextElideMode.ElideMiddle, _scale.px(560))
-    )
+    label.setWordWrap(True)
+    label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
     return label
 
 
@@ -97,8 +94,10 @@ class EpisodeAssignDialog(QDialog):
         )
         instruction.setWordWrap(True)
         layout.addWidget(instruction)
+        self._file_label: QLabel | None = None
         if file_label:
-            layout.addWidget(_file_name_label(file_label, self))
+            self._file_label = _file_name_label(file_label, self)
+            layout.addWidget(self._file_label)
 
         self._tree = QTreeWidget(self)
         _configure_tree(self._tree)
