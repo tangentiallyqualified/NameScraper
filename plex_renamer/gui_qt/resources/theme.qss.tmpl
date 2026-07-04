@@ -486,6 +486,43 @@ QPushButton[cssClass="danger"]:hover {
     background-color: ${error_hover};
 }
 
+/* Danger outline button (destructive-but-not-primary; spec §6 Unassign All) */
+QPushButton[cssClass="danger-outline"] {
+    background-color: transparent;
+    color: ${error};
+    border: 1px solid ${error};
+}
+
+QPushButton[cssClass="danger-outline"]:hover {
+    background-color: rgba(229, 83, 75, 0.12);
+}
+
+QPushButton[cssClass="danger-outline"]:disabled {
+    color: ${text_dim};
+    border-color: ${border_light};
+}
+
+QPushButton[cssClass="danger-outline"][sizeVariant="compact"] {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+QToolButton[cssClass="toolbar-overflow"] {
+    background-color: transparent;
+    color: ${text};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    padding: 1px 8px;
+}
+
+QToolButton[cssClass="toolbar-overflow"]::menu-indicator {
+    image: none;
+}
+
+QToolButton[cssClass="toolbar-overflow"]:hover {
+    background-color: ${card_hover};
+}
+
 QWidget[cssClass="segmented-control"] {
     background-color: transparent;
 }

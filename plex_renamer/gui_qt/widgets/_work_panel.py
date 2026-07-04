@@ -17,8 +17,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
+    QStackedLayout,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -26,6 +29,7 @@ from PySide6.QtWidgets import (
 from ...engine import ScanState
 from ...thread_pool import submit as _submit_bg
 from .. import _scale
+from ._bulk_assign_panel import BulkAssignPanel
 from ._episode_table_delegate import EpisodeTableDelegate, EpisodeTableView
 from ._episode_table_model import EpisodeTableModel
 from ._formatting import clamped_percent
@@ -57,6 +61,7 @@ class MediaWorkPanel(QFrame):
     season_chip_clicked = Signal(int)     # season number (0 = specials)
     master_check_changed = Signal(int)    # movie mode master
     overview_toggled = Signal(bool)
+    bulk_assign_requested = Signal()      # overflow menu action (and Task 5 hint forward)
 
     def __init__(
         self,
@@ -137,6 +142,31 @@ class MediaWorkPanel(QFrame):
     @property
     def master_syncing(self) -> bool:
         return self._master_syncing
+
+    @property
+    def bulk_panel(self) -> BulkAssignPanel:
+        return self._bulk_panel
+
+    @property
+    def overflow_button(self) -> QToolButton:
+        return self._overflow_button
+
+    def bulk_assign_active(self) -> bool:
+        return self._table_stack.currentWidget() is self._bulk_panel
+
+    def enter_bulk_assign(self) -> None:
+        self._table_stack.setCurrentWidget(self._bulk_panel)
+        self._segmented_filter.setEnabled(False)
+        self._search_box.setEnabled(False)
+        self._approve_all_button.hide()
+        self._unassign_all_button.hide()
+
+    def exit_bulk_assign(self) -> None:
+        self._table_stack.setCurrentWidget(self._table_view)
+        self._segmented_filter.setEnabled(True)
+        self._search_box.setEnabled(True)
+        if self._state is not None:
+            self.update_toolbar(self._state)
 
     # -- UI scaffold ---------------------------------------------------------
 
@@ -229,19 +259,32 @@ class MediaWorkPanel(QFrame):
 
         toolbar.addStretch()
 
-        self._unassign_all_button = QPushButton("Unassign All")
-        self._unassign_all_button.setProperty("cssClass", "secondary")
-        self._unassign_all_button.setProperty("sizeVariant", "compact")
-        self._unassign_all_button.hide()
-        self._unassign_all_button.clicked.connect(self.unassign_all_clicked.emit)
-        toolbar.addWidget(self._unassign_all_button)
-
         self._approve_all_button = QPushButton("Approve All")
         self._approve_all_button.setProperty("cssClass", "primary")
         self._approve_all_button.setProperty("sizeVariant", "compact")
         self._approve_all_button.hide()
         self._approve_all_button.clicked.connect(self.approve_all_clicked.emit)
         toolbar.addWidget(self._approve_all_button)
+
+        toolbar.addSpacing(_scale.px(24))   # physical separation (spec §6)
+
+        self._unassign_all_button = QPushButton("Unassign All")
+        self._unassign_all_button.setProperty("cssClass", "danger-outline")
+        self._unassign_all_button.setProperty("sizeVariant", "compact")
+        self._unassign_all_button.hide()
+        self._unassign_all_button.clicked.connect(self.unassign_all_clicked.emit)
+        toolbar.addWidget(self._unassign_all_button)
+
+        self._overflow_button = QToolButton()
+        self._overflow_button.setText("⋯")
+        self._overflow_button.setProperty("cssClass", "toolbar-overflow")
+        self._overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        overflow_menu = QMenu(self._overflow_button)
+        overflow_menu.addAction("Bulk Assign…", self.bulk_assign_requested.emit)
+        self._overflow_button.setMenu(overflow_menu)
+        if self._media_type == "movie":
+            self._overflow_button.hide()
+        toolbar.addWidget(self._overflow_button)
 
         outer.addLayout(toolbar)
 
@@ -256,7 +299,12 @@ class MediaWorkPanel(QFrame):
         self._delegate = EpisodeTableDelegate(self._table_view, media_type=self._media_type)
         self._table_view.setItemDelegate(self._delegate)
         self._table_view.header_clicked.connect(self._on_header_clicked)
-        outer.addWidget(self._table_view, stretch=1)
+        self._bulk_panel = BulkAssignPanel()
+        stack_host = QWidget()
+        self._table_stack = QStackedLayout(stack_host)
+        self._table_stack.addWidget(self._table_view)
+        self._table_stack.addWidget(self._bulk_panel)
+        outer.addWidget(stack_host, stretch=1)
 
     def _build_footer(self, outer: QVBoxLayout) -> None:
         footer = QHBoxLayout()
@@ -395,6 +443,8 @@ class MediaWorkPanel(QFrame):
         self._summary_label.setText(self._model.summary_text())
 
     def update_toolbar(self, state: ScanState | None) -> None:
+        if self._media_type != "movie":
+            self._overflow_button.setVisible(not self.bulk_assign_active())
         is_movie = self._media_type == "movie"
         self._segmented_filter.setVisible(not is_movie)
         self._search_box.setVisible(not is_movie)

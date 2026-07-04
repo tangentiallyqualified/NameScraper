@@ -72,3 +72,49 @@ class WorkPanelTests(QtSmokeBase):
         self.assertIsNotNone(panel.master_check)   # shown/hidden by update_master_state (Task 5 wiring)
         self.assertEqual(len(panel._strip_buttons), 0)
         panel.close()
+
+    def test_bulk_mode_swaps_stack_and_gates_toolbar(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        self.assertFalse(panel.bulk_assign_active())
+        panel.enter_bulk_assign()
+        self.assertTrue(panel.bulk_assign_active())
+        self.assertIs(panel._table_stack.currentWidget(), panel.bulk_panel)
+        self.assertFalse(panel.segmented_filter.isEnabled())
+        self.assertFalse(panel.search_box.isEnabled())
+        self.assertFalse(panel.approve_all_button.isVisible())
+        self.assertFalse(panel.unassign_all_button.isVisible())
+        panel.exit_bulk_assign()
+        self.assertFalse(panel.bulk_assign_active())
+        self.assertIs(panel._table_stack.currentWidget(), panel.table_view)
+        self.assertTrue(panel.segmented_filter.isEnabled())
+        panel.close()
+
+    def test_overflow_menu_emits_bulk_assign_requested(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        fired: list[bool] = []
+        panel.bulk_assign_requested.connect(lambda: fired.append(True))
+        actions = panel.overflow_button.menu().actions()
+        self.assertEqual([a.text() for a in actions], ["Bulk Assign…"])
+        actions[0].trigger()
+        self.assertEqual(fired, [True])
+
+    def test_unassign_all_is_danger_outline(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        self.assertEqual(panel.unassign_all_button.property("cssClass"), "danger-outline")
+
+    def test_movie_mode_hides_overflow(self):
+        from pathlib import Path
+        from plex_renamer.engine.models import ScanState
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state.scanned = True
+        panel = MediaWorkPanel(media_type="movie")
+        panel.show_state(state, collapsed_sections=set(), folder_preview=None)
+        panel.show()
+        self.assertFalse(panel.overflow_button.isVisible())
+        panel.close()
