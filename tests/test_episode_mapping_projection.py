@@ -332,3 +332,79 @@ class TestTableBackedService:
         service = EpisodeMappingService()
         choices = service.shareable_file_choices(state, season=1, episode=4)
         assert choices == []
+
+
+from plex_renamer.engine.episode_assignments import (
+    REASON_MANUAL_UNASSIGN,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
+
+
+def _table_state(*, slots: int = 4, files: tuple[str, ...] = ("a.mkv", "b.mkv", "c.mkv")):
+    """ScanState backed by a real assignment table; all files start unassigned."""
+    table = EpisodeAssignmentTable()
+    for episode in range(1, slots + 1):
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+    file_ids: list[int] = []
+    for name in files:
+        entry = table.add_file(Path(f"C:/lib/Show/{name}"))
+        table.mark_unassigned(entry.file_id, "no episode parsed")
+        file_ids.append(entry.file_id)
+    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state.scanned = True
+    state.assignments = table
+    EpisodeMappingService().reproject(state)
+    return state, file_ids
+
+
+class BulkMutationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.service = EpisodeMappingService()
+
+    def test_apply_assignments_batches_with_single_reproject(self):
+        state, file_ids = _table_state()
+        calls: list[int] = []
+        original = EpisodeMappingService.reproject
+
+        def counting(service_self, target):
+            calls.append(1)
+            return original(service_self, target)
+
+        EpisodeMappingService.reproject = counting
+        try:
+            applied, skipped = self.service.apply_assignments(
+                state, [(file_ids[0], 1, 2), (file_ids[1], 1, 3)],
+            )
+        finally:
+            EpisodeMappingService.reproject = original
+        self.assertEqual((applied, skipped), (2, 0))
+        self.assertEqual(len(calls), 1)
+        table = state.assignments
+        self.assertEqual(table.assignment_for(file_ids[0]).episodes, (2,))
+        self.assertEqual(table.assignment_for(file_ids[1]).episodes, (3,))
+
+    def test_apply_assignments_skips_invalid_pairs(self):
+        state, file_ids = _table_state()
+        applied, skipped = self.service.apply_assignments(
+            state, [(file_ids[0], 1, 1), (file_ids[1], 1, 99)],  # E99 has no slot
+        )
+        self.assertEqual((applied, skipped), (1, 1))
+        self.assertIsNotNone(state.assignments.assignment_for(file_ids[0]))
+        self.assertIsNone(state.assignments.assignment_for(file_ids[1]))
+
+    def test_apply_assignments_empty_is_noop(self):
+        state, _file_ids = _table_state()
+        before = list(state.preview_items)
+        self.assertEqual(self.service.apply_assignments(state, []), (0, 0))
+        self.assertEqual(state.preview_items, before)  # no reproject ran
+
+    def test_unassign_all_clears_every_assignment_once(self):
+        state, file_ids = _table_state()
+        self.service.apply_assignments(state, [(file_ids[0], 1, 1), (file_ids[1], 1, 2)])
+        count = self.service.unassign_all(state)
+        self.assertEqual(count, 2)
+        table = state.assignments
+        self.assertEqual(table.assignments(), [])
+        self.assertEqual(table.unassigned_reasons[file_ids[0]], REASON_MANUAL_UNASSIGN)
+        self.assertEqual(self.service.unassign_all(state), 0)  # idempotent no-op

@@ -128,6 +128,44 @@ class EpisodeMappingService:
             self.reproject(state)
         return count
 
+    def apply_assignments(
+        self, state: ScanState, pairs: list[tuple[int, int, int]],
+    ) -> tuple[int, int]:
+        """Apply (file_id, season, episode) pairs as one batch (Bulk Assign).
+
+        Each valid pair becomes a single-episode manual assignment
+        (displace=True, same semantics as assign_file); invalid pairs are
+        skipped, not fatal. Exactly one reproject when anything applied.
+        """
+        from ...engine.episode_assignments import ORIGIN_MANUAL
+
+        table = self._require_table(state)
+        applied = 0
+        skipped = 0
+        for file_id, season, episode in pairs:
+            try:
+                table.assign(
+                    file_id, season, [episode],
+                    origin=ORIGIN_MANUAL, displace=True,
+                )
+            except ValueError:
+                skipped += 1
+                continue
+            applied += 1
+        if applied:
+            self.reproject(state)
+        return applied, skipped
+
+    def unassign_all(self, state: ScanState) -> int:
+        """Unassign every assigned file with one reproject (bulk Unassign All)."""
+        table = self._require_table(state)
+        file_ids = [assignment.file_id for assignment in table.assignments()]
+        for file_id in file_ids:
+            table.unassign(file_id)
+        if file_ids:
+            self.reproject(state)
+        return len(file_ids)
+
     def resolve_conflict(
         self, state: ScanState, season: int, episode: int, winner: PreviewItem,
     ) -> None:
