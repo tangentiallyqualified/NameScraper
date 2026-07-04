@@ -151,6 +151,40 @@ class EpisodeTableModelTests(QtSmokeBase):
         model = self._model(state, guide)
         self.assertEqual(model.summary_text(), "3 files · 2 mapped · 1 unmapped")
 
+    def test_summary_text_companion_and_duplicate_segments(self):
+        state, guide = _guide_state()
+        guide.summary.companion_files = 2
+        guide.summary.duplicate_files = 1
+        model = self._model(state, guide)
+        self.assertEqual(
+            model.summary_text(),
+            "6 files · 2 mapped · 2 companions · 1 unmapped · 1 duplicates",
+        )
+
+    def test_summary_text_empty_omits_zero_segments(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
+
+        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: None)
+        self.assertEqual(model.summary_text(), "0 files · 0 mapped")
+
+    def test_movie_summary_counts_companions_and_duplicates(self):
+        from plex_renamer.engine.models import CompanionFile, PreviewItem, ScanState
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
+
+        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state.scanned = True
+        keeper = PreviewItem(original=Path("C:/lib/Movie/movie.mkv"), new_name="Movie (2021).mkv",
+                             target_dir=None, season=None, episodes=[], status="OK", media_type="movie",
+                             companions=[CompanionFile(original=Path("C:/lib/Movie/movie.en.srt"),
+                                                       new_name="Movie (2021).en.srt", file_type="subtitle")])
+        extra = PreviewItem(original=Path("C:/lib/Movie/movie copy.mkv"), new_name=None,
+                            target_dir=None, season=None, episodes=[],
+                            status="DUPLICATE: copy of movie.mkv", media_type="movie")
+        state.preview_items = [keeper, extra]
+        model = EpisodeTableModel(media_type="movie")
+        model.show_state(state, collapsed_sections=set())
+        self.assertEqual(model.summary_text(), "2 files · 1 mapped · 1 companions · 1 duplicates")
+
     def test_movie_rows_carry_checks(self):
         from plex_renamer.engine.models import PreviewItem, ScanState
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel

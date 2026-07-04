@@ -192,21 +192,30 @@ class EpisodeTableModel(QAbstractListModel):
             items = self._state.preview_items if self._state is not None else []
             total = len(items)
             mapped = sum(1 for item in items if item.is_actionable)
+            companions = sum(len(item.companions) for item in items)
             unmapped = 0
-            return f"{total} files · {mapped} mapped · {unmapped} unmapped"
-        if self._guide is None:
-            return "0 files · 0 mapped · 0 unmapped"
-        summary = self._guide.summary
-        total = (
-            summary.mapped_primary_files
-            + summary.companion_files
-            + summary.unmapped_primary_files
-            + summary.duplicate_files
+            duplicates = sum(1 for item in items if item.is_duplicate)
+        elif self._guide is None:
+            total = mapped = companions = unmapped = duplicates = 0
+        else:
+            summary = self._guide.summary
+            mapped = summary.mapped_primary_files
+            companions = summary.companion_files
+            unmapped = summary.unmapped_primary_files
+            duplicates = summary.duplicate_files
+            total = mapped + companions + unmapped + duplicates
+        # Spec §3.2.5: zero-count segments drop out; files + mapped always render.
+        parts = [f"{total} files", f"{mapped} mapped"]
+        parts.extend(
+            f"{count} {noun}"
+            for count, noun in (
+                (companions, "companions"),
+                (unmapped, "unmapped"),
+                (duplicates, "duplicates"),
+            )
+            if count
         )
-        return (
-            f"{total} files · {summary.mapped_primary_files} mapped · "
-            f"{summary.unmapped_primary_files} unmapped"
-        )
+        return " · ".join(parts)
 
     def row_kind_at(self, row: int) -> str | None:
         if row < 0 or row >= len(self._entries):
