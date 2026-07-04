@@ -13,7 +13,7 @@
 | 2 | [2026-07-03-gui-v4-plan2-roster.md](2026-07-03-gui-v4-plan2-roster.md) | §3.1 roster panel, §4 roster chips, §7 roster model/delegate | **Landed** 2026-07-03 (commits 9e366bb..e3bb6de + carry-overs, review clean) |
 | 3 | [2026-07-03-gui-v4-plan3-work-panel.md](2026-07-03-gui-v4-plan3-work-panel.md) | §3.2 work panel, §3.3 movie parity, §4 season strip, §5 info removal, §7 episode table model/delegate/expansion | **Landed** 2026-07-03 (commits d8552ce..e3e7f57, review clean) |
 | 4 | [2026-07-03-gui-v4-plan4-bulk-assign.md](2026-07-03-gui-v4-plan4-bulk-assign.md) | §6 bulk assign + unassign-all treatment, §15.7 MVP scope | **Landed** 2026-07-04 (commits 5ae5c96..eb8ee91, review clean) |
-| 5 | `gui-v4-plan5-async-perf.md` (to write) | §7 async guide build, BusyOverlay, warm-cache deletion, perf guard test | not written |
+| 5 | [2026-07-04-gui-v4-plan5-async-perf.md](2026-07-04-gui-v4-plan5-async-perf.md) | §7 async guide build, BusyOverlay, warm-cache deletion, perf guard test | **Written** 2026-07-04 — ready to execute |
 | 6 | `gui-v4-plan6-toasts-loading.md` (to write) | §9 toasts, §10 loading screen | not written |
 | 7 | `gui-v4-plan7-queue-history.md` (to write) | §11 queue/history restyle + companion surfacing | not written |
 | 8 | `gui-v4-plan8-settings-seams.md` (to write) | §12 settings restyle, §13 mkvmerge UI seams | not written |
