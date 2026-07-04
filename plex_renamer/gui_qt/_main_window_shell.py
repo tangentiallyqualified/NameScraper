@@ -14,12 +14,10 @@ class MainWindowShellCoordinator:
         *,
         tv_index: int,
         movies_index: int,
-        history_index: int,
     ) -> None:
         self._window = window
         self._tv_index = tv_index
         self._movies_index = movies_index
-        self._history_index = history_index
 
     def open_folder(self, media_type: str) -> None:
         """Switch to the appropriate tab and trigger its folder picker."""

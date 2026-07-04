@@ -68,3 +68,23 @@ class QtChromeTests(QtSmokeBase):
             )
             window._movie_workspace.load_folder.assert_called_once_with(folder)
         window.close()
+
+    def test_recent_tv_folder_switches_to_tv_tab(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        window = MainWindow()
+        with TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+            folder = str(Path(tmp_dir) / "Shows")
+            window.settings_service.add_recent_tv_folder(folder)
+            window._rebuild_recent_menus()
+
+            window._tv_workspace.load_folder = MagicMock()
+
+            window._tabs.setCurrentIndex(2)  # Movies tab active
+            window._recent_tv_menu.actions()[0].trigger()
+
+            self.assertEqual(
+                window._tabs.currentIndex(), 1, "TV folder must switch to TV tab"
+            )
+            window._tv_workspace.load_folder.assert_called_once_with(folder)
+        window.close()

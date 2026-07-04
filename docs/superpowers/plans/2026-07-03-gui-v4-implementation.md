@@ -10,7 +10,7 @@
 | # | Plan file | Spec sections | Status |
 |---|---|---|---|
 | 1 | [2026-07-03-gui-v4-plan1-theme-foundation.md](2026-07-03-gui-v4-plan1-theme-foundation.md) | §8 theme tokens/palette/de-Plex, §14 shortcuts + recent-menus + About | **Landed** 2026-07-03 (commits 6c82086..d421d37, review clean) |
-| 2 | [2026-07-03-gui-v4-plan2-roster.md](2026-07-03-gui-v4-plan2-roster.md) | §3.1 roster panel, §4 roster chips, §7 roster model/delegate | **Written** 2026-07-03 — ready to execute |
+| 2 | [2026-07-03-gui-v4-plan2-roster.md](2026-07-03-gui-v4-plan2-roster.md) | §3.1 roster panel, §4 roster chips, §7 roster model/delegate | **Landed** 2026-07-03 (commits 9e366bb..e3bb6de + carry-overs, review clean) |
 | 3 | `gui-v4-plan3-work-panel.md` (to write) | §3.2 work panel, §3.3 movie parity, §4 season strip, §5 info removal, §7 episode table model/delegate/expansion | not written |
 | 4 | `gui-v4-plan4-bulk-assign.md` (to write) | §6 bulk assign + unassign-all treatment | not written |
 | 5 | `gui-v4-plan5-async-perf.md` (to write) | §7 async guide build, BusyOverlay, warm-cache deletion, perf guard test | not written |

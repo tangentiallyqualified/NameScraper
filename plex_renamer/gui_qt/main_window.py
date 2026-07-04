@@ -91,7 +91,6 @@ class MainWindow(QMainWindow):
             self,
             tv_index=_TV,
             movies_index=_MOVIES,
-            history_index=_HISTORY,
         )
         self._state_coordinator = MainWindowStateCoordinator(
             self,
