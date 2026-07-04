@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QSize
-
-from .. import _scale
-
 
 class MediaWorkspaceLifecycleCoordinator:
     def __init__(
@@ -45,11 +41,7 @@ class MediaWorkspaceLifecycleCoordinator:
     def apply_settings(self) -> None:
         workspace = self._workspace
         compact = workspace._settings is not None and workspace._settings.view_mode == "compact"
-        workspace._roster_list.setIconSize(
-            QSize(_scale.px(32), _scale.px(46))
-            if compact
-            else QSize(_scale.px(42), _scale.px(60))
-        )
+        workspace._roster_panel.set_compact(compact)
         workspace.refresh_from_controller()
         workspace._detail_panel.refresh_current()
 

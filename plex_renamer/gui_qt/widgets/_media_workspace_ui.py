@@ -67,7 +67,7 @@ class MediaWorkspaceUiCoordinator:
         workspace._splitter.addWidget(workspace._roster_panel)
         workspace._splitter.addWidget(workspace._preview_panel)
         workspace._splitter.addWidget(workspace._detail_panel)
-        workspace._splitter.setSizes([320, 540, 380])
+        workspace._splitter.setSizes([380, 500, 360])
         workspace._splitter.setChildrenCollapsible(False)
 
         ready_layout.addWidget(workspace._splitter, stretch=1)
@@ -79,22 +79,15 @@ class MediaWorkspaceUiCoordinator:
             media_type=workspace._media_type,
             settings_service=workspace._settings,
             tmdb_provider=workspace._tmdb_provider,
-            set_item_check_state_callback=lambda item, checked: workspace._set_item_check_state(
-                item,
-                checked,
-                preview=False,
-            ),
-            prompt_assign_season_callback=workspace._prompt_assign_season,
         )
-        workspace._roster_list = workspace._roster_panel.list_widget
         workspace._roster_master_check = workspace._roster_panel.master_check
         workspace._roster_selection_summary = workspace._roster_panel.selection_summary
         workspace._roster_queue_btn = workspace._roster_panel.queue_button
         workspace._roster_master_check.stateChanged.connect(workspace._on_roster_master_changed)
         workspace._roster_queue_btn.clicked.connect(workspace._queue_checked)
-        workspace._roster_list.itemChanged.connect(workspace._on_roster_item_changed)
-        workspace._roster_list.itemClicked.connect(workspace._on_roster_item_clicked)
-        workspace._roster_list.currentItemChanged.connect(workspace._on_roster_current_item_changed)
+        workspace._roster_panel.state_selected.connect(workspace._on_roster_state_selected)
+        workspace._roster_panel.check_toggled.connect(workspace._on_roster_check_toggled)
+        workspace._roster_panel.group_toggled.connect(workspace._on_roster_group_toggled)
         workspace._set_roster_queue_button_text("Queue Checked")
 
     def _build_preview_panel(self) -> None:

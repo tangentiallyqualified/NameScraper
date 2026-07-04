@@ -62,12 +62,15 @@ class QtSmokeBase(unittest.TestCase):
         window._on_queue_changed()
         self._app.processEvents()
 
-    def _roster_widget_for_index(self, workspace, index: int):
-        for row in range(workspace._roster_list.count()):
-            item = workspace._roster_list.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == index:
-                return workspace._roster_list.itemWidget(item)
-        return None
+    def _roster_row_data_for_index(self, workspace, index: int):
+        """RosterRowData snapshot for the state at controller index, or None."""
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
+        model = workspace._roster_panel.model
+        row = model.row_for_state_index(index)
+        if row < 0:
+            return None
+        return model.index(row, 0).data(ROW_DATA_ROLE)
 
     def _preview_widget_for_index(self, workspace, index: int):
         for row in range(workspace._preview_list.count()):
@@ -86,7 +89,8 @@ class QtSmokeBase(unittest.TestCase):
         return headers
 
     def _assert_roster_section_title(self, workspace, row: int, expected: str) -> None:
-        text = workspace._roster_list.item(row).text().strip()
+        model = workspace._roster_panel.model
+        text = (model.index(row, 0).data() or "").strip()
         normalized = text.removeprefix("▼").removeprefix("▶").strip()
         if " (" in normalized:
             normalized = normalized.split(" (", 1)[0]

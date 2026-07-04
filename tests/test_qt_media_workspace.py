@@ -94,7 +94,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             self.assertGreater(
                 workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y(),
-                workspace._roster_list.mapTo(workspace, QPoint(0, 0)).y(),
+                workspace._roster_panel.view.mapTo(workspace, QPoint(0, 0)).y(),
             )
             self.assertLess(
                 workspace._roster_queue_btn.minimumWidth(),
@@ -178,7 +178,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_uses_inline_approve_action_for_review_items(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -210,9 +210,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
 
-        row_widget = self._roster_widget_for_index(workspace, 0)
-        self.assertIsInstance(row_widget, _RosterRowWidget)
-        self.assertIsNone(row_widget._approve_btn)
+        data = self._roster_row_data_for_index(workspace, 0)
+        self.assertIsNotNone(data)
         self.assertEqual(workspace._queue_inline_btn.text(), "Approve Match")
 
         workspace.close()
@@ -303,7 +302,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_hides_single_season_badge_for_multi_season_preview(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        # NOTE: the "Season N" roster meta-line badge this test targeted was
+        # removed by the GUI V4 roster spec (poster-forward layout, no
+        # per-row meta line). Kept as a render-sanity check for this state
+        # shape; the badge-specific assertion has no model equivalent.
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -352,14 +355,17 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        row_widget = self._roster_widget_for_index(workspace, 0)
-        self.assertIsInstance(row_widget, _RosterRowWidget)
-        self.assertNotIn("Season 1", row_widget._meta.text())
+        data = self._roster_row_data_for_index(workspace, 0)
+        self.assertIsNotNone(data)
+        self.assertEqual(data.title, state.display_name)
 
         workspace.close()
 
     def test_media_workspace_season_one_badge_only_shows_when_show_has_multiple_seasons(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        # NOTE: same spec removal as above — the "Season N" badge no longer
+        # exists on the model. Kept as a render-sanity check across both
+        # single- and multi-season completeness shapes.
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, states):
@@ -430,12 +436,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        single_widget = self._roster_widget_for_index(workspace, 0)
-        multi_widget = self._roster_widget_for_index(workspace, 1)
-        self.assertIsInstance(single_widget, _RosterRowWidget)
-        self.assertIsInstance(multi_widget, _RosterRowWidget)
-        self.assertNotIn("Season 1", single_widget._meta.text())
-        self.assertIn("Season 1", multi_widget._meta.text())
+        single_data = self._roster_row_data_for_index(workspace, 0)
+        multi_data = self._roster_row_data_for_index(workspace, 1)
+        self.assertIsNotNone(single_data)
+        self.assertIsNotNone(multi_data)
+        self.assertEqual(single_data.title, single_season.display_name)
+        self.assertEqual(multi_data.title, multi_season.display_name)
 
         workspace.close()
 
@@ -481,8 +487,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        roster_item = workspace._find_roster_item_by_index(0)
-        workspace._set_item_check_state(roster_item, True, preview=False)
+        workspace._set_roster_check_state(0, True)
 
         self.assertTrue(state.checked)
         self.assertTrue(state.check_vars["0"].get())
@@ -549,7 +554,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_uses_inline_assign_season_for_duplicate_tv_items(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -583,10 +588,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
 
-        row_widget = self._roster_widget_for_index(workspace, 0)
-        self.assertIsInstance(row_widget, _RosterRowWidget)
-        self.assertIsNone(row_widget._season_btn)
-        self.assertIsNone(row_widget._alternates_widget)
+        data = self._roster_row_data_for_index(workspace, 0)
+        self.assertIsNotNone(data)
         self.assertEqual(workspace._queue_inline_btn.text(), "Assign Season")
         self.assertTrue(workspace._fix_match_btn.isEnabled())
 
@@ -908,9 +911,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="movie", media_controller=media_ctrl)
         workspace.show_ready()
 
-        row_widget = self._roster_widget_for_index(workspace, 0)
-        self.assertIsNotNone(row_widget)
-        self.assertIsNone(row_widget._approve_btn)
+        data = self._roster_row_data_for_index(workspace, 0)
+        self.assertIsNotNone(data)
 
         with patch.object(workspace, "refresh_from_controller") as refresh_mock:
             workspace._approve_match(state)
@@ -1204,9 +1206,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._roster_list.count(), 3)
+            self.assertEqual(workspace._roster_panel.model.rowCount(), 3)
             self._assert_roster_section_title(workspace, 0, "MATCHED")
-            self.assertIsNone(workspace._roster_list.item(1).data(Qt.ItemDataRole.CheckStateRole))
+            self.assertIsNone(
+                workspace._roster_panel.model.index(1, 0).data(Qt.ItemDataRole.CheckStateRole)
+            )
             self.assertIsNone(workspace._preview_list.item(0).data(Qt.ItemDataRole.CheckStateRole))
             self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
             self.assertIn("2024", workspace._folder_plan_label.text())
@@ -1293,11 +1297,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._roster_list.count(), 4)
+            self.assertEqual(workspace._roster_panel.model.rowCount(), 4)
             self._assert_roster_section_title(workspace, 0, "MATCHED")
             self._assert_roster_section_title(workspace, 2, "DUPLICATES")
-            self.assertIsNotNone(self._roster_widget_for_index(workspace, 0))
-            self.assertIsNotNone(self._roster_widget_for_index(workspace, 1))
+            self.assertIsNotNone(self._roster_row_data_for_index(workspace, 0))
+            self.assertIsNotNone(self._roster_row_data_for_index(workspace, 1))
 
             workspace.close()
 
@@ -1378,7 +1382,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
             self.assertIsNotNone(preview_widget._companions)
             self.assertIn("Arrival.2016.en.srt", preview_widget._companions.text())
-            self.assertEqual(workspace._roster_list.iconSize().width(), 32)
+            self.assertTrue(workspace._roster_panel.is_compact())
 
             workspace.close()
 
@@ -1964,9 +1968,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIsNone(second_cached_item)
         self.assertIsNone(second_cached_widget)
 
-        second_item = workspace._find_roster_item_by_index(1)
-        self.assertIsNotNone(second_item)
-        workspace._roster_list.setCurrentItem(second_item)
+        panel = workspace._roster_panel
+        second_row = panel.model.row_for_state_index(1)
+        self.assertGreaterEqual(second_row, 0)
+        panel.view.setCurrentIndex(panel.model.index(second_row, 0))
         self._app.processEvents()
         second_widget = _first_visible_episode_widget(workspace)
         self.assertIsNotNone(second_widget)
@@ -1994,9 +1999,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(second_episode.isHidden())
         self.assertTrue(second_header.text().startswith("\u25b8 SEASON 1"))
 
-        first_item = workspace._find_roster_item_by_index(0)
-        self.assertIsNotNone(first_item)
-        workspace._roster_list.setCurrentItem(first_item)
+        first_row = panel.model.row_for_state_index(0)
+        self.assertGreaterEqual(first_row, 0)
+        panel.view.setCurrentIndex(panel.model.index(first_row, 0))
         self._app.processEvents()
 
         self.assertIs(_first_visible_episode_widget(workspace), first_widget)
@@ -3344,7 +3349,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         dialog.close()
 
     def test_media_workspace_renders_inline_alternate_matches_for_review_items(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -3401,16 +3406,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertIsNone(row_widget._alternates_layout)
-            self.assertIsNone(row_widget._alternates_widget)
+            data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(data)
             self.assertTrue(workspace._fix_match_btn.isEnabled())
-            self.assertFalse(row_widget._check.isWindow())
-            self.assertEqual(row_widget.styleSheet(), "")
-            self.assertEqual(row_widget.property("band"), "low")
-            self.assertEqual(row_widget.property("selectionState"), "selected")
-            self.assertTrue(row_widget._status.isHidden())
+            self.assertEqual(data.band, "low")
+            self.assertEqual(workspace._roster_panel.current_state_index(), 0)
 
             workspace.close()
 
@@ -3579,7 +3579,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_keeps_folder_rename_states_out_of_plex_ready(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -3630,14 +3630,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.show_ready()
 
             self._assert_roster_section_title(workspace, 0, "MATCHED")
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertTrue(row_widget._status.isHidden())
+            data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(data)
 
             workspace.close()
 
     def test_tv_workspace_blocks_review_duplicate_and_plex_ready_from_queue_selection(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -3755,31 +3754,31 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace._roster_collapsed["fully-ready"] = False
             workspace.refresh_from_controller()
 
-            matched_widget = self._roster_widget_for_index(workspace, 0)
-            review_widget = self._roster_widget_for_index(workspace, 1)
-            duplicate_widget = self._roster_widget_for_index(workspace, 2)
-            plex_ready_widget = self._roster_widget_for_index(workspace, 3)
+            matched_data = self._roster_row_data_for_index(workspace, 0)
+            review_data = self._roster_row_data_for_index(workspace, 1)
+            duplicate_data = self._roster_row_data_for_index(workspace, 2)
+            plex_ready_data = self._roster_row_data_for_index(workspace, 3)
 
-            self.assertIsInstance(matched_widget, _RosterRowWidget)
-            self.assertFalse(matched_widget._check.isHidden())
+            self.assertIsNotNone(matched_data)
+            self.assertTrue(matched_data.checkable)
             self.assertTrue(matched_state.checked)
 
-            self.assertIsInstance(review_widget, _RosterRowWidget)
+            self.assertIsNotNone(review_data)
             self.assertFalse(review_state.checked)
-            self.assertTrue(review_widget._check.isHidden())
+            self.assertFalse(review_data.checkable)
 
-            self.assertIsInstance(duplicate_widget, _RosterRowWidget)
+            self.assertIsNotNone(duplicate_data)
             self.assertFalse(duplicate_state.checked)
-            self.assertTrue(duplicate_widget._check.isHidden())
+            self.assertFalse(duplicate_data.checkable)
 
-            self.assertIsInstance(plex_ready_widget, _RosterRowWidget)
+            self.assertIsNotNone(plex_ready_data)
             self.assertFalse(plex_ready_state.checked)
-            self.assertTrue(plex_ready_widget._check.isHidden())
+            self.assertFalse(plex_ready_data.checkable)
 
             workspace.close()
 
     def test_tv_workspace_episode_review_state_groups_under_review_and_keeps_row_alignment(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, states):
@@ -3847,17 +3846,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
         self._assert_roster_section_title(workspace, 2, "MATCHED")
 
-        matched_widget = self._roster_widget_for_index(workspace, 0)
-        review_widget = self._roster_widget_for_index(workspace, 1)
-        self.assertIsInstance(matched_widget, _RosterRowWidget)
-        self.assertIsInstance(review_widget, _RosterRowWidget)
-        self.assertFalse(matched_widget._check.isHidden())
-        self.assertTrue(review_widget._check.isHidden())
+        matched_data = self._roster_row_data_for_index(workspace, 0)
+        review_data = self._roster_row_data_for_index(workspace, 1)
+        self.assertIsNotNone(matched_data)
+        self.assertIsNotNone(review_data)
+        self.assertTrue(matched_data.checkable)
+        self.assertFalse(review_data.checkable)
         self.assertFalse(episode_review_state.checked)
-        self.assertEqual(
-            matched_widget._title.mapTo(matched_widget, QPoint(0, 0)).x(),
-            review_widget._title.mapTo(review_widget, QPoint(0, 0)).x(),
-        )
 
         workspace.close()
 
@@ -3955,7 +3950,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.close()
 
     def test_media_workspace_mutes_roster_confidence_for_queued_items(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -4008,14 +4003,15 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             from plex_renamer.gui_qt import theme
 
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertEqual(row_widget._confidence._color.name(), theme.color("text_dim"))
+            data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(data)
+            self.assertEqual(data.confidence_color, theme.color("text_dim"))
 
             workspace.close()
 
     def test_media_workspace_roster_rows_use_placeholder_thumbnail_without_poster(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets._roster_model import POSTER_ROLE, ROW_DATA_ROLE
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -4057,15 +4053,22 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertIsNotNone(row_widget._poster.pixmap())
-            self.assertEqual(row_widget._poster.text(), "")
+            model = workspace._roster_panel.model
+            row = model.row_for_state_index(0)
+            self.assertGreaterEqual(row, 0)
+            data = model.index(row, 0).data(ROW_DATA_ROLE)
+            self.assertIsNotNone(data)
+            # No TMDB provider means no poster pixmap ever lands on the
+            # model; the delegate paints a placeholder (initials/accent)
+            # from RosterRowData in that case.
+            self.assertIsNone(model.index(row, 0).data(POSTER_ROLE))
+            self.assertTrue(data.placeholder_initials)
+            self.assertTrue(data.placeholder_accent)
 
             workspace.close()
 
     def test_media_workspace_movie_roster_poster_is_vertically_centered(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -4122,16 +4125,24 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.show_ready()
             self._app.processEvents()
 
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            row_center = row_widget.rect().center().y()
-            poster_center = row_widget._poster.geometry().center().y()
-            self.assertLessEqual(abs(poster_center - row_center), 2)
+            # Row widgets are gone (delegate-painted rows); the vertical
+            # centering behavior itself now lives in
+            # RosterDelegate._poster_rect for media_type="movie". Assert the
+            # geometry invariant directly at that layer.
+            from PySide6.QtCore import QRect
+
+            delegate = workspace._roster_panel._delegate
+            self.assertEqual(delegate._media_type, "movie")
+            option_rect = QRect(0, 0, 300, 110)
+            poster_rect = delegate._poster_rect(option_rect)
+            self.assertLessEqual(
+                abs(poster_rect.center().y() - option_rect.center().y()), 2
+            )
 
             workspace.close()
 
     def test_media_workspace_shows_threshold_aware_roster_match_text(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -4182,20 +4193,20 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            row_widget = workspace._roster_list.itemWidget(workspace._roster_list.item(1))
-            self.assertIsInstance(row_widget, _RosterRowWidget)
-            self.assertIn("TMDB - 42%", row_widget._meta.text())
-            self.assertNotIn("Review 42%", row_widget._meta.text())
-            self.assertEqual(row_widget._confidence_label.text(), "Confidence")
-            self.assertEqual(row_widget._confidence._value, 42)
-            self.assertIn("needs review", row_widget._meta.text())
-            self.assertTrue(row_widget._status.isHidden())
+            # NOTE: the "TMDB - 42%" / "Review 42%" / "needs review" meta-line
+            # text this test targeted was removed by the GUI V4 roster spec
+            # (poster-forward layout, no per-row meta line, §5). The
+            # threshold-aware confidence *value* and review routing survive
+            # on the model/action-bar; the phrasing itself has no equivalent.
+            data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(data)
+            self.assertEqual(data.confidence_pct, 42)
             self.assertEqual(workspace._queue_inline_btn.text(), "Approve Match")
 
             workspace.close()
 
     def test_media_workspace_reuses_unchanged_roster_widgets_on_refresh(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace, _RosterRowWidget
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
             def __init__(self):
@@ -4249,14 +4260,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            original_widget = self._roster_widget_for_index(workspace, 0)
-            self.assertIsInstance(original_widget, _RosterRowWidget)
+            original_data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(original_data)
 
             second.queued = True
             workspace.refresh_from_controller()
 
-            refreshed_widget = self._roster_widget_for_index(workspace, 0)
-            self.assertIs(refreshed_widget, original_widget)
+            # State 0 (Example Show) itself did not change: its model row
+            # data should be unaffected by state 1's regroup (previously
+            # verified via per-row widget reuse; the model has no per-row
+            # widgets, so assert content stability directly instead).
+            refreshed_data = self._roster_row_data_for_index(workspace, 0)
+            self.assertIsNotNone(refreshed_data)
+            self.assertEqual(refreshed_data, original_data)
 
             workspace.close()
 
@@ -4419,6 +4435,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.close()
 
     def test_media_workspace_movie_refresh_keeps_same_folder_movies_unique_after_approval(self):
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -4507,22 +4524,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         media_ctrl = _FakeMediaController([matched_one, matched_two, review_state])
         workspace = MediaWorkspace(media_type="movie", media_controller=media_ctrl)
         workspace.show_ready()
-        self.assertEqual(workspace._roster_list.count(), 5)
+        self.assertEqual(workspace._roster_panel.model.rowCount(), 5)
 
         review_state.match_origin = "manual"
         review_state.checked = True
         workspace.refresh_from_controller()
         workspace.refresh_from_controller()
 
-        self.assertEqual(workspace._roster_list.count(), 4)
+        model = workspace._roster_panel.model
+        self.assertEqual(model.rowCount(), 4)
         self._assert_roster_section_title(workspace, 0, "MATCHED")
 
         seen_titles = []
-        for row in range(workspace._roster_list.count()):
-            item = workspace._roster_list.item(row)
-            widget = workspace._roster_list.itemWidget(item)
-            if widget is not None and hasattr(widget, "_title"):
-                seen_titles.append(widget._title.text())
+        for row in range(model.rowCount()):
+            if model.entry_kind_at(row) != "state":
+                continue
+            data = model.index(row, 0).data(ROW_DATA_ROLE)
+            seen_titles.append(data.title)
         self.assertEqual(len(seen_titles), 3)
         self.assertEqual(len(set(seen_titles)), 3)
         self.assertIn("Evangelion: 3.0 You Can (Not) Redo (2012)", seen_titles)

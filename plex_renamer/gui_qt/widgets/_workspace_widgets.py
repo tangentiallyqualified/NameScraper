@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,29 +15,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...engine import PreviewItem, ScanState
+from ...engine import PreviewItem
 from ._formatting import clamped_percent, percent_text
-from ._image_utils import (
-    ShimmerOverlay,
-    build_placeholder_pixmap,
-    scale_pixmap_for_device,
-)
 from ._workspace_widget_primitives import (
     _CheckBinding,
     ClickableRow,
     ElidedLabel,
     MasterCheckBox,
     MiniProgressBar,
-    RosterPosterBridge,
     ToggleSwitch,
 )
 from .. import _scale
 from ._media_helpers import (
     companion_summary as _companion_summary,
-    confidence_band as _confidence_band,
     confidence_fill_color as _confidence_fill_color,
-    file_count_for_state as _file_count_for_state,
-    placeholder_initials as _placeholder_initials,
     preview_band as _preview_band,
     preview_band_name as _preview_band_name,
     preview_heading as _preview_heading,
@@ -45,47 +36,10 @@ from ._media_helpers import (
     preview_status_tone as _preview_status_tone,
     preview_target_text as _preview_target_text,
     repolish as _repolish,
-    state_match_summary as _state_match_summary,
-    state_status as _state_status,
-    state_status_tone as _state_status_tone,
 )
 
 
 # ── Utility helpers ──────────────────────────────────────────────────
-
-def _state_spans_multiple_seasons(state: ScanState) -> bool:
-    if len(state.season_folders) > 1:
-        return True
-    preview_seasons = {
-        preview.season
-        for preview in state.preview_items
-        if preview.season not in (None, 0)
-    }
-    return len(preview_seasons) > 1
-
-
-def _known_non_special_season_count(state: ScanState) -> int:
-    if state.completeness is not None:
-        return len(state.completeness.seasons)
-    if state.season_names:
-        return len({season for season in state.season_names if season > 0})
-    if state.season_folders:
-        return len({season for season in state.season_folders if season > 0})
-    return len({
-        preview.season
-        for preview in state.preview_items
-        if preview.season not in (None, 0)
-    })
-
-
-def _should_show_season_assignment(state: ScanState) -> bool:
-    if state.season_assignment in (None, 0):
-        return False
-    return (
-        _known_non_special_season_count(state) > 1
-        and not _state_spans_multiple_seasons(state)
-    )
-
 
 def _percent_from_label(value: str) -> int | None:
     text = value.strip()
@@ -95,210 +49,6 @@ def _percent_from_label(value: str) -> int | None:
         return max(0, min(100, int(round(float(text[:-1])))))
     except ValueError:
         return None
-
-
-# ── Roster row widget ────────────────────────────────────────────────
-
-class RosterRowWidget(ClickableRow):
-    check_toggled = Signal(bool)
-    season_assign_requested = Signal()
-    geometry_changed = Signal()
-
-    def __init__(
-        self,
-        state: ScanState,
-        *,
-        compact: bool,
-        media_type: str,
-        auto_accept_threshold: float,
-        checkable: bool,
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self.setObjectName("rosterRowCard")
-        self.setProperty("cssClass", "roster-row-card")
-        self._state = state
-        self._compact = compact
-        self._media_type = media_type
-        self._auto_accept_threshold = auto_accept_threshold
-        self._selected = False
-        self._poster = QLabel()
-        self._poster_size = (
-            QSize(_scale.px(34), _scale.px(50))
-            if compact
-            else QSize(_scale.px(48), _scale.px(70))
-        )
-        self._poster.setFixedSize(self._poster_size)
-        self._poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._shimmer: ShimmerOverlay | None = None
-        if not compact:
-            self._apply_placeholder_poster()
-            self._shimmer = ShimmerOverlay(self._poster)
-        self._poster.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
-
-        self._check_slot = QWidget(self)
-        check_slot_layout = QHBoxLayout(self._check_slot)
-        check_slot_layout.setContentsMargins(0, 0, 0, 0)
-        check_slot_layout.setSpacing(0)
-        self._check = ToggleSwitch(state.checked if checkable else False, self._check_slot)
-        self._check.setVisible(checkable)
-        self._check.toggled.connect(self.check_toggled.emit)
-        check_slot_layout.addWidget(self._check, alignment=Qt.AlignmentFlag.AlignTop)
-        self._check_slot.setFixedWidth(max(self._check.sizeHint().width(), _scale.px(26)))
-        layout.addWidget(self._check_slot, alignment=Qt.AlignmentFlag.AlignTop)
-
-        if not compact:
-            poster_alignment = (
-                Qt.AlignmentFlag.AlignVCenter
-                if media_type == "movie"
-                else Qt.AlignmentFlag.AlignTop
-            )
-            layout.addWidget(self._poster, alignment=poster_alignment)
-
-        body = QVBoxLayout()
-        body.setSpacing(4)
-        layout.addLayout(body, stretch=1)
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(6)
-        self._title = QLabel(state.display_name)
-        self._title.setProperty("cssClass", "row-title")
-        self._title.setWordWrap(True)
-        self._title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        title_row.addWidget(self._title, stretch=1)
-
-        self._status = QLabel(_state_status(state, media_type=media_type)[0].upper())
-        self._status.setProperty("cssClass", "status-pill")
-        self._status.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        self._status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        title_row.addWidget(
-            self._status,
-            alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
-        )
-        self._status.hide()
-        body.addLayout(title_row)
-
-        meta_parts = [f"{_file_count_for_state(state)} file(s)"]
-        if _should_show_season_assignment(state):
-            meta_parts.append(f"Season {state.season_assignment}")
-        if state.duplicate_of is not None:
-            duplicate_target = state.duplicate_of_relative_folder or state.duplicate_of
-            meta_parts.append(f"Same match as {duplicate_target}")
-        elif state.show_id is not None:
-            meta_parts.append(_state_match_summary(state, auto_accept_threshold))
-        if state.needs_review and state.alternate_matches and not state.queued:
-            n_alts = min(len(state.alternate_matches), 2)
-            meta_parts.append(f"{n_alts} alternative{'s' if n_alts != 1 else ''}")
-        self._meta = QLabel(" · ".join(meta_parts))
-        self._meta.setProperty("cssClass", "caption")
-        self._meta.setWordWrap(True)
-        self._meta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        body.addWidget(self._meta)
-
-        confidence_row = QHBoxLayout()
-        confidence_row.setContentsMargins(0, 0, 0, 0)
-        confidence_row.setSpacing(8)
-        self._confidence_label = QLabel("Confidence")
-        self._confidence_label.setProperty("cssClass", "caption")
-        self._confidence_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        confidence_row.addWidget(self._confidence_label)
-
-        self._confidence = MiniProgressBar(
-            color=_confidence_fill_color(
-                self._state.confidence,
-                state=self._state,
-                media_type=self._media_type,
-            ),
-            value=clamped_percent(state.confidence),
-        )
-        self._confidence.setFixedWidth(_scale.px(92) if compact else _scale.px(110))
-        confidence_row.addWidget(self._confidence)
-        confidence_row.addStretch(1)
-        body.addLayout(confidence_row)
-
-        self._approve_btn = None
-
-        self._season_btn = None
-
-        self._alternates_layout = None
-        self._alternates_widget = None
-        self._confirm_row = None
-
-        self._apply_style()
-
-    def set_selected(self, selected: bool) -> None:
-        self._selected = selected
-        self._apply_style()
-
-    def set_checked(self, checked: bool) -> None:
-        blocked = self._check.blockSignals(True)
-        self._check.setChecked(checked)
-        self._check.blockSignals(blocked)
-
-    def set_poster(self, pixmap: QPixmap) -> None:
-        if self._compact or pixmap.isNull():
-            if not self._compact:
-                self._apply_placeholder_poster()
-            return
-        if self._shimmer is not None:
-            self._shimmer.stop()
-            self._shimmer = None
-        self._poster.setText("")
-        self._poster.setPixmap(
-            scale_pixmap_for_device(
-                pixmap,
-                self._poster.size(),
-                device_pixel_ratio=self._poster_device_pixel_ratio(),
-            )
-        )
-
-    def _apply_placeholder_poster(self) -> None:
-        title = _placeholder_initials(self._state.display_name)
-        placeholder = build_placeholder_pixmap(
-            self._poster_size,
-            title=title,
-            subtitle="",
-            accent=_state_status(self._state, media_type=self._media_type)[1].name(),
-            device_pixel_ratio=self._poster_device_pixel_ratio(),
-        )
-        self._poster.setPixmap(placeholder)
-        self._poster.setText("")
-
-    def poster_request_width(self) -> int:
-        return max(220, min(420, int(round(self._poster_size.width() * self._poster_device_pixel_ratio() * 2.0))))
-
-    def _poster_device_pixel_ratio(self) -> float:
-        try:
-            return max(1.0, float(self._poster.devicePixelRatioF()))
-        except Exception:
-            return 1.0
-
-    def _apply_style(self) -> None:
-        self.setProperty(
-            "band",
-            _confidence_band(
-                self._state.confidence,
-                state=self._state,
-                media_type=self._media_type,
-            ),
-        )
-        self.setProperty("selectionState", "selected" if self._selected else "normal")
-        self._status.setProperty("tone", _state_status_tone(self._state, media_type=self._media_type))
-        _repolish(self)
-        _repolish(self._status)
-        self._confidence.setColor(
-            _confidence_fill_color(
-                self._state.confidence,
-                state=self._state,
-                media_type=self._media_type,
-            )
-        )
 
 
 # ── Preview row widget ───────────────────────────────────────────────

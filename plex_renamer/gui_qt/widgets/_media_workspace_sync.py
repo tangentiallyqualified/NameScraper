@@ -7,12 +7,11 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
-from ._media_workspace_roster import _CHECKED_ROLE
+from ._media_workspace_preview import _CHECKED_ROLE
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
 from ._workspace_widgets import (
     EpisodeGuideRowWidget as _EpisodeGuideRowWidget,
     PreviewRowWidget as _PreviewRowWidget,
-    RosterRowWidget as _RosterRowWidget,
 )
 
 
@@ -20,20 +19,16 @@ class MediaWorkspaceSyncCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
 
-    def on_roster_current_item_changed(self, current: QListWidgetItem | None) -> None:
+    def on_roster_state_selected(self, state_index: int) -> None:
         workspace = self._workspace
         if workspace._pending_roster_selection_auto is not None:
             workspace._roster_selection_is_auto = workspace._pending_roster_selection_auto
             workspace._pending_roster_selection_auto = None
-        elif current is not None:
+        else:
             workspace._roster_selection_is_auto = False
-        if workspace._roster_syncing or workspace._media_ctrl is None or current is None:
+        if workspace._roster_syncing or workspace._media_ctrl is None:
             return
-        self.sync_row_selection(workspace._roster_list)
-        row = current.data(Qt.ItemDataRole.UserRole)
-        if row is None:
-            return
-        state = workspace._media_ctrl.select_show(row)
+        state = workspace._media_ctrl.select_show(state_index)
         if state is None:
             return
         workspace._ensure_check_bindings(state)
@@ -41,22 +36,18 @@ class MediaWorkspaceSyncCoordinator:
         workspace._render_detail(state)
         workspace._update_action_bar()
 
-    def on_roster_item_changed(self, item: QListWidgetItem) -> None:
+    def on_roster_check_toggled(self, state_index: int, checked: bool) -> None:
         workspace = self._workspace
         if workspace._roster_syncing:
             return
         states = workspace._current_states()
-        row = item.data(Qt.ItemDataRole.UserRole)
-        if row is None or not (0 <= row < len(states)):
+        if not (0 <= state_index < len(states)):
             return
-        state = states[row]
-        checked = bool(item.data(_CHECKED_ROLE))
+        state = states[state_index]
         self.set_state_checked(state, checked)
-        widget = workspace._roster_list.itemWidget(item)
-        if isinstance(widget, _RosterRowWidget):
-            widget.set_checked(state.checked)
+        workspace._roster_panel.refresh_state(state_index)
         workspace._update_action_bar()
-        if row == workspace._roster_list.currentRow():
+        if state_index == workspace._roster_panel.current_state_index():
             workspace._render_detail(state)
 
     def set_state_checked(self, state, checked: bool) -> None:
@@ -156,27 +147,25 @@ class MediaWorkspaceSyncCoordinator:
         setattr(workspace, syncing_attr, True)
         item.setData(_CHECKED_ROLE, checked)
         setattr(workspace, syncing_attr, False)
-        if preview:
-            self.on_preview_item_changed(item)
-        else:
-            self.on_roster_item_changed(item)
+        self.on_preview_item_changed(item)
+
+    def set_roster_check_state(self, state_index: int, checked: bool) -> None:
+        workspace = self._workspace
+        if workspace._roster_syncing:
+            return
+        self.on_roster_check_toggled(state_index, checked)
 
     def sync_row_selection(self, list_widget: QListWidget) -> None:
         current = list_widget.currentItem()
         for row in range(list_widget.count()):
             item = list_widget.item(row)
             widget = list_widget.itemWidget(item)
-            if isinstance(widget, (_RosterRowWidget, _PreviewRowWidget, _EpisodeGuideRowWidget)):
+            if isinstance(widget, (_PreviewRowWidget, _EpisodeGuideRowWidget)):
                 widget.set_selected(item is current)
 
     def _sync_current_roster_row_checked(self, checked: bool) -> None:
+        del checked
         workspace = self._workspace
-        current_roster_item = workspace._roster_list.item(workspace._roster_list.currentRow())
-        if current_roster_item is None or current_roster_item.data(Qt.ItemDataRole.UserRole) is None:
-            return
-        workspace._roster_syncing = True
-        current_roster_item.setData(_CHECKED_ROLE, checked)
-        workspace._roster_syncing = False
-        roster_widget = workspace._roster_list.itemWidget(current_roster_item)
-        if isinstance(roster_widget, _RosterRowWidget):
-            roster_widget.set_checked(checked)
+        current = workspace._roster_panel.current_state_index()
+        if current is not None:
+            workspace._roster_panel.refresh_state(current)

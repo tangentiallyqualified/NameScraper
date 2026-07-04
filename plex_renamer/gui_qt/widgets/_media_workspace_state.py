@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
 
 from ...engine import ScanState
 from ._media_helpers import state_key as _state_key
 from ._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE, _PREVIEW_SECTION_ROLE
-from ._media_workspace_roster import _ROSTER_ENTRY_KEY_ROLE, _ROSTER_ENTRY_KIND_ROLE
 
 
 class MediaWorkspaceStateCoordinator:
@@ -22,17 +20,14 @@ class MediaWorkspaceStateCoordinator:
         workspace = self._workspace
         workspace._roster_panel.sync_items(states, collapsed_groups=workspace._roster_collapsed)
 
-    def find_roster_item_by_index(self, index: int) -> QListWidgetItem | None:
-        return self._workspace._roster_panel.find_item_by_index(index)
-
-    def set_roster_current_item(self, item: QListWidgetItem, *, auto_selected: bool) -> None:
+    def set_roster_current_state(self, state_index: int, *, auto_selected: bool) -> None:
         workspace = self._workspace
-        if workspace._roster_list.currentItem() is item:
+        if workspace._roster_panel.current_state_index() == state_index:
             workspace._roster_selection_is_auto = auto_selected
             workspace._pending_roster_selection_auto = None
             return
         workspace._pending_roster_selection_auto = auto_selected
-        workspace._roster_list.setCurrentItem(item)
+        workspace._roster_panel.set_current_state(state_index)
         if workspace._pending_roster_selection_auto is not None:
             workspace._roster_selection_is_auto = auto_selected
             workspace._pending_roster_selection_auto = None
@@ -48,20 +43,13 @@ class MediaWorkspaceStateCoordinator:
     def selected_state(self) -> ScanState | None:
         workspace = self._workspace
         states = self.current_states()
-        item = workspace._roster_list.currentItem()
-        if item is None:
-            return None
-        index = item.data(Qt.ItemDataRole.UserRole)
+        index = workspace._roster_panel.current_state_index()
         if index is not None and 0 <= index < len(states):
             return states[index]
         return None
 
-    def on_roster_item_clicked(self, item: QListWidgetItem) -> None:
+    def on_roster_group_toggled(self, group: str) -> None:
         workspace = self._workspace
-        if item.data(_ROSTER_ENTRY_KIND_ROLE) != "header":
-            return
-        key = item.data(_ROSTER_ENTRY_KEY_ROLE) or ""
-        group = key.removeprefix("header:")
         if not group:
             return
         workspace._roster_collapsed[group] = not workspace._roster_collapsed.get(group, False)

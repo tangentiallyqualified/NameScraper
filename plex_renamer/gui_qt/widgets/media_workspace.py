@@ -23,15 +23,11 @@ from ...engine import PreviewItem, ScanState
 from ._media_workspace_actions import MediaWorkspaceActionCoordinator
 from ._media_workspace_lifecycle import MediaWorkspaceLifecycleCoordinator
 from ._media_workspace_refresh import MediaWorkspaceRefreshCoordinator
-from ._media_workspace_roster import _ROSTER_ENTRY_KIND_ROLE
 from ._media_workspace_state import MediaWorkspaceStateCoordinator
 from ._media_workspace_sync import MediaWorkspaceSyncCoordinator
 from ._media_workspace_ui import MediaWorkspaceUiCoordinator
 from ._media_workspace_view import MediaWorkspaceViewCoordinator
-from ._workspace_widgets import (
-    PreviewRowWidget as _PreviewRowWidget,
-    RosterRowWidget as _RosterRowWidget,
-)
+from ._workspace_widgets import PreviewRowWidget as _PreviewRowWidget
 from .match_picker_dialog import MatchPickerDialog
 from .scan_progress import ScanProgressWidget
 
@@ -138,15 +134,11 @@ class MediaWorkspace(QWidget):
         """Toggle the checkbox on the currently focused roster item (Space)."""
         if self._stack.currentIndex() != _READY:
             return
-        item = self._roster_list.currentItem()
-        if item is None or item.data(_ROSTER_ENTRY_KIND_ROLE) != "state":
-            return
-        row = item.data(Qt.ItemDataRole.UserRole)
+        state_index = self._roster_panel.current_state_index()
         states = self._current_states()
-        if row is None or not (0 <= row < len(states)):
+        if state_index is None or not (0 <= state_index < len(states)):
             return
-        state = states[row]
-        self._set_item_check_state(item, not state.checked, preview=False)
+        self._set_roster_check_state(state_index, not states[state_index].checked)
 
     def force_rematch(self) -> None:
         """Open the Fix Match dialog for the currently selected roster item (F5)."""
@@ -189,11 +181,8 @@ class MediaWorkspace(QWidget):
     def _sync_roster_items(self, states: list[ScanState]) -> None:
         self._state_coordinator.sync_roster_items(states)
 
-    def _find_roster_item_by_index(self, index: int) -> QListWidgetItem | None:
-        return self._state_coordinator.find_roster_item_by_index(index)
-
-    def _set_roster_current_item(self, item: QListWidgetItem, *, auto_selected: bool) -> None:
-        self._state_coordinator.set_roster_current_item(item, auto_selected=auto_selected)
+    def _set_roster_current_state(self, state_index: int, *, auto_selected: bool) -> None:
+        self._state_coordinator.set_roster_current_state(state_index, auto_selected=auto_selected)
 
     def _preferred_batch_focus_index(self, states: list[ScanState]) -> int | None:
         return self._refresh_coordinator.preferred_batch_focus_index(states)
@@ -210,14 +199,14 @@ class MediaWorkspace(QWidget):
     def _normalize_queue_selection(self, states: list[ScanState]) -> None:
         self._refresh_coordinator.normalize_queue_selection(states)
 
-    def _on_roster_item_clicked(self, item: QListWidgetItem) -> None:
-        self._state_coordinator.on_roster_item_clicked(item)
+    def _on_roster_group_toggled(self, group: str) -> None:
+        self._state_coordinator.on_roster_group_toggled(group)
 
-    def _on_roster_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
-        self._sync_coordinator.on_roster_current_item_changed(current)
+    def _on_roster_state_selected(self, state_index: int) -> None:
+        self._sync_coordinator.on_roster_state_selected(state_index)
 
-    def _on_roster_item_changed(self, item: QListWidgetItem) -> None:
-        self._sync_coordinator.on_roster_item_changed(item)
+    def _on_roster_check_toggled(self, state_index: int, checked: bool) -> None:
+        self._sync_coordinator.on_roster_check_toggled(state_index, checked)
 
     def _set_state_checked(self, state: ScanState, checked: bool) -> None:
         self._sync_coordinator.set_state_checked(state, checked)
@@ -307,6 +296,9 @@ class MediaWorkspace(QWidget):
     def _set_item_check_state(self, item: QListWidgetItem, checked: bool, *, preview: bool) -> None:
         self._sync_coordinator.set_item_check_state(item, checked, preview=preview)
 
+    def _set_roster_check_state(self, state_index: int, checked: bool) -> None:
+        self._sync_coordinator.set_roster_check_state(state_index, checked)
+
     def _sync_row_selection(self, list_widget: QListWidget) -> None:
         self._sync_coordinator.sync_row_selection(list_widget)
 
@@ -368,9 +360,6 @@ class MediaWorkspace(QWidget):
 
     def _restore_roster_selection_by_key(self, state_key: str | None) -> None:
         self._view_coordinator.restore_roster_selection_by_key(state_key)
-
-    def _scroll_roster_item_into_context(self, item: QListWidgetItem) -> None:
-        self._view_coordinator.scroll_roster_item_into_context(item)
 
     def _season_ratio_text(self, state: ScanState, season_num: int | None, item_count: int) -> str:
         return self._view_coordinator.season_ratio_text(state, season_num, item_count)

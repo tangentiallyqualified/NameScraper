@@ -26,10 +26,10 @@ class MediaWorkspaceRefreshCoordinator:
         self.normalize_queue_selection(states)
         selected_state_key = _roster_selection_key(workspace._selected_state())
         workspace._roster_syncing = True
-        workspace._roster_list.setUpdatesEnabled(False)
+        workspace._roster_panel.view.setUpdatesEnabled(False)
         workspace._sync_roster_items(states)
         workspace._roster_syncing = False
-        workspace._roster_list.setUpdatesEnabled(True)
+        workspace._roster_panel.view.setUpdatesEnabled(True)
 
         if not states:
             self._reset_empty_ready_state()
@@ -67,16 +67,13 @@ class MediaWorkspaceRefreshCoordinator:
             selection_is_auto = True
         selected_state = workspace._media_ctrl.select_show(selected_index)
 
-        selected_item = workspace._find_roster_item_by_index(selected_index)
-        if selected_item is not None:
-            workspace._set_roster_current_item(selected_item, auto_selected=selection_is_auto)
+        workspace._set_roster_current_state(selected_index, auto_selected=selection_is_auto)
 
         if selected_state is not None:
             self.ensure_check_bindings(selected_state)
             workspace._populate_preview(selected_state)
             workspace._render_detail(selected_state, workspace._selected_preview())
         workspace._update_action_bar()
-        workspace._sync_row_selection(workspace._roster_list)
 
     def check_all(self) -> None:
         workspace = self._workspace

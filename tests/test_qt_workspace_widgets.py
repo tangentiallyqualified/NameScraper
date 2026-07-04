@@ -372,14 +372,25 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         self.assertIn("row_height(rows=1, padding=10)", source)
 
     def test_media_workspace_lifecycle_and_ui_use_scale_helper(self):
+        # GUI V4 roster cutover (Plan 2 Task 6): compact-mode icon sizing
+        # moved from a hardcoded QSize(...) built in apply_settings() to
+        # RosterModel/RosterDelegate.set_compact(), which already sources
+        # its row-height constants through _scale (see _roster_delegate.py
+        # _ROW_COMPACT_U/_ROW_NORMAL_U). The lifecycle coordinator no longer
+        # builds any QSize literal, so it no longer needs _scale itself;
+        # assert the DPI-unaware literals stay gone instead.
         from pathlib import Path
 
         lifecycle = Path(
             "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("_scale", lifecycle)
         self.assertNotIn("QSize(32, 46)", lifecycle)
         self.assertNotIn("QSize(42, 60)", lifecycle)
+
+        delegate = Path(
+            "plex_renamer/gui_qt/widgets/_roster_delegate.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_scale", delegate)
 
         ui = Path(
             "plex_renamer/gui_qt/widgets/_media_workspace_ui.py"
