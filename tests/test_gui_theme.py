@@ -103,3 +103,16 @@ def test_no_plex_string_literals_in_gui():
     for path in sorted(_GUI_ROOT.rglob("*.py")):
         offenders.extend(_plex_literals(path))
     assert offenders == [], "\n".join(offenders)
+
+
+_DELETED_GUI_MODULES = (
+    "_media_workspace_preview", "media_detail_panel", "_media_detail_artwork",
+    "_media_detail_payloads", "_media_detail_state", "_media_detail_workflow",
+    "_workspace_widgets",
+)
+
+
+def test_deleted_panel_modules_stay_deleted():
+    present = [name for name in _DELETED_GUI_MODULES
+               if (_GUI_ROOT / "widgets" / f"{name}.py").exists()]
+    assert present == [], f"GUI V4 deleted these modules; they came back: {present}"
