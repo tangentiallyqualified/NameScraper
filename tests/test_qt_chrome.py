@@ -88,3 +88,29 @@ class QtChromeTests(QtSmokeBase):
             )
             window._tv_workspace.load_folder.assert_called_once_with(folder)
         window.close()
+
+    def test_tv_tab_restore_shows_busy_overlay_during_restore(self):
+        from plex_renamer.gui_qt.main_window import MainWindow
+        from plex_renamer.gui_qt.widgets.busy_overlay import BusyOverlay
+
+        window = MainWindow()
+        window.show()
+        self._app.processEvents()
+
+        window._tabs.setCurrentIndex(2)  # start away from the TV tab
+        seen: dict[str, bool] = {}
+        original_restore = window.media_ctrl.restore_tv_from_tab_switch
+
+        def observing_restore(snapshot):
+            overlay = window.findChild(BusyOverlay)
+            seen["visible"] = overlay is not None and overlay.isVisible()
+            return original_restore(snapshot)
+
+        window.media_ctrl.restore_tv_from_tab_switch = observing_restore
+        window._tv_snapshot = window.media_ctrl.snapshot_tv_for_tab_switch()
+
+        window._tabs.setCurrentIndex(1)  # TV tab: hits the snapshot-restore path
+
+        self.assertTrue(seen.get("visible"))
+        self.assertIsNone(window.findChild(BusyOverlay))
+        window.close()

@@ -14,6 +14,7 @@ from ._media_helpers import (
     roster_selection_key as _roster_selection_key,
 )
 from ._media_workspace_action_state import media_noun
+from .busy_overlay import busy_scope
 
 
 def queue_selected_state(workspace, *, warning_box: Any = QMessageBox) -> None:
@@ -116,44 +117,44 @@ def queue_states(
         )
         return
 
+    if workspace._media_type == "movie":
+        root = workspace._media_ctrl.movie_folder
+        if root is None:
+            workspace.status_message.emit("No movie folder is loaded.", 4000)
+            return
+        output_root = workspace._settings.valid_movie_output_folder if workspace._settings else None
+        if output_root is None:
+            workspace.status_message.emit("Set a Movies output folder in Settings before queueing.", 4000)
+            return
+        add_batch = workspace._queue_ctrl.add_movie_batch
+    else:
+        root = workspace._media_ctrl.tv_root_folder
+        if root is None:
+            workspace.status_message.emit("No TV folder is loaded.", 4000)
+            return
+        output_root = workspace._settings.valid_tv_output_folder if workspace._settings else None
+        if output_root is None:
+            workspace.status_message.emit("Set a TV Shows output folder in Settings before queueing.", 4000)
+            return
+        add_batch = workspace._queue_ctrl.add_tv_batch
+
     try:
-        if workspace._media_type == "movie":
-            root = workspace._media_ctrl.movie_folder
-            if root is None:
-                workspace.status_message.emit("No movie folder is loaded.", 4000)
-                return
-            output_root = workspace._settings.valid_movie_output_folder if workspace._settings else None
-            if output_root is None:
-                workspace.status_message.emit("Set a Movies output folder in Settings before queueing.", 4000)
-                return
-            result = workspace._queue_ctrl.add_movie_batch(
+        # An exception unwinds through the scope (dismissing the overlay)
+        # before the warning box appears — never a scrim under a modal.
+        with busy_scope(workspace, "Queueing…", immediate=True):
+            result = add_batch(
                 states,
                 root,
                 output_root,
                 workspace._media_ctrl.command_gating,
             )
-        else:
-            root = workspace._media_ctrl.tv_root_folder
-            if root is None:
-                workspace.status_message.emit("No TV folder is loaded.", 4000)
-                return
-            output_root = workspace._settings.valid_tv_output_folder if workspace._settings else None
-            if output_root is None:
-                workspace.status_message.emit("Set a TV Shows output folder in Settings before queueing.", 4000)
-                return
-            result = workspace._queue_ctrl.add_tv_batch(
-                states,
-                root,
-                output_root,
-                workspace._media_ctrl.command_gating,
-            )
+            workspace._media_ctrl.sync_queued_states()
+            workspace.refresh_from_controller()
+            workspace._restore_roster_selection_by_key(selected_key)
     except Exception as exc:
         warning_box.warning(workspace, "Queue Failed", str(exc))
         return
 
-    workspace._media_ctrl.sync_queued_states()
-    workspace.refresh_from_controller()
-    workspace._restore_roster_selection_by_key(selected_key)
     workspace.queue_changed.emit()
     workspace.status_message.emit(_format_batch_result(result), 5000)
 

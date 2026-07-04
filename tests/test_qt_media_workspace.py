@@ -4037,6 +4037,87 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_media_workspace_queueing_shows_busy_overlay_during_handoff(self):
+        from plex_renamer.gui_qt.widgets.busy_overlay import BusyOverlay
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def add_tv_batch(self, states, root, output_root, gating):
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Overlay.Show.2024"),
+            media_info={"id": 101, "name": "Overlay Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path("C:/library/tv/Overlay.Show.2024/Season 01/Overlay.Show.S01E01.mkv"),
+                    new_name="Overlay Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=Path("C:/library/tv/Overlay Show (2024)/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.resize(1200, 700)
+            workspace.show()
+            workspace.show_ready()
+            self._app.processEvents()
+
+            seen: dict[str, bool] = {}
+            original_add = queue_ctrl.add_tv_batch
+
+            def observing_add(states, root, output_root, gating):
+                overlay = workspace.findChild(BusyOverlay)
+                seen["visible"] = overlay is not None and overlay.isVisible()
+                return original_add(states, root, output_root, gating)
+
+            queue_ctrl.add_tv_batch = observing_add
+            workspace._roster_queue_btn.click()
+
+            self.assertTrue(seen.get("visible"))
+            self.assertIsNone(workspace.findChild(BusyOverlay))
+            workspace.close()
+
     def test_media_workspace_preserves_movie_preview_after_queue_regroup(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -4432,6 +4513,31 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self.assertEqual(len(toasts), 1)
         self.assertEqual(len(state1.assignments.assignments()), 3)
         self.assertEqual(state0.assignments.assignments(), [])
+
+    def test_bulk_apply_shows_busy_overlay_during_service_call(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets.busy_overlay import BusyOverlay
+
+        workspace = self._tv_workspace_with_table_state()
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel.bulk_panel
+        panel.auto_map_remaining()
+        seen: dict[str, bool] = {}
+
+        def observing_apply(service_self, state, pairs):
+            overlay = workspace._work_panel.findChild(BusyOverlay)
+            seen["visible"] = overlay is not None and overlay.isVisible()
+            return (len(pairs), 0)
+
+        with patch(
+            "plex_renamer.gui_qt.widgets._media_workspace_actions."
+            "EpisodeMappingService.apply_assignments",
+            new=observing_apply,
+        ):
+            workspace._on_bulk_apply(panel.staged_pairs())
+        self.assertTrue(seen.get("visible"))
+        self.assertIsNone(workspace._work_panel.findChild(BusyOverlay))
 
 
 # ---------------------------------------------------------------------------

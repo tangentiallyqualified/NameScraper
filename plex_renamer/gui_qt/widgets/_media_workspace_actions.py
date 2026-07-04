@@ -39,6 +39,7 @@ from ._media_workspace_queue_actions import (
     queue_states as _queue_states,
     summarize_skip_reasons as _summarize_skip_reasons,
 )
+from .busy_overlay import busy_scope
 from .episode_assign_dialog import EpisodeAssignDialog
 
 
@@ -209,11 +210,12 @@ class MediaWorkspaceActionCoordinator:
             QMessageBox.StandardButton.YesToAll,
         ):
             return
-        unassigned = EpisodeMappingService().unassign_all(state)
-        if unassigned == 0:
-            return
-        _refresh_episode_projection(workspace, state)
-        workspace.refresh_from_controller()
+        with busy_scope(workspace._work_panel, "Unassigning all…", immediate=True):
+            unassigned = EpisodeMappingService().unassign_all(state)
+            if unassigned == 0:
+                return
+            _refresh_episode_projection(workspace, state)
+            workspace.refresh_from_controller()
         workspace.status_message.emit(f"Unassigned {unassigned} file(s).", 3000)
         if answer == QMessageBox.StandardButton.YesToAll:
             self.enter_bulk_assign()
@@ -244,12 +246,13 @@ class MediaWorkspaceActionCoordinator:
             # Table vanished between enter and Apply (rescan/reset).
             workspace.status_message.emit("No assignments were applied.", 4000)
             return
-        applied, skipped = EpisodeMappingService().apply_assignments(state, pairs)
-        if applied == 0:
-            workspace.status_message.emit("No assignments were applied.", 4000)
-            return
-        _refresh_episode_projection(workspace, state)
-        workspace.refresh_from_controller()
+        with busy_scope(workspace._work_panel, "Applying assignments…", immediate=True):
+            applied, skipped = EpisodeMappingService().apply_assignments(state, pairs)
+            if applied == 0:
+                workspace.status_message.emit("No assignments were applied.", 4000)
+                return
+            _refresh_episode_projection(workspace, state)
+            workspace.refresh_from_controller()
         message = f"Assigned {applied} file(s)."
         if skipped:
             message += f" {skipped} skipped."

@@ -6,6 +6,8 @@ from logging import Logger
 from pathlib import Path
 from typing import Any
 
+from .widgets.busy_overlay import busy_scope
+
 
 class MainWindowStateCoordinator:
     def __init__(
@@ -126,15 +128,17 @@ class MainWindowStateCoordinator:
             window._history_tab.refresh()
         elif index == self._tv_index:
             if window._tv_snapshot is not None:
-                window.media_ctrl.restore_tv_from_tab_switch(window._tv_snapshot)
-                window._tv_workspace.refresh_from_controller()
+                with busy_scope(window, "Restoring…", immediate=True):
+                    window.media_ctrl.restore_tv_from_tab_switch(window._tv_snapshot)
+                    window._tv_workspace.refresh_from_controller()
             elif window._tv_needs_queue_refresh and window._tv_workspace.is_showing_ready():
                 window._tv_workspace.refresh_from_controller()
             window._tv_needs_queue_refresh = False
         elif index == self._movies_index:
             if window._movie_snapshot is not None:
-                window.media_ctrl.restore_movie_from_tab_switch(window._movie_snapshot)
-                window._movie_workspace.refresh_from_controller()
+                with busy_scope(window, "Restoring…", immediate=True):
+                    window.media_ctrl.restore_movie_from_tab_switch(window._movie_snapshot)
+                    window._movie_workspace.refresh_from_controller()
             elif window._movie_needs_queue_refresh and window._movie_workspace.is_showing_ready():
                 window._movie_workspace.refresh_from_controller()
             window._movie_needs_queue_refresh = False
