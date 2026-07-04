@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt
-
 from ...engine import PreviewItem, ScanState
 from ...parsing import build_movie_name, build_show_folder_name
 from ._media_helpers import roster_selection_key as _roster_selection_key
@@ -15,27 +13,15 @@ class MediaWorkspaceViewCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
 
-    def render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
-        workspace = self._workspace
-        if state is None:
-            workspace._detail_panel.clear()
-            return
-
-        eligibility = workspace._queue_eligibility([state])
-        workspace._detail_panel.set_selection(
-            state,
-            preview=preview,
-            queue_reason=eligibility.reason,
-            folder_plan=self.folder_plan_text(state),
-        )
-
     def selected_preview(self) -> PreviewItem | None:
         workspace = self._workspace
         state = workspace._selected_state()
-        current = workspace._preview_list.currentItem()
-        if state is None or current is None:
+        if state is None:
             return None
-        index = current.data(Qt.ItemDataRole.UserRole)
+        current = workspace._work_panel.table_view.currentIndex()
+        if not current.isValid():
+            return None
+        index = workspace._work_panel.model.preview_index_at(current.row())
         if index is None or not (0 <= index < len(state.preview_items)):
             return None
         return state.preview_items[index]

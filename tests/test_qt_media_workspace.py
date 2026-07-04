@@ -87,11 +87,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
             self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
-            self.assertIs(workspace._queue_inline_btn, workspace._detail_panel.primary_action_button)
-            self.assertGreater(
-                workspace._queue_inline_btn.mapTo(workspace._detail_panel._body, QPoint(0, 0)).y(),
-                workspace._detail_panel._poster.mapTo(workspace._detail_panel._body, QPoint(0, 0)).y(),
-            )
+            self.assertIs(workspace._queue_inline_btn, workspace._work_panel.primary_action_button)
             self.assertGreater(
                 workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y(),
                 workspace._roster_panel.view.mapTo(workspace, QPoint(0, 0)).y(),
@@ -106,7 +102,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
-    def test_movie_detail_action_buttons_do_not_squeeze_facts_column(self):
+    def test_movie_review_item_uses_approve_match_primary_action(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -157,23 +153,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show()
         self._app.processEvents()
         workspace.show_ready()
-        workspace._splitter.setSizes([300, 540, 360])
         self._app.processEvents()
 
-        panel = workspace._detail_panel
-        summary_row = panel._body.layout().itemAt(3).layout()
-        poster_column = summary_row.itemAt(0).layout()
-        summary_body = summary_row.itemAt(1).layout()
-
+        # Facts-grid + detail-poster layout assertions were removed with the
+        # detail panel (GUI V4 Plan 3 Task 5). The surviving behaviour is that a
+        # movie review item drives the work panel's primary action.
         self.assertEqual(workspace._queue_inline_btn.text(), "Approve Match")
-        self.assertGreater(panel.width(), 0)
-        self.assertGreater(summary_body.geometry().width(), 100)
-        self.assertLessEqual(poster_column.geometry().width(), panel._poster.width() + 1)
-        self.assertGreaterEqual(panel._facts_card.width(), summary_body.geometry().width() - 1)
-        for key_label, value_label in panel._meta_rows:
-            if not key_label.text():
-                continue
-            self.assertTrue(value_label.text())
+        self.assertGreater(workspace._work_panel.width(), 0)
 
         workspace.close()
 
@@ -446,7 +432,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_roster_check_syncs_tv_episode_guide_without_file_checks(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -491,9 +476,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         self.assertTrue(state.checked)
         self.assertTrue(state.check_vars["0"].get())
-        preview_widget = self._preview_widget_for_index(workspace, 0)
-        self.assertIsInstance(preview_widget, EpisodeGuideRowWidget)
-        self.assertTrue(preview_widget._check.isHidden())
+        # TV episode-guide rows never carry a per-file checkbox: the table model
+        # only marks movie-file rows checkable.
+        row_data = self._episode_row_data_for_preview_index(workspace, 0)
+        self.assertIsNotNone(row_data)
+        self.assertEqual(row_data.kind, "episode")
+        self.assertFalse(row_data.checkable)
 
         workspace.close()
 
@@ -783,7 +771,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.close()
 
     def test_media_workspace_fix_match_refreshes_duplicate_tv_preview(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeTMDB:
@@ -857,17 +844,17 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        before_widget = self._preview_widget_for_index(workspace, 0)
-        self.assertIsInstance(before_widget, EpisodeGuideRowWidget)
-        self.assertIn("Original Show (2024)", before_widget._target.text())
+        before_data = self._episode_row_data_for_preview_index(workspace, 0)
+        self.assertIsNotNone(before_data)
+        self.assertIn("Original Show (2024)", before_data.target)
 
         chosen = {"id": 202, "name": "Replacement Show", "year": "2024"}
         with patch("plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick", return_value=chosen):
             workspace._fix_match()
 
-        after_widget = self._preview_widget_for_index(workspace, 0)
-        self.assertIsInstance(after_widget, EpisodeGuideRowWidget)
-        self.assertIn("Replacement Show (2024)", after_widget._target.text())
+        after_data = self._episode_row_data_for_preview_index(workspace, 0)
+        self.assertIsNotNone(after_data)
+        self.assertIn("Replacement Show (2024)", after_data.target)
         self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
         self._assert_roster_section_title(workspace, 0, "MATCHED")
 
@@ -1034,7 +1021,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertTrue(any("SPECIALS" in text for text in self._preview_header_texts(workspace)))
+        self.assertTrue(any("SPECIALS" in text.upper() for text in self._episode_section_titles(workspace)))
 
         workspace.close()
 
@@ -1211,10 +1198,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertIsNone(
                 workspace._roster_panel.model.index(1, 0).data(Qt.ItemDataRole.CheckStateRole)
             )
-            self.assertIsNone(workspace._preview_list.item(0).data(Qt.ItemDataRole.CheckStateRole))
-            self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
-            self.assertIn("2024", workspace._folder_plan_label.text())
-            self.assertGreater(workspace._preview_list.count(), 0)
+            self.assertGreater(workspace._work_panel.model.rowCount(), 0)
+            folder_target = self._folder_section_target(workspace)
+            self.assertIsNotNone(folder_target)
+            self.assertIn("2024", folder_target)
 
             workspace._queue_checked()
             self.assertTrue(queue_ctrl.called)
@@ -1369,25 +1356,33 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            preview_widget = self._preview_widget_for_index(workspace, 0)
-            self.assertIsNotNone(preview_widget)
-            self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
+            from PySide6.QtWidgets import QLabel
+
+            row_data = self._episode_row_data_for_preview_index(workspace, 0)
+            self.assertIsNotNone(row_data)
+            self.assertEqual(row_data.target, "Arrival (2016).mkv")
 
             settings.view_mode = "compact"
             settings.show_companion_files = True
             workspace.apply_settings()
 
-            preview_widget = self._preview_widget_for_index(workspace, 0)
-            self.assertIsNotNone(preview_widget)
-            self.assertEqual(preview_widget._target.text(), "-> Arrival (2016).mkv")
-            self.assertIsNotNone(preview_widget._companions)
-            self.assertIn("Arrival.2016.en.srt", preview_widget._companions.text())
+            row_data = self._episode_row_data_for_preview_index(workspace, 0)
+            self.assertIsNotNone(row_data)
+            self.assertEqual(row_data.target, "Arrival (2016).mkv")
+            self.assertEqual(row_data.companion_count, 1)
+            # Companion filenames now live on the expansion card's file rows.
+            movie_row = workspace._work_panel.model.row_for_preview_index(0)
+            card = self._open_expansion_card(workspace, movie_row)
+            self.assertIsNotNone(card)
+            card_text = " ".join(label.text() for label in card.findChildren(QLabel))
+            self.assertIn("Arrival.2016.en.srt", card_text)
             self.assertTrue(workspace._roster_panel.is_compact())
 
             workspace.close()
 
     def test_media_workspace_tv_episode_guide_groups_companions_and_missing_rows(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
+        from PySide6.QtWidgets import QLabel
+
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -1457,37 +1452,38 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertTrue(workspace._preview_master_check.isHidden())
-        self.assertTrue(workspace._preview_check_summary.isHidden())
-        self.assertTrue(workspace._preview_summary.isHidden())
+        # TV mode: the movie-style master check + its summary are hidden.
+        self.assertTrue(workspace._work_panel.master_check.isHidden())
+        self.assertTrue(workspace._work_panel.check_summary.isHidden())
         self.assertIn("Queue preflight:", workspace._queue_preflight_label.text())
         self.assertIn("1 mapped file", workspace._queue_preflight_label.text())
         self.assertIn("1 companion", workspace._queue_preflight_label.text())
-        headers = self._preview_header_texts(workspace)
-        self.assertFalse(any("EPISODE GUIDE:" in header for header in headers))
-        self.assertTrue(any(header.startswith("▾ SEASON 1") for header in headers))
-        self.assertTrue(any(header.startswith("▸ SEASON 2") for header in headers))
+        titles = self._episode_section_titles(workspace)
+        self.assertFalse(any("EPISODE GUIDE:" in title.upper() for title in titles))
+        self.assertTrue(any(title.upper().startswith("SEASON 1") for title in titles))
+        self.assertTrue(any(title.upper().startswith("SEASON 2") for title in titles))
+        # Season 1 has a mapped episode (expanded); Season 2 is fully missing
+        # and auto-collapses.
+        self.assertFalse(self._episode_section_collapsed(workspace, "SEASON 1"))
+        self.assertTrue(self._episode_section_collapsed(workspace, "SEASON 2"))
 
-        mapped_widget = self._preview_widget_for_index(workspace, 0)
-        self.assertIsInstance(mapped_widget, EpisodeGuideRowWidget)
-        self.assertTrue(mapped_widget._check.isHidden())
-        self.assertEqual(mapped_widget._status.text(), "Mapped")
-        self.assertIn("Example.S01E01.en.srt", mapped_widget._companions.text())
-        self.assertEqual(mapped_widget._confidence_label.text(), "Confidence")
-        self.assertEqual(mapped_widget._confidence._value, 100)
+        mapped_data = self._episode_row_data_for_preview_index(workspace, 0)
+        self.assertIsNotNone(mapped_data)
+        self.assertFalse(mapped_data.checkable)
+        self.assertEqual(mapped_data.status_text, "Mapped")
+        self.assertEqual(mapped_data.companion_count, 1)
+        self.assertEqual(mapped_data.confidence_pct, 100)
+        # Companion filenames now live on the expansion card.
+        mapped_row = workspace._work_panel.model.row_for_preview_index(0)
+        card = self._open_expansion_card(workspace, mapped_row)
+        self.assertIsNotNone(card)
+        card_text = " ".join(label.text() for label in card.findChildren(QLabel))
+        self.assertIn("Example.S01E01.en.srt", card_text)
 
-        missing_statuses = []
-        missing_titles = []
-        for row in range(workspace._preview_list.count()):
-            item = workspace._preview_list.item(row)
-            if item.isHidden():
-                continue
-            widget = workspace._preview_list.itemWidget(item)
-            if isinstance(widget, EpisodeGuideRowWidget):
-                missing_statuses.append(widget._status.text())
-                missing_titles.append(widget._title.text())
-        self.assertIn("Missing File", missing_statuses)
-        self.assertNotIn("S02E01 - A Missing Start", missing_titles)
+        statuses = [data.status_text for data in self._episode_row_datas(workspace)]
+        titles_all = [data.title for data in self._episode_row_datas(workspace)]
+        self.assertIn("Missing File", statuses)
+        self.assertNotIn("S02E01 · A Missing Start", titles_all)
 
         workspace.close()
 
@@ -1544,17 +1540,25 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        headers = self._preview_header_texts(workspace)
+        titles = self._episode_section_titles(workspace)
 
-        self.assertTrue(any(header.startswith("▾ SEASON 1") for header in headers))
-        self.assertTrue(any(header.startswith("▸ SEASON 2") for header in headers))
-        self.assertFalse(any(header.startswith(("V ", "> ")) for header in headers))
+        self.assertTrue(any(title.upper().startswith("SEASON 1") for title in titles))
+        self.assertTrue(any(title.upper().startswith("SEASON 2") for title in titles))
+        # Season 1 is complete/expanded; season 2 is fully missing and collapsed.
+        self.assertFalse(self._episode_section_collapsed(workspace, "SEASON 1"))
+        self.assertTrue(self._episode_section_collapsed(workspace, "SEASON 2"))
 
         workspace.close()
 
-    def test_media_workspace_episode_guide_reuses_projection_when_toggling_headers(self):
+    def test_media_workspace_episode_header_toggle_uses_controller_guide_provider(self):
+        # GUI V4 Plan 3 Task 5: the old preview panel cached a built guide and
+        # reused it across header toggles (asserting build_episode_guide fired
+        # exactly once). The work panel's table model is stateless and rebuilds
+        # on every toggle, sourcing the guide from the controller's
+        # episode_guide_for_state provider — so the migrated invariant is that
+        # toggling routes through that provider rather than an internal builder.
+        from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -1564,6 +1568,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.library_selected_index = 0
                 self.movie_folder = Path("C:/library/movies")
                 self.tv_root_folder = Path("C:/library/tv")
+                self.episode_guide_for_state = MagicMock(
+                    return_value=EpisodeMappingService().build_episode_guide(state)
+                )
 
             def select_show(self, index):
                 self.library_selected_index = index
@@ -1590,24 +1597,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             scanned=True,
             confidence=1.0,
         )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        media_ctrl = _FakeMediaController(state)
+        workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
-        original_builder = workspace._preview_panel._episode_mapping.build_episode_guide
-        workspace._preview_panel._episode_mapping.build_episode_guide = MagicMock(wraps=original_builder)
-        workspace._preview_panel._episode_guide_cache.clear()
 
-        workspace._populate_preview(state)
-        def _first_header():
-            return next(
-                workspace._preview_list.item(row)
-                for row in range(workspace._preview_list.count())
-                if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-            )
+        section_key = self._first_section_key(workspace)
+        self.assertIsNotNone(section_key)
+        workspace._on_table_section_toggled(section_key)
+        workspace._on_table_section_toggled(section_key)
 
-        workspace._on_preview_item_clicked(_first_header())
-        workspace._on_preview_item_clicked(_first_header())
-
-        self.assertEqual(workspace._preview_panel._episode_mapping.build_episode_guide.call_count, 1)
+        media_ctrl.episode_guide_for_state.assert_called_with(state)
         workspace.close()
 
     def test_media_workspace_uses_controller_episode_guide_on_first_show_render(self):
@@ -1653,9 +1652,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         media_ctrl = _FakeMediaController(state)
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
-        workspace._preview_panel._episode_mapping.build_episode_guide = MagicMock(
-            side_effect=AssertionError("preview panel should not build TV guide on first render")
-        )
 
         workspace.show_ready()
 
@@ -1664,10 +1660,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
     def test_media_workspace_episode_header_toggle_hides_rows_without_rebuilding_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import (
-            _PREVIEW_ENTRY_KIND_ROLE,
-            _PREVIEW_SECTION_ROLE,
-        )
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -1706,39 +1698,25 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
-        original_populate = workspace._state_coordinator.populate_preview
-        workspace._state_coordinator.populate_preview = MagicMock(wraps=original_populate)
-        header = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-                and str(workspace._preview_list.item(row).data(_PREVIEW_SECTION_ROLE)).startswith(
-                    "episode-guide-season:"
-                )
-            )
-        )
-        first_episode = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "episode"
-        )
-        first_widget = workspace._preview_list.itemWidget(first_episode)
+        # Toggling a section collapses via the table model's shared collapsed
+        # set; it must NOT trigger a full work-panel re-render (show_in_work_panel).
+        original_show = workspace._state_coordinator.show_in_work_panel
+        workspace._state_coordinator.show_in_work_panel = MagicMock(wraps=original_show)
+        section_key = self._first_section_key(workspace, prefix="episode-guide-season:")
+        self.assertIsNotNone(section_key)
 
-        workspace._on_preview_item_clicked(header)
+        workspace._on_table_section_toggled(section_key)
 
-        workspace._state_coordinator.populate_preview.assert_not_called()
-        self.assertTrue(first_episode.isHidden())
-        self.assertIs(workspace._preview_list.itemWidget(first_episode), first_widget)
-        self.assertTrue(header.text().startswith("\u25b8 SEASON 1"))
+        workspace._state_coordinator.show_in_work_panel.assert_not_called()
+        self.assertTrue(self._episode_section_collapsed(workspace, "SEASON 1"))
+        # Collapsed season hides its episode rows.
+        self.assertFalse(
+            any(data.kind == "episode" for data in self._episode_row_datas(workspace))
+        )
         workspace.close()
 
     def test_media_workspace_folder_header_toggle_hides_rows_without_rebuilding_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import (
-            _PREVIEW_ENTRY_KIND_ROLE,
-            _PREVIEW_SECTION_ROLE,
-        )
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -1776,38 +1754,20 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
-        original_populate = workspace._state_coordinator.populate_preview
-        workspace._state_coordinator.populate_preview = MagicMock(wraps=original_populate)
-        header = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-                and workspace._preview_list.item(row).data(_PREVIEW_SECTION_ROLE) == "folder"
-            )
-        )
-        folder_row = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "folder"
-        )
-        folder_widget = workspace._preview_list.itemWidget(folder_row)
+        original_show = workspace._state_coordinator.show_in_work_panel
+        workspace._state_coordinator.show_in_work_panel = MagicMock(wraps=original_show)
+        self.assertIsNotNone(self._folder_section_target(workspace))
 
-        workspace._on_preview_item_clicked(header)
+        workspace._on_table_section_toggled("folder-preview")
 
-        workspace._state_coordinator.populate_preview.assert_not_called()
-        self.assertTrue(folder_row.isHidden())
-        self.assertIs(workspace._preview_list.itemWidget(folder_row), folder_widget)
-        self.assertTrue(header.text().startswith("\u25b8 FOLDER"))
+        workspace._state_coordinator.show_in_work_panel.assert_not_called()
+        self.assertTrue(self._episode_section_collapsed(workspace, "FOLDER"))
+        # Collapsed folder section hides its folder row.
+        self.assertIsNone(self._folder_section_target(workspace))
         workspace.close()
 
     def test_media_workspace_auto_collapsed_specials_header_expands_without_rebuilding_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import (
-            _PREVIEW_ENTRY_KIND_ROLE,
-            _PREVIEW_SECTION_ROLE,
-        )
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
 
         class _FakeMediaController:
             def __init__(self, state):
@@ -1866,36 +1826,27 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
-        original_populate = workspace._state_coordinator.populate_preview
-        workspace._state_coordinator.populate_preview = MagicMock(wraps=original_populate)
-        header = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-                and workspace._preview_list.item(row).data(_PREVIEW_SECTION_ROLE) == "episode-guide-season:0"
-            )
+        # Fully-missing specials auto-collapse: no S00 episode row is rendered.
+        self.assertTrue(self._episode_section_collapsed(workspace, "SPECIALS"))
+        self.assertFalse(
+            any(data.title.startswith("S00") for data in self._episode_row_datas(workspace))
         )
-        special_row = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                isinstance(workspace._preview_list.itemWidget(workspace._preview_list.item(row)), EpisodeGuideRowWidget)
-                and workspace._preview_list.itemWidget(workspace._preview_list.item(row))._title.text().startswith("S00")
-            )
+
+        original_show = workspace._state_coordinator.show_in_work_panel
+        workspace._state_coordinator.show_in_work_panel = MagicMock(wraps=original_show)
+
+        workspace._on_table_section_toggled("episode-guide-season:0")
+
+        workspace._state_coordinator.show_in_work_panel.assert_not_called()
+        self.assertFalse(self._episode_section_collapsed(workspace, "SPECIALS"))
+        # Expanding surfaces the missing special row.
+        self.assertTrue(
+            any(data.title.startswith("S00") for data in self._episode_row_datas(workspace))
         )
-        self.assertTrue(special_row.isHidden())
-
-        workspace._on_preview_item_clicked(header)
-
-        workspace._state_coordinator.populate_preview.assert_not_called()
-        self.assertFalse(special_row.isHidden())
-        self.assertTrue(header.text().startswith("\u25be SPECIALS"))
         workspace.close()
 
     def test_media_workspace_reselecting_show_renders_preview_rows_on_demand(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
 
         class _FakeMediaController:
             def __init__(self, states):
@@ -1937,23 +1888,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 confidence=1.0,
             )
 
-        def _first_visible_episode_widget(workspace):
-            for row in range(workspace._preview_list.count()):
-                item = workspace._preview_list.item(row)
-                if item.isHidden() or item.data(_PREVIEW_ENTRY_KIND_ROLE) != "episode":
-                    continue
-                return workspace._preview_list.itemWidget(item)
+        def _first_episode_target(workspace):
+            for data in self._episode_row_datas(workspace):
+                if data.kind == "episode":
+                    return data.target
             return None
-
-        def _episode_widget_for_title(workspace, title: str):
-            for row in range(workspace._preview_list.count()):
-                item = workspace._preview_list.item(row)
-                if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "episode":
-                    continue
-                widget = workspace._preview_list.itemWidget(item)
-                if widget is not None and title in widget._target.text():
-                    return item, widget
-            return None, None
 
         first_state = _state("First Show", 101)
         second_state = _state("Second Show", 202)
@@ -1962,49 +1901,29 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_controller=_FakeMediaController([first_state, second_state]),
         )
         workspace.show_ready()
-        first_widget = _first_visible_episode_widget(workspace)
-        self.assertIsNotNone(first_widget)
-        second_cached_item, second_cached_widget = _episode_widget_for_title(workspace, "Second Show")
-        self.assertIsNone(second_cached_item)
-        self.assertIsNone(second_cached_widget)
+        # The work-panel model rebuilds rows on every show_state, so widget
+        # identity is no longer reused across reselection (GUI V4 Plan 3 Task 5);
+        # the migrated invariant is that reselection renders the SELECTED show's
+        # rows and toggles still work.
+        self.assertIn("First Show", _first_episode_target(workspace))
 
         panel = workspace._roster_panel
         second_row = panel.model.row_for_state_index(1)
         self.assertGreaterEqual(second_row, 0)
         panel.view.setCurrentIndex(panel.model.index(second_row, 0))
         self._app.processEvents()
-        second_widget = _first_visible_episode_widget(workspace)
-        self.assertIsNotNone(second_widget)
-        self.assertIsNot(second_widget, first_widget)
-        second_header = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                not workspace._preview_list.item(row).isHidden()
-                and workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-                and "SEASON 1" in workspace._preview_list.item(row).text()
-            )
-        )
-        second_episode = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if (
-                not workspace._preview_list.item(row).isHidden()
-                and workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "episode"
-            )
-        )
+        self.assertIn("Second Show", _first_episode_target(workspace))
 
-        workspace._on_preview_item_clicked(second_header)
-
-        self.assertTrue(second_episode.isHidden())
-        self.assertTrue(second_header.text().startswith("\u25b8 SEASON 1"))
+        section_key = self._first_section_key(workspace, prefix="episode-guide-season:")
+        self.assertIsNotNone(section_key)
+        workspace._on_table_section_toggled(section_key)
+        self.assertTrue(self._episode_section_collapsed(workspace, "SEASON 1"))
 
         first_row = panel.model.row_for_state_index(0)
         self.assertGreaterEqual(first_row, 0)
         panel.view.setCurrentIndex(panel.model.index(first_row, 0))
         self._app.processEvents()
-
-        self.assertIs(_first_visible_episode_widget(workspace), first_widget)
+        self.assertIn("First Show", _first_episode_target(workspace))
         workspace.close()
 
     def test_media_workspace_episode_approval_emits_approve_action(self):
@@ -2014,7 +1933,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -2064,19 +1982,21 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
         workspace.show_ready()
 
-        # Find the review-status episode guide row widget.
-        widget = next(
-            workspace._preview_list.itemWidget(workspace._preview_list.item(row))
-            for row in range(workspace._preview_list.count())
-            if isinstance(
-                workspace._preview_list.itemWidget(workspace._preview_list.item(row)),
-                EpisodeGuideRowWidget,
-            )
+        # Find the review-status episode row and open its expansion card.
+        review_preview_index = state.preview_items.index(
+            next(p for p in state.preview_items if p.file_id == entry.file_id)
         )
-        self.assertEqual(widget._status.text(), "Review")
+        row_data = self._episode_row_data_for_preview_index(workspace, review_preview_index)
+        self.assertIsNotNone(row_data)
+        self.assertEqual(row_data.status_text, "Review")
+        card_row = workspace._work_panel.model.row_for_preview_index(review_preview_index)
+        card = self._open_expansion_card(workspace, card_row)
+        self.assertIsNotNone(card)
 
         # Clicking approve dispatches through handle_episode_row_action → service.approve_file.
-        widget._approve_button.click()
+        approve_button = self._card_action_button(card, "approve")
+        self.assertIsNotNone(approve_button)
+        approve_button.click()
         self._app.processEvents()
 
         # After approval the projection reprojects: the row's status should flip to "OK".
@@ -2341,13 +2261,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
+        unassign_all_btn = workspace._work_panel.unassign_all_button
         # Both files start assigned, so the bulk button is shown and enabled.
-        self.assertFalse(workspace._unassign_all_btn.isHidden())
-        self.assertTrue(workspace._unassign_all_btn.isEnabled())
+        self.assertFalse(unassign_all_btn.isHidden())
+        self.assertTrue(unassign_all_btn.isEnabled())
         self.assertIsNotNone(table._assignments.get(first.file_id))
         self.assertIsNotNone(table._assignments.get(second.file_id))
 
-        workspace._unassign_all_btn.click()
+        unassign_all_btn.click()
         self._app.processEvents()
 
         # Every file is now unassigned in the table...
@@ -2357,7 +2278,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         for preview in state.preview_items:
             self.assertIsNone(preview.new_name)
         # Nothing left to unassign, so the button disables itself.
-        self.assertFalse(workspace._unassign_all_btn.isEnabled())
+        self.assertFalse(unassign_all_btn.isEnabled())
 
         workspace.close()
 
@@ -2371,22 +2292,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        panel = workspace._preview_panel
-        buttons = panel.episode_filter_buttons
+        panel = workspace._work_panel
+        segmented = panel.segmented_filter
 
-        # Default filter is "all": exactly one button is checked and it matches.
-        self.assertEqual(panel.episode_filter, "all")
-        checked = [key for key, button in buttons.items() if button.isChecked()]
-        self.assertEqual(checked, ["all"])
+        # Default filter is "all": the segmented control tracks the model filter.
+        self.assertEqual(panel.model.filter_mode(), "all")
+        self.assertEqual(segmented.currentText().casefold(), "all")
 
-        # Switching the filter moves the checked (active) state to the new button.
-        buttons["problems"].click()
+        # Switching the segmented control moves the model filter to the new value.
+        segmented.setCurrentText("Problems")
         self._app.processEvents()
 
-        self.assertEqual(panel.episode_filter, "problems")
-        checked = [key for key, button in buttons.items() if button.isChecked()]
-        self.assertEqual(checked, ["problems"])
-        self.assertFalse(buttons["all"].isChecked())
+        self.assertEqual(panel.model.filter_mode(), "problems")
+        self.assertEqual(segmented.currentText().casefold(), "problems")
 
         workspace.close()
 
@@ -2739,112 +2657,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         media_ctrl.refresh_episode_guide.assert_called_with(state)
         workspace.close()
 
-    def test_media_workspace_episode_guide_items_preserve_card_gap(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[
-                PreviewItem(
-                    original=Path(f"C:/library/tv/Example/Season 01/Example.S01E{episode:02d}.mkv"),
-                    new_name=f"Example Show (2024) - S01E{episode:02d} - Episode {episode}.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-                    season=1,
-                    episodes=[episode],
-                    status="OK",
-                )
-                for episode in range(1, 3)
-            ],
-            scanned=True,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show_ready()
-        for row in range(workspace._preview_list.count()):
-            item = workspace._preview_list.item(row)
-            widget = workspace._preview_list.itemWidget(item)
-            if isinstance(widget, EpisodeGuideRowWidget):
-                self.assertGreaterEqual(
-                    item.sizeHint().height(),
-                    widget.sizeHint().height() + 6,
-                )
-                break
-        else:
-            self.fail("No episode guide row widget found")
-        workspace.close()
-
-    def test_media_workspace_episode_header_toggle_does_not_reload_detail_selection(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-        from plex_renamer.gui_qt.widgets._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[
-                PreviewItem(
-                    original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-                    season=1,
-                    episodes=[1],
-                    status="OK",
-                )
-            ],
-            scanned=True,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show_ready()
-        workspace._detail_panel.set_selection = MagicMock(wraps=workspace._detail_panel.set_selection)
-        header = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if workspace._preview_list.item(row).data(_PREVIEW_ENTRY_KIND_ROLE) == "header"
-        )
-
-        workspace._on_preview_item_clicked(header)
-
-        workspace._detail_panel.set_selection.assert_not_called()
-        workspace.close()
-
     def test_media_workspace_selected_review_episode_uses_card_actions(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -2888,24 +2700,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        item = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if workspace._preview_list.item(row).data(Qt.ItemDataRole.UserRole) == 0
-        )
-        workspace._preview_list.setCurrentItem(item)
-        self._app.processEvents()
+        card_row = workspace._work_panel.model.row_for_preview_index(0)
+        self.assertGreaterEqual(card_row, 0)
+        card = self._open_expansion_card(workspace, card_row)
+        self.assertIsNotNone(card)
 
-        widget = workspace._preview_list.itemWidget(item)
         self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
         self.assertNotEqual(workspace._queue_inline_btn.text(), "Approve Episode")
-        # New API: approve button visible for Review rows; ⋯ menu for reassign/unassign.
-        self.assertTrue(hasattr(widget, "_approve_button"))
-        self.assertTrue(widget._approve_button.isVisible())
-        self.assertIsNotNone(widget.actions_button())
-        menu_labels = [a.text() for a in widget.actions_menu().actions()]
-        self.assertIn("Reassign...", menu_labels)
-        self.assertIn("Unassign", menu_labels)
+        # New API: the expansion card carries the Approve button plus reassign /
+        # unassign actions for Review rows.
+        self.assertIsNotNone(self._card_action_button(card, "approve"))
+        card_labels = [b.text() for b in card._action_buttons]
+        self.assertIn("Reassign...", card_labels)
+        self.assertIn("Unassign", card_labels)
 
         workspace.close()
 
@@ -2958,18 +2765,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        item = next(
-            workspace._preview_list.item(row)
-            for row in range(workspace._preview_list.count())
-            if workspace._preview_list.item(row).data(Qt.ItemDataRole.UserRole) == 0
-        )
-        widget = workspace._preview_list.itemWidget(item)
+        card_row = workspace._work_panel.model.row_for_preview_index(0)
+        self.assertGreaterEqual(card_row, 0)
+        card = self._open_expansion_card(workspace, card_row)
+        self.assertIsNotNone(card)
 
-        # New API: Fix button removed; reassign is now a menu action via the ⋯ tool button.
-        self.assertFalse(hasattr(widget, "_fix_button"))
-        self.assertIsNotNone(widget.actions_button())
-        menu_labels = [a.text() for a in widget.actions_menu().actions()]
-        self.assertIn("Reassign...", menu_labels)
+        # New API: no per-row Fix button; reassign is an expansion-card action.
+        card_labels = [b.text() for b in card._action_buttons]
+        self.assertIn("Reassign...", card_labels)
 
         workspace.close()
 
@@ -3025,15 +2828,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        approve_all = workspace._preview_panel._approve_all_button
+        approve_all = workspace._work_panel.approve_all_button
 
         self.assertTrue(approve_all.isVisible())
         self.assertEqual(approve_all.text(), "Approve All")
         self.assertEqual(approve_all.property("cssClass"), "primary")
-        self.assertEqual(
-            approve_all.parent(),
-            workspace._preview_panel._episode_filter_buttons["unmapped"].parent(),
-        )
+        # Approve All lives in the work panel's toolbar alongside the segmented
+        # filter control.
+        self.assertIs(approve_all.parent(), workspace._work_panel.segmented_filter.parent())
 
         approve_all.click()
         self._app.processEvents()
@@ -3044,130 +2846,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def test_media_workspace_episode_guide_rows_size_to_visible_actions(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
-
-        # Production-realistic action lists per _episode_row_actions policy.
-        short_row = EpisodeGuideRowWidget(
-            title="S01E01 - Pilot",
-            status="Mapped",
-            original="Pilot.mkv",
-            actions=[("reassign", "Reassign..."), ("unassign", "Unassign")],
-        )
-        missing_row = EpisodeGuideRowWidget(
-            title="S01E02 - Missing",
-            status="Missing File",
-            actions=[("assign_file", "Assign file...")],
-        )
-        long_row = EpisodeGuideRowWidget(
-            title="S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally",
-            status="Review",
-            original="Example.Show.S01E03.With.A.Long.Release.Name.mkv",
-            target="Example Show (2024) - S01E03 - This Is A Very Long Episode Title That Should Not Expand The Row Horizontally.mkv",
-            confidence="52%",
-            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
-        )
-
-        # All three rows take the taller (actions) path; long_row is taller still due
-        # to the visible confidence meter and target label.
-        self.assertEqual(short_row.sizeHint().height(), missing_row.sizeHint().height())
-        self.assertLess(short_row.sizeHint().height(), long_row.sizeHint().height())
-        self.assertLessEqual(short_row.sizeHint().height(), 96)
-        self.assertLessEqual(long_row.sizeHint().height(), 120)
-
-        short_row.close()
-        missing_row.close()
-        long_row.close()
-
-    def test_media_workspace_episode_review_actions_are_inline_with_confidence_meter(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[review_item],
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show()
-        workspace.show_ready()
-        self._app.processEvents()
-
-        widget = self._preview_widget_for_index(workspace, 0)
-        before_height = widget.sizeHint().height()
-
-        self.assertEqual(widget._approve_button.property("sizeVariant"), "inline")
-        self.assertLessEqual(widget._approve_button.sizeHint().height(), 24)
-        self.assertIsNotNone(widget.actions_button())
-        self.assertGreater(
-            widget._approve_button.mapTo(widget, QPoint(0, 0)).x(),
-            widget._confidence.mapTo(widget, QPoint(0, 0)).x(),
-        )
-        approve_center = (
-            widget._approve_button.mapTo(widget, QPoint(0, 0)).y()
-            + widget._approve_button.height() // 2
-        )
-        confidence_center = (
-            widget._confidence.mapTo(widget, QPoint(0, 0)).y()
-            + widget._confidence.height() // 2
-        )
-        self.assertLessEqual(abs(approve_center - confidence_center), 4)
-        self.assertLessEqual(widget.sizeHint().height(), before_height)
-
-        workspace.close()
-
-    def test_episode_guide_review_action_buttons_are_parented_during_construction(self):
-        import plex_renamer.gui_qt.widgets._workspace_widgets as workspace_widgets
-
-        row = workspace_widgets.EpisodeGuideRowWidget(
-            title="S01E01 - Pilot",
-            status="Review",
-            confidence="50%",
-            actions=[("approve", "Approve"), ("reassign", "Reassign..."), ("unassign", "Unassign")],
-        )
-
-        try:
-            # Approve button is present, parented, and not a top-level window.
-            self.assertFalse(row._approve_button.isWindow())
-            self.assertIsNotNone(row.actions_button())
-            self.assertFalse(row.actions_button().isWindow())
-            # ⋯ menu carries the non-approve actions.
-            labels = [a.text() for a in row.actions_menu().actions()]
-            self.assertEqual(labels, ["Reassign...", "Unassign"])
-        finally:
-            row.close()
-
     def test_media_workspace_tv_episode_guide_filters_problems_and_unmapped(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -3225,7 +2904,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
 
         # In the default "all" filter, UNMAPPED PRIMARY FILES must appear BEFORE season rows.
-        all_headers = self._preview_header_texts(workspace)
+        all_headers = [t.upper() for t in self._episode_section_titles(workspace)]
         unmapped_indices = [i for i, h in enumerate(all_headers) if "UNMAPPED PRIMARY FILES" in h]
         season_indices = [i for i, h in enumerate(all_headers) if "SEASON 1" in h]
         self.assertTrue(unmapped_indices, "Expected an UNMAPPED PRIMARY FILES header")
@@ -3236,18 +2915,16 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             "UNMAPPED PRIMARY FILES header must appear before SEASON 1 header",
         )
 
-        workspace._preview_panel._episode_filter_buttons["problems"].click()
-        statuses = [
-            widget._status.text()
-            for row in range(workspace._preview_list.count())
-            if isinstance((widget := workspace._preview_list.itemWidget(workspace._preview_list.item(row))), EpisodeGuideRowWidget)
-        ]
+        workspace._work_panel.segmented_filter.setCurrentText("Problems")
+        statuses = [data.status_text for data in self._episode_row_datas(workspace)]
         self.assertNotIn("Mapped", statuses)
         self.assertIn("Missing File", statuses)
-        self.assertTrue(any("UNMAPPED PRIMARY FILES" in header for header in self._preview_header_texts(workspace)))
+        self.assertTrue(
+            any("UNMAPPED PRIMARY FILES" in t.upper() for t in self._episode_section_titles(workspace))
+        )
 
-        workspace._preview_panel._episode_filter_buttons["unmapped"].click()
-        headers = self._preview_header_texts(workspace)
+        workspace._work_panel.segmented_filter.setCurrentText("Unmapped")
+        headers = [t.upper() for t in self._episode_section_titles(workspace)]
         self.assertFalse(any("SEASON 1" in header for header in headers))
         self.assertTrue(any("UNMAPPED PRIMARY FILES" in header for header in headers))
 
@@ -3302,10 +2979,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        headers = self._preview_header_texts(workspace)
+        headers = [t.upper() for t in self._episode_section_titles(workspace)]
         self.assertTrue(any("UNMAPPED PRIMARY FILES" in header for header in headers))
         self.assertTrue(any("ORPHAN COMPANION FILES" in header for header in headers))
-        self.assertTrue(workspace._preview_summary.isHidden())
 
         workspace.close()
 
@@ -3415,7 +3091,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace.close()
 
     def test_media_workspace_sorts_tv_preview_items_by_episode_number(self):
-        from plex_renamer.gui_qt.widgets._workspace_widgets import EpisodeGuideRowWidget
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -3482,30 +3157,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            preview_indices = []
-            for row in range(workspace._preview_list.count()):
-                item = workspace._preview_list.item(row)
-                index = item.data(Qt.ItemDataRole.UserRole)
-                if index is not None:
-                    preview_indices.append(index)
+            model = workspace._work_panel.model
+            preview_indices = [
+                model.preview_index_at(row)
+                for row in range(model.rowCount())
+                if model.row_kind_at(row) == "episode"
+                and model.preview_index_at(row) is not None
+            ]
 
             self.assertEqual(preview_indices, [1, 2, 0])
 
-            preview_row_widget = None
-            for row in range(workspace._preview_list.count()):
-                item = workspace._preview_list.item(row)
-                widget = workspace._preview_list.itemWidget(item)
-                if isinstance(widget, EpisodeGuideRowWidget):
-                    preview_row_widget = widget
-                    break
-
-            self.assertIsNotNone(preview_row_widget)
-            self.assertFalse(preview_row_widget._check.isWindow())
-            self.assertEqual(preview_row_widget.styleSheet(), "")
-            self.assertEqual(preview_row_widget.property("band"), "success")
-            self.assertEqual(preview_row_widget.property("selectionState"), "selected")
-            self.assertEqual(preview_row_widget._status.styleSheet(), "")
-            self.assertEqual(preview_row_widget._status.property("tone"), "success")
+            # Row painting moved to the delegate; the surviving row-level signal
+            # is the model's status tone (was the row widget's "tone" property).
+            first_episode = next(
+                data for data in self._episode_row_datas(workspace) if data.kind == "episode"
+            )
+            self.assertEqual(first_episode.status_text, "Mapped")
+            self.assertEqual(first_episode.status_tone, "success")
 
             workspace.close()
 
@@ -3574,7 +3242,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertTrue(any("SEASON 1 - 1/2" in text for text in self._preview_header_texts(workspace)))
+        # The season header ratio now uses an em-dash: "Season 1 — 1/2".
+        self.assertTrue(
+            any(
+                "SEASON 1" in text.upper() and "1/2" in text
+                for text in self._episode_section_titles(workspace)
+            )
+        )
 
         workspace.close()
 
@@ -4422,15 +4096,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            self.assertEqual(workspace._preview_list.count(), 3)
+            row_count_before = workspace._work_panel.model.rowCount()
+            self.assertGreater(row_count_before, 0)
             workspace._queue_checked()
             self._app.processEvents()
 
             self.assertTrue(queue_ctrl.called)
             self._assert_roster_section_title(workspace, 0, "QUEUED")
-            self.assertEqual(workspace._preview_list.count(), 3)
-            self.assertTrue(any("FOLDER" in text for text in self._preview_header_texts(workspace)))
-            self.assertIn("Folder rename plan:", workspace._folder_plan_label.text())
+            # Preview content is preserved across the queue regroup.
+            self.assertEqual(workspace._work_panel.model.rowCount(), row_count_before)
+            self.assertTrue(
+                any("FOLDER" in t.upper() for t in self._episode_section_titles(workspace))
+            )
+            self.assertIsNotNone(self._folder_section_target(workspace))
 
             workspace.close()
 

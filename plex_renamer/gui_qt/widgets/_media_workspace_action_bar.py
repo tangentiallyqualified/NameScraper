@@ -28,7 +28,7 @@ def update_action_bar(workspace) -> None:
     _update_queue_preflight(workspace, selected_state)
 
     if selected_state is not None:
-        workspace._render_detail(selected_state, workspace._selected_preview())
+        workspace._work_panel.refresh_header(selected_state)
 
 
 def set_roster_queue_button_text(workspace, text: str) -> None:

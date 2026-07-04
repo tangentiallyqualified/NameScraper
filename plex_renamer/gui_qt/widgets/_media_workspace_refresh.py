@@ -10,7 +10,7 @@ from ._media_helpers import (
     roster_group as _roster_group,
     roster_selection_key as _roster_selection_key,
 )
-from ._workspace_widgets import _CheckBinding
+from ._workspace_widget_primitives import _CheckBinding
 
 
 class MediaWorkspaceRefreshCoordinator:
@@ -72,7 +72,6 @@ class MediaWorkspaceRefreshCoordinator:
         if selected_state is not None:
             self.ensure_check_bindings(selected_state)
             workspace._populate_preview(selected_state)
-            workspace._render_detail(selected_state, workspace._selected_preview())
         workspace._update_action_bar()
 
     def check_all(self) -> None:
@@ -142,10 +141,7 @@ class MediaWorkspaceRefreshCoordinator:
 
     def _reset_empty_ready_state(self) -> None:
         workspace = self._workspace
-        workspace._preview_list.clear()
-        workspace._folder_plan_label.setText("")
-        workspace._set_preview_summary("Preview items will appear here once a scan is ready.")
-        workspace._detail_panel.clear()
+        workspace._work_panel.clear("Preview items will appear here once a scan is ready.")
         workspace._roster_selection_is_auto = False
         workspace._pending_roster_selection_auto = None
         workspace._roster_queue_btn.setEnabled(False)

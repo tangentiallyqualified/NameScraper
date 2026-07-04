@@ -22,14 +22,14 @@ class MediaWorkspaceLifecycleCoordinator:
     def show_empty(self) -> None:
         workspace = self._workspace
         workspace._scan_progress.stop()
-        workspace._detail_panel.clear_metadata_cache()
+        workspace._work_panel.clear()
         workspace._stack.setCurrentIndex(self._empty_index)
         workspace._empty_state.refresh_recent_folders()
 
     def show_scanning(self) -> None:
         workspace = self._workspace
         workspace._scan_progress.start()
-        workspace._detail_panel.clear_metadata_cache()
+        workspace._work_panel.clear()
         workspace._stack.setCurrentIndex(self._scanning_index)
 
     def show_ready(self) -> None:
@@ -43,7 +43,9 @@ class MediaWorkspaceLifecycleCoordinator:
         compact = workspace._settings is not None and workspace._settings.view_mode == "compact"
         workspace._roster_panel.set_compact(compact)
         workspace.refresh_from_controller()
-        workspace._detail_panel.refresh_current()
+        selected_state = workspace._selected_state()
+        if selected_state is not None:
+            workspace._populate_preview(selected_state)
 
     def on_folder_selected(self, path: str) -> None:
         workspace = self._workspace

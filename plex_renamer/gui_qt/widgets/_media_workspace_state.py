@@ -1,14 +1,13 @@
-"""State lookup and panel-population helpers for the media workspace."""
+"""State lookup and work-panel population helpers for the media workspace."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtCore import QModelIndex
 
 from ...engine import ScanState
 from ._media_helpers import state_key as _state_key
-from ._media_workspace_preview import _PREVIEW_ENTRY_KIND_ROLE, _PREVIEW_SECTION_ROLE
 
 
 class MediaWorkspaceStateCoordinator:
@@ -61,94 +60,97 @@ class MediaWorkspaceStateCoordinator:
             finally:
                 workspace._roster_syncing = False
 
-    def populate_preview(self, state: ScanState) -> None:
+    def show_in_work_panel(self, state: ScanState) -> None:
         workspace = self._workspace
+        if state.preview_items:
+            workspace._ensure_check_bindings(state)
+        collapsed = workspace._preview_group_state.setdefault(_state_key(state), set())
         workspace._preview_syncing = True
-        workspace._preview_list.setUpdatesEnabled(False)
-        workspace._preview_panel.populate_from_state(
-            state,
-            preview_group_state=workspace._preview_group_state,
-            folder_section_key=self._folder_section_key,
-            ensure_check_bindings=workspace._ensure_check_bindings,
-            folder_plan_text=workspace._folder_plan_text,
-            folder_preview_data=workspace._folder_preview_data,
-        )
-        workspace._preview_syncing = False
-        workspace._preview_list.setUpdatesEnabled(True)
-        workspace._sync_row_selection(workspace._preview_list)
-        self.update_preview_master_state(state)
-
-    def warm_preview_cache(self, states: list[ScanState], active_state: ScanState | None) -> None:
-        workspace = self._workspace
-        if workspace._media_type != "tv" or active_state is None:
-            return
-        targets = [
-            state
-            for state in states
-            if state is not active_state
-            and state.preview_items
-            and not workspace._preview_panel.has_current_render(
-                state,
-                folder_preview=workspace._folder_preview_data(state),
-            )
-        ]
-        if not targets:
-            return
-
-        workspace._preview_syncing = True
-        workspace._preview_list.setUpdatesEnabled(False)
         try:
-            for state in targets:
-                workspace._preview_panel.populate_from_state(
-                    state,
-                    preview_group_state=workspace._preview_group_state,
-                    folder_section_key=self._folder_section_key,
-                    ensure_check_bindings=workspace._ensure_check_bindings,
-                    folder_plan_text=workspace._folder_plan_text,
-                    folder_preview_data=workspace._folder_preview_data,
-                )
-            workspace._preview_panel.populate_from_state(
-                active_state,
-                preview_group_state=workspace._preview_group_state,
-                folder_section_key=self._folder_section_key,
-                ensure_check_bindings=workspace._ensure_check_bindings,
-                folder_plan_text=workspace._folder_plan_text,
-                folder_preview_data=workspace._folder_preview_data,
+            workspace._work_panel.show_state(
+                state,
+                collapsed_sections=collapsed,
+                folder_preview=workspace._folder_preview_data(state),
             )
         finally:
             workspace._preview_syncing = False
-            workspace._preview_list.setUpdatesEnabled(True)
-        workspace._sync_row_selection(workspace._preview_list)
-        self.update_preview_master_state(active_state)
+        self.update_preview_master_state(state)
 
-    def on_preview_item_clicked(self, item: QListWidgetItem) -> None:
+    def on_table_section_toggled(self, section_key: str) -> None:
         workspace = self._workspace
         if workspace._preview_syncing:
             return
-        state = self.selected_state()
-        if state is None:
-            return
-        if item.data(_PREVIEW_ENTRY_KIND_ROLE) != "header":
-            return
-        section_key = item.data(_PREVIEW_SECTION_ROLE)
-        if section_key is None:
-            return
-        handled = workspace._preview_panel.toggle_section(
-            state=state,
-            section_key=section_key,
-            preview_group_state=workspace._preview_group_state,
-        )
-        if handled:
-            return
-        collapsed = workspace._preview_group_state.setdefault(_state_key(state), set())
-        if section_key in collapsed:
-            collapsed.remove(section_key)
-        else:
-            collapsed.add(section_key)
-        self.populate_preview(state)
+        workspace._work_panel.model.toggle_section(section_key)
+        workspace._work_panel.update_footer()
 
-    def update_sticky_header(self) -> None:
-        self._workspace._preview_panel.update_sticky_header()
+    def on_table_row_clicked(self, index: QModelIndex) -> None:
+        """A second click on the already-current episode/movie row expands it
+        (Qt does not refire currentChanged for the same row)."""
+        workspace = self._workspace
+        if workspace._preview_syncing or not index.isValid():
+            return
+        model = workspace._work_panel.model
+        kind = model.row_kind_at(index.row())
+        if kind not in {"episode", "movie-file"}:
+            return
+        if index != workspace._work_panel.table_view.currentIndex():
+            return
+        if model.expanded_row() == index.row():
+            return
+        self.on_table_expand_requested(index)
+
+    def on_table_expand_requested(self, index: QModelIndex) -> None:
+        workspace = self._workspace
+        if not index.isValid():
+            return
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+        row = index.row()
+        if model.expanded_row() == row:
+            self._close_expansion()
+            return
+        self._close_expansion()
+        model.set_expanded_row(row)
+        view.openPersistentEditor(model.index(row, 0))
+
+    def _close_expansion(self) -> None:
+        workspace = self._workspace
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+        current = model.expanded_row()
+        if current is None:
+            return
+        model.set_expanded_row(None)
+        view.closePersistentEditor(model.index(current, 0))
+
+    def expansion_card_for_index(self, index: QModelIndex):
+        from ._episode_expansion import EpisodeExpansionCard
+
+        workspace = self._workspace
+        model = workspace._work_panel.model
+        state = model.state()
+        if state is None:
+            return None
+        card = EpisodeExpansionCard()
+        row = index.row()
+        kind = model.row_kind_at(row)
+        if kind == "movie-file":
+            preview_index = model.preview_index_at(row)
+            if preview_index is None or not (0 <= preview_index < len(state.preview_items)):
+                return None
+            card.show_movie(state, state.preview_items[preview_index])
+        else:
+            guide_row = model.guide_row_at(row)
+            if guide_row is None:
+                return None
+            card.show_episode(state, guide_row)
+            card.action_requested.connect(
+                lambda action_id, s=state, r=guide_row: workspace._action_coordinator.handle_episode_row_action(
+                    s, r, action_id
+                )
+            )
+        card.collapse_requested.connect(self._close_expansion)
+        return card
 
     def update_preview_master_state(self, state: ScanState | None) -> None:
-        self._workspace._preview_panel.update_master_state(state)
+        self._workspace._work_panel.update_master_state(state)

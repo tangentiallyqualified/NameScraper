@@ -1,19 +1,18 @@
 """Media workspace widget for TV Shows and Movies tabs.
 
 Manages the EMPTY -> SCANNING -> READY state machine via a
-QStackedWidget. The READY state shows a controller-backed 3-panel
-workspace with roster, preview, and selection/detail summaries.
+QStackedWidget. The READY state shows a controller-backed 2-panel
+workspace: a roster and a work panel (header/strip/toolbar/episode
+table/footer) that replaces the old preview + detail split.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
     QInputDialog,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QSplitter,
     QWidget,
@@ -27,7 +26,6 @@ from ._media_workspace_state import MediaWorkspaceStateCoordinator
 from ._media_workspace_sync import MediaWorkspaceSyncCoordinator
 from ._media_workspace_ui import MediaWorkspaceUiCoordinator
 from ._media_workspace_view import MediaWorkspaceViewCoordinator
-from ._workspace_widgets import PreviewRowWidget as _PreviewRowWidget
 from .match_picker_dialog import MatchPickerDialog
 from .scan_progress import ScanProgressWidget
 
@@ -107,7 +105,7 @@ class MediaWorkspace(QWidget):
         self._lifecycle_coordinator.show_scanning()
 
     def show_ready(self) -> None:
-        """Switch to the 3-panel ready state."""
+        """Switch to the 2-panel ready state."""
         self._lifecycle_coordinator.show_ready()
 
     def is_showing_ready(self) -> bool:
@@ -212,22 +210,31 @@ class MediaWorkspace(QWidget):
         self._sync_coordinator.set_state_checked(state, checked)
 
     def _populate_preview(self, state: ScanState) -> None:
-        self._state_coordinator.populate_preview(state)
+        self._state_coordinator.show_in_work_panel(state)
 
-    def _warm_preview_cache(self, states: list[ScanState], active_state: ScanState | None) -> None:
-        self._state_coordinator.warm_preview_cache(states, active_state)
+    def _on_episode_filter_changed(self, mode: str) -> None:
+        state = self._selected_state()
+        if state is not None:
+            self._populate_preview(state)
 
-    def _on_preview_item_clicked(self, item: QListWidgetItem) -> None:
-        self._state_coordinator.on_preview_item_clicked(item)
+    def _on_episode_search_changed(self, text: str) -> None:
+        self._work_panel.model.set_search_text(text)
+        self._work_panel.update_footer()
 
-    def _update_sticky_header(self) -> None:
-        self._state_coordinator.update_sticky_header()
+    def _on_table_section_toggled(self, section_key: str) -> None:
+        self._state_coordinator.on_table_section_toggled(section_key)
 
-    def _on_preview_current_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
-        self._sync_coordinator.on_preview_current_item_changed(current)
+    def _on_table_current_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
+        self._sync_coordinator.on_table_current_changed(current)
 
-    def _on_preview_item_changed(self, item: QListWidgetItem) -> None:
-        self._sync_coordinator.on_preview_item_changed(item)
+    def _on_table_row_clicked(self, index: QModelIndex) -> None:
+        self._state_coordinator.on_table_row_clicked(index)
+
+    def _on_table_expand_requested(self, index: QModelIndex) -> None:
+        self._state_coordinator.on_table_expand_requested(index)
+
+    def _on_movie_row_toggled(self, index: QModelIndex) -> None:
+        self._sync_coordinator.on_movie_row_toggled(index)
 
     def _on_preview_master_changed(self, check_state: int) -> None:
         self._sync_coordinator.on_preview_master_changed(check_state)
@@ -235,8 +242,8 @@ class MediaWorkspace(QWidget):
     def _update_preview_master_state(self, state: ScanState | None) -> None:
         self._state_coordinator.update_preview_master_state(state)
 
-    def _render_detail(self, state: ScanState | None, preview: PreviewItem | None = None) -> None:
-        self._view_coordinator.render_detail(state, preview)
+    def _expansion_card_for_index(self, index: QModelIndex):
+        return self._state_coordinator.expansion_card_for_index(index)
 
     def _check_all(self) -> None:
         self._refresh_coordinator.check_all()
@@ -281,26 +288,11 @@ class MediaWorkspace(QWidget):
     def _sync_action_button_metrics(self) -> None:
         self._action_coordinator.sync_action_button_metrics()
 
-    def _set_preview_summary(self, text: str) -> None:
-        self._preview_panel.set_summary(text)
-
     def _update_roster_selection_header(self, states: list[ScanState]) -> None:
         self._roster_panel.update_selection_header(states)
 
-    def _attach_preview_widget(self, item: QListWidgetItem, state: ScanState, index: int, preview: PreviewItem) -> None:
-        self._preview_panel.attach_preview_widget(item, state, index, preview)
-
-    def _attach_folder_preview_widget(self, item: QListWidgetItem, source_name: str, target_name: str) -> None:
-        self._preview_panel.attach_folder_preview_widget(item, source_name, target_name)
-
-    def _set_item_check_state(self, item: QListWidgetItem, checked: bool, *, preview: bool) -> None:
-        self._sync_coordinator.set_item_check_state(item, checked, preview=preview)
-
     def _set_roster_check_state(self, state_index: int, checked: bool) -> None:
         self._sync_coordinator.set_roster_check_state(state_index, checked)
-
-    def _sync_row_selection(self, list_widget: QListWidget) -> None:
-        self._sync_coordinator.sync_row_selection(list_widget)
 
     def _approve_match(self, state: ScanState) -> None:
         self._action_coordinator.approve_match(state)

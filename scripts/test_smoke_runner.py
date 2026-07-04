@@ -81,7 +81,6 @@ def main() -> int:
         "pytest",
         "tests/test_qt_main_window.py",
         "tests/test_qt_job_detail_panel.py",
-        "tests/test_qt_media_detail_panel.py",
         "tests/test_qt_media_workspace.py",
         "tests/test_qt_queue_history.py",
         "tests/test_qt_chrome.py",
