@@ -6,7 +6,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QElapsedTimer, QTimer, Signal
 from PySide6.QtGui import QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QProgressBar,
@@ -18,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from .. import _scale, theme
 from ...app.models import ScanLifecycle
+from ._workspace_widget_primitives import ElidedLabel
 
 
 _TV_CHECKLIST = [
@@ -50,6 +50,21 @@ _TERMINAL = {
     ScanLifecycle.FAILED,
     ScanLifecycle.CANCELLED,
 }
+
+_FILLER_DELAY_MS = 4000
+_TV_FILLERS = (
+    "Politely interrogating TMDB…",
+    "Counting specials twice, just in case…",
+    "Untangling Season 0…",
+    "Cross-checking absolute numbering…",
+    "Politely disagreeing with filenames…",
+)
+_MOVIE_FILLERS = (
+    "Politely interrogating TMDB…",
+    "Comparing runtimes and vibes…",
+    "Squinting at release years…",
+    "Sorting sequels from remakes…",
+)
 
 
 _CARD_COUNT = 5
@@ -223,6 +238,11 @@ class ScanProgressWidget(QWidget):
         self._animation_timer = QTimer(self)
         self._animation_timer.setInterval(90)
         self._animation_timer.timeout.connect(self._advance_animation)
+        self._filler_timer = QTimer(self)
+        self._filler_timer.setInterval(_FILLER_DELAY_MS)
+        self._filler_timer.timeout.connect(self._rotate_filler)
+        self._fillers = _TV_FILLERS if media_type == "tv" else _MOVIE_FILLERS
+        self._filler_index = 0
         self._text_update_timer = QElapsedTimer()
         self._current_lifecycle: ScanLifecycle | None = None
         self._completed_lifecycles: set[ScanLifecycle] = set()
@@ -255,11 +275,16 @@ class ScanProgressWidget(QWidget):
         self._phase_label.setProperty("cssClass", "heading")
         card_layout.addWidget(self._phase_label)
 
-        self._message_label = QLabel("Preparing the scanner.")
-        self._message_label.setProperty("cssClass", "text-dim")
-        self._message_label.setWordWrap(False)
-        self._message_label.setFixedHeight(_scale.px(22))
-        card_layout.addWidget(self._message_label)
+        secondary_row = QHBoxLayout()
+        self._item_label = ElidedLabel("")
+        self._item_label.setProperty("cssClass", "text-dim")
+        self._item_label.setFixedHeight(_scale.px(22))
+        secondary_row.addWidget(self._item_label, stretch=1)
+        self._elapsed_label = QLabel("Elapsed: 0:00")
+        self._elapsed_label.setProperty("cssClass", "text-dim")
+        self._elapsed_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        secondary_row.addWidget(self._elapsed_label, alignment=Qt.AlignmentFlag.AlignRight)
+        card_layout.addLayout(secondary_row)
 
         bar_row = QHBoxLayout()
         self._progress_bar = QProgressBar()
@@ -275,23 +300,6 @@ class ScanProgressWidget(QWidget):
         self._count_label.setProperty("cssClass", "text-dim")
         bar_row.addWidget(self._count_label)
         card_layout.addLayout(bar_row)
-
-        details = QGridLayout()
-        details.setHorizontalSpacing(_scale.px(16))
-        details.setVerticalSpacing(_scale.px(4))
-        details.setColumnStretch(0, 1)
-        details.setColumnStretch(1, 0)
-        self._current_label = QLabel("Current: -")
-        self._current_label.setWordWrap(False)
-        self._current_label.setMinimumWidth(_scale.px(360))
-        self._current_label.setFixedHeight(_scale.px(22))
-        self._current_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._elapsed_label = QLabel("Elapsed: 0:00")
-        self._elapsed_label.setProperty("cssClass", "text-dim")
-        self._elapsed_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        details.addWidget(self._current_label, 0, 0)
-        details.addWidget(self._elapsed_label, 0, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        card_layout.addLayout(details)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
@@ -329,15 +337,17 @@ class ScanProgressWidget(QWidget):
         self._progress_bar.setValue(0)
         self._count_label.setText("0/0")
         self._phase_label.setText("Initializing scan...")
-        self._message_label.setText("Preparing the scanner.")
-        self._current_label.setText("Current: -")
+        self._set_item_text("Preparing the scanner…")
         self._elapsed_label.setText("Elapsed: 0:00")
         self._text_update_timer.invalidate()
+        self._filler_index = 0
+        self._filler_timer.start()
 
     def stop(self) -> None:
         """Stop elapsed and animation timers."""
         self._elapsed_timer.stop()
         self._animation_timer.stop()
+        self._filler_timer.stop()
         self._animation.set_active(False)
 
     def update_progress(
@@ -374,12 +384,11 @@ class ScanProgressWidget(QWidget):
         ):
             if phase:
                 self._phase_label.setText(phase)
-            if message:
-                self._set_elided_text(self._message_label, message)
-            if current_item:
-                self._set_elided_text(self._current_label, f"Current: {current_item}")
-            elif message:
-                self._set_elided_text(self._current_label, message)
+            item_text = current_item or message
+            if item_text:
+                self._set_item_text(item_text)
+                self._filler_index = 0
+                self._filler_timer.start()   # restart the 4s no-change window
             self._text_update_timer.restart()
 
         if parsed_lifecycle in _TERMINAL:
@@ -417,12 +426,20 @@ class ScanProgressWidget(QWidget):
     def _advance_animation(self) -> None:
         self._animation.advance()
 
-    def _set_elided_text(self, label: QLabel, text: str) -> None:
-        available_width = _label_text_width(label)
-        label.setToolTip(
-            text if label.fontMetrics().horizontalAdvance(text) > available_width else ""
-        )
-        label.setText(_elided_text(label, text))
+    def _set_item_text(self, text: str) -> None:
+        self._item_label.setText(text)
+        self._item_label.setToolTip(text)
+
+    def _rotate_filler(self) -> None:
+        if not self._fillers or not self._elapsed_timer.isActive():
+            return
+        quip = self._fillers[self._filler_index % len(self._fillers)]
+        self._filler_index += 1
+        self._item_label.setText(quip)
+        self._item_label.setToolTip("")
+        # A quip replaced the honest item line, so drop the text throttle:
+        # the next real update must reclaim the line immediately.
+        self._text_update_timer.invalidate()
 
     def _should_update_text(
         self,
@@ -471,17 +488,3 @@ def _parse_lifecycle(lifecycle: str | ScanLifecycle) -> ScanLifecycle | None:
     except ValueError:
         return None
 
-
-def _label_text_width(label: QLabel) -> int:
-    width = label.contentsRect().width()
-    if width <= 0:
-        width = label.width()
-    return max(1, width)
-
-
-def _elided_text(label: QLabel, text: str) -> str:
-    return label.fontMetrics().elidedText(
-        text,
-        Qt.TextElideMode.ElideRight,
-        _label_text_width(label),
-    )

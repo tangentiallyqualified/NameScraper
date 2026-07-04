@@ -164,8 +164,50 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         )
 
         self.assertEqual(widget._count_label.text(), "2/5")
-        self.assertEqual(widget._current_label.text(), "Current: Show A")
+        self.assertEqual(widget._item_label.text(), "Show A")
         widget.close()
+
+    def test_scan_progress_single_secondary_line_elides_middle_with_tooltip(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.resize(700, 500)
+        widget.start()
+        long_item = "S01E01 - " + ("x" * 200) + ".mkv"
+        widget.update_progress(
+            lifecycle="matching", phase="Matching", done=1, total=10, current_item=long_item
+        )
+        self.assertEqual(widget._item_label.text(), long_item)     # ElidedLabel.text() returns full text
+        self.assertEqual(widget._item_label.toolTip(), long_item)
+        widget.stop()
+
+    def test_scan_progress_filler_quip_rotates_and_item_update_resets(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(lifecycle="matching", phase="Matching", current_item="a.mkv")
+        self.assertEqual(widget._filler_timer.interval(), 4000)
+        self.assertTrue(widget._filler_timer.isActive())
+        widget._rotate_filler()
+        first_quip = widget._item_label.text()
+        self.assertNotEqual(first_quip, "a.mkv")
+        widget._rotate_filler()
+        self.assertNotEqual(widget._item_label.text(), first_quip)   # rotates through the list
+        widget.update_progress(lifecycle="matching", phase="Matching", current_item="b.mkv")
+        self.assertEqual(widget._item_label.text(), "b.mkv")         # honest item resets the line
+        widget.stop()
+        self.assertFalse(widget._filler_timer.isActive())
+
+    def test_scan_progress_primary_line_always_shows_phase_not_quips(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.update_progress(lifecycle="matching", phase="Matching on TMDB", current_item="a.mkv")
+        widget._rotate_filler()
+        self.assertEqual(widget._phase_label.text(), "Matching on TMDB")
+        widget.stop()
 
     def test_scan_progress_checklist_matches_media_type(self):
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
