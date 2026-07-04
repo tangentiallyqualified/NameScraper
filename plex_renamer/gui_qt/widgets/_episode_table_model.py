@@ -276,6 +276,7 @@ class EpisodeTableModel(QAbstractListModel):
     def _rebuild(self) -> None:
         state = self._state
         self.beginResetModel()
+        self._expanded_row = None   # editors are dropped on reset; keep the sentinel honest
         if state is None:
             self._entries = []
         elif state.scan_error:

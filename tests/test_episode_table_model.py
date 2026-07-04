@@ -120,6 +120,32 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertIn((3, 3), events)
         self.assertIn((4, 4), events)
 
+    def test_search_rebuild_resets_expanded_row(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EXPANDED_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        model.set_expanded_row(3)
+        self.assertTrue(model.index(3, 0).data(EXPANDED_ROLE))
+
+        model.set_search_text("s01e02")
+        self.assertIsNone(model.expanded_row())
+        for row in range(model.rowCount()):
+            self.assertFalse(model.index(row, 0).data(EXPANDED_ROLE))
+
+    def test_section_toggle_rebuild_resets_expanded_row(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EXPANDED_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        model.set_expanded_row(3)
+        self.assertTrue(model.index(3, 0).data(EXPANDED_ROLE))
+
+        model.toggle_section(model.season_section_key(1))
+        self.assertIsNone(model.expanded_row())
+        for row in range(model.rowCount()):
+            self.assertFalse(model.index(row, 0).data(EXPANDED_ROLE))
+
     def test_summary_text_breakdown(self):
         state, guide = _guide_state()
         model = self._model(state, guide)

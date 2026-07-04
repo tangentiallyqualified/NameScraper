@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 _EMPTY = 0
 _SCANNING = 1
 _READY = 2
-_FOLDER_SECTION_KEY = "folder"
 
 
 class MediaWorkspace(QWidget):
@@ -77,7 +76,7 @@ class MediaWorkspace(QWidget):
             ready_index=_READY,
         )
         self._refresh_coordinator = MediaWorkspaceRefreshCoordinator(self)
-        self._state_coordinator = MediaWorkspaceStateCoordinator(self, folder_section_key=_FOLDER_SECTION_KEY)
+        self._state_coordinator = MediaWorkspaceStateCoordinator(self)
         self._ui_coordinator = MediaWorkspaceUiCoordinator(self, empty_index=_EMPTY)
         self._view_coordinator = MediaWorkspaceViewCoordinator(self)
         self._build_ui()

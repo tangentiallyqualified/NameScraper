@@ -11,9 +11,8 @@ from ._media_helpers import state_key as _state_key
 
 
 class MediaWorkspaceStateCoordinator:
-    def __init__(self, workspace: Any, *, folder_section_key: str) -> None:
+    def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
-        self._folder_section_key = folder_section_key
 
     def sync_roster_items(self, states: list[ScanState]) -> None:
         workspace = self._workspace

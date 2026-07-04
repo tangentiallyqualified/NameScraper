@@ -489,8 +489,10 @@ class MediaWorkPanel(QFrame):
             self._strip_buttons.append(button)
 
     def _on_season_chip_clicked(self, season: int) -> None:
+        # Scrolling is owned by the workspace connection
+        # (panel.season_chip_clicked.connect(panel.scroll_to_season)); a
+        # standalone panel still emits the signal for callers that want it.
         self.season_chip_clicked.emit(season)
-        self.scroll_to_season(season)
 
     # -- Overview (async, minimal reimplementation of _media_detail_workflow) -
 
