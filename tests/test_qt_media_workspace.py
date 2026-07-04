@@ -4241,30 +4241,38 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
 
 class BulkAssignWorkspaceTests(QtSmokeBase):
-    def _tv_workspace_with_table_state(self, *, assign_first: bool = False):
+    def _bulk_table_state(self, folder_name: str, *, media_id: int = 101, assign_first: bool = False):
         from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_MANUAL, EpisodeAssignmentTable, EpisodeSlot,
         )
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         table = EpisodeAssignmentTable()
         for episode in range(1, 5):
             table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
         file_ids: list[int] = []
         for name in ("a.mkv", "b.mkv", "c.mkv"):
-            entry = table.add_file(Path(f"C:/library/tv/Show/{name}"))
+            entry = table.add_file(Path(f"C:/library/tv/{folder_name}/{name}"))
             table.mark_unassigned(entry.file_id, "no episode parsed")
             file_ids.append(entry.file_id)
         if assign_first:
             table.assign(file_ids[0], 1, [1], origin=ORIGIN_MANUAL)
             table.assign(file_ids[1], 1, [2], origin=ORIGIN_MANUAL)
-        state = ScanState(folder=Path("C:/library/tv/Show"),
-                          media_info={"id": 101, "name": "Show", "year": "2024"})
+        state = ScanState(folder=Path(f"C:/library/tv/{folder_name}"),
+                          media_info={"id": media_id, "name": folder_name, "year": "2024"})
         state.scanned = True
         state.confidence = 1.0
         state.assignments = table
         EpisodeMappingService().reproject(state)
+        return state
+
+    def _tv_workspace_with_table_state(self, *, assign_first: bool = False, extra_state: bool = False):
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state = self._bulk_table_state("Show", assign_first=assign_first)
+        states = [state]
+        if extra_state:
+            states.append(self._bulk_table_state("Other Show", media_id=102))
 
         class _FakeQueueController:
             def add_tv_batch(self, states, root, output_root, gating):
@@ -4273,7 +4281,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         class _FakeMediaController:
             def __init__(self):
                 self.command_gating = CommandGatingService()
-                self.batch_states = [state]
+                self.batch_states = states
                 self.movie_library_states = []
                 self.library_selected_index = 0
                 self.movie_folder = Path("C:/library/movies")
@@ -4371,6 +4379,59 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
 
         workspace._action_coordinator.unassign_all_episode_mappings(warning_box=_Box)
         self.assertTrue(workspace._work_panel.bulk_assign_active())
+
+    def test_apply_with_missing_table_exits_gracefully(self):
+        # I1: the assignment table vanished between enter and Apply (rescan /
+        # reset). Apply must exit bulk mode gracefully - no exception, no
+        # service call, no success toast.
+        workspace = self._tv_workspace_with_table_state()
+        state = workspace._selected_state()
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel.bulk_panel
+        panel.auto_map_remaining()
+        toasts: list[tuple] = []
+        workspace.toast_requested.connect(lambda *a: toasts.append(a))
+        state.assignments = None
+        workspace._on_bulk_apply(panel.staged_pairs())   # must not raise
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(toasts, [])                     # nothing was applied
+
+    def test_selection_change_discards_bulk_mode(self):
+        # I2: bulk mode is pinned to the state it was entered on; switching
+        # the roster selection mid-staging discards the session instead of
+        # applying the stale pairs against the newly selected show.
+        workspace = self._tv_workspace_with_table_state(extra_state=True)
+        state0 = workspace._selected_state()
+        state1 = workspace._media_ctrl.batch_states[1]
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel
+        panel.bulk_panel.auto_map_remaining()
+        # A repopulate of the SAME state (background refresh) keeps the mode…
+        workspace._populate_preview(state0)
+        self.assertTrue(panel.bulk_assign_active())
+        # …but a real roster switch exits and discards staging. Drive the
+        # view's selection model (what a user click/keyboard nav does) — the
+        # programmatic _set_roster_current_state suppresses state_selected by
+        # design and never populates the work panel itself.
+        roster = workspace._roster_panel
+        second_row = roster.model.row_for_state_index(1)
+        self.assertGreaterEqual(second_row, 0)
+        roster.view.setCurrentIndex(roster.model.index(second_row, 0))
+        self._app.processEvents()
+        self.assertFalse(panel.bulk_assign_active())
+        self.assertEqual(panel.bulk_panel.staged_pairs(), [])
+        self.assertEqual(state0.assignments.assignments(), [])   # nothing landed
+        # A fresh bulk session on the new selection still works end-to-end.
+        self.assertIs(workspace._selected_state(), state1)
+        workspace._enter_bulk_assign()
+        workspace._work_panel.bulk_panel.auto_map_remaining()
+        toasts: list[tuple] = []
+        workspace.toast_requested.connect(lambda *a: toasts.append(a))
+        workspace._work_panel.bulk_panel._apply_button.click()
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(len(toasts), 1)
+        self.assertEqual(len(state1.assignments.assignments()), 3)
+        self.assertEqual(state0.assignments.assignments(), [])
 
 
 # ---------------------------------------------------------------------------

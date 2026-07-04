@@ -61,6 +61,7 @@ class MediaWorkspaceStateCoordinator:
 
     def show_in_work_panel(self, state: ScanState) -> None:
         workspace = self._workspace
+        workspace._action_coordinator.discard_bulk_assign_on_state_change(state)
         if state.preview_items:
             workspace._ensure_check_bindings(state)
         collapsed = workspace._preview_group_state.setdefault(_state_key(state), set())

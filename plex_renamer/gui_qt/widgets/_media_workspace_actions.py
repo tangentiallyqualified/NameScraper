@@ -51,6 +51,10 @@ def _refresh_episode_projection(workspace, state: ScanState) -> None:
 class MediaWorkspaceActionCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
+        # The state bulk-assign mode was entered on; Apply commits against
+        # this state (not the live roster selection), and a populate with a
+        # different state discards the session. None while inactive.
+        self._bulk_state: ScanState | None = None
 
     def queue_selected_state(self) -> None:
         _queue_selected_state(self._workspace)
@@ -222,15 +226,23 @@ class MediaWorkspaceActionCoordinator:
         if workspace._media_type == "movie" or state.assignments is None:
             return
         panel = workspace._work_panel
+        self._bulk_state = state
         panel.bulk_panel.show_state(state, EpisodeMappingService())
         panel.enter_bulk_assign()
 
     def apply_bulk_assignments(self, pairs: list[tuple[int, int, int]]) -> None:
         workspace = self._workspace
-        state = workspace._selected_state()
+        # Commit against the state bulk mode was entered on: the staged
+        # file_ids/slot keys are only meaningful against that state's table.
+        state = self._bulk_state
+        self._bulk_state = None
         panel = workspace._work_panel
         panel.exit_bulk_assign()
         if state is None or not pairs:
+            return
+        if state.assignments is None:
+            # Table vanished between enter and Apply (rescan/reset).
+            workspace.status_message.emit("No assignments were applied.", 4000)
             return
         applied, skipped = EpisodeMappingService().apply_assignments(state, pairs)
         if applied == 0:
@@ -245,8 +257,24 @@ class MediaWorkspaceActionCoordinator:
 
     def cancel_bulk_assign(self) -> None:
         workspace = self._workspace
+        self._bulk_state = None
         workspace._work_panel.exit_bulk_assign()
         workspace.status_message.emit("Bulk Assign cancelled - nothing was changed.", 3000)
+
+    def discard_bulk_assign_on_state_change(self, state: ScanState | None) -> None:
+        """Exit bulk mode when the work panel is populated with a different
+        state than the one bulk mode was entered on (roster switch, or a
+        rescan replacing the state object). Same-state repopulates keep the
+        mode: staging staleness up to Apply/Cancel is the plan's boundary.
+        """
+        workspace = self._workspace
+        panel = workspace._work_panel
+        if not panel.bulk_assign_active() or state is self._bulk_state:
+            return
+        self._bulk_state = None
+        panel.bulk_panel.reset_staging()
+        panel.exit_bulk_assign()
+        workspace.status_message.emit("Bulk Assign discarded - selection changed.", 3000)
 
     def handle_episode_row_action(
         self,
