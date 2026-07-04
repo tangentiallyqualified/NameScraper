@@ -137,7 +137,13 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         del option
         if self.expansion_card_provider is None or not index.data(EXPANDED_ROLE):
             return None
-        return self.expansion_card_provider(index)
+        editor = self.expansion_card_provider(index)
+        if editor is not None:
+            # The delegate owns the parenting contract: the provider returns an
+            # orphan card, and an orphan editor floats as a top-level window
+            # instead of rendering inside the row.
+            editor.setParent(parent)
+        return editor
 
     def updateEditorGeometry(self, editor: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> None:  # noqa: N802
         del index

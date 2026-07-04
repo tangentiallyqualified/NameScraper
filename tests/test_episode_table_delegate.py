@@ -39,6 +39,29 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         self.assertFalse(view.grab().toImage().isNull())
         view.close()
 
+    def test_persistent_editor_parents_into_viewport(self):
+        """An unparented editor is a detached top-level window: the row paints
+        as a blank gap while the card floats at desktop coordinates."""
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        view, model, delegate = self._view(state, guide)
+        view.show()
+
+        def provider(index):
+            card = EpisodeExpansionCard()
+            card.show_episode(state, model.guide_row_at(index.row()))
+            return card
+
+        delegate.expansion_card_provider = provider
+        model.set_expanded_row(3)
+        view.openPersistentEditor(model.index(3, 0))
+        card = view.indexWidget(model.index(3, 0))
+        self.assertIsNotNone(card)
+        self.assertFalse(card.isWindow())
+        self.assertIs(card.window(), view.window())
+        view.close()
+
     def test_chevron_click_emits_without_selection(self):
         from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest

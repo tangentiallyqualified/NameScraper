@@ -60,6 +60,16 @@ def test_template_renders_without_unresolved_tokens():
     assert "#e5a00d" not in rendered              # Plex amber is gone
 
 
+def test_status_pill_qss_covers_v4_tones():
+    # refresh_header remaps accent->warning before styling the header status
+    # pill, so the QSS vocabulary must carry every V4 tone and no legacy
+    # "accent" selector (a tone with no matching rule renders as a bare label).
+    rendered = theme.load_stylesheet()
+    for tone in ("success", "warning", "error", "info", "muted"):
+        assert f'QLabel[cssClass="status-pill"][tone="{tone}"]' in rendered, tone
+    assert 'QLabel[cssClass="status-pill"][tone="accent"]' not in rendered
+
+
 def test_template_has_no_left_fringe_rules():
     text = (_GUI_ROOT / "resources" / "theme.qss.tmpl").read_text(encoding="utf-8")
     # The only border-left allowed is the QComboBox arrow shape hack (transparent).
