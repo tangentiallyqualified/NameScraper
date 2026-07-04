@@ -85,6 +85,7 @@ def main() -> int:
         "tests/test_qt_queue_history.py",
         "tests/test_qt_busy_overlay.py",
         "tests/test_qt_async_guide.py",
+        "tests/test_qt_perf_guards.py",
         "tests/test_qt_chrome.py",
         "tests/test_roster_model.py",
         "tests/test_roster_delegate.py",
