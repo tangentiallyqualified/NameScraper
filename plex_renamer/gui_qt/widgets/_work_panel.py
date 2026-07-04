@@ -299,6 +299,7 @@ class MediaWorkPanel(QFrame):
         self._delegate = EpisodeTableDelegate(self._table_view, media_type=self._media_type)
         self._table_view.setItemDelegate(self._delegate)
         self._table_view.header_clicked.connect(self._on_header_clicked)
+        self._table_view.bulk_hint_clicked.connect(self.bulk_assign_requested.emit)
         self._bulk_panel = BulkAssignPanel()
         stack_host = QWidget()
         self._table_stack = QStackedLayout(stack_host)

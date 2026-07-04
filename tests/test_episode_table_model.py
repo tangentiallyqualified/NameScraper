@@ -185,6 +185,28 @@ class EpisodeTableModelTests(QtSmokeBase):
         model.show_state(state, collapsed_sections=set())
         self.assertEqual(model.summary_text(), "2 files · 1 mapped · 1 companions · 1 duplicates")
 
+    def test_problems_filter_bulk_hint_when_only_unmapped_remain(self):
+        state, guide = _guide_state()
+        guide.rows[1].status = "Mapped"          # no Review/Conflict left
+        model = self._model(state, guide)
+        model.set_filter_mode("problems")
+        kinds = [model.row_kind_at(r) for r in range(model.rowCount())]
+        self.assertEqual(kinds[0], "bulk-hint")
+        self.assertEqual(kinds.count("bulk-hint"), 1)
+        text = model.index(0, 0).data()
+        self.assertIn("1 unmapped", text)
+
+    def test_no_bulk_hint_when_review_rows_exist_or_other_filters(self):
+        state, guide = _guide_state()
+        model = self._model(state, guide)        # guide still has a Review row
+        model.set_filter_mode("problems")
+        kinds = [model.row_kind_at(r) for r in range(model.rowCount())]
+        self.assertNotIn("bulk-hint", kinds)
+        guide.rows[1].status = "Mapped"
+        model.set_filter_mode("all")
+        self.assertNotIn("bulk-hint",
+                         [model.row_kind_at(r) for r in range(model.rowCount())])
+
     def test_movie_rows_carry_checks(self):
         from plex_renamer.engine.models import PreviewItem, ScanState
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel

@@ -101,7 +101,7 @@ class EpisodeTableModel(QAbstractListModel):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         entry = self._entries[index.row()]
-        if entry.kind in {"section-header", "section-label", "folder"}:
+        if entry.kind in {"section-header", "section-label", "folder", "bulk-hint"}:
             return Qt.ItemFlag.ItemIsEnabled
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
@@ -330,6 +330,22 @@ class EpisodeTableModel(QAbstractListModel):
     ):
         if folder_preview is not None:
             yield from self._folder_section_entries(folder_preview)
+
+        if (
+            self._filter_mode == "problems"
+            and guide.unmapped_primary_files
+            and not any(row.status in ("Review", "Conflict") for row in guide.rows)
+        ):
+            n = len(guide.unmapped_primary_files)
+            text = f"No problem episodes — {n} unmapped file(s). Open Bulk Assign to map them…"
+            yield _Entry(
+                kind="bulk-hint",
+                section_key=None,
+                text=text,
+                preview_index=None,
+                guide_row=None,
+                row_data=EpisodeRowData(kind="bulk-hint", title=text, status_tone="info"),
+            )
 
         if self._filter_mode in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
             yield self._label_entry(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")

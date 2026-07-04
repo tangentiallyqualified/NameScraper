@@ -106,3 +106,20 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         QTest.keyClick(view, Qt.Key.Key_Return)
         self.assertEqual(expanded, [3])
         view.close()
+
+    def test_bulk_hint_click_emits_signal(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+
+        state, guide = _guide_state()
+        guide.rows[1].status = "Mapped"
+        view, model, delegate = self._view(state, guide)
+        model.set_filter_mode("problems")
+        view.show()
+        fired: list[bool] = []
+        view.bulk_hint_clicked.connect(lambda: fired.append(True))
+        rect = view.visualRect(model.index(0, 0))
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier, rect.center())
+        self.assertEqual(fired, [True])
+        view.close()

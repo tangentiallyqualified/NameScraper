@@ -124,6 +124,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         kind = index.data(ROW_KIND_ROLE)
         if kind in _HEADER_KINDS:
             return QSize(0, _scale.px(_ROW_HEADER_U))
+        if kind == "bulk-hint":
+            return QSize(0, _scale.px(_ROW_SINGLE_U))
         if kind == "movie-file":
             return QSize(0, _scale.px(_ROW_MOVIE_U))
         row_data = index.data(ROW_DATA_ROLE)
@@ -175,6 +177,16 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             # The expansion card editor owns painting for this row.
             return
         kind = index.data(ROW_KIND_ROLE)
+        if kind == "bulk-hint":
+            painter.save()
+            fill = theme.qcolor("selection_bg")
+            painter.fillRect(option.rect, fill)
+            painter.setPen(theme.qcolor("accent"))
+            text_rect = option.rect.adjusted(_scale.px(8), 0, -_scale.px(8), 0)
+            painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                             index.data() or "")
+            painter.restore()
+            return
         if kind in _HEADER_KINDS:
             self._paint_header(painter, option, index)
             return
@@ -323,6 +335,7 @@ class EpisodeTableView(QListView):
     toggle_clicked = Signal(QModelIndex)          # movie-file rows
     header_clicked = Signal(str)                  # section_key of a collapsible header
     expand_key_pressed = Signal(QModelIndex)      # Enter/Return on current row
+    bulk_hint_clicked = Signal()                  # problems-filter empty-state hint row
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -373,6 +386,8 @@ class EpisodeTableView(QListView):
             section_key = index.data(SECTION_KEY_ROLE)
             if section_key:
                 self.header_clicked.emit(section_key)
+        elif kind == "bulk-hint":
+            self.bulk_hint_clicked.emit()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
