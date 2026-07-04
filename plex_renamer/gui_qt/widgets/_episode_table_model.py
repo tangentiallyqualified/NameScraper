@@ -101,7 +101,7 @@ class EpisodeTableModel(QAbstractListModel):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         entry = self._entries[index.row()]
-        if entry.kind in {"section-header", "section-label"}:
+        if entry.kind in {"section-header", "section-label", "folder"}:
             return Qt.ItemFlag.ItemIsEnabled
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 

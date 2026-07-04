@@ -87,6 +87,7 @@ def main() -> int:
         "--ignore=tests/test_roster_model.py",
         "--ignore=tests/test_roster_delegate.py",
         "--ignore=tests/test_episode_table_model.py",
+        "--ignore=tests/test_episode_table_delegate.py",
         "--ignore=tests/conftest_qt.py",
         "--color=no",
         f"--junitxml={junit_log}",
