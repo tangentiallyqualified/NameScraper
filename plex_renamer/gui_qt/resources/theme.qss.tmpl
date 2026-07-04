@@ -341,25 +341,6 @@ QLabel[tone="muted"] {
     color: ${text_dim};
 }
 
-QLabel[cssClass="scan-phase-icon"] {
-    font-size: 12px;
-}
-
-QLabel[cssClass="scan-phase-icon"][phaseState="pending"],
-QLabel[cssClass="scan-phase-label"][phaseState="pending"] {
-    color: ${text_muted};
-}
-
-QLabel[cssClass="scan-phase-icon"][phaseState="active"],
-QLabel[cssClass="scan-phase-label"][phaseState="active"] {
-    color: ${warning};
-}
-
-QLabel[cssClass="scan-phase-icon"][phaseState="done"],
-QLabel[cssClass="scan-phase-label"][phaseState="done"] {
-    color: ${success};
-}
-
 /* Toasts (spec §9) — card styling lives here, not inline. */
 QFrame#toastCard {
     background-color: ${surface};

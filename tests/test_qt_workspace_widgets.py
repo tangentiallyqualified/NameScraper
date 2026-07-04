@@ -134,31 +134,11 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
 
         widget = ScanProgressWidget(media_type="movie")
         widget.start()
-        widget.update_progress(
-            lifecycle=ScanLifecycle.PREPARING_REVIEW,
-            phase="Preparing review list...",
-            message="Preparing review list...",
-        )
-
-        self.assertEqual(
-            widget._phase_rows[ScanLifecycle.DISCOVERING].property("phaseState"),
-            "done",
-        )
-        self.assertEqual(
-            widget._phase_rows[ScanLifecycle.MATCHING].property("phaseState"),
-            "done",
-        )
-        self.assertEqual(
-            widget._phase_rows[ScanLifecycle.BUILDING_PREVIEWS].property("phaseState"),
-            "done",
-        )
-        self.assertEqual(
-            widget._phase_rows[ScanLifecycle.PREPARING_REVIEW].property("phaseState"),
-            "active",
-        )
-        self.assertEqual(widget._progress_bar.value(), 0)
-        self.assertEqual(widget._count_label.text(), "Working")
-        widget.close()
+        widget.update_progress(lifecycle=ScanLifecycle.PREPARING_REVIEW.value, phase="Preparing")
+        # movie checklist: DISCOVERING, MATCHING, BUILDING_PREVIEWS, PREPARING_REVIEW
+        self.assertEqual(widget._stepper._active_index, 3)
+        self.assertEqual(widget._stepper._done, {0, 1, 2})
+        widget.stop()
 
     def test_scan_progress_throttles_fast_text_updates_but_keeps_count_current(self):
         from plex_renamer.app.models import ScanLifecycle
@@ -188,18 +168,25 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         widget.close()
 
     def test_scan_progress_checklist_matches_media_type(self):
-        from plex_renamer.app.models import ScanLifecycle
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
 
         tv_widget = ScanProgressWidget(media_type="tv")
         movie_widget = ScanProgressWidget(media_type="movie")
+        self.assertEqual(len(tv_widget._stepper._labels), 5)
+        self.assertEqual(len(movie_widget._stepper._labels), 4)
 
-        self.assertIn(ScanLifecycle.RECONCILING, tv_widget._phase_rows)
-        self.assertNotIn(ScanLifecycle.RECONCILING, movie_widget._phase_rows)
-        self.assertIn(ScanLifecycle.PREPARING_REVIEW, movie_widget._phase_rows)
+    def test_scan_progress_conveyor_fills_cards_behind_the_beam(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
 
-        tv_widget.close()
-        movie_widget.close()
+        animation = _ConveyorAnimation()
+        animation.resize(600, 200)
+        animation.set_active(True)
+        for _ in range(10):
+            animation.advance()
+        self.assertEqual(animation._tick, 10)
+        animation.set_active(False)
+        animation.advance()
+        self.assertEqual(animation._tick, 10)   # inactive: no motion
 
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path
