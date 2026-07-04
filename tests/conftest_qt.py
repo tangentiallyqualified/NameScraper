@@ -22,6 +22,20 @@ class QtSmokeBase(unittest.TestCase):
 
         cls._app = QApplication.instance() or QApplication([])
 
+    @classmethod
+    def tearDownClass(cls):
+        # Background tasks submitted via plex_renamer.thread_pool must not
+        # outlive the tests that spawned them: the pool's atexit shutdown uses
+        # wait=False, so a worker still running at interpreter exit races
+        # Qt/CPython teardown and access-violates (0xC0000005) short pytest
+        # runs. Flush the queue before the next class (no-op when idle).
+        from concurrent.futures import wait
+
+        from plex_renamer import thread_pool
+
+        wait([thread_pool.submit(lambda: None) for _ in range(8)], timeout=30)
+        super().tearDownClass()
+
     def setUp(self):
         from plex_renamer.app.services.cache_service import PersistentCacheService
         from plex_renamer.app.services.settings_service import SettingsService

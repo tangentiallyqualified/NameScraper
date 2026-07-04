@@ -225,6 +225,18 @@ class _ToastCard(QFrame):
             return
         self._progress.setValue(self._remaining_ms)
 
+    def enterEvent(self, event) -> None:  # noqa: N802
+        timer = getattr(self, "_timer", None)
+        if timer is not None:
+            timer.stop()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        timer = getattr(self, "_timer", None)
+        if timer is not None and self._remaining_ms > 0:
+            timer.start()
+        super().leaveEvent(event)
+
     def dismiss(self) -> None:
         timer = getattr(self, "_timer", None)
         if timer is not None:
@@ -264,7 +276,7 @@ class ToastManager(QWidget):
         title: str,
         message: str,
         tone: str = "accent",
-        duration_ms: int = 3000,
+        duration_ms: int | None = None,
         action_text: str | None = None,
         action_callback: Callable[[], None] | None = None,
     ) -> None:
@@ -295,7 +307,7 @@ class ToastManager(QWidget):
         title: str,
         message: str,
         tone: str = "accent",
-        duration_ms: int = 0,
+        duration_ms: int | None = None,
         action_text: str | None = None,
         action_callback: Callable[[], None] | None = None,
     ) -> None:

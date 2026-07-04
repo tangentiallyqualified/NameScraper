@@ -71,7 +71,6 @@ class MainWindowFeedbackCoordinator:
             title=title,
             message=message,
             tone=tone,
-            duration_ms=4000,
         )
 
     def update_media_badges(self, states) -> None:

@@ -90,7 +90,7 @@ class MainWindowTabsCoordinator:
         for workspace in (window._tv_workspace, window._movie_workspace):
             workspace.toast_requested.connect(
                 lambda title, message, tone, window=window: window._toast_manager.show_toast(
-                    title=title, message=message, tone=tone, duration_ms=4000,
+                    title=title, message=message, tone=tone,
                 )
             )
         window._history_tab.history_changed.connect(window._on_queue_changed)
