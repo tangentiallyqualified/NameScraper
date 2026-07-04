@@ -87,6 +87,7 @@ def main() -> int:
         "tests/test_qt_chrome.py",
         "tests/test_roster_model.py",
         "tests/test_roster_delegate.py",
+        "tests/test_episode_table_model.py",
         "--color=no",
         f"--junitxml={junit_log}",
     ]
