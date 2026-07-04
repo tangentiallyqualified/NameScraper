@@ -84,6 +84,7 @@ def main() -> int:
         "--ignore=tests/test_qt_media_workspace.py",
         "--ignore=tests/test_qt_queue_history.py",
         "--ignore=tests/test_qt_busy_overlay.py",
+        "--ignore=tests/test_qt_toasts.py",
         "--ignore=tests/test_qt_async_guide.py",
         "--ignore=tests/test_qt_perf_guards.py",
         "--ignore=tests/test_qt_chrome.py",

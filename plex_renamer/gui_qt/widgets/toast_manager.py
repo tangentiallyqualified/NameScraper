@@ -11,29 +11,41 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QProgressBar,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from .. import theme
+from .. import _scale
 from ._toast_manager_layout import (
     count_direct_toasts,
     plan_toast_manager_geometry,
     summary_toast_copy,
 )
 
-_BORDER_COLORS = {
-    "success": theme.color("success"),
-    "error": theme.color("error"),
-    "accent": theme.color("info"),
-}
+_TONES = ("success", "error", "accent")
+_TONE_ICONS = {"success": "✓", "error": "!", "accent": "i"}
+_CLAMP_LINES = 3
+_EXPAND_WINDOW_FRACTION = 0.4
+_DEFAULT_DURATION_MS = 3000
 _MAX_VISIBLE_TOASTS = 4
 _MAX_DIRECT_TOASTS = 3
 
 
+def _normalize_tone(tone: str) -> str:
+    return tone if tone in _TONES else "accent"
+
+
+def _default_duration(tone: str, duration_ms: int | None) -> int:
+    if duration_ms is not None:
+        return max(0, duration_ms)
+    return 0 if tone == "error" else _DEFAULT_DURATION_MS
+
+
 class _ToastCard(QFrame):
     dismissed = Signal(object)
+    layout_changed = Signal()
 
     def __init__(
         self,
@@ -41,31 +53,38 @@ class _ToastCard(QFrame):
         title: str,
         message: str,
         tone: str,
-        duration_ms: int,
+        duration_ms: int | None = None,
         action_text: str | None = None,
         action_callback: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._duration_ms = max(0, duration_ms)
+        tone = _normalize_tone(tone)
+        self._duration_ms = _default_duration(tone, duration_ms)
         self._remaining_ms = self._duration_ms
         self._action_callback = action_callback
-        border = _BORDER_COLORS.get(tone, _BORDER_COLORS["accent"])
+        self._full_message = message
+        self._title_text = title
+        self._expanded = False
         self.setObjectName("toastCard")
-        self.setStyleSheet(
-            "QFrame#toastCard {"
-            f"background-color: {theme.color('surface')}; border: 1px solid {theme.color('border')}; border-radius: {theme.radius('lg')}px;"
-            "}"
-        )
+        self.setProperty("tone", tone)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 10, 12, 10)
-        root.setSpacing(8)
+        pad = _scale.px(12)
+        root.setContentsMargins(pad, _scale.px(10), pad, _scale.px(10))
+        root.setSpacing(_scale.px(8))
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(8)
+        header.setSpacing(_scale.px(8))
+
+        self._icon_label = QLabel(_TONE_ICONS[tone])
+        self._icon_label.setProperty("cssClass", "toast-icon")
+        self._icon_label.setProperty("tone", tone)
+        self._icon_label.setFixedWidth(_scale.px(16))
+        self._icon_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        header.addWidget(self._icon_label)
 
         self._title_label = QLabel(title)
         self._title_label.setProperty("cssClass", "heading")
@@ -73,42 +92,126 @@ class _ToastCard(QFrame):
         self._title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         header.addWidget(self._title_label, stretch=1)
 
+        self._copy_btn = QPushButton("Copy")
+        self._copy_btn.setProperty("cssClass", "secondary")
+        self._copy_btn.setFixedHeight(_scale.px(24))
+        self._copy_btn.clicked.connect(self._copy_to_clipboard)
+        header.addWidget(self._copy_btn)
+
         close_btn = QPushButton("x")
         close_btn.setProperty("cssClass", "secondary")
-        close_btn.setFixedSize(26, 26)
+        close_btn.setFixedSize(_scale.px(24), _scale.px(24))
         close_btn.clicked.connect(self.dismiss)
         header.addWidget(close_btn)
         root.addLayout(header)
 
         self._message_label = QLabel(message)
         self._message_label.setWordWrap(True)
-        self._message_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        root.addWidget(self._message_label)
+        self._message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._message_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
+        self._body = QScrollArea()
+        self._body.setProperty("cssClass", "toast-body")
+        self._body.setWidgetResizable(True)
+        self._body.setFrameShape(QFrame.Shape.NoFrame)
+        self._body.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._body.setWidget(self._message_label)
+        root.addWidget(self._body)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        self._show_more_btn = QPushButton("Show more")
+        self._show_more_btn.setProperty("cssClass", "secondary")
+        self._show_more_btn.setFixedHeight(_scale.px(24))
+        self._show_more_btn.clicked.connect(self._toggle_expanded)
+        self._show_more_btn.hide()
+        controls.addWidget(self._show_more_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         if action_text and action_callback is not None:
             action_btn = QPushButton(action_text)
             action_btn.setProperty("cssClass", "secondary")
             action_btn.clicked.connect(self._run_action)
-            root.addWidget(action_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+            controls.addWidget(action_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        controls.addStretch()
+        root.addLayout(controls)
 
         self._progress = QProgressBar()
+        self._progress.setProperty("cssClass", "toast-countdown")
+        self._progress.setProperty("tone", tone)
         self._progress.setTextVisible(False)
         self._progress.setFixedHeight(3)
-        self._progress.setStyleSheet(
-            f"QProgressBar {{ background: {theme.color('border')}; border: 0; border-radius: 1px; }}"
-            f"QProgressBar::chunk {{ background: {border}; border-radius: 1px; }}"
-        )
         if self._duration_ms > 0:
             self._progress.setRange(0, self._duration_ms)
             self._progress.setValue(self._duration_ms)
             root.addWidget(self._progress)
-
             self._timer = QTimer(self)
             self._timer.setInterval(50)
             self._timer.timeout.connect(self._tick)
             self._timer.start()
         else:
             self._progress.hide()
+
+    # -- clamp / expand ----------------------------------------------------
+
+    def full_message(self) -> str:
+        return self._full_message
+
+    def set_expanded(self, expanded: bool) -> None:
+        if self._expanded == expanded:
+            return
+        self._expanded = expanded
+        self._show_more_btn.setText("Show less" if expanded else "Show more")
+        self._sync_clamp()
+        self.layout_changed.emit()
+
+    def _toggle_expanded(self) -> None:
+        self.set_expanded(not self._expanded)
+
+    def _line_height(self) -> int:
+        return max(1, self._message_label.fontMetrics().lineSpacing())
+
+    def _full_text_height(self) -> int:
+        width = self._message_label.width()
+        if width <= 1:
+            width = max(1, self._body.viewport().width())
+        return max(self._line_height(), self._message_label.heightForWidth(width))
+
+    def _sync_clamp(self) -> None:
+        collapsed = self._line_height() * _CLAMP_LINES + 4
+        full = self._full_text_height()
+        needs_clamp = full > collapsed
+        self._show_more_btn.setVisible(needs_clamp)
+        if not needs_clamp:
+            self._expanded = False
+            self._show_more_btn.setText("Show more")
+            self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self._body.setFixedHeight(full)
+            return
+        if self._expanded:
+            window = self.window()
+            cap = full
+            if window is not None and window is not self:
+                cap = max(collapsed, int(window.height() * _EXPAND_WINDOW_FRACTION))
+            self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self._body.setFixedHeight(min(full, cap))
+        else:
+            self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self._body.setFixedHeight(collapsed)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._sync_clamp()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._sync_clamp()
+
+    # -- actions / countdown -------------------------------------------------
+
+    def _copy_to_clipboard(self) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.clipboard().setText(f"{self._title_text}\n{self._full_message}")
 
     def _run_action(self) -> None:
         if self._action_callback is not None:
@@ -129,8 +232,14 @@ class _ToastCard(QFrame):
         self.dismissed.emit(self)
 
     def update_message(self, *, title: str, message: str) -> None:
+        self._title_text = title
+        self._full_message = message
         self._title_label.setText(title)
         self._message_label.setText(message)
+        self._expanded = False
+        self._show_more_btn.setText("Show more")
+        self._sync_clamp()
+        self.layout_changed.emit()
 
 
 class ToastManager(QWidget):
@@ -173,6 +282,7 @@ class ToastManager(QWidget):
             parent=self,
         )
         toast.dismissed.connect(self._remove_toast)
+        toast.layout_changed.connect(self._reposition)
         self._layout.insertWidget(0, toast)
         self.show()
         self.raise_()
@@ -207,6 +317,7 @@ class ToastManager(QWidget):
         )
         self._keyed_toasts[key] = toast
         toast.dismissed.connect(self._remove_toast)
+        toast.layout_changed.connect(self._reposition)
         self._layout.insertWidget(0, toast)
         self.show()
         self.raise_()
@@ -262,6 +373,7 @@ class ToastManager(QWidget):
                 parent=self,
             )
             self._summary_toast.dismissed.connect(self._remove_toast)
+            self._summary_toast.layout_changed.connect(self._reposition)
             self._layout.insertWidget(0, self._summary_toast)
         else:
             self._summary_toast.update_message(title=title, message=message)

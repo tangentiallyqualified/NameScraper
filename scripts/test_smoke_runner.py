@@ -84,6 +84,7 @@ def main() -> int:
         "tests/test_qt_media_workspace.py",
         "tests/test_qt_queue_history.py",
         "tests/test_qt_busy_overlay.py",
+        "tests/test_qt_toasts.py",
         "tests/test_qt_async_guide.py",
         "tests/test_qt_perf_guards.py",
         "tests/test_qt_chrome.py",

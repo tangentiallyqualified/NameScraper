@@ -360,6 +360,34 @@ QLabel[cssClass="scan-phase-label"][phaseState="done"] {
     color: ${success};
 }
 
+/* Toasts (spec §9) — card styling lives here, not inline. */
+QFrame#toastCard {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_lg}px;
+}
+QLabel[cssClass="toast-icon"] {
+    font-weight: 600;
+}
+QLabel[cssClass="toast-icon"][tone="success"] { color: ${success}; }
+QLabel[cssClass="toast-icon"][tone="error"] { color: ${error}; }
+QLabel[cssClass="toast-icon"][tone="accent"] { color: ${info}; }
+QScrollArea[cssClass="toast-body"] {
+    background: transparent;
+    border: 0;
+}
+QScrollArea[cssClass="toast-body"] > QWidget > QWidget {
+    background: transparent;
+}
+QProgressBar[cssClass="toast-countdown"] {
+    background: ${border};
+    border: 0;
+    border-radius: 1px;
+}
+QProgressBar[cssClass="toast-countdown"][tone="success"]::chunk { background: ${success}; border-radius: 1px; }
+QProgressBar[cssClass="toast-countdown"][tone="error"]::chunk { background: ${error}; border-radius: 1px; }
+QProgressBar[cssClass="toast-countdown"][tone="accent"]::chunk { background: ${info}; border-radius: 1px; }
+
 
 /* ─── Splitters ──────────────────────────────────────────────────── */
 
