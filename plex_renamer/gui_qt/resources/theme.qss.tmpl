@@ -5,7 +5,7 @@
    rgba(...) washes below are hand-derived from token RGB values (QSS
    cannot compute alpha from a hex token) — update them if the palette
    in theme.py changes.  success=63,185,80  warning=210,153,34
-   error=229,83,75  info=88,166,255  accent=0,164,220.
+   error=229,83,75  info=88,166,255  accent=0,164,220  text_dim=155,155,155.
    Spacing: 4px grid.  Typography: Segoe UI / SF Pro / sans-serif.
    ─────────────────────────────────────────────────────────────────── */
 
@@ -965,4 +965,35 @@ QLabel[cssClass="sticky-season-header"] {
     font-size: 10pt;
     padding: 4px 12px;
     border-bottom: 1px solid ${border_light};
+}
+
+
+/* ─── Season strip chips (work-panel header) ────────────────────── */
+
+QPushButton[cssClass="season-strip-chip"] {
+    background-color: transparent;
+    border: none;
+    border-radius: ${radius_sm}px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="success"] {
+    background-color: rgba(63, 185, 80, 0.12);
+    color: ${success};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="warning"] {
+    background-color: rgba(210, 153, 34, 0.12);
+    color: ${warning};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="muted"] {
+    background-color: rgba(155, 155, 155, 0.12);
+    color: ${text_dim};
+}
+
+QPushButton[cssClass="season-strip-chip"]:hover {
+    background-color: ${card_hover};
 }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
-from plex_renamer.gui_qt.widgets.status_chip import ChipSpec, season_chip_specs
+from plex_renamer.gui_qt.widgets.status_chip import ChipSpec, season_chip_specs, season_strip_specs
 
 
 def _season(n, expected, matched, missing=()):
@@ -67,3 +67,12 @@ def test_missing_tooltip_truncates_after_twelve():
     chips = season_chip_specs(_report([season]))
     assert chips[0].tooltip.endswith(", …")
     assert chips[0].tooltip.count("E") == 12
+
+
+def test_season_strip_specs_uncollapsed_with_counts():
+    seasons = [_season(n, 10, 10) for n in range(1, 8)]
+    specs = season_strip_specs(_report(seasons, specials=_season(0, 3, 1, missing=(2, 3))))
+    assert len(specs) == 8                       # 7 seasons + SP, no collapse
+    assert specs[0] == (1, ChipSpec("S1 ✓10", "success", "Season 1: 10/10"))
+    assert specs[-1][0] == 0
+    assert specs[-1][1].text == "SP 1/3"

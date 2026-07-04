@@ -46,7 +46,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         self._view = view
         self._media_type = media_type
         self.expansion_card_provider: Callable[[QModelIndex], QWidget] | None = None
-        self._flash_row: int | None = None
+        self._flash_row_index: int = -1
         self._flash_timer: QTimer | None = None
         self._watched_model = None
         self._connect_to_view_model()
@@ -146,7 +146,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
     # -- Flash ---------------------------------------------------------------
 
     def flash_row(self, row: int) -> None:
-        self._flash_row = row
+        self._flash_row_index = row
         if self._flash_timer is not None:
             self._flash_timer.stop()
         self._flash_timer = QTimer(self)
@@ -157,7 +157,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             self._view.viewport().update()
 
     def _clear_flash(self) -> None:
-        self._flash_row = None
+        self._flash_row_index = -1
         if self._view is not None:
             self._view.viewport().update()
 
@@ -210,7 +210,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             painter.setBrush(theme.qcolor("card_hover"))
             painter.drawRect(rect)
 
-        if self._flash_row is not None and index.row() == self._flash_row:
+        if self._flash_row_index != -1 and index.row() == self._flash_row_index:
             flash_color = theme.qcolor("accent")
             flash_color.setAlphaF(0.18)
             painter.setPen(Qt.PenStyle.NoPen)

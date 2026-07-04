@@ -90,6 +90,7 @@ def main() -> int:
         "tests/test_episode_table_model.py",
         "tests/test_episode_table_delegate.py",
         "tests/test_episode_expansion.py",
+        "tests/test_work_panel.py",
         "--color=no",
         f"--junitxml={junit_log}",
     ]

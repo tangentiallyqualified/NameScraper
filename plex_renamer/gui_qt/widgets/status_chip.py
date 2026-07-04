@@ -95,6 +95,43 @@ def season_chip_specs(report: CompletenessReport | None, *, max_chips: int = 6) 
     return chips
 
 
+def _strip_season_chip(season: SeasonCompleteness) -> ChipSpec:
+    """Like ``_season_chip`` but complete seasons keep their count (season
+    strip chips are uncollapsed and always show ``matched``/``expected``)."""
+    if season.is_complete:
+        return ChipSpec(
+            f"S{season.season} ✓{season.expected}", "success",
+            f"Season {season.season}: {season.matched}/{season.expected}",
+        )
+    tone = "muted" if season.matched == 0 else "warning"
+    return ChipSpec(
+        f"S{season.season} {season.matched}/{season.expected}", tone,
+        _missing_tooltip(season),
+    )
+
+
+def season_strip_specs(report: CompletenessReport | None) -> list[tuple[int, ChipSpec]]:
+    """Season-strip chip specs: one per season (sorted) + specials last as
+    season 0. Unlike ``season_chip_specs`` these never collapse complete
+    runs — the strip always shows every season with its count."""
+    if report is None:
+        return []
+    specs: list[tuple[int, ChipSpec]] = [
+        (season_num, _strip_season_chip(report.seasons[season_num]))
+        for season_num in sorted(report.seasons)
+    ]
+    specials = report.specials
+    if specials is not None and specials.expected > 0:
+        tone = "success" if specials.is_complete else "warning"
+        tooltip = (
+            f"Specials: {specials.matched}/{specials.expected}"
+            if specials.is_complete
+            else _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
+        )
+        specs.append((0, ChipSpec(f"SP {specials.matched}/{specials.expected}", tone, tooltip)))
+    return specs
+
+
 # ── Painting (delegate-side) ─────────────────────────────────────────
 
 
