@@ -70,6 +70,9 @@ class MediaWorkPanel(QFrame):
         settings_service=None,
         tmdb_provider=None,
         guide_provider=None,
+        cached_guide_provider=None,
+        guide_builder=None,
+        guide_store=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -87,7 +90,11 @@ class MediaWorkPanel(QFrame):
         self._bridge.overview_ready.connect(self._on_overview_ready)
         self.setProperty("cssClass", "panel")
         self.setProperty("panelVariant", "square")
-        self._build_ui()
+        self._build_ui(
+            cached_guide_provider=cached_guide_provider,
+            guide_builder=guide_builder,
+            guide_store=guide_store,
+        )
 
     # -- Consumed-by-action-bar aliases ------------------------------------
 
@@ -170,7 +177,7 @@ class MediaWorkPanel(QFrame):
 
     # -- UI scaffold ---------------------------------------------------------
 
-    def _build_ui(self) -> None:
+    def _build_ui(self, *, cached_guide_provider=None, guide_builder=None, guide_store=None) -> None:
         outer = QVBoxLayout(self)
         margin = _scale.px(12)
         outer.setContentsMargins(margin, margin, margin, margin)
@@ -179,7 +186,12 @@ class MediaWorkPanel(QFrame):
         self._build_header(outer)
         self._build_strip(outer)
         self._build_toolbar(outer)
-        self._build_table(outer)
+        self._build_table(
+            outer,
+            cached_guide_provider=cached_guide_provider,
+            guide_builder=guide_builder,
+            guide_store=guide_store,
+        )
         self._build_footer(outer)
 
     def _build_header(self, outer: QVBoxLayout) -> None:
@@ -288,12 +300,23 @@ class MediaWorkPanel(QFrame):
 
         outer.addLayout(toolbar)
 
-    def _build_table(self, outer: QVBoxLayout) -> None:
+    def _build_table(
+        self,
+        outer: QVBoxLayout,
+        *,
+        cached_guide_provider=None,
+        guide_builder=None,
+        guide_store=None,
+    ) -> None:
         self._model = EpisodeTableModel(
             media_type=self._media_type,
             settings_service=self._settings,
             guide_provider=self._guide_provider,
+            cached_guide_provider=cached_guide_provider,
+            guide_builder=guide_builder,
+            guide_store=guide_store,
         )
+        self._model.guide_loaded.connect(self._on_guide_loaded)
         self._table_view = EpisodeTableView()
         self._table_view.setModel(self._model)
         self._delegate = EpisodeTableDelegate(self._table_view, media_type=self._media_type)
@@ -442,6 +465,11 @@ class MediaWorkPanel(QFrame):
 
     def update_footer(self) -> None:
         self._summary_label.setText(self._model.summary_text())
+
+    def _on_guide_loaded(self) -> None:
+        """Async guide arrived: summary + toolbar depend on model.guide()."""
+        self.update_footer()
+        self.update_toolbar(self._state)
 
     def update_toolbar(self, state: ScanState | None) -> None:
         if self._media_type != "movie":

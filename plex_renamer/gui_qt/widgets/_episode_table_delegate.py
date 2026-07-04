@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QModelIndex, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPen
+from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QListView,
     QStyle,
@@ -126,6 +126,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             return QSize(0, _scale.px(_ROW_HEADER_U))
         if kind == "bulk-hint":
             return QSize(0, _scale.px(_ROW_SINGLE_U))
+        if kind == "skeleton":
+            return QSize(0, _scale.px(_ROW_SINGLE_U))
         if kind == "movie-file":
             return QSize(0, _scale.px(_ROW_MOVIE_U))
         row_data = index.data(ROW_DATA_ROLE)
@@ -192,6 +194,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             return
         row_data = index.data(ROW_DATA_ROLE)
         if row_data is None:
+            return
+        if row_data.kind == "skeleton":
+            self._paint_skeleton_row(painter, option.rect)
             return
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -262,6 +267,25 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.save()
         painter.setPen(theme.qcolor("text_dim"))
         painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), "›")
+        painter.restore()
+
+    def _paint_skeleton_row(self, painter: QPainter, rect: QRect) -> None:
+        margin = _scale.px(_MARGIN_U)
+        bar_height = _scale.px(10)
+        bar = QRect(
+            rect.x() + margin,
+            rect.y() + (rect.height() - bar_height) // 2,
+            int(rect.width() * 0.55),
+            bar_height,
+        )
+        color = QColor(theme.color("text_dim"))
+        color.setAlpha(50)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+        radius = bar_height // 2
+        painter.drawRoundedRect(bar, radius, radius)
         painter.restore()
 
     def _paint_body(self, painter: QPainter, option: QStyleOptionViewItem, row_data: EpisodeRowData, *, ghost: bool) -> None:

@@ -98,6 +98,24 @@ class MediaWorkspaceUiCoordinator:
                 and hasattr(workspace._media_ctrl, "episode_guide_for_state")
                 else None
             ),
+            cached_guide_provider=(
+                workspace._media_ctrl.cached_episode_guide_for_state
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "cached_episode_guide_for_state")
+                else None
+            ),
+            guide_builder=(
+                workspace._media_ctrl.build_episode_guide_snapshot
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "build_episode_guide_snapshot")
+                else None
+            ),
+            guide_store=(
+                workspace._media_ctrl.store_episode_guide
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "store_episode_guide")
+                else None
+            ),
         )
         panel = workspace._work_panel
         panel.setProperty("panelVariant", "square")

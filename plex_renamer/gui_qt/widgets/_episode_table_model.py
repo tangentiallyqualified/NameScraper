@@ -2,12 +2,15 @@
 """Read-model over ScanState + EpisodeGuide for the work-panel episode table (GUI V4 Plan 3)."""
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Signal
 
 from ...app.models.state_models import EpisodeGuide, EpisodeGuideRow
 from ...engine import ScanState
+from ...thread_pool import submit as _submit_bg
 from ._formatting import clamped_percent
 from ._media_helpers import (
     is_state_queue_approvable as _is_state_queue_approvable,
@@ -22,6 +25,17 @@ PREVIEW_INDEX_ROLE = Qt.ItemDataRole.UserRole + 3
 GUIDE_ROW_ROLE = Qt.ItemDataRole.UserRole + 4
 ROW_DATA_ROLE = Qt.ItemDataRole.UserRole + 5
 EXPANDED_ROLE = Qt.ItemDataRole.UserRole + 6
+
+_log = logging.getLogger(__name__)
+
+_SKELETON_MIN_ROWS, _SKELETON_MAX_ROWS = 6, 20
+
+
+class _GuideBridge(QObject):
+    """Worker → GUI-thread hop for built guides (mirrors the overview bridge)."""
+
+    guide_ready = Signal(object, object, object, int)   # state, guide, signature, token
+
 
 _SECTION_COLLAPSED_PREFIX = "▸ "
 _SECTION_EXPANDED_PREFIX = "▾ "
@@ -69,12 +83,17 @@ class _Entry:
 
 
 class EpisodeTableModel(QAbstractListModel):
+    guide_loaded = Signal()
+
     def __init__(
         self,
         *,
         media_type: str,
         settings_service=None,
         guide_provider=None,
+        cached_guide_provider=None,
+        guide_builder=None,
+        guide_store=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -89,6 +108,12 @@ class EpisodeTableModel(QAbstractListModel):
         self._search_text = ""
         self._expanded_row: int | None = None
         self._entries: list[_Entry] = []
+        self._cached_guide_provider = cached_guide_provider
+        self._guide_builder = guide_builder
+        self._guide_store = guide_store
+        self._guide_token = 0
+        self._guide_bridge = _GuideBridge(self)
+        self._guide_bridge.guide_ready.connect(self._on_guide_ready)
 
     # -- QAbstractListModel overrides ------------------------------------
 
@@ -101,7 +126,7 @@ class EpisodeTableModel(QAbstractListModel):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         entry = self._entries[index.row()]
-        if entry.kind in {"section-header", "section-label", "folder", "bulk-hint"}:
+        if entry.kind in {"section-header", "section-label", "folder", "bulk-hint", "skeleton"}:
             return Qt.ItemFlag.ItemIsEnabled
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
@@ -151,8 +176,13 @@ class EpisodeTableModel(QAbstractListModel):
             self._guide = None
             self._entries = list(self._build_movie_entries(state, folder_preview))
         else:
-            self._guide = self._guide_for_state(state)
-            self._entries = list(self._build_tv_entries(state, self._guide, folder_preview))
+            self._guide = self._resolve_guide_or_schedule(state)
+            if self._guide is None:
+                self._entries = list(self._build_skeleton_entries(state))
+            else:
+                self._entries = list(
+                    self._build_tv_entries(state, self._guide, folder_preview)
+                )
         self.endResetModel()
 
     def state(self) -> ScanState | None:
@@ -293,8 +323,11 @@ class EpisodeTableModel(QAbstractListModel):
         elif self._media_type == "movie":
             self._entries = list(self._build_movie_entries(state, self._folder_preview))
         else:
-            self._guide = self._guide_for_state(state)
-            self._entries = list(self._build_tv_entries(state, self._guide, self._folder_preview))
+            self._guide = self._resolve_guide_or_schedule(state)
+            if self._guide is None:
+                self._entries = list(self._build_skeleton_entries(state))
+            else:
+                self._entries = list(self._build_tv_entries(state, self._guide, self._folder_preview))
         self.endResetModel()
 
     def _guide_for_state(self, state: ScanState) -> EpisodeGuide:
@@ -303,6 +336,62 @@ class EpisodeTableModel(QAbstractListModel):
         from ...app.services.episode_mapping_service import EpisodeMappingService
 
         return EpisodeMappingService().build_episode_guide(state)
+
+    def _resolve_guide_or_schedule(self, state: ScanState) -> EpisodeGuide | None:
+        """Cached guide, or None after scheduling an off-thread build.
+
+        Without async wiring (bare panels, existing tests) this stays the
+        old synchronous pull.
+        """
+        if self._cached_guide_provider is None or self._guide_builder is None:
+            return self._guide_for_state(state)
+        guide = self._cached_guide_provider(state)
+        if guide is not None:
+            return guide
+        self._guide_token += 1
+        token = self._guide_token
+        builder = self._guide_builder
+        bridge = self._guide_bridge
+
+        def _worker() -> None:
+            try:
+                built, signature = builder(state)
+            except Exception:
+                _log.exception("episode guide build failed for %s", state.folder)
+                return
+            try:
+                bridge.guide_ready.emit(state, built, signature, token)
+            except RuntimeError:
+                pass    # bridge destroyed during shutdown
+
+        _submit_bg(_worker)
+        return None
+
+    def _on_guide_ready(self, state, guide, signature, token: int) -> None:
+        if token != self._guide_token or state is not self._state:
+            return    # stale build: a newer show_state/_rebuild superseded it
+        if self._guide_store is not None:
+            self._guide_store(state, guide, signature)
+        self.beginResetModel()
+        self._guide = guide
+        self._entries = list(self._build_tv_entries(state, guide, self._folder_preview))
+        self.endResetModel()
+        self.guide_loaded.emit()
+
+    def _build_skeleton_entries(self, state: ScanState):
+        count = max(
+            _SKELETON_MIN_ROWS,
+            min(len(state.preview_items) or _SKELETON_MIN_ROWS, _SKELETON_MAX_ROWS),
+        )
+        header = EpisodeRowData(
+            kind="section-label", title="Loading episodes…",
+            status_text="", status_tone="muted",
+        )
+        yield _Entry("section-label", None, "Loading episodes…", None, None, header)
+        for _ in range(count):
+            yield _Entry(
+                "skeleton", None, "", None, None, EpisodeRowData(kind="skeleton", title="")
+            )
 
     def _scan_error_entry(self, state: ScanState) -> _Entry:
         row_data = EpisodeRowData(
