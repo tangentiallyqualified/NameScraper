@@ -2,6 +2,8 @@
 """Expansion card content, actions, copy behavior."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from conftest_qt import QtSmokeBase
 from test_episode_table_model import _guide_state
 
@@ -55,3 +57,88 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         _state, guide = _guide_state()
         ghost = guide.rows[2]
         self.assertEqual(episode_row_actions(ghost), [("assign_file", "Assign file...")])
+
+    def test_companion_rows_carry_type_badges(self):
+        from PySide6.QtWidgets import QLabel
+        from plex_renamer.engine import CompanionFile
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        row = guide.rows[0]
+        row.companions = [
+            CompanionFile(
+                original=Path("C:/lib/Show/s01e01.eng.srt"),
+                new_name="Show - S01E01 - One.eng.srt",
+                file_type="subtitle",
+            )
+        ]
+        card = EpisodeExpansionCard()
+        card.show_episode(state, row)
+        badges = [
+            label.text()
+            for label in card.findChildren(QLabel)
+            if label.property("cssClass") == "badge"
+        ]
+        self.assertEqual(badges, ["SUB"])
+
+    def test_multi_part_claims_render_part_chips(self):
+        # §13 seam: today's engine marks every multi-claimed slot a conflict,
+        # so this exercises the view contract under the future ROLE_VERSION
+        # policy (2 claims, neither conflicted) via a stub table.
+        from plex_renamer.engine.episode_assignments import Assignment
+        from plex_renamer.gui_qt.widgets._episode_expansion import (
+            EpisodeExpansionCard,
+            _ChipStrip,
+        )
+
+        state, guide = _guide_state()
+
+        class _VersionPolicyTable:
+            def claims(self, season, episode):
+                if (season, episode) == (1, 1):
+                    return [
+                        Assignment(file_id=1, season=1, episodes=(1,),
+                                   origin="manual", confidence=1.0),
+                        Assignment(file_id=2, season=1, episodes=(1,),
+                                   origin="manual", confidence=1.0),
+                    ]
+                return []
+
+            def conflicted_file_ids(self):
+                return set()
+
+        state.assignments = _VersionPolicyTable()
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[0])
+        strips = card.findChildren(_ChipStrip)
+        self.assertEqual(len(strips), 1)
+        self.assertEqual([spec.text for spec in strips[0]._specs], ["Part 1", "Part 2"])
+        self.assertEqual({spec.tone for spec in strips[0]._specs}, {"muted"})
+
+    def test_conflicted_claims_do_not_render_part_chips(self):
+        from plex_renamer.engine.episode_assignments import Assignment
+        from plex_renamer.gui_qt.widgets._episode_expansion import (
+            EpisodeExpansionCard,
+            _ChipStrip,
+        )
+
+        state, guide = _guide_state()
+
+        class _ConflictTable:
+            def claims(self, season, episode):
+                if (season, episode) == (1, 1):
+                    return [
+                        Assignment(file_id=1, season=1, episodes=(1,),
+                                   origin="auto", confidence=0.9),
+                        Assignment(file_id=2, season=1, episodes=(1,),
+                                   origin="auto", confidence=0.8),
+                    ]
+                return []
+
+            def conflicted_file_ids(self):
+                return {1, 2}   # today's real policy: both claimants conflicted
+
+        state.assignments = _ConflictTable()
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[0])
+        self.assertEqual(card.findChildren(_ChipStrip), [])
