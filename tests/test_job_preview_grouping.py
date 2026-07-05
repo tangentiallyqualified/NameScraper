@@ -140,6 +140,19 @@ class PreviewEntriesGroupingTests(unittest.TestCase):
         self.assertEqual(len(file_groups), 1)
         self.assertEqual(len(file_groups[0].rows[0].children), 1)
 
+    def test_single_file_season_group_label_is_singular(self):
+        from plex_renamer.gui_qt.widgets._job_detail_preview import (
+            JobPreviewGroup,
+            build_job_preview_entries,
+        )
+
+        video = _video("Show - S01E01 - Pilot")
+        video.season = 1
+        entries = build_job_preview_entries(self._job([video]))
+        labels = [e.label for e in entries if isinstance(e, JobPreviewGroup)]
+        self.assertIn("Season 01 (1 file)", labels)
+        self.assertNotIn("Season 01 (1 files)", labels)
+
 
 if __name__ == "__main__":
     unittest.main()

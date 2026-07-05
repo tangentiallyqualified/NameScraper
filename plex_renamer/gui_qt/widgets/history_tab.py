@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QMenu,
     QPushButton,
+    QWidget,
 )
 
 from ...constants import JobStatus

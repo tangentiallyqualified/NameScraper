@@ -229,7 +229,6 @@ class JobDetailPanel(QFrame):
         self._empty_message.setWordWrap(True)
         self._empty_message.setMargin(4)
         self._empty_message.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self._empty_message.setMinimumHeight((self._empty_message.fontMetrics().lineSpacing() * 3) + 12)
         empty_card_layout.addWidget(self._empty_message)
 
         empty_layout.addWidget(self._empty_card, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -528,6 +527,15 @@ class JobDetailPanel(QFrame):
 
     def _update_empty_message(self) -> None:
         self._empty_message.setText(job_detail_empty_message(history_mode=self._history_mode))
+        # Word-wrapped labels under a Maximum-height card get no
+        # height-for-width pass from the layout; pin the minimum to the
+        # wrapped height at the card's content width so the last line
+        # cannot clip.
+        margins = self._empty_card.layout().contentsMargins()
+        content_width = self._empty_card.maximumWidth() - margins.left() - margins.right()
+        self._empty_message.setMinimumHeight(
+            self._empty_message.heightForWidth(content_width)
+        )
 
     def _primary_target_path(self, job: RenameJob) -> Path | None:
         return primary_target_path(job)

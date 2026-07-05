@@ -142,6 +142,11 @@ def _output_top_folder_name(job: RenameJob) -> str | None:
     return None
 
 
+def _files_label(count: int) -> str:
+    noun = "file" if count == 1 else "files"
+    return f"{count} {noun}"
+
+
 def _build_video_preview_entries(
     job: RenameJob,
     video_ops: list[RenameOp],
@@ -159,9 +164,9 @@ def _build_video_preview_entries(
         for season_num in sorted(by_season, key=lambda value: (value is None, value or 0)):
             season_ops = by_season[season_num]
             if season_num is not None:
-                label = f"Season {season_num:02d} ({len(season_ops)} files)"
+                label = f"Season {season_num:02d} ({_files_label(len(season_ops))})"
             else:
-                label = f"Other Files ({len(season_ops)} files)"
+                label = f"Other Files ({_files_label(len(season_ops))})"
             entries.append(
                 JobPreviewGroup(
                     label=label,

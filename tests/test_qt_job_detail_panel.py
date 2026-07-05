@@ -651,10 +651,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertFalse(season_header.isExpanded())
         panel._on_preview_item_clicked(season_header, 0)
         self.assertTrue(season_header.isExpanded())
-        self.assertEqual(season_header.text(0), "▾ Season 01 (1 files)")
+        self.assertEqual(season_header.text(0), "▾ Season 01 (1 file)")
         panel._on_preview_item_clicked(season_header, 0)
         self.assertFalse(season_header.isExpanded())
-        self.assertEqual(season_header.text(0), "▸ Season 01 (1 files)")
+        self.assertEqual(season_header.text(0), "▸ Season 01 (1 file)")
         panel.close()
 
     def test_job_detail_panel_open_target_folder_uses_existing_parent(self):
@@ -816,4 +816,22 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertEqual(panel._error.styleSheet(), "")
         self.assertEqual(panel._error.property("cssClass"), "job-detail-error")
         self.assertEqual(panel._error.text(), "boom")
+        panel.close()
+
+    def test_empty_card_message_is_not_clipped_in_either_mode(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+
+        panel = JobDetailPanel()
+        panel.resize(520, 760)
+        panel.show()
+        for history_mode in (False, True):
+            panel.set_history_mode(history_mode)
+            self._app.processEvents()
+            message = panel._empty_message
+            needed = message.heightForWidth(message.width())
+            self.assertGreaterEqual(
+                message.height(), needed,
+                f"empty-card message clipped in history_mode={history_mode}: "
+                f"{message.height()}px shown, {needed}px needed",
+            )
         panel.close()
