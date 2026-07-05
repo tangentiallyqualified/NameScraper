@@ -470,17 +470,16 @@ class MediaWorkPanel(QFrame):
     def _on_guide_loaded(self) -> None:
         """Async guide arrived: summary + toolbar depend on model.guide()."""
         self.update_footer()
-        if self.bulk_assign_active():
-            return    # bulk page hides approve/unassign; exit_bulk_assign re-derives
         self.update_toolbar(self._state)
 
     def update_toolbar(self, state: ScanState | None) -> None:
+        bulk_active = self.bulk_assign_active()
         if self._media_type != "movie":
-            self._overflow_button.setVisible(not self.bulk_assign_active())
+            self._overflow_button.setVisible(not bulk_active)
         is_movie = self._media_type == "movie"
         self._segmented_filter.setVisible(not is_movie)
         self._search_box.setVisible(not is_movie)
-        if is_movie or state is None:
+        if is_movie or state is None or bulk_active:
             self._approve_all_button.hide()
             self._unassign_all_button.hide()
             return

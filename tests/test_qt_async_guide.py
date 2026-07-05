@@ -220,6 +220,38 @@ class AsyncGuideWorkPanelTests(QtSmokeBase):
             self.assertTrue(panel.unassign_all_button.isVisible())  # re-derived on exit
             panel.close()
 
+    def test_same_state_repopulate_mid_bulk_keeps_buttons_hidden(self):
+        """Re-review M6: refresh_from_controller repopulates the panel with the
+        same state during bulk; show_state's unconditional update_toolbar must
+        not re-show the hidden Approve All / Unassign All buttons."""
+        from plex_renamer.app.services.episode_projection_cache import (
+            EpisodeProjectionCacheService,
+        )
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        cache = EpisodeProjectionCacheService()
+        panel = MediaWorkPanel(
+            media_type="tv",
+            cached_guide_provider=cache.cached_guide_for_state,
+            guide_builder=cache.build_guide_with_signature,
+            guide_store=cache.store_guide,
+        )
+        panel.resize(760, 640)
+        panel.show()
+        state = _table_state("Show A")
+        cache.prepare_state(state)                       # cached: sync render
+        panel.show_state(state, collapsed_sections=set())
+        self.assertTrue(panel.unassign_all_button.isVisible())
+        panel.enter_bulk_assign()
+        self.assertFalse(panel.unassign_all_button.isVisible())
+        panel.show_state(state, collapsed_sections=set())   # same-state repopulate
+        self.assertTrue(panel.bulk_assign_active())
+        self.assertFalse(panel.approve_all_button.isVisible())
+        self.assertFalse(panel.unassign_all_button.isVisible())
+        panel.exit_bulk_assign()
+        self.assertTrue(panel.unassign_all_button.isVisible())
+        panel.close()
+
 
 class AsyncGuideRealThreadTest(QtSmokeBase):
     """One unpatched end-to-end pass over the real thread pool."""
