@@ -14,7 +14,7 @@
 | 3 | [2026-07-03-gui-v4-plan3-work-panel.md](2026-07-03-gui-v4-plan3-work-panel.md) | §3.2 work panel, §3.3 movie parity, §4 season strip, §5 info removal, §7 episode table model/delegate/expansion | **Landed** 2026-07-03 (commits d8552ce..e3e7f57, review clean) |
 | 4 | [2026-07-03-gui-v4-plan4-bulk-assign.md](2026-07-03-gui-v4-plan4-bulk-assign.md) | §6 bulk assign + unassign-all treatment, §15.7 MVP scope | **Landed** 2026-07-04 (commits 5ae5c96..eb8ee91, review clean) |
 | 5 | [2026-07-04-gui-v4-plan5-async-perf.md](2026-07-04-gui-v4-plan5-async-perf.md) | §7 async guide build, BusyOverlay, warm-cache deletion, perf guard test | **Landed** 2026-07-04 (commits 53ba242..3765d5a, review clean) |
-| 6 | [2026-07-04-gui-v4-plan6-toasts-loading.md](2026-07-04-gui-v4-plan6-toasts-loading.md) | §9 toasts, §10 loading screen | **Written** 2026-07-04 — executing |
+| 6 | [2026-07-04-gui-v4-plan6-toasts-loading.md](2026-07-04-gui-v4-plan6-toasts-loading.md) | §9 toasts, §10 loading screen | **Landed** 2026-07-04 (commits eb5ea11..6793ccf, review clean) |
 | 7 | `gui-v4-plan7-queue-history.md` (to write) | §11 queue/history restyle + companion surfacing | not written |
 | 8 | `gui-v4-plan8-settings-seams.md` (to write) | §12 settings restyle, §13 mkvmerge UI seams | not written |
 | 9 | `gui-v4-plan9-final-pass.md` (to write) | §18 DPI pass (100/150/200%), real-library validation, string/perf sweep re-run | not written |
