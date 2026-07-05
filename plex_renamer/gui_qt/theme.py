@@ -42,7 +42,8 @@ COLORS: dict[str, str] = {
 
 RADII: dict[str, int] = {"sm": 4, "md": 8, "lg": 12, "pill": 10}
 
-_TEMPLATE_PATH = Path(__file__).parent / "resources" / "theme.qss.tmpl"
+_RESOURCES_DIR = Path(__file__).parent / "resources"
+_TEMPLATE_PATH = _RESOURCES_DIR / "theme.qss.tmpl"
 
 
 def color(name: str) -> str:
@@ -65,6 +66,10 @@ def rgba(name: str, alpha: float) -> str:
 def _mapping() -> dict[str, str]:
     mapping = dict(COLORS)
     mapping.update({f"radius_{key}": str(value) for key, value in RADII.items()})
+    # QSS url() paths resolve against the CWD for string stylesheets, so the
+    # template gets an absolute posix path (quoted in the QSS — the repo path
+    # contains spaces).
+    mapping["check_svg"] = (_RESOURCES_DIR / "check.svg").as_posix()
     return mapping
 
 

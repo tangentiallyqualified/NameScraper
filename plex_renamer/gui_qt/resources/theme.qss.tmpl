@@ -683,7 +683,7 @@ QCheckBox::indicator {
     height: 18px;
     border: 1.5px solid ${border_light};
     border-radius: ${radius_sm}px;
-    background-color: ${border_light};
+    background-color: ${input_bg};
 }
 
 QCheckBox::indicator:hover {
@@ -694,6 +694,7 @@ QCheckBox::indicator:hover {
 QCheckBox::indicator:checked {
     background-color: ${success};
     border-color: ${success_dim};
+    image: url("${check_svg}");
 }
 
 QCheckBox::indicator:indeterminate {

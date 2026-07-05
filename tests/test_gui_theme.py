@@ -126,3 +126,18 @@ def test_deleted_panel_modules_stay_deleted():
     present = [name for name in _DELETED_GUI_MODULES
                if (_GUI_ROOT / "widgets" / f"{name}.py").exists()]
     assert present == [], f"GUI V4 deleted these modules; they came back: {present}"
+
+
+def test_checkbox_checked_indicator_uses_svg_check_glyph():
+    # Spec §12: proper check glyph SVG, DPI-crisp at 100/150/200%.
+    rendered = theme.load_stylesheet()
+    match = re.search(
+        r'QCheckBox::indicator:checked\s*\{[^}]*image:\s*url\("([^"]+)"\)',
+        rendered,
+    )
+    assert match, "checked indicator has no glyph image"
+    svg = Path(match.group(1))
+    assert svg.exists(), svg
+    text = svg.read_text(encoding="utf-8")
+    assert text.lstrip().startswith("<svg")
+    assert _HEX_RE.findall(text) == []  # named colors only — hex guards stay meaningful
