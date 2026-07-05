@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
@@ -802,6 +803,39 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertIn("Running", tab._table_empty._hint.text())
             tab.close()
             controller.close()
+
+    def test_status_size_hint_reserves_uppercase_pill_width(self):
+        from PySide6.QtWidgets import QStyleOptionViewItem, QTableView
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.models.job_table_model import JobTableModel
+        from plex_renamer.gui_qt.widgets._job_list_tab import _HoverRowDelegate
+        from plex_renamer.job_store import RenameJob
+
+        # REVERT_FAILED paints the widest pill; ResizeToContents sizes the
+        # Status section from this hint, so it must reserve the uppercase
+        # advance + pill padding + cell margin, not the mixed-case text.
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            status=JobStatus.REVERT_FAILED,
+        )
+        model = JobTableModel(history=True)
+        model.set_jobs([job])
+        table = QTableView()
+        table.setModel(model)
+        delegate = _HoverRowDelegate(table, parent=table)
+        index = model.index(0, 1)
+        option = QStyleOptionViewItem()
+        hint = delegate.sizeHint(option, index)
+        label = str(model.data(index, Qt.ItemDataRole.DisplayRole)).upper()
+        required = (
+            option.fontMetrics.horizontalAdvance(label)
+            + _scale.px(16)
+            + _scale.px(4)
+        )
+        self.assertGreaterEqual(hint.width(), required)
+        table.close()
 
 
 if __name__ == "__main__":

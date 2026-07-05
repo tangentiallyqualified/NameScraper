@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, Qt, Signal
+from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -150,6 +150,19 @@ class _HoverRowDelegate(QStyledItemDelegate):
 
         super().paint(painter, paint_option, index)
 
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
+        hint = super().sizeHint(option, index)
+        if index.column() != _STATUS_COLUMN:
+            return hint
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        if not text:
+            return hint
+        # ResizeToContents sizes the section from this hint; reserve the
+        # painted pill (uppercase advance + 2x8px pad) plus the 4px margin
+        # _paint_status_pill's width clamp subtracts.
+        pill_width = option.fontMetrics.horizontalAdvance(str(text).upper()) + _scale.px(16)
+        return QSize(max(hint.width(), pill_width + _scale.px(4)), hint.height())
+
     def _paint_checkbox(
         self,
         painter: QPainter,
@@ -191,7 +204,7 @@ class _HoverRowDelegate(QStyledItemDelegate):
             metrics.horizontalAdvance(label) + _scale.px(16),
             max(_scale.px(24), option.rect.width() - _scale.px(4)),
         )
-        pill_height = metrics.height() + _scale.px(4)
+        pill_height = _scale.px(18)  # workspace pill parity (_PILL_H_U)
         pill_rect = QRect(0, 0, pill_width, pill_height)
         pill_rect.moveCenter(option.rect.center())
         wash = QColor(color)
