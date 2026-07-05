@@ -10,7 +10,7 @@ import pytest
 from plex_renamer.gui_qt import theme
 
 _GUI_ROOT = Path(__file__).resolve().parents[1] / "plex_renamer" / "gui_qt"
-_HEX_RE = re.compile(r"#[0-9a-fA-F]{6}\b")
+_HEX_RE = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 
 
 def test_color_returns_hex():
@@ -141,3 +141,13 @@ def test_checkbox_checked_indicator_uses_svg_check_glyph():
     text = svg.read_text(encoding="utf-8")
     assert text.lstrip().startswith("<svg")
     assert _HEX_RE.findall(text) == []  # named colors only — hex guards stay meaningful
+
+
+def test_hex_guard_regex_catches_short_and_alpha_forms():
+    # User-approved 2026-07-05 (Plan 1's open item): the guard covers all
+    # QSS-legal hex literal widths, not just #rrggbb.
+    assert _HEX_RE.search("#a1b2c3")
+    assert _HEX_RE.search("#abc")            # 3-digit shorthand
+    assert _HEX_RE.search("#a1b2c3ff")       # 8-digit with alpha
+    assert not _HEX_RE.search("# a comment with hex words like abc")
+    assert not _HEX_RE.search("#define")     # 'def' + word char = no boundary

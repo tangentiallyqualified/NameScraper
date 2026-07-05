@@ -91,3 +91,41 @@ class PerfGuardTests(QtSmokeBase):
             f"cached 300-episode switch took {elapsed_ms}ms offscreen "
             "(reference budget 100ms; 5x margin)",
         )
+
+    def test_cached_500_episode_populate_and_first_paint_under_budget(self):
+        """Spec §18: synthetic 500-episode state; model population plus the
+        first full paint pass stay under budget (generous offscreen margin).
+        The 300-episode tests above pin the async invariants; this one is
+        the release gate at the spec's stated size."""
+        from PySide6.QtCore import QElapsedTimer
+
+        from plex_renamer.app.services.episode_projection_cache import (
+            EpisodeProjectionCacheService,
+        )
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate,
+            EpisodeTableView,
+        )
+
+        cache = EpisodeProjectionCacheService()
+        state = _big_state("Huge Show", seasons=20, per_season=25)   # 500 eps
+        cache.prepare_state(state)
+        model = self._async_model(cache)
+        view = EpisodeTableView()
+        view.setItemDelegate(EpisodeTableDelegate(view, media_type="tv"))
+        view.setModel(model)
+        view.resize(900, 700)
+        view.show()
+        timer = QElapsedTimer()
+        timer.start()
+        model.show_state(state, collapsed_sections=set())
+        pixmap = view.grab()                 # forces the first full paint pass
+        elapsed_ms = timer.elapsed()
+        self.assertIn("episode", {e.kind for e in model._entries})
+        self.assertFalse(pixmap.isNull())
+        self.assertLess(
+            elapsed_ms, 1000,
+            f"cached 500-episode populate + first paint took {elapsed_ms}ms "
+            "offscreen (reference budget 200ms; 5x margin)",
+        )
+        view.close()
