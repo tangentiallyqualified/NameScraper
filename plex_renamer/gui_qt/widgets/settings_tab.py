@@ -135,6 +135,13 @@ class SettingsTab(QScrollArea):
         tools_item = self._settings_nav.item(self._settings_nav.count() - 1)
         if tools_item is not None:
             tools_item.setHidden(True)  # §13 seam: hidden until mkvmerge lands
+            # Hidden alone is not unreachable: MoveEnd and type-ahead still
+            # land on hidden rows, so the item must also be non-interactive.
+            tools_item.setFlags(
+                tools_item.flags()
+                & ~Qt.ItemFlag.ItemIsEnabled
+                & ~Qt.ItemFlag.ItemIsSelectable
+            )
         shell.addWidget(self._settings_nav)
 
         self._settings_stack = QStackedWidget()

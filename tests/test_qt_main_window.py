@@ -973,8 +973,19 @@ class QtMainWindowTests(QtSmokeBase):
         tools_row = nav.count() - 1
         self.assertEqual(nav.item(tools_row).text(), "Tools")
         self.assertTrue(nav.item(tools_row).isHidden())      # §13: hidden until the feature lands
-        # The seam is live: revealing the row selects the reserved page.
-        nav.item(tools_row).setHidden(False)
+        # Hidden must mean unreachable: MoveEnd and type-ahead ignore hidden
+        # rows unless the item is also disabled/unselectable (final review I1).
+        QTest.keyClick(nav, Qt.Key.Key_End)
+        self.assertIsNot(tab._settings_stack.currentWidget(), tab._tools_page)
+        self.assertNotEqual(nav.currentRow(), tools_row)
+        # The seam is live: restore flags + reveal selects the reserved page.
+        tools_item = nav.item(tools_row)
+        tools_item.setFlags(
+            tools_item.flags()
+            | Qt.ItemFlag.ItemIsEnabled
+            | Qt.ItemFlag.ItemIsSelectable
+        )
+        tools_item.setHidden(False)
         nav.setCurrentRow(tools_row)
         self.assertIs(tab._settings_stack.currentWidget(), tab._tools_page)
         self.assertEqual(tab._tools_page._heading.text(), "Tools")
