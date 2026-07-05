@@ -990,3 +990,61 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertIs(tab._settings_stack.currentWidget(), tab._tools_page)
         self.assertEqual(tab._tools_page._heading.text(), "Tools")
         tab.close()
+
+    def test_settings_tab_callbacks_are_keyword_only(self):
+        import inspect
+
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        params = inspect.signature(SettingsTab.__init__).parameters
+        for name in (
+            "clear_tmdb_callback",
+            "clear_history_callback",
+            "history_count_callback",
+            "parent",
+        ):
+            self.assertEqual(
+                params[name].kind, inspect.Parameter.KEYWORD_ONLY, name
+            )
+
+    def test_every_settings_page_carries_a_header_icon(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        nav = tab._settings_nav
+        for row in range(nav.count()):
+            page = tab._settings_stack.widget(row)
+            pixmap = page._header_icon.pixmap()
+            self.assertIsNotNone(pixmap, nav.item(row).text())
+            self.assertFalse(pixmap.isNull(), nav.item(row).text())
+        tab.close()
+
+    def test_declined_confirms_clear_stale_captions(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            tab = SettingsTab(
+                cache_service=cache,
+                clear_history_callback=lambda: (0, 0),
+                history_count_callback=lambda: 3,
+            )
+            try:
+                tab._cache_confirm.setText("Cleared 3 TMDB cache entries.")
+                tab._history_confirm.setText("Cleared 2 history entries.")
+
+                class _NoBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        return "no"
+
+                tab._actions_coordinator.clear_cache(message_box_api=_NoBox)
+                tab._actions_coordinator.clear_history(message_box_api=_NoBox)
+                self.assertEqual(tab._cache_confirm.text(), "")
+                self.assertEqual(tab._history_confirm.text(), "")
+            finally:
+                tab.close()

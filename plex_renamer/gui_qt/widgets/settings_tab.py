@@ -1,8 +1,8 @@
-"""Settings tab — Phase 3 implementation.
+"""Settings tab.
 
-Single scrollable column with section cards for Display, Matching,
-API Keys, Cache, and Advanced settings.  All state goes through
-SettingsService.
+Nav list + stacked section-card pages (Destinations, Display, Matching,
+API Keys, Data, and the hidden Tools shell reserved for mkvmerge).  All
+state goes through SettingsService.
 """
 
 from __future__ import annotations
@@ -81,6 +81,7 @@ class SettingsTab(QScrollArea):
         self,
         settings_service: "SettingsService | None" = None,
         cache_service=None,
+        *,
         clear_tmdb_callback: Callable[[], None] | None = None,
         clear_history_callback: Callable[[], tuple[int, int]] | None = None,
         history_count_callback: Callable[[], int] | None = None,

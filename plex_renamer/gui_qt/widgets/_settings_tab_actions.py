@@ -39,6 +39,7 @@ class SettingsTabActionsCoordinator:
             "Clear Job History",
             prompt + "\n\nStored undo data for revertible jobs will be lost.",
         ) != message_box_api.StandardButton.Yes:
+            tab._history_confirm.setText("")
             return
 
         count, _revertible = tab._clear_history_callback()
@@ -123,6 +124,7 @@ class SettingsTabActionsCoordinator:
             f"Delete {pending} cached TMDB {noun}?\n\n"
             "Posters and show details will be re-fetched on the next scan.",
         ) != message_box_api.StandardButton.Yes:
+            tab._cache_confirm.setText("")
             return
 
         removed = tab._cache_service.invalidate_namespace_prefix(_TMDB_CACHE_NAMESPACE_PREFIX)
