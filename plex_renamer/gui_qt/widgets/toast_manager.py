@@ -139,7 +139,7 @@ class _ToastCard(QFrame):
         self._progress.setProperty("cssClass", "toast-countdown")
         self._progress.setProperty("tone", tone)
         self._progress.setTextVisible(False)
-        self._progress.setFixedHeight(3)
+        self._progress.setFixedHeight(_scale.px(3))
         if self._duration_ms > 0:
             self._progress.setRange(0, self._duration_ms)
             self._progress.setValue(self._duration_ms)
@@ -177,7 +177,7 @@ class _ToastCard(QFrame):
         return max(self._line_height(), self._message_label.heightForWidth(width))
 
     def _sync_clamp(self) -> None:
-        collapsed = self._line_height() * _CLAMP_LINES + 4
+        collapsed = self._line_height() * _CLAMP_LINES + _scale.px(4)
         full = self._full_text_height()
         needs_clamp = full > collapsed
         self._show_more_btn.setVisible(needs_clamp)

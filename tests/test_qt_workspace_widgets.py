@@ -135,6 +135,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         widget = ScanProgressWidget(media_type="movie")
         widget.start()
         widget.update_progress(lifecycle=ScanLifecycle.PREPARING_REVIEW.value, phase="Preparing")
+        self.assertEqual(widget._count_label.text(), "Working")
         # movie checklist: DISCOVERING, MATCHING, BUILDING_PREVIEWS, PREPARING_REVIEW
         self.assertEqual(widget._stepper._active_index, 3)
         self.assertEqual(widget._stepper._done, {0, 1, 2})
@@ -217,7 +218,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         self.assertEqual(len(tv_widget._stepper._labels), 5)
         self.assertEqual(len(movie_widget._stepper._labels), 4)
 
-    def test_scan_progress_conveyor_fills_cards_behind_the_beam(self):
+    def test_scan_progress_conveyor_advances_only_while_active(self):
         from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
 
         animation = _ConveyorAnimation()
@@ -295,6 +296,22 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         paint_mini_progress(painter, QRect(2, 40, 60, 4), value=55, color=theme.qcolor("success"))
         painter.end()
         self.assertFalse(image.isNull())
+
+    def test_straggler_update_after_stop_does_not_restart_filler_timer(self):
+        from plex_renamer.app.models import ScanLifecycle
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        widget = ScanProgressWidget(media_type="tv")
+        widget.start()
+        widget.stop()
+        widget.update_progress(
+            lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
+            phase="straggler",
+            current_item="Show Z",
+            message="straggler",
+        )
+        self.assertFalse(widget._filler_timer.isActive())
+        widget.close()
 
 
 class EpisodeRowActionVocabularyTests(QtSmokeBase):

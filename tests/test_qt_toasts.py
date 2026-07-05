@@ -112,6 +112,14 @@ class ToastCardStyleTests(_ToastCardTestBase):
             card = _make_card(tone=tone)
             self.assertEqual(card._icon_label.text(), glyph)
 
+    def test_toast_card_sizing_routes_through_scale(self):
+        from pathlib import Path
+
+        source = Path("plex_renamer/gui_qt/widgets/toast_manager.py").read_text(encoding="utf-8")
+        self.assertNotIn("setFixedHeight(3)", source)
+        self.assertIn("setFixedHeight(_scale.px(3))", source)
+        self.assertIn("+ _scale.px(4)", source)
+
 
 class ToastCardBehaviorTests(_ToastCardTestBase):
     def test_copy_puts_title_and_full_message_on_clipboard(self):

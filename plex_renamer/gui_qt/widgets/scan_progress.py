@@ -388,7 +388,8 @@ class ScanProgressWidget(QWidget):
             if item_text:
                 self._set_item_text(item_text)
                 self._filler_index = 0
-                self._filler_timer.start()   # restart the 4s no-change window
+                if self._elapsed_timer.isActive():
+                    self._filler_timer.start()   # restart the 4s no-change window
             self._text_update_timer.restart()
 
         if parsed_lifecycle in _TERMINAL:
