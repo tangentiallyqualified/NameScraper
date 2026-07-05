@@ -184,6 +184,9 @@ class MainWindow(QMainWindow):
         self._history_tab.refresh()
         return count, revertible
 
+    def _history_count_for_settings(self) -> int:
+        return len(self.queue_ctrl.get_history())
+
     def _start_job_poster_backfill(self):
         return self._feedback_coordinator.start_job_poster_backfill(
             api_key_lookup=get_api_key,

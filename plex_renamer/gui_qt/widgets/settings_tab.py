@@ -83,6 +83,7 @@ class SettingsTab(QScrollArea):
         cache_service=None,
         clear_tmdb_callback: Callable[[], None] | None = None,
         clear_history_callback: Callable[[], tuple[int, int]] | None = None,
+        history_count_callback: Callable[[], int] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -90,6 +91,7 @@ class SettingsTab(QScrollArea):
         self._cache_service = cache_service
         self._clear_tmdb_callback = clear_tmdb_callback
         self._clear_history_callback = clear_history_callback
+        self._history_count_callback = history_count_callback
         self._api_test_bridge = _ApiKeyTestBridge(self)
         self._api_test_bridge.result_ready.connect(self._show_test_result)
         self._actions_coordinator = SettingsTabActionsCoordinator(self)
@@ -126,7 +128,6 @@ class SettingsTab(QScrollArea):
                 "Display",
                 "Matching",
                 "API Keys",
-                "Cache",
                 "Data",
             ]
         )
@@ -140,8 +141,7 @@ class SettingsTab(QScrollArea):
         self._build_display_section()
         self._build_matching_section()
         self._build_api_keys_section()
-        self._build_cache_section()
-        self._build_data_management_section()
+        self._build_data_section()
         self._build_advanced_section()
 
         self._settings_nav.currentRowChanged.connect(self._settings_stack.setCurrentIndex)
@@ -167,15 +167,10 @@ class SettingsTab(QScrollArea):
     def _build_api_keys_section(self) -> None:
         self._sections_builder.build_api_keys_section()
 
-    # ── Cache ────────────────────────────────────────────────────
+    # ── Data ─────────────────────────────────────────────────────
 
-    def _build_cache_section(self) -> None:
-        self._sections_builder.build_cache_section()
-
-    # ── Data Management ──────────────────────────────────────────
-
-    def _build_data_management_section(self) -> None:
-        self._sections_builder.build_data_management_section()
+    def _build_data_section(self) -> None:
+        self._sections_builder.build_data_section()
 
     def _on_clear_history(self) -> None:
         self._actions_coordinator.clear_history(message_box_api=QMessageBox)
@@ -239,7 +234,7 @@ class SettingsTab(QScrollArea):
         self._actions_coordinator.show_test_result(success, detail)
 
     def _on_clear_cache(self) -> None:
-        self._actions_coordinator.clear_cache()
+        self._actions_coordinator.clear_cache(message_box_api=QMessageBox)
 
     def _refresh_cache_stats(self) -> None:
         self._actions_coordinator.refresh_cache_stats()

@@ -19,10 +19,25 @@ class SettingsTabActionsCoordinator:
         tab = self._tab
         if tab._clear_history_callback is None:
             return
+        pending = (
+            tab._history_count_callback()
+            if tab._history_count_callback is not None
+            else None
+        )
+        if pending == 0:
+            tab._history_confirm.setProperty("tone", "success")
+            tab._history_confirm.setText("History is already empty.")
+            repolish_widget(tab._history_confirm)
+            return
+        if pending is None:
+            prompt = "Delete all job history entries?"
+        else:
+            noun = "entry" if pending == 1 else "entries"
+            prompt = f"Delete {pending} job history {noun}?"
         if message_box_api.question(
             tab,
             "Clear Job History",
-            "Delete all job history entries?\n\nStored undo data for revertible jobs will be lost.",
+            prompt + "\n\nStored undo data for revertible jobs will be lost.",
         ) != message_box_api.StandardButton.Yes:
             return
 
@@ -90,9 +105,24 @@ class SettingsTabActionsCoordinator:
             return
         self.set_key_status(f"TMDB test failed: {detail}", "error")
 
-    def clear_cache(self) -> None:
+    def clear_cache(self, *, message_box_api: Any) -> None:
         tab = self._tab
         if tab._cache_service is None:
+            return
+        stats = tab._cache_service.stats(namespace_prefix=_TMDB_CACHE_NAMESPACE_PREFIX)
+        pending = int(stats["item_count"])
+        if pending == 0:
+            tab._cache_confirm.setProperty("tone", "success")
+            tab._cache_confirm.setText("TMDB cache is already empty.")
+            repolish_widget(tab._cache_confirm)
+            return
+        noun = "entry" if pending == 1 else "entries"
+        if message_box_api.question(
+            tab,
+            "Clear TMDB Cache",
+            f"Delete {pending} cached TMDB {noun}?\n\n"
+            "Posters and show details will be re-fetched on the next scan.",
+        ) != message_box_api.StandardButton.Yes:
             return
 
         removed = tab._cache_service.invalidate_namespace_prefix(_TMDB_CACHE_NAMESPACE_PREFIX)

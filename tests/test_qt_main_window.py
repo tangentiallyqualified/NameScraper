@@ -404,8 +404,20 @@ class QtMainWindowTests(QtSmokeBase):
             try:
                 self.assertIn("3 entries", tab._cache_stats.text())
 
-                tab._on_clear_cache()
+                class _YesBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    prompts: list[str] = []
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        cls.prompts.append(text)
+                        return cls.StandardButton.Yes
+
+                tab._actions_coordinator.clear_cache(message_box_api=_YesBox)
                 self._app.processEvents()
+                self.assertIn("3 cached TMDB entries", _YesBox.prompts[0])
 
                 self.assertEqual(dropped_runtime_clients, [True])
                 self.assertEqual(tab._cache_confirm.text(), "Cleared 3 TMDB cache entries.")
@@ -878,3 +890,76 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertIn("_scale.px(1440)", source)
         self.assertIn("_scale.px(900)", source)
         self.assertNotIn("window.resize(1440, 900)", source)
+
+    def test_settings_destructive_buttons_are_danger_outline_on_the_data_page(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        self.assertEqual(tab._clear_cache_btn.property("cssClass"), "danger-outline")
+        self.assertEqual(tab._clear_history_btn.property("cssClass"), "danger-outline")
+        nav_texts = [tab._settings_nav.item(i).text() for i in range(tab._settings_nav.count())]
+        self.assertNotIn("Cache", nav_texts)
+        self.assertIn("Data", nav_texts)
+        self.assertEqual(tab._settings_nav.count(), tab._settings_stack.count())
+        # Stats + both destructive actions live on the same (Data) page.
+        data_page = tab._settings_stack.widget(nav_texts.index("Data"))
+        self.assertTrue(tab._cache_stats in data_page.findChildren(type(tab._cache_stats)))
+        self.assertTrue(tab._clear_history_btn in data_page.findChildren(type(tab._clear_history_btn)))
+        tab.close()
+
+    def test_clear_cache_confirm_declined_leaves_cache_intact(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            tab = SettingsTab(cache_service=cache)
+            try:
+                class _NoBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        return "no"
+
+                tab._actions_coordinator.clear_cache(message_box_api=_NoBox)
+                self.assertTrue(cache.get("tmdb.tv_details", "1").is_hit)
+                self.assertIn("1 entries", tab._cache_stats.text())
+            finally:
+                tab.close()
+
+    def test_clear_history_confirm_carries_the_pending_count(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        cleared: list[bool] = []
+
+        def _clear() -> tuple[int, int]:
+            cleared.append(True)
+            return (2, 1)
+
+        tab = SettingsTab(
+            clear_history_callback=_clear,
+            history_count_callback=lambda: 2,
+        )
+        emitted: list[bool] = []
+        tab.history_cleared.connect(lambda: emitted.append(True))
+
+        class _YesBox:
+            class StandardButton:
+                Yes = "yes"
+
+            prompts: list[str] = []
+
+            @classmethod
+            def question(cls, parent, title, text):
+                cls.prompts.append(text)
+                return cls.StandardButton.Yes
+
+        tab._actions_coordinator.clear_history(message_box_api=_YesBox)
+        self.assertIn("2 job history entries", _YesBox.prompts[0])
+        self.assertIn("undo data", _YesBox.prompts[0])
+        self.assertEqual(cleared, [True])
+        self.assertEqual(tab._history_confirm.text(), "Cleared 2 history entries.")
+        self.assertEqual(emitted, [True])
+        tab.close()

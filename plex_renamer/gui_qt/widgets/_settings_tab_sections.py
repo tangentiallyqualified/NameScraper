@@ -309,48 +309,42 @@ class SettingsTabSectionsBuilder:
 
         self._add_page(section)
 
-    def build_cache_section(self) -> None:
+    def build_data_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Cache", icon=QStyle.StandardPixmap.SP_DriveHDIcon)
+        section = SettingsSectionCard.page("Data", icon=QStyle.StandardPixmap.SP_TrashIcon)
 
         tab._cache_stats = QLabel("Cache statistics will appear here after first scan.")
         tab._cache_stats.setProperty("cssClass", "text-dim")
         section.add_widget(tab._cache_stats)
 
-        row = QHBoxLayout()
+        cache_row = QHBoxLayout()
         tab._clear_cache_btn = QPushButton("Clear TMDB Cache")
-        tab._clear_cache_btn.setProperty("cssClass", "secondary")
+        tab._clear_cache_btn.setProperty("cssClass", "danger-outline")
         tab._clear_cache_btn.setEnabled(tab._cache_service is not None)
         tab._clear_cache_btn.clicked.connect(tab._on_clear_cache)
         if tab._cache_service is None:
             tab._clear_cache_btn.setToolTip("Cache actions are not available yet.")
-        row.addWidget(tab._clear_cache_btn)
+        cache_row.addWidget(tab._clear_cache_btn)
 
         tab._clear_all_btn = QPushButton("Clear All Data")
         tab._clear_all_btn.setProperty("cssClass", "danger")
         tab._clear_all_btn.hide()
-        row.addWidget(tab._clear_all_btn)
-        row.addStretch()
-        section.add_layout(row)
+        cache_row.addWidget(tab._clear_all_btn)
+        cache_row.addStretch()
+        section.add_layout(cache_row)
 
         tab._cache_confirm = QLabel("")
         tab._cache_confirm.setProperty("cssClass", "caption")
         section.add_widget(tab._cache_confirm)
 
-        self._add_page(section)
-
-    def build_data_management_section(self) -> None:
-        tab = self._tab
-        section = SettingsSectionCard.page("Data Management", icon=QStyle.StandardPixmap.SP_TrashIcon)
-
-        row = QHBoxLayout()
+        history_row = QHBoxLayout()
         tab._clear_history_btn = QPushButton("Clear Job History")
-        tab._clear_history_btn.setProperty("cssClass", "danger")
+        tab._clear_history_btn.setProperty("cssClass", "danger-outline")
         tab._clear_history_btn.setEnabled(tab._clear_history_callback is not None)
         tab._clear_history_btn.clicked.connect(tab._on_clear_history)
-        row.addWidget(tab._clear_history_btn)
-        row.addStretch()
-        section.add_layout(row)
+        history_row.addWidget(tab._clear_history_btn)
+        history_row.addStretch()
+        section.add_layout(history_row)
 
         tab._history_confirm = QLabel("")
         tab._history_confirm.setProperty("cssClass", "caption")

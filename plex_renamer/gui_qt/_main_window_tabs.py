@@ -67,6 +67,7 @@ class MainWindowTabsCoordinator:
             cache_service=window._cache_service,
             clear_tmdb_callback=window._drop_tmdb_client,
             clear_history_callback=window._clear_history_from_settings,
+            history_count_callback=window._history_count_for_settings,
         )
 
         window._tabs.addTab(window._settings_tab, "Settings")
