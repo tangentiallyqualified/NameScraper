@@ -7,6 +7,7 @@ from typing import Any
 from .. import _scale
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QFrame,
@@ -16,15 +17,22 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSlider,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
 
 
 class SettingsSectionCard(QFrame):
-    """A settings section card with a heading and content area."""
+    """A settings section card with an icon+title header row and content area."""
 
-    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        title: str,
+        *,
+        icon: QStyle.StandardPixmap | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setProperty("cssClass", "settings-section")
 
@@ -38,15 +46,24 @@ class SettingsSectionCard(QFrame):
         self._layout.setSpacing(_scale.px(12))
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        heading = QLabel(title)
-        heading.setProperty("cssClass", "heading")
-        self._layout.addWidget(heading)
+        header_row = QHBoxLayout()
+        header_row.setSpacing(_scale.px(8))
 
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setProperty("cssClass", "separator")
-        separator.setFixedHeight(_scale.px(1))
-        self._layout.addWidget(separator)
+        self._header_icon = QLabel()
+        style = QApplication.style()
+        if icon is not None and style is not None:
+            self._header_icon.setPixmap(
+                style.standardIcon(icon).pixmap(_scale.icon("sm"))
+            )
+        else:
+            self._header_icon.hide()
+        header_row.addWidget(self._header_icon)
+
+        self._heading = QLabel(title)
+        self._heading.setProperty("cssClass", "heading")
+        header_row.addWidget(self._heading)
+        header_row.addStretch()
+        self._layout.addLayout(header_row)
 
     def add_widget(self, widget: QWidget) -> None:
         self._layout.addWidget(widget)
@@ -55,8 +72,13 @@ class SettingsSectionCard(QFrame):
         self._layout.addLayout(layout)
 
     @classmethod
-    def page(cls, title: str) -> "SettingsSectionCard":
-        card = cls(title)
+    def page(
+        cls,
+        title: str,
+        *,
+        icon: QStyle.StandardPixmap | None = None,
+    ) -> "SettingsSectionCard":
+        card = cls(title, icon=icon)
         card.setProperty("sectionRole", "page")
         return card
 
@@ -113,7 +135,7 @@ class SettingsTabSectionsBuilder:
 
     def build_destinations_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Destinations")
+        section = SettingsSectionCard.page("Destinations", icon=QStyle.StandardPixmap.SP_DirIcon)
         tab._destinations_page = section
 
         tv_value = tab._settings.tv_output_folder if tab._settings else ""
@@ -152,7 +174,7 @@ class SettingsTabSectionsBuilder:
 
     def build_display_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Display")
+        section = SettingsSectionCard.page("Display", icon=QStyle.StandardPixmap.SP_DesktopIcon)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Default view mode"))
@@ -181,7 +203,7 @@ class SettingsTabSectionsBuilder:
 
     def build_matching_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Matching")
+        section = SettingsSectionCard.page("Matching", icon=QStyle.StandardPixmap.SP_FileDialogContentsView)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Match language"))
@@ -247,7 +269,7 @@ class SettingsTabSectionsBuilder:
 
     def build_api_keys_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("API Keys")
+        section = SettingsSectionCard.page("API Keys", icon=QStyle.StandardPixmap.SP_DriveNetIcon)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
@@ -289,7 +311,7 @@ class SettingsTabSectionsBuilder:
 
     def build_cache_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Cache")
+        section = SettingsSectionCard.page("Cache", icon=QStyle.StandardPixmap.SP_DriveHDIcon)
 
         tab._cache_stats = QLabel("Cache statistics will appear here after first scan.")
         tab._cache_stats.setProperty("cssClass", "text-dim")
@@ -319,7 +341,7 @@ class SettingsTabSectionsBuilder:
 
     def build_data_management_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Data Management")
+        section = SettingsSectionCard.page("Data Management", icon=QStyle.StandardPixmap.SP_TrashIcon)
 
         row = QHBoxLayout()
         tab._clear_history_btn = QPushButton("Clear Job History")

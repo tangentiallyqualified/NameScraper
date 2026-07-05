@@ -452,6 +452,25 @@ class QtMainWindowTests(QtSmokeBase):
             self.assertLess(labels["Display"].height(), _scale.px(80))
             tab.close()
 
+    def test_settings_section_cards_use_icon_title_header_rows(self):
+        from PySide6.QtWidgets import QFrame
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            page = tab._destinations_page
+            self.assertEqual(page._heading.text(), "Destinations")
+            self.assertIsNotNone(page._header_icon.pixmap())
+            self.assertFalse(page._header_icon.pixmap().isNull())
+            # Spec §12: header row replaces the heading+separator hairline.
+            separators = [
+                child for child in page.findChildren(QFrame)
+                if child.property("cssClass") == "separator"
+            ]
+            self.assertEqual(separators, [])
+            tab.close()
+
     def test_settings_tab_saves_existing_destination_paths(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
