@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...job_store import RenameJob
-from .. import _scale, theme
+from .. import _scale
 from ._job_detail_data import (
     build_job_fact_values,
     build_job_meta_line,
@@ -105,6 +105,7 @@ class _RenamePreviewWidget(QWidget):
         after: str,
         before_label: str = "Original",
         after_label: str = "New",
+        badge: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -127,6 +128,16 @@ class _RenamePreviewWidget(QWidget):
         self._after.setProperty("cssClass", "job-preview-target")
         self._after.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(self._after, 0, 1)
+
+        if badge:
+            self._badge_label = QLabel(badge)
+            self._badge_label.setProperty("cssClass", "type-badge")
+            self._badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._badge_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            layout.addWidget(
+                self._badge_label, 0, 2,
+                alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+            )
 
         self._before_key = QLabel(before_label)
         self._before_key.setProperty("cssClass", "caption")
@@ -343,6 +354,7 @@ class JobDetailPanel(QFrame):
         layout.addWidget(self._preview_tree, stretch=1)
 
         self._error = QLabel("")
+        self._error.setProperty("cssClass", "job-detail-error")
         self._error.setWordWrap(True)
         self._error.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout.addWidget(self._error)
@@ -403,12 +415,7 @@ class JobDetailPanel(QFrame):
             self._open_target_btn.setEnabled(self.can_open_target_folder())
         else:
             self._open_target_btn.setEnabled(False)
-        if job.error_message:
-            self._error.setText(job.error_message)
-            self._error.setStyleSheet(f"color: {theme.color('error')};")
-        else:
-            self._error.setText("")
-            self._error.setStyleSheet("")
+        self._error.setText(job.error_message or "")
         self._request_poster(job)
 
     def can_open_source_folder(self) -> bool:
@@ -461,44 +468,29 @@ class JobDetailPanel(QFrame):
         if isinstance(entry, JobPreviewGroup):
             header = self._make_group_header(self._preview_tree, entry.label)
             for row in entry.rows:
-                self._add_preview_row(
-                    header,
-                    before=row.before,
-                    after=row.after,
-                    before_label=row.before_label,
-                    after_label=row.after_label,
-                )
+                self._add_preview_row(header, row=row)
             header.setExpanded(entry.expanded)
             self._update_group_header_label(header, expanded=entry.expanded)
             return
 
-        self._add_preview_row(
-            self._preview_tree,
-            before=entry.before,
-            after=entry.after,
-            before_label=entry.before_label,
-            after_label=entry.after_label,
-        )
+        self._add_preview_row(self._preview_tree, row=entry)
 
-    def _add_preview_row(
-        self,
-        parent,
-        *,
-        before: str,
-        after: str,
-        before_label: str = "Original",
-        after_label: str = "New",
-    ) -> QTreeWidgetItem:
+    def _add_preview_row(self, parent, *, row: JobPreviewRow) -> QTreeWidgetItem:
         item = QTreeWidgetItem(parent, [""])
         widget = _RenamePreviewWidget(
-            before=before,
-            after=after,
-            before_label=before_label,
-            after_label=after_label,
+            before=row.before,
+            after=row.after,
+            before_label=row.before_label,
+            after_label=row.after_label,
+            badge=row.badge,
             parent=self._preview_tree,
         )
         item.setSizeHint(0, widget.sizeHint())
         self._preview_tree.setItemWidget(item, 0, widget)
+        for child in row.children:
+            self._add_preview_row(item, row=child)
+        if row.children:
+            item.setExpanded(True)
         return item
 
     def _make_group_header(self, parent, label: str) -> QTreeWidgetItem:

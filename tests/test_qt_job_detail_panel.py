@@ -712,3 +712,63 @@ class QtJobDetailPanelTests(QtSmokeBase):
             "setFixedSize(160, 240)",
         ):
             self.assertNotIn(literal, source)
+
+    def test_preview_tree_nests_companions_under_their_video_with_badges(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/ep1.mkv",
+                    new_name="Show - S01E01 - Pilot.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", season=1, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/ep1.eng.srt",
+                    new_name="Show - S01E01 - Pilot.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", file_type="subtitle",
+                ),
+            ],
+        )
+        panel = JobDetailPanel()
+        panel.resize(520, 700)
+        panel.show()
+        panel.set_job(job)
+        self._app.processEvents()
+
+        tree = panel._preview_tree
+        season_header = None
+        for row in range(tree.topLevelItemCount()):
+            item = tree.topLevelItem(row)
+            if "Season" in item.text(0):
+                season_header = item
+        self.assertIsNotNone(season_header)
+        video_item = season_header.child(0)
+        self.assertEqual(video_item.childCount(), 1)           # companion nested
+        self.assertTrue(video_item.isExpanded())               # visible by default
+        companion_widget = tree.itemWidget(video_item.child(0), 0)
+        self.assertIsNotNone(companion_widget)
+        self.assertEqual(companion_widget._badge_label.text(), "SUB")
+        panel.close()
+
+    def test_error_label_uses_css_class_not_inline_stylesheet(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library", source_folder="Show",
+            media_name="Example Show", error_message="boom",
+        )
+        panel.set_job(job)
+        self.assertEqual(panel._error.styleSheet(), "")
+        self.assertEqual(panel._error.property("cssClass"), "job-detail-error")
+        self.assertEqual(panel._error.text(), "boom")
+        panel.close()
