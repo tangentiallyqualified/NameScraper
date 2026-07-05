@@ -503,14 +503,25 @@ class JobDetailPanel(QFrame):
         toggle_preview_group_item(item)
 
     def _on_preview_group_expanded(self, item: QTreeWidgetItem) -> None:
-        if item.childCount() <= 0:
+        if not self._is_preview_group_header(item):
             return
         self._update_group_header_label(item, expanded=True)
 
     def _on_preview_group_collapsed(self, item: QTreeWidgetItem) -> None:
-        if item.childCount() <= 0:
+        if not self._is_preview_group_header(item):
             return
         self._update_group_header_label(item, expanded=False)
+
+    @staticmethod
+    def _is_preview_group_header(item: QTreeWidgetItem) -> bool:
+        # Group headers stash their base label in UserRole (see
+        # create_preview_group_header); ordinary rows — including video rows
+        # with nested companion children — must never receive the arrow
+        # prefix, because their delegate-painted text would bleed through
+        # behind the transparent row widget.
+        if item.childCount() <= 0:
+            return False
+        return item.data(0, Qt.ItemDataRole.UserRole) is not None
 
     def _refresh_preview_item_sizes(self, *_args) -> None:
         refresh_preview_item_sizes(self._preview_tree)

@@ -758,6 +758,51 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertEqual(companion_widget._badge_label.text(), "SUB")
         panel.close()
 
+    def test_video_rows_with_children_keep_arrow_free_text_when_toggled(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/ep1.mkv",
+                    new_name="Show - S01E01 - Pilot.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", season=1, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/ep1.eng.srt",
+                    new_name="Show - S01E01 - Pilot.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", file_type="subtitle",
+                ),
+            ],
+        )
+        panel = JobDetailPanel()
+        panel.set_job(job)
+
+        season_header = panel._preview_tree.topLevelItem(0)
+        self.assertIn("Season", season_header.text(0))
+        video_item = season_header.child(0)
+        # The group-header arrow prefix must never leak onto ordinary rows:
+        # their delegate-painted text sits behind the transparent row widget.
+        self.assertEqual(video_item.text(0), "")
+        panel._on_preview_item_clicked(video_item, 0)   # collapse companions
+        self.assertFalse(video_item.isExpanded())
+        self.assertEqual(video_item.text(0), "")
+        panel._on_preview_item_clicked(video_item, 0)   # expand companions
+        self.assertTrue(video_item.isExpanded())
+        self.assertEqual(video_item.text(0), "")
+        # Header arrows still update normally.
+        panel._on_preview_item_clicked(season_header, 0)
+        self.assertTrue(season_header.isExpanded())
+        self.assertTrue(season_header.text(0).startswith("▾ "))
+        panel.close()
+
     def test_error_label_uses_css_class_not_inline_stylesheet(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
         from plex_renamer.job_store import RenameJob
