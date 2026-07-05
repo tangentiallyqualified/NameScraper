@@ -11,7 +11,7 @@ from ...constants import JobStatus
 from ...job_store import RenameJob
 from ..theme import qcolor as _theme_qcolor
 
-_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "Companions", "When"]
+_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "When"]
 _STATUS_TEXT = {
     JobStatus.PENDING: "Pending",
     JobStatus.RUNNING: "Running",
@@ -53,13 +53,30 @@ def _fmt_dt(value: str) -> str:
         return value[:16] if value else ""
 
 
+def files_cell_text(job: RenameJob) -> str:
+    """Spec §11 Files column: '3 files (2 comp.)'; companion suffix drops at 0."""
+    videos = job.selected_video_count
+    noun = "file" if videos == 1 else "files"
+    text = f"{videos} {noun}"
+    companions = job.selected_companion_count
+    if companions:
+        text += f" ({companions} comp.)"
+    return text
+
+
+def _transition_tint(token: str, alpha: int) -> QColor:
+    color = _theme_qcolor(token)
+    color.setAlpha(alpha)
+    return color
+
+
 class JobTableModel(QAbstractTableModel):
     """Read-only model exposing RenameJob rows to a QTableView."""
 
     _TRANSITION_COLORS = {
-        JobStatus.COMPLETED: QColor(62, 164, 99, 50),   # success tint
-        JobStatus.FAILED: QColor(212, 64, 64, 50),      # error tint
-        JobStatus.REVERTED: QColor(74, 158, 218, 40),   # info tint
+        JobStatus.COMPLETED: _transition_tint("success", 50),
+        JobStatus.FAILED: _transition_tint("error", 50),
+        JobStatus.REVERTED: _transition_tint("info", 40),
     }
 
     def __init__(self, *, history: bool = False, parent=None) -> None:
@@ -190,15 +207,12 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return job.job_kind.title()
             if value_column == 4:
-                return str(job.selected_video_count)
+                return files_cell_text(job)
             if value_column == 5:
-                comp = job.selected_companion_count
-                return str(comp) if comp else ""
-            if value_column == 6:
                 return _fmt_dt(job.updated_at if self._history else job.created_at)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if column in (0, 1, 3, 4, 5, 6, 7):
+            if column in (0, 1, 3, 4, 5, 6):
                 return int(Qt.AlignmentFlag.AlignCenter)
             return int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
@@ -227,8 +241,6 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 4:
                 return int(job.selected_video_count or 0)
             if value_column == 5:
-                return job.selected_companion_count
-            if value_column == 6:
                 return job.updated_at if self._history else job.created_at
 
         return None

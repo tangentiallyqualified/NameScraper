@@ -203,11 +203,9 @@ class _JobListTab(QWidget):
         self._header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self._header.resizeSection(0, 36)
         self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self._header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        self._header.resizeSection(7, 92)
-        for column in (1, 3, 4, 5, 6, 7):
-            if column == 7:
-                continue
+        self._header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        self._header.resizeSection(6, 92)
+        for column in (1, 3, 4, 5):
             self._header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
 
         self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)

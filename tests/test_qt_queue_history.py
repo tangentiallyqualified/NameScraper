@@ -19,8 +19,12 @@ from conftest_qt import QtSmokeBase
 
 
 class QtQueueHistoryTests(QtSmokeBase):
-    def test_job_table_file_and_companion_columns_do_not_double_count(self):
-        from plex_renamer.gui_qt.models.job_table_model import JobTableModel, SORT_ROLE
+    def test_job_table_files_column_merges_selected_counts(self):
+        from plex_renamer.gui_qt.models.job_table_model import (
+            SORT_ROLE,
+            JobTableModel,
+            files_cell_text,
+        )
         from plex_renamer.job_store import RenameJob, RenameOp
 
         job = RenameJob(
@@ -65,10 +69,50 @@ class QtQueueHistoryTests(QtSmokeBase):
         model = JobTableModel(history=False)
         model.set_jobs([job])
 
-        self.assertEqual(model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole), "1")
-        self.assertEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.columnCount(), 7)
+        self.assertEqual(
+            model.headerData(5, Qt.Orientation.Horizontal), "Files"
+        )
+        self.assertEqual(model.headerData(6, Qt.Orientation.Horizontal), "When")
+        # Only the selected pair counts: 1 video + 1 companion.
+        self.assertEqual(
+            model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole),
+            "1 file (1 comp.)",
+        )
         self.assertEqual(model.data(model.index(0, 5), SORT_ROLE), 1)
-        self.assertEqual(model.data(model.index(0, 6), SORT_ROLE), 1)
+        self.assertEqual(files_cell_text(job), "1 file (1 comp.)")
+        # When column renders a formatted date, not a count.
+        self.assertNotEqual(
+            model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1"
+        )
+
+    def test_job_table_files_column_omits_companion_suffix_when_none(self):
+        from plex_renamer.gui_qt.models.job_table_model import files_cell_text
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/a.mkv", new_name="A.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/b.mkv", new_name="B.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/c.mkv", new_name="C.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+            ],
+        )
+        self.assertEqual(files_cell_text(job), "3 files")
 
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
@@ -278,10 +322,10 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertFalse(history_tab._header.stretchLastSection())
             self.assertEqual(queue_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
             self.assertEqual(history_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
-            self.assertEqual(queue_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
-            self.assertEqual(history_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
-            self.assertLessEqual(queue_tab._header.sectionSize(7), 92)
-            self.assertLessEqual(history_tab._header.sectionSize(7), 92)
+            self.assertEqual(queue_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
+            self.assertEqual(history_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
+            self.assertLessEqual(queue_tab._header.sectionSize(6), 92)
+            self.assertLessEqual(history_tab._header.sectionSize(6), 92)
 
             self.assertEqual(queue_tab._model.rowCount(), 1)
             self.assertEqual(history_tab._model.rowCount(), 1)
