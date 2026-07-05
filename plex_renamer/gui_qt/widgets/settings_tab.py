@@ -129,8 +129,12 @@ class SettingsTab(QScrollArea):
                 "Matching",
                 "API Keys",
                 "Data",
+                "Tools",
             ]
         )
+        tools_item = self._settings_nav.item(self._settings_nav.count() - 1)
+        if tools_item is not None:
+            tools_item.setHidden(True)  # §13 seam: hidden until mkvmerge lands
         shell.addWidget(self._settings_nav)
 
         self._settings_stack = QStackedWidget()
@@ -142,6 +146,7 @@ class SettingsTab(QScrollArea):
         self._build_matching_section()
         self._build_api_keys_section()
         self._build_data_section()
+        self._build_tools_section()
         self._build_advanced_section()
 
         self._settings_nav.currentRowChanged.connect(self._settings_stack.setCurrentIndex)
@@ -171,6 +176,11 @@ class SettingsTab(QScrollArea):
 
     def _build_data_section(self) -> None:
         self._sections_builder.build_data_section()
+
+    # ── Tools ────────────────────────────────────────────────────
+
+    def _build_tools_section(self) -> None:
+        self._sections_builder.build_tools_section()
 
     def _on_clear_history(self) -> None:
         self._actions_coordinator.clear_history(message_box_api=QMessageBox)

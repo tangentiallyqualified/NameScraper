@@ -963,3 +963,19 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(tab._history_confirm.text(), "Cleared 2 history entries.")
         self.assertEqual(emitted, [True])
         tab.close()
+
+    def test_settings_tab_reserves_hidden_tools_section(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        nav = tab._settings_nav
+        self.assertEqual(nav.count(), tab._settings_stack.count())
+        tools_row = nav.count() - 1
+        self.assertEqual(nav.item(tools_row).text(), "Tools")
+        self.assertTrue(nav.item(tools_row).isHidden())      # §13: hidden until the feature lands
+        # The seam is live: revealing the row selects the reserved page.
+        nav.item(tools_row).setHidden(False)
+        nav.setCurrentRow(tools_row)
+        self.assertIs(tab._settings_stack.currentWidget(), tab._tools_page)
+        self.assertEqual(tab._tools_page._heading.text(), "Tools")
+        tab.close()
