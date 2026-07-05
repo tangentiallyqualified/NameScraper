@@ -4037,6 +4037,103 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_queue_post_success_sync_failure_reports_queued_with_warnings(self):
+        """add_batch succeeded (jobs exist) but the post-queue view sync
+        raised: report 'Queued With Warnings' instead of 'Queue Failed',
+        and still emit queue_changed so the queue tab learns."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def __init__(self):
+                self.called = False
+
+            def add_tv_batch(self, states, root, output_root, gating):
+                self.called = True
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        def _make_state(name: str, tmdb_id: int) -> ScanState:
+            return ScanState(
+                folder=Path(f"C:/library/tv/{name}"),
+                media_info={"id": tmdb_id, "name": name, "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path(f"C:/library/tv/{name}/Season 01/{name}.S01E01.mkv"),
+                        new_name=f"{name} (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path(f"C:/library/tv/{name}/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=True,
+                confidence=1.0,
+            )
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [
+                _make_state("Show.One.2024", 101),
+                _make_state("Show.Two.2024", 102),
+            ]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            calls = []
+
+            class _Box:
+                @staticmethod
+                def warning(parent, title, text):
+                    calls.append((title, text))
+
+            workspace._media_ctrl.sync_queued_states = lambda: (_ for _ in ()).throw(RuntimeError("sync boom"))
+            fired = []
+            workspace.queue_changed.connect(lambda: fired.append(True))
+            workspace._action_coordinator.queue_states(
+                media_ctrl.batch_states,
+                empty_message="Select at least one actionable item before queueing.",
+                warning_box=_Box,
+            )
+            self._app.processEvents()
+
+            self.assertTrue(queue_ctrl.called)                # batch handoff succeeded
+            self.assertEqual(calls[0][0], "Queued With Warnings")
+            self.assertIn("queued", calls[0][1])
+            self.assertEqual(fired, [True])                   # jobs exist; queue tab must learn
+
+            workspace.close()
+
     def test_media_workspace_queueing_shows_busy_overlay_during_handoff(self):
         from plex_renamer.gui_qt.widgets.busy_overlay import BusyOverlay
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
@@ -4416,6 +4513,27 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self.assertIn("3", toasts[0][1])                    # "Assigned 3 file(s)."
         table = state.assignments
         self.assertEqual(len(table.assignments()), 3)
+
+    def test_apply_with_skipped_pair_reports_error_tone_and_reason(self):
+        # One staged pair targets a slot that is no longer valid in the table
+        # (S1E99 doesn't exist — the claimed/invalid-slot skip path in
+        # apply_assignments): the single toast must switch to the error tone
+        # and spell out the skip reason.
+        workspace = self._tv_workspace_with_table_state()
+        state = workspace._selected_state()
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel.bulk_panel
+        panel.auto_map_remaining()
+        toasts: list[tuple] = []
+        workspace.toast_requested.connect(lambda *a: toasts.append(a))
+        staged = panel.staged_pairs()
+        pairs = staged[:-1] + [(staged[-1][0], 1, 99)]
+        workspace._on_bulk_apply(pairs)
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(len(toasts), 1)
+        self.assertEqual(toasts[0][2], "error")
+        self.assertIn("skipped (slot already claimed or no longer valid)", toasts[0][1])
+        self.assertEqual(len(state.assignments.assignments()), 2)
 
     def test_cancel_discards_and_restores_table(self):
         workspace = self._tv_workspace_with_table_state()

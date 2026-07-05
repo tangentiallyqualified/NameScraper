@@ -135,6 +135,48 @@ class AsyncGuideModelTests(QtSmokeBase):
         self.assertIs(self.model.guide(), fresh_guide)  # render kept, not reverted
         self.assertIs(self.cache.cached_guide_for_state(state), fresh_guide)
 
+    def test_failed_build_renders_error_row_not_permanent_skeleton(self):
+        state = _table_state("Show A")
+        self.model._guide_builder = lambda s: (_ for _ in ()).throw(RuntimeError("boom"))
+        self.model.show_state(state, collapsed_sections=set())
+        self.pending.pop()()                        # worker runs, builder raises
+        self._app.processEvents()
+        kinds = [entry.kind for entry in self.model._entries]
+        self.assertNotIn("skeleton", kinds)
+        self.assertEqual(kinds, ["section-label"])
+        row = self.model._entries[0].row_data
+        self.assertIn("failed", row.title)
+        self.assertIn("retry", row.title)
+        self.assertEqual(row.status_tone, "error")
+        self.assertEqual(self.model.summary_text(), "Guide unavailable")
+
+    def test_reselect_after_failure_schedules_a_fresh_build(self):
+        state = _table_state("Show A")
+        self.model._guide_builder = lambda s: (_ for _ in ()).throw(RuntimeError("boom"))
+        self.model.show_state(state, collapsed_sections=set())
+        self.pending.pop()()
+        self._app.processEvents()
+
+        def working_builder(s):
+            self.build_calls.append(s)
+            return self.cache.build_guide_with_signature(s)
+
+        self.model._guide_builder = working_builder
+        self.model.show_state(state, collapsed_sections=set())   # user reselects
+        self.assertEqual(len(self.pending), 1)                   # fresh build scheduled
+        self.pending.pop()()
+        self._app.processEvents()
+        self.assertIn("episode", {entry.kind for entry in self.model._entries})
+        self.assertNotEqual(self.model.summary_text(), "Guide unavailable")
+
+    def test_summary_text_says_loading_while_skeleton_is_up(self):
+        state = _table_state("Show A")
+        self.model.show_state(state, collapsed_sections=set())
+        self.assertEqual(self.model.summary_text(), "Loading episodes…")
+        self.pending.pop()()
+        self._app.processEvents()
+        self.assertTrue(self.model.summary_text().startswith("4 files"))
+
 
 class AsyncGuideWorkPanelTests(QtSmokeBase):
     """Panel behavior when the guide arrives while Bulk Assign is active."""

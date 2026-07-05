@@ -253,10 +253,11 @@ class MediaWorkspaceActionCoordinator:
                 return
             _refresh_episode_projection(workspace, state)
             workspace.refresh_from_controller()
+        tone = "error" if skipped else "success"
         message = f"Assigned {applied} file(s)."
         if skipped:
-            message += f" {skipped} skipped."
-        workspace.toast_requested.emit("Bulk Assign", message, "success")
+            message += f" {skipped} skipped (slot already claimed or no longer valid)."
+        workspace.toast_requested.emit("Bulk Assign", message, tone)
 
     def cancel_bulk_assign(self) -> None:
         workspace = self._workspace

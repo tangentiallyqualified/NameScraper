@@ -138,9 +138,10 @@ def queue_states(
             return
         add_batch = workspace._queue_ctrl.add_tv_batch
 
+    sync_error: Exception | None = None
     try:
         # An exception unwinds through the scope (dismissing the overlay)
-        # before the warning box appears — never a scrim under a modal.
+        # before any box appears — never a scrim under a modal.
         with busy_scope(workspace, "Queueing…", immediate=True):
             result = add_batch(
                 states,
@@ -148,14 +149,24 @@ def queue_states(
                 output_root,
                 workspace._media_ctrl.command_gating,
             )
-            workspace._media_ctrl.sync_queued_states()
-            workspace.refresh_from_controller()
-            workspace._restore_roster_selection_by_key(selected_key)
+            try:
+                workspace._media_ctrl.sync_queued_states()
+                workspace.refresh_from_controller()
+                workspace._restore_roster_selection_by_key(selected_key)
+            except Exception as exc:    # batch queued; only the view refresh failed
+                sync_error = exc
     except Exception as exc:
         warning_box.warning(workspace, "Queue Failed", str(exc))
         return
 
     workspace.queue_changed.emit()
+    if sync_error is not None:
+        warning_box.warning(
+            workspace,
+            "Queued With Warnings",
+            f"The items were queued, but the view failed to refresh.\n\n{sync_error}",
+        )
+        return
     workspace.status_message.emit(_format_batch_result(result), 5000)
 
 

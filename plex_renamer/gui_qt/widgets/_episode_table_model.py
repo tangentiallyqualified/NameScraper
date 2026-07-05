@@ -35,6 +35,7 @@ class _GuideBridge(QObject):
     """Worker → GUI-thread hop for built guides (mirrors the overview bridge)."""
 
     guide_ready = Signal(object, object, object, int)   # state, guide, signature, token
+    guide_failed = Signal(object, int)                  # state, token
 
 
 _SECTION_COLLAPSED_PREFIX = "▸ "
@@ -112,8 +113,10 @@ class EpisodeTableModel(QAbstractListModel):
         self._guide_builder = guide_builder
         self._guide_store = guide_store
         self._guide_token = 0
+        self._guide_error = False
         self._guide_bridge = _GuideBridge(self)
         self._guide_bridge.guide_ready.connect(self._on_guide_ready)
+        self._guide_bridge.guide_failed.connect(self._on_guide_failed)
 
     # -- QAbstractListModel overrides ------------------------------------
 
@@ -226,6 +229,10 @@ class EpisodeTableModel(QAbstractListModel):
             unmapped = 0
             duplicates = sum(1 for item in items if item.is_duplicate)
         elif self._guide is None:
+            if self._state is not None and self._guide_error:
+                return "Guide unavailable"
+            if self._state is not None:
+                return "Loading episodes…"
             total = mapped = companions = unmapped = duplicates = 0
         else:
             summary = self._guide.summary
@@ -350,6 +357,7 @@ class EpisodeTableModel(QAbstractListModel):
         old synchronous pull.
         """
         self._guide_token += 1
+        self._guide_error = False
         if self._cached_guide_provider is None or self._guide_builder is None:
             return self._guide_for_state(state)
         guide = self._cached_guide_provider(state)
@@ -364,6 +372,10 @@ class EpisodeTableModel(QAbstractListModel):
                 built, signature = builder(state)
             except Exception:
                 _log.exception("episode guide build failed for %s", state.folder)
+                try:
+                    bridge.guide_failed.emit(state, token)
+                except RuntimeError:
+                    pass    # bridge destroyed during shutdown
                 return
             try:
                 bridge.guide_ready.emit(state, built, signature, token)
@@ -383,6 +395,32 @@ class EpisodeTableModel(QAbstractListModel):
         self._entries = list(self._build_tv_entries(state, guide, self._folder_preview))
         self.endResetModel()
         self.guide_loaded.emit()
+
+    def _on_guide_failed(self, state, token: int) -> None:
+        if token != self._guide_token or state is not self._state:
+            return    # stale failure: a newer resolve superseded it
+        self._guide_error = True
+        self.beginResetModel()
+        self._entries = [self._guide_error_entry()]
+        self.endResetModel()
+        self.guide_loaded.emit()    # footer/toolbar refresh path (guide stays None)
+
+    def _guide_error_entry(self) -> _Entry:
+        title = "Episode guide failed to load — select the show again to retry"
+        row_data = EpisodeRowData(
+            kind="section-label",
+            title=title,
+            status_text=title,
+            status_tone="error",
+        )
+        return _Entry(
+            kind="section-label",
+            section_key=None,
+            text=row_data.title,
+            preview_index=None,
+            guide_row=None,
+            row_data=row_data,
+        )
 
     def _build_skeleton_entries(self, state: ScanState):
         count = max(
