@@ -781,6 +781,17 @@ QLabel[cssClass="job-detail-error"] {
     color: ${error};
 }
 
+/* History revert confirmation banner (spec §11). */
+QFrame[cssClass="revert-banner"] {
+    background-color: rgba(210, 153, 34, 0.10);
+    border: 1px solid ${warning};
+    border-radius: ${radius_md}px;
+}
+QLabel[cssClass="revert-banner-text"] {
+    color: ${warning};
+    background: transparent;
+}
+
 QLabel[cssClass="job-detail-fact-value"] {
     color: ${text};
     font-size: 12px;

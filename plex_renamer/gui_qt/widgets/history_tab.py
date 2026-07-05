@@ -6,6 +6,8 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
     QMenu,
@@ -13,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...constants import JobStatus
+from .. import _scale
 from ._history_tab_banner import hide_revert_banner, show_revert_banner
 from ._job_list_tab import _JobListTab
 from ._history_tab_state import (
@@ -59,30 +62,36 @@ class HistoryTab(_JobListTab):
         self._revert_btn.clicked.connect(self._revert_selected)
         self._actions_layout.addWidget(self._revert_btn)
 
+        self._revert_banner = QFrame()
+        self._revert_banner.setProperty("cssClass", "revert-banner")
+        banner_layout = QHBoxLayout(self._revert_banner)
+        banner_layout.setContentsMargins(
+            _scale.px(12), _scale.px(8), _scale.px(12), _scale.px(8)
+        )
+        banner_layout.setSpacing(_scale.px(8))
+
+        self._revert_info = QLabel("")
+        self._revert_info.setProperty("cssClass", "revert-banner-text")
+        self._revert_info.setWordWrap(True)
+        banner_layout.addWidget(self._revert_info, stretch=1)
+
         self._confirm_revert_btn = QPushButton("Confirm Revert")
         self._confirm_revert_btn.setProperty("cssClass", "danger")
         self._confirm_revert_btn.clicked.connect(self._confirm_revert)
-        self._confirm_revert_btn.hide()
-        self._actions_layout.addWidget(self._confirm_revert_btn)
+        banner_layout.addWidget(self._confirm_revert_btn)
 
         self._cancel_revert_btn = QPushButton("Cancel")
         self._cancel_revert_btn.setProperty("cssClass", "secondary")
         self._cancel_revert_btn.clicked.connect(self._cancel_revert)
-        self._actions_layout.addWidget(self._cancel_revert_btn)
+        banner_layout.addWidget(self._cancel_revert_btn)
 
-        self._revert_info = QLabel("")
-        self._revert_info.setProperty("cssClass", "text-dim")
-        self._actions_layout.addWidget(self._revert_info)
-
-        hide_revert_banner(
-            self._revert_btn,
-            self._confirm_revert_btn,
-            self._cancel_revert_btn,
-            self._revert_info,
-        )
+        hide_revert_banner(self._revert_banner, self._revert_btn)
 
         self._finish_toolbar(_HISTORY_FILTERS, position="bottom")
         self._finish_list_pane()
+        self._list_layout.insertWidget(
+            self._list_layout.count() - 1, self._revert_banner
+        )
         self.refresh()
 
     def refresh(self) -> None:
@@ -132,9 +141,8 @@ class HistoryTab(_JobListTab):
             return
         self._pending_revert_job_ids = banner_state.pending_job_ids
         show_revert_banner(
+            self._revert_banner,
             self._revert_btn,
-            self._confirm_revert_btn,
-            self._cancel_revert_btn,
             self._revert_info,
             info_text=banner_state.info_text,
         )
@@ -159,9 +167,4 @@ class HistoryTab(_JobListTab):
 
     def _cancel_revert(self) -> None:
         self._pending_revert_job_ids = []
-        hide_revert_banner(
-            self._revert_btn,
-            self._confirm_revert_btn,
-            self._cancel_revert_btn,
-            self._revert_info,
-        )
+        hide_revert_banner(self._revert_banner, self._revert_btn)

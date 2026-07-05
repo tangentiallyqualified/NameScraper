@@ -155,17 +155,19 @@ class QtQueueHistoryTests(QtSmokeBase):
             history_tab._revert_selected()
 
             self.assertTrue(history_tab._revert_btn.isHidden())
-            self.assertFalse(history_tab._confirm_revert_btn.isHidden())
-            self.assertFalse(history_tab._cancel_revert_btn.isHidden())
-            self.assertFalse(history_tab._revert_info.isHidden())
+            self.assertTrue(history_tab._revert_banner.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._confirm_revert_btn.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._cancel_revert_btn.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._revert_info.isVisibleTo(history_tab))
             self.assertIn("1 job, 2 files", history_tab._revert_info.text())
 
             history_tab._confirm_revert()
 
             queue_ctrl.revert_job.assert_called_once_with(job.job_id)
-            self.assertTrue(history_tab._confirm_revert_btn.isHidden())
-            self.assertTrue(history_tab._cancel_revert_btn.isHidden())
-            self.assertTrue(history_tab._revert_info.isHidden())
+            self.assertFalse(history_tab._revert_banner.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._confirm_revert_btn.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._cancel_revert_btn.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._revert_info.isVisibleTo(history_tab))
             self.assertFalse(history_tab._revert_btn.isHidden())
             history_tab.close()
             queue_ctrl.close()
@@ -734,6 +736,27 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertEqual(history_tab._revert_btn.property("cssClass"), "danger-outline")
             queue_tab.close()
             history_tab.close()
+            controller.close()
+
+    def test_revert_banner_is_a_styled_frame_between_table_and_actions(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            tab = HistoryTab(controller)
+            banner = tab._revert_banner
+            self.assertEqual(banner.property("cssClass"), "revert-banner")
+            self.assertFalse(banner.isVisibleTo(tab))          # hidden until armed
+            self.assertIs(tab._revert_info.parent(), banner)
+            self.assertIs(tab._confirm_revert_btn.parent(), banner)
+            self.assertIs(tab._cancel_revert_btn.parent(), banner)
+            layout_index = tab._list_layout.indexOf(banner)
+            actions_index = tab._list_layout.indexOf(tab._actions_bar)
+            self.assertGreaterEqual(layout_index, 0)
+            self.assertEqual(layout_index, actions_index - 1)  # directly above actions
+            tab.close()
             controller.close()
 
 

@@ -3,28 +3,12 @@
 from __future__ import annotations
 
 
-def show_revert_banner(
-    revert_button,
-    confirm_button,
-    cancel_button,
-    info_label,
-    *,
-    info_text: str,
-) -> None:
+def show_revert_banner(banner, revert_button, info_label, *, info_text: str) -> None:
     info_label.setText(info_text)
     revert_button.hide()
-    confirm_button.show()
-    cancel_button.show()
-    info_label.show()
+    banner.show()
 
 
-def hide_revert_banner(
-    revert_button,
-    confirm_button,
-    cancel_button,
-    info_label,
-) -> None:
-    confirm_button.hide()
-    cancel_button.hide()
-    info_label.hide()
+def hide_revert_banner(banner, revert_button) -> None:
+    banner.hide()
     revert_button.show()
