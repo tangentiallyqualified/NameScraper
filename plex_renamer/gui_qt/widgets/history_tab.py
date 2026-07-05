@@ -55,6 +55,7 @@ class HistoryTab(_JobListTab):
         self._pending_revert_job_ids: list[str] = []
 
         self._revert_btn = QPushButton("Revert Selected")
+        self._revert_btn.setProperty("cssClass", "danger-outline")
         self._revert_btn.clicked.connect(self._revert_selected)
         self._actions_layout.addWidget(self._revert_btn)
 

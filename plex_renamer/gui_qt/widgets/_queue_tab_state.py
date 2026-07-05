@@ -50,7 +50,8 @@ def build_queue_action_state(focused_job, checked_jobs: list) -> QueueActionStat
 
 
 def remove_button_css_class(*, enabled: bool) -> str:
-    return "danger" if enabled else "secondary"
+    del enabled  # danger-outline has its own :disabled QSS variant
+    return "danger-outline"
 
 
 def checked_pending_jobs(jobs: list) -> list:

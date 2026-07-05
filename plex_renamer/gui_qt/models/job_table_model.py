@@ -32,15 +32,6 @@ _STATUS_SORT_ORDER = {
 }
 
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-_STATUS_COLOR = {
-    JobStatus.PENDING: _theme_qcolor("text_dim"),
-    JobStatus.RUNNING: _theme_qcolor("accent"),
-    JobStatus.COMPLETED: _theme_qcolor("success"),
-    JobStatus.FAILED: _theme_qcolor("error"),
-    JobStatus.CANCELLED: _theme_qcolor("text_muted"),
-    JobStatus.REVERTED: _theme_qcolor("info"),
-    JobStatus.REVERT_FAILED: _theme_qcolor("error"),
-}
 
 
 def _fmt_dt(value: str) -> str:
@@ -215,9 +206,6 @@ class JobTableModel(QAbstractTableModel):
             if column in (0, 1, 3, 4, 5, 6):
                 return int(Qt.AlignmentFlag.AlignCenter)
             return int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-
-        if role == Qt.ItemDataRole.ForegroundRole and column == 1:
-            return _STATUS_COLOR.get(job.status)
 
         if role == Qt.ItemDataRole.BackgroundRole:
             highlight_status = self._highlight_jobs.get(job.job_id)

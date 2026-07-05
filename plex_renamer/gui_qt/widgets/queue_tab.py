@@ -66,7 +66,7 @@ class QueueTab(_JobListTab):
         self._actions_layout.addWidget(self._execute_btn)
 
         self._remove_btn = QPushButton("Remove Selected")
-        self._remove_btn.setProperty("cssClass", "secondary")
+        self._remove_btn.setProperty("cssClass", "danger-outline")
         self._remove_btn.clicked.connect(self._remove_selected)
         self._actions_layout.addWidget(self._remove_btn)
 

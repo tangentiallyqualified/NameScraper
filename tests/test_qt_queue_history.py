@@ -337,7 +337,7 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._detail_page)
             self.assertEqual(queue_tab._remove_btn.text(), "Remove Selected")
             self.assertFalse(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
             self.assertFalse(hasattr(queue_tab, "_tv_btn"))
             self.assertFalse(hasattr(queue_tab, "_movie_btn"))
 
@@ -355,12 +355,12 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertEqual(len(queue_tab._selected_jobs()), 1)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Checked)
             self.assertTrue(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
             queue_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 0)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Unchecked)
             self.assertFalse(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
 
             history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 1)
@@ -662,6 +662,79 @@ class QtQueueHistoryTests(QtSmokeBase):
         self._assert_roster_section_title(window._tv_workspace, 0, "FULLY READY")
 
         window.close()
+
+    def test_job_status_tone_map_covers_every_status(self):
+        from plex_renamer.gui_qt.widgets._job_list_tab import _JOB_STATUS_TONE
+
+        for status in (
+            JobStatus.PENDING, JobStatus.RUNNING, JobStatus.COMPLETED,
+            JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED,
+        ):
+            self.assertIn(status, _JOB_STATUS_TONE)
+
+    def test_queue_table_row_height_and_no_alternation(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            self.assertEqual(
+                tab._table.verticalHeader().defaultSectionSize(), _scale.px(36)
+            )
+            self.assertFalse(tab._table.alternatingRowColors())
+            tab.close()
+            controller.close()
+
+    def test_status_pill_paints_without_error(self):
+        from PySide6.QtGui import QPainter, QPixmap
+        from PySide6.QtWidgets import QStyleOptionViewItem
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            store.add_job(RenameJob(
+                library_root="C:/library", source_folder="Show",
+                media_name="Example Show",
+            ))
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            index = tab._proxy.index(0, 1)
+            self.assertTrue(index.isValid())
+            pixmap = QPixmap(200, 40)
+            painter = QPainter(pixmap)
+            option = QStyleOptionViewItem()
+            option.rect = pixmap.rect()
+            try:
+                tab._hover_delegate._paint_status_pill(painter, option, index)
+            finally:
+                painter.end()
+            tab.close()
+            controller.close()
+
+    def test_remove_and_revert_buttons_use_danger_outline(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets._queue_tab_state import remove_button_css_class
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        self.assertEqual(remove_button_css_class(enabled=True), "danger-outline")
+        self.assertEqual(remove_button_css_class(enabled=False), "danger-outline")
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            queue_tab = QueueTab(controller)
+            history_tab = HistoryTab(controller)
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
+            self.assertEqual(history_tab._revert_btn.property("cssClass"), "danger-outline")
+            queue_tab.close()
+            history_tab.close()
+            controller.close()
 
 
 if __name__ == "__main__":

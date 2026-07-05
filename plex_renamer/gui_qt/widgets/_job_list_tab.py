@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter
+from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -23,14 +23,28 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...constants import JobStatus
 from ...job_store import RenameJob
-from .. import theme
+from .. import _scale, theme
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
 
 _HOVER_COLOR = theme.qcolor("card_hover")
 _SELECTED_ROW_COLOR = theme.qcolor("selection_bg")
+
+_STATUS_COLUMN = 1
+_NAME_COLUMN = 2
+# Painted-pill tones (workspace idiom: 12% wash + tone text, radius "pill").
+_JOB_STATUS_TONE = {
+    JobStatus.PENDING: "text_dim",
+    JobStatus.RUNNING: "accent",
+    JobStatus.COMPLETED: "success",
+    JobStatus.FAILED: "error",
+    JobStatus.CANCELLED: "text_dim",
+    JobStatus.REVERTED: "info",
+    JobStatus.REVERT_FAILED: "error",
+}
 
 
 class _CheckableHeaderView(QHeaderView):
@@ -124,6 +138,13 @@ class _HoverRowDelegate(QStyledItemDelegate):
         if index.column() == 0:
             self._paint_checkbox(painter, paint_option, index)
             return
+        if index.column() == _STATUS_COLUMN:
+            self._paint_status_pill(painter, paint_option, index)
+            return
+        if index.column() == _NAME_COLUMN and index.row() == highlight_row:
+            paint_option.palette.setColor(
+                QPalette.ColorRole.Text, theme.qcolor("accent")
+            )
 
         super().paint(painter, paint_option, index)
 
@@ -149,6 +170,39 @@ class _HoverRowDelegate(QStyledItemDelegate):
         else:
             checkbox.state |= QStyle.StateFlag.State_Off
         self._table.style().drawControl(QStyle.ControlElement.CE_CheckBox, checkbox, painter)
+
+    def _paint_status_pill(
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> None:
+        text = index.data(Qt.ItemDataRole.DisplayRole) or ""
+        job = index.data(Qt.ItemDataRole.UserRole)
+        if not text or job is None:
+            return
+        tone_token = _JOB_STATUS_TONE.get(job.status, "text_dim")
+        color = theme.qcolor(tone_token)
+        label = str(text).upper()
+        metrics = option.fontMetrics
+        pill_width = min(
+            metrics.horizontalAdvance(label) + _scale.px(16),
+            max(_scale.px(24), option.rect.width() - _scale.px(4)),
+        )
+        pill_height = metrics.height() + _scale.px(4)
+        pill_rect = QRect(0, 0, pill_width, pill_height)
+        pill_rect.moveCenter(option.rect.center())
+        wash = QColor(color)
+        wash.setAlphaF(0.12)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(wash)
+        radius = theme.radius("pill")
+        painter.drawRoundedRect(pill_rect, radius, radius)
+        painter.setPen(color)
+        painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), label)
+        painter.restore()
 
 
 class _JobListTab(QWidget):
@@ -196,6 +250,7 @@ class _JobListTab(QWidget):
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(_scale.px(36))
         self._table.setShowGrid(False)
         self._header.setStretchLastSection(False)
         self._table.setMouseTracking(True)
