@@ -229,10 +229,10 @@ class EpisodeTableModel(QAbstractListModel):
             unmapped = 0
             duplicates = sum(1 for item in items if item.is_duplicate)
         elif self._guide is None:
-            if self._state is not None and self._guide_error:
-                return "Guide unavailable"
-            if self._state is not None:
-                return "Loading episodes…"
+            # Scan-error states never enter the loading pipeline: their footer
+            # reports plain counts, not loading/error strings (final-review I1).
+            if self._state is not None and not self._state.scan_error:
+                return "Guide unavailable" if self._guide_error else "Loading episodes…"
             total = mapped = companions = unmapped = duplicates = 0
         else:
             summary = self._guide.summary

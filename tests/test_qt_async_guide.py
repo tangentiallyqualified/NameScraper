@@ -177,6 +177,20 @@ class AsyncGuideModelTests(QtSmokeBase):
         self._app.processEvents()
         self.assertTrue(self.model.summary_text().startswith("4 files"))
 
+    def test_summary_text_for_scan_error_state_reports_counts_not_loading(self):
+        """Final-review I1: a scan-error state never enters the loading
+        pipeline, so its footer must not claim loading — nor inherit a stale
+        "Guide unavailable" from a previously failed build on another state."""
+        state = _table_state("Show A")
+        self.model._guide_builder = lambda s: (_ for _ in ()).throw(RuntimeError("boom"))
+        self.model.show_state(state, collapsed_sections=set())
+        self.pending.pop()()
+        self._app.processEvents()                       # _guide_error now True
+        error_state = _table_state("Show B", media_id=102)
+        error_state.scan_error = "TMDB unreachable"
+        self.model.show_state(error_state, collapsed_sections=set())
+        self.assertEqual(self.model.summary_text(), "0 files · 0 mapped")
+
 
 class AsyncGuideWorkPanelTests(QtSmokeBase):
     """Panel behavior when the guide arrives while Bulk Assign is active."""
