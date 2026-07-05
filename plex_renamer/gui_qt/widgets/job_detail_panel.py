@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, Signal, QUrl
+from PySide6.QtCore import QObject, QRect, Qt, Signal, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -93,6 +93,48 @@ class _ElidedPreviewLabel(QLabel):
         )
         self._display_text = display
         super().setText(display)
+
+
+class _WrappedFitLabel(QLabel):
+    """Word-wrapped label that reserves its wrapped height at its ACTUAL width.
+
+    Under a Maximum-height card the layout gives word-wrapped labels no
+    height-for-width pass, and the empty card is centered at its sizeHint
+    width (``AlignCenter`` overrides the card's Expanding policy), so its
+    runtime width sits well below ``maximumWidth()``. A minimum height
+    computed from the max width therefore under-provisions and the last line
+    clips. Re-pinning from the real laid-out width on every text change,
+    resize, and show keeps the wrapped text fully visible at any font, DPI,
+    or panel size.
+    """
+
+    def _repin_wrapped_height(self) -> None:
+        width = self.width()
+        if width <= 1:
+            return
+        # QLabel.heightForWidth folds in the current minimumHeight (it returns
+        # max(text_height, minimumHeight)), so re-pinning from it would ratchet
+        # the reserved height ever taller. Measure the true wrapped text height
+        # from font metrics instead -- stable regardless of the current minimum.
+        content_width = max(1, width - 2 * self.margin())
+        text_rect = self.fontMetrics().boundingRect(
+            QRect(0, 0, content_width, 1 << 20),
+            int(Qt.TextFlag.TextWordWrap),
+            self.text(),
+        )
+        self.setMinimumHeight(text_rect.height() + 2 * self.margin())
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        super().setText(text)
+        self._repin_wrapped_height()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._repin_wrapped_height()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._repin_wrapped_height()
 
 
 class _RenamePreviewWidget(QWidget):
@@ -223,7 +265,7 @@ class JobDetailPanel(QFrame):
         self._empty_title.setMinimumHeight((self._empty_title.fontMetrics().lineSpacing() * 2) + 10)
         empty_card_layout.addWidget(self._empty_title)
 
-        self._empty_message = QLabel("")
+        self._empty_message = _WrappedFitLabel("")
         self._empty_message.setProperty("cssClass", "text-dim")
         self._empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_message.setWordWrap(True)
@@ -526,16 +568,9 @@ class JobDetailPanel(QFrame):
         refresh_preview_item_sizes(self._preview_tree)
 
     def _update_empty_message(self) -> None:
+        # _WrappedFitLabel re-pins its own wrapped height from its actual
+        # laid-out width on setText/resize/show, so the last line cannot clip.
         self._empty_message.setText(job_detail_empty_message(history_mode=self._history_mode))
-        # Word-wrapped labels under a Maximum-height card get no
-        # height-for-width pass from the layout; pin the minimum to the
-        # wrapped height at the card's content width so the last line
-        # cannot clip.
-        margins = self._empty_card.layout().contentsMargins()
-        content_width = self._empty_card.maximumWidth() - margins.left() - margins.right()
-        self._empty_message.setMinimumHeight(
-            self._empty_message.heightForWidth(content_width)
-        )
 
     def _primary_target_path(self, job: RenameJob) -> Path | None:
         return primary_target_path(job)

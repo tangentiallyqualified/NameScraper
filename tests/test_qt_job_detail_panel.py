@@ -835,3 +835,47 @@ class QtJobDetailPanelTests(QtSmokeBase):
                 f"{message.height()}px shown, {needed}px needed",
             )
         panel.close()
+
+    def test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened(self):
+        # The smoke suite runs offscreen without QT_QPA_FONTDIR, so the empty
+        # card's real-font wrapping can't be reproduced here (the clip is
+        # confirmed via offscreen grabs instead). This pins _WrappedFitLabel's
+        # own contract font-independently: at a narrow width it reserves at
+        # least the true wrapped height (no clip), and WIDENING it must shrink
+        # the reserve. The shrink is the ratchet guard: QLabel.heightForWidth
+        # returns max(text_height, minimumHeight), so a heightForWidth-based
+        # re-pin would stay stuck at the taller narrow-width value forever.
+        from PySide6.QtCore import QRect, Qt
+
+        from plex_renamer.gui_qt.widgets.job_detail_panel import _WrappedFitLabel
+
+        text = (
+            "Queued jobs will appear here. Select one to review its rename "
+            "preview, poster, and file locations."
+        )
+        label = _WrappedFitLabel(text)
+        label.setWordWrap(True)
+        label.setMargin(4)
+        label.resize(150, 10)
+        label.show()
+        self._app.processEvents()
+
+        line_spacing = label.fontMetrics().lineSpacing()
+        content_width = label.width() - 2 * label.margin()
+        true_narrow = label.fontMetrics().boundingRect(
+            QRect(0, 0, content_width, 1 << 20),
+            int(Qt.TextFlag.TextWordWrap),
+            text,
+        ).height() + 2 * label.margin()
+
+        narrow_reserve = label.minimumHeight()
+        self.assertGreater(narrow_reserve, line_spacing, "wrap not exercised")
+        self.assertGreaterEqual(narrow_reserve, true_narrow, "reserved height clips the text")
+
+        label.resize(460, 10)
+        self._app.processEvents()
+        self.assertLess(
+            label.minimumHeight(), narrow_reserve,
+            "widening did not shrink the reserved height (heightForWidth ratchet)",
+        )
+        label.close()
