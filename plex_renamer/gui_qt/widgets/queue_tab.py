@@ -78,6 +78,7 @@ class QueueTab(_JobListTab):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_queue()
         self._model.set_jobs(jobs)
+        self._sync_empty_state()
         toolbar_state = build_queue_toolbar_state(
             jobs,
             shown_count=self._proxy.rowCount(),

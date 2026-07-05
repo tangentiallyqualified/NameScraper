@@ -759,6 +759,50 @@ class QtQueueHistoryTests(QtSmokeBase):
             tab.close()
             controller.close()
 
+    def test_empty_queue_table_shows_illustrated_empty_state(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            queue_tab = QueueTab(controller)
+            history_tab = HistoryTab(controller)
+            self.assertIs(
+                queue_tab._table_stack.currentWidget(), queue_tab._table_empty
+            )
+            self.assertEqual(queue_tab._table_empty._heading.text(), "Queue is empty")
+            self.assertIs(
+                history_tab._table_stack.currentWidget(), history_tab._table_empty
+            )
+            self.assertEqual(history_tab._table_empty._heading.text(), "No history yet")
+            queue_tab.close()
+            history_tab.close()
+            controller.close()
+
+    def test_jobs_flip_the_stack_to_the_table_and_filters_show_no_match(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            store.add_job(RenameJob(
+                library_root="C:/library", source_folder="Show",
+                media_name="Example Show",
+            ))
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            self.assertIs(tab._table_stack.currentWidget(), tab._table)
+            tab._filter_control.currentTextChanged.emit("Running")
+            self._app.processEvents()
+            self.assertIs(tab._table_stack.currentWidget(), tab._table_empty)
+            self.assertEqual(tab._table_empty._heading.text(), "No matching jobs")
+            self.assertIn("Running", tab._table_empty._hint.text())
+            tab.close()
+            controller.close()
+
 
 if __name__ == "__main__":
     unittest.main()

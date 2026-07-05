@@ -8,12 +8,14 @@ from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, Qt, 
 from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMenu,
     QSplitter,
+    QStackedWidget,
     QStyle,
     QStyleOptionButton,
     QStyleOptionViewItem,
@@ -205,6 +207,42 @@ class _HoverRowDelegate(QStyledItemDelegate):
         painter.restore()
 
 
+class _TableEmptyState(QFrame):
+    """Centered icon + heading + hint shown instead of an empty job table
+    (spec §11: illustration treatment consistent with the workspace empty
+    state's drop-zone language)."""
+
+    def __init__(self, *, heading: str, hint: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setProperty("cssClass", "table-empty-state")
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(_scale.px(10))
+
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        style = QApplication.style()
+        if style is not None:
+            icon = style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+            icon_label.setPixmap(icon.pixmap(_scale.icon("xl")))
+        layout.addWidget(icon_label)
+
+        self._heading = QLabel(heading)
+        self._heading.setProperty("cssClass", "heading")
+        self._heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._heading)
+
+        self._hint = QLabel(hint)
+        self._hint.setProperty("cssClass", "text-dim")
+        self._hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._hint.setWordWrap(True)
+        layout.addWidget(self._hint)
+
+    def set_texts(self, *, heading: str, hint: str) -> None:
+        self._heading.setText(heading)
+        self._hint.setText(hint)
+
+
 class _JobListTab(QWidget):
     """Shared table/detail/filter shell for queue and history tabs."""
 
@@ -265,6 +303,20 @@ class _JobListTab(QWidget):
 
         self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)
         self._table.setItemDelegate(self._hover_delegate)
+
+        if history:
+            self._empty_heading = "No history yet"
+            self._empty_hint = "Completed, failed, and reverted jobs will appear here."
+        else:
+            self._empty_heading = "Queue is empty"
+            self._empty_hint = "Approve items in the TV or Movies tab, then queue them here."
+        self._current_filter_label = "All"
+        self._table_empty = _TableEmptyState(
+            heading=self._empty_heading, hint=self._empty_hint
+        )
+        self._table_stack = QStackedWidget()
+        self._table_stack.addWidget(self._table)
+        self._table_stack.addWidget(self._table_empty)
 
         self._table.setSortingEnabled(True)
         self._header.setSectionsClickable(True)
@@ -338,7 +390,7 @@ class _JobListTab(QWidget):
         self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
 
     def _finish_list_pane(self) -> None:
-        self._list_layout.addWidget(self._table, stretch=1)
+        self._list_layout.addWidget(self._table_stack, stretch=1)
         if not self._actions_layout_has_stretch:
             self._actions_layout.insertStretch(0, 1)
             self._actions_layout_has_stretch = True
@@ -372,9 +424,25 @@ class _JobListTab(QWidget):
         return self._model.job_at(source_index.row())
 
     def _apply_filter(self, label: str) -> None:
+        self._current_filter_label = label
         self._proxy.set_allowed_statuses(self._filters.get(label))
         self._retain_visible_checked_jobs()
         self.refresh()
+
+    def _sync_empty_state(self) -> None:
+        if self._proxy.rowCount() > 0:
+            self._table_stack.setCurrentWidget(self._table)
+            return
+        if self._model.rowCount() > 0:
+            self._table_empty.set_texts(
+                heading="No matching jobs",
+                hint=f"No jobs match the {self._current_filter_label} filter.",
+            )
+        else:
+            self._table_empty.set_texts(
+                heading=self._empty_heading, hint=self._empty_hint
+            )
+        self._table_stack.setCurrentWidget(self._table_empty)
 
     def _select_all(self) -> None:
         self._model.set_jobs_checked(self._visible_job_ids(checkable_only=True), True)

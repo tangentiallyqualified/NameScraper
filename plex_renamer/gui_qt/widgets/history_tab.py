@@ -97,6 +97,7 @@ class HistoryTab(_JobListTab):
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_history()
         self._model.set_jobs(jobs)
+        self._sync_empty_state()
         toolbar_state = build_history_toolbar_state(
             jobs,
             shown_count=self._proxy.rowCount(),
