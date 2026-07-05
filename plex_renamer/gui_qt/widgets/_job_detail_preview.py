@@ -20,6 +20,8 @@ class JobPreviewRow:
     after: str
     before_label: str = "Original"
     after_label: str = "New"
+    badge: str = ""
+    children: tuple["JobPreviewRow", ...] = ()
 
 
 @dataclass(frozen=True)
@@ -30,6 +32,44 @@ class JobPreviewGroup:
 
 
 JobPreviewEntry = JobPreviewRow | JobPreviewGroup
+
+
+_TYPE_BADGES = {"subtitle": "SUB"}
+
+
+def type_badge(file_type: str) -> str:
+    return _TYPE_BADGES.get(file_type, (file_type[:4] or "file").upper())
+
+
+def pair_companions_with_videos(
+    video_ops: list[RenameOp],
+    companion_ops: list[RenameOp],
+) -> tuple[dict[int, list[RenameOp]], list[RenameOp]]:
+    """Pair each companion with the video whose target stem prefixes the
+    companion's ``new_name`` in the same target dir (longest stem wins).
+
+    Read-model heuristic only — ``RenameOp`` persists no linkage and §16
+    forbids job-store schema changes.  Unmatched companions are returned
+    for the residual "Companion Files" group, never dropped.
+    """
+    paired: dict[int, list[RenameOp]] = {}
+    unpaired: list[RenameOp] = []
+    for companion in companion_ops:
+        best: RenameOp | None = None
+        best_stem_len = -1
+        for video in video_ops:
+            if video.target_dir_relative != companion.target_dir_relative:
+                continue
+            stem = Path(video.new_name).stem
+            if not stem or not companion.new_name.startswith(stem + "."):
+                continue
+            if len(stem) > best_stem_len:
+                best, best_stem_len = video, len(stem)
+        if best is None:
+            unpaired.append(companion)
+        else:
+            paired.setdefault(id(best), []).append(companion)
+    return paired, unpaired
 
 
 def build_job_preview_entries(job: RenameJob) -> list[JobPreviewEntry]:
@@ -77,14 +117,15 @@ def build_job_preview_entries(job: RenameJob) -> list[JobPreviewEntry]:
 
     video_ops = [op for op in ops if op.file_type == "video"]
     companion_ops = [op for op in ops if op.file_type != "video"]
+    paired, unpaired = pair_companions_with_videos(video_ops, companion_ops)
 
-    entries.extend(_build_video_preview_entries(job, video_ops))
+    entries.extend(_build_video_preview_entries(job, video_ops, paired))
 
-    if companion_ops:
+    if unpaired:
         entries.append(
             JobPreviewGroup(
-                label=f"Companion Files ({len(companion_ops)})",
-                rows=[_preview_row_for_op(op) for op in companion_ops],
+                label=f"Companion Files ({len(unpaired)})",
+                rows=[_preview_row_for_op(op) for op in unpaired],
                 expanded=False,
             )
         )
@@ -101,7 +142,11 @@ def _output_top_folder_name(job: RenameJob) -> str | None:
     return None
 
 
-def _build_video_preview_entries(job: RenameJob, video_ops: list[RenameOp]) -> list[JobPreviewEntry]:
+def _build_video_preview_entries(
+    job: RenameJob,
+    video_ops: list[RenameOp],
+    paired: dict[int, list[RenameOp]],
+) -> list[JobPreviewEntry]:
     if not video_ops:
         return []
 
@@ -120,20 +165,31 @@ def _build_video_preview_entries(job: RenameJob, video_ops: list[RenameOp]) -> l
             entries.append(
                 JobPreviewGroup(
                     label=label,
-                    rows=[_preview_row_for_op(op) for op in season_ops],
+                    rows=[_video_preview_row(op, paired) for op in season_ops],
                     expanded=False,
                 )
             )
         return entries
 
-    rows = [_preview_row_for_op(op) for op in video_ops]
+    rows = [_video_preview_row(op, paired) for op in video_ops]
     if job.media_type == "movie":
         return [JobPreviewGroup(label="File Rename", rows=rows, expanded=True)]
     return rows
 
 
-def _preview_row_for_op(op: RenameOp) -> JobPreviewRow:
+def _video_preview_row(op: RenameOp, paired: dict[int, list[RenameOp]]) -> JobPreviewRow:
+    children = tuple(_preview_row_for_op(c) for c in paired.get(id(op), ()))
     return JobPreviewRow(
         before=Path(op.original_relative).name,
         after=op.new_name,
+        children=children,
+    )
+
+
+def _preview_row_for_op(op: RenameOp) -> JobPreviewRow:
+    badge = type_badge(op.file_type) if op.file_type != "video" else ""
+    return JobPreviewRow(
+        before=Path(op.original_relative).name,
+        after=op.new_name,
+        badge=badge,
     )
