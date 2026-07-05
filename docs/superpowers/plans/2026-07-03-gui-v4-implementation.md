@@ -16,7 +16,7 @@
 | 5 | [2026-07-04-gui-v4-plan5-async-perf.md](2026-07-04-gui-v4-plan5-async-perf.md) | §7 async guide build, BusyOverlay, warm-cache deletion, perf guard test | **Landed** 2026-07-04 (commits 53ba242..3765d5a, review clean) |
 | 6 | [2026-07-04-gui-v4-plan6-toasts-loading.md](2026-07-04-gui-v4-plan6-toasts-loading.md) | §9 toasts, §10 loading screen | **Landed** 2026-07-04 (commits eb5ea11..6793ccf, review clean) |
 | 7 | [2026-07-04-gui-v4-plan7-queue-history.md](2026-07-04-gui-v4-plan7-queue-history.md) | §11 queue/history restyle + companion surfacing | **Landed** 2026-07-05 (commits c597dbb..bd9d579, review With-Fixes → fixed, re-verified) |
-| 8 | [2026-07-05-gui-v4-plan8-settings-seams.md](2026-07-05-gui-v4-plan8-settings-seams.md) | §12 settings restyle, §13 mkvmerge UI seams | **Written** 2026-07-05 — awaiting execution |
+| 8 | [2026-07-05-gui-v4-plan8-settings-seams.md](2026-07-05-gui-v4-plan8-settings-seams.md) | §12 settings restyle, §13 mkvmerge UI seams | **Landed** 2026-07-05 (commits dd3e647..cb24bd7, review With-Fixes → fixed, re-verified) |
 | 9 | `gui-v4-plan9-final-pass.md` (to write) | §18 DPI pass (100/150/200%), real-library validation, string/perf sweep re-run | not written |
 
 Milestone mapping vs spec §19: plans 2 and 3 absorb milestone 4 (chips/strip/footer render inside the roster and work-panel builds); plan 8 merges milestones 9's settings work with §13 seams; menu/shortcut fixes from milestone 9 were pulled forward into Plan 1 because they are independent, small, and de-risk daily use immediately (dangerous Ctrl+Z).
