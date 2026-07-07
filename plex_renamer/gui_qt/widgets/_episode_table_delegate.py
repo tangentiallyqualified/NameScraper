@@ -22,14 +22,18 @@ from ._episode_table_model import (
     SECTION_KEY_ROLE,
     EpisodeRowData,
 )
-from ._workspace_widget_primitives import paint_check_indicator, paint_mini_progress
+from ._workspace_widget_primitives import paint_check_indicator
 
 _ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U, _ROW_MOVIE_U = 30, 34, 52, 52
-_CHEVRON_U, _TOGGLE_U, _PILL_H_U, _BAR_W_U, _MARGIN_U = 16, 20, 18, 70, 8
+_CHEVRON_U, _TOGGLE_U, _PILL_H_U, _MARGIN_U = 16, 20, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
 
 _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "muted": "text_dim"}
+
+# Review-pill confidence band thresholds (percent); mirrors
+# _media_helpers.confidence_band's 0.85 / 0.5 score thresholds.
+_PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
 
 _HEADER_KINDS = {"section-header", "section-label"}
 _CHEVRON_KINDS = {"episode", "movie-file"}
@@ -99,8 +103,22 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             x += _scale.px(_TOGGLE_U) + margin
         return x
 
+    def pill_text(self, row_data: EpisodeRowData) -> str:
+        if row_data.confidence_pct is not None and row_data.status_text in ("Review", "Matched"):
+            return f"{row_data.status_text} {row_data.confidence_pct}%"
+        return row_data.status_text
+
+    def pill_tone(self, row_data: EpisodeRowData) -> str:
+        if row_data.status_text == "Review" and row_data.confidence_pct is not None:
+            if row_data.confidence_pct >= _PILL_BAND_HIGH_PCT:
+                return "success"
+            if row_data.confidence_pct >= _PILL_BAND_MID_PCT:
+                return "warning"
+            return "error"
+        return row_data.status_tone
+
     def _pill_rect(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> QRect:
-        text = row_data.status_text.upper()
+        text = self.pill_text(row_data).upper()
         pad = _scale.px(_PILL_HPAD_U)
         height = _scale.px(_PILL_H_U)
         margin = _scale.px(_MARGIN_U)
@@ -316,12 +334,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             )
         painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), title_text)
 
-        if row_data.confidence_pct is not None and row_data.status_text == "Review":
-            bar_x = pill_rect.x() - margin - _scale.px(_BAR_W_U)
-            bar_rect = QRect(bar_x, first_line_rect.y() + (line_height - _scale.px(4)) // 2, _scale.px(_BAR_W_U), _scale.px(4))
-            color = theme.qcolor(_TONE_COLOR.get(row_data.status_tone, "text_dim"))
-            paint_mini_progress(painter, bar_rect, value=row_data.confidence_pct, color=color)
-
         if has_second_line:
             second_line_rect = QRect(title_x, first_line_y + line_height, title_width, line_height)
             second_text = metrics.elidedText(row_data.filename, Qt.TextElideMode.ElideMiddle, title_width)
@@ -339,9 +351,10 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
     def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: EpisodeRowData, *, ghost: bool) -> None:
-        if not row_data.status_text:
+        text = self.pill_text(row_data)
+        if not text:
             return
-        tone_token = "text_dim" if ghost else _TONE_COLOR.get(row_data.status_tone, "text_dim")
+        tone_token = "text_dim" if ghost else _TONE_COLOR.get(self.pill_tone(row_data), "text_dim")
         fill = theme.qcolor(tone_token)
         fill.setAlphaF(0.12)
         painter.save()
@@ -350,7 +363,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         radius = theme.radius("pill")
         painter.drawRoundedRect(pill_rect, radius, radius)
         painter.setPen(theme.qcolor(tone_token))
-        painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), row_data.status_text.upper())
+        painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), text.upper())
         painter.restore()
 
 

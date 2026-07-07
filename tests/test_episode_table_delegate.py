@@ -123,3 +123,41 @@ class EpisodeTableDelegateTests(QtSmokeBase):
                          Qt.KeyboardModifier.NoModifier, rect.center())
         self.assertEqual(fired, [True])
         view.close()
+
+
+class PillConfidenceTests(QtSmokeBase):
+    def _delegate(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        view = EpisodeTableView()
+        return EpisodeTableDelegate(view, media_type="tv")
+
+    def _row(self, **kw):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        base = dict(kind="episode", title="S01E01 · Pilot", status_text="Review",
+                    status_tone="warning", confidence_pct=72)
+        base.update(kw)
+        return EpisodeRowData(**base)
+
+    def test_review_pill_text_includes_percent(self):
+        d = self._delegate()
+        self.assertEqual(d.pill_text(self._row(confidence_pct=72)), "Review 72%")
+
+    def test_matched_pill_text_includes_percent(self):
+        d = self._delegate()
+        self.assertEqual(
+            d.pill_text(self._row(status_text="Matched", status_tone="success", confidence_pct=96)),
+            "Matched 96%")
+
+    def test_review_pill_tone_follows_band(self):
+        d = self._delegate()
+        self.assertEqual(d.pill_tone(self._row(confidence_pct=90)), "success")
+        self.assertEqual(d.pill_tone(self._row(confidence_pct=60)), "warning")
+        self.assertEqual(d.pill_tone(self._row(confidence_pct=30)), "error")
+
+    def test_missing_file_pill_text_unchanged(self):
+        d = self._delegate()
+        r = self._row(status_text="Missing File", status_tone="muted", confidence_pct=None)
+        self.assertEqual(d.pill_text(r), "Missing File")
+        self.assertEqual(d.pill_tone(r), "muted")
