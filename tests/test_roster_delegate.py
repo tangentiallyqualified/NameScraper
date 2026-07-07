@@ -37,12 +37,13 @@ class RosterDelegateTests(QtSmokeBase):
 
     def test_size_hints_differ_by_kind_and_mode(self):
         from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U
 
         view, model, delegate = self._view([_make_state("A")])
         header_h = view.sizeHintForRow(0)
         state_h = view.sizeHintForRow(1)
         self.assertEqual(header_h, _scale.px(34))
-        self.assertEqual(state_h, _scale.px(110))
+        self.assertEqual(state_h, _scale.px(110) + 2 * _scale.px(_CARD_GAP_U))
         delegate.set_compact(True)
         model.set_compact(True)
         self.assertEqual(view.sizeHintForRow(1), _scale.px(56))
@@ -277,6 +278,26 @@ class RosterPillRemovalTests(QtSmokeBase):
 def _scale_px(n):
     from plex_renamer.gui_qt import _scale
     return _scale.px(n)
+
+
+class RosterCardGapTests(QtSmokeBase):
+    def _any_delegate(self):
+        from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, RosterListView
+
+        view = RosterListView()
+        delegate = RosterDelegate(view, media_type="tv")
+        return delegate
+
+    def test_card_rect_inset_from_option_rect(self):
+        from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, _CARD_GAP_U
+        from plex_renamer.gui_qt._scale import px
+        from PySide6.QtCore import QRect
+
+        delegate = self._any_delegate()          # helper as in earlier classes
+        option_rect = QRect(0, 0, 360, px(120))
+        card = delegate._card_rect(option_rect)
+        self.assertEqual(card.top(), option_rect.top() + px(_CARD_GAP_U))
+        self.assertEqual(card.bottom(), option_rect.bottom() - px(_CARD_GAP_U))
 
 
 class RosterSizeHintTests(QtSmokeBase):
