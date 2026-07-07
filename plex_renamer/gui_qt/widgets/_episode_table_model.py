@@ -294,6 +294,9 @@ class EpisodeTableModel(QAbstractListModel):
     def season_section_key(self, season: int) -> str:
         return f"episode-guide-season:{season}"
 
+    def folder_section_key(self) -> str:
+        return "folder-preview"
+
     def first_problem_row_in_season(self, season: int) -> int:
         section_key = self.season_section_key(season)
         for row, entry in enumerate(self._entries):

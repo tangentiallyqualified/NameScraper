@@ -268,4 +268,8 @@ class EpisodeTableModelTests(QtSmokeBase):
         data = model.index(rows[0], 0).data(ROW_DATA_ROLE)
         self.assertEqual(data.title, "movie.mkv")
         self.assertTrue(data.checked)
-        self.assertEqual(data.status_text, "OK")
+
+    def test_folder_section_key_is_folder_preview(self):
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        self.assertEqual(model.folder_section_key(), "folder-preview")

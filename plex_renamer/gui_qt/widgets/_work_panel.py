@@ -237,12 +237,14 @@ class MediaWorkPanel(QFrame):
 
     def _build_strip(self, outer: QVBoxLayout) -> None:
         self._strip_scroll = QScrollArea()
+        self._strip_scroll.setProperty("cssClass", "season-strip-scroll")
         self._strip_scroll.setWidgetResizable(True)
         self._strip_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._strip_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._strip_scroll.setFixedHeight(_scale.px(36))
 
         strip_host = QWidget()
+        strip_host.setProperty("cssClass", "season-strip-scroll")
         self._strip_layout = QHBoxLayout(strip_host)
         self._strip_layout.setContentsMargins(0, 0, 0, 0)
         self._strip_layout.setSpacing(_scale.px(4))
@@ -487,6 +489,15 @@ class MediaWorkPanel(QFrame):
         self._approve_all_button.setVisible(has_review)
         self._sync_unassign_all_action(state)
 
+    def scroll_to_folder_section(self) -> None:
+        key = self._model.folder_section_key()
+        header_row = self._model.section_header_row(key)
+        if header_row < 0:
+            return
+        index = self._model.index(header_row, 0)
+        self._table_view.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtTop)
+        self._delegate.flash_row(header_row)
+
     def scroll_to_season(self, season: int) -> None:
         section_key = self._model.season_section_key(season)
         header_row = self._model.section_header_row(section_key)
@@ -565,6 +576,15 @@ class MediaWorkPanel(QFrame):
         self._strip_scroll.show()
         # Insert before the trailing stretch (index len-1).
         insert_at = self._strip_layout.count() - 1
+        series_button = QPushButton("Series")
+        series_button.setProperty("cssClass", "season-strip-chip")
+        series_button.setProperty("tone", "info")
+        series_button.setToolTip("Jump to the folder rename at the top of the list")
+        series_button.setFlat(True)
+        series_button.clicked.connect(self.scroll_to_folder_section)
+        self._strip_layout.insertWidget(insert_at, series_button)
+        insert_at += 1
+        self._strip_buttons.append(series_button)
         for season_num, chip in specs:
             button = QPushButton(chip.text)
             button.setProperty("cssClass", "season-strip-chip")

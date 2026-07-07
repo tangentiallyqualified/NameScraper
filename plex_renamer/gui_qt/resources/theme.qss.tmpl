@@ -1045,32 +1045,62 @@ QLabel[cssClass="sticky-season-header"] {
 }
 
 
-/* ─── Season strip chips (work-panel header) ────────────────────── */
+/* ─── Season strip (work-panel header) ───────────────────────────── */
+
+/* No distinct fill on the scroll area/host -- the strip inherits the
+   panel's own surface color instead of rendering as an off-color rectangle. */
+QScrollArea[cssClass="season-strip-scroll"] {
+    background: transparent;
+    border: 0;
+}
+QScrollArea[cssClass="season-strip-scroll"] > QWidget > QWidget {
+    background: transparent;
+}
+QWidget[cssClass="season-strip-scroll"] {
+    background: transparent;
+}
 
 QPushButton[cssClass="season-strip-chip"] {
-    background-color: transparent;
-    border: none;
+    background-color: ${card};
+    border: 1px solid ${border};
     border-radius: ${radius_sm}px;
-    padding: 2px 8px;
+    padding: 3px 10px;
     font-size: 11px;
     font-weight: 600;
 }
 
 QPushButton[cssClass="season-strip-chip"][tone="success"] {
     background-color: rgba(63, 185, 80, 0.12);
+    border-color: rgba(63, 185, 80, 0.35);
     color: ${success};
 }
 
 QPushButton[cssClass="season-strip-chip"][tone="warning"] {
     background-color: rgba(210, 153, 34, 0.12);
+    border-color: rgba(210, 153, 34, 0.35);
     color: ${warning};
 }
 
 QPushButton[cssClass="season-strip-chip"][tone="muted"] {
     background-color: rgba(155, 155, 155, 0.12);
+    border-color: rgba(155, 155, 155, 0.35);
     color: ${text_dim};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="info"] {
+    background-color: rgba(88, 166, 255, 0.12);
+    border-color: rgba(88, 166, 255, 0.35);
+    color: ${info};
 }
 
 QPushButton[cssClass="season-strip-chip"]:hover {
     background-color: ${card_hover};
+    border-color: ${border_light};
+}
+
+QPushButton[cssClass="season-strip-chip"]:pressed,
+QPushButton[cssClass="season-strip-chip"]:checked {
+    background-color: ${accent};
+    border-color: ${accent};
+    color: ${on_accent};
 }

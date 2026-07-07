@@ -30,7 +30,7 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         self.assertEqual(panel._title_label.text(), "Show (2020)")
         chip_texts = [b.text() for b in panel._strip_buttons]
-        self.assertEqual(chip_texts, ["S1 2/3"])
+        self.assertEqual(chip_texts, ["Series", "S1 2/3"])
 
     def test_toolbar_rules_review_present(self):
         state, guide = _guide_state()
@@ -251,6 +251,46 @@ class WorkPanelTests(QtSmokeBase):
         panel._apply_overview_clamp()
         # clamp must be >= two full line heights (no mid-letter clipping)
         self.assertGreaterEqual(panel._overview_label.maximumHeight(), 2 * fm.lineSpacing())
+
+    def test_series_chip_present_in_strip(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        labels = [b.text() for b in panel._strip_buttons]
+        self.assertEqual(labels[0], "Series")
+        self.assertEqual(labels[1:], ["S1 2/3"])
+
+    def test_series_chip_hidden_in_movie_mode(self):
+        from pathlib import Path
+        from plex_renamer.engine.models import ScanState
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state.scanned = True
+        panel = MediaWorkPanel(media_type="movie")
+        panel.show_state(state, collapsed_sections=set(), folder_preview=None)
+        panel.show()
+        labels = [b.text() for b in panel._strip_buttons]
+        self.assertNotIn("Series", labels)
+        self.assertEqual(len(panel._strip_buttons), 0)
+        panel.close()
+
+    def test_scroll_to_folder_section_targets_folder_header(self):
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        state, guide = _guide_state()
+        panel = MediaWorkPanel(media_type="tv", guide_provider=lambda _s: guide)
+        panel.resize(760, 640)
+        panel.show_state(
+            state,
+            collapsed_sections=set(),
+            folder_preview=("Show.S01.1080p", "Show (2020)"),
+        )
+        panel.show()
+        header_row = panel.model.section_header_row("folder-preview")
+        self.assertGreaterEqual(header_row, 0)
+        panel.scroll_to_folder_section()
+        self.assertEqual(panel._delegate._flash_row_index, header_row)
+        panel.close()
 
     def test_fix_match_button_is_in_header_title_row(self):
         # Layout-tree invariant (adapted from the brief): title_row and footer
