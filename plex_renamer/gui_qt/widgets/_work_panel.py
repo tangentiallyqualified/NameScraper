@@ -611,6 +611,28 @@ class MediaWorkPanel(QFrame):
         )
         return bounding.height() > 2 * fm.lineSpacing() + 1
 
+    def _refresh_overview_toggle(self) -> None:
+        """Recompute the more/less toggle's visibility for the current
+        overview text against the panel's *current* layout width.
+
+        Called both by ``_apply_overview_text`` (the single choke point that
+        sets text+clamp+toggle) and by ``showEvent``/``resizeEvent`` so the
+        gate re-runs once real layout width is available -- a TMDB-cache HIT
+        can call ``_apply_overview_text`` synchronously during
+        ``show_state()``, before the panel has ever been shown/laid out,
+        when ``self._overview_label.width()`` is still 0.
+        """
+        text = self._overview_label.text()
+        self._overview_toggle.setVisible(bool(text) and self._overview_overflows())
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._refresh_overview_toggle()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._refresh_overview_toggle()
+
     def _on_overview_toggle_clicked(self) -> None:
         self._overview_expanded = not self._overview_expanded
         self._apply_overview_clamp()
@@ -671,7 +693,7 @@ class MediaWorkPanel(QFrame):
         self._overview_label.setText(text)
         self._overview_label.setVisible(bool(text))
         self._apply_overview_clamp()
-        self._overview_toggle.setVisible(bool(text) and self._overview_overflows())
+        self._refresh_overview_toggle()
 
     # -- Shared helpers --------------------------------------------------
 

@@ -15,6 +15,16 @@ class WorkPanelTests(QtSmokeBase):
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
         return panel
 
+    def _panel_unshown(self, state, guide):
+        """Like _panel(), but skips the pre-emptive resize() -- used to
+        reproduce the "never laid out yet" cache-hit condition from the
+        Task 3 review finding."""
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="tv", guide_provider=lambda _s: guide)
+        panel.show_state(state, collapsed_sections=set(), folder_preview=None)
+        return panel
+
     def test_header_title_and_strip_chips(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
@@ -165,6 +175,45 @@ class WorkPanelTests(QtSmokeBase):
         panel._overview_label.setFixedWidth(200)
         panel._apply_overview_text(("Long overview. " * 60).strip(), "tok")
         self.assertTrue(panel._overview_toggle.isVisible())
+        panel.close()
+
+    def test_overview_toggle_self_corrects_once_real_width_is_available(self):
+        # Reproduces the Task 3 review finding: on a TMDB-cache HIT,
+        # _apply_overview_text runs synchronously during show_state(), which
+        # can happen before the panel has ever been laid out/shown -- at
+        # that point self._overview_label.width() is genuinely 0 (simulated
+        # here with setFixedWidth(0), the exact condition named in the
+        # finding), so _overview_overflows() falls back to
+        # sizeHint().width(): an unconstrained-wrap preferred width that
+        # does NOT match the real column width once the panel is actually
+        # shown. Without a showEvent/resizeEvent recheck, the wrong verdict
+        # computed at width 0 PERSISTS even after the panel is shown at a
+        # real (here: wide-enough-to-fit) width.
+        state, guide = _guide_state()
+        panel = self._panel_unshown(state, guide)
+        panel._overview_label.setFixedWidth(0)   # never-laid-out cache-hit condition
+        short_overview = "A brief show synopsis in a single short sentence."
+        panel._apply_overview_text(short_overview, "tok")
+
+        # Release the artificial fixed width and lay the panel out for real,
+        # at a width wide enough that this short overview fits on two lines
+        # (i.e. the toggle should NOT be needed here).
+        panel._overview_label.setMinimumWidth(0)
+        panel._overview_label.setMaximumWidth(16777215)
+        panel.resize(900, 640)
+        panel.show()
+        self._app.processEvents()
+
+        self.assertGreater(panel._overview_label.width(), 0)
+        self.assertFalse(
+            panel._overview_overflows(),
+            "sanity check: this overview must fit within two lines at the real width",
+        )
+        self.assertFalse(
+            panel._overview_toggle.isVisible(),
+            "toggle verdict computed at width 0 (sizeHint fallback) must not "
+            "persist once the panel is laid out at its real, wider width",
+        )
         panel.close()
 
     def test_clamp_height_leaves_descender_room(self):
