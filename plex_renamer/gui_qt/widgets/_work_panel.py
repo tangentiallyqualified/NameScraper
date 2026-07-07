@@ -359,6 +359,11 @@ class MediaWorkPanel(QFrame):
     ) -> None:
         self._state = state
         self._model.show_state(state, collapsed_sections=collapsed_sections, folder_preview=folder_preview)
+        # Re-populating the table always collapses any expanded episode row
+        # (EpisodeTableModel.show_state() unconditionally resets
+        # _expanded_row), so the header must return to series mode too --
+        # otherwise the flag desyncs from the actual expansion state.
+        self._episode_overview_active = False
         self.refresh_header(state)
         self.update_toolbar(state)
         self.update_footer()
@@ -677,14 +682,29 @@ class MediaWorkPanel(QFrame):
             return
         self._apply_overview_text(text, token)
 
-    def _apply_overview_text(self, text: str, token: str) -> None:
-        del token
-        if not self._episode_overview_active:
-            self._series_overview_text = text
+    def _set_overview_label(self, text: str) -> None:
+        """Low-level display mechanics only -- no bookkeeping of *what* text
+        means (series vs. episode). Single choke point used by
+        ``set_episode_overview``, ``clear_episode_overview``, and the
+        not-active branch of ``_apply_overview_text``."""
         self._overview_label.setText(text)
         self._overview_label.setVisible(bool(text))
         self._apply_overview_clamp()
         self._refresh_overview_toggle()
+
+    def _apply_overview_text(self, text: str, token: str) -> None:
+        """Series-overview entry point (cache hit / async TMDB response).
+
+        Always remembers the text as the series overview -- even while an
+        episode is expanded -- so a later ``clear_episode_overview`` restores
+        the freshest series text rather than stale text captured before the
+        async response landed. Only the *display* is gated on the episode
+        flag: while an episode is expanded, the visible label must keep
+        showing the episode text."""
+        del token
+        self._series_overview_text = text
+        if not self._episode_overview_active:
+            self._set_overview_label(text)
 
     def set_episode_overview(self, overview: str, air_date: str) -> None:
         """Swap the header overview to the expanded episode's text,
@@ -696,7 +716,7 @@ class MediaWorkPanel(QFrame):
         text = overview or "No episode overview."
         if air_date:
             text = f"{text}\nAir date: {air_date}"
-        self._apply_overview_text(text, self._current_token)
+        self._set_overview_label(text)
 
     def clear_episode_overview(self) -> None:
         """Restore the remembered series overview (collapse, or nothing
@@ -704,7 +724,7 @@ class MediaWorkPanel(QFrame):
         if not self._episode_overview_active:
             return
         self._episode_overview_active = False
-        self._apply_overview_text(self._series_overview_text, self._current_token)
+        self._set_overview_label(self._series_overview_text)
 
     # -- Shared helpers --------------------------------------------------
 
