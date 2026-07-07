@@ -7,6 +7,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QFileDialog
 
+from ...app.services.output_destination_service import long_path_warning_text
 from ._media_helpers import repolish as _repolish
 
 
@@ -117,8 +118,15 @@ class SettingsTabStateCoordinator:
             title = "Choose movie output folder"
 
         selected = QFileDialog.getExistingDirectory(tab, title, target.text().strip())
-        if selected:
-            target.setText(selected)
+        if not selected:
+            return
+        target.setText(selected)
+
+        warning = long_path_warning_text(selected)
+        if warning:
+            self._set_destination_status(warning, "warning")
+        else:
+            self._clear_destination_status()
 
     def on_save_destinations(self) -> None:
         tab = self._tab
@@ -149,10 +157,21 @@ class SettingsTabStateCoordinator:
         tab._settings.movie_output_folder = movie_path
         tab._tv_output_input.setText(tv_path)
         tab._movie_output_input.setText(movie_path)
-        self._set_destination_status("Output destinations saved.", "success")
+
+        warning = long_path_warning_text(tv_path) or long_path_warning_text(movie_path)
+        if warning:
+            self._set_destination_status(warning, "warning")
+        else:
+            self._set_destination_status("Output destinations saved.", "success")
 
     def _set_destination_status(self, text: str, tone: str) -> None:
         status = self._tab._destinations_status
         status.setText(text)
         status.setProperty("tone", tone)
+        _repolish(status)
+
+    def _clear_destination_status(self) -> None:
+        status = self._tab._destinations_status
+        status.setText("")
+        status.setProperty("tone", "")
         _repolish(status)
