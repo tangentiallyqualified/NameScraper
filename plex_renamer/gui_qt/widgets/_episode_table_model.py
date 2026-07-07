@@ -46,6 +46,13 @@ _SECTION_EXPANDED_PREFIX = "▾ "
 _PREVIEW_TONE_REMAP = {"accent": "warning"}
 
 
+def _subtitle_companion_name(row: EpisodeGuideRow) -> str:
+    for companion in row.companions:
+        if companion.file_type == "subtitle":
+            return str(companion.original)
+    return ""
+
+
 def _percent_from_label(value: str) -> int | None:
     text = value.strip()
     if not text.endswith("%"):
@@ -69,6 +76,7 @@ class EpisodeRowData:
     checkable: bool = False
     collapsed: bool = False        # section-header rows
     companion_count: int = 0
+    subtitle_name: str = ""        # real path of a matched external subtitle companion
     tooltip: str = ""
 
 
@@ -712,6 +720,7 @@ class EpisodeTableModel(QAbstractListModel):
             target=row.target_rename,
             confidence_pct=_percent_from_label(row.confidence_label),
             companion_count=len(row.companions),
+            subtitle_name=_subtitle_companion_name(row),
             tooltip=row.target_rename or "",
         )
         if not self._passes_search(row_data):

@@ -10,7 +10,7 @@ from conftest_qt import QtSmokeBase
 def _guide_state():
     """Synthetic TV state with a real assignment table + completeness."""
     from plex_renamer.engine.models import (
-        CompletenessReport, ScanState, SeasonCompleteness,
+        CompanionFile, CompletenessReport, ScanState, SeasonCompleteness,
     )
     from plex_renamer.app.models.state_models import (
         EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary, UnmappedFileRow,
@@ -20,7 +20,9 @@ def _guide_state():
     state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
     state.scanned = True
     p1 = PreviewItem(original=Path("C:/lib/Show/s01e01.mkv"), new_name="Show - S01E01 - One.mkv",
-                     target_dir=None, season=1, episodes=[1], status="OK")
+                     target_dir=None, season=1, episodes=[1], status="OK",
+                     companions=[CompanionFile(original=Path("C:/lib/Show/s01e01.en.srt"),
+                                               new_name="Show - S01E01 - One.en.srt", file_type="subtitle")])
     p2 = PreviewItem(original=Path("C:/lib/Show/s01e02.mkv"), new_name="Show - S01E02 - Two.mkv",
                      target_dir=None, season=1, episodes=[2], status="REVIEW: episode confidence below threshold")
     state.preview_items = [p1, p2]
@@ -30,6 +32,7 @@ def _guide_state():
     )
     guide = EpisodeGuide(rows=[
         EpisodeGuideRow(season=1, episode=1, title="One", primary_file=p1,
+                        companions=list(p1.companions),
                         target_rename="Show - S01E01 - One.mkv", status="Mapped",
                         confidence_label="96%", overview="Ep one.", air_date="2020-01-01"),
         EpisodeGuideRow(season=1, episode=2, title="Two", primary_file=p2,
@@ -83,6 +86,22 @@ class EpisodeTableModelTests(QtSmokeBase):
         data = model.index(3, 0).data(ROW_DATA_ROLE)
         self.assertEqual(data.tooltip, guide.rows[0].target_rename)
         self.assertNotEqual(data.tooltip, guide.rows[0].overview)
+
+    def test_subtitle_companion_populates_subtitle_name(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        data = model.index(3, 0).data(ROW_DATA_ROLE)   # row "One" — has a subtitle companion
+        self.assertEqual(data.subtitle_name, str(guide.rows[0].companions[0].original))
+
+    def test_episode_row_without_subtitle_companion_has_empty_subtitle_name(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        data = model.index(4, 0).data(ROW_DATA_ROLE)   # row "Two" — no companions
+        self.assertEqual(data.subtitle_name, "")
 
     def test_compact_mode_keeps_episode_filename(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE

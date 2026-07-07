@@ -29,8 +29,20 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         view, model, delegate = self._view(state, guide)
         self.assertEqual(view.sizeHintForRow(0), _scale.px(30))     # section label
         self.assertEqual(view.sizeHintForRow(2), _scale.px(30))     # season header
-        self.assertEqual(view.sizeHintForRow(3), _scale.px(52))     # episode w/ filename line
+        self.assertEqual(view.sizeHintForRow(3), _scale.px(68))     # episode w/ filename + subtitle line
+        self.assertEqual(view.sizeHintForRow(4), _scale.px(52))     # episode w/ filename line only
         self.assertEqual(view.sizeHintForRow(5), _scale.px(34))     # ghost (no filename)
+
+    def test_subtitle_row_is_taller_than_plain_row(self):
+        from plex_renamer.gui_qt import _scale
+
+        state, guide = _guide_state()
+        view, model, delegate = self._view(state, guide)
+        # row 3 ("One") has a subtitle companion -> triple-line height;
+        # row 4 ("Two") has none -> double-line height.
+        self.assertEqual(view.sizeHintForRow(3), _scale.px(68))
+        self.assertEqual(view.sizeHintForRow(4), _scale.px(52))
+        self.assertGreater(view.sizeHintForRow(3), view.sizeHintForRow(4))
 
     def test_render_grab(self):
         state, guide = _guide_state()

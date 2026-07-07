@@ -25,6 +25,7 @@ from ._episode_table_model import (
 from ._workspace_widget_primitives import paint_check_indicator
 
 _ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U, _ROW_MOVIE_U = 30, 34, 52, 52
+_ROW_TRIPLE_U = 68
 _CHEVRON_U, _TOGGLE_U, _PILL_H_U, _MARGIN_U = 16, 20, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
@@ -183,6 +184,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             return QSize(0, _scale.px(_ROW_MOVIE_U))
         row_data = index.data(ROW_DATA_ROLE)
         if kind in _DOUBLE_LINE_KINDS and row_data is not None and row_data.filename:
+            if row_data.subtitle_name:
+                return QSize(0, _scale.px(_ROW_TRIPLE_U))
             return QSize(0, _scale.px(_ROW_DOUBLE_U))
         return QSize(0, _scale.px(_ROW_SINGLE_U))
 
@@ -360,26 +363,20 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         painter.setPen(theme.qcolor("text_muted") if ghost else theme.qcolor("text"))
         title_text = metrics.elidedText(row_data.title, Qt.TextElideMode.ElideRight, title_width)
-        if not has_second_line and row_data.companion_count > 0:
-            title_text = metrics.elidedText(
-                f"{row_data.title}  +{row_data.companion_count} companions",
-                Qt.TextElideMode.ElideRight, title_width,
-            )
         painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), title_text)
 
         if has_second_line:
             second_line_rect = QRect(title_x, first_line_y + line_height, title_width, line_height)
             second_text = metrics.elidedText(row_data.filename, Qt.TextElideMode.ElideMiddle, title_width)
-            if row_data.target:
-                arrow_text = f" → {row_data.target}"
-                combined_width = max(0, title_width - metrics.horizontalAdvance(second_text))
-                second_text += metrics.elidedText(arrow_text, Qt.TextElideMode.ElideRight, combined_width)
-            if row_data.companion_count > 0:
-                suffix = f"  +{row_data.companion_count} companions"
-                combined_width = max(0, title_width - metrics.horizontalAdvance(second_text))
-                second_text += metrics.elidedText(suffix, Qt.TextElideMode.ElideRight, combined_width)
             painter.setPen(theme.qcolor("text_dim"))
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), second_text)
+            if row_data.subtitle_name:
+                third_line_rect = QRect(title_x, first_line_y + 2 * line_height, title_width, line_height)
+                sub_text = metrics.elidedText(
+                    f"Subtitles: {row_data.subtitle_name}", Qt.TextElideMode.ElideMiddle, title_width,
+                )
+                painter.setPen(theme.qcolor("text_muted"))
+                painter.drawText(third_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), sub_text)
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
