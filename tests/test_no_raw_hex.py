@@ -5,9 +5,13 @@
 other ``gui_qt`` modules must reference colors via ``theme.color(...)`` /
 ``theme.qcolor(...)`` rather than inlining hex literals.
 
-The guard matches QUOTED hex literals (e.g. ``"#1c2a33"``) rather than a
-whole-line scan, so it does not false-positive on comments that mention a
-color in prose, or on issue/PR references like ``#123``.
+The guard matches a hex run that appears somewhere inside a quoted string
+(e.g. ``"#1c2a33"`` or the embedded ``f"color: #1c2a33;"`` form used in
+stylesheet strings), ending on a word boundary rather than requiring a
+trailing quote. It requires an opening quote earlier on the line (with only
+non-quote characters between the quote and the ``#``) so it does not
+false-positive on comments that mention a color in prose, or on issue/PR
+references like ``#123`` — those have no preceding quote on the line.
 """
 from __future__ import annotations
 
@@ -15,7 +19,7 @@ import re
 from pathlib import Path
 
 _HEX = re.compile(
-    r"""["']#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{2})?)?["']"""
+    r"""["'][^"']*#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{2})?)?\b"""
 )
 _ALLOWED = {"theme.py"}  # the single source of truth for tokens
 
