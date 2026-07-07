@@ -10,6 +10,8 @@ the ids/order must not change.
 """
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
@@ -29,6 +31,7 @@ from .. import _scale
 from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 
 _COPY_GLYPH = "⧉"
+_OPEN_DIR_GLYPH = "📂"
 _COLLAPSE_GLYPH = "▴"
 _MERGE_TOOLTIP = "Merge support arrives with mkvmerge integration"
 
@@ -90,12 +93,14 @@ def _copy_path_button(path, parent: QWidget) -> QToolButton:
 class EpisodeExpansionCard(QFrame):
     action_requested = Signal(str)
     collapse_requested = Signal()
+    open_dir_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("cssClass", "card")
         self._action_buttons: list[QPushButton] = []
         self._copy_buttons: list[QToolButton] = []
+        self._open_dir_buttons: list[QToolButton] = []
         self._target_label: QLabel | None = None
         self._build_ui()
 
@@ -108,13 +113,13 @@ class EpisodeExpansionCard(QFrame):
         outer.setSpacing(_scale.px(8))
 
         top_row = QHBoxLayout()
-        top_row.addStretch()
         self._collapse_button = QToolButton()
         self._collapse_button.setText(_COLLAPSE_GLYPH)
         self._collapse_button.setToolTip("Collapse")
         self._collapse_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._collapse_button.clicked.connect(self.collapse_requested.emit)
         top_row.addWidget(self._collapse_button)
+        top_row.addStretch()
         outer.addLayout(top_row)
 
         self._files_section = QVBoxLayout()
@@ -155,8 +160,20 @@ class EpisodeExpansionCard(QFrame):
 
     def show_episode(self, state: ScanState, row: EpisodeGuideRow) -> None:
         self._reset_content()
-        self._build_files_section(state, row)
-        self._build_target_row(row.target_rename)
+        part_specs = self._multi_part_chip_specs(state, row)
+        if part_specs:
+            self._files_section.addWidget(_ChipStrip(part_specs, self))
+        if row.primary_file is not None:
+            self._build_labeled_path(
+                "Episode Source", str(row.primary_file.original), open_dir=True
+            )
+        self._build_labeled_path("Episode Output", row.target_rename or "", open_dir=False)
+        subtitle = next((c for c in row.companions if c.file_type == "subtitle"), None)
+        if subtitle is not None:
+            self._build_labeled_path("Subtitle Source", str(subtitle.original), open_dir=True)
+            self._build_labeled_path(
+                "Subtitle Output", subtitle.new_name or "", open_dir=False
+            )
         self._build_overview_section(row.overview, row.air_date)
         self._build_actions_row(episode_row_actions(row))
 
@@ -172,6 +189,7 @@ class EpisodeExpansionCard(QFrame):
     def _reset_content(self) -> None:
         self._action_buttons = []
         self._copy_buttons = []
+        self._open_dir_buttons = []
         self._clear_layout(self._files_section)
         self._clear_layout(self._target_row)
         self._clear_layout(self._actions_row)
@@ -180,15 +198,28 @@ class EpisodeExpansionCard(QFrame):
         self._air_date_label.setText("")
         self._air_date_label.hide()
 
-    def _build_files_section(self, state: ScanState, row: EpisodeGuideRow) -> None:
-        part_specs = self._multi_part_chip_specs(state, row)
-        if part_specs:
-            self._files_section.addWidget(_ChipStrip(part_specs, self))
-        if row.primary_file is not None:
-            self._add_file_row(row.primary_file.original, badge=None)
-            for companion in row.companions:
-                badge = companion.file_type[:3].upper()
-                self._add_file_row(companion.original, badge=badge)
+    def _open_dir_button(self, directory: str) -> QToolButton:
+        button = QToolButton(self)
+        button.setText(_OPEN_DIR_GLYPH)
+        button.setToolTip("Open file directory")
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.clicked.connect(lambda _checked=False, d=directory: self.open_dir_requested.emit(d))
+        return button
+
+    def _build_labeled_path(self, label_text: str, path: str, *, open_dir: bool) -> None:
+        row_widget = QWidget(self)
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(_scale.px(6))
+        label = QLabel(f"{label_text}: {path}")
+        label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        row_layout.addWidget(label, stretch=1)
+        if open_dir:
+            button = self._open_dir_button(os.path.dirname(path))
+            row_layout.addWidget(button)
+            self._open_dir_buttons.append(button)
+        self._files_section.addWidget(row_widget)
 
     def _build_files_section_for_files(self, primary_path, companions) -> None:
         self._add_file_row(primary_path, badge=None)

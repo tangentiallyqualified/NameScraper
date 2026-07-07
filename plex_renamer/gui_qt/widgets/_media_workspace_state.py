@@ -150,6 +150,7 @@ class MediaWorkspaceStateCoordinator:
                 )
             )
         card.collapse_requested.connect(self._close_expansion)
+        card.open_dir_requested.connect(workspace._open_directory)
         return card
 
     def update_preview_master_state(self, state: ScanState | None) -> None:

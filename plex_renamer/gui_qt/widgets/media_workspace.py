@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, Qt, Signal
+from PySide6.QtCore import QModelIndex, QUrl, Qt, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
@@ -244,6 +245,10 @@ class MediaWorkspace(QWidget):
 
     def _expansion_card_for_index(self, index: QModelIndex):
         return self._state_coordinator.expansion_card_for_index(index)
+
+    def _open_directory(self, directory: str) -> None:
+        if directory:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
     def _check_all(self) -> None:
         self._refresh_coordinator.check_all()
