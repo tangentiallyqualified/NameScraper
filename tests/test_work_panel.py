@@ -156,6 +156,41 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(panel.overflow_button.isVisible())
         panel.close()
 
+    def _movie_state_actionable(self):
+        from pathlib import Path
+        from plex_renamer.engine.models import PreviewItem, ScanState
+
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
+        state.scanned = True
+        state.match_origin = "manual"   # avoid needs_review gating on default confidence=0.0
+        state.preview_items = [
+            PreviewItem(
+                original=Path("C:/lib/Movie/movie.mkv"),
+                new_name="Movie (2021).mkv",
+                target_dir=Path("C:/lib/Movie"),
+                season=None,
+                episodes=[],
+                status="OK",
+                media_type="movie",
+            )
+        ]
+        return state
+
+    def test_movie_master_check_hidden(self):
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="movie")
+        state = self._movie_state_actionable()
+        panel.show_state(state, collapsed_sections=set(), folder_preview=None)
+        panel.show()
+        panel.update_master_state(state)
+        self.assertFalse(panel.master_check.isVisible())
+        self.assertFalse(panel.check_summary.isVisible())
+        panel.close()
+
     def test_refresh_header_reuses_strip_buttons_when_seasons_unchanged(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)

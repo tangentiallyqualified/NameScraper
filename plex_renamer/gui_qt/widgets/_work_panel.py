@@ -34,7 +34,6 @@ from ._episode_table_delegate import EpisodeTableDelegate, EpisodeTableView
 from ._episode_table_model import EpisodeTableModel
 from ._formatting import clamped_percent
 from ._media_helpers import (
-    is_state_queue_approvable as _is_state_queue_approvable,
     state_status,
     state_status_tone,
 )
@@ -395,52 +394,13 @@ class MediaWorkPanel(QFrame):
         self._check_summary.hide()
 
     def update_master_state(self, state: ScanState | None) -> None:
-        """Movie-mode master checkbox tri-state. TV mode hides the control.
-
-        Ported from ``MediaWorkspacePreviewPanel.update_master_state`` (the TV
-        branch just hides; the movie branch is verbatim)."""
-        if self._media_type != "movie":
-            self._master_check.setEnabled(False)
-            self._master_check.hide()
-            self._check_summary.hide()
-            return
-        if state is None:
-            self._master_check.setEnabled(False)
-            self._check_summary.setText("")
-            return
-        actionable = [
-            (index, preview)
-            for index, preview in enumerate(state.preview_items)
-            if preview.is_actionable
-        ]
-        if not actionable or not _is_state_queue_approvable(state, media_type=self._media_type):
-            self._master_check.setEnabled(False)
-            self._master_check.setVisible(False)
-            self._check_summary.setVisible(False)
-            return
-        self._master_check.setVisible(True)
-        self._check_summary.setVisible(True)
-        self._master_check.setEnabled(True)
-        checked = 0
-        for index, _preview in actionable:
-            binding = state.check_vars.get(str(index))
-            if binding is not None and binding.get():
-                checked += 1
-        total = len(actionable)
-        self._master_syncing = True
-        try:
-            if checked == 0:
-                self._master_check.setCheckState(Qt.CheckState.Unchecked)
-                self._master_check.setText("Select All")
-            elif checked == total:
-                self._master_check.setCheckState(Qt.CheckState.Checked)
-                self._master_check.setText("Deselect All")
-            else:
-                self._master_check.setCheckState(Qt.CheckState.PartiallyChecked)
-                self._master_check.setText("Select All")
-            self._check_summary.setText(f"{checked} of {total} checked")
-        finally:
-            self._master_syncing = False
+        """The middle-panel select-all is removed (GUI-V4 R2, V6). Selection is
+        driven by the roster (left panel); keep the controls permanently
+        hidden regardless of media type or state."""
+        del state
+        self._master_check.setEnabled(False)
+        self._master_check.hide()
+        self._check_summary.hide()
 
     def refresh_header(self, state: ScanState | None) -> None:
         if state is None:
