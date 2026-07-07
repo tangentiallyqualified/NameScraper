@@ -149,6 +149,33 @@ class WorkPanelTests(QtSmokeBase):
         self.assertTrue(panel._strip_buttons)
         panel.close()
 
+    def test_short_overview_hides_more_toggle(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel._overview_label.setFixedWidth(400)
+        panel._apply_overview_text("A short overview.", "tok")
+        self.assertFalse(panel._overview_toggle.isVisible())
+        panel.close()
+
+    def test_long_overview_shows_more_toggle(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel._overview_label.setFixedWidth(200)
+        panel._apply_overview_text(("Long overview. " * 60).strip(), "tok")
+        self.assertTrue(panel._overview_toggle.isVisible())
+        panel.close()
+
+    def test_clamp_height_leaves_descender_room(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        fm = panel._overview_label.fontMetrics()
+        panel._overview_expanded = False
+        panel._apply_overview_clamp()
+        # clamp must be >= two full line heights (no mid-letter clipping)
+        self.assertGreaterEqual(panel._overview_label.maximumHeight(), 2 * fm.lineSpacing())
+
     def test_fix_match_button_is_in_header_title_row(self):
         # Layout-tree invariant (adapted from the brief): title_row and footer
         # are sibling QHBoxLayouts added directly to the panel's outer layout,

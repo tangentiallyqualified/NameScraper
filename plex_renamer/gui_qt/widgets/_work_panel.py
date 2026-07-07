@@ -43,6 +43,7 @@ from .segmented_control import SegmentedControl
 from .status_chip import season_strip_specs
 
 _MAX_OVERVIEW_CACHE_ENTRIES = 64
+_OVERVIEW_CLAMP_PAD_U = 6
 
 
 class _OverviewBridge(QObject):
@@ -588,11 +589,27 @@ class MediaWorkPanel(QFrame):
     # -- Overview (async, minimal reimplementation of _media_detail_workflow) -
 
     def _apply_overview_clamp(self) -> None:
-        clamped_height = 2 * self._overview_label.fontMetrics().lineSpacing() + _scale.px(4)
+        fm = self._overview_label.fontMetrics()
+        two_lines = 2 * fm.lineSpacing() + _scale.px(_OVERVIEW_CLAMP_PAD_U)
         if self._overview_expanded:
             self._overview_label.setMaximumHeight(16777215)
         else:
-            self._overview_label.setMaximumHeight(clamped_height)
+            self._overview_label.setMaximumHeight(two_lines)
+        self._overview_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+    def _overview_overflows(self) -> bool:
+        text = self._overview_label.text()
+        if not text:
+            return False
+        fm = self._overview_label.fontMetrics()
+        width = self._overview_label.width() or self._overview_label.sizeHint().width()
+        if width <= 0:
+            return False
+        bounding = fm.boundingRect(
+            0, 0, width, 0,
+            int(Qt.TextFlag.TextWordWrap), text,
+        )
+        return bounding.height() > 2 * fm.lineSpacing() + 1
 
     def _on_overview_toggle_clicked(self) -> None:
         self._overview_expanded = not self._overview_expanded
@@ -653,7 +670,8 @@ class MediaWorkPanel(QFrame):
         del token
         self._overview_label.setText(text)
         self._overview_label.setVisible(bool(text))
-        self._overview_toggle.setVisible(bool(text))
+        self._apply_overview_clamp()
+        self._overview_toggle.setVisible(bool(text) and self._overview_overflows())
 
     # -- Shared helpers --------------------------------------------------
 
