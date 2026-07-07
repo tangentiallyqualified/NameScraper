@@ -25,8 +25,8 @@ class PersistentCacheService:
         self,
         db_path: Path | None = None,
         *,
-        max_size_bytes: int = 64 * 1024 * 1024,
-        max_items: int = 4000,
+        max_size_bytes: int = 1024 ** 3,          # 1 GiB default (S2, was 64 MiB)
+        max_items: int = 200_000,                 # relaxed: size is the user knob
         refresh_policy: RefreshPolicyService | None = None,
     ):
         self._db_path = db_path or CACHE_DB_FILE
@@ -34,6 +34,12 @@ class PersistentCacheService:
         self._max_items = max_items
         self._refresh_policy = refresh_policy or RefreshPolicyService()
         self._init_db()
+
+    def set_max_size_bytes(self, value: int) -> None:
+        """Update the byte cap and evict immediately down to the new size."""
+        self._max_size_bytes = int(value)
+        with self._connection() as conn:
+            self._prune_locked(conn)
 
     def _connect(self) -> sqlite3.Connection:
         ensure_log_dir()

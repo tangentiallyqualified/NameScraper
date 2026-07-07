@@ -185,7 +185,7 @@ class CacheServiceTests(unittest.TestCase):
         self.assertEqual(all_stats["item_count"], 4)
         self.assertEqual(tmdb_stats["item_count"], 3)
         self.assertGreater(tmdb_stats["total_size_bytes"], 0)
-        self.assertEqual(tmdb_stats["max_items"], 4000)
+        self.assertEqual(tmdb_stats["max_items"], 200_000)
 
     def test_stats_namespace_prefix_is_literal_case_sensitive_and_dot_bound(self):
         self.cache.put("tmdb", "root", {"v": 1})
@@ -227,7 +227,7 @@ class CacheServiceTests(unittest.TestCase):
         stats = self.cache.stats()
         self.assertEqual(stats["item_count"], 2)
         self.assertGreater(stats["total_size_bytes"], 0)
-        self.assertEqual(stats["max_items"], 4000)
+        self.assertEqual(stats["max_items"], 200_000)
 
     def test_make_key_normalizes_backslashes(self):
         key = PersistentCacheService.make_key("C:\\library\\tv", "show")
@@ -238,6 +238,18 @@ class CacheServiceTests(unittest.TestCase):
         self.cache.put("ns", "key1", {"v": 1}, metadata={"poster_path": "/poster.jpg"})
         lookup = self.cache.get("ns", "key1")
         self.assertEqual(lookup.entry.metadata, {"poster_path": "/poster.jpg"})
+
+    def test_default_cache_size_is_one_gib(self):
+        cache = PersistentCacheService(db_path=self.db_path)
+        self.assertEqual(cache.stats()["max_size_bytes"], 1024 ** 3)
+
+    def test_set_max_size_bytes_updates_and_prunes(self):
+        cache = PersistentCacheService(db_path=self.db_path, max_size_bytes=10 ** 9)
+        for i in range(50):
+            cache.put("ns", f"k{i}", {"blob": "x" * 1000})
+        cache.set_max_size_bytes(5000)                    # tiny cap forces eviction
+        self.assertLessEqual(cache.stats()["total_size_bytes"], 5000)
+        self.assertEqual(cache.stats()["max_size_bytes"], 5000)
 
     def test_put_clears_refreshing_flag(self):
         now = _utc()

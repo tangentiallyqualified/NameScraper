@@ -20,6 +20,7 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "splitter_positions": (list, type(None)),
     "recent_tv_folders": (list,),
     "recent_movie_folders": (list,),
+    "cache_max_size_bytes": (int,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -39,6 +40,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "splitter_positions": None,
     "recent_tv_folders": [],
     "recent_movie_folders": [],
+    "cache_max_size_bytes": 1024 ** 3,   # 1 GiB (GUI-V4 R2, S2)
 }
 
 

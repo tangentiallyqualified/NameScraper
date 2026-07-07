@@ -29,7 +29,10 @@ class MainWindowBootstrapCoordinator:
         window._job_store = job_store_factory()
         window._command_gating = command_gating_factory()
         window._refresh_policy = refresh_policy_factory()
-        window._cache_service = cache_service_factory(refresh_policy=window._refresh_policy)
+        window._cache_service = cache_service_factory(
+            refresh_policy=window._refresh_policy,
+            max_size_bytes=window.settings_service.cache_max_size_bytes,
+        )
 
         window.queue_ctrl = queue_controller_factory(window._job_store)
         window.media_ctrl = media_controller_factory(

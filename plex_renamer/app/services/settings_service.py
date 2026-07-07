@@ -32,6 +32,9 @@ _log = logging.getLogger(__name__)
 
 _SETTINGS_FILE = LOG_DIR / "settings.json"
 
+_CACHE_MIN_BYTES = 64 * 1024 * 1024        # 64 MiB floor
+_CACHE_MAX_BYTES = 8 * 1024 ** 3           # 8 GiB ceiling (S2)
+
 
 class SettingsService:
     """Read/write user preferences backed by a JSON file."""
@@ -140,6 +143,17 @@ class SettingsService:
         if value not in ("normal", "compact"):
             raise ValueError(f"view_mode must be 'normal' or 'compact', got {value!r}")
         self.set("view_mode", value)
+
+    @property
+    def cache_max_size_bytes(self) -> int:
+        """On-disk metadata cache byte cap, clamped to [64 MiB, 8 GiB]."""
+        raw = int(self.get("cache_max_size_bytes") or (1024 ** 3))
+        return max(_CACHE_MIN_BYTES, min(_CACHE_MAX_BYTES, raw))
+
+    @cache_max_size_bytes.setter
+    def cache_max_size_bytes(self, value: int) -> None:
+        clamped = max(_CACHE_MIN_BYTES, min(_CACHE_MAX_BYTES, int(value)))
+        self.set("cache_max_size_bytes", clamped)
 
     @property
     def show_companion_files(self) -> bool:
