@@ -219,21 +219,32 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         self.assertEqual(len(movie_widget._stepper._labels), 4)
 
     def test_scan_progress_conveyor_advances_only_while_active(self):
-        # LD1: motion is a pure function of elapsed wall-clock time (not a
-        # tick counter), so "advances only while active" now means the
-        # animation clock only runs (and advance() only repaints) while active.
+        # LD1 review fix: "advances only while active" means advance() must
+        # repaint (call update()) on every call while active, and must be a
+        # true no-op (no update() call at all) once inactive. Spy directly on
+        # update() so this fails if advance() is stubbed to `pass` or loses
+        # its `_active` guard. set_active(True/False) also triggers update()
+        # on a real state transition, so the counter is reset after each
+        # set_active call to isolate advance()'s own repaint behavior.
         from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
 
         animation = _ConveyorAnimation()
         animation.resize(600, 200)
+
+        update_calls = []
+        animation.update = lambda: update_calls.append(None)
+
         animation.set_active(True)
         self.assertTrue(animation._clock.isValid())
+        update_calls.clear()   # drop the set_active(True) repaint
         for _ in range(10):
             animation.advance()
-        self.assertTrue(animation._clock.isValid())   # active: clock keeps running
+        self.assertEqual(len(update_calls), 10)   # active: every advance() repaints
+
         animation.set_active(False)
+        update_calls.clear()   # drop the set_active(False) repaint
         animation.advance()
-        self.assertFalse(animation._active)   # inactive: advance() is a no-op
+        self.assertEqual(len(update_calls), 0)   # inactive: advance() is a no-op
 
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path
