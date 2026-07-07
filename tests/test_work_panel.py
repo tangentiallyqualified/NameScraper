@@ -148,3 +148,25 @@ class WorkPanelTests(QtSmokeBase):
         panel.refresh_header(state)
         self.assertTrue(panel._strip_buttons)
         panel.close()
+
+    def test_fix_match_button_is_in_header_title_row(self):
+        # Layout-tree invariant (adapted from the brief): title_row and footer
+        # are sibling QHBoxLayouts added directly to the panel's outer layout,
+        # so every widget in either bubbles up to the same parentWidget() (the
+        # panel itself) -- that assertion can't distinguish the two rows.
+        # Instead, walk the outer layout to find title_row (the layout that
+        # contains the title label) and assert fix_match_button lives in that
+        # same layout, not in the footer layout (the one containing
+        # primary_action_button).
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        outer = panel.layout()
+        sub_layouts = [
+            item.layout() for item in (outer.itemAt(i) for i in range(outer.count()))
+            if item.layout() is not None
+        ]
+        title_row = next(lay for lay in sub_layouts if lay.indexOf(panel._title_label) != -1)
+        footer = next(lay for lay in sub_layouts if lay.indexOf(panel.primary_action_button) != -1)
+        self.assertNotEqual(title_row, footer)
+        self.assertNotEqual(title_row.indexOf(panel.fix_match_button), -1)
+        self.assertEqual(footer.indexOf(panel.fix_match_button), -1)

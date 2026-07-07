@@ -208,6 +208,13 @@ class MediaWorkPanel(QFrame):
         self._status_pill = QLabel("")
         self._status_pill.setProperty("cssClass", "status-pill")
         title_row.addWidget(self._status_pill)
+
+        self._fix_match_button = QPushButton("Fix Match")
+        self._fix_match_button.setProperty("cssClass", "secondary")
+        self._fix_match_button.setProperty("sizeVariant", "inline")
+        self._fix_match_button.setEnabled(False)
+        title_row.addWidget(self._fix_match_button)
+
         title_row.addStretch()
         outer.addLayout(title_row)
 
@@ -344,11 +351,6 @@ class MediaWorkPanel(QFrame):
         footer.addWidget(self._queue_preflight_label)
 
         footer.addStretch()
-
-        self._fix_match_button = QPushButton("Fix Match")
-        self._fix_match_button.setProperty("cssClass", "secondary")
-        self._fix_match_button.setEnabled(False)
-        footer.addWidget(self._fix_match_button)
 
         self._primary_action_button = QPushButton("")
         self._primary_action_button.setEnabled(False)
