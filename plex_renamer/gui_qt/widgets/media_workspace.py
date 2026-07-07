@@ -234,6 +234,9 @@ class MediaWorkspace(QWidget):
     def _on_table_expand_requested(self, index: QModelIndex) -> None:
         self._state_coordinator.on_table_expand_requested(index)
 
+    def _on_inline_row_action(self, index: QModelIndex, action_id: str) -> None:
+        self._state_coordinator.on_inline_row_action(index, action_id)
+
     def _on_movie_row_toggled(self, index: QModelIndex) -> None:
         self._sync_coordinator.on_movie_row_toggled(index)
 

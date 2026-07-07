@@ -140,6 +140,7 @@ class MediaWorkspaceUiCoordinator:
         panel.master_check_changed.connect(workspace._on_preview_master_changed)
         panel.table_view.chevron_clicked.connect(workspace._on_table_expand_requested)
         panel.table_view.expand_key_pressed.connect(workspace._on_table_expand_requested)
+        panel.inline_row_action.connect(workspace._on_inline_row_action)
         panel.table_view.toggle_clicked.connect(workspace._on_movie_row_toggled)
         panel.table_view.header_clicked.connect(workspace._on_table_section_toggled)
         panel.table_view.clicked.connect(workspace._on_table_row_clicked)

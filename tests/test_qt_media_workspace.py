@@ -2124,6 +2124,45 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIsNone(remapped.new_name)
         workspace.close()
 
+    def test_inline_row_action_routes_missing_row_through_handle_episode_row_action(self):
+        """M7: the inline "Assign file..." control on a missing-file row must
+        route through the same handle_episode_row_action contract as the
+        expansion card, without requiring the row to be expanded."""
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table, _file_id = self._make_episode_table_state()
+        # The fixture leaves S01E02 ("Sequel") unassigned; mark it missing via
+        # completeness so the guide projects a "Missing File" row for it.
+        state.completeness = CompletenessReport(
+            seasons={1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Sequel")])},
+            specials=None,
+            total_expected=2,
+            total_matched=1,
+            total_missing=[(1, 2, "Sequel")],
+        )
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        model = workspace._work_panel.model
+        missing_row = next(
+            row for row in range(model.rowCount())
+            if (data := model.index(row, 0).data(ROW_DATA_ROLE)) is not None
+            and data.status_text == "Missing File"
+        )
+        guide_row = model.guide_row_at(missing_row)
+        self.assertIsNotNone(guide_row)
+        index = model.index(missing_row, 0)
+
+        with patch.object(workspace._action_coordinator, "handle_episode_row_action") as mock_handle:
+            workspace._on_inline_row_action(index, "assign_file")
+
+        mock_handle.assert_called_once_with(state, guide_row, "assign_file")
+        workspace.close()
+
     def test_episode_row_action_keep_this_resolves_conflict(self):
         """keep_this: dialog-free; winner keeps the slot, loser is unassigned."""
         from plex_renamer.engine._episode_projection import project_preview_items

@@ -254,4 +254,25 @@ class HelpEventTests(QtSmokeBase):
         index = model.index(3, 0)
         handled = self._help_event_result(view, delegate, index)
         self.assertFalse(handled)
+
+
+class InlineMissingActionTests(QtSmokeBase):
+    def test_missing_row_reports_inline_action_rect(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import EpisodeTableDelegate, EpisodeTableView
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+        view = EpisodeTableView()
+        d = EpisodeTableDelegate(view, media_type="tv")
+        row = EpisodeRowData(kind="episode", title="S01E03", status_text="Missing File", status_tone="muted")
+        rect = d.inline_action_rect(QRect(0, 0, 400, 34), row)
+        self.assertTrue(rect.isValid() and rect.width() > 0)
+
+    def test_non_missing_row_has_no_inline_action(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import EpisodeTableDelegate, EpisodeTableView
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+        view = EpisodeTableView()
+        d = EpisodeTableDelegate(view, media_type="tv")
+        row = EpisodeRowData(kind="episode", title="S01E01", status_text="Review", status_tone="warning")
+        self.assertFalse(d.inline_action_rect(QRect(0, 0, 400, 34), row).isValid())
         view.close()

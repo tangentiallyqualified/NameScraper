@@ -29,6 +29,7 @@ _ROW_TRIPLE_U = 68
 _CHEVRON_U, _TOGGLE_U, _PILL_H_U, _MARGIN_U = 16, 20, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
+_INLINE_ACTION_W_U, _INLINE_ACTION_H_U = 84, 20
 
 _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "muted": "text_dim"}
 
@@ -125,6 +126,17 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         margin = _scale.px(_MARGIN_U)
         width = metrics.horizontalAdvance(text) + 2 * pad
         x = option_rect.right() - margin - width
+        y = option_rect.y() + (option_rect.height() - height) // 2
+        return QRect(x, y, width, height)
+
+    def inline_action_rect(self, option_rect: QRect, row_data: EpisodeRowData) -> QRect:
+        if row_data.status_text != "Missing File":
+            return QRect()
+        margin = _scale.px(_MARGIN_U)
+        pill = self._pill_rect(option_rect, row_data, self._view.fontMetrics()) if self._view else QRect()
+        width = _scale.px(_INLINE_ACTION_W_U)
+        height = _scale.px(_INLINE_ACTION_H_U)
+        x = pill.x() - margin - width
         y = option_rect.y() + (option_rect.height() - height) // 2
         return QRect(x, y, width, height)
 
@@ -380,6 +392,23 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
+        if row_data.status_text == "Missing File":
+            self._paint_inline_action(painter, option.rect, row_data)
+
+    def _paint_inline_action(self, painter: QPainter, option_rect: QRect, row_data: EpisodeRowData) -> None:
+        rect = self.inline_action_rect(option_rect, row_data)
+        if not rect.isValid():
+            return
+        painter.save()
+        fill = theme.qcolor("accent")
+        fill.setAlphaF(0.14)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(fill)
+        painter.drawRoundedRect(rect, theme.radius("sm"), theme.radius("sm"))
+        painter.setPen(theme.qcolor("accent"))
+        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), "Assign file…")
+        painter.restore()
+
     def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: EpisodeRowData, *, ghost: bool) -> None:
         text = self.pill_text(row_data)
         if not text:
@@ -403,6 +432,7 @@ class EpisodeTableView(QListView):
     header_clicked = Signal(str)                  # section_key of a collapsible header
     expand_key_pressed = Signal(QModelIndex)      # Enter/Return on current row
     bulk_hint_clicked = Signal()                  # problems-filter empty-state hint row
+    inline_action_clicked = Signal(QModelIndex, str)  # missing-file row inline action (e.g. "assign_file")
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -430,6 +460,14 @@ class EpisodeTableView(QListView):
                         if toggle_rect.contains(pos):
                             self._intercepted_row = index.row()
                             self.toggle_clicked.emit(index)
+                            return
+                if kind == "episode":
+                    row_data = index.data(ROW_DATA_ROLE)
+                    if row_data is not None and row_data.status_text == "Missing File":
+                        action_rect = delegate.inline_action_rect(rect, row_data)
+                        if action_rect.isValid() and action_rect.contains(pos):
+                            self._intercepted_row = index.row()
+                            self.inline_action_clicked.emit(index, "assign_file")
                             return
                 chevron_rect = delegate.chevron_rect(rect)
                 if chevron_rect.contains(pos):

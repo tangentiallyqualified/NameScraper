@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QModelIndex, QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -63,6 +63,7 @@ class MediaWorkPanel(QFrame):
     master_check_changed = Signal(int)    # movie mode master
     overview_toggled = Signal(bool)
     bulk_assign_requested = Signal()      # overflow menu action (and Task 5 hint forward)
+    inline_row_action = Signal(QModelIndex, str)  # inline row action (e.g. missing-file "assign_file")
 
     def __init__(
         self,
@@ -321,6 +322,7 @@ class MediaWorkPanel(QFrame):
         self._table_view.setItemDelegate(self._delegate)
         self._table_view.header_clicked.connect(self._on_header_clicked)
         self._table_view.bulk_hint_clicked.connect(self.bulk_assign_requested.emit)
+        self._table_view.inline_action_clicked.connect(self.inline_row_action.emit)
         self._bulk_panel = BulkAssignPanel()
         stack_host = QWidget()
         self._table_stack = QStackedLayout(stack_host)

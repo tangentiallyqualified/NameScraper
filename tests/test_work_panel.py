@@ -128,6 +128,15 @@ class WorkPanelTests(QtSmokeBase):
         action.trigger()
         self.assertEqual(fired, [True])
 
+    def test_inline_action_clicked_reemits_as_inline_row_action(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        fired: list[tuple] = []
+        panel.inline_row_action.connect(lambda index, action_id: fired.append((index.row(), action_id)))
+        index = panel.model.index(3, 0)
+        panel.table_view.inline_action_clicked.emit(index, "assign_file")
+        self.assertEqual(fired, [(3, "assign_file")])
+
     def test_unassign_all_button_removed(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)

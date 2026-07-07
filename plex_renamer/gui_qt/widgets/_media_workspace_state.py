@@ -127,6 +127,19 @@ class MediaWorkspaceStateCoordinator:
         view.closePersistentEditor(model.index(current, 0))
         workspace._work_panel.clear_episode_overview()
 
+    def on_inline_row_action(self, index: QModelIndex, action_id: str) -> None:
+        """Route an inline row action (e.g. missing-file "assign_file") through
+        the same handle_episode_row_action contract expansion-card actions use,
+        without requiring the row to be expanded first (M7)."""
+        workspace = self._workspace
+        if not index.isValid():
+            return
+        model = workspace._work_panel.model
+        state = model.state()
+        guide_row = model.guide_row_at(index.row())
+        if state is not None and guide_row is not None:
+            workspace._action_coordinator.handle_episode_row_action(state, guide_row, action_id)
+
     def expansion_card_for_index(self, index: QModelIndex):
         from ._episode_expansion import EpisodeExpansionCard
 
