@@ -120,3 +120,13 @@ class RosterModelTests(QtSmokeBase):
         self.assertIsNotNone(pixmap)
         self.assertFalse(pixmap.isNull())
         self.assertEqual(len(calls), 1)
+
+    def test_loaded_posters_returns_cached_pixmaps(self):
+        from PySide6.QtGui import QPixmap
+
+        model = self._model([_make_state("Frieren")])
+        pixmap = QPixmap(10, 14)
+        model._poster_cache[("tv", 1)] = pixmap
+        loaded = model.loaded_posters()
+        self.assertEqual(len(loaded), 1)
+        self.assertIs(loaded[0], pixmap)

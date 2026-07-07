@@ -238,6 +238,9 @@ class RosterModel(QAbstractListModel):
     def is_compact(self) -> bool:
         return self._compact
 
+    def loaded_posters(self) -> list[QPixmap]:
+        return list(self._poster_cache.values())
+
     # -- Entry building ---------------------------------------------------
 
     def _build_entries(self, states: list[ScanState], collapsed_groups: dict[str, bool]):

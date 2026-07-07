@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QElapsedTimer, QTimer, Signal
-from PySide6.QtGui import QLinearGradient, QPainter, QPen
+from PySide6.QtGui import QLinearGradient, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -87,7 +87,17 @@ class _ConveyorAnimation(QWidget):
         super().__init__(parent)
         self._clock = QElapsedTimer()
         self._active = False
+        self._posters: list[QPixmap] = []
         self.setMinimumHeight(_scale.px(180))
+
+    def set_posters(self, pixmaps: list[QPixmap]) -> None:
+        self._posters = [p for p in pixmaps if p is not None and not p.isNull()]
+        self.update()
+
+    def add_poster(self, pixmap: QPixmap) -> None:
+        if pixmap is not None and not pixmap.isNull():
+            self._posters.append(pixmap)
+            self.update()
 
     def set_active(self, active: bool) -> None:
         if self._active == active:
@@ -137,17 +147,29 @@ class _ConveyorAnimation(QWidget):
             painter.setBrush(blank)
             painter.drawRoundedRect(card, radius, radius)
             if self._active and center_x < beam_x - slot_w * 0.5:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(filled_wash)
-                painter.drawRoundedRect(card, radius, radius)
-                painter.setBrush(border)
-                line_w = card_w - _scale.px(12)
-                painter.drawRoundedRect(
-                    QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(18), line_w, _scale.px(4)), 2, 2
-                )
-                painter.drawRoundedRect(
-                    QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(10), line_w * 0.6, _scale.px(4)), 2, 2
-                )
+                if self._posters:
+                    poster = self._posters[index % len(self._posters)]
+                    painter.save()
+                    painter.setClipRect(card)
+                    scaled = poster.scaled(
+                        int(card.width()), int(card.height()),
+                        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    painter.drawPixmap(card.topLeft(), scaled)
+                    painter.restore()
+                else:
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(filled_wash)
+                    painter.drawRoundedRect(card, radius, radius)
+                    painter.setBrush(border)
+                    line_w = card_w - _scale.px(12)
+                    painter.drawRoundedRect(
+                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(18), line_w, _scale.px(4)), 2, 2
+                    )
+                    painter.drawRoundedRect(
+                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(10), line_w * 0.6, _scale.px(4)), 2, 2
+                    )
             if self._active and abs(center_x - beam_x) <= slot_w * 0.5:
                 sweep = (beam_x - (center_x - slot_w * 0.5)) / slot_w
                 beam_pos = card.left() + card.width() * max(0.0, min(1.0, sweep))
@@ -333,12 +355,19 @@ class ScanProgressWidget(QWidget):
 
         outer.addWidget(card)
 
+    def set_posters(self, pixmaps: list[QPixmap]) -> None:
+        self._animation.set_posters(pixmaps)
+
+    def add_poster(self, pixmap: QPixmap) -> None:
+        self._animation.add_poster(pixmap)
+
     def start(self) -> None:
         """Reset the dashboard and start active timers."""
         self._elapsed.start()
         self._elapsed_timer.start()
         self._animation_timer.start()
         self._animation.set_active(True)
+        self._animation.set_posters([])
         self._completed_lifecycles.clear()
         self._current_lifecycle = None
         self._reset_checklist()

@@ -97,6 +97,7 @@ def main() -> int:
         "tests/test_bulk_assign_panel.py",
         "tests/test_settings_tab_cache.py",
         "tests/test_settings_longpath.py",
+        "tests/test_scan_progress.py",
         "--color=no",
         f"--junitxml={junit_log}",
     ]
