@@ -79,6 +79,7 @@ def main() -> int:
         "-m",
         "pytest",
         "--ignore=tests/test_qt_main_window.py",
+        "--ignore=tests/test_recent_menus.py",
         "--ignore=tests/test_tab_badge.py",
         "--ignore=tests/test_qt_job_detail_panel.py",
         "--ignore=tests/test_qt_media_detail_panel.py",

@@ -80,6 +80,7 @@ def main() -> int:
         "-m",
         "pytest",
         "tests/test_qt_main_window.py",
+        "tests/test_recent_menus.py",
         "tests/test_tab_badge.py",
         "tests/test_qt_job_detail_panel.py",
         "tests/test_qt_media_workspace.py",

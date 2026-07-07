@@ -95,8 +95,6 @@ class MainWindowStateCoordinator:
             action.triggered.connect(
                 lambda _=False, selected=folder: self._load_recent(selected, media_type="tv")
             )
-        window._recent_tv_menu.setEnabled(bool(window.settings_service.recent_tv_folders))
-
         window._recent_movie_menu.clear()
         for folder in window.settings_service.recent_movie_folders:
             path = Path(folder)
@@ -104,7 +102,21 @@ class MainWindowStateCoordinator:
             action.triggered.connect(
                 lambda _=False, selected=folder: self._load_recent(selected, media_type="movie")
             )
-        window._recent_movie_menu.setEnabled(bool(window.settings_service.recent_movie_folders))
+
+        self.sync_recent_menu_enabled()
+
+    def _active_media_type(self) -> str:
+        return "movie" if self._window._tabs.currentIndex() == self._movies_index else "tv"
+
+    def sync_recent_menu_enabled(self) -> None:
+        window = self._window
+        active = self._active_media_type()
+        window._recent_tv_menu.setEnabled(
+            active == "tv" and bool(window.settings_service.recent_tv_folders)
+        )
+        window._recent_movie_menu.setEnabled(
+            active == "movie" and bool(window.settings_service.recent_movie_folders)
+        )
 
     def _load_recent(self, folder: str, *, media_type: str) -> None:
         """Recent-folder click: land on the owning tab, then load (GUI V4 §14)."""
@@ -143,6 +155,7 @@ class MainWindowStateCoordinator:
                 window._movie_workspace.refresh_from_controller()
             window._movie_needs_queue_refresh = False
 
+        self.sync_recent_menu_enabled()
         self._logger.debug("Tab switched to %d", index)
 
     def capture_active_snapshot(self) -> None:
