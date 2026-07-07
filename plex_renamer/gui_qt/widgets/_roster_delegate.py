@@ -17,7 +17,10 @@ from .. import _scale, theme
 from ._image_utils import build_placeholder_pixmap, scale_pixmap_for_device
 from ._roster_model import GROUP_ROLE, KIND_ROLE, POSTER_ROLE, ROW_DATA_ROLE, RosterRowData
 from ._workspace_widget_primitives import paint_check_indicator, paint_mini_progress
-from .status_chip import chip_font_metrics, chip_rects, chip_row_height, paint_chip_row
+from .status_chip import (
+    chip_font_metrics, chip_rects, chip_rects_wrapped, chip_row_height,
+    chip_wrapped_height, paint_chip_row_wrapped,
+)
 
 _MARGIN_U = 8
 _TOGGLE_U = 20
@@ -26,6 +29,8 @@ _ROW_NORMAL_U, _ROW_COMPACT_U, _ROW_HEADER_U = 110, 56, 34
 _PILL_H_U, _PILL_HPAD_U = 18, 8
 _BAR_W_U = 110
 _HEADER_PAD_LEFT_U = 12
+_CHIP_TOP_GAP_U = 6
+_CONF_BLOCK_U = 18   # confidence bar (4u) + pct baseline padding
 
 _TONE_COLOR = {
     "success": "success", "info": "info", "error": "error",
@@ -89,6 +94,14 @@ class RosterDelegate(QStyledItemDelegate):
 
     # -- Painting ------------------------------------------------------------
 
+    def _body_width(self) -> int:
+        margin = _scale.px(_MARGIN_U)
+        view_w = self._view.viewport().width() if self._view is not None else _scale.px(360)
+        toggle = _scale.px(_TOGGLE_U)
+        poster = 0 if self._compact else _scale.px(_POSTER_W_U) + margin + 1
+        body_x = margin + toggle + margin + poster
+        return max(_scale.px(80), view_w - body_x - margin)
+
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
         del option
         kind = index.data(KIND_ROLE)
@@ -96,7 +109,21 @@ class RosterDelegate(QStyledItemDelegate):
             return QSize(0, _scale.px(_ROW_HEADER_U))
         if self._compact:
             return QSize(0, _scale.px(_ROW_COMPACT_U))
-        return QSize(0, _scale.px(_ROW_NORMAL_U))
+        base = _scale.px(_ROW_NORMAL_U)
+        row_data = index.data(ROW_DATA_ROLE)
+        if row_data is None or not row_data.chips:
+            return QSize(0, base)
+        metrics = QFontMetrics(self._view.font()) if self._view is not None else None
+        line_height = metrics.lineSpacing() if metrics is not None else _scale.px(16)
+        chip_h = chip_wrapped_height(row_data.chips, chip_font_metrics(), self._body_width())
+        content = (
+            2 * _scale.px(_MARGIN_U)
+            + 2 * line_height
+            + _scale.px(_CONF_BLOCK_U)
+            + _scale.px(_CHIP_TOP_GAP_U)
+            + chip_h
+        )
+        return QSize(0, max(base, content))
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         kind = index.data(KIND_ROLE)
@@ -216,9 +243,9 @@ class RosterDelegate(QStyledItemDelegate):
         painter.drawText(pct_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), pct_text)
 
         if row_data.chips:
-            chip_y = body_rect.bottom() - chip_row_height()
+            chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
             painter.setPen(theme.qcolor("text"))
-            paint_chip_row(painter, body_rect.x(), chip_y, row_data.chips)
+            paint_chip_row_wrapped(painter, body_rect.x(), chip_y, row_data.chips, body_rect.width())
 
     def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: RosterRowData) -> None:
         tone_token = _TONE_COLOR[row_data.status_tone]
@@ -263,8 +290,11 @@ class RosterDelegate(QStyledItemDelegate):
             return super().helpEvent(event, view, option, index)
 
         body_rect = self._body_rect(option.rect)
-        chip_y = body_rect.bottom() - chip_row_height()
-        rects = chip_rects(body_rect.x(), chip_y, row_data.chips, chip_font_metrics())
+        metrics = painter_metrics = QFontMetrics(self._view.font()) if self._view is not None else None
+        line_height = painter_metrics.lineSpacing() if painter_metrics is not None else _scale.px(16)
+        confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
+        chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
+        rects = chip_rects_wrapped(body_rect.x(), chip_y, row_data.chips, chip_font_metrics(), body_rect.width())
         point = event.pos()
         for chip, rect in zip(row_data.chips, rects):
             if rect.contains(point):

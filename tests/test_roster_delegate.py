@@ -7,6 +7,11 @@ from pathlib import Path
 from conftest_qt import QtSmokeBase
 
 
+def _scale_spacing():
+    from plex_renamer.gui_qt import _scale
+    return _scale.px(4)   # _CHIP_SPACING_UNITS
+
+
 def _make_state(name: str):
     from plex_renamer.engine.models import ScanState
 
@@ -86,12 +91,14 @@ class RosterDelegateTests(QtSmokeBase):
         from PySide6.QtCore import QEvent, QPoint
         from PySide6.QtWidgets import QStyleOptionViewItem, QToolTip
         from PySide6.QtGui import QHelpEvent
+        from PySide6.QtGui import QFontMetrics
         from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CONF_BLOCK_U, _CHIP_TOP_GAP_U
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         from plex_renamer.gui_qt.widgets.status_chip import (
             chip_font_metrics,
-            chip_rects,
-            chip_row_height,
+            chip_rects_wrapped,
         )
 
         state = _make_state("A")
@@ -112,8 +119,10 @@ class RosterDelegateTests(QtSmokeBase):
         option = QStyleOptionViewItem()
         option.rect = view.visualRect(index)
         body = delegate._body_rect(option.rect)
-        chip_y = body.bottom() - chip_row_height()
-        painted = chip_rects(body.x(), chip_y, row_data.chips, chip_font_metrics())
+        line_height = QFontMetrics(view.font()).lineSpacing()
+        confidence_y = body.y() + 2 * line_height + _scale.px(4)
+        chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
+        painted = chip_rects_wrapped(body.x(), chip_y, row_data.chips, chip_font_metrics(), body.width())
         probe = QPoint(painted[2].left() + 1, painted[2].center().y())
 
         shown: list[str] = []
@@ -126,3 +135,86 @@ class RosterDelegateTests(QtSmokeBase):
         self.assertTrue(handled)
         self.assertEqual(shown, [row_data.chips[2].tooltip])
         view.close()
+
+
+class ChipWrapTests(QtSmokeBase):
+    def _chips(self, n):
+        from plex_renamer.gui_qt.widgets.status_chip import ChipSpec
+        return [ChipSpec(f"S{i} 9/10", "warning", "") for i in range(1, n + 1)]
+
+    def test_chips_wrap_to_multiple_rows_when_narrow(self):
+        from plex_renamer.gui_qt.widgets.status_chip import (
+            chip_font_metrics, chip_rects_wrapped, chip_row_height,
+        )
+        chips = self._chips(6)
+        metrics = chip_font_metrics()
+        one_chip_w = metrics.horizontalAdvance("S1 9/10") + 40
+        rects = chip_rects_wrapped(0, 0, chips, metrics, max_width=one_chip_w)
+        tops = sorted({r.top() for r in rects})
+        self.assertGreater(len(tops), 1)                 # wrapped
+        self.assertEqual(tops[1] - tops[0], chip_row_height() + _scale_spacing())
+        # every chip fits within max_width
+        self.assertTrue(all(r.right() <= one_chip_w for r in rects))
+
+    def test_single_row_when_wide(self):
+        from plex_renamer.gui_qt.widgets.status_chip import (
+            chip_font_metrics, chip_rects_wrapped,
+        )
+        chips = self._chips(3)
+        metrics = chip_font_metrics()
+        rects = chip_rects_wrapped(0, 0, chips, metrics, max_width=100000)
+        self.assertEqual(len({r.top() for r in rects}), 1)
+
+    def test_wrapped_height_grows_with_rows(self):
+        from plex_renamer.gui_qt.widgets.status_chip import (
+            chip_font_metrics, chip_wrapped_height,
+        )
+        metrics = chip_font_metrics()
+        narrow = chip_wrapped_height(self._chips(6), metrics, max_width=
+                                     metrics.horizontalAdvance("S1 9/10") + 40)
+        wide = chip_wrapped_height(self._chips(6), metrics, max_width=100000)
+        self.assertGreater(narrow, wide)
+
+
+class RosterSizeHintTests(QtSmokeBase):
+    def _state_with_seasons(self, n_seasons):
+        from pathlib import Path
+        from plex_renamer.engine.models import (
+            ScanState, CompletenessReport, SeasonCompleteness,
+        )
+        state = ScanState(folder=Path("C:/lib/Big Show"),
+                          media_info={"id": 1, "name": "Big Show", "year": "2020",
+                                      "_media_type": "tv"})
+        state.scanned = True
+        state.confidence = 0.9
+        seasons = {i: SeasonCompleteness(season=i, expected=10, matched=9,
+                                         missing=[(1, "Ep 1")]) for i in range(1, n_seasons + 1)}
+        state.completeness = CompletenessReport(
+            seasons=seasons, specials=None,
+            total_expected=10 * n_seasons, total_matched=9 * n_seasons, total_missing=[])
+        return state
+
+    def _card_height(self, state):
+        from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, RosterListView
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        model = RosterModel(media_type="tv")
+        model.set_states([state], collapsed_groups={})
+        view = RosterListView()
+        view.setModel(model)
+        delegate = RosterDelegate(view, media_type="tv")
+        view.setItemDelegate(delegate)
+        view.resize(360, 800)
+        index = model.index(1, 0)
+        option = QStyleOptionViewItem()
+        option.rect = view.visualRect(index)
+        return delegate.sizeHint(option, index).height()
+
+    def test_many_seasons_grows_card_height(self):
+        from plex_renamer.gui_qt._scale import px
+        from plex_renamer.gui_qt.widgets._roster_delegate import _ROW_NORMAL_U
+        tall = self._card_height(self._state_with_seasons(12))
+        base = self._card_height(self._state_with_seasons(1))
+        self.assertGreaterEqual(base, px(_ROW_NORMAL_U) - 1)
+        self.assertGreater(tall, base)

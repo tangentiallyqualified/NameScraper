@@ -194,3 +194,64 @@ def paint_chip_row(painter: QPainter, origin_x: int, origin_y: int, chips: Seque
         painter.setPen(QPen(theme.qcolor(tone_token)))
         painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), chip.text)
     painter.restore()
+
+
+def chip_rects_wrapped(
+    origin_x: int,
+    origin_y: int,
+    chips: Sequence[ChipSpec],
+    font_metrics: QFontMetrics,
+    max_width: int,
+) -> list[QRect]:
+    """Lay chips left-to-right, wrapping to a new row when the next chip would
+    exceed ``origin_x + max_width``. The first chip on a row is always placed
+    even if it alone exceeds ``max_width`` (never drop a chip)."""
+    rects: list[QRect] = []
+    x = origin_x
+    y = origin_y
+    height = chip_row_height()
+    pad = _scale.px(_CHIP_HPAD_UNITS)
+    spacing = _scale.px(_CHIP_SPACING_UNITS)
+    for chip in chips:
+        width = font_metrics.horizontalAdvance(chip.text) + 2 * pad
+        if x > origin_x and (x + width) > (origin_x + max_width):
+            x = origin_x
+            y += height + spacing
+        rects.append(QRect(x, y, width, height))
+        x += width + spacing
+    return rects
+
+
+def chip_wrapped_height(
+    chips: Sequence[ChipSpec], font_metrics: QFontMetrics, max_width: int
+) -> int:
+    if not chips:
+        return 0
+    rects = chip_rects_wrapped(0, 0, chips, font_metrics, max_width)
+    return max(rect.bottom() for rect in rects) - rects[0].top() + 1
+
+
+def paint_chip_row_wrapped(
+    painter: QPainter,
+    origin_x: int,
+    origin_y: int,
+    chips: Sequence[ChipSpec],
+    max_width: int,
+) -> None:
+    if not chips:
+        return
+    painter.save()
+    painter.setFont(_chip_font())
+    metrics = chip_font_metrics()
+    radius = theme.radius("sm")
+    rects = chip_rects_wrapped(origin_x, origin_y, chips, metrics, max_width)
+    for chip, rect in zip(chips, rects):
+        tone_token = _TONE_COLORS[chip.tone]
+        fill = theme.qcolor(tone_token)
+        fill.setAlphaF(0.12)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(fill)
+        painter.drawRoundedRect(rect, radius, radius)
+        painter.setPen(QPen(theme.qcolor(tone_token)))
+        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), chip.text)
+    painter.restore()
