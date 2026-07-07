@@ -120,6 +120,12 @@ class ToastCardStyleTests(_ToastCardTestBase):
         self.assertIn("setFixedHeight(_scale.px(3))", source)
         self.assertIn("+ _scale.px(4)", source)
 
+    def test_close_button_has_toast_close_class_and_tooltip(self):
+        card = _make_card()
+        self.assertEqual(card._close_btn.property("cssClass"), "toast-close")
+        self.assertTrue(card._close_btn.toolTip())
+        self.assertEqual(card._close_btn.text(), "✕")
+
 
 class ToastCardBehaviorTests(_ToastCardTestBase):
     def test_copy_puts_title_and_full_message_on_clipboard(self):

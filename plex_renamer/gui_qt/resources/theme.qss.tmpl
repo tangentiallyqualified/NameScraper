@@ -368,6 +368,21 @@ QProgressBar[cssClass="toast-countdown"] {
 QProgressBar[cssClass="toast-countdown"][tone="success"]::chunk { background: ${success}; border-radius: 1px; }
 QProgressBar[cssClass="toast-countdown"][tone="error"]::chunk { background: ${error}; border-radius: 1px; }
 QProgressBar[cssClass="toast-countdown"][tone="accent"]::chunk { background: ${info}; border-radius: 1px; }
+QPushButton[cssClass="toast-close"] {
+    background-color: transparent;
+    color: ${text_dim};
+    border: none;
+    border-radius: ${radius_sm}px;
+    font-size: 12px;
+    padding: 0;
+}
+QPushButton[cssClass="toast-close"]:hover {
+    background-color: ${card_hover};
+    color: ${text};
+}
+QPushButton[cssClass="toast-close"]:pressed {
+    background-color: ${selection_bg};
+}
 
 
 /* ─── Splitters ──────────────────────────────────────────────────── */

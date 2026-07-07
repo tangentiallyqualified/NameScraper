@@ -98,11 +98,13 @@ class _ToastCard(QFrame):
         self._copy_btn.clicked.connect(self._copy_to_clipboard)
         header.addWidget(self._copy_btn)
 
-        close_btn = QPushButton("x")
-        close_btn.setProperty("cssClass", "secondary")
-        close_btn.setFixedSize(_scale.px(24), _scale.px(24))
-        close_btn.clicked.connect(self.dismiss)
-        header.addWidget(close_btn)
+        self._close_btn = QPushButton("✕")
+        self._close_btn.setProperty("cssClass", "toast-close")
+        self._close_btn.setFixedSize(_scale.px(24), _scale.px(24))
+        self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._close_btn.setToolTip("Dismiss")
+        self._close_btn.clicked.connect(self.dismiss)
+        header.addWidget(self._close_btn)
         root.addLayout(header)
 
         self._message_label = QLabel(message)
