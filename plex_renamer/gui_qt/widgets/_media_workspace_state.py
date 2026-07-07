@@ -112,6 +112,9 @@ class MediaWorkspaceStateCoordinator:
         self._close_expansion()
         model.set_expanded_row(row)
         view.openPersistentEditor(model.index(row, 0))
+        guide_row = model.guide_row_at(row)
+        if guide_row is not None:
+            workspace._work_panel.set_episode_overview(guide_row.overview, guide_row.air_date)
 
     def _close_expansion(self) -> None:
         workspace = self._workspace
@@ -122,6 +125,7 @@ class MediaWorkspaceStateCoordinator:
             return
         model.set_expanded_row(None)
         view.closePersistentEditor(model.index(current, 0))
+        workspace._work_panel.clear_episode_overview()
 
     def expansion_card_for_index(self, index: QModelIndex):
         from ._episode_expansion import EpisodeExpansionCard

@@ -129,15 +129,6 @@ class EpisodeExpansionCard(QFrame):
         self._target_row = QHBoxLayout()
         outer.addLayout(self._target_row)
 
-        self._overview_label = QLabel()
-        self._overview_label.setWordWrap(True)
-        self._overview_label.setProperty("cssClass", "text-dim")
-        outer.addWidget(self._overview_label)
-
-        self._air_date_label = QLabel()
-        self._air_date_label.setProperty("cssClass", "caption")
-        outer.addWidget(self._air_date_label)
-
         self._actions_row = QHBoxLayout()
         self._actions_row.setSpacing(_scale.px(6))
         outer.addLayout(self._actions_row)
@@ -174,7 +165,6 @@ class EpisodeExpansionCard(QFrame):
             self._build_labeled_path(
                 "Subtitle Output", subtitle.new_name or "", open_dir=False
             )
-        self._build_overview_section(row.overview, row.air_date)
         self._build_actions_row(episode_row_actions(row))
 
     def show_movie(self, state: ScanState, preview: PreviewItem) -> None:
@@ -193,10 +183,6 @@ class EpisodeExpansionCard(QFrame):
         self._clear_layout(self._files_section)
         self._clear_layout(self._target_row)
         self._clear_layout(self._actions_row)
-        self._overview_label.setText("")
-        self._overview_label.hide()
-        self._air_date_label.setText("")
-        self._air_date_label.hide()
 
     def _open_dir_button(self, directory: str) -> QToolButton:
         button = QToolButton(self)
@@ -275,14 +261,6 @@ class EpisodeExpansionCard(QFrame):
         copy_button = _copy_path_button(target_rename, self)
         self._target_row.addWidget(copy_button)
         self._copy_buttons.append(copy_button)
-
-    def _build_overview_section(self, overview: str, air_date: str) -> None:
-        if overview:
-            self._overview_label.setText(overview)
-            self._overview_label.show()
-        if air_date:
-            self._air_date_label.setText(f"Air date: {air_date}")
-            self._air_date_label.show()
 
     def _build_actions_row(self, actions: list[tuple[str, str]]) -> None:
         for action_id, label in actions:

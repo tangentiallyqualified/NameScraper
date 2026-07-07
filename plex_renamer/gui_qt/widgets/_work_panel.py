@@ -86,6 +86,8 @@ class MediaWorkPanel(QFrame):
         self._overview_cache: "OrderedDict[str, str]" = OrderedDict()
         self._loading_tokens: set[str] = set()
         self._overview_expanded = False
+        self._series_overview_text = ""
+        self._episode_overview_active = False
         self._master_syncing = False
         self._bridge = _OverviewBridge()
         self._bridge.overview_ready.connect(self._on_overview_ready)
@@ -370,6 +372,8 @@ class MediaWorkPanel(QFrame):
         self._title_label.setText("")
         self._source_pill.setText("")
         self._status_pill.setText("")
+        self._episode_overview_active = False
+        self._series_overview_text = ""
         self._overview_label.setText(message)
         self._overview_toggle.hide()
         self._discovery_label.hide()
@@ -675,10 +679,32 @@ class MediaWorkPanel(QFrame):
 
     def _apply_overview_text(self, text: str, token: str) -> None:
         del token
+        if not self._episode_overview_active:
+            self._series_overview_text = text
         self._overview_label.setText(text)
         self._overview_label.setVisible(bool(text))
         self._apply_overview_clamp()
         self._refresh_overview_toggle()
+
+    def set_episode_overview(self, overview: str, air_date: str) -> None:
+        """Swap the header overview to the expanded episode's text,
+        remembering the series overview so ``clear_episode_overview`` can
+        restore it (M10 — header follows the expanded episode)."""
+        if not self._episode_overview_active:
+            self._series_overview_text = self._overview_label.text()
+        self._episode_overview_active = True
+        text = overview or "No episode overview."
+        if air_date:
+            text = f"{text}\nAir date: {air_date}"
+        self._apply_overview_text(text, self._current_token)
+
+    def clear_episode_overview(self) -> None:
+        """Restore the remembered series overview (collapse, or nothing
+        expanded)."""
+        if not self._episode_overview_active:
+            return
+        self._episode_overview_active = False
+        self._apply_overview_text(self._series_overview_text, self._current_token)
 
     # -- Shared helpers --------------------------------------------------
 
