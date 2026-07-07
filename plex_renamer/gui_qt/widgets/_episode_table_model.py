@@ -140,6 +140,8 @@ class EpisodeTableModel(QAbstractListModel):
         if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             return entry.text
         if role == Qt.ItemDataRole.ToolTipRole:
+            # Unused by EpisodeTableDelegate.helpEvent, which fully replaces
+            # default tooltip display; kept for any default-delegate consumer.
             return entry.row_data.tooltip
         if role == ROW_KIND_ROLE:
             return entry.kind

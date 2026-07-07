@@ -148,6 +148,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         if row_data is None or not row_data.tooltip:
             QToolTip.hideText()
             return False
+        # Generic across row kinds: episode/unmapped/duplicate rows each set
+        # their own `tooltip` string (rename preview, unmapped/duplicate
+        # reason), so this gate has no episode-specific logic.
         title_x = self._title_x(option.rect, row_data)
         pill_rect = self._pill_rect(option.rect, row_data, self._view.fontMetrics())
         width = max(0, pill_rect.x() - title_x - _scale.px(_MARGIN_U))

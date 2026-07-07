@@ -171,3 +171,75 @@ class HelpEventTests(QtSmokeBase):
         # narrow width -> elided -> tooltip; wide width -> not elided -> no tooltip
         self.assertTrue(d._preview_is_truncated("A very long rename preview.mkv", width=20))
         self.assertFalse(d._preview_is_truncated("x.mkv", width=100000))
+
+    def _view(self, state, guide, *, width=700):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
+
+        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: guide)
+        model.show_state(state, collapsed_sections=set())
+        view = EpisodeTableView()
+        delegate = EpisodeTableDelegate(view, media_type="tv")
+        view.setModel(model)
+        view.setItemDelegate(delegate)
+        view.resize(width, 500)
+        return view, model, delegate
+
+    def _help_event_result(self, view, delegate, index):
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QHelpEvent
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        rect = view.visualRect(index)
+        option = QStyleOptionViewItem()
+        option.rect = rect
+        pos = rect.center()
+        event = QHelpEvent(QEvent.Type.ToolTip, pos, view.viewport().mapToGlobal(pos))
+        return delegate.helpEvent(event, view, option, index)
+
+    def test_help_event_suppressed_when_row_expanded(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EXPANDED_ROLE
+
+        # Same long tooltip + narrow view as the "shown when truncated" case
+        # below: without the EXPANDED_ROLE guard this would also be
+        # truncated and helpEvent would return True, so expansion is the
+        # only thing this test can be asserting on.
+        state, guide = _guide_state()
+        guide.rows[1].target_rename = (
+            "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
+        )
+        view, model, delegate = self._view(state, guide, width=260)
+        view.show()
+        index = model.index(4, 0)
+        model.set_expanded_row(4)
+        self.assertTrue(index.data(EXPANDED_ROLE))
+        handled = self._help_event_result(view, delegate, index)
+        self.assertFalse(handled)
+        view.close()
+
+    def test_help_event_shown_when_collapsed_and_truncated(self):
+        # Give row 4 ("Two") a long rename preview and a narrow view so the
+        # computed available width can't fit it -> helpEvent must show it.
+        state, guide = _guide_state()
+        guide.rows[1].target_rename = (
+            "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
+        )
+        view, model, delegate = self._view(state, guide, width=260)
+        view.show()
+        index = model.index(4, 0)
+        handled = self._help_event_result(view, delegate, index)
+        self.assertTrue(handled)
+        view.close()
+
+    def test_help_event_hidden_when_collapsed_and_fitting(self):
+        # Row 3 ("One") keeps its short default target_rename and the view
+        # is wide, so the preview fits -> helpEvent must not show a tooltip.
+        state, guide = _guide_state()
+        view, model, delegate = self._view(state, guide, width=700)
+        view.show()
+        index = model.index(3, 0)
+        handled = self._help_event_result(view, delegate, index)
+        self.assertFalse(handled)
+        view.close()
