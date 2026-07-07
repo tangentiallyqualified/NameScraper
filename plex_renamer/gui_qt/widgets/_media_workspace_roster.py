@@ -151,6 +151,8 @@ class MediaWorkspaceRosterPanel(QFrame):
             self._syncing = False
         if previous is not None:
             self.set_current_state(previous)
+        else:
+            self.select_first_state()
 
     def refresh_state(self, state_index: int) -> None:
         self._model.refresh_state(state_index)
@@ -170,6 +172,15 @@ class MediaWorkspaceRosterPanel(QFrame):
             self._view.setCurrentIndex(self._model.index(row, 0))
         finally:
             self._syncing = False
+        return True
+
+    def select_first_state(self) -> bool:
+        row = self._model.first_state_row()
+        if row < 0:
+            return False
+        # Set current OUTSIDE the syncing guard so _on_current_changed fires
+        # and drives the work panel.
+        self._view.setCurrentIndex(self._model.index(row, 0))
         return True
 
     def scroll_state_into_context(self, state_index: int) -> None:

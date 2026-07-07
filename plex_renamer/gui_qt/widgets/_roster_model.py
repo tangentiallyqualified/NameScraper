@@ -205,6 +205,12 @@ class RosterModel(QAbstractListModel):
                 return row
         return -1
 
+    def first_state_row(self) -> int:
+        for row, entry in enumerate(self._entries):
+            if isinstance(entry, _StateEntry):
+                return row
+        return -1
+
     def header_row_before(self, row: int) -> int:
         for candidate in range(row - 1, -1, -1):
             if isinstance(self._entries[candidate], _HeaderEntry):
