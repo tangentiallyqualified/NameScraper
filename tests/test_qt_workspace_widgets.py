@@ -219,17 +219,21 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         self.assertEqual(len(movie_widget._stepper._labels), 4)
 
     def test_scan_progress_conveyor_advances_only_while_active(self):
+        # LD1: motion is a pure function of elapsed wall-clock time (not a
+        # tick counter), so "advances only while active" now means the
+        # animation clock only runs (and advance() only repaints) while active.
         from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
 
         animation = _ConveyorAnimation()
         animation.resize(600, 200)
         animation.set_active(True)
+        self.assertTrue(animation._clock.isValid())
         for _ in range(10):
             animation.advance()
-        self.assertEqual(animation._tick, 10)
+        self.assertTrue(animation._clock.isValid())   # active: clock keeps running
         animation.set_active(False)
         animation.advance()
-        self.assertEqual(animation._tick, 10)   # inactive: no motion
+        self.assertFalse(animation._active)   # inactive: advance() is a no-op
 
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path

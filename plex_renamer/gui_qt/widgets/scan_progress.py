@@ -68,7 +68,14 @@ _MOVIE_FILLERS = (
 
 
 _CARD_COUNT = 5
-_CYCLE_TICKS = 120
+_CONVEYOR_CYCLE_MS = 10_800     # full slot slide period (was 120 ticks × 90 ms)
+
+
+def conveyor_offset(elapsed_ms: int, slot_w: int, cycle_ms: int = _CONVEYOR_CYCLE_MS) -> float:
+    if slot_w <= 0 or cycle_ms <= 0:
+        return 0.0
+    phase = (elapsed_ms % cycle_ms) / cycle_ms
+    return phase * slot_w
 
 
 class _ConveyorAnimation(QWidget):
@@ -78,7 +85,7 @@ class _ConveyorAnimation(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._tick = 0
+        self._clock = QElapsedTimer()
         self._active = False
         self.setMinimumHeight(_scale.px(180))
 
@@ -86,6 +93,8 @@ class _ConveyorAnimation(QWidget):
         if self._active == active:
             return
         self._active = active
+        if active:
+            self._clock.restart()
         self.update()
 
     def set_lifecycle(self, lifecycle: ScanLifecycle | None) -> None:
@@ -95,7 +104,6 @@ class _ConveyorAnimation(QWidget):
     def advance(self) -> None:
         if not self._active:
             return
-        self._tick = (self._tick + 1) % _CYCLE_TICKS
         self.update()
 
     def paintEvent(self, _event) -> None:
@@ -108,7 +116,8 @@ class _ConveyorAnimation(QWidget):
         card_h = min(rect.height(), int(slot_w * 1.4))
         card_w = max(_scale.px(24), int(card_h * 2 / 3))
         y = rect.center().y() - card_h // 2
-        offset = (self._tick % _CYCLE_TICKS) / _CYCLE_TICKS * slot_w
+        elapsed = self._clock.elapsed() if self._clock.isValid() else 0
+        offset = conveyor_offset(elapsed, slot_w)
         beam_x = rect.center().x()
         radius = _scale.px(6)
 
