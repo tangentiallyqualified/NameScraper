@@ -176,6 +176,109 @@ class ChipWrapTests(QtSmokeBase):
         self.assertGreater(narrow, wide)
 
 
+class RosterPillRemovalTests(QtSmokeBase):
+    """L2: the per-card status pill is redundant with the group header and
+    must not be painted; L5: title wrapping must use the full body width."""
+
+    def _view(self, states, collapsed=None):
+        from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, RosterListView
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+
+        model = RosterModel(media_type="tv")
+        model.set_states(states, collapsed_groups=collapsed or {})
+        view = RosterListView()
+        delegate = RosterDelegate(view, media_type="tv")
+        view.setModel(model)
+        view.setItemDelegate(delegate)
+        view.resize(380, 600)
+        return view, model, delegate
+
+    def test_title_uses_full_body_width_no_pill_reservation(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFontMetrics
+        from PySide6.QtWidgets import QStyleOptionViewItem
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
+        state = _make_state("Aqua Teen Hunger Force Colon Movie Film")
+        view, model, delegate = self._view([state])
+        index = model.index(1, 0)
+        row_data = index.data(ROW_DATA_ROLE)
+        long_title = row_data.title
+        self.assertIn("Aqua Teen Hunger Force Colon Movie Film", long_title)
+
+        option = QStyleOptionViewItem()
+        option.rect = view.visualRect(index)
+        body = delegate._body_rect(option.rect)
+        metrics = QFontMetrics(view.font())
+
+        first_line, remainder = delegate._split_title(long_title, metrics, body.width())
+
+        # With the pill gone, _split_title must be called with the *full*
+        # body width, not a width narrowed by a reserved pill rect.
+        pill_reserved_width = body.width() - _scale_px(80)  # any pill would shave off real width
+        self.assertGreater(metrics.horizontalAdvance(first_line), 0)
+        self.assertGreater(body.width(), pill_reserved_width)
+        self.assertTrue(remainder)
+        elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideMiddle, body.width())
+        self.assertLessEqual(metrics.horizontalAdvance(elided), body.width())
+
+        # The delegate no longer exposes a pill-rect helper that would shrink
+        # the title's available width.
+        self.assertFalse(hasattr(delegate, "_pill_rect"))
+
+    def test_pill_not_painted_top_right_corner_matches_background(self):
+        """Render the row into a pixmap and inspect the top-right corner of
+        the body area: it must match the plain row background, not a
+        rounded-rect pill fill (which would create a distinct color blob
+        confined to the corner, differing from the rest of the top edge).
+
+        ``view.grab(rect)`` returns an image local to ``rect.topLeft()``, so
+        geometry from ``delegate._body_rect()`` (viewport-space) must be
+        translated by ``-rect.topLeft()`` before indexing pixels -- otherwise
+        the sample point silently lands on an unrelated row (e.g. the
+        confidence bar) and the test is meaningless.
+        """
+        from PySide6.QtGui import QFontMetrics
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        state = _make_state("A Fully Ready Show")
+        view, model, delegate = self._view([state])
+        view.show()
+        index = model.index(1, 0)
+        rect = view.visualRect(index)
+
+        pixmap = view.grab(rect)
+        image = pixmap.toImage()
+        self.assertFalse(image.isNull())
+
+        body = delegate._body_rect(rect).translated(-rect.topLeft())
+        metrics = QFontMetrics(view.font())
+        line_height = metrics.lineSpacing()
+
+        # Sample squarely within the first title line's vertical band (never
+        # at row 0/1, which can catch antialiasing from the card's rounded
+        # top edge): far right, where the pill used to sit, vs. a point on
+        # the same row well inside the body (plain background, no pill).
+        title_mid_y = min(body.y() + max(1, line_height // 2), image.height() - 1)
+        corner_x = min(body.right() - 2, image.width() - 1)
+        mid_x = max(body.x(), body.x() + body.width() // 3)
+
+        corner_color = image.pixelColor(corner_x, title_mid_y)
+        mid_color = image.pixelColor(mid_x, title_mid_y)
+
+        self.assertEqual(
+            corner_color.name(), mid_color.name(),
+            "top-right corner of the title row differs from the rest of the "
+            "row -- a pill (or other isolated fill) is still being painted",
+        )
+        view.close()
+
+
+def _scale_px(n):
+    from plex_renamer.gui_qt import _scale
+    return _scale.px(n)
+
+
 class RosterSizeHintTests(QtSmokeBase):
     def _state_with_seasons(self, n_seasons):
         from pathlib import Path

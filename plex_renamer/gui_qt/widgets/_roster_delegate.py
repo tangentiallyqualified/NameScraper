@@ -26,16 +26,10 @@ _MARGIN_U = 8
 _TOGGLE_U = 20
 _POSTER_W_U, _POSTER_H_U = 64, 94
 _ROW_NORMAL_U, _ROW_COMPACT_U, _ROW_HEADER_U = 110, 56, 34
-_PILL_H_U, _PILL_HPAD_U = 18, 8
 _BAR_W_U = 110
 _HEADER_PAD_LEFT_U = 12
 _CHIP_TOP_GAP_U = 6
 _CONF_BLOCK_U = 18   # confidence bar (4u) + pct baseline padding
-
-_TONE_COLOR = {
-    "success": "success", "info": "info", "error": "error",
-    "muted": "text_dim", "accent": "warning", "warning": "warning",
-}
 
 _BAND_WASH = {"high": ("success", 0.05), "medium": ("warning", 0.05),
               "low": ("error", 0.06), "error": ("error", 0.06)}
@@ -82,15 +76,6 @@ class RosterDelegate(QStyledItemDelegate):
             body_x = poster_rect.right() + margin + 1
         body_right = option_rect.right() - margin
         return QRect(body_x, option_rect.y() + margin, max(0, body_right - body_x), option_rect.height() - 2 * margin)
-
-    def _pill_rect(self, body_rect: QRect, row_data: RosterRowData, metrics: QFontMetrics) -> QRect:
-        text = row_data.status_text.upper()
-        pad = _scale.px(_PILL_HPAD_U)
-        height = _scale.px(_PILL_H_U)
-        width = metrics.horizontalAdvance(text) + 2 * pad
-        x = body_rect.right() - width
-        y = body_rect.y()
-        return QRect(x, y, width, height)
 
     # -- Painting ------------------------------------------------------------
 
@@ -210,24 +195,17 @@ class RosterDelegate(QStyledItemDelegate):
         metrics = painter.fontMetrics()
         line_height = metrics.lineSpacing()
 
-        pill_rect = self._pill_rect(body_rect, row_data, metrics)
-        title_width = max(0, pill_rect.x() - body_rect.x() - _scale.px(4))
-        first_line_rect = QRect(body_rect.x(), body_rect.y(), title_width, line_height)
+        first_line_rect = QRect(body_rect.x(), body_rect.y(), body_rect.width(), line_height)
         second_line_rect = QRect(body_rect.x(), body_rect.y() + line_height, body_rect.width(), line_height)
 
         painter.setPen(theme.qcolor("text"))
         title = row_data.title
-        if self._compact:
-            first_line = metrics.elidedText(title, Qt.TextElideMode.ElideRight, first_line_rect.width())
-            remainder = ""
-        else:
-            first_line, remainder = self._split_title(title, metrics, first_line_rect.width())
+        first_line, remainder = self._split_title(title, metrics, first_line_rect.width())
+        first_line = metrics.elidedText(first_line, Qt.TextElideMode.ElideRight, first_line_rect.width())
         painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), first_line)
         if remainder:
-            elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideRight, second_line_rect.width())
+            elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideMiddle, second_line_rect.width())
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), elided)
-
-        self._paint_pill(painter, pill_rect, row_data)
 
         if self._compact:
             return
@@ -246,19 +224,6 @@ class RosterDelegate(QStyledItemDelegate):
             chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
             painter.setPen(theme.qcolor("text"))
             paint_chip_row_wrapped(painter, body_rect.x(), chip_y, row_data.chips, body_rect.width())
-
-    def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: RosterRowData) -> None:
-        tone_token = _TONE_COLOR[row_data.status_tone]
-        fill = theme.qcolor(tone_token)
-        fill.setAlphaF(0.12)
-        painter.save()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(fill)
-        radius = theme.radius("pill")
-        painter.drawRoundedRect(pill_rect, radius, radius)
-        painter.setPen(theme.qcolor(tone_token))
-        painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), row_data.status_text.upper())
-        painter.restore()
 
     def _split_title(self, title: str, metrics: QFontMetrics, width: int) -> tuple[str, str]:
         if width <= 0:
