@@ -83,6 +83,12 @@ class RosterModelTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         self.assertFalse(model.index(1, 0).data(ROW_DATA_ROLE).checked)
 
+    def test_pending_poster_count_zero_without_provider(self):
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+
+        model = RosterModel(media_type="tv")
+        self.assertEqual(model.pending_poster_count(), 0)
+
     def test_header_row_before(self):
         states = [_make_state("A"), _make_state("B")]
         model = self._model(states)

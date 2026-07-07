@@ -241,6 +241,9 @@ class RosterModel(QAbstractListModel):
     def loaded_posters(self) -> list[QPixmap]:
         return list(self._poster_cache.values())
 
+    def pending_poster_count(self) -> int:
+        return len(self._poster_inflight)
+
     # -- Entry building ---------------------------------------------------
 
     def _build_entries(self, states: list[ScanState], collapsed_groups: dict[str, bool]):

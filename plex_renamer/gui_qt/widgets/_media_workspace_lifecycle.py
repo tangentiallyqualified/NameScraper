@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import QTimer
+
+# Poster warmup gate (LD3): hold the SCANNING view up while matched posters
+# finish loading so the READY transition doesn't reveal empty placeholders.
+_POSTER_WARMUP_MAX_MS = 4000
+_POSTER_WARMUP_POLL_MS = 120
+
 
 class MediaWorkspaceLifecycleCoordinator:
     def __init__(
@@ -37,6 +44,54 @@ class MediaWorkspaceLifecycleCoordinator:
         workspace._scan_progress.stop()
         workspace._stack.setCurrentIndex(self._ready_index)
         workspace.refresh_from_controller()
+
+    def show_ready_when_posters_warm(self) -> None:
+        """Populate the roster while SCANNING stays up, feed the conveyor
+        (LD2), and switch to READY once posters settle or a max wait fires
+        (LD3)."""
+        workspace = self._workspace
+        # Populate the roster (kicks off poster loads) while the loading
+        # screen stays visible.
+        workspace.refresh_from_controller()
+        model = workspace._roster_panel.model
+        conveyor = workspace._scan_progress
+        conveyor.set_posters(model.loaded_posters())
+
+        elapsed = [0]
+        finalized = [False]
+
+        def _finalize() -> None:
+            if finalized[0]:
+                return
+            finalized[0] = True
+            try:
+                model.poster_loaded.disconnect(_on_poster)
+            except (RuntimeError, TypeError):
+                pass
+            poll.stop()
+            workspace._scan_progress.finish()
+            self.show_ready()
+
+        def _on_poster() -> None:
+            conveyor.set_posters(model.loaded_posters())
+            if model.pending_poster_count() == 0:
+                _finalize()
+
+        def _tick() -> None:
+            elapsed[0] += _POSTER_WARMUP_POLL_MS
+            conveyor.set_posters(model.loaded_posters())
+            if model.pending_poster_count() == 0 or elapsed[0] >= _POSTER_WARMUP_MAX_MS:
+                _finalize()
+
+        model.poster_loaded.connect(_on_poster)
+        poll = QTimer(workspace)
+        poll.setInterval(_POSTER_WARMUP_POLL_MS)
+        poll.timeout.connect(_tick)
+        poll.start()
+        self._warmup_poll = poll
+        # Handle the already-warm case (no posters or all cached synchronously).
+        if model.pending_poster_count() == 0:
+            _finalize()
 
     def apply_settings(self) -> None:
         workspace = self._workspace

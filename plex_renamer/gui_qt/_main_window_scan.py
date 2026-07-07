@@ -65,9 +65,7 @@ class MainWindowScanCoordinator:
             window.media_ctrl.scan_all_shows()
             return
 
-        workspace.scan_progress_widget.finish()
-        if not workspace.is_showing_ready():
-            workspace.show_ready()
+        workspace.show_ready_when_posters_warm()
         window._scan_feedback_token = None
         window.statusBar().showMessage("Scan complete", 3000)
 
@@ -78,8 +76,7 @@ class MainWindowScanCoordinator:
         window._update_media_badges(states)
 
         if window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.READY and states:
-            workspace.scan_progress_widget.finish()
-            workspace.show_ready()
+            workspace.show_ready_when_posters_warm()
         elif window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
             workspace.scan_progress_widget.stop()
             if states:

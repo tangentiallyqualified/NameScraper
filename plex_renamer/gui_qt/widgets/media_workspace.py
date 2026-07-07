@@ -109,6 +109,10 @@ class MediaWorkspace(QWidget):
         """Switch to the 2-panel ready state."""
         self._lifecycle_coordinator.show_ready()
 
+    def show_ready_when_posters_warm(self) -> None:
+        """Switch to READY once matched posters have warmed up (or timed out)."""
+        self._lifecycle_coordinator.show_ready_when_posters_warm()
+
     def is_showing_ready(self) -> bool:
         return self._stack.currentIndex() == _READY
 

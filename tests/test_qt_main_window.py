@@ -652,11 +652,13 @@ class QtMainWindowTests(QtSmokeBase):
             message="Found 1 show",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
         window.media_ctrl.scan_all_shows = MagicMock()
 
         window._on_scan_complete()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
@@ -681,11 +683,13 @@ class QtMainWindowTests(QtSmokeBase):
             message="Found 1 show",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
         window.media_ctrl.scan_all_shows = MagicMock()
 
         window._on_scan_complete()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
@@ -714,11 +718,11 @@ class QtMainWindowTests(QtSmokeBase):
             message="Scanned 2 shows",
         )
         window._tv_workspace.show_scanning()
-        window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
 
         window._on_library_changed()
 
-        window._tv_workspace.show_ready.assert_called_once()
+        window._tv_workspace.show_ready_when_posters_warm.assert_called_once()
         window.close()
 
     def test_main_window_does_not_show_ready_during_discovery_library_changed(self):
@@ -741,10 +745,12 @@ class QtMainWindowTests(QtSmokeBase):
             message="Scanning...",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
 
         window._on_library_changed()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.close()
 
     def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):
