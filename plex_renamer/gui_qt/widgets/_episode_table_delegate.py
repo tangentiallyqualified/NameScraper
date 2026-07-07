@@ -22,7 +22,6 @@ from ._episode_table_model import (
     SECTION_KEY_ROLE,
     EpisodeRowData,
 )
-from ._workspace_widget_primitives import paint_check_indicator
 
 _ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U, _ROW_MOVIE_U = 30, 34, 52, 52
 _ROW_TRIPLE_U = 68
@@ -38,7 +37,7 @@ _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "mu
 _PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
 
 _HEADER_KINDS = {"section-header", "section-label"}
-_CHEVRON_KINDS = {"episode", "movie-file"}
+_CHEVRON_KINDS = {"episode"}
 _DOUBLE_LINE_KINDS = {"episode", "unmapped", "duplicate", "orphan", "folder"}
 
 _FLASH_DURATION_MS = 700
@@ -101,8 +100,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         x = option_rect.x() + margin
         if row_data.kind in _CHEVRON_KINDS:
             x += _scale.px(_CHEVRON_U) + margin
-        if row_data.kind == "movie-file" and row_data.checkable:
-            x += _scale.px(_TOGGLE_U) + margin
         return x
 
     def pill_text(self, row_data: EpisodeRowData) -> str:
@@ -269,10 +266,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         is_ghost = row_data.status_text == "Missing File"
         self._paint_background(painter, option, index, ghost=is_ghost)
 
-        if row_data.kind == "movie-file" and row_data.checkable:
-            toggle_rect = self.toggle_rect(option.rect)
-            state = Qt.CheckState.Checked if row_data.checked else Qt.CheckState.Unchecked
-            paint_check_indicator(painter, toggle_rect.adjusted(1, 1, -1, -1), state)
         if row_data.kind in _CHEVRON_KINDS and not is_ghost:
             self._paint_chevron(painter, option, index)
 
@@ -453,14 +446,6 @@ class EpisodeTableView(QListView):
             delegate = self.itemDelegateForIndex(index)
             if kind in _CHEVRON_KINDS and isinstance(delegate, EpisodeTableDelegate):
                 rect = self.visualRect(index)
-                if kind == "movie-file":
-                    row_data = index.data(ROW_DATA_ROLE)
-                    if row_data is not None and row_data.checkable:
-                        toggle_rect = delegate.toggle_rect(rect)
-                        if toggle_rect.contains(pos):
-                            self._intercepted_row = index.row()
-                            self.toggle_clicked.emit(index)
-                            return
                 if kind == "episode":
                     row_data = index.data(ROW_DATA_ROLE)
                     if row_data is not None and row_data.status_text == "Missing File":

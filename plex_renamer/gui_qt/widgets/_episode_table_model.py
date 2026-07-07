@@ -13,7 +13,6 @@ from ...engine import ScanState
 from ...thread_pool import submit as _submit_bg
 from ._formatting import clamped_percent
 from ._media_helpers import (
-    is_state_queue_approvable as _is_state_queue_approvable,
     preview_status_label as _preview_status_label,
     preview_status_tone as _preview_status_tone,
     season_label as _season_label,
@@ -750,12 +749,6 @@ class EpisodeTableModel(QAbstractListModel):
     def _movie_entry(self, state: ScanState, index: int, preview) -> _Entry | None:
         tone = _preview_status_tone(preview)
         tone = _PREVIEW_TONE_REMAP.get(tone, tone)
-        approvable = _is_state_queue_approvable(state, media_type=self._media_type)
-        checkable = preview.is_actionable and approvable
-        checked = None
-        if checkable:
-            binding = state.check_vars.get(str(index))
-            checked = binding.get() if binding is not None else False
         row_data = EpisodeRowData(
             kind="movie-file",
             title=preview.original.name,
@@ -763,8 +756,8 @@ class EpisodeTableModel(QAbstractListModel):
             status_tone=tone,
             target=preview.new_name or "",
             confidence_pct=clamped_percent(preview.episode_confidence),
-            checked=checked,
-            checkable=checkable,
+            checked=None,
+            checkable=False,
             companion_count=len(preview.companions),
         )
         if not self._passes_search(row_data):

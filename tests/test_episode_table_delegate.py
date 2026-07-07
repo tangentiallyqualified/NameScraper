@@ -137,6 +137,12 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         view.close()
 
 
+class MovieRowFlatTests(QtSmokeBase):
+    def test_movie_file_not_a_chevron_kind(self):
+        from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
+        self.assertNotIn("movie-file", d._CHEVRON_KINDS)
+
+
 class PillConfidenceTests(QtSmokeBase):
     def _delegate(self):
         from plex_renamer.gui_qt.widgets._episode_table_delegate import (

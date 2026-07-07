@@ -249,7 +249,10 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertNotIn("bulk-hint",
                          [model.row_kind_at(r) for r in range(model.rowCount())])
 
-    def test_movie_rows_carry_checks(self):
+    def test_movie_rows_are_flat_not_checkable(self):
+        """Movie-file rows no longer carry a middle-panel checkbox (GUI V4
+        Plan 3 round-2 Task 1) — queue selection flows through the roster
+        (left panel) instead. This row's title still renders regardless."""
         from plex_renamer.engine.models import PreviewItem, ScanState
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel
         from plex_renamer.gui_qt.widgets._workspace_widget_primitives import _CheckBinding
@@ -267,7 +270,28 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertEqual(len(rows), 1)
         data = model.index(rows[0], 0).data(ROW_DATA_ROLE)
         self.assertEqual(data.title, "movie.mkv")
-        self.assertTrue(data.checked)
+        self.assertFalse(data.checkable)
+        self.assertIsNone(data.checked)
+
+    def test_movie_entry_is_not_checkable(self):
+        from plex_renamer.engine.models import PreviewItem, ScanState
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel
+        from plex_renamer.gui_qt.widgets._workspace_widget_primitives import _CheckBinding
+
+        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state.scanned = True
+        state.confidence = 0.9
+        preview = PreviewItem(original=Path("C:/lib/Movie/movie.mkv"), new_name="Movie (2021).mkv",
+                              target_dir=None, season=None, episodes=[], status="OK", media_type="movie")
+        state.preview_items = [preview]
+        state.check_vars["0"] = _CheckBinding(True)
+        model = EpisodeTableModel(media_type="movie")
+        model.show_state(state, collapsed_sections=set())
+        rows = [r for r in range(model.rowCount()) if model.row_kind_at(r) == "movie-file"]
+        self.assertEqual(len(rows), 1)
+        row_data = model.index(rows[0], 0).data(ROW_DATA_ROLE)
+        self.assertFalse(row_data.checkable)
+        self.assertIsNone(row_data.checked)
 
     def test_folder_section_key_is_folder_preview(self):
         state, guide = _guide_state()

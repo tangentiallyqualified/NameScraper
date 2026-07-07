@@ -91,7 +91,7 @@ class MediaWorkspaceStateCoordinator:
             return
         model = workspace._work_panel.model
         kind = model.row_kind_at(index.row())
-        if kind not in {"episode", "movie-file"}:
+        if kind != "episode":
             return
         if index != workspace._work_panel.table_view.currentIndex():
             return
@@ -104,6 +104,8 @@ class MediaWorkspaceStateCoordinator:
         if not index.isValid():
             return
         model = workspace._work_panel.model
+        if model.row_kind_at(index.row()) != "episode":
+            return
         view = workspace._work_panel.table_view
         row = index.row()
         if model.expanded_row() == row:

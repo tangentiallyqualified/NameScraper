@@ -1356,8 +1356,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             workspace.show_ready()
 
-            from PySide6.QtWidgets import QLabel
-
             row_data = self._episode_row_data_for_preview_index(workspace, 0)
             self.assertIsNotNone(row_data)
             self.assertEqual(row_data.target, "Arrival (2016).mkv")
@@ -1370,12 +1368,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertIsNotNone(row_data)
             self.assertEqual(row_data.target, "Arrival (2016).mkv")
             self.assertEqual(row_data.companion_count, 1)
-            # Companion filenames now live on the expansion card's file rows.
+            # Movie rows are flat (GUI V4 Plan 3 round-2 Task 1): no
+            # expansion chevron, so companion filenames are not surfaced via
+            # an expansion card for movies — companion_count above is the
+            # movie row's only companion signal.
             movie_row = workspace._work_panel.model.row_for_preview_index(0)
             card = self._open_expansion_card(workspace, movie_row)
-            self.assertIsNotNone(card)
-            card_text = " ".join(label.text() for label in card.findChildren(QLabel))
-            self.assertIn("Arrival.2016.en.srt", card_text)
+            self.assertIsNone(card)
             self.assertTrue(workspace._roster_panel.is_compact())
 
             workspace.close()
