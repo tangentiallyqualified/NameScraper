@@ -2263,21 +2263,21 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        unassign_all_btn = workspace._work_panel.unassign_all_button
-        # Both files start assigned, so the bulk button is shown and enabled.
-        self.assertFalse(unassign_all_btn.isHidden())
-        self.assertTrue(unassign_all_btn.isEnabled())
+        unassign_all_action = workspace._work_panel._unassign_all_action
+        # Both files start assigned, so the overflow menu action is shown and enabled.
+        self.assertTrue(unassign_all_action.isVisible())
+        self.assertTrue(unassign_all_action.isEnabled())
         self.assertIsNotNone(table._assignments.get(first.file_id))
         self.assertIsNotNone(table._assignments.get(second.file_id))
 
-        # The click raises the danger confirm dialog (Plan 4 Task 4); stub the
+        # The trigger raises the danger confirm dialog (Plan 4 Task 4); stub the
         # blocking modal exec() to auto-answer "Unassign All" (Yes) so the
-        # offscreen run still exercises the real click -> confirm -> unassign
+        # offscreen run still exercises the real trigger -> confirm -> unassign
         # chain without sitting in a modal event loop.
         with patch.object(
             QMessageBox, "exec", return_value=QMessageBox.StandardButton.Yes,
         ):
-            unassign_all_btn.click()
+            unassign_all_action.trigger()
         self._app.processEvents()
 
         # Every file is now unassigned in the table...
@@ -2286,8 +2286,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # ...and the reprojected previews carry no rename target.
         for preview in state.preview_items:
             self.assertIsNone(preview.new_name)
-        # Nothing left to unassign, so the button disables itself.
-        self.assertFalse(unassign_all_btn.isEnabled())
+        # Nothing left to unassign, so the action disables itself.
+        self.assertFalse(unassign_all_action.isEnabled())
 
         workspace.close()
 

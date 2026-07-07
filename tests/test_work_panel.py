@@ -94,7 +94,6 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(panel.segmented_filter.isEnabled())
         self.assertFalse(panel.search_box.isEnabled())
         self.assertFalse(panel.approve_all_button.isVisible())
-        self.assertFalse(panel.unassign_all_button.isVisible())
         panel.exit_bulk_assign()
         self.assertFalse(panel.bulk_assign_active())
         self.assertIs(panel._table_stack.currentWidget(), panel.table_view)
@@ -107,14 +106,33 @@ class WorkPanelTests(QtSmokeBase):
         fired: list[bool] = []
         panel.bulk_assign_requested.connect(lambda: fired.append(True))
         actions = panel.overflow_button.menu().actions()
-        self.assertEqual([a.text() for a in actions], ["Bulk Assign…"])
+        self.assertEqual([a.text() for a in actions], ["Bulk Assign…", "Unassign All"])
         actions[0].trigger()
         self.assertEqual(fired, [True])
 
-    def test_unassign_all_is_danger_outline(self):
+    def test_unassign_all_lives_in_overflow_menu(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
-        self.assertEqual(panel.unassign_all_button.property("cssClass"), "danger-outline")
+        labels = [a.text() for a in panel.overflow_button.menu().actions()]
+        self.assertIn("Unassign All", labels)
+        self.assertIn("Bulk Assign…", labels)
+
+    def test_unassign_all_menu_action_emits_signal(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        fired: list[bool] = []
+        panel.unassign_all_clicked.connect(lambda: fired.append(True))
+        actions = {a.text(): a for a in panel.overflow_button.menu().actions()}
+        action = actions["Unassign All"]
+        action.setEnabled(True)   # fixture has no assignments; force-enable to test wiring
+        action.trigger()
+        self.assertEqual(fired, [True])
+
+    def test_unassign_all_button_removed(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        self.assertIsNone(getattr(panel, "_unassign_all_button", None))
+        self.assertFalse(hasattr(panel, "unassign_all_button"))
 
     def test_movie_mode_hides_overflow(self):
         from pathlib import Path

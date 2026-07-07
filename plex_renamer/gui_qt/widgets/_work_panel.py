@@ -140,10 +140,6 @@ class MediaWorkPanel(QFrame):
         return self._approve_all_button
 
     @property
-    def unassign_all_button(self) -> QPushButton:
-        return self._unassign_all_button
-
-    @property
     def summary_label(self) -> QLabel:
         return self._summary_label
 
@@ -167,7 +163,6 @@ class MediaWorkPanel(QFrame):
         self._segmented_filter.setEnabled(False)
         self._search_box.setEnabled(False)
         self._approve_all_button.hide()
-        self._unassign_all_button.hide()
 
     def exit_bulk_assign(self) -> None:
         self._table_stack.setCurrentWidget(self._table_view)
@@ -287,21 +282,13 @@ class MediaWorkPanel(QFrame):
         self._approve_all_button.clicked.connect(self.approve_all_clicked.emit)
         toolbar.addWidget(self._approve_all_button)
 
-        toolbar.addSpacing(_scale.px(24))   # physical separation (spec §6)
-
-        self._unassign_all_button = QPushButton("Unassign All")
-        self._unassign_all_button.setProperty("cssClass", "danger-outline")
-        self._unassign_all_button.setProperty("sizeVariant", "compact")
-        self._unassign_all_button.hide()
-        self._unassign_all_button.clicked.connect(self.unassign_all_clicked.emit)
-        toolbar.addWidget(self._unassign_all_button)
-
         self._overflow_button = QToolButton()
         self._overflow_button.setText("⋯")
         self._overflow_button.setProperty("cssClass", "toolbar-overflow")
         self._overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         overflow_menu = QMenu(self._overflow_button)
         overflow_menu.addAction("Bulk Assign…", self.bulk_assign_requested.emit)
+        self._unassign_all_action = overflow_menu.addAction("Unassign All", self.unassign_all_clicked.emit)
         self._overflow_button.setMenu(overflow_menu)
         if self._media_type == "movie":
             self._overflow_button.hide()
@@ -391,7 +378,6 @@ class MediaWorkPanel(QFrame):
         self._summary_label.setText("")
         self._queue_preflight_label.hide()
         self._approve_all_button.hide()
-        self._unassign_all_button.hide()
         self._master_check.hide()
         self._check_summary.hide()
 
@@ -484,12 +470,11 @@ class MediaWorkPanel(QFrame):
         self._search_box.setVisible(not is_movie)
         if is_movie or state is None or bulk_active:
             self._approve_all_button.hide()
-            self._unassign_all_button.hide()
             return
         guide = self._model.guide()
         has_review = guide is not None and any(row.status == "Review" for row in guide.rows)
         self._approve_all_button.setVisible(has_review)
-        self._sync_unassign_all_button(state)
+        self._sync_unassign_all_action(state)
 
     def scroll_to_season(self, season: int) -> None:
         section_key = self._model.season_section_key(season)
@@ -515,17 +500,17 @@ class MediaWorkPanel(QFrame):
     def _on_header_clicked(self, section_key: str) -> None:
         self._model.toggle_section(section_key)
 
-    # -- Toolbar rule helpers (copied from _sync_unassign_all_button) -------
+    # -- Toolbar rule helpers ------------------------------------------------
 
-    def _sync_unassign_all_button(self, state: ScanState) -> None:
+    def _sync_unassign_all_action(self, state: ScanState) -> None:
         table = state.assignments
         has_assignments = table is not None and any(
             preview.file_id is not None
             and table.assignment_for(preview.file_id) is not None
             for preview in state.preview_items
         )
-        self._unassign_all_button.setVisible(has_assignments)
-        self._unassign_all_button.setEnabled(
+        self._unassign_all_action.setVisible(has_assignments)
+        self._unassign_all_action.setEnabled(
             has_assignments and not state.queued and not state.scanning
         )
 
