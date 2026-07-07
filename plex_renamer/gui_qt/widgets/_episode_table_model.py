@@ -62,6 +62,14 @@ def _percent_from_label(value: str) -> int | None:
         return None
 
 
+_MOVIE_LABEL_PARITY = {"OK": "Matched", "NEEDS REVIEW": "Review"}
+
+
+def _movie_status_label(preview) -> str:
+    label = _preview_status_label(preview)
+    return _MOVIE_LABEL_PARITY.get(label, label)
+
+
 @dataclass(frozen=True, slots=True)
 class EpisodeRowData:
     kind: str
@@ -752,7 +760,7 @@ class EpisodeTableModel(QAbstractListModel):
         row_data = EpisodeRowData(
             kind="movie-file",
             title=preview.original.name,
-            status_text=_preview_status_label(preview),
+            status_text=_movie_status_label(preview),
             status_tone=tone,
             target=preview.new_name or "",
             confidence_pct=clamped_percent(preview.episode_confidence),

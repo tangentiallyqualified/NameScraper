@@ -293,6 +293,15 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertFalse(row_data.checkable)
         self.assertIsNone(row_data.checked)
 
+    def test_movie_status_label_parity(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import _movie_status_label
+        class _P:
+            def __init__(self, **k): self.__dict__.update(k)
+        ok = _P(is_conflict=False, is_unmatched=False, is_review=False, is_skipped=False)
+        review = _P(is_conflict=False, is_unmatched=False, is_review=True, is_skipped=False)
+        self.assertEqual(_movie_status_label(ok), "Matched")
+        self.assertEqual(_movie_status_label(review), "Review")
+
     def test_folder_section_key_is_folder_preview(self):
         state, guide = _guide_state()
         model = self._model(state, guide)
