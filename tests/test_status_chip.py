@@ -76,3 +76,24 @@ def test_season_strip_specs_uncollapsed_with_counts():
     assert specs[0] == (1, ChipSpec("S1 ✓10", "success", "Season 1: 10/10"))
     assert specs[-1][0] == 0
     assert specs[-1][1].text == "SP 1/3"
+
+
+def test_drop_empty_hides_zero_matched_seasons():
+    report = _report([
+        _season(1, 10, 10),
+        _season(2, 8, 0, missing=tuple(range(1, 9))),
+        _season(3, 10, 4, missing=(5, 6)),
+    ])
+    chips = season_chip_specs(report, drop_empty=True)
+    assert [chip.text for chip in chips] == ["S1 ✓", "S3 4/10"]
+
+
+def test_drop_empty_hides_zero_matched_specials():
+    report = _report([_season(1, 5, 5)], specials=_season(0, 3, 0, missing=(1, 2, 3)))
+    chips = season_chip_specs(report, drop_empty=True)
+    assert [chip.text for chip in chips] == ["S1 ✓"]
+
+
+def test_drop_empty_default_false_keeps_zero_seasons():
+    report = _report([_season(1, 10, 10), _season(2, 8, 0, missing=(1,))])
+    assert len(season_chip_specs(report)) == 2

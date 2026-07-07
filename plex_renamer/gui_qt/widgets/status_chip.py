@@ -75,16 +75,24 @@ def _collapse_complete_runs(seasons: list[SeasonCompleteness]) -> list[ChipSpec]
     return chips
 
 
-def season_chip_specs(report: CompletenessReport | None, *, max_chips: int = 6) -> list[ChipSpec]:
+def season_chip_specs(
+    report: CompletenessReport | None, *, max_chips: int = 6, drop_empty: bool = False
+) -> list[ChipSpec]:
     if report is None:
         return []
     seasons = [report.seasons[n] for n in sorted(report.seasons)]
+    if drop_empty:
+        seasons = [season for season in seasons if season.matched > 0]
     if len(seasons) > max_chips:
         chips = _collapse_complete_runs(seasons)
     else:
         chips = [_season_chip(season) for season in seasons]
     specials = report.specials
-    if specials is not None and specials.expected > 0:
+    if (
+        specials is not None
+        and specials.expected > 0
+        and not (drop_empty and specials.matched == 0)
+    ):
         tone = "success" if specials.is_complete else "warning"
         tooltip = (
             f"Specials: {specials.matched}/{specials.expected}"
