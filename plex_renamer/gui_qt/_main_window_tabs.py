@@ -118,12 +118,8 @@ class MainWindowTabsCoordinator:
 
     def _build_badges(self) -> None:
         window = self._window
-        window._tv_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
-        window._movie_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
         window._queue_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
         window._history_badge = TabBadge(parent=window._tabs)
         tab_bar = window._tabs.tabBar()
-        tab_bar.setTabButton(self._tv_index, QTabBar.ButtonPosition.RightSide, window._tv_badge)
-        tab_bar.setTabButton(self._movies_index, QTabBar.ButtonPosition.RightSide, window._movie_badge)
         tab_bar.setTabButton(self._queue_index, QTabBar.ButtonPosition.RightSide, window._queue_badge)
         tab_bar.setTabButton(self._history_index, QTabBar.ButtonPosition.RightSide, window._history_badge)

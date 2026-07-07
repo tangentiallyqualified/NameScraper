@@ -74,13 +74,10 @@ class MainWindowFeedbackCoordinator:
         )
 
     def update_media_badges(self, states) -> None:
-        window = self._window
-        mode = window.media_ctrl.active_content_mode
-        needs_action = sum(1 for state in states if state.needs_review or state.show_id is None)
-        has_issues = needs_action > 0
-        badge = window._tv_badge if mode == "tv" else window._movie_badge
-        badge.set_count(needs_action)
-        badge.set_failure_visible(has_issues)
+        """Per-tab TV/Movie count badges were removed (GUI-V4 R2, G5). Kept as a
+        no-op so existing call sites (scan/library-changed) stay valid."""
+        del states
+        return
 
     def refresh_job_views(self) -> None:
         window = self._window
