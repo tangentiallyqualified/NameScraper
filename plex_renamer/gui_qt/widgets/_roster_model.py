@@ -78,7 +78,7 @@ class _StateEntry:
 
 
 class RosterModel(QAbstractListModel):
-    poster_loaded = Signal()  # emitted after any poster lands (tests/interest)
+    poster_loaded = Signal()  # emitted after any poster lands; drives the loading-screen poster warmup gate
 
     def __init__(
         self,

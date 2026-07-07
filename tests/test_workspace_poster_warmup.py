@@ -79,6 +79,27 @@ class PosterWarmupTests(QtSmokeBase):
         self.assertEqual(workspace._stack.currentIndex(), 2)
         self.assertEqual(workspace._scan_progress.finish_calls, 1)
 
+    def test_reentrant_warmup_finalizes_once(self):
+        coordinator, workspace, model, pending = self._coordinator_with_fake([2])
+        coordinator.show_ready_when_posters_warm()
+
+        self.assertNotEqual(workspace._stack.currentIndex(), 2)
+        self.assertEqual(workspace._scan_progress.finish_calls, 0)
+
+        # Re-entrant call before warmup #1 finalizes: must cancel warmup #1
+        # (stop its poll timer, disconnect its handler) and start warmup #2
+        # cleanly, rather than stacking a second handler alongside the first.
+        coordinator.show_ready_when_posters_warm()
+
+        self.assertNotEqual(workspace._stack.currentIndex(), 2)
+        self.assertEqual(workspace._scan_progress.finish_calls, 0)
+
+        pending[0] = 0
+        model.poster_loaded.emit()
+
+        self.assertEqual(workspace._stack.currentIndex(), 2)
+        self.assertEqual(workspace._scan_progress.finish_calls, 1)
+
     def test_switches_to_ready_on_timeout_even_if_posters_never_settle(self):
         import plex_renamer.gui_qt.widgets._media_workspace_lifecycle as life
 

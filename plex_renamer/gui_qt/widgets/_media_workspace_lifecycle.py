@@ -25,6 +25,8 @@ class MediaWorkspaceLifecycleCoordinator:
         self._empty_index = empty_index
         self._scanning_index = scanning_index
         self._ready_index = ready_index
+        self._warmup_poll: QTimer | None = None
+        self._warmup_on_poster: Any = None
 
     def show_empty(self) -> None:
         workspace = self._workspace
@@ -45,10 +47,27 @@ class MediaWorkspaceLifecycleCoordinator:
         workspace._stack.setCurrentIndex(self._ready_index)
         workspace.refresh_from_controller()
 
+    def _cancel_warmup(self) -> None:
+        """Tear down any in-flight warmup without switching to READY, so a
+        re-entrant call to show_ready_when_posters_warm() doesn't leak the
+        prior poll timer or leave a stale poster_loaded connection alive
+        alongside the new one."""
+        if self._warmup_poll is not None:
+            self._warmup_poll.stop()
+        if self._warmup_on_poster is not None:
+            try:
+                model = self._workspace._roster_panel.model
+                model.poster_loaded.disconnect(self._warmup_on_poster)
+            except (RuntimeError, TypeError):
+                pass
+        self._warmup_poll = None
+        self._warmup_on_poster = None
+
     def show_ready_when_posters_warm(self) -> None:
         """Populate the roster while SCANNING stays up, feed the conveyor
         (LD2), and switch to READY once posters settle or a max wait fires
         (LD3)."""
+        self._cancel_warmup()
         workspace = self._workspace
         # Populate the roster (kicks off poster loads) while the loading
         # screen stays visible.
@@ -69,6 +88,8 @@ class MediaWorkspaceLifecycleCoordinator:
             except (RuntimeError, TypeError):
                 pass
             poll.stop()
+            self._warmup_poll = None
+            self._warmup_on_poster = None
             workspace._scan_progress.finish()
             self.show_ready()
 
@@ -84,6 +105,7 @@ class MediaWorkspaceLifecycleCoordinator:
                 _finalize()
 
         model.poster_loaded.connect(_on_poster)
+        self._warmup_on_poster = _on_poster
         poll = QTimer(workspace)
         poll.setInterval(_POSTER_WARMUP_POLL_MS)
         poll.timeout.connect(_tick)
