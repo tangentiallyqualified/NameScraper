@@ -42,11 +42,17 @@ def _guide_state():
     return state, guide
 
 
+class _StubSettings:
+    def __init__(self, view_mode: str = "normal") -> None:
+        self.view_mode = view_mode
+
+
 class EpisodeTableModelTests(QtSmokeBase):
-    def _model(self, state, guide, collapsed=None, folder_preview=None):
+    def _model(self, state, guide, collapsed=None, folder_preview=None, settings_service=None):
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
 
-        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: guide)
+        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: guide,
+                                  settings_service=settings_service)
         model.show_state(state, collapsed_sections=collapsed if collapsed is not None else set(),
                          folder_preview=folder_preview)
         return model
@@ -68,6 +74,14 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertEqual(data.status_text, "Missing File")
         self.assertEqual(data.status_tone, "muted")
         self.assertEqual(data.title, "S01E03 · Three")
+
+    def test_compact_mode_keeps_episode_filename(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide, settings_service=_StubSettings(view_mode="compact"))
+        data = model.index(3, 0).data(ROW_DATA_ROLE)
+        self.assertEqual(data.filename, "s01e01.mkv")
 
     def test_season_header_shows_ratio_and_missing(self):
         state, guide = _guide_state()

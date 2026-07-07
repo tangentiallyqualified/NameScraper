@@ -49,6 +49,18 @@ class RosterModelTests(QtSmokeBase):
         self.assertTrue(model.index(0, 0).data().startswith("▶"))
         self.assertEqual(model.row_for_state_index(0), -1)
 
+    def test_compact_still_builds_season_chips(self):
+        from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
+        state = _make_state("Frieren")
+        state.completeness = CompletenessReport(
+            seasons={1: SeasonCompleteness(season=1, expected=10, matched=10, missing=[])},
+            specials=None, total_expected=10, total_matched=10, total_missing=[])
+        model = self._model([state])
+        model.set_compact(True)
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+        data = model.index(1, 0).data(ROW_DATA_ROLE)
+        self.assertTrue(data.chips)          # chips present even in compact
+
     def test_row_data_snapshot_fields(self):
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
 

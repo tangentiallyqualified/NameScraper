@@ -35,7 +35,9 @@ class RosterDelegateTests(QtSmokeBase):
         view.resize(380, 600)
         return view, model, delegate
 
-    def test_size_hints_differ_by_kind_and_mode(self):
+    def test_size_hints_differ_by_kind_not_by_compact_mode(self):
+        """L7: compact mode only hides the poster -- row height (and every
+        other body element) must be identical to normal mode."""
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U
 
@@ -46,7 +48,7 @@ class RosterDelegateTests(QtSmokeBase):
         self.assertEqual(state_h, _scale.px(110) + 2 * _scale.px(_CARD_GAP_U))
         delegate.set_compact(True)
         model.set_compact(True)
-        self.assertEqual(view.sizeHintForRow(1), _scale.px(56))
+        self.assertEqual(view.sizeHintForRow(1), state_h)
 
     def test_render_grab_produces_pixels(self):
         view, model, delegate = self._view([_make_state("A")])
@@ -342,3 +344,53 @@ class RosterSizeHintTests(QtSmokeBase):
         base = self._card_height(self._state_with_seasons(1))
         self.assertGreaterEqual(base, px(_ROW_NORMAL_U) - 1)
         self.assertGreater(tall, base)
+
+    def test_compact_size_hint_uses_same_dynamic_formula_as_normal(self):
+        """L7: compact sizeHint must follow the same dynamic (base + wrapped
+        chip content) formula as normal mode -- no fixed compact row height.
+
+        Compact legitimately reports a *different* height than normal when
+        chip counts are high, because hiding the poster widens the body and
+        changes how many chips wrap per row -- that is real geometry, not a
+        leftover fixed-height special-case. What must be identical is the
+        formula itself: recompute it by hand (using the delegate's own
+        chip_wrapped_height over the compact body width) and confirm
+        sizeHint matches, rather than any hardcoded compact constant.
+        """
+        from plex_renamer.gui_qt.widgets._roster_delegate import (
+            RosterDelegate, RosterListView, _CARD_GAP_U, _CONF_BLOCK_U,
+            _CHIP_TOP_GAP_U, _MARGIN_U, _ROW_NORMAL_U,
+        )
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+        from plex_renamer.gui_qt.widgets.status_chip import chip_font_metrics, chip_wrapped_height
+        from plex_renamer.gui_qt._scale import px
+        from PySide6.QtGui import QFontMetrics
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        state = self._state_with_seasons(12)
+        model = RosterModel(media_type="tv")
+        model.set_states([state], collapsed_groups={})
+        view = RosterListView()
+        view.setModel(model)
+        delegate = RosterDelegate(view, media_type="tv")
+        view.setItemDelegate(delegate)
+        view.resize(360, 800)
+        index = model.index(1, 0)
+        option = QStyleOptionViewItem()
+        option.rect = view.visualRect(index)
+
+        delegate.set_compact(True)
+        model.set_compact(True)
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+        row_data = index.data(ROW_DATA_ROLE)
+        self.assertTrue(row_data.chips)  # compact still builds chips (L7)
+
+        gap2 = 2 * px(_CARD_GAP_U)
+        base = px(_ROW_NORMAL_U) + gap2
+        line_height = QFontMetrics(view.font()).lineSpacing()
+        chip_h = chip_wrapped_height(row_data.chips, chip_font_metrics(), delegate._body_width())
+        expected_content = (
+            gap2 + 2 * px(_MARGIN_U) + 2 * line_height + px(_CONF_BLOCK_U) + px(_CHIP_TOP_GAP_U) + chip_h
+        )
+        expected = max(base, expected_content)
+        self.assertEqual(delegate.sizeHint(option, index).height(), expected)

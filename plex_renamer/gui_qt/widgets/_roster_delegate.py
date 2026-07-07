@@ -25,7 +25,7 @@ from .status_chip import (
 _MARGIN_U = 8
 _TOGGLE_U = 20
 _POSTER_W_U, _POSTER_H_U = 64, 94
-_ROW_NORMAL_U, _ROW_COMPACT_U, _ROW_HEADER_U = 110, 56, 34
+_ROW_NORMAL_U, _ROW_HEADER_U = 110, 34
 _BAR_W_U = 110
 _HEADER_PAD_LEFT_U = 12
 _CHIP_TOP_GAP_U = 6
@@ -102,8 +102,6 @@ class RosterDelegate(QStyledItemDelegate):
         kind = index.data(KIND_ROLE)
         if kind == "header":
             return QSize(0, _scale.px(_ROW_HEADER_U))
-        if self._compact:
-            return QSize(0, _scale.px(_ROW_COMPACT_U))
         gap2 = 2 * _scale.px(_CARD_GAP_U)
         base = _scale.px(_ROW_NORMAL_U) + gap2
         row_data = index.data(ROW_DATA_ROLE)
@@ -218,9 +216,6 @@ class RosterDelegate(QStyledItemDelegate):
         if remainder:
             elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideMiddle, second_line_rect.width())
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), elided)
-
-        if self._compact:
-            return
 
         confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
         bar_rect = QRect(body_rect.x(), confidence_y, _scale.px(_BAR_W_U), _scale.px(4))

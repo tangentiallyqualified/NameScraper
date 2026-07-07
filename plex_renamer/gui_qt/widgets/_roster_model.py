@@ -259,7 +259,7 @@ class RosterModel(QAbstractListModel):
     def _build_row_data(self, state: ScanState) -> RosterRowData:
         status_text, status_color = _state_status(state, media_type=self._media_type)
         chips: tuple[ChipSpec, ...] = ()
-        if self._media_type == "tv" and not self._compact:
+        if self._media_type == "tv":
             chips = tuple(season_chip_specs(state.completeness, drop_empty=True))
         tooltip = ""
         if state.duplicate_of is not None:

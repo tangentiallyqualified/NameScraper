@@ -696,9 +696,8 @@ class EpisodeTableModel(QAbstractListModel):
         if row.title:
             title = f"{title} · {row.title}"
 
-        compact = self._settings is not None and self._settings.view_mode == "compact"
         filename = ""
-        if row.primary_file is not None and not compact:
+        if row.primary_file is not None:
             filename = row.primary_file.original.name
 
         status_tone = _STATUS_TONE.get(row.status, "muted")
