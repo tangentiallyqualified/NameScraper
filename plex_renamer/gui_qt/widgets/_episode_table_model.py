@@ -710,7 +710,7 @@ class EpisodeTableModel(QAbstractListModel):
             target=row.target_rename,
             confidence_pct=_percent_from_label(row.confidence_label),
             companion_count=len(row.companions),
-            tooltip=row.overview,
+            tooltip=row.target_rename or "",
         )
         if not self._passes_search(row_data):
             return None

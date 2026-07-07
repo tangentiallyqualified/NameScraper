@@ -161,3 +161,13 @@ class PillConfidenceTests(QtSmokeBase):
         r = self._row(status_text="Missing File", status_tone="muted", confidence_pct=None)
         self.assertEqual(d.pill_text(r), "Missing File")
         self.assertEqual(d.pill_tone(r), "muted")
+
+
+class HelpEventTests(QtSmokeBase):
+    def test_tooltip_only_when_elided(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import EpisodeTableDelegate, EpisodeTableView
+        view = EpisodeTableView()
+        d = EpisodeTableDelegate(view, media_type="tv")
+        # narrow width -> elided -> tooltip; wide width -> not elided -> no tooltip
+        self.assertTrue(d._preview_is_truncated("A very long rename preview.mkv", width=20))
+        self.assertFalse(d._preview_is_truncated("x.mkv", width=100000))

@@ -127,6 +127,36 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + (option_rect.height() - height) // 2
         return QRect(x, y, width, height)
 
+    # -- Tooltip -------------------------------------------------------------
+
+    def _preview_is_truncated(self, text: str, width: int) -> bool:
+        if not text or width <= 0:
+            return False
+        metrics = self._view.fontMetrics() if self._view is not None else None
+        if metrics is None:
+            return False
+        return metrics.horizontalAdvance(text) > width
+
+    def helpEvent(self, event, view, option, index):  # noqa: N802
+        from PySide6.QtGui import QHelpEvent
+        from PySide6.QtWidgets import QToolTip
+
+        if event.type() != QHelpEvent.Type.ToolTip or index.data(EXPANDED_ROLE):
+            QToolTip.hideText()
+            return False
+        row_data = index.data(ROW_DATA_ROLE)
+        if row_data is None or not row_data.tooltip:
+            QToolTip.hideText()
+            return False
+        title_x = self._title_x(option.rect, row_data)
+        pill_rect = self._pill_rect(option.rect, row_data, self._view.fontMetrics())
+        width = max(0, pill_rect.x() - title_x - _scale.px(_MARGIN_U))
+        if self._preview_is_truncated(row_data.tooltip, width):
+            QToolTip.showText(event.globalPos(), row_data.tooltip, view)
+            return True
+        QToolTip.hideText()
+        return False
+
     # -- Sizing --------------------------------------------------------------
 
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802

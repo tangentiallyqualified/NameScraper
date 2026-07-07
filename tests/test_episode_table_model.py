@@ -75,6 +75,15 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertEqual(data.status_tone, "muted")
         self.assertEqual(data.title, "S01E03 · Three")
 
+    def test_episode_tooltip_is_rename_preview_not_overview(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        data = model.index(3, 0).data(ROW_DATA_ROLE)
+        self.assertEqual(data.tooltip, guide.rows[0].target_rename)
+        self.assertNotEqual(data.tooltip, guide.rows[0].overview)
+
     def test_compact_mode_keeps_episode_filename(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
 
