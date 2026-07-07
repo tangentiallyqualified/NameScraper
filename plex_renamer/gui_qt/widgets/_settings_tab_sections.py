@@ -23,6 +23,16 @@ from PySide6.QtWidgets import (
 )
 
 
+CACHE_SIZE_CHOICES: tuple[tuple[str, int], ...] = (
+    ("256 MB", 256 * 1024 * 1024),
+    ("512 MB", 512 * 1024 * 1024),
+    ("1 GB", 1024 ** 3),
+    ("2 GB", 2 * 1024 ** 3),
+    ("4 GB", 4 * 1024 ** 3),
+    ("8 GB", 8 * 1024 ** 3),
+)
+
+
 class SettingsSectionCard(QFrame):
     """A settings section card with an icon+title header row and content area."""
 
@@ -312,6 +322,19 @@ class SettingsTabSectionsBuilder:
     def build_data_section(self) -> None:
         tab = self._tab
         section = SettingsSectionCard.page("Data", icon=QStyle.StandardPixmap.SP_TrashIcon)
+
+        cache_size_row = QHBoxLayout()
+        cache_size_row.addWidget(QLabel("Cache size limit"))
+        tab._cache_size_combo = QComboBox()
+        for label, value in CACHE_SIZE_CHOICES:
+            tab._cache_size_combo.addItem(label, value)
+        current = tab._settings.cache_max_size_bytes if tab._settings else 1024 ** 3
+        idx = tab._cache_size_combo.findData(current)
+        tab._cache_size_combo.setCurrentIndex(idx if idx >= 0 else 2)
+        tab._cache_size_combo.currentIndexChanged.connect(tab._on_cache_size)
+        cache_size_row.addWidget(tab._cache_size_combo)
+        cache_size_row.addStretch()
+        section.add_layout(cache_size_row)
 
         tab._cache_stats = QLabel("Cache statistics will appear here after first scan.")
         tab._cache_stats.setProperty("cssClass", "text-dim")

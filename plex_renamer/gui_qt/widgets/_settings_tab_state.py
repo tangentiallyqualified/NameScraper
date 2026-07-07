@@ -97,6 +97,16 @@ class SettingsTabStateCoordinator:
         if tab._settings:
             tab._settings.show_confidence_bars = checked
 
+    def on_cache_size(self, index: int) -> None:
+        tab = self._tab
+        value = tab._cache_size_combo.itemData(index)
+        if value is None or tab._settings is None:
+            return
+        tab._settings.cache_max_size_bytes = int(value)
+        if tab._cache_service is not None:
+            tab._cache_service.set_max_size_bytes(tab._settings.cache_max_size_bytes)
+        tab._actions_coordinator.refresh_cache_stats()
+
     def browse_output_folder(self, media_type: str) -> None:
         tab = self._tab
         if media_type == "tv":

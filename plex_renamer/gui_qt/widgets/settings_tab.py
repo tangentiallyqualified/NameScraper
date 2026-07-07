@@ -254,6 +254,9 @@ class SettingsTab(QScrollArea):
     def _on_clear_cache(self) -> None:
         self._actions_coordinator.clear_cache(message_box_api=QMessageBox)
 
+    def _on_cache_size(self, index: int) -> None:
+        self._state_coordinator.on_cache_size(index)
+
     def _refresh_cache_stats(self) -> None:
         self._actions_coordinator.refresh_cache_stats()
 
