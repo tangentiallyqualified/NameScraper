@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app.models.state_models import EpisodeGuideRow
-from ...engine import PreviewItem, ScanState
+from ...engine import ScanState
 from .. import _scale
 from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 
@@ -166,13 +166,6 @@ class EpisodeExpansionCard(QFrame):
                 "Subtitle Output", subtitle.new_name or "", open_dir=False
             )
         self._build_actions_row(episode_row_actions(row))
-
-    def show_movie(self, state: ScanState, preview: PreviewItem) -> None:
-        del state
-        self._reset_content()
-        self._build_files_section_for_files(preview.original, preview.companions)
-        self._build_target_row(preview.new_name or "")
-        # Movie mode: overview lives in the header, no actions row.
 
     # -- Content builders --------------------------------------------------
 

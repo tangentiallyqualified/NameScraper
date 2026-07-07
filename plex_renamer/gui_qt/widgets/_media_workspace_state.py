@@ -152,22 +152,15 @@ class MediaWorkspaceStateCoordinator:
             return None
         card = EpisodeExpansionCard()
         row = index.row()
-        kind = model.row_kind_at(row)
-        if kind == "movie-file":
-            preview_index = model.preview_index_at(row)
-            if preview_index is None or not (0 <= preview_index < len(state.preview_items)):
-                return None
-            card.show_movie(state, state.preview_items[preview_index])
-        else:
-            guide_row = model.guide_row_at(row)
-            if guide_row is None:
-                return None
-            card.show_episode(state, guide_row)
-            card.action_requested.connect(
-                lambda action_id, s=state, r=guide_row: workspace._action_coordinator.handle_episode_row_action(
-                    s, r, action_id
-                )
+        guide_row = model.guide_row_at(row)
+        if guide_row is None:
+            return None
+        card.show_episode(state, guide_row)
+        card.action_requested.connect(
+            lambda action_id, s=state, r=guide_row: workspace._action_coordinator.handle_episode_row_action(
+                s, r, action_id
             )
+        )
         card.collapse_requested.connect(self._close_expansion)
         card.open_dir_requested.connect(workspace._open_directory)
         return card

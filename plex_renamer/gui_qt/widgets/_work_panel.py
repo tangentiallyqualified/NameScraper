@@ -59,7 +59,6 @@ class MediaWorkPanel(QFrame):
     approve_all_clicked = Signal()
     unassign_all_clicked = Signal()
     season_chip_clicked = Signal(int)     # season number (0 = specials)
-    master_check_changed = Signal(int)    # movie mode master
     overview_toggled = Signal(bool)
     bulk_assign_requested = Signal()      # overflow menu action (and Task 5 hint forward)
     inline_row_action = Signal(QModelIndex, str)  # inline row action (e.g. missing-file "assign_file")
@@ -88,7 +87,6 @@ class MediaWorkPanel(QFrame):
         self._overview_expanded = False
         self._series_overview_text = ""
         self._episode_overview_active = False
-        self._master_syncing = False
         self._bridge = _OverviewBridge()
         self._bridge.overview_ready.connect(self._on_overview_ready)
         self.setProperty("cssClass", "panel")
@@ -144,10 +142,6 @@ class MediaWorkPanel(QFrame):
     @property
     def summary_label(self) -> QLabel:
         return self._summary_label
-
-    @property
-    def master_syncing(self) -> bool:
-        return self._master_syncing
 
     @property
     def bulk_panel(self) -> BulkAssignPanel:
@@ -269,7 +263,6 @@ class MediaWorkPanel(QFrame):
         self._master_check = MasterCheckBox("Select All")
         self._master_check.setTristate(True)
         self._master_check.hide()
-        self._master_check.stateChanged.connect(self.master_check_changed.emit)
         toolbar.addWidget(self._master_check)
 
         self._check_summary = QLabel("")

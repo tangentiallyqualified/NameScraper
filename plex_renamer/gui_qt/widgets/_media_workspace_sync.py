@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex
 
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
 
@@ -66,54 +66,6 @@ class MediaWorkspaceSyncCoordinator:
             preview_index = workspace._work_panel.model.preview_index_at(current.row())
             if preview_index is not None and 0 <= preview_index < len(state.preview_items):
                 state.selected_index = preview_index
-        workspace._update_action_bar()
-
-    def on_movie_row_toggled(self, index: QModelIndex) -> None:
-        workspace = self._workspace
-        if workspace._preview_syncing:
-            return
-        state = workspace._selected_state()
-        if state is None or not index.isValid():
-            return
-        preview_index = workspace._work_panel.model.preview_index_at(index.row())
-        if preview_index is None:
-            return
-        binding = state.check_vars.get(str(preview_index))
-        if binding is None:
-            return
-        binding.set(not binding.get())
-        state.checked = any(
-            state.check_vars[str(i)].get()
-            for i, preview in enumerate(state.preview_items)
-            if preview.is_actionable
-        )
-        workspace._work_panel.model.refresh_checks()
-        self._sync_current_roster_row_checked(state.checked)
-        workspace._update_preview_master_state(state)
-        workspace._update_action_bar()
-
-    def on_preview_master_changed(self, check_state: int) -> None:
-        workspace = self._workspace
-        if workspace._work_panel.master_syncing:
-            return
-        state = workspace._selected_state()
-        if state is None:
-            return
-        target = check_state == int(Qt.CheckState.Checked.value)
-        workspace._preview_syncing = True
-        try:
-            for index, preview in enumerate(state.preview_items):
-                if not preview.is_actionable:
-                    continue
-                binding = state.check_vars.get(str(index))
-                if binding is not None:
-                    binding.set(target)
-        finally:
-            workspace._preview_syncing = False
-        state.checked = target
-        workspace._work_panel.model.refresh_checks()
-        self._sync_current_roster_row_checked(state.checked)
-        workspace._update_preview_master_state(state)
         workspace._update_action_bar()
 
     def set_roster_check_state(self, state_index: int, checked: bool) -> None:

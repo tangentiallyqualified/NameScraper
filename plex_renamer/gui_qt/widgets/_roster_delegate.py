@@ -18,8 +18,7 @@ from ._image_utils import build_placeholder_pixmap, scale_pixmap_for_device
 from ._roster_model import GROUP_ROLE, KIND_ROLE, POSTER_ROLE, ROW_DATA_ROLE, RosterRowData
 from ._workspace_widget_primitives import paint_check_indicator, paint_mini_progress
 from .status_chip import (
-    chip_font_metrics, chip_rects, chip_rects_wrapped, chip_row_height,
-    chip_wrapped_height, paint_chip_row_wrapped,
+    chip_font_metrics, chip_rects_wrapped, chip_wrapped_height, paint_chip_row_wrapped,
 )
 
 _MARGIN_U = 8
@@ -77,6 +76,10 @@ class RosterDelegate(QStyledItemDelegate):
         return QRect(x, y, poster_w, poster_h)
 
     def _body_rect(self, option_rect: QRect) -> QRect:
+        # Calls _card_rect then (via _poster_rect) insets again: this double-inset
+        # is inert only because _card_rect adjusts vertically (gap top/bottom), not
+        # horizontally. If _card_rect ever gains a horizontal gap, this will silently
+        # double-inset the body rect's left/right edges.
         option_rect = self._card_rect(option_rect)
         margin = _scale.px(_MARGIN_U)
         if self._compact:

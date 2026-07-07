@@ -241,12 +241,6 @@ class MediaWorkspace(QWidget):
     def _on_inline_row_action(self, index: QModelIndex, action_id: str) -> None:
         self._state_coordinator.on_inline_row_action(index, action_id)
 
-    def _on_movie_row_toggled(self, index: QModelIndex) -> None:
-        self._sync_coordinator.on_movie_row_toggled(index)
-
-    def _on_preview_master_changed(self, check_state: int) -> None:
-        self._sync_coordinator.on_preview_master_changed(check_state)
-
     def _update_preview_master_state(self, state: ScanState | None) -> None:
         self._state_coordinator.update_preview_master_state(state)
 

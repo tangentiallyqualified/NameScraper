@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QModelIndex, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen
+from PySide6.QtGui import QColor, QHelpEvent, QKeyEvent, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QListView,
     QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
+    QToolTip,
     QWidget,
 )
 
@@ -25,7 +26,7 @@ from ._episode_table_model import (
 
 _ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U, _ROW_MOVIE_U = 30, 34, 52, 52
 _ROW_TRIPLE_U = 68
-_CHEVRON_U, _TOGGLE_U, _PILL_H_U, _MARGIN_U = 16, 20, 18, 8
+_CHEVRON_U, _PILL_H_U, _MARGIN_U = 16, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
 _INLINE_ACTION_W_U, _INLINE_ACTION_H_U = 84, 20
@@ -88,13 +89,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + (option_rect.height() - size) // 2
         return QRect(x, y, size, size)
 
-    def toggle_rect(self, option_rect: QRect) -> QRect:
-        margin = _scale.px(_MARGIN_U)
-        size = _scale.px(_TOGGLE_U)
-        x = option_rect.x() + margin
-        y = option_rect.y() + (option_rect.height() - size) // 2
-        return QRect(x, y, size, size)
-
     def _title_x(self, option_rect: QRect, row_data: EpisodeRowData) -> int:
         margin = _scale.px(_MARGIN_U)
         x = option_rect.x() + margin
@@ -148,9 +142,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return metrics.horizontalAdvance(text) > width
 
     def helpEvent(self, event, view, option, index):  # noqa: N802
-        from PySide6.QtGui import QHelpEvent
-        from PySide6.QtWidgets import QToolTip
-
         if event.type() != QHelpEvent.Type.ToolTip or index.data(EXPANDED_ROLE):
             QToolTip.hideText()
             return False
@@ -421,7 +412,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
 class EpisodeTableView(QListView):
     chevron_clicked = Signal(QModelIndex)
-    toggle_clicked = Signal(QModelIndex)          # movie-file rows
     header_clicked = Signal(str)                  # section_key of a collapsible header
     expand_key_pressed = Signal(QModelIndex)      # Enter/Return on current row
     bulk_hint_clicked = Signal()                  # problems-filter empty-state hint row
