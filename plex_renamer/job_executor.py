@@ -476,6 +476,12 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     if not job.undo_data:
         return False, ["No undo data stored for this job."]
 
+    if job.undo_data.get("irreversible"):
+        return False, [
+            "This job replaced its source files (No Fear mode) "
+            "and cannot be reverted."
+        ]
+
     undo = job.undo_data
     library_root = Path(job.library_root)
     source_folder = Path(job.source_folder)
@@ -487,6 +493,24 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         if job.output_root else None
     )
     source_boundary = library_root.resolve(strict=False)
+
+    # Delete remux outputs first — a remuxed file has no "old path" to move
+    # back to; undoing it means removing the generated output.
+    for output_str in undo.get("remux_outputs", []):
+        output_path = Path(output_str)
+        if output_boundary is not None:
+            try:
+                output_path.resolve(strict=False).relative_to(output_boundary)
+            except (OSError, ValueError):
+                errors.append(
+                    f"Remux output is outside the output root: {output_path}")
+                continue
+        try:
+            if output_path.exists():
+                output_path.unlink()
+                moved_from_paths.append(output_path)
+        except OSError as e:
+            errors.append(f"Could not remove remux output {output_path.name}: {e}")
 
     # Revert folder renames (in reverse order)
     dir_rename_map: dict[Path, Path] = {}
