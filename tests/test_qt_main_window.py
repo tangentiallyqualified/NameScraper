@@ -969,31 +969,21 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(emitted, [True])
         tab.close()
 
-    def test_settings_tab_reserves_hidden_tools_section(self):
+    def test_settings_tab_automux_section_reachable(self):
+        # The former hidden "Tools" seam is now the live AutoMux page.
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         tab = SettingsTab()
         nav = tab._settings_nav
         self.assertEqual(nav.count(), tab._settings_stack.count())
-        tools_row = nav.count() - 1
-        self.assertEqual(nav.item(tools_row).text(), "Tools")
-        self.assertTrue(nav.item(tools_row).isHidden())      # §13: hidden until the feature lands
-        # Hidden must mean unreachable: MoveEnd and type-ahead ignore hidden
-        # rows unless the item is also disabled/unselectable (final review I1).
-        QTest.keyClick(nav, Qt.Key.Key_End)
-        self.assertIsNot(tab._settings_stack.currentWidget(), tab._tools_page)
-        self.assertNotEqual(nav.currentRow(), tools_row)
-        # The seam is live: restore flags + reveal selects the reserved page.
-        tools_item = nav.item(tools_row)
-        tools_item.setFlags(
-            tools_item.flags()
-            | Qt.ItemFlag.ItemIsEnabled
-            | Qt.ItemFlag.ItemIsSelectable
-        )
-        tools_item.setHidden(False)
-        nav.setCurrentRow(tools_row)
-        self.assertIs(tab._settings_stack.currentWidget(), tab._tools_page)
-        self.assertEqual(tab._tools_page._heading.text(), "Tools")
+        automux_row = nav.count() - 1
+        self.assertEqual(nav.item(automux_row).text(), "AutoMux")
+        self.assertFalse(nav.item(automux_row).isHidden())
+        self.assertTrue(
+            nav.item(automux_row).flags() & Qt.ItemFlag.ItemIsSelectable)
+        nav.setCurrentRow(automux_row)
+        self.assertIs(tab._settings_stack.currentWidget(), tab._automux_page)
+        self.assertEqual(tab._automux_page._heading.text(), "AutoMux")
         tab.close()
 
     def test_settings_tab_callbacks_are_keyword_only(self):

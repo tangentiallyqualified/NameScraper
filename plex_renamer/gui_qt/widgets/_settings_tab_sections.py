@@ -357,19 +357,12 @@ class SettingsTabSectionsBuilder:
 
         self._add_page(section)
 
-    def build_tools_section(self) -> None:
+    def build_automux_section(self) -> None:
+        from ._settings_automux_page import AutoMuxSettingsPage
+
         tab = self._tab
-        section = SettingsSectionCard.page("Tools")
-        tab._tools_page = section
-
-        placeholder = QLabel(
-            "External tool integrations (mkvmerge) will appear here when the merge feature lands."
-        )
-        placeholder.setProperty("cssClass", "text-dim")
-        placeholder.setWordWrap(True)
-        section.add_widget(placeholder)
-
-        self._add_page(section)
+        tab._automux_page = AutoMuxSettingsPage(settings_service=tab._settings)
+        self._add_page(tab._automux_page)
 
     def build_advanced_section(self) -> None:
         tab = self._tab

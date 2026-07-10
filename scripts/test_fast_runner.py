@@ -99,6 +99,7 @@ def main() -> int:
         "--ignore=tests/test_bulk_assign_panel.py",
         "--ignore=tests/test_scan_progress.py",
         "--ignore=tests/test_workspace_poster_warmup.py",
+        "--ignore=tests/test_settings_tab_automux.py",
         "--ignore=tests/conftest_qt.py",
         "--color=no",
         f"--junitxml={junit_log}",

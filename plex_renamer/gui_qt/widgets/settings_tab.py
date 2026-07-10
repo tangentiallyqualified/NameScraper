@@ -1,8 +1,8 @@
 """Settings tab.
 
 Nav list + stacked section-card pages (Destinations, Display, Matching,
-API Keys, Data, and the hidden Tools shell reserved for mkvmerge).  All
-state goes through SettingsService.
+API Keys, Data, and the AutoMux mkvmerge page).  All state goes through
+SettingsService.
 """
 
 from __future__ import annotations
@@ -130,19 +130,9 @@ class SettingsTab(QScrollArea):
                 "Matching",
                 "API Keys",
                 "Data",
-                "Tools",
+                "AutoMux",
             ]
         )
-        tools_item = self._settings_nav.item(self._settings_nav.count() - 1)
-        if tools_item is not None:
-            tools_item.setHidden(True)  # §13 seam: hidden until mkvmerge lands
-            # Hidden alone is not unreachable: MoveEnd and type-ahead still
-            # land on hidden rows, so the item must also be non-interactive.
-            tools_item.setFlags(
-                tools_item.flags()
-                & ~Qt.ItemFlag.ItemIsEnabled
-                & ~Qt.ItemFlag.ItemIsSelectable
-            )
         shell.addWidget(self._settings_nav)
 
         self._settings_stack = QStackedWidget()
@@ -154,7 +144,7 @@ class SettingsTab(QScrollArea):
         self._build_matching_section()
         self._build_api_keys_section()
         self._build_data_section()
-        self._build_tools_section()
+        self._build_automux_section()
         self._build_advanced_section()
 
         self._settings_nav.currentRowChanged.connect(self._settings_stack.setCurrentIndex)
@@ -185,10 +175,10 @@ class SettingsTab(QScrollArea):
     def _build_data_section(self) -> None:
         self._sections_builder.build_data_section()
 
-    # ── Tools ────────────────────────────────────────────────────
+    # ── AutoMux ──────────────────────────────────────────────────
 
-    def _build_tools_section(self) -> None:
-        self._sections_builder.build_tools_section()
+    def _build_automux_section(self) -> None:
+        self._sections_builder.build_automux_section()
 
     def _on_clear_history(self) -> None:
         self._actions_coordinator.clear_history(message_box_api=QMessageBox)

@@ -98,6 +98,7 @@ def main() -> int:
         "tests/test_work_panel.py",
         "tests/test_bulk_assign_panel.py",
         "tests/test_settings_tab_cache.py",
+        "tests/test_settings_tab_automux.py",
         "tests/test_settings_longpath.py",
         "tests/test_scan_progress.py",
         "tests/test_workspace_poster_warmup.py",
