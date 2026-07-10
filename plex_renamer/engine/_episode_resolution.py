@@ -613,13 +613,70 @@ def resolve_file(
     season: int | None = None,
     season_hint: int | None = None,
 ) -> Resolution:
-    """Apply the 6-rule resolution policy for one file against one season."""
+    """Apply the 6-rule resolution policy for one file against one season.
+
+    Pure dispatch: evidence is computed once, then exactly one phase
+    resolves the file — combined/segmented titles first, then
+    number+title, number-only, title-only, and finally the no-evidence
+    fallthrough. Phase order is the policy; do not reorder.
+    """
     valid_numbers = tuple(e for e in parsed_episodes if e in season_titles)
     title_match = match_title_in_titles(raw_title, season_titles)
     strong_title = (
         title_match is not None and title_match.strength >= STRONG_TITLE_STRENGTH
     )
 
+    combined = _resolve_combined_title(
+        parsed_episodes=parsed_episodes,
+        raw_title=raw_title,
+        valid_numbers=valid_numbers,
+        title_match=title_match,
+        season_titles=season_titles,
+    )
+    if combined is not None:
+        return combined
+
+    if valid_numbers and title_match is not None:
+        return _resolve_number_and_title(
+            valid_numbers=valid_numbers,
+            title_match=title_match,
+            strong_title=strong_title,
+            raw_title=raw_title,
+            parsed_episodes=parsed_episodes,
+            season=season,
+            season_titles=season_titles,
+        )
+
+    if valid_numbers:
+        return _resolve_number_only(
+            valid_numbers=valid_numbers,
+            raw_title=raw_title,
+            title_match=title_match,
+            season_titles=season_titles,
+            season=season,
+            season_hint=season_hint,
+            is_season_relative=is_season_relative,
+        )
+
+    if title_match is not None and strong_title:
+        return _resolve_title_only(title_match)
+
+    if parsed_episodes:
+        return Resolution(episodes=(), reason=REASON_NOT_IN_SEASON)
+    if raw_title:
+        return Resolution(episodes=(), reason=REASON_NO_TITLE_MATCH)
+    return Resolution(episodes=(), reason=REASON_NO_PARSE)
+
+
+def _resolve_combined_title(
+    *,
+    parsed_episodes: tuple[int, ...],
+    raw_title: str | None,
+    valid_numbers: tuple[int, ...],
+    title_match: TitleMatch | None,
+    season_titles: dict[int, str],
+) -> Resolution | None:
+    """Segmented/combined-title phase; ``None`` means fall through."""
     # Multi-episode files often carry a combined title ("A and B"); when every
     # segment is an exact distinct TMDB title forming a contiguous run, trust
     # the titles over the (frequently mis-numbered) source episode numbers.
@@ -701,182 +758,202 @@ def resolve_file(
                 ),
             )
 
-    if valid_numbers and title_match is not None:
-        if title_match.episode in valid_numbers:
-            if raw_title and title_match.strength < _TITLE_NEAR_EXACT:
-                # The parsed number agrees, but a combined title with MORE
-                # atoms than parsed numbers means the file holds neighbors
-                # too ("S04E21 - The Mattress & Looking for Jack" = E20-E21).
-                # Only when the matched title sits INSIDE the raw title —
-                # an input that is merely a prefix of a longer TMDB title
-                # names nothing extra.
-                spans = _segment_atom_spans(raw_title)
-                if (
-                    len(spans) > len(valid_numbers)
-                    and normalize_for_specials(title_match.title)
-                    in normalize_for_specials(raw_title)
-                ):
-                    run = _extend_partial_title_run(
-                        raw_title, title_match.episode, season_titles,
-                        len(parsed_episodes),
-                    )
-                    if run is not None and set(valid_numbers) <= set(run):
-                        return Resolution(  # extended run -> review
-                            episodes=run,
-                            confidence=CONF_TITLE_WINS_INEXACT,
-                            evidence=frozenset(
-                                {"number", "title-strong-inexact", "run-extended"},
-                            ),
-                        )
-            return Resolution(  # rule 1
-                episodes=valid_numbers,
-                confidence=CONF_AGREE,
-                evidence=frozenset({"number", "title-agree"}),
-            )
-        if strong_title and title_match.strength >= _TITLE_NEAR_EXACT:
-            # An EXACT (or typo-level near-exact; RC46) full-title match
-            # consumes the whole title: there is no leftover segment naming a
-            # neighbor, so a single-number file never extends here ("Tigtone
-            # and the Wine Crisis" = exactly one slot even though "and"
-            # splits it into atoms; RC30). Multi-number files may still
-            # extend from the matched anchor.
-            run = None
-            if raw_title and len(parsed_episodes) >= 2:
-                run = _extend_partial_title_run(
-                    raw_title, title_match.episode, season_titles,
-                    len(parsed_episodes),
-                )
-            if run is not None and len(run) > 1:
-                return Resolution(  # extended run -> review (partly unverified)
-                    episodes=run,
-                    confidence=CONF_TITLE_WINS_INEXACT,
-                    evidence=frozenset(
-                        {"title-strong-inexact", "number-disagree", "run-extended"},
-                    ),
-                )
-            return Resolution(  # rule 2: exact title overrides, auto-accept
-                episodes=(title_match.episode,),
-                confidence=CONF_TITLE_WINS,
-                evidence=frozenset({"title-strong", "number-disagree"}),
-            )
-        if strong_title:
-            run = None
-            if raw_title and (
-                len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
+    return None
+
+
+def _resolve_number_and_title(
+    *,
+    valid_numbers: tuple[int, ...],
+    title_match: TitleMatch,
+    strong_title: bool,
+    raw_title: str | None,
+    parsed_episodes: tuple[int, ...],
+    season: int | None,
+    season_titles: dict[int, str],
+) -> Resolution:
+    """Rules 1 / 2 / 2b / S0-part-override / 3: number AND title present."""
+    if title_match.episode in valid_numbers:
+        if raw_title and title_match.strength < _TITLE_NEAR_EXACT:
+            # The parsed number agrees, but a combined title with MORE
+            # atoms than parsed numbers means the file holds neighbors
+            # too ("S04E21 - The Mattress & Looking for Jack" = E20-E21).
+            # Only when the matched title sits INSIDE the raw title —
+            # an input that is merely a prefix of a longer TMDB title
+            # names nothing extra.
+            spans = _segment_atom_spans(raw_title)
+            if (
+                len(spans) > len(valid_numbers)
+                and normalize_for_specials(title_match.title)
+                in normalize_for_specials(raw_title)
             ):
                 run = _extend_partial_title_run(
                     raw_title, title_match.episode, season_titles,
                     len(parsed_episodes),
                 )
-            if run is not None and len(run) > 1:
-                return Resolution(
-                    episodes=run,
-                    confidence=CONF_TITLE_WINS_INEXACT,
-                    evidence=frozenset(
-                        {"title-strong-inexact", "number-disagree", "run-extended"},
-                    ),
-                )
-            return Resolution(  # rule 2b: strong inexact title overrides, REVIEW
-                episodes=(title_match.episode,),
-                confidence=CONF_TITLE_WINS_INEXACT,
-                evidence=frozenset({"title-strong-inexact", "number-disagree"}),
-            )
-        if season == 0 and title_match.strength >= _TITLE_PART_NUMBER:
-            # Specials numbering is source-unreliable; a unique titled part
-            # match outranks a disagreeing S0 number (review).
-            return Resolution(
-                episodes=(title_match.episode,),
-                confidence=CONF_TITLE_WINS_INEXACT,
-                evidence=frozenset({"title-part-number", "number-disagree"}),
-            )
-        return Resolution(  # rule 3
+                if run is not None and set(valid_numbers) <= set(run):
+                    return Resolution(  # extended run -> review
+                        episodes=run,
+                        confidence=CONF_TITLE_WINS_INEXACT,
+                        evidence=frozenset(
+                            {"number", "title-strong-inexact", "run-extended"},
+                        ),
+                    )
+        return Resolution(  # rule 1
             episodes=valid_numbers,
-            confidence=CONF_WEAK_TITLE_NUMBER_CAP,
-            evidence=frozenset({"number", "title-weak-disagree"}),
+            confidence=CONF_AGREE,
+            evidence=frozenset({"number", "title-agree"}),
         )
-
-    if valid_numbers:
-        if _has_ambiguous_title_evidence(raw_title, season_titles):  # rule 3 (ambiguous)
-            evidence = {"number", "title-ambiguous"}
-            if len(_segment_atom_spans(raw_title)) >= 2:
-                # A combined multi-segment title that matched several titles
-                # but resolved to no unique run: the number is a disc
-                # grouping index, not a season position — review-locked.
-                evidence.add("title-multi-segment")
-            return Resolution(
-                episodes=valid_numbers,
-                confidence=CONF_WEAK_TITLE_NUMBER_CAP,
-                evidence=frozenset(evidence),
+    if strong_title and title_match.strength >= _TITLE_NEAR_EXACT:
+        # An EXACT (or typo-level near-exact; RC46) full-title match
+        # consumes the whole title: there is no leftover segment naming a
+        # neighbor, so a single-number file never extends here ("Tigtone
+        # and the Wine Crisis" = exactly one slot even though "and"
+        # splits it into atoms; RC30). Multi-number files may still
+        # extend from the matched anchor.
+        run = None
+        if raw_title and len(parsed_episodes) >= 2:
+            run = _extend_partial_title_run(
+                raw_title, title_match.episode, season_titles,
+                len(parsed_episodes),
             )
-        if (
-            raw_title
-            and title_match is None
-            and len(valid_numbers) >= 2
-            and len(_segment_atom_spans(raw_title)) >= 2
-            and any(title for title in season_titles.values())
-        ):
-            # A multi-EPISODE file whose rich multi-segment title matches
-            # NOTHING in a titled season means the numbers are disc/source
-            # indexes, not season positions (Rugrats S7 overflow, CatDog
-            # mis-filed seasons). Review-locked. Single-number files stay on
-            # rule 4 — an ordinary title containing "and" splits into atoms
-            # too ("Church and State").
-            return Resolution(
-                episodes=valid_numbers,
-                confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+        if run is not None and len(run) > 1:
+            return Resolution(  # extended run -> review (partly unverified)
+                episodes=run,
+                confidence=CONF_TITLE_WINS_INEXACT,
                 evidence=frozenset(
-                    {"number", "title-no-match", "title-multi-segment"},
+                    {"title-strong-inexact", "number-disagree", "run-extended"},
                 ),
             )
-        if season == 0:
-            if is_season_relative and season_hint == 0 and not raw_title:
-                # An explicit S00E## in the FILENAME with no contradicting
-                # title is the author's own specials labeling, not an
-                # inferred guess (IT Crowd 'S00E01.mkv'; RC34). Files whose
-                # rich titles match nothing keep the review lock below.
-                return Resolution(
-                    episodes=valid_numbers,
-                    confidence=CONF_NUMBER_RELATIVE,
-                    evidence=frozenset(
-                        {"number", "season-relative", "special-explicit"},
-                    ),
-                )
-            # Season-0 numbering varies by source; a bare number is not
-            # trustworthy on its own -> force review.
-            return Resolution(
-                episodes=valid_numbers,
-                confidence=CONF_SPECIAL_NUMBER_ONLY,
-                evidence=frozenset({"number", "special-number-only"}),
-            )
-        # rule 4: no usable title evidence
-        confidence = CONF_NUMBER_RELATIVE if is_season_relative else CONF_NUMBER_INFERRED
-        evidence = {"number"}
-        if is_season_relative:
-            evidence.add("season-relative")
-        return Resolution(
-            episodes=valid_numbers,
-            confidence=confidence,
-            evidence=frozenset(evidence),
+        return Resolution(  # rule 2: exact title overrides, auto-accept
+            episodes=(title_match.episode,),
+            confidence=CONF_TITLE_WINS,
+            evidence=frozenset({"title-strong", "number-disagree"}),
         )
-
-    if title_match is not None and strong_title:  # rule 5
-        if title_match.strength >= _TITLE_SUBSTRING:
-            return Resolution(
-                episodes=(title_match.episode,),
-                confidence=CONF_TITLE_ONLY,
-                evidence=frozenset({"title-strong"}),
+    if strong_title:
+        run = None
+        if raw_title and (
+            len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
+        ):
+            run = _extend_partial_title_run(
+                raw_title, title_match.episode, season_titles,
+                len(parsed_episodes),
             )
-        return Resolution(  # fuzzy-only match -> review
+        if run is not None and len(run) > 1:
+            return Resolution(
+                episodes=run,
+                confidence=CONF_TITLE_WINS_INEXACT,
+                evidence=frozenset(
+                    {"title-strong-inexact", "number-disagree", "run-extended"},
+                ),
+            )
+        return Resolution(  # rule 2b: strong inexact title overrides, REVIEW
             episodes=(title_match.episode,),
             confidence=CONF_TITLE_WINS_INEXACT,
-            evidence=frozenset({"title-strong-inexact", "title-fuzzy"}),
+            evidence=frozenset({"title-strong-inexact", "number-disagree"}),
         )
+    if season == 0 and title_match.strength >= _TITLE_PART_NUMBER:
+        # Specials numbering is source-unreliable; a unique titled part
+        # match outranks a disagreeing S0 number (review).
+        return Resolution(
+            episodes=(title_match.episode,),
+            confidence=CONF_TITLE_WINS_INEXACT,
+            evidence=frozenset({"title-part-number", "number-disagree"}),
+        )
+    return Resolution(  # rule 3
+        episodes=valid_numbers,
+        confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+        evidence=frozenset({"number", "title-weak-disagree"}),
+    )
 
-    if parsed_episodes:
-        return Resolution(episodes=(), reason=REASON_NOT_IN_SEASON)
-    if raw_title:
-        return Resolution(episodes=(), reason=REASON_NO_TITLE_MATCH)
-    return Resolution(episodes=(), reason=REASON_NO_PARSE)
+
+def _resolve_number_only(
+    *,
+    valid_numbers: tuple[int, ...],
+    raw_title: str | None,
+    title_match: TitleMatch | None,
+    season_titles: dict[int, str],
+    season: int | None,
+    season_hint: int | None,
+    is_season_relative: bool,
+) -> Resolution:
+    """Rules 3-ambiguous / multi-segment-no-match / S0 / 4: number only."""
+    if _has_ambiguous_title_evidence(raw_title, season_titles):  # rule 3 (ambiguous)
+        evidence = {"number", "title-ambiguous"}
+        if len(_segment_atom_spans(raw_title)) >= 2:
+            # A combined multi-segment title that matched several titles
+            # but resolved to no unique run: the number is a disc
+            # grouping index, not a season position — review-locked.
+            evidence.add("title-multi-segment")
+        return Resolution(
+            episodes=valid_numbers,
+            confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+            evidence=frozenset(evidence),
+        )
+    if (
+        raw_title
+        and title_match is None
+        and len(valid_numbers) >= 2
+        and len(_segment_atom_spans(raw_title)) >= 2
+        and any(title for title in season_titles.values())
+    ):
+        # A multi-EPISODE file whose rich multi-segment title matches
+        # NOTHING in a titled season means the numbers are disc/source
+        # indexes, not season positions (Rugrats S7 overflow, CatDog
+        # mis-filed seasons). Review-locked. Single-number files stay on
+        # rule 4 — an ordinary title containing "and" splits into atoms
+        # too ("Church and State").
+        return Resolution(
+            episodes=valid_numbers,
+            confidence=CONF_WEAK_TITLE_NUMBER_CAP,
+            evidence=frozenset(
+                {"number", "title-no-match", "title-multi-segment"},
+            ),
+        )
+    if season == 0:
+        if is_season_relative and season_hint == 0 and not raw_title:
+            # An explicit S00E## in the FILENAME with no contradicting
+            # title is the author's own specials labeling, not an
+            # inferred guess (IT Crowd 'S00E01.mkv'; RC34). Files whose
+            # rich titles match nothing keep the review lock below.
+            return Resolution(
+                episodes=valid_numbers,
+                confidence=CONF_NUMBER_RELATIVE,
+                evidence=frozenset(
+                    {"number", "season-relative", "special-explicit"},
+                ),
+            )
+        # Season-0 numbering varies by source; a bare number is not
+        # trustworthy on its own -> force review.
+        return Resolution(
+            episodes=valid_numbers,
+            confidence=CONF_SPECIAL_NUMBER_ONLY,
+            evidence=frozenset({"number", "special-number-only"}),
+        )
+    # rule 4: no usable title evidence
+    confidence = CONF_NUMBER_RELATIVE if is_season_relative else CONF_NUMBER_INFERRED
+    evidence = {"number"}
+    if is_season_relative:
+        evidence.add("season-relative")
+    return Resolution(
+        episodes=valid_numbers,
+        confidence=confidence,
+        evidence=frozenset(evidence),
+    )
+
+
+def _resolve_title_only(title_match: TitleMatch) -> Resolution:
+    """Rule 5: strong title, no usable number."""
+    if title_match.strength >= _TITLE_SUBSTRING:
+        return Resolution(
+            episodes=(title_match.episode,),
+            confidence=CONF_TITLE_ONLY,
+            evidence=frozenset({"title-strong"}),
+        )
+    return Resolution(  # fuzzy-only match -> review
+        episodes=(title_match.episode,),
+        confidence=CONF_TITLE_WINS_INEXACT,
+        evidence=frozenset({"title-strong-inexact", "title-fuzzy"}),
+    )
 
 
 # ── post-resolution confidence floors and caps ──────────────────────
@@ -1456,11 +1533,7 @@ def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
     if not movers:
         return
 
-    claimed: set[tuple[int, int]] = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    claimed = table.claimed_slots()
     claimed -= vacated
 
     proposed_slots: set[tuple[int, int]] = set()
@@ -1510,11 +1583,7 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
         if norm:
             title_index.setdefault(norm, []).append((season, episode))
 
-    claimed = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    claimed = table.claimed_slots()
 
     for file_id, reason in list(table.unassigned_reasons.items()):
         if not (
@@ -1594,11 +1663,7 @@ def rescue_explicit_hint_slots(table: EpisodeAssignmentTable) -> None:
     confidence; a titled rescue that already claimed the file wins by
     running earlier.
     """
-    claimed = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    claimed = table.claimed_slots()
     for file_id, reason in list(table.unassigned_reasons.items()):
         if not reason.startswith(REASON_LOST_CONFLICT):
             continue
@@ -1707,11 +1772,7 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
             f"segment titles match Season {season} non-contiguously",
         )
 
-    claimed = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    claimed = table.claimed_slots()
     # Movers can block each other in chains ('Back To School' squats the
     # slots 'Cat Got Your Tongue' needs until it moves to ITS titled run);
     # iterate to a fixpoint so every vacated slot can host the next move
@@ -1844,11 +1905,7 @@ def rescue_same_season_fuzzy_titles(table: EpisodeAssignmentTable) -> None:
     """Lost-conflict / no-match / not-in-season files whose (possibly fuzzy)
     title hits exactly ONE unclaimed slot in their own season -> review-assign
     (Angry Beavers: 3 unmapped files <-> 3 unclaimed same-title slots)."""
-    claimed = {
-        (assignment.season, episode)
-        for assignment in table.assignments()
-        for episode in assignment.episodes
-    }
+    claimed = table.claimed_slots()
     for file_id, reason in list(table.unassigned_reasons.items()):
         if not (
             reason in (REASON_NOT_IN_SEASON, REASON_NO_TITLE_MATCH)

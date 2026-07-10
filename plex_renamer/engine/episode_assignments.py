@@ -216,6 +216,14 @@ class EpisodeAssignmentTable:
             if assignment.season == season and episode in assignment.episodes
         ]
 
+    def claimed_slots(self) -> set[tuple[int, int]]:
+        """Every (season, episode) slot currently claimed by an assignment."""
+        return {
+            (assignment.season, episode)
+            for assignment in self._assignments.values()
+            for episode in assignment.episodes
+        }
+
     def conflicts(self) -> dict[tuple[int, int], list[Assignment]]:
         by_slot: dict[tuple[int, int], list[Assignment]] = {}
         for assignment in self._assignments.values():
