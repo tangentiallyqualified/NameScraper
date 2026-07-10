@@ -359,3 +359,77 @@ class BulkMutationTests(unittest.TestCase):
         self.assertEqual(table.assignments(), [])
         self.assertEqual(table.unassigned_reasons[file_ids[0]], REASON_MANUAL_UNASSIGN)
         self.assertEqual(self.service.unassign_all(state), 0)  # idempotent no-op
+
+    def test_slot_choices_carry_claimed_file_id(self):
+        state = table_state()
+        service = EpisodeMappingService()
+        choices = service.episode_slot_choices(state)
+        claimed = [c for c in choices if c.claimed_by]
+        self.assertTrue(claimed)
+        self.assertTrue(all(isinstance(c.claimed_file_id, int) for c in claimed))
+        free = next(c for c in choices if (c.season, c.episode) == (1, 2))
+        self.assertIsNone(free.claimed_file_id)
+
+    def test_all_primary_file_previews_includes_assigned_and_unassigned(self):
+        state, file_ids = _table_state()
+        self.service.apply_assignments(state, [(file_ids[0], 1, 1)])
+        previews = self.service.all_primary_file_previews(state)
+        seen_ids = {p.file_id for p in previews}
+        self.assertEqual(seen_ids, set(file_ids))
+
+    def test_apply_bulk_unassigns_then_assigns(self):
+        state, file_ids = _table_state()
+        self.service.apply_assignments(state, [(file_ids[0], 1, 1)])
+        table = state.assignments
+        victim = file_ids[0]
+        free_file = file_ids[1]
+        applied, skipped = self.service.apply_bulk(
+            state,
+            assign_pairs=[(free_file, 1, 3)],
+            unassign_file_ids=[victim],
+        )
+        self.assertEqual((applied, skipped), (1, 0))
+        self.assertIsNone(table.assignment_for(victim))
+        self.assertEqual(table.assignment_for(free_file).episodes, (3,))
+
+    def test_apply_bulk_groups_multi_episode_file(self):
+        state, file_ids = _table_state()
+        free_file = file_ids[0]
+        self.service.apply_bulk(
+            state,
+            assign_pairs=[(free_file, 1, 3), (free_file, 1, 4)],
+            unassign_file_ids=[],
+        )
+        assignment = state.assignments.assignment_for(free_file)
+        self.assertEqual(sorted(assignment.episodes), [3, 4])
+
+    def test_apply_bulk_single_reproject_for_mixed_batch(self):
+        state, file_ids = _table_state()
+        self.service.apply_assignments(state, [(file_ids[0], 1, 1)])
+        calls: list[int] = []
+        original = EpisodeMappingService.reproject
+
+        def counting(service_self, target):
+            calls.append(1)
+            return original(service_self, target)
+
+        EpisodeMappingService.reproject = counting
+        try:
+            applied, skipped = self.service.apply_bulk(
+                state,
+                assign_pairs=[(file_ids[1], 1, 2), (file_ids[2], 1, 99)],
+                unassign_file_ids=[file_ids[0]],
+            )
+        finally:
+            EpisodeMappingService.reproject = original
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(applied, 1)
+        self.assertIsNone(state.assignments.assignment_for(file_ids[0]))
+
+    def test_apply_assignments_delegates_to_apply_bulk(self):
+        state, file_ids = _table_state()
+        applied, skipped = self.service.apply_assignments(
+            state, [(file_ids[0], 1, 1)],
+        )
+        self.assertEqual((applied, skipped), (1, 0))
+        self.assertEqual(state.assignments.assignment_for(file_ids[0]).episodes, (1,))

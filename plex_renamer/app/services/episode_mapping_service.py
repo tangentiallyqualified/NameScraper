@@ -132,26 +132,50 @@ class EpisodeMappingService:
     ) -> tuple[int, int]:
         """Apply (file_id, season, episode) pairs as one batch (Bulk Assign).
 
-        Each valid pair becomes a single-episode manual assignment
-        (displace=True, same semantics as assign_file); invalid pairs are
-        skipped, not fatal. Exactly one reproject when anything applied.
+        Thin wrapper over ``apply_bulk`` with no unassigns; kept so existing
+        callers are unaffected.
+        """
+        return self.apply_bulk(state, assign_pairs=pairs, unassign_file_ids=[])
+
+    def apply_bulk(
+        self,
+        state: ScanState,
+        *,
+        assign_pairs: list[tuple[int, int, int]],
+        unassign_file_ids: list[int],
+    ) -> tuple[int, int]:
+        """One-shot Bulk Assign apply: unassign first, then grouped assigns,
+        exactly one reproject. Returns (applied_assignments, skipped).
+
+        Assign pairs are grouped by (file_id, season) into one
+        ``table.assign(..., displace=True)`` call per file, so a file with
+        multiple (file_id, season, episode) pairs lands as one contiguous
+        multi-episode run instead of overwriting itself pair by pair.
         """
         from ...engine.episode_assignments import ORIGIN_MANUAL
 
         table = self._require_table(state)
+        changed = False
+        for file_id in unassign_file_ids:
+            table.unassign(file_id)
+            changed = True
+        grouped: dict[tuple[int, int], list[int]] = {}
+        for file_id, season, episode in assign_pairs:
+            grouped.setdefault((file_id, season), []).append(episode)
         applied = 0
         skipped = 0
-        for file_id, season, episode in pairs:
+        for (file_id, season), episodes in grouped.items():
             try:
                 table.assign(
-                    file_id, season, [episode],
+                    file_id, season, sorted(set(episodes)),
                     origin=ORIGIN_MANUAL, displace=True,
                 )
             except ValueError:
                 skipped += 1
                 continue
             applied += 1
-        if applied:
+            changed = True
+        if changed:
             self.reproject(state)
         return applied, skipped
 
@@ -180,14 +204,22 @@ class EpisodeMappingService:
         table = self._require_table(state)
         choices: list[EpisodeSlotChoice] = []
         for key, slot in sorted(table.slots.items()):
-            claimant = table.claimant(*key)
+            claims = table.claims(*key)
+            claimed_file_id = claims[0].file_id if len(claims) == 1 else None
+            claimant = table.files.get(claimed_file_id) if claimed_file_id is not None else None
             choices.append(EpisodeSlotChoice(
                 season=slot.season,
                 episode=slot.episode,
                 title=slot.title,
                 claimed_by=claimant.path.name if claimant else None,
+                claimed_file_id=claimed_file_id,
             ))
         return choices
+
+    def all_primary_file_previews(self, state: ScanState) -> list[PreviewItem]:
+        """Every scanned primary file, assigned or not (Bulk Assign pool)."""
+        self._require_table(state)
+        return [p for p in state.preview_items if p.file_id is not None]
 
     def unassigned_file_previews(self, state: ScanState) -> list[PreviewItem]:
         table = self._require_table(state)

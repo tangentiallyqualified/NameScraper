@@ -196,6 +196,7 @@ class EpisodeSlotChoice:
     episode: int
     title: str = ""
     claimed_by: str | None = None
+    claimed_file_id: int | None = None
 
     @property
     def label(self) -> str:
