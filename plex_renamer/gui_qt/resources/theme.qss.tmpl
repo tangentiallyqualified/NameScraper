@@ -383,6 +383,18 @@ QPushButton[cssClass="toast-close"]:hover {
 QPushButton[cssClass="toast-close"]:pressed {
     background-color: ${selection_bg};
 }
+QPushButton[cssClass="toast-inline"] {
+    background-color: transparent;
+    color: ${text};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    padding: 2px 8px;
+    font-size: 11px;
+}
+QPushButton[cssClass="toast-inline"]:hover {
+    background-color: ${card_hover};
+    border-color: ${text_muted};
+}
 
 
 /* ─── Splitters ──────────────────────────────────────────────────── */

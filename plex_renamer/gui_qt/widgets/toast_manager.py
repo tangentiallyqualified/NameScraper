@@ -93,8 +93,7 @@ class _ToastCard(QFrame):
         header.addWidget(self._title_label, stretch=1)
 
         self._copy_btn = QPushButton("Copy")
-        self._copy_btn.setProperty("cssClass", "secondary")
-        self._copy_btn.setFixedHeight(_scale.px(24))
+        self._copy_btn.setProperty("cssClass", "toast-inline")
         self._copy_btn.clicked.connect(self._copy_to_clipboard)
         header.addWidget(self._copy_btn)
 
@@ -124,14 +123,13 @@ class _ToastCard(QFrame):
         controls = QHBoxLayout()
         controls.setContentsMargins(0, 0, 0, 0)
         self._show_more_btn = QPushButton("Show more")
-        self._show_more_btn.setProperty("cssClass", "secondary")
-        self._show_more_btn.setFixedHeight(_scale.px(24))
+        self._show_more_btn.setProperty("cssClass", "toast-inline")
         self._show_more_btn.clicked.connect(self._toggle_expanded)
         self._show_more_btn.hide()
         controls.addWidget(self._show_more_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         if action_text and action_callback is not None:
             action_btn = QPushButton(action_text)
-            action_btn.setProperty("cssClass", "secondary")
+            action_btn.setProperty("cssClass", "toast-inline")
             action_btn.clicked.connect(self._run_action)
             controls.addWidget(action_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         controls.addStretch()

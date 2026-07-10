@@ -126,6 +126,15 @@ class ToastCardStyleTests(_ToastCardTestBase):
         self.assertTrue(card._close_btn.toolTip())
         self.assertEqual(card._close_btn.text(), "✕")
 
+    def test_toast_buttons_size_to_content(self):
+        card = _make_card()
+        for btn in (card._copy_btn, card._show_more_btn):
+            self.assertEqual(btn.property("cssClass"), "toast-inline")
+            self.assertGreaterEqual(
+                btn.sizeHint().height(),
+                btn.fontMetrics().height() + 4,
+            )
+
 
 class ToastCardBehaviorTests(_ToastCardTestBase):
     def test_copy_puts_title_and_full_message_on_clipboard(self):
