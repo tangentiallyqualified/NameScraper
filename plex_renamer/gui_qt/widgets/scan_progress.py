@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 from PySide6.QtCore import QPointF, QRectF, Qt, QElapsedTimer, QTimer, Signal
 from PySide6.QtGui import QLinearGradient, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
@@ -58,12 +60,25 @@ _TV_FILLERS = (
     "Untangling Season 0…",
     "Cross-checking absolute numbering…",
     "Politely disagreeing with filenames…",
+    "Reading release-group tea leaves…",
+    "Consulting the episode guide, again…",
+    "Wondering why S01E07 is missing…",
+    "Filing multi-part episodes under 'both'…",
+    "Translating scene names into English…",
+    "Double-checking the double episodes…",
+    "Convincing subtitles to tag along…",
 )
 _MOVIE_FILLERS = (
     "Politely interrogating TMDB…",
     "Comparing runtimes and vibes…",
     "Squinting at release years…",
     "Sorting sequels from remakes…",
+    "Debating director's cuts…",
+    "Separating remasters from reboots…",
+    "Judging covers by their folders…",
+    "Cross-referencing the credits…",
+    "Asking the extras to identify themselves…",
+    "Filing trailers under 'not the movie'…",
 )
 
 
@@ -273,7 +288,8 @@ class ScanProgressWidget(QWidget):
         self._filler_timer.setInterval(_FILLER_DELAY_MS)
         self._filler_timer.timeout.connect(self._rotate_filler)
         self._fillers = _TV_FILLERS if media_type == "tv" else _MOVIE_FILLERS
-        self._filler_index = 0
+        self._filler_order: list[int] = []
+        self._filler_pos = 0
         self._text_update_timer = QElapsedTimer()
         self._current_lifecycle: ScanLifecycle | None = None
         self._completed_lifecycles: set[ScanLifecycle] = set()
@@ -378,7 +394,7 @@ class ScanProgressWidget(QWidget):
         self._set_item_text("Preparing the scanner…")
         self._elapsed_label.setText("Elapsed: 0:00")
         self._text_update_timer.invalidate()
-        self._filler_index = 0
+        self._reshuffle_fillers()
         self._filler_timer.start()
 
     def stop(self) -> None:
@@ -425,7 +441,6 @@ class ScanProgressWidget(QWidget):
             item_text = current_item or message
             if item_text:
                 self._set_item_text(item_text)
-                self._filler_index = 0
                 if self._elapsed_timer.isActive():
                     self._filler_timer.start()   # restart the 4s no-change window
             self._text_update_timer.restart()
@@ -469,11 +484,21 @@ class ScanProgressWidget(QWidget):
         self._item_label.setText(text)
         self._item_label.setToolTip(text)
 
+    def _reshuffle_fillers(self, *, avoid_first: int | None = None) -> None:
+        order = random.sample(range(len(self._fillers)), len(self._fillers))
+        if avoid_first is not None and len(order) > 1 and order[0] == avoid_first:
+            order[0], order[-1] = order[-1], order[0]
+        self._filler_order = order
+        self._filler_pos = 0
+
     def _rotate_filler(self) -> None:
         if not self._fillers or not self._elapsed_timer.isActive():
             return
-        quip = self._fillers[self._filler_index % len(self._fillers)]
-        self._filler_index += 1
+        if self._filler_pos >= len(self._filler_order):
+            last = self._filler_order[-1] if self._filler_order else None
+            self._reshuffle_fillers(avoid_first=last)
+        quip = self._fillers[self._filler_order[self._filler_pos]]
+        self._filler_pos += 1
         self._item_label.setText(quip)
         self._item_label.setToolTip("")
         # A quip replaced the honest item line, so drop the text throttle:

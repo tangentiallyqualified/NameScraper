@@ -2,6 +2,8 @@
 """Conveyor offset is a smooth function of elapsed time (LD1)."""
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from conftest_qt import QtSmokeBase
 
 
@@ -52,4 +54,49 @@ class ConveyorPosterTests(QtSmokeBase):
         w.set_posters([QPixmap(10, 14)])
         w.start()
         self.assertEqual(len(w._animation._posters), 0)
+        w.stop()
+
+
+class FillerRotationTests(QtSmokeBase):
+    def test_filler_rotation_covers_pool_before_repeating(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+        w = ScanProgressWidget(media_type="tv")
+        w.start()
+        seen = []
+        for _ in range(len(w._fillers)):
+            w._rotate_filler()
+            seen.append(w._item_label.text())
+        self.assertEqual(len(set(seen)), len(w._fillers))
+        w.stop()
+
+    def test_filler_order_is_shuffled_per_start(self):
+        import plex_renamer.gui_qt.widgets.scan_progress as mod
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        calls = []
+        original_sample = mod.random.sample
+
+        def _tracking_sample(seq, k):
+            calls.append(k)
+            return original_sample(seq, k)
+
+        with patch.object(mod.random, "sample", side_effect=_tracking_sample):
+            w = ScanProgressWidget(media_type="tv")
+            w.start()
+            self.assertTrue(calls, "start() must reshuffle the filler order")
+            w.stop()
+
+    def test_update_progress_does_not_reset_filler_position(self):
+        """Real progress updates must not rewind the filler rotation back to
+        the start of the shuffled order (that was the 'repeats too often'
+        bug): only the 4s quiet-window timer should restart."""
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+        w = ScanProgressWidget(media_type="tv")
+        w.start()
+        w._rotate_filler()
+        w._rotate_filler()
+        pos_before = w._filler_pos
+        self.assertGreater(pos_before, 0)
+        w.update_progress(current_item="Some Show S01E01")
+        self.assertEqual(w._filler_pos, pos_before)
         w.stop()
