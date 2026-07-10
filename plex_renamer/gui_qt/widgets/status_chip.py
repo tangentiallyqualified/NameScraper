@@ -38,16 +38,28 @@ def _missing_tooltip(season: SeasonCompleteness) -> str:
     return f"Season {season.season} missing {listed}"
 
 
+def _season_clean_complete(season: SeasonCompleteness) -> bool:
+    return season.is_complete and season.review == 0
+
+
 def _season_chip(season: SeasonCompleteness) -> ChipSpec:
-    if season.is_complete:
+    if _season_clean_complete(season):
         return ChipSpec(
             f"S{season.season} ✓", "success",
             f"Season {season.season}: {season.matched}/{season.expected}",
         )
-    tone = "muted" if season.matched == 0 else "warning"
+    shown = season.matched + season.review
+    tone = "muted" if shown == 0 else "warning"
+    tooltip_parts = []
+    if season.review:
+        tooltip_parts.append(
+            f"Season {season.season}: {season.review} mapping(s) awaiting approval"
+        )
+    if season.missing:
+        tooltip_parts.append(_missing_tooltip(season))
     return ChipSpec(
-        f"S{season.season} {season.matched}/{season.expected}", tone,
-        _missing_tooltip(season),
+        f"S{season.season} {shown}/{season.expected}", tone,
+        "\n".join(tooltip_parts),
     )
 
 
@@ -66,7 +78,7 @@ def _collapse_complete_runs(seasons: list[SeasonCompleteness]) -> list[ChipSpec]
         run.clear()
 
     for season in seasons:
-        if season.is_complete:
+        if _season_clean_complete(season):
             run.append(season)
             continue
         flush_run()
@@ -82,7 +94,7 @@ def season_chip_specs(
         return []
     seasons = [report.seasons[n] for n in sorted(report.seasons)]
     if drop_empty:
-        seasons = [season for season in seasons if season.matched > 0]
+        seasons = [s for s in seasons if (s.matched + s.review) > 0]
     if len(seasons) > max_chips:
         chips = _collapse_complete_runs(seasons)
     else:
@@ -91,30 +103,38 @@ def season_chip_specs(
     if (
         specials is not None
         and specials.expected > 0
-        and not (drop_empty and specials.matched == 0)
+        and not (drop_empty and (specials.matched + specials.review) == 0)
     ):
-        tone = "success" if specials.is_complete else "warning"
+        tone = "success" if _season_clean_complete(specials) else "warning"
         tooltip = (
             f"Specials: {specials.matched}/{specials.expected}"
             if specials.is_complete
             else _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
         )
-        chips.append(ChipSpec(f"SP {specials.matched}/{specials.expected}", tone, tooltip))
+        chips.append(ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip))
     return chips
 
 
 def _strip_season_chip(season: SeasonCompleteness) -> ChipSpec:
     """Like ``_season_chip`` but complete seasons keep their count (season
     strip chips are uncollapsed and always show ``matched``/``expected``)."""
-    if season.is_complete:
+    if _season_clean_complete(season):
         return ChipSpec(
             f"S{season.season} ✓{season.expected}", "success",
             f"Season {season.season}: {season.matched}/{season.expected}",
         )
-    tone = "muted" if season.matched == 0 else "warning"
+    shown = season.matched + season.review
+    tone = "muted" if shown == 0 else "warning"
+    tooltip_parts = []
+    if season.review:
+        tooltip_parts.append(
+            f"Season {season.season}: {season.review} mapping(s) awaiting approval"
+        )
+    if season.missing:
+        tooltip_parts.append(_missing_tooltip(season))
     return ChipSpec(
-        f"S{season.season} {season.matched}/{season.expected}", tone,
-        _missing_tooltip(season),
+        f"S{season.season} {shown}/{season.expected}", tone,
+        "\n".join(tooltip_parts),
     )
 
 
@@ -130,13 +150,13 @@ def season_strip_specs(report: CompletenessReport | None) -> list[tuple[int, Chi
     ]
     specials = report.specials
     if specials is not None and specials.expected > 0:
-        tone = "success" if specials.is_complete else "warning"
+        tone = "success" if _season_clean_complete(specials) else "warning"
         tooltip = (
             f"Specials: {specials.matched}/{specials.expected}"
             if specials.is_complete
             else _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
         )
-        specs.append((0, ChipSpec(f"SP {specials.matched}/{specials.expected}", tone, tooltip)))
+        specs.append((0, ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip)))
     return specs
 
 

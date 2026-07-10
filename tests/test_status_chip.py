@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
-from plex_renamer.gui_qt.widgets.status_chip import ChipSpec, season_chip_specs, season_strip_specs
+from plex_renamer.gui_qt.widgets.status_chip import (
+    ChipSpec,
+    _collapse_complete_runs,
+    _season_chip,
+    _strip_season_chip,
+    season_chip_specs,
+    season_strip_specs,
+)
 
 
 def _season(n, expected, matched, missing=()):
@@ -97,3 +104,31 @@ def test_drop_empty_hides_zero_matched_specials():
 def test_drop_empty_default_false_keeps_zero_seasons():
     report = _report([_season(1, 10, 10), _season(2, 8, 0, missing=(1,))])
     assert len(season_chip_specs(report)) == 2
+
+
+def test_season_chip_counts_review_episodes_but_stays_warning():
+    season = SeasonCompleteness(season=1, expected=8, matched=6, missing=[], review=2)
+    chip = _season_chip(season)
+    assert chip.text == "S1 8/8"
+    assert chip.tone == "warning"
+    assert "awaiting approval" in chip.tooltip
+
+
+def test_season_chip_goes_green_only_after_approval():
+    season = SeasonCompleteness(season=1, expected=8, matched=8, missing=[], review=0)
+    assert _season_chip(season).tone == "success"
+
+
+def test_strip_chip_counts_review_episodes():
+    season = SeasonCompleteness(season=2, expected=10, matched=7, missing=[], review=3)
+    chip = _strip_season_chip(season)
+    assert chip.text == "S2 10/10"
+    assert chip.tone == "warning"
+
+
+def test_complete_run_collapse_excludes_seasons_with_pending_review():
+    complete = SeasonCompleteness(season=1, expected=3, matched=3, missing=[], review=0)
+    pending = SeasonCompleteness(season=2, expected=3, matched=3, missing=[], review=1)
+    chips = _collapse_complete_runs([complete, pending])
+    assert chips[0].tone == "success"
+    assert chips[1].tone == "warning"
