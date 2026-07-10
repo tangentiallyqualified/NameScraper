@@ -54,6 +54,7 @@ from .matching import (
     score_results,
     score_tv_results,
 )
+from .show_details import show_details_from_tmdb
 from .models import (
     DirectEpisodeEvidence,
     PreviewItem,
@@ -300,8 +301,8 @@ class BatchTVOrchestrator:
 
         ep_file_count = file_count if not use_seasons else candidate.direct_episode_file_count
         if ep_file_count > 0 and best.get("id") is not None:
-            details = self.tmdb.get_tv_details(best["id"])
-            tmdb_ep_count = (details or {}).get("number_of_episodes") or 0
+            details = show_details_from_tmdb(self.tmdb.get_tv_details(best["id"]))
+            tmdb_ep_count = details.number_of_episodes if details is not None else 0
             if tmdb_ep_count > 0:
                 if ep_file_count == tmdb_ep_count:
                     best_score = min(best_score + 0.10, 1.0)

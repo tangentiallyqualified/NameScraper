@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..parsing import clean_folder_name, get_season, normalize_for_match
 from ..tmdb import TMDBClient
+from .show_details import ShowDetails, show_details_from_tmdb
 
 
 def count_season_subdirs(folder: Path) -> int:
@@ -20,19 +21,17 @@ def count_season_subdirs(folder: Path) -> int:
     return count
 
 
-def _season_episode_count(details: dict, explicit_seasons: set[int]) -> int | None:
-    """Sum TMDB ``episode_count`` over *explicit_seasons*.
+def _season_episode_count(details: ShowDetails, explicit_seasons: set[int]) -> int | None:
+    """Sum ``episode_count`` over *explicit_seasons*.
 
     Returns ``None`` when none of the requested seasons are present in the
     details payload, so the caller can fall back to the whole-show count.
     """
-    seasons = details.get("seasons") or []
     total = 0
     matched = False
-    for season in seasons:
-        number = season.get("season_number")
-        if number in explicit_seasons:
-            total += season.get("episode_count") or 0
+    for season in details.seasons:
+        if season.season_number in explicit_seasons:
+            total += season.episode_count
             matched = True
     return total if matched else None
 
@@ -59,12 +58,9 @@ def episode_count_tiebreak(
     contender's — real identity evidence that should also break a same-name
     tie (RC38), not just reorder it.
     """
-    detail_key = "number_of_seasons" if compare_seasons else "number_of_episodes"
     use_season_subset = bool(explicit_seasons) and not compare_seasons
     top_score = scored[0][1]
     contenders: list[tuple[dict, float, int, bool]] = []
-
-    unaired_statuses = {"Planned", "In Production"}
 
     for result, score in scored:
         if top_score - score > threshold:
@@ -72,17 +68,22 @@ def episode_count_tiebreak(
         show_id = result.get("id")
         if show_id is None:
             continue
-        details = tmdb.get_tv_details(show_id) or {}
-        count = details.get(detail_key) or 0
+        details = show_details_from_tmdb(tmdb.get_tv_details(show_id))
+        if details is None:
+            # A failed detail fetch would rank this contender as an unaired
+            # zero-episode show — fabricated evidence that can hand a
+            # near-tie to the wrong show. Abstain from re-ranking entirely.
+            return scored[0][0], scored[0][1], False
+        count = (
+            details.number_of_seasons
+            if compare_seasons
+            else details.number_of_episodes
+        )
         if use_season_subset:
             season_count = _season_episode_count(details, explicit_seasons)
             if season_count is not None:
                 count = season_count
-        unaired = (
-            not details.get("first_air_date")
-            or details.get("status") in unaired_statuses
-        )
-        contenders.append((result, score, count, unaired))
+        contenders.append((result, score, count, details.unaired))
 
     if not contenders:
         return scored[0][0], scored[0][1], False
