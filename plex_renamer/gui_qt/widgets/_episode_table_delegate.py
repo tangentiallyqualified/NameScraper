@@ -33,6 +33,14 @@ _INLINE_ACTION_W_U, _INLINE_ACTION_H_U = 84, 20
 
 _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "muted": "text_dim"}
 
+# Wash tint laid under Review/Conflict rows (token, alpha); movie rows keep
+# the raw uppercase "CONFLICT" status label.
+_STATUS_WASH = {
+    "Review": ("warning", 0.05),
+    "Conflict": ("error", 0.06),
+    "CONFLICT": ("error", 0.06),
+}
+
 # Review-pill confidence band thresholds (percent); mirrors
 # _media_helpers.confidence_band's 0.85 / 0.5 score thresholds.
 _PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
@@ -97,7 +105,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return x
 
     def pill_text(self, row_data: EpisodeRowData) -> str:
-        if row_data.confidence_pct is not None and row_data.status_text in ("Review", "Matched"):
+        if row_data.confidence_pct is not None and row_data.status_text in ("Review", "Matched", "Mapped"):
             return f"{row_data.status_text} {row_data.confidence_pct}%"
         return row_data.status_text
 
@@ -268,6 +276,16 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.qcolor("surface"))
         painter.drawRect(rect)
+
+        row_data = index.data(ROW_DATA_ROLE)
+        wash = _STATUS_WASH.get(row_data.status_text) if row_data is not None else None
+        if wash is not None and not ghost:
+            token, alpha = wash
+            color = theme.qcolor(token)
+            color.setAlphaF(alpha)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawRect(rect)
 
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)

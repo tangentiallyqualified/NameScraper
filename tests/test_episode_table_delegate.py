@@ -180,6 +180,19 @@ class PillConfidenceTests(QtSmokeBase):
         self.assertEqual(d.pill_text(r), "Missing File")
         self.assertEqual(d.pill_tone(r), "muted")
 
+    def test_mapped_pill_text_includes_percent(self):
+        d = self._delegate()
+        r = self._row(status_text="Mapped", status_tone="success", confidence_pct=93)
+        self.assertEqual(d.pill_text(r), "Mapped 93%")
+
+
+class StatusWashTests(QtSmokeBase):
+    def test_status_wash_tokens_cover_review_and_conflict(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import _STATUS_WASH
+        self.assertEqual(_STATUS_WASH["Review"], ("warning", 0.05))
+        self.assertEqual(_STATUS_WASH["Conflict"], ("error", 0.06))
+        self.assertEqual(_STATUS_WASH["CONFLICT"], ("error", 0.06))
+
 
 class HelpEventTests(QtSmokeBase):
     def test_tooltip_only_when_elided(self):
