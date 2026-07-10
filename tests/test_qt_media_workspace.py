@@ -88,7 +88,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
             self.assertEqual(workspace._roster_queue_btn.text(), "Queue 1 Checked")
             self.assertIs(workspace._queue_inline_btn, workspace._work_panel.primary_action_button)
-            self.assertGreater(
+            self.assertLess(
                 workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).y(),
                 workspace._roster_panel.view.mapTo(workspace, QPoint(0, 0)).y(),
             )
@@ -3648,8 +3648,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
         self._app.processEvents()
 
-        self._assert_roster_section_title(workspace, 0, "NEEDS REVIEW — EPISODES")
-        self._assert_roster_section_title(workspace, 2, "MATCHED")
+        self._assert_roster_section_title(workspace, 0, "MATCHED")
+        self._assert_roster_section_title(workspace, 2, "NEEDS REVIEW — EPISODES")
 
         matched_data = self._roster_row_data_for_index(workspace, 0)
         review_data = self._roster_row_data_for_index(workspace, 1)

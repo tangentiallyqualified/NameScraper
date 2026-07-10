@@ -37,11 +37,11 @@ _MAX_POSTER_CACHE = 128
 
 ROSTER_GROUPS: tuple[tuple[str, str], ...] = (
     ("queued", "Queued"),
+    ("fully-ready", "Fully Ready"),
+    ("matched", "Matched"),
     ("review-match", "Needs Review — Match"),
     ("review-episodes", "Needs Review — Episodes"),
     ("specials-unmapped", "Specials & Unmapped Only"),
-    ("matched", "Matched"),
-    ("fully-ready", "Fully Ready"),
     ("unmatched", "No Match Found"),
     ("duplicate", "Duplicates"),
 )

@@ -45,3 +45,10 @@ class RosterAutoSelectTests(QtSmokeBase):
         panel.set_current_state(1)
         panel.sync_items(states, collapsed_groups={})   # re-sync
         self.assertEqual(panel.current_state_index(), 1)
+
+    def test_roster_controls_sit_above_the_list(self):
+        panel = self._panel()
+        layout = panel.layout()
+        # item 0 is the controls row (layout), item 1 the list view
+        self.assertIsNotNone(layout.itemAt(0).layout())
+        self.assertIs(layout.itemAt(1).widget(), panel.view)

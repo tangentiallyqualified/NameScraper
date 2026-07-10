@@ -26,6 +26,24 @@ class RosterModelTests(QtSmokeBase):
         model.set_states(states, collapsed_groups=collapsed or {})
         return model
 
+    def test_roster_group_order_puts_matched_under_queued_and_ready(self):
+        from plex_renamer.gui_qt.widgets._roster_model import ROSTER_GROUPS
+
+        keys = [group for group, _title in ROSTER_GROUPS]
+        self.assertEqual(
+            keys,
+            [
+                "queued",
+                "fully-ready",
+                "matched",
+                "review-match",
+                "review-episodes",
+                "specials-unmapped",
+                "unmatched",
+                "duplicate",
+            ],
+        )
+
     def test_header_and_state_rows_in_group_order(self):
         from plex_renamer.gui_qt.widgets import _roster_model as rm
 

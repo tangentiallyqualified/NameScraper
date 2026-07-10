@@ -62,6 +62,29 @@ class MediaWorkspaceRosterPanel(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(4)
+
+        self._master_check = _MasterCheckBox("Select All")
+        self._master_check.setTristate(True)
+        self._master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        controls.addWidget(self._master_check)
+
+        self._selection_summary = QLabel("0 checked")
+        self._selection_summary.setProperty("cssClass", "caption")
+        controls.addWidget(self._selection_summary)
+        controls.addStretch()
+
+        self._queue_button = QPushButton("Queue Checked")
+        self._queue_button.setProperty("cssClass", "primary")
+        self._queue_button.setProperty("sizeVariant", "compact")
+        self._queue_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._queue_button.setEnabled(False)
+        controls.addWidget(self._queue_button)
+
+        layout.addLayout(controls)
+
         self._view = RosterListView()
         self._delegate = RosterDelegate(self._view, media_type=self._media_type)
         self._view.setModel(self._model)
@@ -70,29 +93,6 @@ class MediaWorkspaceRosterPanel(QFrame):
         self._view.header_clicked.connect(self._on_header_clicked)
         self._view.selectionModel().currentChanged.connect(self._on_current_changed)
         layout.addWidget(self._view, stretch=1)
-
-        footer = QHBoxLayout()
-        footer.setContentsMargins(0, 0, 0, 0)
-        footer.setSpacing(4)
-
-        self._master_check = _MasterCheckBox("Select All")
-        self._master_check.setTristate(True)
-        self._master_check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        footer.addWidget(self._master_check)
-
-        self._selection_summary = QLabel("0 checked")
-        self._selection_summary.setProperty("cssClass", "caption")
-        footer.addWidget(self._selection_summary)
-        footer.addStretch()
-
-        self._queue_button = QPushButton("Queue Checked")
-        self._queue_button.setProperty("cssClass", "primary")
-        self._queue_button.setProperty("sizeVariant", "compact")
-        self._queue_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self._queue_button.setEnabled(False)
-        footer.addWidget(self._queue_button)
-
-        layout.addLayout(footer)
 
     def set_queue_button_text(self, text: str) -> None:
         self._queue_button.setText(text)
