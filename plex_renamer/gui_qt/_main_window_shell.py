@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .. import thread_pool
 from . import _scale
 
 
@@ -67,3 +68,6 @@ class MainWindowShellCoordinator:
         window.media_ctrl.clear_listeners()
         window.queue_ctrl.clear_listeners()
         window.queue_ctrl.close()
+        # GUI workers (guide builds, poster fetches) must not be mid-flight
+        # while Qt tears down — bounded so a stuck TMDB call can't hang quit.
+        thread_pool.drain(timeout=3.0)
