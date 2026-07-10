@@ -71,6 +71,11 @@ def build_completeness_report(
             title = season_data["titles"].get(episode_num, f"Episode {episode_num}")
             matched_details.append((episode_num, title))
 
+        review_details = []
+        for episode_num in sorted(review_valid):
+            title = season_data["titles"].get(episode_num, f"Episode {episode_num}")
+            review_details.append((episode_num, title))
+
         seasons[season_num] = SeasonCompleteness(
             season=season_num,
             expected=len(expected_eps),
@@ -78,6 +83,7 @@ def build_completeness_report(
             missing=missing_details,
             matched_episodes=matched_details,
             review=len(review_valid),
+            review_episodes=review_details,
         )
 
     total_expected = sum(season.expected for season_num, season in seasons.items() if season_num > 0)

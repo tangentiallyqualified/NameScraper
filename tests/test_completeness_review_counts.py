@@ -51,3 +51,12 @@ def test_review_defaults_to_zero_without_review_items():
     items = [_item("e1.mkv", 1, [1], "OK")]
     report = build_completeness_report(_tmdb_seasons(), items, checked_indices={0})
     assert report.seasons[1].review == 0
+
+
+def test_review_episodes_carry_titles():
+    items = [
+        _item("e1.mkv", 1, [1], "OK"),
+        _item("e2.mkv", 1, [2], f"{EPISODE_REVIEW_STATUS_PREFIX} (60% < 85%)"),
+    ]
+    report = build_completeness_report(_tmdb_seasons(), items, checked_indices={0})
+    assert report.seasons[1].review_episodes == [(2, "Two")]

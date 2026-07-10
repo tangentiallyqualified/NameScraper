@@ -433,6 +433,9 @@ class EpisodeMappingService:
         for matched_episode, title in season.matched_episodes:
             if matched_episode == episode:
                 return title
+        for review_episode, title in season.review_episodes:
+            if review_episode == episode:
+                return title
         for missing_episode, title in season.missing:
             if missing_episode == episode:
                 return title
