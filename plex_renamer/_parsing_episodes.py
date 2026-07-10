@@ -179,8 +179,10 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     # with a resolution value \u2014 long-running anime reach 720/1080 (P-H2).
     # The 4-digit widening covers 1000+ absolute numbering; the year guard
     # still rejects 1900-2099.
+    # A zero-padded 4-digit number (0083, 0080) is a Gundam-style title
+    # designation, never a 1000+ absolute episode.
     match = re.search(
-        r"-\s*(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
+        r"-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
     )
     if match:
@@ -263,7 +265,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     # leading bracket so plain titles like "Apollo 13" are never affected. The
     # number is absolute (anime convention) -> is_season_relative is False.
     if raw_stem.lstrip().startswith("["):
-        for bracket in re.finditer(r"\[(\d{1,4})(?:v\d+)?\]", raw_stem):
+        for bracket in re.finditer(r"\[(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?\]", raw_stem):
             num = int(bracket.group(1))
             if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
                 continue

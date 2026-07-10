@@ -104,6 +104,36 @@ def test_extract_source_title_prefix_reads_bracket_show_title():
     assert extract_source_title_prefix(name) == "Wolf's Rain"
 
 
+# ── zero-padded 4-digit title designations (Gundam 0083 regression) ──
+#
+# Real 1000+ absolute episodes never carry a leading zero; "0083"/"0080"
+# are title designations and must survive in the show-title prefix
+# (real-library regression: the 0083 folder matched the 1979 series when
+# the prefix truncated at "0083").
+
+@pytest.mark.parametrize(
+    "name, expected_fragment",
+    [
+        ("Mobile Suit Gundam - 0083 Stardust Memory - 05 - Title.mkv", "0083"),
+        ("Gundam 0080 - War in the Pocket - 03.mkv", "0080"),
+    ],
+)
+def test_title_prefix_keeps_zero_padded_designations(name, expected_fragment):
+    prefix = extract_source_title_prefix(name)
+    assert prefix is not None
+    assert expected_fragment in prefix
+
+
+def test_title_prefix_still_consumes_real_4digit_absolute_episode():
+    name = "[Erai-raws] One Piece - 1071 [1080p][HEVC].mkv"
+    assert extract_source_title_prefix(name) == "One Piece"
+
+
+def test_zero_padded_4digit_is_not_an_episode():
+    episodes, _title, _rel = extract_episode("Show - 0083.mkv")
+    assert episodes == []
+
+
 # ── Item 2: numeric-in-title false-positive guards ──────────────────
 
 @pytest.mark.parametrize(
