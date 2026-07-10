@@ -1,4 +1,4 @@
-"""Realistic media-filename corpus for the parsing harness.
+﻿"""Realistic media-filename corpus for the parsing harness.
 
 Entries are convention-accurate release names (scene TV, WEB-DL, anime
 fansub, BDRip, movies) with the CORRECT expected parse. Only the keys
@@ -136,10 +136,10 @@ CORPUS = [
      "note": "P-H2 + C-2: resolution-value episode in dash position"},
 
     # -- BDRips / season packs --------------------------------------------
-    {"name": "[Group] Show Name S01 [BDRip 1080p HEVC].mkv", "episodes": [], "xfail": True,
-     "note": "C-8: season pack (no E##) yields phantom episode [1]"},
-    {"name": "Show.Name.S01.COMPLETE.1080p.BluRay.x264-GROUP", "episodes": [], "xfail": True,
-     "note": "C-8: season pack yields phantom episode [1]"},
+    {"name": "[Group] Show Name S01 [BDRip 1080p HEVC].mkv", "episodes": [],
+     "note": "C-8: season pack (no E##) must not yield a phantom episode"},
+    {"name": "Show.Name.S01.COMPLETE.1080p.BluRay.x264-GROUP", "episodes": [],
+     "note": "C-8: season pack must not yield a phantom episode"},
     {"name": "[Group] Show Name (01-12) [Batch][1080p].mkv",
      "episodes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "xfail": True,
      "note": "batch range in parens not recognized; deferred (needs range-vs-title policy)"},
@@ -156,14 +156,13 @@ CORPUS = [
     {"name": "[Group] Show - OAD [1080p].mkv", "episodes": []},
 
     # -- Date-based shows ----------------------------------------------------
-    {"name": "The.Daily.Show.2024.01.15.720p.WEB.x264-GROUP.mkv", "episodes": [], "year": "2024", "is_tv": True, "xfail": True,
-     "note": "P-M1/C-4: air date mis-read as episode [1]; date form not a TV signal"},
-    {"name": "The.Tonight.Show.2023.11.02.Guest.720p.HDTV.x264.mkv", "episodes": [], "year": "2023", "is_tv": True, "xfail": True,
-     "note": "P-M1/C-4: air date mis-read as episode [11]"},
-    {"name": "60.Minutes.2024.01.15.mkv", "episodes": [], "year": "2024", "xfail": True,
-     "note": "P-M1/C-4: phantom episode from title/date digits"},
-    {"name": "SNL.2023.10.14.Pete.Davidson.1080p.WEB.h264-GROUP.mkv", "episodes": [], "year": "2023", "is_tv": True, "xfail": True,
-     "note": "P-M1/C-4: date-based, phantom episode + is_tv False"},
+    {"name": "The.Daily.Show.2024.01.15.720p.WEB.x264-GROUP.mkv", "episodes": [], "year": "2024", "is_tv": True,
+     "note": "P-M1/C-4: air date must not be read as an episode; date form is a TV signal"},
+    {"name": "The.Tonight.Show.2023.11.02.Guest.720p.HDTV.x264.mkv", "episodes": [], "year": "2023", "is_tv": True,
+     "note": "P-M1/C-4: air date must not be read as an episode"},
+    {"name": "60.Minutes.2024.01.15.mkv", "episodes": [], "year": "2024", "note": "P-M1/C-4: date digits must not become episodes"},
+    {"name": "SNL.2023.10.14.Pete.Davidson.1080p.WEB.h264-GROUP.mkv", "episodes": [], "year": "2023", "is_tv": True,
+     "note": "P-M1/C-4: date-based daily show"},
 
     # -- Bare-number / prefix episode forms --------------------------------
     {"name": "01. Pilot.mkv", "episodes": [1], "is_tv": True},
@@ -173,8 +172,8 @@ CORPUS = [
      "note": "episodes parse fine; is_tv False (bare-dash absolute needs a [group] bracket today)"},
     {"name": "Show.Name.101.720p.HDTV.x264.mkv", "episodes": [101],
      "note": "ambiguous 3-digit: parser reads absolute 101, not S1E01 (documented policy)"},
-    {"name": "Season 1 Episode 2 - Title.mkv", "episodes": [2], "season": 1, "is_tv": True, "xfail": True,
-     "note": "P-M3: spelled-out Season N not recognized by extract_season_number"},
+    {"name": "Season 1 Episode 2 - Title.mkv", "episodes": [2], "season": 1, "is_tv": True,
+     "note": "P-M3: spelled-out Season N recognized by extract_season_number"},
 
     # -- Numeric-in-title guards (must NOT episode-parse) --------------------
     {"name": "Se7en.1995.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1995", "is_tv": False},
@@ -187,8 +186,8 @@ CORPUS = [
     {"name": "Inception.2010.1080p.BluRay.x264-SPARKS.mkv", "episodes": [], "year": "2010", "is_tv": False},
     {"name": "The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1999", "is_tv": False},
     {"name": "Parasite.2019.2160p.UHD.BluRay.x265-GROUP.mkv", "episodes": [], "year": "2019", "is_tv": False},
-    {"name": "Dune.2021.IMAX.2160p.WEB-DL.DDP5.1.Atmos.HDR.HEVC-GROUP.mkv", "episodes": [], "year": "2021", "is_tv": False, "xfail": True,
-     "note": "NEW BUG (corpus triage): audio-channel token DDP5.1 yields phantom episode [5]"},
+    {"name": "Dune.2021.IMAX.2160p.WEB-DL.DDP5.1.Atmos.HDR.HEVC-GROUP.mkv", "episodes": [], "year": "2021", "is_tv": False,
+     "note": "audio-channel token DDP5.1 must not yield a phantom episode (corpus-triage find)"},
     {"name": "Oppenheimer.2023.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2023", "is_tv": False},
     {"name": "The.Lord.of.the.Rings.The.Two.Towers.2002.EXTENDED.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2002", "is_tv": False},
     {"name": "1917.2019.1080p.BluRay.x264-SPARKS.mkv", "episodes": [], "year": "2019", "is_tv": False,
@@ -212,24 +211,24 @@ CORPUS = [
     {"name": "Movie.Name.2018.REPACK.2160p.WEB-DL.x265-GROUP.mkv", "episodes": [], "year": "2018", "is_tv": False},
 
     # -- Movies with a bare number in the title (phantom-episode bugs, C-1) ----
-    {"name": "Apollo.13.1995.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1995", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [13]"},
-    {"name": "District.9.2009.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2009", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [9]"},
-    {"name": "Super.8.2011.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2011", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [8]"},
-    {"name": "Fahrenheit.451.2018.1080p.WEB-DL.mkv", "episodes": [], "year": "2018", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [451]"},
-    {"name": "300.2006.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2006", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [300]"},
-    {"name": "21.Jump.Street.2012.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2012", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [21]"},
-    {"name": "Catch.22.1970.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1970", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [22]"},
-    {"name": "Toy.Story.3.2010.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2010", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [3]"},
-    {"name": "Slap.Shot.2.2002.DVDRip.XviD-GROUP.avi", "episodes": [], "year": "2002", "is_tv": False, "xfail": True,
-     "note": "C-1: phantom episode [2]"},
+    {"name": "Apollo.13.1995.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1995", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "District.9.2009.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2009", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "Super.8.2011.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2011", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "Fahrenheit.451.2018.1080p.WEB-DL.mkv", "episodes": [], "year": "2018", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "300.2006.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2006", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "21.Jump.Street.2012.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2012", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "Catch.22.1970.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "1970", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "Toy.Story.3.2010.1080p.BluRay.x264-GROUP.mkv", "episodes": [], "year": "2010", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
+    {"name": "Slap.Shot.2.2002.DVDRip.XviD-GROUP.avi", "episodes": [], "year": "2002", "is_tv": False,
+     "note": "C-1: bare title number followed by a year is not an episode"},
     {"name": "Area.88.OVA.01.mkv", "episodes": [1], "xfail": True,
      "note": "title number 88 wins over the real episode 01; deferred (needs OVA-number policy)"},
     {"name": "Evangelion.1.11.You.Are.Not.Alone.2007.1080p.BluRay.mkv", "episodes": [], "year": "2007", "is_tv": False, "xfail": True,

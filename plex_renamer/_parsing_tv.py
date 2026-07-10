@@ -15,6 +15,9 @@ _TV_EPISODE_PATTERNS = [
     re.compile(r"\b\d{1,2}x\d{2,3}\b", re.IGNORECASE),
     re.compile(r"\b(?:Episode|Ep)[\s._-]*\d{1,3}\b", re.IGNORECASE),
     re.compile(r"^\d{1,3}\.\s+\w"),
+    # Air-date naming for daily/talk shows (dotted/dashed 2-digit month and
+    # day only, to stay conservative): The.Daily.Show.2024.01.15....
+    re.compile(r"(?<!\d)(?:19|20)\d{2}[._\-]\d{2}[._\-]\d{2}(?!\d)"),
     # Fansub layout: [Group][Show Title][NN]... where [NN] is a pure-numeric
     # episode bracket (resolution/version/hash brackets are not pure digits;
     # a year-shaped bracket like [2006] is a release year).

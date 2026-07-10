@@ -90,6 +90,7 @@ RELEASE_NOISE = re.compile(
         |[xh][\.]?26[45]|HEVC|AVC|AV1|MPEG[24]?|VP9|10[\- .]?Bit
         # --- Audio ---
         |AAC(?:[ .\-]?\d\.\d)?|AC3|EAC3|DTS(?:[\- .]?HD)?(?:[\- .]?MA)?
+        |DD[P+]?(?:[ .\-]?\d\.\d)?
         |TrueHD|Atmos|FLAC|LPCM|Opus
         |(?:Dual|Multi)[\- .]?Audio|[257]\.\d
         # --- Release tags ---

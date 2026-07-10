@@ -29,6 +29,10 @@ def _is_titleish_bare_number(name: str, digit_start: int, digit_end: int) -> boo
     before = name[:digit_start].rstrip()
     if before.endswith("#"):
         return True
+    # A release year straight after the number marks a movie-style title
+    # ("Apollo 13 1995 1080p ..."): the number belongs to the title.
+    if re.match(r"[\s._\-]+(?:19|20)\d{2}(?!\d)", name[digit_end:]):
+        return True
     word = re.search(r"([A-Za-z]+)$", before)
     return bool(word and word.group(1).lower() in _NUMBER_WORD_PREFIXES)
 
@@ -114,6 +118,19 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
+    # Air-date naming (daily/talk shows): YYYY.MM.DD / YYYY-MM-DD. The
+    # month/day digits must never be read as episode numbers, and the dash
+    # branch below would otherwise eat a dashed date as a range. There is no
+    # air-date episode matching downstream yet, so the file carries no
+    # episode evidence. S##E##/NxNN branches run first, so a name with both
+    # keeps its explicit episode parse.
+    date_match = re.search(
+        r"(?<!\d)(?:19|20)\d{2}[.\-_ ](?:0?[1-9]|1[0-2])[.\-_ ](?:0?[1-9]|[12]\d|3[01])(?!\d)",
+        name,
+    )
+    if date_match:
+        return [], None, False
+
     # Episode-marker chain WITHOUT a season prefix: "E01E02", "E01-E02",
     # "EP01-EP02", "E01 - E02". Two or more E-points are required \u2014 a lone
     # "Ep 05 - Title" keeps its dedicated branch below (title extraction).
@@ -182,7 +199,17 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
     if bare_match:
         num = int(bare_match.group(1))
-        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
+        # A bare (unparenthesized) release year in the remainder marks a
+        # scene-style movie name whose title leads with a number
+        # ("300.2006.1080p..."); "01. Pilot (2005)" keeps its episode.
+        scene_year_follows = re.search(
+            r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2)
+        )
+        if (
+            num not in RESOLUTION_NUMBERS
+            and not (YEAR_MIN <= num <= YEAR_MAX)
+            and not scene_year_follows
+        ):
             title_text = bare_match.group(2).strip()
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
             return [num], strip_release_junk_title(title_text or None), False
@@ -200,8 +227,10 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
+    # The s/S in the lookbehind rejects season-pack markers ("S01" with no
+    # E##) that would otherwise read as episode 1.
     match = re.search(
-        r"(?<![xXhH\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        r"(?<![xXhHsS\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
         name,
         re.IGNORECASE,
     )
@@ -214,6 +243,13 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                 if prefix.lower() in ("x", "h"):
                     return [], None, False
             if _is_titleish_bare_number(name, match.start(1), match.end(1)):
+                return [], None, False
+            # A NAME-LEADING number with a release year later in the name is
+            # a movie-style title ("21 Jump Street 2012 ..."), not an
+            # episode; episode-first files ("100 - Title") carry no year.
+            if match.start(1) == 0 and re.search(
+                r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1):]
+            ):
                 return [], None, False
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
@@ -244,6 +280,12 @@ def extract_season_number(filename: str) -> int | None:
         return int(match.group(1))
 
     match = re.search(r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+
+    # Spelled-out season marker in the FILE name ("Season 1 Episode 2");
+    # mirrors the folder-level get_season fallback.
+    match = re.search(r"\bseason[\s._\-]*(\d{1,2})\b", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
