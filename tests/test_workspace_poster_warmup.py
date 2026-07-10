@@ -205,3 +205,35 @@ class PosterWarmupTests(QtSmokeBase):
         self.assertTrue(workspace._lifecycle_coordinator._scan_poster_timer.isActive())
         coordinator.show_ready()
         self.assertIsNone(workspace._lifecycle_coordinator._scan_poster_timer)
+
+    def test_scan_feed_pushes_loaded_posters_on_signal(self):
+        coordinator, workspace, model, pending = self._coordinator_with_fake([1])
+        coordinator.show_scanning()
+
+        before = len(workspace._scan_progress.posters_seen)
+        model.poster_loaded.emit()
+
+        self.assertEqual(len(workspace._scan_progress.posters_seen), before + 1)
+        self.assertEqual(workspace._scan_progress.posters_seen[-1], model.loaded_posters())
+
+    def test_scan_feed_disconnects_after_show_ready(self):
+        coordinator, workspace, model, pending = self._coordinator_with_fake([0])
+        coordinator.show_scanning()
+        coordinator.show_ready()
+
+        before = len(workspace._scan_progress.posters_seen)
+        model.poster_loaded.emit()
+
+        self.assertEqual(len(workspace._scan_progress.posters_seen), before)
+
+    def test_start_scan_poster_feed_reentrant_no_double_delivery(self):
+        coordinator, workspace, model, pending = self._coordinator_with_fake([1])
+        coordinator.show_scanning()
+        # Re-entrant call before any teardown: must not stack a second
+        # poster_loaded connection alongside the first.
+        coordinator._start_scan_poster_feed()
+
+        before = len(workspace._scan_progress.posters_seen)
+        model.poster_loaded.emit()
+
+        self.assertEqual(len(workspace._scan_progress.posters_seen), before + 1)
