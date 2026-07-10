@@ -203,6 +203,13 @@ class ScanState:
     display_order: list[int] = field(default_factory=list)
     collapsed_seasons: set[int] = field(default_factory=set)
 
+    # AutoMux session state (mkvmerge spec §5.1) — per-entry, resets on
+    # rescan/app restart. Keys are preview-item indices; values are
+    # serialized MuxPlan dicts (engine/_mux_planner.MuxPlan.to_dict()).
+    automux_disabled: bool = False
+    mux_plans: dict[int, dict] = field(default_factory=dict)
+    mux_probe_errors: dict[int, str] = field(default_factory=dict)
+
     # Season metadata
     season_names: dict[int, str] = field(default_factory=dict)
     season_assignment: int | None = None
@@ -287,6 +294,9 @@ class ScanState:
         self.season_header_positions.clear()
         self.display_order.clear()
         self.collapsed_seasons.clear()
+        self.automux_disabled = False
+        self.mux_plans.clear()
+        self.mux_probe_errors.clear()
 
     def reset_scan(self) -> None:
         self.scanner = None
