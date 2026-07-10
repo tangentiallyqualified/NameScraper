@@ -454,19 +454,20 @@ class EpisodeTableView(QListView):
             delegate = self.itemDelegateForIndex(index)
             if kind in _CHEVRON_KINDS and isinstance(delegate, EpisodeTableDelegate):
                 rect = self.visualRect(index)
-                if kind == "episode":
-                    row_data = index.data(ROW_DATA_ROLE)
-                    if row_data is not None and row_data.status_text == "Missing File":
-                        action_rect = delegate.inline_action_rect(rect, row_data)
-                        if action_rect.isValid() and action_rect.contains(pos):
-                            self._intercepted_row = index.row()
-                            self.inline_action_clicked.emit(index, "assign_file")
-                            return
-                chevron_rect = delegate.chevron_rect(rect)
-                if chevron_rect.contains(pos):
-                    self._intercepted_row = index.row()
-                    self.chevron_clicked.emit(index)
-                    return
+                row_data = index.data(ROW_DATA_ROLE) if kind == "episode" else None
+                is_missing_file = row_data is not None and row_data.status_text == "Missing File"
+                if kind == "episode" and is_missing_file:
+                    action_rect = delegate.inline_action_rect(rect, row_data)
+                    if action_rect.isValid() and action_rect.contains(pos):
+                        self._intercepted_row = index.row()
+                        self.inline_action_clicked.emit(index, "assign_file")
+                        return
+                if not is_missing_file:
+                    chevron_rect = delegate.chevron_rect(rect)
+                    if chevron_rect.contains(pos):
+                        self._intercepted_row = index.row()
+                        self.chevron_clicked.emit(index)
+                        return
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
@@ -491,6 +492,9 @@ class EpisodeTableView(QListView):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             index = self.currentIndex()
             if index.isValid() and index.data(ROW_KIND_ROLE) in _CHEVRON_KINDS:
+                row_data = index.data(ROW_DATA_ROLE)
+                if row_data is not None and row_data.status_text == "Missing File":
+                    return
                 self.expand_key_pressed.emit(index)
                 return
         super().keyPressEvent(event)

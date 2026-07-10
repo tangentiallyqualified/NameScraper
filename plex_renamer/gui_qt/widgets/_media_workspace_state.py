@@ -7,6 +7,7 @@ from typing import Any
 from PySide6.QtCore import QModelIndex
 
 from ...engine import ScanState
+from ._episode_table_model import ROW_DATA_ROLE
 from ._media_helpers import state_key as _state_key
 
 
@@ -93,6 +94,9 @@ class MediaWorkspaceStateCoordinator:
         kind = model.row_kind_at(index.row())
         if kind != "episode":
             return
+        row_data = index.data(ROW_DATA_ROLE)
+        if row_data is not None and row_data.status_text == "Missing File":
+            return    # ghost rows have no expansion (R2 M5); inline Assign covers them
         if index != workspace._work_panel.table_view.currentIndex():
             return
         if model.expanded_row() == index.row():
@@ -106,6 +110,9 @@ class MediaWorkspaceStateCoordinator:
         model = workspace._work_panel.model
         if model.row_kind_at(index.row()) != "episode":
             return
+        row_data = index.data(ROW_DATA_ROLE)
+        if row_data is not None and row_data.status_text == "Missing File":
+            return    # ghost rows have no expansion (R2 M5); inline Assign covers them
         view = workspace._work_panel.table_view
         row = index.row()
         if model.expanded_row() == row:
