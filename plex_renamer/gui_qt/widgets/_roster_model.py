@@ -300,9 +300,21 @@ class RosterModel(QAbstractListModel):
             if isinstance(entry, _StateEntry):
                 self._request_poster(self._states[entry.state_index], entry.row_data)
 
+    def warm_posters(self, states: list[ScanState]) -> None:
+        """Prefetch posters for matched states (loading-screen feed, R2 LD2).
+        Safe to call repeatedly: cache hits and in-flight keys are no-ops."""
+        for state in states:
+            if state.show_id is None:
+                continue
+            self._request_poster_for_key(state, (self._media_type, state.show_id))
+
     def _request_poster(self, state: ScanState, row_data: RosterRowData) -> None:
-        key = row_data.poster_key
-        if key is None or self._tmdb_provider is None:
+        if row_data.poster_key is None:
+            return
+        self._request_poster_for_key(state, row_data.poster_key)
+
+    def _request_poster_for_key(self, state: ScanState, key: tuple[str, int]) -> None:
+        if self._tmdb_provider is None:
             return
         if key in self._poster_cache:
             self._poster_cache.move_to_end(key)

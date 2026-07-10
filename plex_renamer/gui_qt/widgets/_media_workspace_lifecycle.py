@@ -11,6 +11,12 @@ from PySide6.QtCore import QTimer
 _POSTER_WARMUP_MAX_MS = 4000
 _POSTER_WARMUP_POLL_MS = 120
 
+# Poster feed during SCANNING (LD2): poll the roster model for newly-matched
+# states and push whatever posters have loaded into the conveyor, so posters
+# start appearing while the scan is still running instead of only at the
+# post-scan warmup gate.
+_SCAN_POSTER_FEED_MS = 1500
+
 
 class MediaWorkspaceLifecycleCoordinator:
     def __init__(
@@ -27,8 +33,10 @@ class MediaWorkspaceLifecycleCoordinator:
         self._ready_index = ready_index
         self._warmup_poll: QTimer | None = None
         self._warmup_on_poster: Any = None
+        self._scan_poster_timer: QTimer | None = None
 
     def show_empty(self) -> None:
+        self._stop_scan_poster_feed()
         workspace = self._workspace
         workspace._scan_progress.stop()
         workspace._work_panel.clear()
@@ -40,12 +48,35 @@ class MediaWorkspaceLifecycleCoordinator:
         workspace._scan_progress.start()
         workspace._work_panel.clear()
         workspace._stack.setCurrentIndex(self._scanning_index)
+        self._start_scan_poster_feed()
 
     def show_ready(self) -> None:
+        self._stop_scan_poster_feed()
         workspace = self._workspace
         workspace._scan_progress.stop()
         workspace._stack.setCurrentIndex(self._ready_index)
         workspace.refresh_from_controller()
+
+    def _start_scan_poster_feed(self) -> None:
+        self._stop_scan_poster_feed()
+        workspace = self._workspace
+        model = workspace._roster_panel.model
+        conveyor = workspace._scan_progress
+
+        def _tick() -> None:
+            model.warm_posters(workspace._current_states())
+            conveyor.set_posters(model.loaded_posters())
+
+        timer = QTimer(workspace)
+        timer.setInterval(_SCAN_POSTER_FEED_MS)
+        timer.timeout.connect(_tick)
+        timer.start()
+        self._scan_poster_timer = timer
+
+    def _stop_scan_poster_feed(self) -> None:
+        if self._scan_poster_timer is not None:
+            self._scan_poster_timer.stop()
+            self._scan_poster_timer = None
 
     def _cancel_warmup(self) -> None:
         """Tear down any in-flight warmup without switching to READY, so a
@@ -67,6 +98,7 @@ class MediaWorkspaceLifecycleCoordinator:
         """Populate the roster while SCANNING stays up, feed the conveyor
         (LD2), and switch to READY once posters settle or a max wait fires
         (LD3)."""
+        self._stop_scan_poster_feed()
         self._cancel_warmup()
         workspace = self._workspace
         # Populate the roster (kicks off poster loads) while the loading
