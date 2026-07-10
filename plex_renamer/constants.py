@@ -57,6 +57,10 @@ class JobStatus(StrEnum):
 class JobKind(StrEnum):
     """Job type discriminator — extensible for future task types."""
     RENAME = "rename"
+    # Remux via mkvmerge: subtitle merging and/or track stripping.  The
+    # job's ops are mixed — ops with a mux payload run mkvmerge, ops
+    # without run the plain move path (spec §6).
+    REMUX = "remux"
     # Future: download subtitles from the OpenSubtitles API.
     # This is a separate job kind (not an op within RENAME) because it
     # involves network I/O, rate limiting, and credential management.

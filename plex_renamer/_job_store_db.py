@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .constants import ensure_log_dir
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     job_kind        TEXT NOT NULL DEFAULT 'rename',
     data_source     TEXT NOT NULL DEFAULT 'tmdb',
     depends_on      TEXT,
+    active_temp     TEXT,
     rename_ops      TEXT NOT NULL
 );
 
@@ -92,3 +93,11 @@ def migrate_job_store(conn: sqlite3.Connection, current_version: int) -> None:
         if "output_root" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN output_root TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (3,))
+        version = 3
+    if version < 4:
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        if "active_temp" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN active_temp TEXT")
+        conn.execute("UPDATE schema_version SET version = ?", (4,))

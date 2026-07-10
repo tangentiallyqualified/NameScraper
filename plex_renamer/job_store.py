@@ -67,6 +67,8 @@ class RenameOp:
     # "video" for the main media file; "subtitle" for companion subtitle files
     # renamed alongside it.  Extensible for future companion types (e.g. "nfo").
     file_type: str = "video"
+    # Serialized MuxPlan dict for REMUX jobs; None for plain move ops.
+    mux: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -75,6 +77,7 @@ class RenameOp:
     def from_dict(cls, d: dict) -> RenameOp:
         d = dict(d)
         d.setdefault("file_type", "video")  # Back-compat: old rows lack this field
+        d.setdefault("mux", None)   # Back-compat: old rows lack this field
         return cls(**d)
 
 
@@ -178,6 +181,11 @@ class RenameJob:
         return [op for op in self.rename_ops if op.file_type != "video"]
 
     @property
+    def mux_ops(self) -> list[RenameOp]:
+        """Ops that run through mkvmerge instead of a plain move."""
+        return [op for op in self.rename_ops if op.mux]
+
+    @property
     def source_path(self) -> Path:
         """Absolute path to the show/movie folder."""
         return Path(self.library_root) / self.source_folder
@@ -256,6 +264,8 @@ class JobStore:
         with self._lock:
             conn = self._get_conn()
             initialize_job_store(conn)
+        # Outside the lock — recover_interrupted acquires it itself.
+        self.recover_interrupted()
 
     def _migrate_db(self, conn: sqlite3.Connection, current_version: int) -> None:
         """Compatibility wrapper for extracted schema migration helpers."""
@@ -277,6 +287,21 @@ class JobStore:
         with self._lock:
             conn = self._get_conn()
             try:
+                # A media entity must never hold a RENAME and a REMUX job
+                # at the same time — the unique dedup index only guards
+                # within one kind, so check across both kinds explicitly.
+                if job.job_kind in (JobKind.RENAME, JobKind.REMUX):
+                    other = conn.execute(
+                        "SELECT job_id FROM jobs "
+                        "WHERE job_kind IN (?, ?) AND media_type = ? "
+                        "AND tmdb_id = ? AND library_root = ? "
+                        "AND status IN ('pending', 'running')",
+                        (JobKind.RENAME, JobKind.REMUX, job.media_type,
+                         job.tmdb_id, job.library_root),
+                    ).fetchone()
+                    if other:
+                        raise DuplicateJobError(other["job_id"], job.media_name)
+
                 row = conn.execute(
                     "SELECT COALESCE(MAX(position), 0) + 1 FROM jobs "
                     "WHERE status IN ('pending', 'running')"
@@ -355,6 +380,44 @@ class JobStore:
                 (poster_path, now, job_id),
             )
             conn.commit()
+
+    def set_active_temp(self, job_id: str, temp_path: str | None) -> None:
+        """Record (or clear) the in-progress mkvmerge temp file for a job."""
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE jobs SET active_temp = ? WHERE job_id = ?",
+                (temp_path, job_id))
+            conn.commit()
+
+    def recover_interrupted(self) -> list[str]:
+        """Fail jobs left RUNNING by a crash and sweep their temp files."""
+        now = datetime.now(timezone.utc).isoformat()
+        recovered: list[str] = []
+        with self._lock:
+            conn = self._get_conn()
+            rows = conn.execute(
+                "SELECT job_id, active_temp FROM jobs WHERE status = ?",
+                (JobStatus.RUNNING,)).fetchall()
+            for row in rows:
+                temp = row["active_temp"]
+                if temp:
+                    try:
+                        Path(temp).unlink(missing_ok=True)
+                    except OSError:
+                        _log.warning("Could not remove stale temp %s", temp)
+                conn.execute(
+                    "UPDATE jobs SET status = ?, error_message = ?, "
+                    "active_temp = NULL, updated_at = ? WHERE job_id = ?",
+                    (JobStatus.FAILED,
+                     "Interrupted: application closed while the job was processing",
+                     now, row["job_id"]))
+                recovered.append(row["job_id"])
+            if recovered:
+                conn.commit()
+        if recovered:
+            _log.warning("Recovered %d interrupted job(s)", len(recovered))
+        return recovered
 
     def remove_job(self, job_id: str) -> bool:
         """
