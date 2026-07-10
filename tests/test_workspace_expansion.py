@@ -15,10 +15,10 @@ from test_episode_table_model import _guide_state
 
 
 class HeaderFollowsEpisodeTests(QtSmokeBase):
-    def _panel(self, media_type="tv"):
+    def _panel(self, media_type="tv", tmdb_provider=None):
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
-        panel = MediaWorkPanel(media_type=media_type)
+        panel = MediaWorkPanel(media_type=media_type, tmdb_provider=tmdb_provider)
         panel.resize(760, 640)
         return panel
 
@@ -76,6 +76,26 @@ class HeaderFollowsEpisodeTests(QtSmokeBase):
         self.assertNotEqual(
             panel._overview_label.text(), "Ep plot.\nAir date: 2023-01-01"
         )
+
+    def test_no_tmdb_overview_uses_single_display_path(self):
+        """When no TMDB provider is available, _request_overview must use
+        the same display path as async/cached branches to avoid leaving
+        stale episode overview active -- collapsing an expanded episode
+        with no TMDB should clear the series overview state, not restore
+        previously-captured text."""
+        panel = self._panel(media_type="tv", tmdb_provider=lambda: None)
+        state, guide = _guide_state()
+        panel.set_episode_overview("Episode text", "2024-01-01")
+        self.assertTrue(panel._episode_overview_active)
+
+        # Refresh with no TMDB provider.
+        panel.refresh_header(state)
+
+        # Must clear both the active flag and the series overview state.
+        self.assertFalse(panel._episode_overview_active)
+        self.assertEqual(panel._series_overview_text, "")
+        self.assertFalse(panel._overview_label.isVisible())
+        self.assertFalse(panel._overview_toggle.isVisible())
 
 
 class MissingFileRowExpansionTests(QtSmokeBase):

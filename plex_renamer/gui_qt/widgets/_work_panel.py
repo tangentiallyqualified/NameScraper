@@ -675,9 +675,11 @@ class MediaWorkPanel(QFrame):
         self._current_token = token
         tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
         if tmdb is None or state.show_id is None:
-            self._overview_label.setText("")
-            self._overview_label.hide()
-            self._overview_toggle.hide()
+            # Same single display path as the async/cached branches: remember
+            # the (empty) series overview and drop any episode override so
+            # collapse cannot restore stale text.
+            self._episode_overview_active = False
+            self._apply_overview_text("", token)
             return
 
         cached = self._overview_cache.get(token)
