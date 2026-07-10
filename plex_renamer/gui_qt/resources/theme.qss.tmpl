@@ -531,6 +531,30 @@ QPushButton[cssClass="danger-outline"][sizeVariant="compact"] {
     font-size: 11px;
 }
 
+/* Caution (filled warning) button */
+QPushButton[cssClass="caution"] {
+    background-color: ${warning};
+    color: ${on_accent};
+    border: none;
+}
+QPushButton[cssClass="caution"]:hover {
+    background-color: ${warning};
+}
+QPushButton[cssClass="caution"]:pressed {
+    background-color: ${warning};
+}
+QPushButton[cssClass="caution"]:disabled {
+    background-color: ${card_hover};
+    color: ${text_dim};
+}
+QPushButton[cssClass="caution"][sizeVariant="inline"],
+QPushButton[cssClass="danger"][sizeVariant="inline"] {
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: ${radius_sm}px;
+}
+
 QToolButton[cssClass="toolbar-overflow"] {
     background-color: transparent;
     color: ${text};

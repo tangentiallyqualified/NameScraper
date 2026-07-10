@@ -484,7 +484,9 @@ class WorkPanelTests(QtSmokeBase):
         panel = MediaWorkPanel(media_type="tv")
         self.assertTrue(panel._overview_toggle.sizePolicy().retainSizeWhenHidden())
 
-    def test_primary_action_button_lives_in_toolbar_and_no_preflight(self):
+    def test_primary_action_button_lives_in_header_and_no_preflight(self):
+        # Task 10: Queue This Show moved out of the toolbar row into the
+        # header title row alongside Fix Match / AutoMux.
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         self.assertFalse(hasattr(panel, "_queue_preflight_label"))
@@ -494,21 +496,23 @@ class WorkPanelTests(QtSmokeBase):
             if item.layout() is not None
         ]
         toolbar = next(lay for lay in sub_layouts if lay.indexOf(panel.approve_all_button) != -1)
+        title_row = next(lay for lay in sub_layouts if lay.indexOf(panel._title_label) != -1)
         footer = next(lay for lay in sub_layouts if lay.indexOf(panel.summary_label) != -1)
-        self.assertNotEqual(toolbar.indexOf(panel.primary_action_button), -1)
+        self.assertEqual(toolbar.indexOf(panel.primary_action_button), -1)
+        self.assertNotEqual(title_row.indexOf(panel.primary_action_button), -1)
         self.assertEqual(footer.indexOf(panel.primary_action_button), -1)
         self.assertEqual(footer.count(), 2)   # summary_label + trailing stretch only
         panel.close()
 
     def test_fix_match_button_is_in_header_title_row(self):
-        # Layout-tree invariant (adapted from the brief): title_row and footer
+        # Layout-tree invariant (adapted from the brief): title_row and toolbar
         # are sibling QHBoxLayouts added directly to the panel's outer layout,
         # so every widget in either bubbles up to the same parentWidget() (the
         # panel itself) -- that assertion can't distinguish the two rows.
         # Instead, walk the outer layout to find title_row (the layout that
         # contains the title label) and assert fix_match_button lives in that
-        # same layout, not in the footer layout (the one containing
-        # primary_action_button).
+        # same layout, not in the toolbar layout (the one containing
+        # approve_all_button).
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         outer = panel.layout()
@@ -517,7 +521,20 @@ class WorkPanelTests(QtSmokeBase):
             if item.layout() is not None
         ]
         title_row = next(lay for lay in sub_layouts if lay.indexOf(panel._title_label) != -1)
-        footer = next(lay for lay in sub_layouts if lay.indexOf(panel.primary_action_button) != -1)
-        self.assertNotEqual(title_row, footer)
+        toolbar = next(lay for lay in sub_layouts if lay.indexOf(panel.approve_all_button) != -1)
+        self.assertNotEqual(title_row, toolbar)
         self.assertNotEqual(title_row.indexOf(panel.fix_match_button), -1)
-        self.assertEqual(footer.indexOf(panel.fix_match_button), -1)
+        self.assertEqual(toolbar.indexOf(panel.fix_match_button), -1)
+
+    def test_header_buttons_restyled_and_colocated(self):
+        # Task 10: Fix Match (caution), AutoMux toggle (danger while enabled),
+        # and Queue This Show (primary, sizeVariant="inline") all sit in the
+        # same header title row, visually parallel to Approve All.
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        self.assertEqual(panel._fix_match_button.property("cssClass"), "caution")
+        self.assertEqual(panel._automux_button.property("cssClass"), "danger")
+        self.assertEqual(panel._primary_action_button.property("sizeVariant"), "inline")
+        # Same parent layout row: queue button sits with fix-match in the header.
+        header = panel._fix_match_button.parentWidget()
+        self.assertIs(panel._primary_action_button.parentWidget(), header)

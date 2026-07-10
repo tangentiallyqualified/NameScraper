@@ -208,16 +208,22 @@ class MediaWorkPanel(QFrame):
         title_row.addWidget(self._status_pill)
 
         self._fix_match_button = QPushButton("Fix Match")
-        self._fix_match_button.setProperty("cssClass", "secondary")
+        self._fix_match_button.setProperty("cssClass", "caution")
         self._fix_match_button.setProperty("sizeVariant", "inline")
         self._fix_match_button.setEnabled(False)
         title_row.addWidget(self._fix_match_button)
 
         self._automux_button = QPushButton("Disable AutoMux")
-        self._automux_button.setProperty("cssClass", "secondary")
+        self._automux_button.setProperty("cssClass", "danger")
         self._automux_button.setProperty("sizeVariant", "inline")
         self._automux_button.hide()
         title_row.addWidget(self._automux_button)
+
+        self._primary_action_button = QPushButton("")
+        self._primary_action_button.setProperty("cssClass", "primary")
+        self._primary_action_button.setProperty("sizeVariant", "inline")
+        self._primary_action_button.setEnabled(False)
+        title_row.addWidget(self._primary_action_button)
 
         title_row.addStretch()
         outer.addLayout(title_row)
@@ -300,12 +306,6 @@ class MediaWorkPanel(QFrame):
         self._approve_all_button.hide()
         self._approve_all_button.clicked.connect(self.approve_all_clicked.emit)
         toolbar.addWidget(self._approve_all_button)
-
-        self._primary_action_button = QPushButton("")
-        self._primary_action_button.setProperty("cssClass", "primary")
-        self._primary_action_button.setProperty("sizeVariant", "compact")
-        self._primary_action_button.setEnabled(False)
-        toolbar.addWidget(self._primary_action_button)
 
         self._overflow_button = QToolButton()
         self._overflow_button.setText("⋯")

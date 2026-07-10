@@ -197,6 +197,18 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.assertTrue(state.automux_disabled)
         self.assertEqual(panel.automux_button.text(), "Enable AutoMux")
 
+    def test_button_tone_matches_disable_vs_enable(self):
+        # Task 10: filled danger while it says Disable AutoMux (AutoMux is
+        # currently active), filled caution while it says Enable AutoMux
+        # (AutoMux is currently disabled -- re-enabling is the caution action).
+        state = self._make_state()
+        coordinator, panel = self._button_fixture(
+            settings=self._make_settings(), state=state)
+        coordinator.update_button(state)
+        self.assertEqual(panel.automux_button.property("cssClass"), "danger")
+        coordinator.toggle_selected()
+        self.assertEqual(panel.automux_button.property("cssClass"), "caution")
+
     def test_button_locked_while_queued(self):
         state = self._make_state()
         state.queued = True

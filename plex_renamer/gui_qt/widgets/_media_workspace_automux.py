@@ -173,8 +173,13 @@ class MediaWorkspaceAutoMuxCoordinator:
             button.hide()
             return
         button.show()
-        button.setText(
-            "Enable AutoMux" if state.automux_disabled else "Disable AutoMux")
+        disabling = not state.automux_disabled
+        button.setText("Disable AutoMux" if disabling else "Enable AutoMux")
+        button.setProperty("cssClass", "danger" if disabling else "caution")
+        style = button.style()
+        if style is not None:
+            style.unpolish(button)
+            style.polish(button)
         if state.queued:
             button.setEnabled(False)
             button.setToolTip(
