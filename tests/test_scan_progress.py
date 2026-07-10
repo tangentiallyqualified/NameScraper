@@ -23,6 +23,13 @@ def test_offset_wraps_at_cycle():
     assert conveyor_offset(1200, slot_w=100, cycle_ms=1000) == conveyor_offset(200, slot_w=100, cycle_ms=1000)
 
 
+class AnimationTimerTests(QtSmokeBase):
+    def test_animation_timer_runs_at_60fps(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+        widget = ScanProgressWidget(media_type="tv")
+        self.assertEqual(widget._animation_timer.interval(), 16)
+
+
 class ConveyorPosterTests(QtSmokeBase):
     def test_set_and_add_posters(self):
         from PySide6.QtGui import QPixmap

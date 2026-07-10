@@ -152,8 +152,8 @@ class _ConveyorAnimation(QWidget):
         filled_wash.setAlpha(36)
 
         for index in range(_CARD_COUNT + 2):
-            slot_x = rect.left() + int(index * slot_w - offset)
-            card_x = slot_x + (slot_w - card_w) // 2
+            slot_x = rect.left() + index * slot_w - offset
+            card_x = slot_x + (slot_w - card_w) / 2.0
             if card_x + card_w < rect.left() or card_x > rect.right():
                 continue
             card = QRectF(card_x, y, card_w, card_h)
@@ -282,7 +282,7 @@ class ScanProgressWidget(QWidget):
         self._elapsed_timer.setInterval(1000)
         self._elapsed_timer.timeout.connect(self._update_elapsed)
         self._animation_timer = QTimer(self)
-        self._animation_timer.setInterval(90)
+        self._animation_timer.setInterval(16)
         self._animation_timer.timeout.connect(self._advance_animation)
         self._filler_timer = QTimer(self)
         self._filler_timer.setInterval(_FILLER_DELAY_MS)
