@@ -25,8 +25,10 @@ _inflight_lock = threading.Lock()
 
 def submit(fn, /, *args, **kwargs) -> Future:
     """Submit *fn* to the shared pool.  Returns a :class:`~concurrent.futures.Future`."""
-    future = _pool.submit(fn, *args, **kwargs)
     with _inflight_lock:
+        # Dispatch and register atomically so a concurrent drain() snapshot
+        # cannot miss a just-dispatched future.
+        future = _pool.submit(fn, *args, **kwargs)
         _inflight.add(future)
     return future
 
