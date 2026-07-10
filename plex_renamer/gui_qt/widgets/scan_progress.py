@@ -83,7 +83,7 @@ _MOVIE_FILLERS = (
 
 
 _CARD_COUNT = 5
-_CONVEYOR_CYCLE_MS = 10_800     # full slot slide period (was 120 ticks × 90 ms)
+_CONVEYOR_CYCLE_MS = 5_400      # one slot slide; halved so more cards cross per scan
 
 
 def conveyor_offset(elapsed_ms: int, slot_w: int, cycle_ms: int = _CONVEYOR_CYCLE_MS) -> float:
@@ -102,19 +102,48 @@ class _ConveyorAnimation(QWidget):
         super().__init__(parent)
         self._clock = QElapsedTimer()
         self._active = False
-        self._posters: list[QPixmap] = []
+        self._posters: list[QPixmap] = []          # arrival-ordered pool
+        self._seen_keys: set[int] = set()
+        self._card_posters: dict[int, QPixmap | None] = {}  # logical card id -> assignment
+        self._next_poster = 0
         self._scaled_cache: dict[tuple[int, int, int], QPixmap] = {}
         self.setMinimumHeight(_scale.px(180))
 
     def set_posters(self, pixmaps: list[QPixmap]) -> None:
-        self._posters = [p for p in pixmaps if p is not None and not p.isNull()]
+        for pm in pixmaps:
+            self.add_poster(pm)
+
+    def add_poster(self, pixmap: QPixmap) -> None:
+        if pixmap is None or pixmap.isNull():
+            return
+        if pixmap.cacheKey() in self._seen_keys:
+            return
+        self._seen_keys.add(pixmap.cacheKey())
+        self._posters.append(pixmap)
+        self.update()
+
+    def reset_posters(self) -> None:
+        self._posters = []
+        self._seen_keys = set()
+        self._card_posters = {}
+        self._next_poster = 0
         self._scaled_cache.clear()
         self.update()
 
-    def add_poster(self, pixmap: QPixmap) -> None:
-        if pixmap is not None and not pixmap.isNull():
-            self._posters.append(pixmap)
-            self.update()
+    def poster_for_card(self, logical_id: int, *, crossed: bool) -> QPixmap | None:
+        """Poster for one logical belt card. Assigned exactly once, at the
+        first query where the card has crossed the beam; cards that cross
+        while the pool is exhausted stay empty forever (no pop-in)."""
+        if logical_id in self._card_posters:
+            return self._card_posters[logical_id]
+        if not crossed:
+            return None
+        poster = None
+        if self._next_poster < len(self._posters):
+            poster = self._posters[self._next_poster]
+            self._next_poster += 1
+        self._card_posters[logical_id] = poster
+        return poster
 
     def set_active(self, active: bool) -> None:
         if self._active == active:
@@ -153,6 +182,7 @@ class _ConveyorAnimation(QWidget):
         filled_wash = theme.qcolor("accent_alt")
         filled_wash.setAlpha(36)
 
+        cycle = elapsed // _CONVEYOR_CYCLE_MS
         for index in range(_CARD_COUNT + 2):
             slot_x = rect.left() + index * slot_w - offset
             card_x = slot_x + (slot_w - card_w) / 2.0
@@ -160,12 +190,13 @@ class _ConveyorAnimation(QWidget):
                 continue
             card = QRectF(card_x, y, card_w, card_h)
             center_x = card.center().x()
+            logical_id = index + cycle
             painter.setPen(QPen(border, max(1, _scale.px(1))))
             painter.setBrush(blank)
             painter.drawRoundedRect(card, radius, radius)
             if self._active and center_x < beam_x - slot_w * 0.5:
-                if self._posters:
-                    poster = self._posters[index % len(self._posters)]
+                poster = self.poster_for_card(logical_id, crossed=True)
+                if poster is not None:
                     painter.save()
                     painter.setClipRect(card)
                     dpr = self.devicePixelRatioF()
@@ -211,6 +242,12 @@ class _ConveyorAnimation(QWidget):
                 painter.fillRect(
                     QRectF(beam_pos - _scale.px(10), card.top(), _scale.px(20), card.height()), gradient
                 )
+
+        if len(self._card_posters) > 64:
+            keep_from = cycle  # everything older than the current window is gone
+            self._card_posters = {
+                lid: pm for lid, pm in self._card_posters.items() if lid >= keep_from
+            }
 
 
 def overall_progress_fraction(
@@ -330,13 +367,16 @@ class ScanProgressWidget(QWidget):
     def add_poster(self, pixmap: QPixmap) -> None:
         self._animation.add_poster(pixmap)
 
+    def reset_posters(self) -> None:
+        self._animation.reset_posters()
+
     def start(self) -> None:
         """Reset the dashboard and start active timers."""
         self._elapsed.start()
         self._elapsed_timer.start()
         self._animation_timer.start()
         self._animation.set_active(True)
-        self._animation.set_posters([])
+        self._animation.reset_posters()
         self._completed_lifecycles.clear()
         self._current_lifecycle = None
         self._step_label.setText("")

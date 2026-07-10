@@ -131,13 +131,61 @@ class ConveyorDprPaintTests(QtSmokeBase):
         self.assertEqual(len(anim._scaled_cache), 1)
         self.assertIs(next(iter(anim._scaled_cache.values())), cached)
 
-    def test_set_posters_clears_scaled_cache(self):
-        from PySide6.QtGui import QPixmap
-
+    def test_reset_posters_clears_scaled_cache(self):
         anim = self._painted_animation()
         self.assertEqual(len(anim._scaled_cache), 1)
-        anim.set_posters([QPixmap(20, 30)])
+        anim.reset_posters()
         self.assertEqual(len(anim._scaled_cache), 0)
+
+
+class ConveyorPosterAssignmentTest(QtSmokeBase):
+    def _pixmap(self, color):
+        from PySide6.QtGui import QPixmap
+        pm = QPixmap(10, 15)
+        pm.fill(color)
+        return pm
+
+    def _animation(self):
+        from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
+        return _ConveyorAnimation()
+
+    def test_card_gets_no_poster_if_none_loaded_at_crossing(self):
+        from PySide6.QtCore import Qt
+        anim = self._animation()
+        # Card 3 crosses the beam with an empty pool: stays empty forever.
+        self.assertIsNone(anim.poster_for_card(3, crossed=True))
+        anim.add_poster(self._pixmap(Qt.red))
+        self.assertIsNone(anim.poster_for_card(3, crossed=True))
+
+    def test_posters_assigned_in_order_at_crossing_and_sticky(self):
+        from PySide6.QtCore import Qt
+        anim = self._animation()
+        red = self._pixmap(Qt.red)
+        blue = self._pixmap(Qt.blue)
+        anim.add_poster(red)
+        anim.add_poster(blue)
+        first = anim.poster_for_card(1, crossed=True)
+        second = anim.poster_for_card(2, crossed=True)
+        self.assertIsNotNone(first)
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first.cacheKey(), second.cacheKey())
+        # Re-querying never reshuffles.
+        self.assertEqual(anim.poster_for_card(1, crossed=True).cacheKey(), first.cacheKey())
+
+    def test_not_yet_crossed_card_has_no_poster(self):
+        from PySide6.QtCore import Qt
+        anim = self._animation()
+        anim.add_poster(self._pixmap(Qt.red))
+        self.assertIsNone(anim.poster_for_card(5, crossed=False))
+
+    def test_set_posters_is_additive_by_cachekey(self):
+        from PySide6.QtCore import Qt
+        anim = self._animation()
+        red = self._pixmap(Qt.red)
+        anim.set_posters([red])
+        anim.set_posters([red])           # repeated feed tick: no duplicate
+        anim.poster_for_card(1, crossed=True)
+        self.assertIsNone(anim.poster_for_card(2, crossed=True))  # pool exhausted
 
 
 class FillerRotationTests(QtSmokeBase):

@@ -34,6 +34,7 @@ class MediaWorkspaceLifecycleCoordinator:
         self._warmup_poll: QTimer | None = None
         self._warmup_on_poster: Any = None
         self._scan_poster_timer: QTimer | None = None
+        self._scan_feed_on_poster: Any = None
 
     def show_empty(self) -> None:
         self._stop_scan_poster_feed()
@@ -63,10 +64,15 @@ class MediaWorkspaceLifecycleCoordinator:
         model = workspace._roster_panel.model
         conveyor = workspace._scan_progress
 
-        def _tick() -> None:
-            model.warm_posters(workspace._current_states())
+        def _push_loaded() -> None:
             conveyor.set_posters(model.loaded_posters())
 
+        def _tick() -> None:
+            model.warm_posters(workspace._current_states())
+
+        model.poster_loaded.connect(_push_loaded)
+        self._scan_feed_on_poster = _push_loaded
+        _push_loaded()
         timer = QTimer(workspace)
         timer.setInterval(_SCAN_POSTER_FEED_MS)
         timer.timeout.connect(_tick)
@@ -77,6 +83,13 @@ class MediaWorkspaceLifecycleCoordinator:
         if self._scan_poster_timer is not None:
             self._scan_poster_timer.stop()
             self._scan_poster_timer = None
+        if getattr(self, "_scan_feed_on_poster", None) is not None:
+            try:
+                self._workspace._roster_panel.model.poster_loaded.disconnect(
+                    self._scan_feed_on_poster)
+            except (RuntimeError, TypeError):
+                pass
+            self._scan_feed_on_poster = None
 
     def _cancel_warmup(self) -> None:
         """Tear down any in-flight warmup without switching to READY, so a
