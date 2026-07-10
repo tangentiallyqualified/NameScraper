@@ -139,6 +139,7 @@ class SeasonCompleteness:
     matched: int
     missing: list[tuple[int, str]]
     matched_episodes: list[tuple[int, str]] = field(default_factory=list)
+    review: int = 0   # expected episodes mapped only by review-status files
 
     @property
     def is_complete(self) -> bool:
