@@ -114,6 +114,48 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
+    # Episode-marker chain WITHOUT a season prefix: "E01E02", "E01-E02",
+    # "EP01-EP02", "E01 - E02". Two or more E-points are required \u2014 a lone
+    # "Ep 05 - Title" keeps its dedicated branch below (title extraction).
+    # No season evidence, so is_season_relative stays False like the other
+    # season-less branches.
+    echain = re.search(
+        r"\b(EP?\d{1,3}(?:(?:\s*-\s*|-)?EP?\d{1,3})+)(?![A-Za-z0-9])",
+        name,
+        re.IGNORECASE,
+    )
+    if echain:
+        points = [
+            int(num)
+            for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)
+        ]
+        if len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
+        else:
+            episodes = points
+        rest = name[echain.end():]
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
+        return episodes, title, False
+
+    # Adjacent NN-NN range at a token boundary ("Show 01-02"). The negative
+    # lookbehind keeps spaced-dash forms ("Anime - 01-03") on the dash branch
+    # below, which owns their title extraction.
+    adjacent = re.search(
+        r"(?:^|(?<![-\s])[\s._(])(\d{1,3})-(\d{1,3})(?![A-Za-z0-9])",
+        name,
+    )
+    if adjacent:
+        start_num = int(adjacent.group(1))
+        end_num = int(adjacent.group(2))
+        if (
+            start_num not in RESOLUTION_NUMBERS
+            and end_num not in RESOLUTION_NUMBERS
+            and not (YEAR_MIN <= start_num <= YEAR_MAX)
+            and end_num > start_num
+            and end_num - start_num <= 3
+        ):
+            return list(range(start_num, end_num + 1)), None, False
+
     match = re.search(
         r"-\s*(\d{1,3})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,3})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
