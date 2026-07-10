@@ -75,6 +75,13 @@ class QueueTab(_JobListTab):
 
         self.refresh()
 
+    def update_job_progress(self, job, op_index: int, op_count: int, percent: int) -> None:
+        """Live remux progress from the executor (spec §7.2)."""
+        self._model.set_progress(job.job_id, op_index, op_count, percent)
+        focused = self._focused_job()
+        if focused is not None and focused.job_id == job.job_id:
+            self._detail.set_progress(job.job_id, op_index, op_count, percent)
+
     def refresh(self) -> None:
         jobs = self._queue_ctrl.get_queue()
         self._model.set_jobs(jobs)

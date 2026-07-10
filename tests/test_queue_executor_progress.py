@@ -54,3 +54,19 @@ def test_progress_listener_fires(tmp_path, monkeypatch):
     assert events == [(job.job_id, 0, 1, 50), (job.job_id, 0, 1, 100)]
     assert store.get_job(job.job_id).status == JobStatus.COMPLETED
     assert (out / "Show (2020)" / "X.mkv").exists()
+
+
+def test_queue_controller_forwards_progress_listener(tmp_path):
+    from plex_renamer.app.controllers.queue_controller import QueueController
+
+    store = JobStore(db_path=tmp_path / "ctrl_jobs.db")
+    controller = QueueController(store)
+    events = []
+    controller.add_listener(
+        on_job_progress=lambda job, i, n, pct: events.append((i, n, pct)))
+    job = RenameJob(media_type="tv", tmdb_id=5, media_name="S",
+                    library_root="C:/lib", output_root="C:/out",
+                    source_folder="S")
+    controller.executor._notify("progress", job, 0, 2, 40)
+    assert events == [(0, 2, 40)]
+    controller.close()

@@ -102,6 +102,7 @@ def main() -> int:
         "--ignore=tests/test_settings_tab_automux.py",
         "--ignore=tests/test_automux_tracks_widget.py",
         "--ignore=tests/test_workspace_automux.py",
+        "--ignore=tests/test_queue_tab_remux.py",
         "--ignore=tests/conftest_qt.py",
         "--color=no",
         f"--junitxml={junit_log}",

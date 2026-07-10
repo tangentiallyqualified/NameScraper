@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QHeaderView,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
@@ -312,6 +313,14 @@ class JobDetailPanel(QFrame):
         self._meta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body.addWidget(self._meta)
 
+        # Per-job remux progress (spec §7.2); shown only while progress
+        # events arrive for the displayed job.
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setTextVisible(True)
+        self._progress_bar.hide()
+        body.addWidget(self._progress_bar)
+
         self._summary = QLabel("")
         self._summary.setMargin(1)
         self._summary.setWordWrap(True)
@@ -424,6 +433,7 @@ class JobDetailPanel(QFrame):
             label.setToolTip("")
         self._preview_tree.clear()
         self._error.setText("")
+        self._progress_bar.hide()
         self._open_source_btn.hide()
         self._open_target_btn.hide()
         self._open_source_btn.setEnabled(False)
@@ -457,7 +467,16 @@ class JobDetailPanel(QFrame):
         else:
             self._open_target_btn.setEnabled(False)
         self._error.setText(job.error_message or "")
+        self._progress_bar.hide()
         self._request_poster(job)
+
+    def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
+        """Per-job remux progress bar (spec §7.2); ignores stale job ids."""
+        if job_id != self._current_job_id:
+            return
+        self._progress_bar.setFormat(f"File {op_index + 1} of {op_count} — %p%")
+        self._progress_bar.setValue(percent)
+        self._progress_bar.show()
 
     def can_open_source_folder(self) -> bool:
         return self._current_job is not None and self._resolve_openable_path(self._current_job.source_path) is not None

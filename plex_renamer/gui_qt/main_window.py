@@ -321,6 +321,11 @@ class MainWindow(QMainWindow):
     def _on_job_failed(self, job: RenameJob, error: str) -> None:
         self._feedback_coordinator.on_job_failed(job, error)
 
+    def _on_job_progress(
+        self, job: RenameJob, op_index: int, op_count: int, percent: int
+    ) -> None:
+        self._queue_tab.update_job_progress(job, op_index, op_count, percent)
+
     def _on_queue_finished(self) -> None:
         self._feedback_coordinator.on_queue_finished()
 

@@ -75,6 +75,8 @@ class JobTableModel(QAbstractTableModel):
         self._history = history
         self._jobs: list[RenameJob] = []
         self._checked_job_ids: set[str] = set()
+        # job_id → (op_index, op_count, percent) for running remux jobs.
+        self._progress: dict[str, tuple[int, int, int]] = {}
         self._prev_statuses: dict[str, str] = {}
         self._highlight_jobs: dict[str, str] = {}  # job_id -> new status
         self._highlight_timer = QTimer(self)
@@ -94,6 +96,12 @@ class JobTableModel(QAbstractTableModel):
             self._highlight_jobs = new_highlights
             self._highlight_timer.start()
 
+        running_ids = {job.job_id for job in jobs if job.status == JobStatus.RUNNING}
+        self._progress = {
+            job_id: value for job_id, value in self._progress.items()
+            if job_id in running_ids
+        }
+
         self.beginResetModel()
         self._jobs = list(jobs)
         checkable_ids = {job.job_id for job in self._jobs if self.is_checkable_job(job)}
@@ -108,6 +116,15 @@ class JobTableModel(QAbstractTableModel):
             top_left = self.index(0, 0)
             bottom_right = self.index(len(self._jobs) - 1, self.columnCount() - 1)
             self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.BackgroundRole])
+
+    def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
+        """Live remux progress for a running job (spec §7.2)."""
+        self._progress[job_id] = (op_index, op_count, percent)
+        for row, job in enumerate(self._jobs):
+            if job.job_id == job_id:
+                index = self.index(row, 1)
+                self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
+                break
 
     def jobs(self) -> list[RenameJob]:
         return list(self._jobs)
@@ -190,6 +207,10 @@ class JobTableModel(QAbstractTableModel):
             if column == 0:
                 return ""
             if value_column == 0:
+                progress = self._progress.get(job.job_id)
+                if progress is not None and job.status == JobStatus.RUNNING:
+                    op_index, op_count, percent = progress
+                    return f"Running · file {op_index + 1}/{op_count} · {percent}%"
                 return _STATUS_TEXT.get(job.status, job.status.title())
             if value_column == 1:
                 return job.media_name

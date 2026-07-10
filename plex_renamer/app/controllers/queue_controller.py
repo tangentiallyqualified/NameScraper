@@ -55,17 +55,21 @@ class QueueController:
         on_job_completed: Callable[[RenameJob, RenameResult], None] | None = None,
         on_job_failed: Callable[[RenameJob, str], None] | None = None,
         on_queue_finished: Callable[[], None] | None = None,
+        on_job_progress: Callable[[RenameJob, int, int, int], None] | None = None,
     ) -> int:
         """Register a listener.  Returns listener index.
 
         Callbacks fire from the executor's background thread — the widget
         layer is responsible for marshaling to the main thread.
+        ``on_job_progress`` receives ``(job, op_index, op_count, percent)``
+        for running remux ops (spec §7.2).
         """
         listener_id = self.executor.add_listener(
             on_started=on_job_started,
             on_completed=on_job_completed,
             on_failed=on_job_failed,
             on_finished=on_queue_finished,
+            on_progress=on_job_progress,
         )
         return listener_id
 
