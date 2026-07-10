@@ -4,7 +4,46 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from conftest_qt import QtSmokeBase
+
+
+def test_overall_fraction_blends_phase_and_items():
+    from plex_renamer.gui_qt.widgets.scan_progress import overall_progress_fraction
+
+    # phase 2 of 5 (index 1), halfway through its items
+    assert overall_progress_fraction(5, 1, 5, 10, 1) == pytest.approx((1 + 0.5) / 5)
+
+
+def test_overall_fraction_without_totals_uses_completed_phases():
+    from plex_renamer.gui_qt.widgets.scan_progress import overall_progress_fraction
+
+    assert overall_progress_fraction(5, 2, 0, 0, 2) == pytest.approx(2 / 5)
+
+
+def test_overall_fraction_no_active_phase_uses_completed_ratio():
+    from plex_renamer.gui_qt.widgets.scan_progress import overall_progress_fraction
+
+    assert overall_progress_fraction(5, None, 0, 0, 5) == pytest.approx(1.0)
+
+
+def test_overall_fraction_empty_checklist_is_zero():
+    from plex_renamer.gui_qt.widgets.scan_progress import overall_progress_fraction
+
+    assert overall_progress_fraction(0, None, 0, 0, 0) == 0.0
+
+
+def test_overall_fraction_clamps_done_above_total():
+    from plex_renamer.gui_qt.widgets.scan_progress import overall_progress_fraction
+
+    assert overall_progress_fraction(2, 0, 999, 10, 0) == pytest.approx(0.5)
+
+
+def test_stepper_widget_is_gone():
+    import plex_renamer.gui_qt.widgets.scan_progress as mod
+
+    assert not hasattr(mod, "_PhaseStepper")
 
 
 def test_offset_zero_at_start():

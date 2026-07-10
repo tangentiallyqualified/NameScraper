@@ -84,7 +84,10 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         ):
             self.assertNotIn(literal, source)
 
-    def test_scan_progress_resets_phase_local_progress_between_lifecycles(self):
+    def test_scan_progress_bar_is_cumulative_across_lifecycles(self):
+        """The bar now tracks the whole scan (equal phase slices), so it must
+        not reset to 0 when a new lifecycle starts with done=0 -- only the
+        per-phase count label resets."""
         from plex_renamer.app.models import ScanLifecycle
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
 
@@ -97,7 +100,9 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             total=5,
             message="Matching shows... 5/5",
         )
-        self.assertEqual(widget._progress_bar.value(), 100)
+        # tv checklist: DISCOVERING, MATCHING, BUILDING_PREVIEWS, RECONCILING,
+        # PREPARING_REVIEW (5 phases). MATCHING is index 1, fully done -> (1+1)/5
+        self.assertEqual(widget._progress_bar.value(), 40)
 
         widget.update_progress(
             lifecycle=ScanLifecycle.BUILDING_PREVIEWS,
@@ -107,7 +112,8 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
             message="Building episode previews... 0/3",
         )
 
-        self.assertEqual(widget._progress_bar.value(), 0)
+        # BUILDING_PREVIEWS is index 2, 0 done -> (2+0)/5: bar holds, doesn't drop
+        self.assertEqual(widget._progress_bar.value(), 40)
         self.assertEqual(widget._count_label.text(), "0/3")
         widget.close()
 
@@ -137,8 +143,10 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         widget.update_progress(lifecycle=ScanLifecycle.PREPARING_REVIEW.value, phase="Preparing")
         self.assertEqual(widget._count_label.text(), "Working")
         # movie checklist: DISCOVERING, MATCHING, BUILDING_PREVIEWS, PREPARING_REVIEW
-        self.assertEqual(widget._stepper._active_index, 3)
-        self.assertEqual(widget._stepper._done, {0, 1, 2})
+        # PREPARING_REVIEW is index 3 (last), prior 3 phases auto-completed,
+        # no done/total this call -> (3+0)/4 = 0.75
+        self.assertEqual(widget._progress_bar.value(), 75)
+        self.assertEqual(widget._step_label.text(), "Step 4 of 4")
         widget.stop()
 
     def test_scan_progress_throttles_fast_text_updates_but_keeps_count_current(self):
@@ -215,8 +223,8 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
 
         tv_widget = ScanProgressWidget(media_type="tv")
         movie_widget = ScanProgressWidget(media_type="movie")
-        self.assertEqual(len(tv_widget._stepper._labels), 5)
-        self.assertEqual(len(movie_widget._stepper._labels), 4)
+        self.assertEqual(len(tv_widget._checklist), 5)
+        self.assertEqual(len(movie_widget._checklist), 4)
 
     def test_scan_progress_conveyor_advances_only_while_active(self):
         # LD1 review fix: "advances only while active" means advance() must

@@ -203,70 +203,17 @@ class _ConveyorAnimation(QWidget):
                 )
 
 
-class _PhaseStepper(QWidget):
-    """Slim horizontal dots + connector line (spec §10) replacing the 2×N
-    checklist grid.  Dot states: pending (muted) / active (accent) /
-    done (success).  Tooltip carries the full phase list."""
-
-    def __init__(self, labels: list[str], parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._labels = labels
-        self._active_index: int | None = None
-        self._done: set[int] = set()
-        self.setFixedHeight(_scale.px(24))
-        self.setMinimumWidth(_scale.px(40) * max(1, len(labels)))
-        self._sync_tooltip()
-
-    def set_progress(self, *, active_index: int | None, done: set[int]) -> None:
-        if active_index == self._active_index and done == self._done:
-            return
-        self._active_index = active_index
-        self._done = set(done)
-        self._sync_tooltip()
-        self.update()
-
-    def _sync_tooltip(self) -> None:
-        parts = []
-        for index, label in enumerate(self._labels):
-            if index == self._active_index:
-                marker = "●"
-            elif index in self._done:
-                marker = "✓"
-            else:
-                marker = "○"
-            parts.append(f"{marker} {label}")
-        self.setToolTip("\n".join(parts))
-
-    def paintEvent(self, _event) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        count = len(self._labels)
-        if count == 0:
-            return
-        margin = _scale.px(10)
-        y = self.height() / 2
-        span = max(1, self.width() - 2 * margin)
-        if count > 1:
-            xs = [margin + span * index / (count - 1) for index in range(count)]
-        else:
-            xs = [self.width() / 2]
-        painter.setPen(QPen(theme.qcolor("border_light"), max(1, _scale.px(2))))
-        if count > 1:
-            painter.drawLine(QPointF(xs[0], y), QPointF(xs[-1], y))
-        base_radius = _scale.px(4)
-        for index, x in enumerate(xs):
-            if index == self._active_index:
-                color = theme.qcolor("accent")
-                dot_radius = base_radius + _scale.px(2)
-            elif index in self._done:
-                color = theme.qcolor("success")
-                dot_radius = base_radius
-            else:
-                color = theme.qcolor("text_muted")
-                dot_radius = base_radius
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(color)
-            painter.drawEllipse(QPointF(x, y), dot_radius, dot_radius)
+def overall_progress_fraction(
+    checklist_len: int, active_index: int | None, done: int, total: int, completed: int
+) -> float:
+    """Whole-scan progress in [0,1]: each phase is an equal slice; the active
+    phase contributes its done/total fraction."""
+    if checklist_len <= 0:
+        return 0.0
+    if active_index is None:
+        return max(0.0, min(1.0, completed / checklist_len))
+    frac = (max(0, min(done, total)) / total) if total > 0 else 0.0
+    return max(0.0, min(1.0, (active_index + frac) / checklist_len))
 
 
 class ScanProgressWidget(QWidget):
@@ -318,9 +265,16 @@ class ScanProgressWidget(QWidget):
         self._animation.setFixedHeight(_scale.px(200))
         card_layout.addWidget(self._animation)
 
+        phase_row = QHBoxLayout()
         self._phase_label = QLabel("Initializing scan...")
         self._phase_label.setProperty("cssClass", "heading")
-        card_layout.addWidget(self._phase_label)
+        phase_row.addWidget(self._phase_label, stretch=1)
+        self._step_label = QLabel("")
+        self._step_label.setProperty("cssClass", "caption")
+        phase_row.addWidget(
+            self._step_label, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        card_layout.addLayout(phase_row)
 
         secondary_row = QHBoxLayout()
         self._item_label = ElidedLabel("")
@@ -347,17 +301,6 @@ class ScanProgressWidget(QWidget):
         self._count_label.setProperty("cssClass", "text-dim")
         bar_row.addWidget(self._count_label)
         card_layout.addLayout(bar_row)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setProperty("cssClass", "separator")
-        sep.setFixedHeight(_scale.px(1))
-        card_layout.addWidget(sep)
-
-        self._stepper = _PhaseStepper(
-            [_LIFECYCLE_LABELS.get(lifecycle, str(lifecycle)) for lifecycle in self._checklist]
-        )
-        card_layout.addWidget(self._stepper)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -386,7 +329,7 @@ class ScanProgressWidget(QWidget):
         self._animation.set_posters([])
         self._completed_lifecycles.clear()
         self._current_lifecycle = None
-        self._reset_checklist()
+        self._step_label.setText("")
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
         self._count_label.setText("0/0")
@@ -420,15 +363,16 @@ class ScanProgressWidget(QWidget):
             self._set_lifecycle(parsed_lifecycle)
         lifecycle_changed = parsed_lifecycle is not None and parsed_lifecycle != previous_lifecycle
 
-        if total > 0:
-            pct = int((max(0, min(done, total)) / total) * 100)
-            self._progress_bar.setRange(0, 100)
-            self._progress_bar.setValue(pct)
-            self._count_label.setText(f"{done}/{total}")
-        else:
-            self._progress_bar.setRange(0, 100)
-            self._progress_bar.setValue(0)
-            self._count_label.setText("Working")
+        active = (
+            self._checklist.index(self._current_lifecycle)
+            if self._current_lifecycle in self._checklist
+            else None
+        )
+        completed = len(self._completed_lifecycles & set(self._checklist))
+        fraction = overall_progress_fraction(len(self._checklist), active, done, total, completed)
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(int(fraction * 100))
+        self._count_label.setText(f"{done}/{total}" if total > 0 else "Working")
 
         if self._should_update_text(
             lifecycle_changed=lifecycle_changed,
@@ -527,19 +471,16 @@ class ScanProgressWidget(QWidget):
         seconds = secs % 60
         self._elapsed_label.setText(f"Elapsed: {minutes}:{seconds:02d}")
 
-    def _reset_checklist(self) -> None:
-        self._stepper.set_progress(active_index=None, done=set())
-
     def _update_checklist(self) -> None:
-        done = {
-            index
-            for index, lifecycle in enumerate(self._checklist)
-            if lifecycle in self._completed_lifecycles
-        }
-        active = None
+        n = len(self._checklist)
         if self._current_lifecycle in self._checklist:
-            active = self._checklist.index(self._current_lifecycle)
-        self._stepper.set_progress(active_index=active, done=done)
+            step = self._checklist.index(self._current_lifecycle) + 1
+            self._step_label.setText(f"Step {step} of {n}")
+            self._step_label.setToolTip(
+                "\n".join(_LIFECYCLE_LABELS.get(lc, str(lc)) for lc in self._checklist)
+            )
+        else:
+            self._step_label.setText("")
 
 
 def _parse_lifecycle(lifecycle: str | ScanLifecycle) -> ScanLifecycle | None:
