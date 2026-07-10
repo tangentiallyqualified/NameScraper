@@ -184,8 +184,9 @@ class MediaWorkspaceStateCoordinator:
         guide_row = model.guide_row_at(row)
         if guide_row is None:
             return None
-        card.show_episode(state, guide_row)
         preview_index = _preview_index_for_row(state, guide_row)
+        mux_plan = state.mux_plans.get(preview_index) if preview_index is not None else None
+        card.show_episode(state, guide_row, mux_plan=mux_plan)
         if preview_index is not None:
             tracks = workspace._automux.tracks_widget_for(state, preview_index)
             if tracks is not None:

@@ -43,6 +43,24 @@ _PILL_TONE = {
 }
 
 
+def _subtitle_is_merged(mux_plan: dict | None, subtitle) -> bool:
+    """True when ``mux_plan`` merges this subtitle companion into the video.
+
+    A merged subtitle has no standalone output file — the expansion card
+    must suppress its "Subtitle Output" row in that case.
+    """
+    if not mux_plan:
+        return False
+    sub_name = str(subtitle.original).replace("\\", "/").rsplit("/", 1)[-1]
+    for merge in mux_plan.get("subtitle_merges", []):
+        if merge.get("action") != "merge":
+            continue
+        merge_name = str(merge.get("source_relative", "")).replace("\\", "/").rsplit("/", 1)[-1]
+        if merge_name == sub_name:
+            return True
+    return False
+
+
 def episode_row_actions(row) -> list[tuple[str, str]]:
     """Action ids + labels available for one episode-guide row.
 
@@ -166,7 +184,9 @@ class EpisodeExpansionCard(QFrame):
 
     # -- Public API -------------------------------------------------------
 
-    def show_episode(self, state: ScanState, row: EpisodeGuideRow) -> None:
+    def show_episode(
+        self, state: ScanState, row: EpisodeGuideRow, *, mux_plan: dict | None = None
+    ) -> None:
         self._reset_content()
         self._apply_header(row)
         part_specs = self._multi_part_chip_specs(state, row)
@@ -179,10 +199,20 @@ class EpisodeExpansionCard(QFrame):
         self._build_labeled_path("Episode Output", row.target_rename or "", open_dir=False)
         subtitle = next((c for c in row.companions if c.file_type == "subtitle"), None)
         if subtitle is not None:
-            self._build_labeled_path("Subtitle Source", str(subtitle.original), open_dir=True)
-            self._build_labeled_path(
-                "Subtitle Output", subtitle.new_name or "", open_dir=False
-            )
+            if _subtitle_is_merged(mux_plan, subtitle):
+                self._build_labeled_path(
+                    "Subtitle Source",
+                    str(subtitle.original),
+                    open_dir=True,
+                    note="(merged into the video by AutoMux)",
+                )
+            else:
+                self._build_labeled_path(
+                    "Subtitle Source", str(subtitle.original), open_dir=True
+                )
+                self._build_labeled_path(
+                    "Subtitle Output", subtitle.new_name or "", open_dir=False
+                )
         self._build_actions_row(episode_row_actions(row))
 
     def add_tracks_widget(self, widget: QWidget) -> None:

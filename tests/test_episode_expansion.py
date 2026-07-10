@@ -223,6 +223,50 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         indexes = {outer.itemAt(i).layout(): i for i in range(outer.count())}
         self.assertLess(indexes[card._actions_row], indexes[card._files_section])
 
+    def test_merged_subtitle_hides_output_row(self):
+        from PySide6.QtWidgets import QLabel
+
+        state, guide = _guide_state()
+        row = guide.rows[0]  # has a subtitle companion in the fixture
+        sub = next(c for c in row.companions if c.file_type == "subtitle")
+        plan = {"subtitle_merges": [{
+            "action": "merge",
+            "source_relative": str(sub.original).replace("\\", "/"),
+            "language": "eng",
+        }]}
+        card = self._card()
+        card.show_episode(state, row, mux_plan=plan)
+        texts = [w.text() for w in card.findChildren(QLabel)]
+        self.assertFalse(any("Subtitle Output" in t for t in texts))
+        self.assertTrue(any("Subtitle Source" in t for t in texts))
+        self.assertTrue(any("merged into the video" in t for t in texts))
+
+    def test_non_merged_subtitle_still_shows_output_row(self):
+        from PySide6.QtWidgets import QLabel
+
+        state, guide = _guide_state()
+        row = guide.rows[0]  # has a subtitle companion in the fixture
+        sub = next(c for c in row.companions if c.file_type == "subtitle")
+        plan = {"subtitle_merges": [{
+            "action": "rename",
+            "source_relative": str(sub.original).replace("\\", "/"),
+            "language": "eng",
+        }]}
+        card = self._card()
+        card.show_episode(state, row, mux_plan=plan)
+        texts = [w.text() for w in card.findChildren(QLabel)]
+        self.assertTrue(any("Subtitle Output" in t for t in texts))
+
+    def test_no_mux_plan_still_shows_output_row(self):
+        from PySide6.QtWidgets import QLabel
+
+        state, guide = _guide_state()
+        row = guide.rows[0]  # has a subtitle companion in the fixture
+        card = self._card()
+        card.show_episode(state, row)
+        texts = [w.text() for w in card.findChildren(QLabel)]
+        self.assertTrue(any("Subtitle Output" in t for t in texts))
+
     def test_path_rows_bold_their_labels(self):
         from PySide6.QtWidgets import QLabel
 
