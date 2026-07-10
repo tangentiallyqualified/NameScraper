@@ -21,6 +21,7 @@ Also provides ``revert_job()`` for per-job undo without a stack constraint.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import shutil
@@ -29,6 +30,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ._job_execution_remux import execute_remux_op
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
     apply_top_dir_remap,
@@ -99,7 +101,7 @@ def _remap_target_into_final_root(
 
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
-def _execute_output_rename(job: RenameJob) -> RenameResult:
+def _execute_output_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     """Execute a destination-aware rename job into its output root."""
     result = RenameResult()
     result.log_entry = {
@@ -204,7 +206,7 @@ def _execute_output_rename(job: RenameJob) -> RenameResult:
     return result
 
 
-def _execute_rename(job: RenameJob) -> RenameResult:
+def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     """
     Execute a rename job's file operations.
 
@@ -367,9 +369,41 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     return result
 
 
+def _execute_remux(
+    job: RenameJob,
+    progress_cb=None,
+    set_active_temp: Callable[[str | None], None] | None = None,
+) -> RenameResult:
+    """Mixed-op REMUX job: plain moves first, then mkvmerge ops (spec §6/§7)."""
+    plain_ops = [op for op in job.rename_ops if not op.mux]
+    plain_job = dataclasses.replace(job, rename_ops=plain_ops)
+    result = _execute_output_rename(plain_job)
+    result.log_entry.setdefault("remux_outputs", [])
+    result.log_entry["job_id"] = job.job_id
+
+    mux_ops = [op for op in job.rename_ops if op.mux and op.selected
+               and op.status == "OK" and op.new_name]
+    total = len(mux_ops)
+    for index, op in enumerate(mux_ops):
+        def _on_percent(percent, _index=index):
+            if progress_cb is not None:
+                progress_cb(_index, total, percent)
+
+        execute_remux_op(
+            op,
+            source_root=Path(job.library_root),
+            output_root=Path(job.output_root),
+            result=result,
+            on_percent=_on_percent,
+            set_active_temp=set_active_temp,
+        )
+    return result
+
+
 # Registry: add new job kinds here.
-_EXECUTORS: dict[str, Callable[[RenameJob], RenameResult]] = {
+_EXECUTORS: dict[str, Callable[..., RenameResult]] = {
     JobKind.RENAME: _execute_rename,
+    JobKind.REMUX: _execute_remux,
 }
 
 
@@ -677,6 +711,11 @@ class QueueExecutor:
         self._execute_one(job)
         return True
 
+    def _make_progress_cb(self, job: RenameJob):
+        def _cb(op_index: int, op_count: int, percent: int) -> None:
+            self._notify("progress", job, op_index, op_count, percent)
+        return _cb
+
     def _execute_one(self, job: RenameJob) -> None:
         _log.info("Executing job %s: %s", job.job_id[:8], job.media_name)
 
@@ -722,10 +761,15 @@ class QueueExecutor:
             if executor_fn is None:
                 raise ValueError(f"Unknown job kind: {job.job_kind}")
 
-            if job.job_kind == JobKind.RENAME and not job.output_root:
+            if job.job_kind in (JobKind.RENAME, JobKind.REMUX) and not job.output_root:
                 raise ValueError("Legacy pending job must be recreated before execution.")
 
-            result = executor_fn(job)
+            if job.job_kind == JobKind.REMUX:
+                result = executor_fn(
+                    job, self._make_progress_cb(job),
+                    set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p))
+            else:
+                result = executor_fn(job, self._make_progress_cb(job))
 
             if result.errors and result.renamed_count == 0:
                 error_msg = "; ".join(result.errors[:5])
