@@ -137,16 +137,26 @@ class MediaWorkspaceStateCoordinator:
         workspace._work_panel.clear_episode_overview()
 
     def on_inline_row_action(self, index: QModelIndex, action_id: str) -> None:
-        """Route an inline row action (e.g. missing-file "assign_file") through
-        the same handle_episode_row_action contract expansion-card actions use,
-        without requiring the row to be expanded first (M7)."""
+        """Route an inline row action (e.g. missing-file "assign_file", or an
+        unmapped/duplicate row's "assign_unmapped") through the coordinator,
+        without requiring the row to be expanded first (M7, R2 M2)."""
         workspace = self._workspace
         if not index.isValid():
             return
         model = workspace._work_panel.model
         state = model.state()
+        if state is None:
+            return
+        if action_id == "assign_unmapped":
+            preview_index = model.preview_index_at(index.row())
+            if preview_index is None or not (0 <= preview_index < len(state.preview_items)):
+                return
+            workspace._action_coordinator.assign_unmapped_file(
+                state, state.preview_items[preview_index]
+            )
+            return
         guide_row = model.guide_row_at(index.row())
-        if state is not None and guide_row is not None:
+        if guide_row is not None:
             workspace._action_coordinator.handle_episode_row_action(state, guide_row, action_id)
 
     def expansion_card_for_index(self, index: QModelIndex):

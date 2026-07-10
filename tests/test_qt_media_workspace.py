@@ -2162,6 +2162,90 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         mock_handle.assert_called_once_with(state, guide_row, "assign_file")
         workspace.close()
 
+    @staticmethod
+    def _make_unmapped_file_state():
+        """Return (state, table) with one unassigned file (-> an "unmapped"
+        row) and an open slot to assign it into."""
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=3, title="Third"))
+        table.add_file(folder / "Extra.mkv")
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+        return state, table
+
+    def test_assign_unmapped_file_assigns_selected_slots_via_dialog(self):
+        """assign_unmapped_file: stub assign_dialog returns a fixed selection;
+        the unmapped file lands in the assignment table (R2 M2)."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, table = self._make_unmapped_file_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        preview = state.preview_items[0]
+        file_id = preview.file_id
+
+        class _FakeAssignDialog:
+            @staticmethod
+            def pick_episodes(**kwargs):
+                return [(1, 3)]
+
+        workspace._action_coordinator.assign_unmapped_file(
+            state, preview, assign_dialog=_FakeAssignDialog,
+        )
+        self._app.processEvents()
+
+        assignment = table.assignment_for(file_id)
+        self.assertIsNotNone(assignment)
+        self.assertEqual(assignment.season, 1)
+        self.assertEqual(list(assignment.episodes), [3])
+        workspace.close()
+
+    def test_inline_row_action_routes_unmapped_row_through_assign_unmapped_file(self):
+        """The inline "Assign..." control on an unmapped/duplicate row must
+        route through assign_unmapped_file without requiring a guide row."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state, _table = self._make_unmapped_file_state()
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        model = workspace._work_panel.model
+        unmapped_row = next(
+            row for row in range(model.rowCount())
+            if model.row_kind_at(row) == "unmapped"
+        )
+        preview_index = model.preview_index_at(unmapped_row)
+        self.assertIsNotNone(preview_index)
+        index = model.index(unmapped_row, 0)
+
+        with patch.object(workspace._action_coordinator, "assign_unmapped_file") as mock_assign:
+            workspace._on_inline_row_action(index, "assign_unmapped")
+
+        mock_assign.assert_called_once_with(state, state.preview_items[preview_index])
+        workspace.close()
+
     def test_episode_row_action_keep_this_resolves_conflict(self):
         """keep_this: dialog-free; winner keeps the slot, loser is unassigned."""
         from plex_renamer.engine._episode_projection import project_preview_items

@@ -295,3 +295,69 @@ class InlineMissingActionTests(QtSmokeBase):
         row = EpisodeRowData(kind="episode", title="S01E01", status_text="Review", status_tone="warning")
         self.assertFalse(d.inline_action_rect(QRect(0, 0, 400, 34), row).isValid())
         view.close()
+
+
+class InlineAssignUnmappedActionTests(QtSmokeBase):
+    def _delegate(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        view = EpisodeTableView()
+        return EpisodeTableDelegate(view, media_type="tv")
+
+    def test_unmapped_row_has_inline_assign_rect(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+        d = self._delegate()
+        row = EpisodeRowData(kind="unmapped", title="a.mkv", status_text="Unassigned",
+                             status_tone="warning", filename="a.mkv", detail="reason")
+        rect = d.inline_action_rect(QRect(0, 0, 600, 52), row)
+        self.assertTrue(rect.isValid())
+
+    def test_duplicate_row_has_inline_assign_rect(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+        d = self._delegate()
+        row = EpisodeRowData(kind="duplicate", title="b.mkv", status_text="Duplicate",
+                             status_tone="muted", filename="b.mkv", detail="reason")
+        rect = d.inline_action_rect(QRect(0, 0, 600, 52), row)
+        self.assertTrue(rect.isValid())
+
+    def test_mapped_row_has_no_inline_assign_rect(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+        d = self._delegate()
+        row = EpisodeRowData(kind="episode", title="S01E01", status_text="Mapped",
+                             status_tone="success", confidence_pct=90)
+        self.assertFalse(d.inline_action_rect(QRect(0, 0, 600, 52), row).isValid())
+
+    def test_unmapped_action_label_differs_from_missing_file(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import _inline_action_spec
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        unmapped_row = EpisodeRowData(kind="unmapped", title="a.mkv", status_text="Unassigned",
+                                      status_tone="warning", filename="a.mkv", detail="reason")
+        missing_row = EpisodeRowData(kind="episode", title="S01E03", status_text="Missing File",
+                                     status_tone="muted")
+        self.assertEqual(_inline_action_spec(unmapped_row), "assign_unmapped")
+        self.assertEqual(_inline_action_spec(missing_row), "assign_file")
+
+    def test_unmapped_row_inline_action_click_emits_assign_unmapped(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        view, model, delegate = EpisodeTableDelegateTests()._view(state, guide)
+        view.show()
+        hits: list[tuple[int, str]] = []
+        view.inline_action_clicked.connect(lambda index, action_id: hits.append((index.row(), action_id)))
+        unmapped_row = next(
+            row for row in range(model.rowCount())
+            if model.row_kind_at(row) == "unmapped"
+        )
+        row_data = model.index(unmapped_row, 0).data(ROW_DATA_ROLE)
+        rect = view.visualRect(model.index(unmapped_row, 0))
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier, delegate.inline_action_rect(rect, row_data).center())
+        self.assertEqual(hits, [(unmapped_row, "assign_unmapped")])
+        view.close()

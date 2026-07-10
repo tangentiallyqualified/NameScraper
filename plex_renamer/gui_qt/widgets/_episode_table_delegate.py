@@ -48,8 +48,18 @@ _PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
 _HEADER_KINDS = {"section-header", "section-label"}
 _CHEVRON_KINDS = {"episode"}
 _DOUBLE_LINE_KINDS = {"episode", "unmapped", "duplicate", "orphan", "folder"}
+_INLINE_ASSIGN_KINDS = {"unmapped", "duplicate"}
 
 _FLASH_DURATION_MS = 700
+
+
+def _inline_action_spec(row_data: EpisodeRowData) -> str | None:
+    """Action id for the row's inline button, or None."""
+    if row_data.status_text == "Missing File":
+        return "assign_file"
+    if row_data.kind in _INLINE_ASSIGN_KINDS:
+        return "assign_unmapped"
+    return None
 
 
 class EpisodeTableDelegate(QStyledItemDelegate):
@@ -129,7 +139,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return QRect(x, y, width, height)
 
     def inline_action_rect(self, option_rect: QRect, row_data: EpisodeRowData) -> QRect:
-        if row_data.status_text != "Missing File":
+        if _inline_action_spec(row_data) is None:
             return QRect()
         margin = _scale.px(_MARGIN_U)
         pill = self._pill_rect(option_rect, row_data, self._view.fontMetrics()) if self._view else QRect()
@@ -395,7 +405,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
-        if row_data.status_text == "Missing File":
+        if _inline_action_spec(row_data) is not None:
             self._paint_inline_action(painter, option.rect, row_data)
 
     def _paint_inline_action(self, painter: QPainter, option_rect: QRect, row_data: EpisodeRowData) -> None:
@@ -409,7 +419,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.setBrush(fill)
         painter.drawRoundedRect(rect, theme.radius("sm"), theme.radius("sm"))
         painter.setPen(theme.qcolor("accent"))
-        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), "Assign file…")
+        label = "Assign file…" if row_data.status_text == "Missing File" else "Assign…"
+        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), label)
         painter.restore()
 
     def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: EpisodeRowData, *, ghost: bool) -> None:
@@ -453,17 +464,17 @@ class EpisodeTableView(QListView):
         if index.isValid():
             kind = index.data(ROW_KIND_ROLE)
             delegate = self.itemDelegateForIndex(index)
-            if kind in _CHEVRON_KINDS and isinstance(delegate, EpisodeTableDelegate):
+            if isinstance(delegate, EpisodeTableDelegate) and kind in (_CHEVRON_KINDS | _INLINE_ASSIGN_KINDS):
                 rect = self.visualRect(index)
-                row_data = index.data(ROW_DATA_ROLE) if kind == "episode" else None
-                is_missing_file = row_data is not None and row_data.status_text == "Missing File"
-                if kind == "episode" and is_missing_file:
+                row_data = index.data(ROW_DATA_ROLE)
+                action_id = _inline_action_spec(row_data) if row_data is not None else None
+                if action_id is not None:
                     action_rect = delegate.inline_action_rect(rect, row_data)
                     if action_rect.isValid() and action_rect.contains(pos):
                         self._intercepted_row = index.row()
-                        self.inline_action_clicked.emit(index, "assign_file")
+                        self.inline_action_clicked.emit(index, action_id)
                         return
-                if not is_missing_file:
+                if kind in _CHEVRON_KINDS and (row_data is None or row_data.status_text != "Missing File"):
                     chevron_rect = delegate.chevron_rect(rect)
                     if chevron_rect.contains(pos):
                         self._intercepted_row = index.row()

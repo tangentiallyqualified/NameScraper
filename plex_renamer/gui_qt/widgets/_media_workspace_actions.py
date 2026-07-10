@@ -280,6 +280,47 @@ class MediaWorkspaceActionCoordinator:
         panel.exit_bulk_assign()
         workspace.status_message.emit("Bulk Assign discarded - selection changed.", 3000)
 
+    def assign_unmapped_file(
+        self,
+        state: ScanState,
+        preview,
+        *,
+        warning_box: Any = QMessageBox,
+        assign_dialog: Any = EpisodeAssignDialog,
+    ) -> None:
+        """Assign an unmapped/duplicate primary file to episode slot(s) (R2 M2)."""
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit(
+                "Finish or cancel the queued/scanning state first.", 3000,
+            )
+            return
+        service = EpisodeMappingService()
+        slots = service.episode_slot_choices(state)
+        if not slots:
+            workspace.status_message.emit("No episode choices are available.", 4000)
+            return
+        selection = assign_dialog.pick_episodes(
+            parent=workspace,
+            title="Assign File",
+            slots=slots,
+            preselected=None,
+            current_keys=None,
+            file_label=preview.original.name,
+        )
+        if selection is None:
+            return
+        season = selection[0][0]
+        episodes = [episode for _season, episode in selection]
+        try:
+            service.assign_file(state, preview, season=season, episodes=episodes)
+        except ValueError as exc:
+            warning_box.warning(workspace, "Episode Assignment Failed", str(exc))
+            return
+        _refresh_episode_projection(workspace, state)
+        workspace.refresh_from_controller()
+        workspace.status_message.emit("File assigned.", 3000)
+
     def handle_episode_row_action(
         self,
         state: ScanState,
