@@ -78,6 +78,15 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertEqual(data.status_tone, "muted")
         self.assertEqual(data.title, "S01E03 · Three")
 
+    def test_unmapped_entry_carries_reason_as_detail(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        data = model.index(1, 0).data(ROW_DATA_ROLE)   # row kind "unmapped"
+        self.assertEqual(data.detail, "no episode parsed")
+        self.assertNotEqual(data.title, data.detail)
+
     def test_episode_tooltip_is_rename_preview_not_overview(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
 

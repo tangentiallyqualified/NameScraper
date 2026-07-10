@@ -381,7 +381,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         if has_second_line:
             second_line_rect = QRect(title_x, first_line_y + line_height, title_width, line_height)
-            second_text = metrics.elidedText(row_data.filename, Qt.TextElideMode.ElideMiddle, title_width)
+            second_source = row_data.detail or row_data.filename
+            second_text = metrics.elidedText(second_source, Qt.TextElideMode.ElideMiddle, title_width)
             painter.setPen(theme.qcolor("text_dim"))
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), second_text)
             if row_data.subtitle_name:

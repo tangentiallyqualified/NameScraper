@@ -77,6 +77,7 @@ class EpisodeRowData:
     status_text: str = ""
     status_tone: str = ""          # success|warning|error|muted
     filename: str = ""             # inline filename line ("" hides it)
+    detail: str = ""               # second-line override (e.g. unassignment reason); "" falls back to filename
     target: str = ""
     confidence_pct: int | None = None
     checked: bool | None = None    # movie-file rows only
@@ -579,6 +580,7 @@ class EpisodeTableModel(QAbstractListModel):
             status_text="Unassigned",
             status_tone="warning",
             filename=unmapped.original.name,
+            detail=str(unmapped.reason),
             tooltip=str(unmapped.reason),
         )
         if not self._passes_search(row_data):
@@ -605,6 +607,7 @@ class EpisodeTableModel(QAbstractListModel):
             status_text="Duplicate",
             status_tone="muted",
             filename=duplicate.original.name,
+            detail=str(duplicate.reason),
             tooltip=str(duplicate.reason),
         )
         if not self._passes_search(row_data):
