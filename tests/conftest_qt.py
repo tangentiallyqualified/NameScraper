@@ -29,11 +29,20 @@ class QtSmokeBase(unittest.TestCase):
         # wait=False, so a worker still running at interpreter exit races
         # Qt/CPython teardown and access-violates (0xC0000005) short pytest
         # runs. Flush the queue before the next class (no-op when idle).
+        import gc
         from concurrent.futures import wait
 
         from plex_renamer import thread_pool
 
         wait([thread_pool.submit(lambda: None) for _ in range(8)], timeout=30)
+        # Drain pending DeferredDeletes and collect Python↔Qt reference
+        # cycles at a safe point while the QApplication is alive. Left to
+        # its own schedule, Python 3.14's incremental GC can finalize
+        # Qt-object cycles mid-event-loop in a later class or during
+        # interpreter exit, corrupting the native heap (0xC0000374).
+        cls._app.processEvents()
+        gc.collect()
+        cls._app.processEvents()
         super().tearDownClass()
 
     def setUp(self):

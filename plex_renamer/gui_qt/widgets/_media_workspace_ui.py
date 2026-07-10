@@ -123,6 +123,7 @@ class MediaWorkspaceUiCoordinator:
         workspace._queue_inline_btn = panel.primary_action_button
         workspace._fix_match_btn.clicked.connect(workspace._fix_match)
         workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
+        panel.automux_button.clicked.connect(workspace._toggle_automux)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())
         workspace._sync_action_button_metrics()
 

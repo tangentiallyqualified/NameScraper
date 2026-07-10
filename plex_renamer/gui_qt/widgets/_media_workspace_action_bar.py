@@ -23,6 +23,7 @@ def update_action_bar(workspace) -> None:
 
     _update_fix_match_button(workspace, selected_state)
     _update_inline_action_button(workspace, selected_state)
+    workspace._automux.update_button(selected_state)
     _update_checked_queue_button(workspace, checked)
 
     if selected_state is not None:

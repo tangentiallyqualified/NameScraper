@@ -86,7 +86,11 @@ class AutoMuxTracksWidget(QFrame):
             item = self._rows.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                widget.setParent(None)
+                # Keep the C++ parent while the DeferredDelete is pending:
+                # setParent(None) hands ownership to Python, and a GC pass
+                # before the event loop runs then double-frees the widget
+                # (0xc0000374 heap corruption in offscreen test runs).
+                widget.hide()
                 widget.deleteLater()
 
     @staticmethod

@@ -165,8 +165,31 @@ class MediaWorkspaceAutoMuxCoordinator:
             return
         panel.set_automux_tracks(self.tracks_widget_for(state, 0))
 
-    def update_button(self, state) -> None:     # filled in GUI Task 7
-        del state
+    def update_button(self, state) -> None:
+        """Spec §8.1: visible only when AutoMux is enabled AND mkvmerge is
+        available; locked with a tooltip while the entry is queued."""
+        button = self._workspace._work_panel.automux_button
+        if state is None or not self.available():
+            button.hide()
+            return
+        button.show()
+        button.setText(
+            "Enable AutoMux" if state.automux_disabled else "Disable AutoMux")
+        if state.queued:
+            button.setEnabled(False)
+            button.setToolTip(
+                "Unqueue this item to change its AutoMux configuration.")
+        else:
+            button.setEnabled(True)
+            button.setToolTip("")
 
-    def toggle_selected(self) -> None:          # filled in GUI Task 7
-        pass
+    def toggle_selected(self) -> None:
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued:
+            return
+        state.automux_disabled = not state.automux_disabled
+        self.update_button(state)
+        self._refresh_roster_row(state)
+        if workspace._media_type == "movie":
+            self.on_state_shown(state)

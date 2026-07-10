@@ -30,6 +30,19 @@ class _RosterModelStub:
         self.refreshed.append(index)
 
 
+def _dispose_coordinator(coordinator):
+    """Deterministically break the bridge↔coordinator signal cycle while the
+    QApplication is still alive. Passing the coordinator as a cleanup arg
+    pins it until this runs — otherwise Python 3.14's incremental GC can
+    collect the cycle at an arbitrary later point (even mid-event-loop in a
+    later test), racing Qt teardown (conftest_qt segfault note)."""
+    try:
+        coordinator._bridge.plan_ready.disconnect()
+    except RuntimeError:
+        pass
+    coordinator._widgets.clear()
+
+
 class WorkspaceAutoMuxTests(QtSmokeBase):
     def _state(self):
         from plex_renamer.engine.models import PreviewItem, ScanState
@@ -75,7 +88,9 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
             _current_states=lambda: [state],
             _roster_panel=SimpleNamespace(model=roster_model),
         )
-        return MediaWorkspaceAutoMuxCoordinator(workspace), roster_model
+        coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        self.addCleanup(_dispose_coordinator, coordinator)
+        return coordinator, roster_model
 
     def test_unavailable_without_settings(self):
         state = self._state()
@@ -134,6 +149,76 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
         before = card._files_section.count()
         card.add_tracks_widget(AutoMuxTracksWidget())
         self.assertEqual(card._files_section.count(), before + 1)
+
+
+class AutoMuxButtonAndChipTests(QtSmokeBase):
+    def _button_fixture(self, *, settings, state):
+        from types import SimpleNamespace
+
+        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
+            MediaWorkspaceAutoMuxCoordinator,
+        )
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="tv")
+        workspace = SimpleNamespace(
+            _settings=settings,
+            _media_type="tv",
+            _media_ctrl=None,
+            _work_panel=panel,
+            _current_states=lambda: [state],
+            _selected_state=lambda: state,
+            _roster_panel=SimpleNamespace(model=_RosterModelStub()),
+        )
+        coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        self.addCleanup(_dispose_coordinator, coordinator)
+        return coordinator, panel
+
+    def _make_state(self):
+        return WorkspaceAutoMuxTests._state(self)
+
+    def _make_settings(self):
+        return WorkspaceAutoMuxTests._settings(self)
+
+    def test_button_hidden_when_unavailable(self):
+        state = self._make_state()
+        coordinator, panel = self._button_fixture(settings=None, state=state)
+        coordinator.update_button(state)
+        self.assertTrue(panel.automux_button.isHidden())
+
+    def test_button_toggles_disable(self):
+        state = self._make_state()
+        coordinator, panel = self._button_fixture(
+            settings=self._make_settings(), state=state)
+        coordinator.update_button(state)
+        self.assertFalse(panel.automux_button.isHidden())
+        self.assertEqual(panel.automux_button.text(), "Disable AutoMux")
+        coordinator.toggle_selected()
+        self.assertTrue(state.automux_disabled)
+        self.assertEqual(panel.automux_button.text(), "Enable AutoMux")
+
+    def test_button_locked_while_queued(self):
+        state = self._make_state()
+        state.queued = True
+        coordinator, panel = self._button_fixture(
+            settings=self._make_settings(), state=state)
+        coordinator.update_button(state)
+        self.assertFalse(panel.automux_button.isEnabled())
+        self.assertIn("Unqueue", panel.automux_button.toolTip())
+        coordinator.toggle_selected()
+        self.assertFalse(state.automux_disabled)   # locked: no toggle
+
+    def test_roster_chip_reflects_mux_actions(self):
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+
+        state = self._make_state()
+        state.mux_plans[0] = dict(PLAN)
+        model = RosterModel(media_type="tv")
+        row = model._build_row_data(state)
+        self.assertIn("AutoMux", [chip.text for chip in row.chips])
+        state.automux_disabled = True
+        row = model._build_row_data(state)
+        self.assertNotIn("AutoMux", [chip.text for chip in row.chips])
 
 
 class MoviePanelAutoMuxTests(QtSmokeBase):

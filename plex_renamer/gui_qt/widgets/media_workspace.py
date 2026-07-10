@@ -132,6 +132,9 @@ class MediaWorkspace(QWidget):
     def queue_selected(self) -> None:
         self._activate_selected_primary_action()
 
+    def _toggle_automux(self) -> None:
+        self._automux.toggle_selected()
+
     def queue_checked(self) -> None:
         self._queue_checked()
 

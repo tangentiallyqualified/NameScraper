@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QPixmap
 
+from ...app.services.automux_service import state_has_mux_actions
 from ...engine import ScanState
 from ...thread_pool import submit as _submit_bg
 from .. import _scale
@@ -273,6 +274,10 @@ class RosterModel(QAbstractListModel):
         chips: tuple[ChipSpec, ...] = ()
         if self._media_type == "tv":
             chips = tuple(season_chip_specs(state.completeness, drop_empty=True))
+        if state_has_mux_actions(state):
+            chips = chips + (ChipSpec(
+                "AutoMux", "info",
+                "AutoMux: this item's current plan merges or strips tracks"),)
         tooltip = ""
         if state.duplicate_of is not None:
             tooltip = f"Same match as {state.duplicate_of_relative_folder or state.duplicate_of}"

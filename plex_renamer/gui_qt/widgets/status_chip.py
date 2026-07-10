@@ -20,7 +20,10 @@ _CHIP_HPAD_UNITS = 6
 _CHIP_SPACING_UNITS = 4
 _CHIP_HEIGHT_UNITS = 18
 
-_TONE_COLORS = {"success": "success", "warning": "warning", "muted": "text_dim"}
+_TONE_COLORS = {
+    "success": "success", "warning": "warning", "muted": "text_dim",
+    "info": "info",
+}
 
 
 @dataclass(frozen=True, slots=True)

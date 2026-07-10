@@ -108,6 +108,10 @@ class MediaWorkPanel(QFrame):
         return self._primary_action_button
 
     @property
+    def automux_button(self) -> QPushButton:
+        return self._automux_button
+
+    @property
     def master_check(self) -> MasterCheckBox:
         return self._master_check
 
@@ -208,6 +212,12 @@ class MediaWorkPanel(QFrame):
         self._fix_match_button.setProperty("sizeVariant", "inline")
         self._fix_match_button.setEnabled(False)
         title_row.addWidget(self._fix_match_button)
+
+        self._automux_button = QPushButton("Disable AutoMux")
+        self._automux_button.setProperty("cssClass", "secondary")
+        self._automux_button.setProperty("sizeVariant", "inline")
+        self._automux_button.hide()
+        title_row.addWidget(self._automux_button)
 
         title_row.addStretch()
         outer.addLayout(title_row)
@@ -399,7 +409,9 @@ class MediaWorkPanel(QFrame):
             item = self._automux_tracks_host.takeAt(0)
             old = item.widget()
             if old is not None:
-                old.setParent(None)
+                # Keep the C++ parent while the DeferredDelete is pending
+                # (see AutoMuxTracksWidget._clear_rows).
+                old.hide()
                 old.deleteLater()
         if widget is not None:
             self._automux_tracks_host.addWidget(widget)
