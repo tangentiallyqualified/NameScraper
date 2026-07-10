@@ -88,7 +88,8 @@ class _SuppressTransientPopups(QObject):
             if name in {"toastManager", "toastCard"}:
                 return False
             flags = obj.windowFlags()
-            if obj.windowType() == Qt.WindowType.ToolTip:
+            window_type = obj.windowType()
+            if window_type == Qt.WindowType.ToolTip:
                 return False
             if _DEBUG_TRANSIENT_WINDOWS and flags & _DIAGNOSTIC_FLAGS:
                 _log.debug(
@@ -100,7 +101,10 @@ class _SuppressTransientPopups(QObject):
                     obj.width(),
                     obj.height(),
                 )
-            if not (flags & _TRANSIENT_FLAGS):
+            # Window-type flags share bits (Popup=0x8 is a subset of Tool=0xA
+            # and SplashScreen=0xE), so a bitwise AND also matches combobox
+            # dropdowns. Compare the resolved type exactly.
+            if window_type not in (Qt.WindowType.Tool, Qt.WindowType.SplashScreen):
                 return False
             # Make the window invisible synchronously.  setWindowOpacity(0)
             # maps to Win32 SetLayeredWindowAttributes — takes effect before
