@@ -2975,7 +2975,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def test_media_workspace_tv_episode_guide_filters_problems_and_unmapped(self):
+    def test_media_workspace_tv_episode_guide_filters_all_and_problems(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -3052,10 +3052,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             any("UNMAPPED PRIMARY FILES" in t.upper() for t in self._episode_section_titles(workspace))
         )
 
-        workspace._work_panel.segmented_filter.setCurrentText("Unmapped")
-        headers = [t.upper() for t in self._episode_section_titles(workspace)]
-        self.assertFalse(any("SEASON 1" in header for header in headers))
-        self.assertTrue(any("UNMAPPED PRIMARY FILES" in header for header in headers))
+        # The old dedicated "Unmapped" filter segment is gone (R2 M9): unmapped
+        # files are reached via a season-strip chip instead, and the segmented
+        # control only offers All/Problems.
+        self.assertEqual(
+            set(workspace._work_panel.segmented_filter._buttons), {"All", "Problems"}
+        )
 
         workspace.close()
 

@@ -54,7 +54,7 @@ def _overview_token(state: ScanState, media_type: str) -> str:
 
 
 class MediaWorkPanel(QFrame):
-    filter_changed = Signal(str)          # "all"|"problems"|"unmapped"
+    filter_changed = Signal(str)          # "all"|"problems"
     search_changed = Signal(str)
     approve_all_clicked = Signal()
     unassign_all_clicked = Signal()
@@ -250,7 +250,7 @@ class MediaWorkPanel(QFrame):
     def _build_toolbar(self, outer: QVBoxLayout) -> None:
         toolbar = QHBoxLayout()
 
-        self._segmented_filter = SegmentedControl(["All", "Problems", "Unmapped"])
+        self._segmented_filter = SegmentedControl(["All", "Problems"])
         self._segmented_filter.currentTextChanged.connect(self._on_filter_text_changed)
         toolbar.addWidget(self._segmented_filter)
 
@@ -465,6 +465,14 @@ class MediaWorkPanel(QFrame):
         self._table_view.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtTop)
         self._delegate.flash_row(target_row)
 
+    def scroll_to_unmapped_section(self) -> None:
+        row = self._model.unmapped_section_row()
+        if row < 0:
+            return
+        index = self._model.index(row, 0)
+        self._table_view.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtTop)
+        self._delegate.flash_row(row)
+
     # -- Toolbar signal handlers -------------------------------------------
 
     def _on_filter_text_changed(self, text: str) -> None:
@@ -516,14 +524,16 @@ class MediaWorkPanel(QFrame):
             self._strip_scroll.hide()
             return
         specs = season_strip_specs(state.completeness)
-        key = tuple(
+        table = state.assignments
+        unmapped_count = len(table.unassigned_files()) if table is not None else 0
+        key = (unmapped_count,) + tuple(
             (season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs
         )
         if key == self._strip_key:
             return                                   # same chips: no widget churn
         self._clear_strip()
         self._strip_key = key
-        if not specs:
+        if not specs and not unmapped_count:
             self._strip_scroll.hide()
             return
         self._strip_scroll.show()
@@ -538,6 +548,16 @@ class MediaWorkPanel(QFrame):
         self._strip_layout.insertWidget(insert_at, series_button)
         insert_at += 1
         self._strip_buttons.append(series_button)
+        if unmapped_count:
+            unmapped_button = QPushButton(f"Unmapped ({unmapped_count})")
+            unmapped_button.setProperty("cssClass", "season-strip-chip")
+            unmapped_button.setProperty("tone", "warning")
+            unmapped_button.setToolTip("Jump to the unmapped primary files")
+            unmapped_button.setFlat(True)
+            unmapped_button.clicked.connect(self.scroll_to_unmapped_section)
+            self._strip_layout.insertWidget(insert_at, unmapped_button)
+            insert_at += 1
+            self._strip_buttons.append(unmapped_button)
         for season_num, chip in specs:
             button = QPushButton(chip.text)
             button.setProperty("cssClass", "season-strip-chip")

@@ -60,6 +60,13 @@ class EpisodeTableModelTests(QtSmokeBase):
                          folder_preview=folder_preview)
         return model
 
+    def test_unmapped_section_row_locates_label(self):
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        row = model.unmapped_section_row()
+        self.assertGreaterEqual(row, 0)
+        self.assertEqual(model.row_kind_at(row), "section-label")
+
     def test_tv_composition_order_and_kinds(self):
         state, guide = _guide_state()
         model = self._model(state, guide)

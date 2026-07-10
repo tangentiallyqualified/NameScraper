@@ -299,6 +299,12 @@ class EpisodeTableModel(QAbstractListModel):
                 return row
         return -1
 
+    def unmapped_section_row(self) -> int:
+        for row, entry in enumerate(self._entries):
+            if entry.kind == "section-label" and entry.section_key == "unmapped-files":
+                return row
+        return -1
+
     def season_section_key(self, season: int) -> str:
         return f"episode-guide-season:{season}"
 
@@ -501,8 +507,11 @@ class EpisodeTableModel(QAbstractListModel):
                 row_data=EpisodeRowData(kind="bulk-hint", title=text, status_tone="info"),
             )
 
-        if self._filter_mode in {"all", "problems", "unmapped"} and guide.unmapped_primary_files:
-            yield self._label_entry(f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})")
+        if self._filter_mode in {"all", "problems"} and guide.unmapped_primary_files:
+            yield self._label_entry(
+                f"Unmapped Primary Files ({len(guide.unmapped_primary_files)})",
+                section_key="unmapped-files",
+            )
             for unmapped in guide.unmapped_primary_files:
                 entry = self._unmapped_entry(state, unmapped)
                 if entry is not None:
@@ -517,7 +526,7 @@ class EpisodeTableModel(QAbstractListModel):
 
         yield from self._season_section_entries(state, guide)
 
-        if self._filter_mode in {"all", "problems", "unmapped"} and guide.orphan_companion_files:
+        if self._filter_mode in {"all", "problems"} and guide.orphan_companion_files:
             yield self._label_entry(f"Orphan Companion Files ({len(guide.orphan_companion_files)})")
             for companion in guide.orphan_companion_files:
                 entry = self._orphan_entry(companion)
@@ -556,11 +565,11 @@ class EpisodeTableModel(QAbstractListModel):
             row_data=row_data,
         )
 
-    def _label_entry(self, text: str) -> _Entry:
+    def _label_entry(self, text: str, *, section_key: str | None = None) -> _Entry:
         row_data = EpisodeRowData(kind="section-label", title=text)
         return _Entry(
             kind="section-label",
-            section_key=None,
+            section_key=section_key,
             text=text,
             preview_index=None,
             guide_row=None,
@@ -647,8 +656,6 @@ class EpisodeTableModel(QAbstractListModel):
 
         rows_by_season: dict[int, list[EpisodeGuideRow]] = {}
         for row in guide.rows:
-            if self._filter_mode == "unmapped":
-                continue
             if self._filter_mode == "problems" and row.status == "Mapped":
                 continue
             rows_by_season.setdefault(row.season, []).append(row)

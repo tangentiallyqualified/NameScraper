@@ -52,6 +52,29 @@ class WorkPanelTests(QtSmokeBase):
         panel.search_box.setText("abc")
         self.assertEqual(searches, ["abc"])
 
+    def test_filter_has_no_unmapped_segment(self):
+        panel = self._panel(*_guide_state())
+        self.assertEqual(set(panel.segmented_filter._buttons), {"All", "Problems"})
+
+    def _panel_with_unassigned_files(self, count: int):
+        from pathlib import Path
+
+        from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable
+
+        state, guide = _guide_state()
+        table = EpisodeAssignmentTable()
+        for i in range(count):
+            table.add_file(Path(f"C:/lib/Show/unassigned{i}.mkv"))
+        state.assignments = table
+        panel = self._panel(state, guide)
+        return panel, state
+
+    def test_strip_includes_unmapped_chip_when_files_unassigned(self):
+        panel, state = self._panel_with_unassigned_files(count=2)
+        panel.refresh_header(state)
+        labels = [b.text() for b in panel._strip_buttons]
+        self.assertIn("Unmapped (2)", labels)
+
     def test_footer_breakdown(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
