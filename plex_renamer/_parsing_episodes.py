@@ -156,16 +156,22 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         ):
             return list(range(start_num, end_num + 1)), None, False
 
+    # Resolution values (480/720/1080/2160) are NOT rejected here: the regex
+    # already refuses a p/i suffix (the "$"/"- title" structure fails), so a
+    # clean dash-delimited bare number is an episode even when it collides
+    # with a resolution value \u2014 long-running anime reach 720/1080 (P-H2).
+    # The 4-digit widening covers 1000+ absolute numbering; the year guard
+    # still rejects 1900-2099.
     match = re.search(
-        r"-\s*(\d{1,3})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,3})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
+        r"-\s*(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
     )
     if match:
         start_num = int(match.group(1))
         end_num = int(match.group(2)) if match.group(2) else None
-        if start_num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= start_num <= YEAR_MAX):
+        if not (YEAR_MIN <= start_num <= YEAR_MAX):
             episodes = [start_num]
-            if end_num is not None and end_num not in RESOLUTION_NUMBERS:
+            if end_num is not None and not (YEAR_MIN <= end_num <= YEAR_MAX):
                 if end_num >= start_num and end_num - start_num <= 3:
                     episodes = list(range(start_num, end_num + 1))
                 else:
@@ -181,14 +187,16 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
             return [num], strip_release_junk_title(title_text or None), False
 
+    # An explicit Ep/Episode prefix is unambiguous — no resolution-value
+    # rejection needed ("Episode 720" is an episode); the year guard stays.
     match = re.search(
-        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
+        r"\b(?:ep?|episode)\s*(\d{1,4})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
         name,
         re.IGNORECASE,
     )
     if match:
         num = int(match.group(1))
-        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
+        if not (YEAR_MIN <= num <= YEAR_MAX):
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
@@ -219,7 +227,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     # leading bracket so plain titles like "Apollo 13" are never affected. The
     # number is absolute (anime convention) -> is_season_relative is False.
     if raw_stem.lstrip().startswith("["):
-        for bracket in re.finditer(r"\[(\d{1,3})(?:v\d+)?\]", raw_stem):
+        for bracket in re.finditer(r"\[(\d{1,4})(?:v\d+)?\]", raw_stem):
             num = int(bracket.group(1))
             if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
                 continue
