@@ -1,4 +1,4 @@
-"""PySide6 application bootstrap (GUI3 entry point).
+"""PySide6 application bootstrap.
 
 Launch with:
     python -m plex_renamer --qt
@@ -122,9 +122,7 @@ def run() -> None:
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication
     except ImportError:
-        _log.error(
-            "PySide6 is not installed.  Install with:  pip install plex-renamer[qt]"
-        )
+        _log.error("PySide6 is not installed.  Install with:  pip install PySide6")
         sys.exit(1)
 
     from .main_window import MainWindow
