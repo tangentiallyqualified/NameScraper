@@ -149,6 +149,17 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + (option_rect.height() - height) // 2
         return QRect(x, y, width, height)
 
+    def text_right_edge(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
+        """X coordinate the row's text lines must not cross: the pill, or the
+        inline action button when the row has one."""
+        pill = self._pill_rect(option_rect, row_data, metrics)
+        right = pill.x()
+        if _inline_action_spec(row_data) is not None:
+            action = self.inline_action_rect(option_rect, row_data)
+            if action.isValid():
+                right = min(right, action.x())
+        return right - _scale.px(_MARGIN_U)
+
     # -- Tooltip -------------------------------------------------------------
 
     def _preview_is_truncated(self, text: str, width: int) -> bool:
@@ -171,8 +182,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         # their own `tooltip` string (rename preview, unmapped/duplicate
         # reason), so this gate has no episode-specific logic.
         title_x = self._title_x(option.rect, row_data)
-        pill_rect = self._pill_rect(option.rect, row_data, self._view.fontMetrics())
-        width = max(0, pill_rect.x() - title_x - _scale.px(_MARGIN_U))
+        width = max(0, self.text_right_edge(option.rect, row_data, self._view.fontMetrics()) - title_x)
         if self._preview_is_truncated(row_data.tooltip, width):
             QToolTip.showText(event.globalPos(), row_data.tooltip, view)
             return True
@@ -371,7 +381,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         margin = _scale.px(_MARGIN_U)
         title_x = self._title_x(option.rect, row_data)
         pill_rect = self._pill_rect(option.rect, row_data, metrics)
-        title_width = max(0, pill_rect.x() - title_x - margin)
+        title_width = max(0, self.text_right_edge(option.rect, row_data, metrics) - title_x)
         line_height = metrics.lineSpacing()
 
         # Row height (delegate.sizeHint) is driven by row_data.filename alone —

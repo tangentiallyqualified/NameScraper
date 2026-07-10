@@ -361,3 +361,24 @@ class InlineAssignUnmappedActionTests(QtSmokeBase):
                          Qt.KeyboardModifier.NoModifier, delegate.inline_action_rect(rect, row_data).center())
         self.assertEqual(hits, [(unmapped_row, "assign_unmapped")])
         view.close()
+
+
+class InlineActionTextWidthTest(QtSmokeBase):
+    def test_text_right_edge_stops_before_inline_action(self):
+        from PySide6.QtCore import QRect
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+
+        view = EpisodeTableView()
+        self.addCleanup(view.deleteLater)
+        delegate = EpisodeTableDelegate(view, media_type="tv")
+        row_data = EpisodeRowData(
+            kind="unmapped", title="X" * 300, status_text="Unassigned",
+            status_tone="warning", filename="x.mkv", detail="reason",
+        )
+        rect = QRect(0, 0, 600, 52)
+        action_rect = delegate.inline_action_rect(rect, row_data)
+        text_right = delegate.text_right_edge(rect, row_data, view.fontMetrics())
+        self.assertLessEqual(text_right, action_rect.x())
