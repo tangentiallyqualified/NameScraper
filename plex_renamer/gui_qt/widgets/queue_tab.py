@@ -19,6 +19,7 @@ from ._queue_tab_actions import (
     execute_focused_pending_job,
     execute_pending_jobs,
     pending_job_ids,
+    remux_confirmation_message,
     toggle_queue_running,
 )
 from ._queue_tab_presentation import apply_remove_button_state
@@ -134,6 +135,11 @@ class QueueTab(_JobListTab):
         self._add_folder_context_actions(menu, include_target=False)
 
     def _toggle_queue(self) -> None:
+        if not self._queue_ctrl.is_running:
+            message = remux_confirmation_message(self._queue_ctrl.get_pending_jobs())
+            if message and QMessageBox.question(
+                    self, "Start Queue", message) != QMessageBox.StandardButton.Yes:
+                return
         toggle_queue_running(self._queue_ctrl)
         self.refresh()
         self.queue_changed.emit()
@@ -141,6 +147,10 @@ class QueueTab(_JobListTab):
     def _execute_selected(self) -> None:
         jobs = checked_pending_jobs(self._selected_jobs())
         if not jobs:
+            return
+        message = remux_confirmation_message(jobs)
+        if message and QMessageBox.question(
+                self, "Run Selected", message) != QMessageBox.StandardButton.Yes:
             return
         failed = execute_pending_jobs(self._queue_ctrl, jobs)
         self.refresh()
@@ -176,6 +186,10 @@ class QueueTab(_JobListTab):
     def execute_focused(self) -> None:
         """Execute the currently focused pending job (Enter shortcut)."""
         focused = self._focused_job()
+        message = remux_confirmation_message([focused] if focused else [])
+        if message and QMessageBox.question(
+                self, "Run This Job", message) != QMessageBox.StandardButton.Yes:
+            return
         success = execute_focused_pending_job(self._queue_ctrl, focused)
         if success is None:
             return

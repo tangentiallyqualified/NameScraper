@@ -137,7 +137,13 @@ class JobTableModel(QAbstractTableModel):
 
     def is_checkable_job(self, job: RenameJob) -> bool:
         if self._history:
-            return job.status == JobStatus.COMPLETED and bool(job.undo_data)
+            # No Fear remuxes deleted their sources and can never be
+            # reverted (spec §7.4) — no revert checkbox for them.
+            return (
+                job.status == JobStatus.COMPLETED
+                and bool(job.undo_data)
+                and not job.undo_data.get("irreversible")
+            )
         return job.status == JobStatus.PENDING
 
     def set_checked_job_ids(self, job_ids: set[str]) -> None:

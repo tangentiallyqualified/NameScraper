@@ -327,6 +327,14 @@ class JobDetailPanel(QFrame):
         self._summary.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         body.addWidget(self._summary)
 
+        self._irreversible_note = QLabel(
+            "No Fear remux — source files were deleted; this job cannot "
+            "be reverted.")
+        self._irreversible_note.setProperty("cssClass", "job-detail-error")
+        self._irreversible_note.setWordWrap(True)
+        self._irreversible_note.hide()
+        body.addWidget(self._irreversible_note)
+
         self._facts_card = QFrame()
         self._facts_card.setProperty("cssClass", "job-detail-facts-card")
         facts_layout = QGridLayout(self._facts_card)
@@ -434,6 +442,7 @@ class JobDetailPanel(QFrame):
         self._preview_tree.clear()
         self._error.setText("")
         self._progress_bar.hide()
+        self._irreversible_note.hide()
         self._open_source_btn.hide()
         self._open_target_btn.hide()
         self._open_source_btn.setEnabled(False)
@@ -468,6 +477,8 @@ class JobDetailPanel(QFrame):
             self._open_target_btn.setEnabled(False)
         self._error.setText(job.error_message or "")
         self._progress_bar.hide()
+        self._irreversible_note.setVisible(
+            bool(job.undo_data and job.undo_data.get("irreversible")))
         self._request_poster(job)
 
     def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
