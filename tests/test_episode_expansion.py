@@ -213,3 +213,12 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         card = EpisodeExpansionCard()
         card.show_episode(state, guide.rows[0])
         self.assertEqual(card.findChildren(_ChipStrip), [])
+
+    def test_actions_row_is_above_files_section(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        outer = card.layout()
+        indexes = {outer.itemAt(i).layout(): i for i in range(outer.count())}
+        self.assertLess(indexes[card._actions_row], indexes[card._files_section])

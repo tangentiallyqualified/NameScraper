@@ -138,16 +138,16 @@ class EpisodeExpansionCard(QFrame):
         top_row.addStretch()
         outer.addLayout(top_row)
 
+        self._actions_row = QHBoxLayout()
+        self._actions_row.setSpacing(_scale.px(6))
+        outer.addLayout(self._actions_row)
+
         self._files_section = QVBoxLayout()
         self._files_section.setSpacing(_scale.px(4))
         outer.addLayout(self._files_section)
 
         self._target_row = QHBoxLayout()
         outer.addLayout(self._target_row)
-
-        self._actions_row = QHBoxLayout()
-        self._actions_row.setSpacing(_scale.px(6))
-        outer.addLayout(self._actions_row)
 
         outer.addStretch()
 
