@@ -561,7 +561,11 @@ def apply_movie_confidence_adjustments(
     if evidence.year_exact_match:
         confidence = max(confidence, MOVIE_FLOOR_YEAR_EXACT)
 
-    if evidence.sequel_mismatch:
+    # A wrong-sequel match ships with the wrong release year (sequels come
+    # out in different years); a sequel-looking mismatch WITH an exact year
+    # is a subtitle/alt-title variant ("Dune Part One" 2021 -> "Dune" 2021)
+    # and must not be capped.
+    if evidence.sequel_mismatch and not evidence.year_exact_match:
         confidence = min(confidence, MOVIE_CAP_SEQUEL_MISMATCH)
     if evidence.year_severely_off:
         confidence = min(confidence, MOVIE_CAP_YEAR_SEVERELY_OFF)

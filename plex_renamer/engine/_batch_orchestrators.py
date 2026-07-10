@@ -47,6 +47,7 @@ from .matching import (
     _best_episode_title_similarity,
     _country_from_language,
     _tv_episode_evidence_adjustment,
+    apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
     boost_tv_scores_with_episode_evidence,
     pick_alternate_matches,
@@ -306,6 +307,12 @@ class BatchTVOrchestrator:
                     best_score = min(best_score + 0.10, 1.0)
                 elif abs(ep_file_count - tmdb_ep_count) <= 2:
                     best_score = min(best_score + 0.05, 1.0)
+
+        # Clamp the winner onto the [0, 1] scale BEFORE tie detection and
+        # storage. Stacked exact-title bonuses push raw scores past 1.0;
+        # comparing an unclamped winner against a clamped runner-up fakes a
+        # margin (1.15 vs 1.0) and lets a same-name pair dodge the tie flag.
+        best_score = min(best_score, 1.0)
 
         alternates = pick_alternate_matches(
             scored,
@@ -941,13 +948,34 @@ class BatchMovieOrchestrator:
             best, best_score = scored[0]
             alternates = [result for result, score in scored[1:4] if score > 0.3]
 
+            # Tie detection compares raw (pre-adjustment) scores on a common
+            # clamped scale so evidence caps below can't fake a tie.
+            pre_adjust_best = min(best_score, 1.0)
             tie_detected = False
             if len(scored) >= 2:
                 for result, score in scored:
                     if result.get("id") != best.get("id"):
-                        if best_score - score <= SCORE_TIE_MARGIN and best_score >= get_auto_accept_threshold():
+                        runner_score = min(score, 1.0)
+                        if (
+                            pre_adjust_best - runner_score <= SCORE_TIE_MARGIN
+                            and pre_adjust_best >= get_auto_accept_threshold()
+                        ):
                             tie_detected = True
                         break
+
+            # Same evidence floors/caps the interactive MovieScanner applies
+            # (sequel mismatch, year severely off) — the two entry points must
+            # agree on the same folder (M-H2). Folder-shaped entries use the
+            # folder name as their evidence stem, matching the query source.
+            evidence_path = (
+                source_file if source_file is not None else folder / folder.name
+            )
+            best_score = apply_movie_confidence_adjustments(
+                raw_confidence=pre_adjust_best,
+                file_path=evidence_path,
+                tmdb_title=best.get("title", ""),
+                tmdb_year=best.get("year"),
+            )
 
             state = ScanState(
                 folder=folder,
@@ -1072,6 +1100,19 @@ class BatchMovieOrchestrator:
         raw_name = clean_folder_name(raw_source)
         year_hint = extract_year(raw_source)
         scored = score_results([new_match], raw_name, year_hint, title_key="title")
-        state.confidence = scored[0][1] if scored else 0.0
+        if scored:
+            evidence_path = (
+                state.source_file
+                if state.source_file is not None
+                else state.folder / state.folder.name
+            )
+            state.confidence = apply_movie_confidence_adjustments(
+                raw_confidence=min(scored[0][1], 1.0),
+                file_path=evidence_path,
+                tmdb_title=new_match.get("title", ""),
+                tmdb_year=new_match.get("year"),
+            )
+        else:
+            state.confidence = 0.0
         state.reset_scan()
         self._apply_duplicate_labels()
