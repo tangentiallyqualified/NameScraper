@@ -103,6 +103,43 @@ class ConveyorPosterTests(QtSmokeBase):
         w.stop()
 
 
+class ConveyorDprPaintTests(QtSmokeBase):
+    """DPR-aware paint: scaled pixmaps carry devicePixelRatio and are cached
+    across paints instead of being rescaled every animation frame."""
+
+    def _painted_animation(self, poster_size=(20, 30)):
+        from PySide6.QtGui import QPixmap
+        from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
+
+        anim = _ConveyorAnimation()
+        anim.resize(500, 200)
+        anim.set_posters([QPixmap(*poster_size)])
+        anim.set_active(True)
+        anim.grab()  # forces paintEvent even offscreen/hidden
+        return anim
+
+    def test_paint_populates_scaled_cache_with_dpr_set(self):
+        anim = self._painted_animation()
+        self.assertEqual(len(anim._scaled_cache), 1)
+        scaled = next(iter(anim._scaled_cache.values()))
+        self.assertEqual(scaled.devicePixelRatio(), anim.devicePixelRatioF())
+
+    def test_repainting_reuses_cached_scaled_pixmap(self):
+        anim = self._painted_animation()
+        cached = next(iter(anim._scaled_cache.values()))
+        anim.grab()
+        self.assertEqual(len(anim._scaled_cache), 1)
+        self.assertIs(next(iter(anim._scaled_cache.values())), cached)
+
+    def test_set_posters_clears_scaled_cache(self):
+        from PySide6.QtGui import QPixmap
+
+        anim = self._painted_animation()
+        self.assertEqual(len(anim._scaled_cache), 1)
+        anim.set_posters([QPixmap(20, 30)])
+        self.assertEqual(len(anim._scaled_cache), 0)
+
+
 class FillerRotationTests(QtSmokeBase):
     def test_filler_rotation_covers_pool_before_repeating(self):
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget

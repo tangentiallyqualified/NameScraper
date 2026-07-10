@@ -103,10 +103,12 @@ class _ConveyorAnimation(QWidget):
         self._clock = QElapsedTimer()
         self._active = False
         self._posters: list[QPixmap] = []
+        self._scaled_cache: dict[tuple[int, int, int], QPixmap] = {}
         self.setMinimumHeight(_scale.px(180))
 
     def set_posters(self, pixmaps: list[QPixmap]) -> None:
         self._posters = [p for p in pixmaps if p is not None and not p.isNull()]
+        self._scaled_cache.clear()
         self.update()
 
     def add_poster(self, pixmap: QPixmap) -> None:
@@ -166,11 +168,19 @@ class _ConveyorAnimation(QWidget):
                     poster = self._posters[index % len(self._posters)]
                     painter.save()
                     painter.setClipRect(card)
-                    scaled = poster.scaled(
-                        int(card.width()), int(card.height()),
-                        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
+                    dpr = self.devicePixelRatioF()
+                    key = (poster.cacheKey(), int(card.width() * dpr), int(card.height() * dpr))
+                    scaled = self._scaled_cache.get(key)
+                    if scaled is None:
+                        scaled = poster.scaled(
+                            int(card.width() * dpr), int(card.height() * dpr),
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                        scaled.setDevicePixelRatio(dpr)
+                        if len(self._scaled_cache) > 64:
+                            self._scaled_cache.clear()
+                        self._scaled_cache[key] = scaled
                     painter.drawPixmap(card.topLeft(), scaled)
                     painter.restore()
                 else:

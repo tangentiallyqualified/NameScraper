@@ -154,3 +154,16 @@ class RosterModelTests(QtSmokeBase):
         loaded = model.loaded_posters()
         self.assertEqual(len(loaded), 1)
         self.assertIs(loaded[0], pixmap)
+
+
+class PosterFetchWidthTest(QtSmokeBase):
+    def test_fetch_width_covers_conveyor_card_at_dpr(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
+
+        model = RosterModel(media_type="tv")
+        with patch("plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=2.0):
+            self.assertGreaterEqual(model._poster_fetch_width(), 340)
+        with patch("plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=1.0):
+            self.assertGreaterEqual(model._poster_fetch_width(), 220)

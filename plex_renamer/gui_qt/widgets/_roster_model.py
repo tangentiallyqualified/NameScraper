@@ -6,7 +6,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QGuiApplication, QPixmap
 
 from ...app.services.automux_service import state_has_mux_actions
 from ...engine import ScanState
@@ -35,6 +35,12 @@ ROW_DATA_ROLE = Qt.ItemDataRole.UserRole + 5
 POSTER_ROLE = Qt.ItemDataRole.UserRole + 6
 
 _MAX_POSTER_CACHE = 128
+
+
+def _device_pixel_ratio() -> float:
+    screen = QGuiApplication.primaryScreen()
+    return float(screen.devicePixelRatio()) if screen is not None else 1.0
+
 
 ROSTER_GROUPS: tuple[tuple[str, str], ...] = (
     ("queued", "Queued"),
@@ -347,7 +353,11 @@ class RosterModel(QAbstractListModel):
         _submit_bg(_worker)
 
     def _poster_fetch_width(self) -> int:
-        return max(220, min(420, _scale.px(64) * 2))
+        # Wide enough for the largest consumer: the scan-conveyor card
+        # (~170 logical px wide after KeepAspectRatioByExpanding crop),
+        # multiplied by the display's device pixel ratio.
+        dpr = _device_pixel_ratio()
+        return max(220, min(500, int(_scale.px(170) * dpr)))
 
     def _apply_poster(self, key, raw_data) -> None:
         pixmap = raw_to_pixmap(raw_data)
