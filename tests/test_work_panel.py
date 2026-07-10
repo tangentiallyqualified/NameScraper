@@ -327,6 +327,32 @@ class WorkPanelTests(QtSmokeBase):
         self.assertEqual(panel._delegate._flash_row_index, header_row)
         panel.close()
 
+    def _panel_with_matched_state(self, confidence: float):
+        # "Matched" requires: show_id set (fixture default), not needs_review
+        # (confidence >= auto-accept threshold, match_origin left "auto"),
+        # no episode problems (all items "OK"), match_origin != "manual"
+        # (else "Approved"), and not fully-ready (still actionable renames
+        # pending, so is_fully_ready_state stays False).
+        state, guide = _guide_state()
+        for item in state.preview_items:
+            item.status = "OK"
+        state.confidence = confidence
+        panel = self._panel(state, guide)
+        return panel, state
+
+    def test_matched_status_pill_is_green_with_confidence(self):
+        panel, state = self._panel_with_matched_state(confidence=0.93)
+        panel.refresh_header(state)
+        self.assertEqual(panel._status_pill.text(), "MATCHED · 93%")
+        self.assertEqual(panel._status_pill.property("tone"), "success")
+        panel.close()
+
+    def test_overview_toggle_reserves_layout_space_when_hidden(self):
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="tv")
+        self.assertTrue(panel._overview_toggle.sizePolicy().retainSizeWhenHidden())
+
     def test_fix_match_button_is_in_header_title_row(self):
         # Layout-tree invariant (adapted from the brief): title_row and footer
         # are sibling QHBoxLayouts added directly to the panel's outer layout,

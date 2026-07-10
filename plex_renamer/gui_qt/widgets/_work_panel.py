@@ -219,7 +219,10 @@ class MediaWorkPanel(QFrame):
         self._overview_toggle.setProperty("sizeVariant", "inline")
         self._overview_toggle.hide()
         self._overview_toggle.clicked.connect(self._on_overview_toggle_clicked)
-        overview_row.addWidget(self._overview_toggle)
+        toggle_policy = self._overview_toggle.sizePolicy()
+        toggle_policy.setRetainSizeWhenHidden(True)   # R2 M8: no width shift between series
+        self._overview_toggle.setSizePolicy(toggle_policy)
+        overview_row.addWidget(self._overview_toggle, alignment=Qt.AlignmentFlag.AlignTop)
         outer.addLayout(overview_row)
         self._apply_overview_clamp()
 
@@ -405,7 +408,13 @@ class MediaWorkPanel(QFrame):
         status_text, _color = state_status(state, media_type=self._media_type)
         tone = state_status_tone(state, media_type=self._media_type)
         tone = "warning" if tone == "accent" else tone
-        self._status_pill.setText(status_text.upper())
+        if status_text == "Matched":
+            # R2 M12: matched shows are a green pill carrying the series
+            # match confidence.
+            tone = "success"
+            self._status_pill.setText(f"MATCHED · {clamped_percent(state.confidence)}%")
+        else:
+            self._status_pill.setText(status_text.upper())
         self._status_pill.setProperty("tone", tone)
         self._repolish(self._status_pill)
 
