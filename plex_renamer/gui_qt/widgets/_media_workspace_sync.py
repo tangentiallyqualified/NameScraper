@@ -73,10 +73,3 @@ class MediaWorkspaceSyncCoordinator:
         if workspace._roster_syncing:
             return
         self.on_roster_check_toggled(state_index, checked)
-
-    def _sync_current_roster_row_checked(self, checked: bool) -> None:
-        del checked
-        workspace = self._workspace
-        current = workspace._roster_panel.current_state_index()
-        if current is not None:
-            workspace._roster_panel.refresh_state(current)

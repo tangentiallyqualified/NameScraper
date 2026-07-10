@@ -16,7 +16,6 @@ import os
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
-    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -31,7 +30,6 @@ from ...engine import ScanState
 from .. import _scale
 from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 
-_COPY_GLYPH = "⧉"
 _OPEN_DIR_GLYPH = "📂"
 _COLLAPSE_GLYPH = "▾"
 
@@ -106,15 +104,6 @@ class _ChipStrip(QWidget):
         painter.end()
 
 
-def _copy_path_button(path, parent: QWidget) -> QToolButton:
-    button = QToolButton(parent)
-    button.setText(_COPY_GLYPH)
-    button.setToolTip("Copy path")
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.clicked.connect(lambda: QApplication.clipboard().setText(str(path)))
-    return button
-
-
 class EpisodeExpansionCard(QFrame):
     action_requested = Signal(str)
     collapse_requested = Signal()
@@ -126,7 +115,6 @@ class EpisodeExpansionCard(QFrame):
         self._action_buttons: list[QPushButton] = []
         self._copy_buttons: list[QToolButton] = []
         self._open_dir_buttons: list[QToolButton] = []
-        self._target_label: QLabel | None = None
         self._title_label: QLabel | None = None
         self._status_pill: QLabel | None = None
         self._build_ui()
@@ -273,12 +261,6 @@ class EpisodeExpansionCard(QFrame):
             self._open_dir_buttons.append(button)
         self._files_section.addWidget(row_widget)
 
-    def _build_files_section_for_files(self, primary_path, companions) -> None:
-        self._add_file_row(primary_path, badge=None)
-        for companion in companions:
-            badge = companion.file_type[:3].upper()
-            self._add_file_row(companion.original, badge=badge)
-
     def _multi_part_chip_specs(self, state: ScanState, row: EpisodeGuideRow) -> list[ChipSpec]:
         table = state.assignments
         if table is None:
@@ -294,39 +276,6 @@ class EpisodeExpansionCard(QFrame):
             ChipSpec(f"Part {index}", "muted")
             for index in range(1, len(non_conflict) + 1)
         ]
-
-    def _add_file_row(self, path, *, badge: str | None) -> None:
-        row_widget = QWidget(self)
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(_scale.px(6))
-
-        if badge:
-            badge_label = QLabel(badge)
-            badge_label.setProperty("cssClass", "badge")
-            badge_label.setProperty("tone", "muted")
-            row_layout.addWidget(badge_label)
-
-        path_label = QLabel(str(path))
-        path_label.setWordWrap(True)
-        path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        row_layout.addWidget(path_label, stretch=1)
-
-        copy_button = _copy_path_button(path, row_widget)
-        row_layout.addWidget(copy_button)
-        self._copy_buttons.append(copy_button)
-
-        self._files_section.addWidget(row_widget)
-
-    def _build_target_row(self, target_rename: str) -> None:
-        label = QLabel(f"→ {target_rename}" if target_rename else "")
-        label.setWordWrap(True)
-        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self._target_label = label
-        self._target_row.addWidget(label, stretch=1)
-        copy_button = _copy_path_button(target_rename, self)
-        self._target_row.addWidget(copy_button)
-        self._copy_buttons.append(copy_button)
 
     def _build_actions_row(self, actions: list[tuple[str, str]]) -> None:
         for action_id, label in actions:
