@@ -1329,6 +1329,13 @@ def apply_confidence_adjustments(
             floor = NEAR_COMPLETE_COVERAGE_FLOOR
         else:
             continue
+        # NOTE (2026-07-10 review, finding R-F2): this floor is a SET-equality
+        # test and cannot tell two transposed number-only files apart, so a
+        # perfect single-season show can auto-accept swapped numbering at
+        # exactly the user's 0.85 threshold. That lift is a deliberate,
+        # test-locked product decision (see test_scan_improvements'
+        # single-season exact-coverage tests) — revisit against the real
+        # library before tightening.
         for assignment in table.assignments():
             if (
                 assignment.season == season
@@ -1349,13 +1356,14 @@ def apply_confidence_adjustments(
             )
 
     # Review-locked evidence (inexact title override, cross-season special,
-    # cross-season title rescue) must stay below threshold no matter what
-    # floors ran above.
+    # cross-season title rescue, weak/ambiguous title disagreement) must stay
+    # below threshold no matter what floors ran above.
     for assignment in table.assignments():
         if assignment.evidence & {
             "title-strong-inexact", "cross-season-special", "cross-season-rescue",
             "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
             "same-season-rescue", "title-part-number", "air-date-cluster",
+            "title-weak-disagree", "title-ambiguous",
         }:
             table.set_confidence(
                 assignment.file_id,
