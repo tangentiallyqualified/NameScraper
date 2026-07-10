@@ -234,6 +234,13 @@ class MediaWorkPanel(QFrame):
         toggle_policy = self._overview_toggle.sizePolicy()
         toggle_policy.setRetainSizeWhenHidden(True)   # R2 M8: no width shift between series
         self._overview_toggle.setSizePolicy(toggle_policy)
+        # Task 7: pin the width so it doesn't jump when the label flips
+        # between "more" and "less" (their sizeHints differ once real font
+        # metrics are in play -- setRetainSizeWhenHidden only pins width
+        # while hidden, not across a text change while visible).
+        toggle_fm = self._overview_toggle.fontMetrics()
+        widest = max(toggle_fm.horizontalAdvance("more"), toggle_fm.horizontalAdvance("less"))
+        self._overview_toggle.setFixedWidth(widest + _scale.px(20))
         overview_row.addWidget(self._overview_toggle, alignment=Qt.AlignmentFlag.AlignTop)
         outer.addLayout(overview_row)
         self._apply_overview_clamp()
@@ -632,7 +639,8 @@ class MediaWorkPanel(QFrame):
             0, 0, width, 0,
             int(Qt.TextFlag.TextWordWrap), text,
         )
-        return bounding.height() > 2 * fm.lineSpacing() + 1
+        collapsed_max = 2 * fm.lineSpacing() + _scale.px(_OVERVIEW_CLAMP_PAD_U)
+        return bounding.height() > collapsed_max
 
     def _refresh_overview_toggle(self) -> None:
         """Recompute the more/less toggle's visibility for the current

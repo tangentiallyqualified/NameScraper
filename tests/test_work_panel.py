@@ -328,6 +328,87 @@ class WorkPanelTests(QtSmokeBase):
         )
         panel.close()
 
+    def test_overview_overflow_gate_matches_clamp_threshold(self):
+        # Task 7: _overview_overflows() (the toggle-visibility gate) used a
+        # hardcoded "2*lineSpacing()+1" threshold while _apply_overview_clamp()
+        # (the actual visual clamp) used "2*lineSpacing()+_scale.px(6)" -- two
+        # different magic numbers for what should be the same "does this text
+        # fit in two collapsed lines?" question. Pin the contract directly via
+        # a stubbed fontMetrics() so the test doesn't depend on a specific
+        # font/DPI happening to land a real string in the gap between the two
+        # thresholds: at line_spacing=20, the old gate threshold is 41 and the
+        # clamp threshold is 46 (both at 96 DPI / scale 1.0) -- a wrapped
+        # height of 43 sits in that gap. The clamp would NOT clip it (43 <=
+        # 46), so the toggle must not claim overflow either.
+        from PySide6.QtCore import QRect
+
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel._overview_label.setText("stubbed overview text")
+
+        line_spacing = 20
+        gap_height = 2 * line_spacing + 3   # strictly between 41 and 46
+
+        class _StubMetrics:
+            def lineSpacing(self):
+                return line_spacing
+
+            def boundingRect(self, *args, **kwargs):
+                return QRect(0, 0, 300, gap_height)
+
+        panel._overview_label.fontMetrics = lambda: _StubMetrics()
+
+        panel._overview_expanded = False
+        panel._apply_overview_clamp()
+        clamp_max = panel._overview_label.maximumHeight()
+        self.assertGreaterEqual(
+            clamp_max, gap_height,
+            "sanity check: the clamp must not actually clip this height",
+        )
+        self.assertFalse(
+            panel._overview_overflows(),
+            "overflow gate disagreed with the clamp it's supposed to gate: "
+            f"reported overflow for a {gap_height}px block that fits within "
+            f"the {clamp_max}px clamp",
+        )
+        panel.close()
+
+    def test_overview_toggle_has_stable_fixed_width(self):
+        # Task 7: without a fixed width, the toggle's layout width tracks
+        # QPushButton.sizeHint(), which is computed in C++ from the button's
+        # OWN fontMetrics() -- not reachable by monkeypatching (unlike the
+        # QLabel gate above, which is pure-Python). Under the app's real
+        # theme.qss, "more" and "less" measure differently (confirmed via a
+        # manual offscreen probe with QT_QPA_FONTDIR pointed at real fonts:
+        # sizeHint 45px vs 37px) so the button visibly resizes on click. The
+        # offscreen test font's fallback glyphs happen to size "more"/"less"
+        # identically (see test_qt_job_detail_panel.py's note on this), which
+        # would mask a width-delta assertion here -- so this pins the fix's
+        # actual mechanism instead: a symmetric fixed width, set once,
+        # independent of which of the two labels is currently showing.
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        toggle = panel._overview_toggle
+
+        self.assertGreater(toggle.minimumWidth(), 0)
+        self.assertEqual(
+            toggle.minimumWidth(), toggle.maximumWidth(),
+            "toggle width must be fixed so 'more'/'less' can't resize it",
+        )
+
+        fixed_width = toggle.width()
+        panel.show()
+        panel._apply_overview_text(("Long overview. " * 60).strip(), "tok")
+        self._app.processEvents()
+        self.assertTrue(panel._overview_toggle.isVisible())
+        self.assertEqual(toggle.width(), fixed_width)
+
+        panel._on_overview_toggle_clicked()
+        self._app.processEvents()
+        self.assertEqual(toggle.width(), fixed_width)
+        panel.close()
+
     def test_clamp_height_leaves_descender_room(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
