@@ -148,6 +148,7 @@ def queue_states(
                 root,
                 output_root,
                 workspace._media_ctrl.command_gating,
+                settings_service=workspace._settings,
             )
             try:
                 workspace._media_ctrl.sync_queued_states()

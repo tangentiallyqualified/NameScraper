@@ -123,6 +123,7 @@ class QueueController:
         library_root: Path,
         output_root: Path,
         command_gating: CommandGatingService,
+        settings_service=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all checked TV shows.
 
@@ -136,6 +137,7 @@ class QueueController:
             library_root=library_root,
             output_root=output_root,
             command_gating=command_gating,
+            settings_service=settings_service,
         )
 
     def add_movie_batch(
@@ -144,6 +146,7 @@ class QueueController:
         library_root: Path,
         output_root: Path,
         command_gating: CommandGatingService,
+        settings_service=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all eligible movies.
 
@@ -156,6 +159,7 @@ class QueueController:
             library_root=library_root,
             output_root=output_root,
             command_gating=command_gating,
+            settings_service=settings_service,
         )
 
     # ── Direct rename recording ────────────────────────────────────

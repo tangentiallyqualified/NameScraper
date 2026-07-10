@@ -15,7 +15,21 @@ from ...engine import (
 )
 from ...job_store import DuplicateJobError, RenameJob
 from ...parsing import build_movie_name, build_show_folder_name
+from ..services.automux_service import (
+    automux_active,
+    effective_mux_plans,
+    ensure_state_plans,
+)
 from ..services.command_gating_service import CommandGatingService
+
+
+def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dict] | None:
+    """Ensure and collect this entry's mux plans at queue time (spec §5.1:
+    plans are baked into the job's ops when it is queued)."""
+    if settings_service is None or not automux_active(settings_service):
+        return None
+    ensure_state_plans(state, settings_service, library_root)
+    return effective_mux_plans(state)
 
 
 @dataclass
@@ -76,6 +90,7 @@ def add_tv_batch_jobs(
     library_root: Path,
     output_root: Path,
     command_gating: CommandGatingService,
+    settings_service=None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
 
@@ -104,12 +119,14 @@ def add_tv_batch_jobs(
             state.media_info.get("name", ""),
             state.media_info.get("year", ""),
         )
+        mux_plans = _mux_plans_for_state(state, settings_service, library_root)
         job = build_rename_job_from_state(
             state=state,
             library_root=library_root,
             output_root=output_root,
             show_folder_rename=show_folder,
             checked_indices=checked,
+            mux_plans=mux_plans,
         )
 
         try:
@@ -131,6 +148,7 @@ def add_movie_batch_jobs(
     library_root: Path,
     output_root: Path,
     command_gating: CommandGatingService,
+    settings_service=None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
 
@@ -161,6 +179,7 @@ def add_movie_batch_jobs(
             state.media_info.get("year", ""),
             "",
         )
+        mux_plans = _mux_plans_for_state(state, settings_service, library_root)
         job = build_rename_job_from_items(
             items=[item],
             checked_indices=checked,
@@ -172,6 +191,7 @@ def add_movie_batch_jobs(
             source_folder=item.original.parent,
             show_folder_rename=movie_folder,
             poster_path=state.media_info.get("poster_path"),
+            mux_plans=mux_plans,
         )
 
         try:
