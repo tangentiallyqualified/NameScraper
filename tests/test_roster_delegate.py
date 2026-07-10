@@ -35,11 +35,11 @@ class RosterDelegateTests(QtSmokeBase):
         view.resize(380, 600)
         return view, model, delegate
 
-    def test_size_hints_differ_by_kind_not_by_compact_mode(self):
-        """L7: compact mode only hides the poster -- row height (and every
-        other body element) must be identical to normal mode."""
+    def test_size_hints_differ_by_kind_and_compact_mode(self):
+        """R2 L3: compact mode is a real, shorter row (no poster to
+        accommodate) -- it must use the compact floor, not the normal one."""
         from plex_renamer.gui_qt import _scale
-        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U, _ROW_COMPACT_U
 
         view, model, delegate = self._view([_make_state("A")])
         header_h = view.sizeHintForRow(0)
@@ -48,7 +48,9 @@ class RosterDelegateTests(QtSmokeBase):
         self.assertEqual(state_h, _scale.px(110) + 2 * _scale.px(_CARD_GAP_U))
         delegate.set_compact(True)
         model.set_compact(True)
-        self.assertEqual(view.sizeHintForRow(1), state_h)
+        compact_h = view.sizeHintForRow(1)
+        self.assertEqual(compact_h, _scale.px(_ROW_COMPACT_U) + 2 * _scale.px(_CARD_GAP_U))
+        self.assertLess(compact_h, state_h)
 
     def test_render_grab_produces_pixels(self):
         view, model, delegate = self._view([_make_state("A")])
@@ -121,7 +123,7 @@ class RosterDelegateTests(QtSmokeBase):
 
         option = QStyleOptionViewItem()
         option.rect = view.visualRect(index)
-        body = delegate._body_rect(option.rect)
+        body = delegate._body_rect(delegate._card_rect(option.rect))
         line_height = QFontMetrics(view.font()).lineSpacing()
         confidence_y = body.y() + 2 * line_height + _scale.px(4)
         chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
@@ -211,7 +213,7 @@ class RosterPillRemovalTests(QtSmokeBase):
 
         option = QStyleOptionViewItem()
         option.rect = view.visualRect(index)
-        body = delegate._body_rect(option.rect)
+        body = delegate._body_rect(delegate._card_rect(option.rect))
         metrics = QFontMetrics(view.font())
 
         first_line, remainder = delegate._split_title(long_title, metrics, body.width())
@@ -254,7 +256,7 @@ class RosterPillRemovalTests(QtSmokeBase):
         image = pixmap.toImage()
         self.assertFalse(image.isNull())
 
-        body = delegate._body_rect(rect).translated(-rect.topLeft())
+        body = delegate._body_rect(delegate._card_rect(rect)).translated(-rect.topLeft())
         metrics = QFontMetrics(view.font())
         line_height = metrics.lineSpacing()
 
@@ -300,6 +302,21 @@ class RosterCardGapTests(QtSmokeBase):
         card = delegate._card_rect(option_rect)
         self.assertEqual(card.top(), option_rect.top() + px(_CARD_GAP_U))
         self.assertEqual(card.bottom(), option_rect.bottom() - px(_CARD_GAP_U))
+
+    def test_card_rect_insets_horizontally(self):
+        """R2 L1: cards must no longer touch the panel's left/right edges."""
+        from PySide6.QtCore import QRect
+
+        delegate = self._any_delegate()
+        option_rect = QRect(0, 0, 360, 118)
+        rect = delegate._card_rect(option_rect)
+        self.assertGreater(rect.x(), 0)
+        self.assertLess(rect.right(), 359)
+
+    def test_band_wash_removed(self):
+        """R2 L6: the green/yellow/red band tint must be gone entirely."""
+        import plex_renamer.gui_qt.widgets._roster_delegate as mod
+        self.assertFalse(hasattr(mod, "_BAND_WASH"))
 
 
 class RosterSizeHintTests(QtSmokeBase):

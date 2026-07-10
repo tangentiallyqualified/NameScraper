@@ -29,10 +29,9 @@ _BAR_W_U = 110
 _HEADER_PAD_LEFT_U = 12
 _CHIP_TOP_GAP_U = 6
 _CONF_BLOCK_U = 18   # confidence bar (4u) + pct baseline padding
-_CARD_GAP_U = 4      # vertical gap separating consecutive roster cards (L1)
-
-_BAND_WASH = {"high": ("success", 0.05), "medium": ("warning", 0.05),
-              "low": ("error", 0.06), "error": ("error", 0.06)}
+_CARD_GAP_U = 2      # vertical gap separating consecutive roster cards (R2 L2)
+_CARD_HMARGIN_U = 6  # left/right inset so cards clear the panel edges (R2 L1)
+_ROW_COMPACT_U = 64  # compact base height: no poster to accommodate (R2 L3)
 
 
 class RosterDelegate(QStyledItemDelegate):
@@ -49,46 +48,44 @@ class RosterDelegate(QStyledItemDelegate):
 
     def _card_rect(self, option_rect: QRect) -> QRect:
         """The painted card rect, inset from the full row rect by the
-        inter-card gap (L1) so consecutive cards no longer touch."""
+        inter-card gap (R2 L2) and the left/right edge margin (R2 L1) so
+        consecutive cards no longer touch each other or the panel edges.
+        This is the ONLY place that insets from the raw row rect; every
+        other geometry helper below takes this already-inset rect."""
         gap = _scale.px(_CARD_GAP_U)
-        return option_rect.adjusted(0, gap, 0, -gap)
+        hmargin = _scale.px(_CARD_HMARGIN_U)
+        return option_rect.adjusted(hmargin, gap, -hmargin, -gap)
 
     def toggle_rect(self, option_rect: QRect, row_data: RosterRowData) -> QRect:
         del row_data
-        option_rect = self._card_rect(option_rect)
+        card_rect = self._card_rect(option_rect)
         margin = _scale.px(_MARGIN_U)
         size = _scale.px(_TOGGLE_U)
-        x = option_rect.x() + margin
-        y = option_rect.y() + margin
+        x = card_rect.x() + margin
+        y = card_rect.y() + margin
         return QRect(x, y, size, size)
 
-    def _poster_rect(self, option_rect: QRect) -> QRect:
-        option_rect = self._card_rect(option_rect)
+    def _poster_rect(self, card_rect: QRect) -> QRect:
         margin = _scale.px(_MARGIN_U)
         toggle_size = _scale.px(_TOGGLE_U)
         poster_w = _scale.px(_POSTER_W_U)
         poster_h = _scale.px(_POSTER_H_U)
-        x = option_rect.x() + margin + toggle_size + margin
+        x = card_rect.x() + margin + toggle_size + margin
         if self._media_type == "movie":
-            y = option_rect.y() + (option_rect.height() - poster_h) // 2
+            y = card_rect.y() + (card_rect.height() - poster_h) // 2
         else:
-            y = option_rect.y() + margin
+            y = card_rect.y() + margin
         return QRect(x, y, poster_w, poster_h)
 
-    def _body_rect(self, option_rect: QRect) -> QRect:
-        # Calls _card_rect then (via _poster_rect) insets again: this double-inset
-        # is inert only because _card_rect adjusts vertically (gap top/bottom), not
-        # horizontally. If _card_rect ever gains a horizontal gap, this will silently
-        # double-inset the body rect's left/right edges.
-        option_rect = self._card_rect(option_rect)
+    def _body_rect(self, card_rect: QRect) -> QRect:
         margin = _scale.px(_MARGIN_U)
         if self._compact:
-            body_x = option_rect.x() + margin + _scale.px(_TOGGLE_U) + margin
+            body_x = card_rect.x() + margin + _scale.px(_TOGGLE_U) + margin
         else:
-            poster_rect = self._poster_rect(option_rect)
+            poster_rect = self._poster_rect(card_rect)
             body_x = poster_rect.right() + margin + 1
-        body_right = option_rect.right() - margin
-        return QRect(body_x, option_rect.y() + margin, max(0, body_right - body_x), option_rect.height() - 2 * margin)
+        body_right = card_rect.right() - margin
+        return QRect(body_x, card_rect.y() + margin, max(0, body_right - body_x), card_rect.height() - 2 * margin)
 
     # -- Painting ------------------------------------------------------------
 
@@ -98,7 +95,7 @@ class RosterDelegate(QStyledItemDelegate):
         toggle = _scale.px(_TOGGLE_U)
         poster = 0 if self._compact else _scale.px(_POSTER_W_U) + margin + 1
         body_x = margin + toggle + margin + poster
-        return max(_scale.px(80), view_w - body_x - margin)
+        return max(_scale.px(80), view_w - body_x - margin - 2 * _scale.px(_CARD_HMARGIN_U))
 
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
         del option
@@ -106,22 +103,18 @@ class RosterDelegate(QStyledItemDelegate):
         if kind == "header":
             return QSize(0, _scale.px(_ROW_HEADER_U))
         gap2 = 2 * _scale.px(_CARD_GAP_U)
-        base = _scale.px(_ROW_NORMAL_U) + gap2
         row_data = index.data(ROW_DATA_ROLE)
-        if row_data is None or not row_data.chips:
-            return QSize(0, base)
         metrics = QFontMetrics(self._view.font()) if self._view is not None else None
         line_height = metrics.lineSpacing() if metrics is not None else _scale.px(16)
-        chip_h = chip_wrapped_height(row_data.chips, chip_font_metrics(), self._body_width())
-        content = (
-            gap2
-            + 2 * _scale.px(_MARGIN_U)
-            + 2 * line_height
-            + _scale.px(_CONF_BLOCK_U)
-            + _scale.px(_CHIP_TOP_GAP_U)
-            + chip_h
-        )
-        return QSize(0, max(base, content))
+        chip_h = 0
+        if row_data is not None and row_data.chips:
+            chip_h = _scale.px(_CHIP_TOP_GAP_U) + chip_wrapped_height(
+                row_data.chips, chip_font_metrics(), self._body_width()
+            )
+        content = gap2 + 2 * _scale.px(_MARGIN_U) + 2 * line_height + _scale.px(_CONF_BLOCK_U) + chip_h
+        if self._compact:
+            return QSize(0, max(_scale.px(_ROW_COMPACT_U) + gap2, content))
+        return QSize(0, max(_scale.px(_ROW_NORMAL_U) + gap2, content))
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         kind = index.data(KIND_ROLE)
@@ -134,45 +127,40 @@ class RosterDelegate(QStyledItemDelegate):
         poster = index.data(POSTER_ROLE)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        self._paint_background(painter, option, row_data)
+        card = self._card_rect(option.rect)
+        self._paint_background(painter, option, card, row_data)
         if row_data.checkable:
             state = Qt.CheckState.Checked if row_data.checked else Qt.CheckState.Unchecked
             toggle_rect = self.toggle_rect(option.rect, row_data)
             paint_check_indicator(painter, toggle_rect.adjusted(1, 1, -1, -1), state)
         if not self._compact:
-            self._paint_poster(painter, option, poster, row_data)
-        self._paint_body(painter, option, row_data)
+            self._paint_poster(painter, poster, row_data, card)
+        self._paint_body(painter, row_data, card)
         painter.restore()
 
-    def _paint_background(self, painter: QPainter, option: QStyleOptionViewItem, row_data: RosterRowData) -> None:
-        rect = self._card_rect(option.rect)
+    def _paint_background(
+        self, painter: QPainter, option: QStyleOptionViewItem, card_rect: QRect, row_data: RosterRowData
+    ) -> None:
+        del row_data  # band tint removed (R2 L6); band stays in the model for other consumers
         radius = theme.radius("md")
-        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setPen(QPen(theme.qcolor("border_light"), 1))
         painter.setBrush(theme.qcolor("card"))
-        painter.drawRoundedRect(rect, radius, radius)
-
-        wash = _BAND_WASH.get(row_data.band)
-        if wash is not None:
-            token, alpha = wash
-            color = theme.qcolor(token)
-            color.setAlphaF(alpha)
-            painter.setBrush(color)
-            painter.drawRoundedRect(rect, radius, radius)
+        painter.drawRoundedRect(card_rect, radius, radius)
 
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
         if selected:
             painter.setBrush(theme.qcolor("selection_bg"))
-            painter.drawRoundedRect(rect, radius, radius)
+            painter.drawRoundedRect(card_rect, radius, radius)
             pen = QPen(theme.qcolor("accent"), 1)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            adjusted = rect.adjusted(0, 0, -1, -1)
+            adjusted = card_rect.adjusted(0, 0, -1, -1)
             painter.drawRoundedRect(adjusted, radius, radius)
         elif hovered:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(theme.qcolor("card_hover"))
-            painter.drawRoundedRect(rect, radius, radius)
+            painter.drawRoundedRect(card_rect, radius, radius)
 
     def _paint_header(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         painter.save()
@@ -188,8 +176,8 @@ class RosterDelegate(QStyledItemDelegate):
         painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text.upper())
         painter.restore()
 
-    def _paint_poster(self, painter: QPainter, option: QStyleOptionViewItem, poster, row_data: RosterRowData) -> None:
-        rect = self._poster_rect(option.rect)
+    def _paint_poster(self, painter: QPainter, poster, row_data: RosterRowData, card_rect: QRect) -> None:
+        rect = self._poster_rect(card_rect)
         device_pixel_ratio = self._view.devicePixelRatioF() if self._view is not None else 1.0
         if poster is not None and not poster.isNull():
             scaled = scale_pixmap_for_device(poster, rect.size(), device_pixel_ratio=device_pixel_ratio)
@@ -203,8 +191,8 @@ class RosterDelegate(QStyledItemDelegate):
             )
         painter.drawPixmap(rect, scaled)
 
-    def _paint_body(self, painter: QPainter, option: QStyleOptionViewItem, row_data: RosterRowData) -> None:
-        body_rect = self._body_rect(option.rect)
+    def _paint_body(self, painter: QPainter, row_data: RosterRowData, card_rect: QRect) -> None:
+        body_rect = self._body_rect(card_rect)
         metrics = painter.fontMetrics()
         line_height = metrics.lineSpacing()
 
@@ -264,7 +252,7 @@ class RosterDelegate(QStyledItemDelegate):
         if row_data is None or not row_data.chips:
             return super().helpEvent(event, view, option, index)
 
-        body_rect = self._body_rect(option.rect)
+        body_rect = self._body_rect(self._card_rect(option.rect))
         metrics = painter_metrics = QFontMetrics(self._view.font()) if self._view is not None else None
         line_height = painter_metrics.lineSpacing() if painter_metrics is not None else _scale.px(16)
         confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
