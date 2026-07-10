@@ -173,6 +173,11 @@ class MediaWorkPanel(QFrame):
         outer.setSpacing(_scale.px(8))
 
         self._build_header(outer)
+        # Movie-mode inline AutoMux tracks section (spec §8.2). Managed by
+        # MediaWorkspaceAutoMuxCoordinator.on_state_shown via
+        # set_automux_tracks(); stays empty in TV mode.
+        self._automux_tracks_host = QVBoxLayout()
+        outer.addLayout(self._automux_tracks_host)
         self._build_strip(outer)
         self._build_toolbar(outer)
         self._build_table(
@@ -387,6 +392,17 @@ class MediaWorkPanel(QFrame):
         self._master_check.setEnabled(False)
         self._master_check.hide()
         self._check_summary.hide()
+
+    def set_automux_tracks(self, widget: QWidget | None) -> None:
+        """Show the movie AutoMux tracks section, or clear it with None."""
+        while self._automux_tracks_host.count():
+            item = self._automux_tracks_host.takeAt(0)
+            old = item.widget()
+            if old is not None:
+                old.setParent(None)
+                old.deleteLater()
+        if widget is not None:
+            self._automux_tracks_host.addWidget(widget)
 
     def refresh_header(self, state: ScanState | None) -> None:
         if state is None:

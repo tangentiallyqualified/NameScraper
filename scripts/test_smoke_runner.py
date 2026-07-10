@@ -100,6 +100,7 @@ def main() -> int:
         "tests/test_settings_tab_cache.py",
         "tests/test_settings_tab_automux.py",
         "tests/test_automux_tracks_widget.py",
+        "tests/test_workspace_automux.py",
         "tests/test_settings_longpath.py",
         "tests/test_scan_progress.py",
         "tests/test_workspace_poster_warmup.py",

@@ -33,7 +33,6 @@ from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 _COPY_GLYPH = "⧉"
 _OPEN_DIR_GLYPH = "📂"
 _COLLAPSE_GLYPH = "▴"
-_MERGE_TOOLTIP = "Merge support arrives with mkvmerge integration"
 
 _PILL_TONE = {
     "Mapped": "success",
@@ -183,6 +182,11 @@ class EpisodeExpansionCard(QFrame):
             )
         self._build_actions_row(episode_row_actions(row))
 
+    def add_tracks_widget(self, widget: QWidget) -> None:
+        """Insert the AutoMux tracks section after the file-path rows
+        (spec §8.1 — tracks live between the paths and the actions row)."""
+        self._files_section.addWidget(widget)
+
     # -- Content builders --------------------------------------------------
 
     def _apply_header(self, row: EpisodeGuideRow) -> None:
@@ -296,9 +300,4 @@ class EpisodeExpansionCard(QFrame):
             self._actions_row.addWidget(button)
             self._action_buttons.append(button)
 
-        merge_button = QPushButton("Merge…")
-        merge_button.setEnabled(False)
-        merge_button.setToolTip(_MERGE_TOOLTIP)
-        merge_button.setProperty("cssClass", "secondary")
-        self._actions_row.addWidget(merge_button)
         self._actions_row.addStretch()

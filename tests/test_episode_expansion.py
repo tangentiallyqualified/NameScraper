@@ -30,9 +30,10 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         self.assertEqual(action_ids, ["approve", "reassign", "assign_to_more", "unassign"])
         from PySide6.QtWidgets import QPushButton
 
+        # The old disabled "Merge…" stub is gone — AutoMux tracks sections
+        # (added via add_tracks_widget) supersede it.
         merge_buttons = [b for b in card.findChildren(QPushButton) if b.text() == "Merge…"]
-        self.assertEqual(len(merge_buttons), 1)
-        self.assertFalse(merge_buttons[0].isEnabled())
+        self.assertEqual(merge_buttons, [])
 
     def test_action_button_emits_id(self):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard

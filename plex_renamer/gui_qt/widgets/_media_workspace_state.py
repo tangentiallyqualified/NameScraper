@@ -11,6 +11,17 @@ from ._episode_table_model import ROW_DATA_ROLE
 from ._media_helpers import state_key as _state_key
 
 
+def _preview_index_for_row(state, guide_row) -> int | None:
+    """Index of the guide row's primary file in state.preview_items."""
+    primary = guide_row.primary_file
+    if primary is None:
+        return None
+    for index, item in enumerate(state.preview_items):
+        if item is primary:
+            return index
+    return None
+
+
 class MediaWorkspaceStateCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
@@ -76,6 +87,7 @@ class MediaWorkspaceStateCoordinator:
         finally:
             workspace._preview_syncing = False
         self.update_preview_master_state(state)
+        workspace._automux.on_state_shown(state)
 
     def on_table_section_toggled(self, section_key: str) -> None:
         workspace = self._workspace
@@ -173,6 +185,11 @@ class MediaWorkspaceStateCoordinator:
         if guide_row is None:
             return None
         card.show_episode(state, guide_row)
+        preview_index = _preview_index_for_row(state, guide_row)
+        if preview_index is not None:
+            tracks = workspace._automux.tracks_widget_for(state, preview_index)
+            if tracks is not None:
+                card.add_tracks_widget(tracks)
         card.action_requested.connect(
             lambda action_id, s=state, r=guide_row: workspace._action_coordinator.handle_episode_row_action(
                 s, r, action_id

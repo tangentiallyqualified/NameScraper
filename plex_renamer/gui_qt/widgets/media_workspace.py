@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from ...engine import PreviewItem, ScanState
 from ._media_workspace_actions import MediaWorkspaceActionCoordinator
+from ._media_workspace_automux import MediaWorkspaceAutoMuxCoordinator
 from ._media_workspace_lifecycle import MediaWorkspaceLifecycleCoordinator
 from ._media_workspace_refresh import MediaWorkspaceRefreshCoordinator
 from ._media_workspace_state import MediaWorkspaceStateCoordinator
@@ -71,6 +72,7 @@ class MediaWorkspace(QWidget):
         self._roster_selection_is_auto = False
         self._pending_roster_selection_auto: bool | None = None
         self._action_coordinator = MediaWorkspaceActionCoordinator(self)
+        self._automux = MediaWorkspaceAutoMuxCoordinator(self)
         self._lifecycle_coordinator = MediaWorkspaceLifecycleCoordinator(
             self,
             empty_index=_EMPTY,
