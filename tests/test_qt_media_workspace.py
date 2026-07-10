@@ -3939,9 +3939,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             delegate = workspace._roster_panel._delegate
             self.assertEqual(delegate._media_type, "movie")
             option_rect = QRect(0, 0, 300, 110)
-            poster_rect = delegate._poster_rect(option_rect)
+            card_rect = delegate._card_rect(option_rect)
+            poster_rect = delegate._poster_rect(card_rect)
             self.assertLessEqual(
-                abs(poster_rect.center().y() - option_rect.center().y()), 2
+                abs(poster_rect.center().y() - card_rect.center().y()), 2
             )
 
             workspace.close()
