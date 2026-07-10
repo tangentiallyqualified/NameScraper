@@ -222,3 +222,14 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         outer = card.layout()
         indexes = {outer.itemAt(i).layout(): i for i in range(outer.count())}
         self.assertLess(indexes[card._actions_row], indexes[card._files_section])
+
+    def test_path_rows_bold_their_labels(self):
+        from PySide6.QtWidgets import QLabel
+
+        card = self._card()
+        self.addCleanup(card.deleteLater)
+        card._build_labeled_path("Episode Source", r"C:\media\a<b>.mkv", open_dir=False)
+        row = card._files_section.itemAt(card._files_section.count() - 1).widget()
+        label = row.layout().itemAt(0).widget()
+        self.assertIn("<b>Episode Source:</b>", label.text())
+        self.assertIn("&lt;b&gt;", label.text())   # path is HTML-escaped

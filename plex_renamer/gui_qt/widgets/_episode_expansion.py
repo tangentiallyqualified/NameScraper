@@ -10,6 +10,7 @@ the ids/order must not change.
 """
 from __future__ import annotations
 
+import html
 import os
 
 from PySide6.QtCore import Qt, Signal
@@ -223,12 +224,16 @@ class EpisodeExpansionCard(QFrame):
         button.clicked.connect(lambda _checked=False, d=directory: self.open_dir_requested.emit(d))
         return button
 
-    def _build_labeled_path(self, label_text: str, path: str, *, open_dir: bool) -> None:
+    def _build_labeled_path(self, label_text: str, path: str, *, open_dir: bool, note: str = "") -> None:
         row_widget = QWidget(self)
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(_scale.px(6))
-        label = QLabel(f"{label_text}: {path}")
+        body = html.escape(path)
+        if note:
+            body = f"{body} <i>{html.escape(note)}</i>"
+        label = QLabel(f"<b>{html.escape(label_text)}:</b> {body}")
+        label.setTextFormat(Qt.TextFormat.RichText)
         label.setWordWrap(True)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         row_layout.addWidget(label, stretch=1)
