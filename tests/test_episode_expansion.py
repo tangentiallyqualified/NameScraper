@@ -178,6 +178,14 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         self.assertEqual([spec.text for spec in strips[0]._specs], ["Part 1", "Part 2"])
         self.assertEqual({spec.tone for spec in strips[0]._specs}, {"muted"})
 
+    def test_collapse_button_matches_row_chevron_family(self):
+        from plex_renamer.gui_qt.widgets import _episode_expansion as exp
+
+        self.assertEqual(exp._COLLAPSE_GLYPH, "▾")
+        card = exp.EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        self.assertEqual(card._collapse_button.property("cssClass"), "expansion-collapse")
+
     def test_conflicted_claims_do_not_render_part_chips(self):
         from plex_renamer.engine.episode_assignments import Assignment
         from plex_renamer.gui_qt.widgets._episode_expansion import (

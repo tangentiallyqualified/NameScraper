@@ -866,12 +866,22 @@ QFrame[cssClass="card"] {
     border-radius: ${radius_md}px;
 }
 
-/* Expanded-episode editor card (R2 M3): styled like a selected table row,
-   not a floating card — square corners, surface fill, accent frame. */
+/* Expanded-episode editor card (R2 M3, neutralized Task 5): square corners
+   like an inline row, but neutral surface/border — no selection-blue frame. */
 QFrame[cssClass="expansion-card"] {
-    background-color: ${selection_bg};
-    border: 1px solid ${accent};
+    background-color: ${card};
+    border: 1px solid ${border_light};
     border-radius: 0px;
+}
+
+QToolButton[cssClass="expansion-collapse"] {
+    background: transparent;
+    border: none;
+    color: ${text_dim};
+    padding: 0;
+}
+QToolButton[cssClass="expansion-collapse"]:hover {
+    color: ${text};
 }
 
 QLabel[cssClass="job-poster-card"] {

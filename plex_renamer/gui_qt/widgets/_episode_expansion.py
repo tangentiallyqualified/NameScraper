@@ -32,7 +32,7 @@ from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 
 _COPY_GLYPH = "⧉"
 _OPEN_DIR_GLYPH = "📂"
-_COLLAPSE_GLYPH = "▴"
+_COLLAPSE_GLYPH = "▾"
 
 _PILL_TONE = {
     "Mapped": "success",
@@ -123,8 +123,10 @@ class EpisodeExpansionCard(QFrame):
         top_row = QHBoxLayout()
         self._collapse_button = QToolButton()
         self._collapse_button.setText(_COLLAPSE_GLYPH)
+        self._collapse_button.setProperty("cssClass", "expansion-collapse")
         self._collapse_button.setToolTip("Collapse")
         self._collapse_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._collapse_button.setFixedSize(_scale.px(16), _scale.px(16))
         self._collapse_button.clicked.connect(self.collapse_requested.emit)
         top_row.addWidget(self._collapse_button)
         self._title_label = QLabel("")

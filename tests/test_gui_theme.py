@@ -164,3 +164,14 @@ def test_hex_guard_regex_catches_short_and_alpha_forms():
     assert _HEX_RE.search("#a1b2c3ff")       # 8-digit with alpha
     assert not _HEX_RE.search("# a comment with hex words like abc")
     assert not _HEX_RE.search("#define")     # 'def' + word char = no boundary
+
+
+def test_expansion_card_qss_is_not_selection_blue():
+    # Task 5: expanded episode card must read as neutral chrome, not the
+    # blue selection/accent frame it used to inherit.
+    rendered = theme.load_stylesheet()
+    match = re.search(r'QFrame\[cssClass="expansion-card"\]\s*\{[^}]*\}', rendered)
+    assert match, "expansion-card rule not found"
+    block = match.group(0)
+    assert theme.color("selection_bg") not in block
+    assert theme.color("accent") not in block

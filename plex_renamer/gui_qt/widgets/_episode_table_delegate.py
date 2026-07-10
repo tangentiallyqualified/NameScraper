@@ -354,7 +354,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         rect = self.chevron_rect(option.rect)
         painter.save()
         painter.setPen(theme.qcolor("text_dim"))
-        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), "›")
+        painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), "▸")
         painter.restore()
 
     def _paint_skeleton_row(self, painter: QPainter, rect: QRect) -> None:

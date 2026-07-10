@@ -143,6 +143,18 @@ class MovieRowFlatTests(QtSmokeBase):
         self.assertNotIn("movie-file", d._CHEVRON_KINDS)
 
 
+class ChevronGlyphTests(QtSmokeBase):
+    def test_row_chevron_matches_expansion_collapse_glyph_family(self):
+        # Task 5: the row chevron and the expansion card's collapse button
+        # must share the same triangular glyph family (solid, not angle-bracket).
+        import inspect
+        from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
+
+        source = inspect.getsource(d.EpisodeTableDelegate._paint_chevron)
+        self.assertIn('"▸"', source)
+        self.assertNotIn('"›"', source)
+
+
 class PillConfidenceTests(QtSmokeBase):
     def _delegate(self):
         from plex_renamer.gui_qt.widgets._episode_table_delegate import (
