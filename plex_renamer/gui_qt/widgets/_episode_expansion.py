@@ -35,6 +35,13 @@ _OPEN_DIR_GLYPH = "📂"
 _COLLAPSE_GLYPH = "▴"
 _MERGE_TOOLTIP = "Merge support arrives with mkvmerge integration"
 
+_PILL_TONE = {
+    "Mapped": "success",
+    "Review": "warning",
+    "Conflict": "error",
+    "Missing File": "muted",
+}
+
 
 def episode_row_actions(row) -> list[tuple[str, str]]:
     """Action ids + labels available for one episode-guide row.
@@ -97,11 +104,13 @@ class EpisodeExpansionCard(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setProperty("cssClass", "card")
+        self.setProperty("cssClass", "expansion-card")
         self._action_buttons: list[QPushButton] = []
         self._copy_buttons: list[QToolButton] = []
         self._open_dir_buttons: list[QToolButton] = []
         self._target_label: QLabel | None = None
+        self._title_label: QLabel | None = None
+        self._status_pill: QLabel | None = None
         self._build_ui()
 
     # -- Layout scaffold -----------------------------------------------
@@ -119,6 +128,12 @@ class EpisodeExpansionCard(QFrame):
         self._collapse_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._collapse_button.clicked.connect(self.collapse_requested.emit)
         top_row.addWidget(self._collapse_button)
+        self._title_label = QLabel("")
+        self._title_label.setProperty("cssClass", "row-title")
+        top_row.addWidget(self._title_label)
+        self._status_pill = QLabel("")
+        self._status_pill.setProperty("cssClass", "status-pill")
+        top_row.addWidget(self._status_pill)
         top_row.addStretch()
         outer.addLayout(top_row)
 
@@ -151,6 +166,7 @@ class EpisodeExpansionCard(QFrame):
 
     def show_episode(self, state: ScanState, row: EpisodeGuideRow) -> None:
         self._reset_content()
+        self._apply_header(row)
         part_specs = self._multi_part_chip_specs(state, row)
         if part_specs:
             self._files_section.addWidget(_ChipStrip(part_specs, self))
@@ -168,6 +184,22 @@ class EpisodeExpansionCard(QFrame):
         self._build_actions_row(episode_row_actions(row))
 
     # -- Content builders --------------------------------------------------
+
+    def _apply_header(self, row: EpisodeGuideRow) -> None:
+        title = f"S{row.season:02d}E{row.episode:02d}"
+        if row.title:
+            title = f"{title} · {row.title}"
+        self._title_label.setText(title)
+        pill_text = row.status.upper()
+        label = row.confidence_label.strip()
+        if label.endswith("%") and row.status in ("Mapped", "Review"):
+            pill_text = f"{pill_text} {label}"
+        self._status_pill.setText(pill_text)
+        self._status_pill.setProperty("tone", _PILL_TONE.get(row.status, "muted"))
+        style = self._status_pill.style()
+        if style is not None:
+            style.unpolish(self._status_pill)
+            style.polish(self._status_pill)
 
     def _reset_content(self) -> None:
         self._action_buttons = []

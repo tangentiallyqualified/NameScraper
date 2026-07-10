@@ -173,3 +173,24 @@ class MissingFileRowExpansionTests(QtSmokeBase):
         workspace._on_table_expand_requested(model.index(row, 0))
         self.assertIsNone(model.expanded_row())
         workspace.close()
+
+
+class ExpansionCardHeaderTests(QtSmokeBase):
+    """The expansion card must keep the episode title and status visible
+    (R2 M3): the delegate stops painting the row when it expands, so the
+    card's header row is the only place the title/status can show, and it
+    must match the flat, square styling of a selected table row rather than
+    the rounded "card" look."""
+
+    def test_expansion_card_shows_episode_title_and_status(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        guide_row = guide.rows[0]  # season=1, episode=1, title="One", status="Mapped", "96%"
+
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide_row)
+
+        assert f"S{guide_row.season:02d}E{guide_row.episode:02d}" in card._title_label.text()
+        assert guide_row.title in card._title_label.text()
+        assert card._status_pill.text().startswith(guide_row.status.upper())

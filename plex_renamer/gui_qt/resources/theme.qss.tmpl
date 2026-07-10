@@ -865,6 +865,14 @@ QFrame[cssClass="card"] {
     border-radius: ${radius_md}px;
 }
 
+/* Expanded-episode editor card (R2 M3): styled like a selected table row,
+   not a floating card — square corners, surface fill, accent frame. */
+QFrame[cssClass="expansion-card"] {
+    background-color: ${selection_bg};
+    border: 1px solid ${accent};
+    border-radius: 0px;
+}
+
 QLabel[cssClass="job-poster-card"] {
     background-color: ${card};
     border: 1px solid ${border_light};
