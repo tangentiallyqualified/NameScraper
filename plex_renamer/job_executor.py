@@ -637,6 +637,7 @@ class QueueExecutor:
         on_completed: Callable[[RenameJob, RenameResult], None] | None = None,
         on_failed: Callable[[RenameJob, str], None] | None = None,
         on_finished: Callable[[], None] | None = None,
+        on_progress: Callable[[RenameJob, int, int, int], None] | None = None,
     ) -> int:
         """Register a callback listener.  Returns listener index."""
         self._listeners.append({
@@ -644,6 +645,7 @@ class QueueExecutor:
             "completed": on_completed,
             "failed": on_failed,
             "finished": on_finished,
+            "progress": on_progress,
         })
         return len(self._listeners) - 1
 
