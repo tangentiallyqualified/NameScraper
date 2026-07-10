@@ -422,9 +422,15 @@ class MediaWorkPanel(QFrame):
         self._summary_label.setText(self._model.summary_text())
 
     def _on_guide_loaded(self) -> None:
-        """Async guide arrived: summary + toolbar depend on model.guide()."""
+        """Async guide arrived: summary + toolbar + strip depend on
+        model.guide() -- the strip's Unmapped chip count in particular is
+        keyed off guide.unmapped_primary_files, which is unavailable on the
+        first (skeleton) paint. The _strip_key cache means this is a no-op
+        when the chips haven't actually changed."""
         self.update_footer()
         self.update_toolbar(self._state)
+        if self._state is not None:
+            self._refresh_strip(self._state)
 
     def update_toolbar(self, state: ScanState | None) -> None:
         bulk_active = self.bulk_assign_active()
@@ -524,8 +530,8 @@ class MediaWorkPanel(QFrame):
             self._strip_scroll.hide()
             return
         specs = season_strip_specs(state.completeness)
-        table = state.assignments
-        unmapped_count = len(table.unassigned_files()) if table is not None else 0
+        guide = self._model.guide()
+        unmapped_count = len(guide.unmapped_primary_files) if guide is not None else 0
         key = (unmapped_count,) + tuple(
             (season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs
         )

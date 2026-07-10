@@ -132,3 +132,23 @@ def test_complete_run_collapse_excludes_seasons_with_pending_review():
     chips = _collapse_complete_runs([complete, pending])
     assert chips[0].tone == "success"
     assert chips[1].tone == "warning"
+
+
+def test_specials_chip_review_awaiting_approval_tooltip():
+    specials = SeasonCompleteness(season=0, expected=8, matched=6, missing=[], review=2)
+    report = _report([_season(1, 5, 5)], specials=specials)
+    chips = season_chip_specs(report)
+    sp = chips[-1]
+    assert sp.text == "SP 8/8"
+    assert sp.tone == "warning"
+    assert "awaiting approval" in sp.tooltip
+
+
+def test_strip_specials_chip_review_awaiting_approval_tooltip():
+    specials = SeasonCompleteness(season=0, expected=8, matched=6, missing=[], review=2)
+    report = _report([_season(1, 5, 5)], specials=specials)
+    specs = season_strip_specs(report)
+    sp = specs[-1][1]
+    assert sp.text == "SP 8/8"
+    assert sp.tone == "warning"
+    assert "awaiting approval" in sp.tooltip

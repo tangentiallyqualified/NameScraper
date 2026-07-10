@@ -42,6 +42,21 @@ def _season_clean_complete(season: SeasonCompleteness) -> bool:
     return season.is_complete and season.review == 0
 
 
+def _specials_tooltip(specials: SeasonCompleteness) -> str:
+    """Mirror ``_season_chip``'s tooltip assembly for specials: review-aware
+    "awaiting approval" line first, then the missing line, joined."""
+    if _season_clean_complete(specials):
+        return f"Specials: {specials.matched}/{specials.expected}"
+    tooltip_parts = []
+    if specials.review:
+        tooltip_parts.append(
+            f"Specials: {specials.review} mapping(s) awaiting approval"
+        )
+    if specials.missing:
+        tooltip_parts.append(_missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1))
+    return "\n".join(tooltip_parts)
+
+
 def _season_chip(season: SeasonCompleteness) -> ChipSpec:
     if _season_clean_complete(season):
         return ChipSpec(
@@ -106,11 +121,7 @@ def season_chip_specs(
         and not (drop_empty and (specials.matched + specials.review) == 0)
     ):
         tone = "success" if _season_clean_complete(specials) else "warning"
-        tooltip = (
-            f"Specials: {specials.matched}/{specials.expected}"
-            if specials.is_complete
-            else _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
-        )
+        tooltip = _specials_tooltip(specials)
         chips.append(ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip))
     return chips
 
@@ -151,11 +162,7 @@ def season_strip_specs(report: CompletenessReport | None) -> list[tuple[int, Chi
     specials = report.specials
     if specials is not None and specials.expected > 0:
         tone = "success" if _season_clean_complete(specials) else "warning"
-        tooltip = (
-            f"Specials: {specials.matched}/{specials.expected}"
-            if specials.is_complete
-            else _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
-        )
+        tooltip = _specials_tooltip(specials)
         specs.append((0, ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip)))
     return specs
 

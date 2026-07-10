@@ -30,7 +30,10 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         self.assertEqual(panel._title_label.text(), "Show (2020)")
         chip_texts = [b.text() for b in panel._strip_buttons]
-        self.assertEqual(chip_texts, ["Series", "S1 2/3"])
+        # Fixture guide carries one unmapped primary file (extra.mkv), so the
+        # strip's "Unmapped" chip (keyed off guide.unmapped_primary_files,
+        # not the assignment table) is expected between Series and S1.
+        self.assertEqual(chip_texts, ["Series", "Unmapped (1)", "S1 2/3"])
 
     def test_toolbar_rules_review_present(self):
         state, guide = _guide_state()
@@ -56,24 +59,48 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(*_guide_state())
         self.assertEqual(set(panel.segmented_filter._buttons), {"All", "Problems"})
 
-    def _panel_with_unassigned_files(self, count: int):
+    def _panel_with_unmapped_guide_files(self, count: int):
+        """Build a panel whose *guide* (not the assignment table) carries
+        ``count`` unmapped primary files -- the strip chip and the
+        unmapped-section scroll target both derive from
+        ``guide.unmapped_primary_files`` so they never disagree."""
         from pathlib import Path
 
-        from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable
+        from plex_renamer.app.models.state_models import UnmappedFileRow
 
         state, guide = _guide_state()
-        table = EpisodeAssignmentTable()
-        for i in range(count):
-            table.add_file(Path(f"C:/lib/Show/unassigned{i}.mkv"))
-        state.assignments = table
+        guide.unmapped_primary_files = [
+            UnmappedFileRow(original=Path(f"C:/lib/Show/unassigned{i}.mkv"), reason="no episode parsed")
+            for i in range(count)
+        ]
         panel = self._panel(state, guide)
         return panel, state
 
     def test_strip_includes_unmapped_chip_when_files_unassigned(self):
-        panel, state = self._panel_with_unassigned_files(count=2)
+        panel, state = self._panel_with_unmapped_guide_files(count=2)
         panel.refresh_header(state)
         labels = [b.text() for b in panel._strip_buttons]
         self.assertIn("Unmapped (2)", labels)
+
+    def test_strip_omits_unmapped_chip_when_only_duplicates(self):
+        """Regression for the dead-click bug: a losing duplicate copy used to
+        count as "unassigned" (assignment-table based count) even though the
+        guide routes it to duplicate_files, not unmapped_primary_files -- the
+        chip would say "Unmapped (1)" while unmapped_section_row() was -1 and
+        the click did nothing. Deriving the count from the guide keeps the
+        chip and the section in agreement: no unmapped files means no chip."""
+        from pathlib import Path
+
+        from plex_renamer.app.models.state_models import UnmappedFileRow
+
+        state, guide = _guide_state()
+        guide.unmapped_primary_files = []
+        guide.duplicate_files = [
+            UnmappedFileRow(original=Path("C:/lib/Show/dup.mkv"), reason="duplicate of S01E01"),
+        ]
+        panel = self._panel(state, guide)
+        labels = [b.text() for b in panel._strip_buttons]
+        self.assertFalse(any(label.startswith("Unmapped") for label in labels))
 
     def test_footer_breakdown(self):
         state, guide = _guide_state()
@@ -315,7 +342,7 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         labels = [b.text() for b in panel._strip_buttons]
         self.assertEqual(labels[0], "Series")
-        self.assertEqual(labels[1:], ["S1 2/3"])
+        self.assertEqual(labels[1:], ["Unmapped (1)", "S1 2/3"])
 
     def test_series_chip_hidden_in_movie_mode(self):
         from pathlib import Path
