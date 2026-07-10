@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..constants import MediaType
+from ..constants import JobKind, MediaType
 from .models import PreviewItem, ScanState
 
 
@@ -40,6 +40,7 @@ def _build_rename_ops(
     source_root: Path,
     output_root: Path,
     show_folder: str | None = None,
+    mux_plans: dict[int, dict] | None = None,
 ) -> list:
     """Convert preview items into serializable RenameOp rows."""
     from ..job_store import RenameOp
@@ -65,23 +66,38 @@ def _build_rename_ops(
             # rebuild the canonical output-relative destination instead.
             target_rel = _fallback_target_relative(item, target_dir, show_folder)
 
+        plan = (mux_plans or {}).get(index)
+        merged_paths: set[str] = set()
+        new_name = item.new_name
+        if plan:
+            new_name = plan.get("output_name") or item.new_name
+            merged_paths = {
+                m["source_relative"] for m in plan.get("subtitle_merges", [])
+                if m.get("action") == "merge"
+            }
+
         is_selected = index in checked_indices
         ops.append(RenameOp(
             original_relative=original_rel,
-            new_name=item.new_name,
+            new_name=new_name,
             target_dir_relative=target_rel,
             status=item.status,
             season=item.season,
             episodes=list(item.episodes),
             selected=is_selected,
             file_type="video",
+            mux=plan,
         ))
 
+        merged_paths_normalized = {p.replace("\\", "/") for p in merged_paths}
         for companion in item.companions:
             try:
                 companion_rel = str(companion.original.relative_to(source_root))
             except ValueError:
                 companion_rel = str(companion.original)
+
+            if companion_rel.replace("\\", "/") in merged_paths_normalized:
+                continue  # consumed by the mux — no rename op
 
             ops.append(RenameOp(
                 original_relative=companion_rel,
@@ -103,6 +119,7 @@ def build_rename_job_from_state(
     output_root: Path,
     show_folder_rename: str | None = None,
     checked_indices: set[int] | None = None,
+    mux_plans: dict[int, dict] | None = None,
 ) -> "RenameJob":
     """Create a RenameJob from a TV batch scan state."""
     from ..job_store import RenameJob
@@ -120,7 +137,9 @@ def build_rename_job_from_state(
         library_root,
         output_root,
         show_folder=fallback_folder or None,
+        mux_plans=mux_plans,
     )
+    job_kind = JobKind.REMUX if any(op.mux for op in ops) else JobKind.RENAME
 
     if state.relative_folder:
         source_folder = state.relative_folder
@@ -140,6 +159,7 @@ def build_rename_job_from_state(
         source_folder=source_folder,
         rename_ops=ops,
         show_folder_rename=show_folder_rename,
+        job_kind=job_kind,
     )
 
 
@@ -154,6 +174,7 @@ def build_rename_job_from_items(
     source_folder: Path,
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
+    mux_plans: dict[int, dict] | None = None,
 ) -> "RenameJob":
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob
@@ -164,7 +185,9 @@ def build_rename_job_from_items(
         library_root,
         output_root,
         show_folder=show_folder_rename,
+        mux_plans=mux_plans,
     )
+    job_kind = JobKind.REMUX if any(op.mux for op in ops) else JobKind.RENAME
 
     if media_type == MediaType.MOVIE:
         try:
@@ -189,4 +212,5 @@ def build_rename_job_from_items(
         source_folder=source_rel,
         rename_ops=ops,
         show_folder_rename=show_folder_rename,
+        job_kind=job_kind,
     )
