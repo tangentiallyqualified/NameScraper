@@ -464,7 +464,7 @@ class QtMainWindowTests(QtSmokeBase):
             self.assertLess(labels["Display"].height(), _scale.px(80))
             tab.close()
 
-    def test_settings_section_cards_use_icon_title_header_rows(self):
+    def test_settings_section_cards_use_title_header_rows(self):
         from PySide6.QtWidgets import QFrame
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
@@ -473,8 +473,7 @@ class QtMainWindowTests(QtSmokeBase):
             tab = SettingsTab(settings_service=settings)
             page = tab._destinations_page
             self.assertEqual(page._heading.text(), "Destinations")
-            self.assertIsNotNone(page._header_icon.pixmap())
-            self.assertFalse(page._header_icon.pixmap().isNull())
+            self.assertFalse(hasattr(page, "_header_icon"))
             # Spec §12: header row replaces the heading+separator hairline.
             separators = [
                 child for child in page.findChildren(QFrame)
@@ -1013,16 +1012,14 @@ class QtMainWindowTests(QtSmokeBase):
                 params[name].kind, inspect.Parameter.KEYWORD_ONLY, name
             )
 
-    def test_every_settings_page_carries_a_header_icon(self):
+    def test_settings_pages_have_no_header_icon(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         tab = SettingsTab()
         nav = tab._settings_nav
         for row in range(nav.count()):
             page = tab._settings_stack.widget(row)
-            pixmap = page._header_icon.pixmap()
-            self.assertIsNotNone(pixmap, nav.item(row).text())
-            self.assertFalse(pixmap.isNull(), nav.item(row).text())
+            self.assertFalse(hasattr(page, "_header_icon"), nav.item(row).text())
         tab.close()
 
     def test_declined_confirms_clear_stale_captions(self):

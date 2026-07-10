@@ -143,6 +143,19 @@ def test_checkbox_checked_indicator_uses_svg_check_glyph():
     assert _HEX_RE.findall(text) == []  # named colors only — hex guards stay meaningful
 
 
+def test_combo_uses_dropdown_list_mode_and_svg_arrow():
+    text = (_GUI_ROOT / "resources" / "theme.qss.tmpl").read_text(encoding="utf-8")
+    assert "combobox-popup: 0" in text
+    assert "chevron_down_svg" in text
+
+
+def test_settings_sections_have_no_header_icons():
+    import inspect
+    from plex_renamer.gui_qt.widgets import _settings_tab_sections as mod
+    source = inspect.getsource(mod)
+    assert "StandardPixmap" not in source
+
+
 def test_hex_guard_regex_catches_short_and_alpha_forms():
     # User-approved 2026-07-05 (Plan 1's open item): the guard covers all
     # QSS-legal hex literal widths, not just #rrggbb.

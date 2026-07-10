@@ -70,6 +70,7 @@ def _mapping() -> dict[str, str]:
     # template gets an absolute posix path (quoted in the QSS — the repo path
     # contains spaces).
     mapping["check_svg"] = (_RESOURCES_DIR / "check.svg").as_posix()
+    mapping["chevron_down_svg"] = (_RESOURCES_DIR / "chevron-down.svg").as_posix()
     return mapping
 
 

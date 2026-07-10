@@ -7,7 +7,6 @@ from typing import Any
 from .. import _scale
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QFrame,
@@ -17,7 +16,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSlider,
-    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -34,13 +32,12 @@ CACHE_SIZE_CHOICES: tuple[tuple[str, int], ...] = (
 
 
 class SettingsSectionCard(QFrame):
-    """A settings section card with an icon+title header row and content area."""
+    """A settings section card with a title header row and content area."""
 
     def __init__(
         self,
         title: str,
         *,
-        icon: QStyle.StandardPixmap | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -59,16 +56,6 @@ class SettingsSectionCard(QFrame):
         header_row = QHBoxLayout()
         header_row.setSpacing(_scale.px(8))
 
-        self._header_icon = QLabel()
-        style = QApplication.style()
-        if icon is not None and style is not None:
-            self._header_icon.setPixmap(
-                style.standardIcon(icon).pixmap(_scale.icon("sm"))
-            )
-        else:
-            self._header_icon.hide()
-        header_row.addWidget(self._header_icon)
-
         self._heading = QLabel(title)
         self._heading.setProperty("cssClass", "heading")
         header_row.addWidget(self._heading)
@@ -82,13 +69,8 @@ class SettingsSectionCard(QFrame):
         self._layout.addLayout(layout)
 
     @classmethod
-    def page(
-        cls,
-        title: str,
-        *,
-        icon: QStyle.StandardPixmap | None = None,
-    ) -> "SettingsSectionCard":
-        card = cls(title, icon=icon)
+    def page(cls, title: str) -> "SettingsSectionCard":
+        card = cls(title)
         card.setProperty("sectionRole", "page")
         return card
 
@@ -145,7 +127,7 @@ class SettingsTabSectionsBuilder:
 
     def build_destinations_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Destinations", icon=QStyle.StandardPixmap.SP_DirIcon)
+        section = SettingsSectionCard.page("Destinations")
         tab._destinations_page = section
 
         tv_value = tab._settings.tv_output_folder if tab._settings else ""
@@ -184,7 +166,7 @@ class SettingsTabSectionsBuilder:
 
     def build_display_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Display", icon=QStyle.StandardPixmap.SP_DesktopIcon)
+        section = SettingsSectionCard.page("Display")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Default view mode"))
@@ -213,7 +195,7 @@ class SettingsTabSectionsBuilder:
 
     def build_matching_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Matching", icon=QStyle.StandardPixmap.SP_FileDialogContentsView)
+        section = SettingsSectionCard.page("Matching")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Match language"))
@@ -279,7 +261,7 @@ class SettingsTabSectionsBuilder:
 
     def build_api_keys_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("API Keys", icon=QStyle.StandardPixmap.SP_DriveNetIcon)
+        section = SettingsSectionCard.page("API Keys")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
@@ -321,7 +303,7 @@ class SettingsTabSectionsBuilder:
 
     def build_data_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Data", icon=QStyle.StandardPixmap.SP_TrashIcon)
+        section = SettingsSectionCard.page("Data")
 
         cache_size_row = QHBoxLayout()
         cache_size_row.addWidget(QLabel("Cache size limit"))
@@ -377,7 +359,7 @@ class SettingsTabSectionsBuilder:
 
     def build_tools_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Tools", icon=QStyle.StandardPixmap.SP_ComputerIcon)
+        section = SettingsSectionCard.page("Tools")
         tab._tools_page = section
 
         placeholder = QLabel(

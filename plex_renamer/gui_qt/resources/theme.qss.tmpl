@@ -625,6 +625,8 @@ QComboBox {
     padding: 6px 8px;
     color: ${text};
     min-width: 120px;
+    combobox-popup: 0;   /* dropdown list below the widget; popup-over mode
+                            swallowed the release and closed instantly */
 }
 
 QComboBox:hover {
@@ -641,11 +643,10 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid ${text_dim};
-    margin-right: 8px;
+    image: url("${chevron_down_svg}");
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
 }
 
 QComboBox QAbstractItemView {
