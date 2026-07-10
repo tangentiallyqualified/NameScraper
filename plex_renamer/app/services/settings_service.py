@@ -212,6 +212,113 @@ class SettingsService:
     def show_confidence_bars(self, value: bool) -> None:
         self.set("show_confidence_bars", bool(value))
 
+    # ── AutoMux (mkvmerge) ────────────────────────────────────────────
+
+    @property
+    def mkvmerge_path(self) -> str:
+        return str(self.get("mkvmerge_path"))
+
+    @mkvmerge_path.setter
+    def mkvmerge_path(self, value: str) -> None:
+        self.set("mkvmerge_path", value)
+
+    @property
+    def automux_merge_subs(self) -> bool:
+        return bool(self.get("automux_merge_subs"))
+
+    @automux_merge_subs.setter
+    def automux_merge_subs(self, value: bool) -> None:
+        self.set("automux_merge_subs", bool(value))
+
+    @property
+    def automux_merge_sub_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_merge_sub_languages")]
+
+    @automux_merge_sub_languages.setter
+    def automux_merge_sub_languages(self, value: list[str]) -> None:
+        self.set("automux_merge_sub_languages", list(value))
+
+    @property
+    def automux_default_sub_language(self) -> str:
+        return str(self.get("automux_default_sub_language"))
+
+    @automux_default_sub_language.setter
+    def automux_default_sub_language(self, value: str) -> None:
+        self.set("automux_default_sub_language", value)
+
+    @property
+    def automux_untagged_sub_language(self) -> str:
+        return str(self.get("automux_untagged_sub_language"))
+
+    @automux_untagged_sub_language.setter
+    def automux_untagged_sub_language(self, value: str) -> None:
+        self.set("automux_untagged_sub_language", value)
+
+    @property
+    def automux_strip_subs(self) -> bool:
+        return bool(self.get("automux_strip_subs"))
+
+    @automux_strip_subs.setter
+    def automux_strip_subs(self, value: bool) -> None:
+        self.set("automux_strip_subs", bool(value))
+
+    @property
+    def automux_retain_sub_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_retain_sub_languages")]
+
+    @automux_retain_sub_languages.setter
+    def automux_retain_sub_languages(self, value: list[str]) -> None:
+        self.set("automux_retain_sub_languages", list(value))
+
+    @property
+    def automux_strip_audio(self) -> bool:
+        return bool(self.get("automux_strip_audio"))
+
+    @automux_strip_audio.setter
+    def automux_strip_audio(self, value: bool) -> None:
+        self.set("automux_strip_audio", bool(value))
+
+    @property
+    def automux_retain_audio_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_retain_audio_languages")]
+
+    @automux_retain_audio_languages.setter
+    def automux_retain_audio_languages(self, value: list[str]) -> None:
+        self.set("automux_retain_audio_languages", list(value))
+
+    @property
+    def automux_default_audio_language(self) -> str:
+        return str(self.get("automux_default_audio_language"))
+
+    @automux_default_audio_language.setter
+    def automux_default_audio_language(self, value: str) -> None:
+        self.set("automux_default_audio_language", value)
+
+    @property
+    def automux_strip_track_names(self) -> bool:
+        return bool(self.get("automux_strip_track_names"))
+
+    @automux_strip_track_names.setter
+    def automux_strip_track_names(self, value: bool) -> None:
+        self.set("automux_strip_track_names", bool(value))
+
+    @property
+    def automux_no_fear(self) -> bool:
+        return bool(self.get("automux_no_fear"))
+
+    @automux_no_fear.setter
+    def automux_no_fear(self, value: bool) -> None:
+        self.set("automux_no_fear", bool(value))
+
+    @property
+    def automux_any_enabled(self) -> bool:
+        """True when at least one AutoMux action toggle is on (spec §8.1)."""
+        return (
+            self.automux_merge_subs
+            or self.automux_strip_subs
+            or self.automux_strip_audio
+        )
+
     # ── Window state ───────────────────────────────────────────────────
 
     @property

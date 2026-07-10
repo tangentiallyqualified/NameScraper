@@ -21,6 +21,18 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "recent_tv_folders": (list,),
     "recent_movie_folders": (list,),
     "cache_max_size_bytes": (int,),
+    "mkvmerge_path": (str,),
+    "automux_merge_subs": (bool,),
+    "automux_merge_sub_languages": (list,),
+    "automux_default_sub_language": (str,),
+    "automux_untagged_sub_language": (str,),
+    "automux_strip_subs": (bool,),
+    "automux_retain_sub_languages": (list,),
+    "automux_strip_audio": (bool,),
+    "automux_retain_audio_languages": (list,),
+    "automux_default_audio_language": (str,),
+    "automux_strip_track_names": (bool,),
+    "automux_no_fear": (bool,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -41,6 +53,18 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "recent_tv_folders": [],
     "recent_movie_folders": [],
     "cache_max_size_bytes": 1024 ** 3,   # 1 GiB (GUI-V4 R2, S2)
+    "mkvmerge_path": "",
+    "automux_merge_subs": False,
+    "automux_merge_sub_languages": [],
+    "automux_default_sub_language": "",
+    "automux_untagged_sub_language": "",
+    "automux_strip_subs": False,
+    "automux_retain_sub_languages": [],
+    "automux_strip_audio": False,
+    "automux_retain_audio_languages": [],
+    "automux_default_audio_language": "",
+    "automux_strip_track_names": False,
+    "automux_no_fear": False,
 }
 
 

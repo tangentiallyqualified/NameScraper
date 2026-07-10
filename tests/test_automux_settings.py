@@ -1,0 +1,48 @@
+"""AutoMux settings keys round-trip through SettingsService."""
+from plex_renamer.app.services.settings_service import SettingsService
+
+
+def _svc(tmp_path):
+    return SettingsService(tmp_path / "settings.json")
+
+
+def test_automux_defaults(tmp_path):
+    svc = _svc(tmp_path)
+    assert svc.mkvmerge_path == ""
+    assert svc.automux_merge_subs is False
+    assert svc.automux_merge_sub_languages == []
+    assert svc.automux_default_sub_language == ""
+    assert svc.automux_untagged_sub_language == ""
+    assert svc.automux_strip_subs is False
+    assert svc.automux_retain_sub_languages == []
+    assert svc.automux_strip_audio is False
+    assert svc.automux_retain_audio_languages == []
+    assert svc.automux_default_audio_language == ""
+    assert svc.automux_strip_track_names is False
+    assert svc.automux_no_fear is False
+    assert svc.automux_any_enabled is False
+
+
+def test_automux_settings_persist(tmp_path):
+    svc = _svc(tmp_path)
+    svc.automux_merge_subs = True
+    svc.automux_merge_sub_languages = ["eng", "jpn"]
+    svc.mkvmerge_path = "C:/tools/mkvmerge.exe"
+    reloaded = _svc(tmp_path)
+    assert reloaded.automux_merge_subs is True
+    assert reloaded.automux_merge_sub_languages == ["eng", "jpn"]
+    assert reloaded.mkvmerge_path == "C:/tools/mkvmerge.exe"
+    assert reloaded.automux_any_enabled is True
+
+
+def test_bad_type_resets_to_default(tmp_path):
+    svc = _svc(tmp_path)
+    svc.set("automux_merge_sub_languages", ["eng"])
+    # Corrupt the stored value type, reload — schema validation resets it.
+    import json
+    path = tmp_path / "settings.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["automux_merge_sub_languages"] = "eng"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    reloaded = _svc(tmp_path)
+    assert reloaded.automux_merge_sub_languages == []
