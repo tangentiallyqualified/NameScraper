@@ -113,55 +113,6 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         self.assertEqual(guide.unmapped_primary_files[0].reason, "SKIP: no episode mapping")
         self.assertEqual(guide.orphan_companion_files, [orphan])
 
-    def test_queue_preflight_counts_companions_and_conflicts(self):
-        subtitle = CompanionFile(
-            original=Path("C:/library/tv/Show/Season 01/Show.S01E01.en.srt"),
-            new_name="Show (2024) - S01E01 - Pilot.en.srt",
-            file_type="subtitle",
-        )
-        conflict = _preview(
-            "Show.S01E02.mkv",
-            new_name="Show (2024) - S01E02 - Second.mkv",
-            episodes=[2],
-            status="CONFLICT: target exists",
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Show"),
-            media_info={"id": 10, "name": "Show", "year": "2024"},
-            preview_items=[_preview("Show.S01E01.mkv", companions=[subtitle]), conflict],
-            scanned=True,
-            checked=True,
-        )
-
-        preflight = self.service.build_queue_preflight(state)
-
-        self.assertFalse(preflight.enabled)
-        self.assertEqual(preflight.mapped_primary_files, 1)
-        self.assertEqual(preflight.companion_files, 1)
-        self.assertEqual(preflight.conflicts, 1)
-        self.assertIn("1 companion", preflight.summary_text)
-        self.assertIn("1 conflict", preflight.summary_text)
-
-    def test_queue_preflight_blocks_review_required_episode_mappings(self):
-        review_item = _preview(
-            "Show.S01E01.mkv",
-            status="REVIEW: episode confidence below threshold",
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Show"),
-            media_info={"id": 10, "name": "Show", "year": "2024"},
-            preview_items=[review_item],
-            scanned=True,
-            checked=True,
-        )
-
-        preflight = self.service.build_queue_preflight(state)
-
-        self.assertFalse(preflight.enabled)
-        self.assertEqual(preflight.mapped_primary_files, 0)
-        self.assertEqual(preflight.review_required, 1)
-        self.assertIn("1 review", preflight.summary_text)
-
     def test_missing_specials_render_alongside_missing_regular_episodes(self):
         completeness = CompletenessReport(
             seasons={

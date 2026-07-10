@@ -121,7 +121,6 @@ class MediaWorkspaceUiCoordinator:
         panel.setProperty("panelVariant", "square")
         workspace._fix_match_btn = panel.fix_match_button
         workspace._queue_inline_btn = panel.primary_action_button
-        workspace._queue_preflight_label = panel.queue_preflight_label
         workspace._fix_match_btn.clicked.connect(workspace._fix_match)
         workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())

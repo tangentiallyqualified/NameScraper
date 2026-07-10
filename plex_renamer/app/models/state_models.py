@@ -217,19 +217,6 @@ class EpisodeGuide:
 
 
 @dataclass(slots=True)
-class QueuePreflightSummary:
-    enabled: bool
-    mapped_primary_files: int = 0
-    companion_files: int = 0
-    missing_episodes: int = 0
-    unmapped_primary_files: int = 0
-    orphan_companion_files: int = 0
-    conflicts: int = 0
-    review_required: int = 0
-    summary_text: str = ""
-
-
-@dataclass(slots=True)
 class TVDiscoveryCandidate:
     """A discovered TV show root found during recursive library traversal."""
 

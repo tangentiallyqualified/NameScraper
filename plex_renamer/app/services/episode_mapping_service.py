@@ -1,4 +1,4 @@
-"""Build TV episode-guide and queue-preflight projections."""
+"""Build TV episode-guide projections."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from ..models import (
     EpisodeGuideRow,
     EpisodeGuideSummary,
     EpisodeSlotChoice,
-    QueuePreflightSummary,
     UnmappedFileRow,
 )
 
@@ -340,49 +339,6 @@ class EpisodeMappingService:
             duplicate_files=len(guide.duplicate_files),
         )
         return guide
-
-    def build_queue_preflight(self, state: ScanState) -> QueuePreflightSummary:
-        guide = self.build_episode_guide(state)
-        actionable_primary_ids: set[int] = set()
-        companion_count = 0
-        review_required = 0
-        for row in guide.rows:
-            preview = row.primary_file
-            if preview is None or preview.is_conflict or not preview.is_actionable:
-                continue
-            if preview.is_review:
-                review_required += 1
-                continue
-            if id(preview) in actionable_primary_ids:
-                continue
-            actionable_primary_ids.add(id(preview))
-            companion_count += len(preview.companions)
-
-        conflicts = guide.summary.conflicts
-        if state.assignments is not None:
-            conflicts = len(state.assignments.conflicts())
-        mapped_primary_files = len(actionable_primary_ids)
-        enabled = bool(mapped_primary_files and conflicts == 0 and review_required == 0)
-        parts = [
-            f"{mapped_primary_files} mapped file{'s' if mapped_primary_files != 1 else ''}",
-            f"{companion_count} companion{'s' if companion_count != 1 else ''}",
-            f"{guide.summary.missing_episodes} missing",
-            f"{guide.summary.unmapped_primary_files} unmapped",
-            f"{guide.summary.orphan_companion_files} orphan companion{'s' if guide.summary.orphan_companion_files != 1 else ''}",
-            f"{conflicts} conflict{'s' if conflicts != 1 else ''}",
-            f"{review_required} review",
-        ]
-        return QueuePreflightSummary(
-            enabled=enabled,
-            mapped_primary_files=mapped_primary_files,
-            companion_files=companion_count,
-            missing_episodes=guide.summary.missing_episodes,
-            unmapped_primary_files=guide.summary.unmapped_primary_files,
-            orphan_companion_files=guide.summary.orphan_companion_files,
-            conflicts=conflicts,
-            review_required=review_required,
-            summary_text=" - ".join(parts),
-        )
 
     @staticmethod
     def _is_episode_mapped(preview: PreviewItem) -> bool:

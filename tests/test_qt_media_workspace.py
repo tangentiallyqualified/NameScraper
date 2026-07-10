@@ -1454,9 +1454,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # TV mode: the movie-style master check + its summary are hidden.
         self.assertTrue(workspace._work_panel.master_check.isHidden())
         self.assertTrue(workspace._work_panel.check_summary.isHidden())
-        self.assertIn("Queue preflight:", workspace._queue_preflight_label.text())
-        self.assertIn("1 mapped file", workspace._queue_preflight_label.text())
-        self.assertIn("1 companion", workspace._queue_preflight_label.text())
+        self.assertFalse(hasattr(workspace, "_queue_preflight_label"))
         titles = self._episode_section_titles(workspace)
         self.assertFalse(any("EPISODE GUIDE:" in title.upper() for title in titles))
         self.assertTrue(any(title.upper().startswith("SEASON 1") for title in titles))

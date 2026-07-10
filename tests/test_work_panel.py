@@ -353,6 +353,22 @@ class WorkPanelTests(QtSmokeBase):
         panel = MediaWorkPanel(media_type="tv")
         self.assertTrue(panel._overview_toggle.sizePolicy().retainSizeWhenHidden())
 
+    def test_primary_action_button_lives_in_toolbar_and_no_preflight(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        self.assertFalse(hasattr(panel, "_queue_preflight_label"))
+        outer = panel.layout()
+        sub_layouts = [
+            item.layout() for item in (outer.itemAt(i) for i in range(outer.count()))
+            if item.layout() is not None
+        ]
+        toolbar = next(lay for lay in sub_layouts if lay.indexOf(panel.approve_all_button) != -1)
+        footer = next(lay for lay in sub_layouts if lay.indexOf(panel.summary_label) != -1)
+        self.assertNotEqual(toolbar.indexOf(panel.primary_action_button), -1)
+        self.assertEqual(footer.indexOf(panel.primary_action_button), -1)
+        self.assertEqual(footer.count(), 2)   # summary_label + trailing stretch only
+        panel.close()
+
     def test_fix_match_button_is_in_header_title_row(self):
         # Layout-tree invariant (adapted from the brief): title_row and footer
         # are sibling QHBoxLayouts added directly to the panel's outer layout,

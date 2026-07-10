@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
 from ._media_workspace_action_state import (
@@ -25,7 +24,6 @@ def update_action_bar(workspace) -> None:
     _update_fix_match_button(workspace, selected_state)
     _update_inline_action_button(workspace, selected_state)
     _update_checked_queue_button(workspace, checked)
-    _update_queue_preflight(workspace, selected_state)
 
     if selected_state is not None:
         workspace._work_panel.refresh_header(selected_state)
@@ -101,16 +99,3 @@ def _update_checked_queue_button(workspace, checked: list[ScanState]) -> None:
     set_roster_queue_button_text(workspace, "Queue Checked")
     workspace._roster_queue_btn.setEnabled(False)
     workspace._roster_queue_btn.setToolTip("Check at least one item to queue.")
-
-
-def _update_queue_preflight(workspace, selected_state: ScanState | None) -> None:
-    label = getattr(workspace, "_queue_preflight_label", None)
-    if label is None:
-        return
-    if workspace._media_type != "tv" or selected_state is None or selected_state.show_id is None:
-        label.clear()
-        label.hide()
-        return
-    preflight = EpisodeMappingService().build_queue_preflight(selected_state)
-    label.setText("Queue preflight: " + preflight.summary_text)
-    label.show()

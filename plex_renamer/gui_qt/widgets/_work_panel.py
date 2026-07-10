@@ -108,10 +108,6 @@ class MediaWorkPanel(QFrame):
         return self._primary_action_button
 
     @property
-    def queue_preflight_label(self) -> QLabel:
-        return self._queue_preflight_label
-
-    @property
     def master_check(self) -> MasterCheckBox:
         return self._master_check
 
@@ -159,6 +155,7 @@ class MediaWorkPanel(QFrame):
         self._segmented_filter.setEnabled(False)
         self._search_box.setEnabled(False)
         self._approve_all_button.hide()
+        self._primary_action_button.hide()
 
     def exit_bulk_assign(self) -> None:
         self._table_stack.setCurrentWidget(self._table_view)
@@ -282,6 +279,12 @@ class MediaWorkPanel(QFrame):
         self._approve_all_button.clicked.connect(self.approve_all_clicked.emit)
         toolbar.addWidget(self._approve_all_button)
 
+        self._primary_action_button = QPushButton("")
+        self._primary_action_button.setProperty("cssClass", "primary")
+        self._primary_action_button.setProperty("sizeVariant", "compact")
+        self._primary_action_button.setEnabled(False)
+        toolbar.addWidget(self._primary_action_button)
+
         self._overflow_button = QToolButton()
         self._overflow_button.setText("⋯")
         self._overflow_button.setProperty("cssClass", "toolbar-overflow")
@@ -329,22 +332,10 @@ class MediaWorkPanel(QFrame):
 
     def _build_footer(self, outer: QVBoxLayout) -> None:
         footer = QHBoxLayout()
-
         self._summary_label = QLabel("")
         self._summary_label.setProperty("cssClass", "caption")
         footer.addWidget(self._summary_label)
-
-        self._queue_preflight_label = QLabel("")
-        self._queue_preflight_label.setProperty("cssClass", "caption")
-        self._queue_preflight_label.hide()
-        footer.addWidget(self._queue_preflight_label)
-
         footer.addStretch()
-
-        self._primary_action_button = QPushButton("")
-        self._primary_action_button.setEnabled(False)
-        footer.addWidget(self._primary_action_button)
-
         outer.addLayout(footer)
 
     # -- Public API -------------------------------------------------------
@@ -384,7 +375,6 @@ class MediaWorkPanel(QFrame):
         self._clear_strip()
         self._model.show_state(None, collapsed_sections=set())
         self._summary_label.setText("")
-        self._queue_preflight_label.hide()
         self._approve_all_button.hide()
         self._master_check.hide()
         self._check_summary.hide()
@@ -438,6 +428,7 @@ class MediaWorkPanel(QFrame):
 
     def update_toolbar(self, state: ScanState | None) -> None:
         bulk_active = self.bulk_assign_active()
+        self._primary_action_button.setVisible(not bulk_active)
         if self._media_type != "movie":
             self._overflow_button.setVisible(not bulk_active)
         is_movie = self._media_type == "movie"
