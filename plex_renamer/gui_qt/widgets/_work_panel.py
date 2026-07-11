@@ -1,6 +1,7 @@
 # plex_renamer/gui_qt/widgets/_work_panel.py
-"""MediaWorkPanel — header / season strip / toolbar / episode table / footer
-assembly for the GUI V4 work panel (Plan 3, spec §3.2-§3.3).
+"""MediaWorkPanel — header / season strip / toolbar / episode table
+assembly for the GUI V4 work panel (Plan 3, spec §3.2-§3.3). The summary
+label lives in the toolbar (Task 5); there is no separate footer row.
 
 Replaces the old three-panel roster/preview/detail split for the "middle"
 work surface. The expansion card (Task 3) is wired to the table's persistent
@@ -157,16 +158,18 @@ class MediaWorkPanel(QFrame):
 
     def enter_bulk_assign(self) -> None:
         self._table_stack.setCurrentWidget(self._bulk_panel)
-        self._segmented_filter.setEnabled(False)
-        self._search_box.setEnabled(False)
+        self._segmented_filter.hide()
+        self._search_box.hide()
+        self._summary_label.hide()
         self._approve_all_button.hide()
         self._primary_action_button.hide()
         self._strip_scroll.hide()
 
     def exit_bulk_assign(self) -> None:
         self._table_stack.setCurrentWidget(self._table_view)
-        self._segmented_filter.setEnabled(True)
-        self._search_box.setEnabled(True)
+        self._segmented_filter.show()
+        self._search_box.show()
+        self._summary_label.show()
         if self._state is not None:
             self.update_toolbar(self._state)
             self._strip_key = None
@@ -194,7 +197,6 @@ class MediaWorkPanel(QFrame):
             guide_builder=guide_builder,
             guide_store=guide_store,
         )
-        self._build_footer(outer)
 
     def _build_header(self, outer: QVBoxLayout) -> None:
         title_row = QHBoxLayout()
@@ -289,6 +291,10 @@ class MediaWorkPanel(QFrame):
         self._search_box.textChanged.connect(self.search_changed.emit)
         toolbar.addWidget(self._search_box)
 
+        self._summary_label = QLabel("")
+        self._summary_label.setProperty("cssClass", "caption")
+        toolbar.addWidget(self._summary_label)
+
         self._master_check = MasterCheckBox("Select All")
         self._master_check.setTristate(True)
         self._master_check.hide()
@@ -352,14 +358,6 @@ class MediaWorkPanel(QFrame):
         self._table_stack.addWidget(self._table_view)
         self._table_stack.addWidget(self._bulk_panel)
         outer.addWidget(stack_host, stretch=1)
-
-    def _build_footer(self, outer: QVBoxLayout) -> None:
-        footer = QHBoxLayout()
-        self._summary_label = QLabel("")
-        self._summary_label.setProperty("cssClass", "caption")
-        footer.addWidget(self._summary_label)
-        footer.addStretch()
-        outer.addLayout(footer)
 
     # -- Public API -------------------------------------------------------
 
@@ -474,8 +472,15 @@ class MediaWorkPanel(QFrame):
         if self._media_type != "movie":
             self._overflow_button.setVisible(not bulk_active)
         is_movie = self._media_type == "movie"
-        self._segmented_filter.setVisible(not is_movie)
-        self._search_box.setVisible(not is_movie)
+        if bulk_active:
+            # enter_bulk_assign() hides these; a mid-bulk update_toolbar()
+            # call (e.g. an async guide arriving via _on_guide_loaded) must
+            # not re-show them behind the bulk panel.
+            self._segmented_filter.hide()
+            self._search_box.hide()
+        else:
+            self._segmented_filter.setVisible(not is_movie)
+            self._search_box.setVisible(not is_movie)
         if is_movie or state is None or bulk_active:
             self._approve_all_button.hide()
             return

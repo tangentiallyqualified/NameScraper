@@ -25,6 +25,48 @@ class WorkPanelTests(QtSmokeBase):
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
         return panel
 
+    def _layout_of(self, widget):
+        """The QLayout that directly contains ``widget``, or None."""
+        parent = widget.parentWidget()
+        if parent is None:
+            return None
+        layout = parent.layout()
+        if layout is None:
+            return None
+        for item_layout in self._iter_sub_layouts(layout):
+            if item_layout.indexOf(widget) != -1:
+                return item_layout
+        if layout.indexOf(widget) != -1:
+            return layout
+        return None
+
+    def _iter_sub_layouts(self, layout):
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            sub = item.layout()
+            if sub is not None:
+                yield sub
+                yield from self._iter_sub_layouts(sub)
+
+    def test_summary_label_lives_in_toolbar(self):
+        panel = self._panel(*_guide_state())
+        # The summary label must share a layout row with the search box.
+        self.assertIs(self._layout_of(panel._summary_label), self._layout_of(panel._search_box))
+
+    def test_bulk_mode_hides_filter_search_and_summary(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel.enter_bulk_assign()
+        self.assertFalse(panel._segmented_filter.isVisible())
+        self.assertFalse(panel._search_box.isVisible())
+        self.assertFalse(panel._summary_label.isVisible())
+        panel.exit_bulk_assign()
+        self.assertTrue(panel._segmented_filter.isVisible())
+        self.assertTrue(panel._search_box.isVisible())
+        self.assertTrue(panel._summary_label.isVisible())
+        panel.close()
+
     def test_header_title_and_strip_chips(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
@@ -141,13 +183,13 @@ class WorkPanelTests(QtSmokeBase):
         panel.enter_bulk_assign()
         self.assertTrue(panel.bulk_assign_active())
         self.assertIs(panel._table_stack.currentWidget(), panel.bulk_panel)
-        self.assertFalse(panel.segmented_filter.isEnabled())
-        self.assertFalse(panel.search_box.isEnabled())
+        self.assertFalse(panel.segmented_filter.isVisible())
+        self.assertFalse(panel.search_box.isVisible())
         self.assertFalse(panel.approve_all_button.isVisible())
         panel.exit_bulk_assign()
         self.assertFalse(panel.bulk_assign_active())
         self.assertIs(panel._table_stack.currentWidget(), panel.table_view)
-        self.assertTrue(panel.segmented_filter.isEnabled())
+        self.assertTrue(panel.segmented_filter.isVisible())
         panel.close()
 
     def test_bulk_assign_hides_season_strip(self):
@@ -159,6 +201,26 @@ class WorkPanelTests(QtSmokeBase):
         self.assertTrue(panel._strip_scroll.isHidden())
         panel.exit_bulk_assign()
         self.assertFalse(panel._strip_scroll.isHidden())
+        panel.close()
+
+    def test_guide_loaded_does_not_reshow_filter_search_during_bulk_assign(self):
+        # Task 5: update_toolbar() used to set segmented_filter/search_box
+        # visibility unconditionally from is_movie, ignoring bulk_active --
+        # so a mid-bulk async guide arrival (_on_guide_loaded calls
+        # update_toolbar) would silently re-show them behind the bulk panel,
+        # the same class of regression already fixed for the season strip.
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel.enter_bulk_assign()
+        self.assertFalse(panel._segmented_filter.isVisible())
+        self.assertFalse(panel._search_box.isVisible())
+        panel._on_guide_loaded()
+        self.assertFalse(panel._segmented_filter.isVisible())
+        self.assertFalse(panel._search_box.isVisible())
+        panel.exit_bulk_assign()
+        self.assertTrue(panel._segmented_filter.isVisible())
+        self.assertTrue(panel._search_box.isVisible())
         panel.close()
 
     def test_guide_loaded_does_not_reshow_strip_during_bulk_assign(self):
@@ -550,6 +612,9 @@ class WorkPanelTests(QtSmokeBase):
     def test_primary_action_button_lives_in_header_and_no_preflight(self):
         # Task 10: Queue This Show moved out of the toolbar row into the
         # header title row alongside Fix Match / AutoMux.
+        # Task 5: the footer is gone -- summary_label now lives in the same
+        # toolbar row as approve_all_button, so there's no separate footer
+        # layout to check it against.
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         self.assertFalse(hasattr(panel, "_queue_preflight_label"))
@@ -560,11 +625,9 @@ class WorkPanelTests(QtSmokeBase):
         ]
         toolbar = next(lay for lay in sub_layouts if lay.indexOf(panel.approve_all_button) != -1)
         title_row = next(lay for lay in sub_layouts if lay.indexOf(panel._title_label) != -1)
-        footer = next(lay for lay in sub_layouts if lay.indexOf(panel.summary_label) != -1)
+        self.assertIs(toolbar, self._layout_of(panel.summary_label))
         self.assertEqual(toolbar.indexOf(panel.primary_action_button), -1)
         self.assertNotEqual(title_row.indexOf(panel.primary_action_button), -1)
-        self.assertEqual(footer.indexOf(panel.primary_action_button), -1)
-        self.assertEqual(footer.count(), 2)   # summary_label + trailing stretch only
         panel.close()
 
     def test_fix_match_button_is_in_header_title_row(self):
