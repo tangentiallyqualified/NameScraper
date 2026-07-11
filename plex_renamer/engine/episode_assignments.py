@@ -6,8 +6,8 @@ projection mints episode status strings.
 
 Claims are stored per file but queried per slot as a *list*: policy, not
 schema, decides what multiple claims on one slot mean. Today 2+ claims is a
-conflict; a future duplicates policy may treat extra claims as Plex
-"versions" via ``Assignment.role`` without a data migration.
+conflict; a future duplicates policy may treat extra claims as library
+(Plex/Jellyfin) "versions" via ``Assignment.role`` without a data migration.
 """
 
 from __future__ import annotations

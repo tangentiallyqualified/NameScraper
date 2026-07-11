@@ -94,7 +94,7 @@ def _remap_target_into_final_root(
     Queue execution previously moved files inside the source root and then
     renamed the entire root folder at the end. When leftover source
     directories remained, that pulled stale structure into the finished
-    Plex folder. Remapping root-relative targets avoids that coupling.
+    library folder. Remapping root-relative targets avoids that coupling.
     """
     return remap_target_into_final_root(target_dir, root_folder, final_root)
 
@@ -308,7 +308,7 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     #
     # For movies with their own subdirectory (release folders like
     # "Dune.2021.2160p.REMUX/"), root_folder IS the release directory.
-    # Once renamed files have been moved to the Plex-named target folder,
+    # Once renamed files have been moved to the library-format target folder,
     # anything remaining in the source directory (sample clips, NFOs,
     # extra files the scanner skipped) is relocated into
     # ``target_dir/Unmatched Files/`` rather than deleted.

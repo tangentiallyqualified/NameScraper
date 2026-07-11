@@ -54,7 +54,7 @@ class SubtitleMergeDecision:
 
 @dataclass
 class MuxPlan:
-    output_name: str         # Plex name, always .mkv
+    output_name: str         # library-format name, always .mkv
     track_decisions: list[TrackDecision] = field(default_factory=list)
     subtitle_merges: list[SubtitleMergeDecision] = field(default_factory=list)
     strip_track_names: bool = False

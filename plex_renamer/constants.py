@@ -1,5 +1,5 @@
 """
-Shared constants and configuration for Plex Renamer.
+Shared constants and configuration for NameScraper.
 """
 
 import re

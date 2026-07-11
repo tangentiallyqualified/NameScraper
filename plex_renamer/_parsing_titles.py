@@ -240,7 +240,7 @@ def extract_year(text: str) -> str | None:
         The.Matrix.1999.1080p            ->  "1999"
 
     Falls back to the last year found when no noise boundary is present,
-    which correctly handles Plex-format names like "2001 A Space Odyssey (1968)".
+    which correctly handles library-format (Plex/Jellyfin) names like "2001 A Space Odyssey (1968)".
 
     A run range "(2001-2013)" counts as its START year: TMDB indexes shows by
     first-air date, so the range end would match the wrong entry.

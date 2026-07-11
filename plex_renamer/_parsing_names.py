@@ -64,7 +64,7 @@ def build_tv_name(
     ext: str,
 ) -> str:
     """
-    Build a Plex-compatible TV episode filename.
+    Build a library-standard (Plex/Jellyfin) TV episode filename.
 
     Examples:
         Show (2004) - S01E01 - Pilot.mkv
@@ -107,7 +107,7 @@ def build_tv_name(
 
 def build_movie_name(title: str, year: str, ext: str) -> str:
     """
-    Build a Plex-compatible movie filename.
+    Build a library-standard (Plex/Jellyfin) movie filename.
 
     Example:
         The Matrix (1999).mkv
@@ -119,7 +119,7 @@ def build_movie_name(title: str, year: str, ext: str) -> str:
 
 def build_show_folder_name(show: str, year: str) -> str:
     """
-    Build a Plex-compatible TV show root folder name.
+    Build a library-standard (Plex/Jellyfin) TV show root folder name.
 
     Example:
         Marvel's Agents of S.H.I.E.L.D. (2013)
