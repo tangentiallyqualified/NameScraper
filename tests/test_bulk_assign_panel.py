@@ -147,6 +147,27 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertEqual(panel.staged_unassigns(), [])
         self.assertNotIn((other_fid, 1, 2), panel.staged_pairs())
 
+    def test_toggling_unassign_off_drops_own_restage_elsewhere(self):
+        # Regression: X claimed at (1,2) → stage unassign → drag X onto a
+        # free slot (allowed while unassign-staged) → cancel the unassign.
+        # X's own staged pair must be dropped too, or Apply would silently
+        # move X even though the UI shows no pending change.
+        panel = self._panel()
+        claimed_fid = panel._claimed_file_by_key[(1, 2)]
+        row = panel._slots_model.row_for_key((1, 2))
+        index = panel._slots_model.index(row, 0)
+        panel._on_slot_clicked(index)                      # stage unassign of X
+        panel._handle_drop(claimed_fid, (1, 5))             # restage X elsewhere
+        self.assertIn((claimed_fid, 1, 5), panel.staged_pairs())
+        panel._on_slot_clicked(index)                       # cancel the unassign
+        self.assertEqual(panel.staged_unassigns(), [])
+        self.assertEqual(
+            [p for p in panel.staged_pairs() if p[0] == claimed_fid], [],
+        )
+        # nothing else staged → staging is empty and Apply reflects that
+        self.assertEqual(panel.staged_pairs(), [])
+        self.assertFalse(panel._apply_button.isEnabled())
+
     def test_unassign_all_stages_every_claimed_slot(self):
         panel = self._panel()
         panel.unassign_all()

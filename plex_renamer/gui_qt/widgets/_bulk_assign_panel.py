@@ -641,11 +641,15 @@ class BulkAssignPanel(QFrame):
             return
         if file_id in self._staged_unassign:
             self._staged_unassign.discard(file_id)
-            # Re-claiming the slot also drops any pairs staged into the
-            # slot(s) this file is reclaiming.
+            # Re-claiming the slot drops any pairs staged into the slot(s)
+            # this file is reclaiming, AND any pairs the file itself staged
+            # elsewhere while it was unassign-staged — otherwise cancelling
+            # the unassign leaves a hidden (file, new_slot) pair that would
+            # silently move the file on Apply.
             vacated = set(self._assigned_key_by_file.get(file_id, []))
             self._staged_pairs = [
-                (fid, k) for fid, k in self._staged_pairs if k not in vacated
+                (fid, k) for fid, k in self._staged_pairs
+                if k not in vacated and fid != file_id
             ]
         else:
             self._staged_unassign.add(file_id)
