@@ -120,8 +120,13 @@ class AutoMuxTracksWidget(QFrame):
         spacing = self.layout().spacing()
         rows_height = min(self._rows_host.sizeHint().height(), self._rows_scroll.maximumHeight())
         total = margins.top() + margins.bottom() + self._heading.sizeHint().height() + spacing + rows_height
-        if self._notice.text():
-            total += spacing + self._notice.sizeHint().height()
+        # The notice label sits unconditionally in the layout: even with
+        # empty text a QLabel reports a non-zero sizeHint and the layout
+        # reserves that space, so always account for it. Gating on
+        # self._notice.text() under-reported the hint in the common
+        # no-warnings case and squeezed the scroll viewport below the
+        # intended 8-row cap.
+        total += spacing + self._notice.sizeHint().height()
         return QSize(base.width(), total)
 
     # ── Internals ─────────────────────────────────────────────────────

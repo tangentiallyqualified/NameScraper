@@ -105,6 +105,12 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget.show()
         self._app.processEvents()
         self._app.processEvents()
+        # With 30 tracks and no warnings the scroll area must get its FULL
+        # 8-row viewport, not just "something under the cap": an exact
+        # equality catches sizeHint() under-reporting (e.g. forgetting the
+        # always-present notice label's reserved space), which squeezes
+        # the viewport below 8 visible rows.
+        self.assertEqual(widget._rows_scroll.height(), _scale.px(8 * 24))
         self.assertTrue(widget._rows_scroll.verticalScrollBar().maximum() > 0)
 
     def test_placeholder_and_error_states(self):
