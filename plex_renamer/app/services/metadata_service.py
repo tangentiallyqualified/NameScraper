@@ -9,7 +9,8 @@ metadata API access.
 from __future__ import annotations
 
 import logging
-from pathlib import PurePosixPath
+import re
+from pathlib import Path, PurePosixPath
 
 from ..._mkv_locate import find_mkvpropedit
 from ..._nfo_render import (
@@ -189,3 +190,125 @@ def finalize_plan(plan: dict | None) -> dict | None:
     if not plan["nfo_files"] and not plan["artwork"] and not plan["embed_title"]:
         return None
     return plan
+
+
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
+_POSTER_STEMS = {"poster", "folder", "cover"}
+_FANART_STEMS = {"fanart", "background"}
+_LOGO_STEMS = {"clearlogo", "logo"}
+_SEASON_IMAGE_RE = re.compile(r"^season(\d{1,2})(?:-poster)?$")
+
+
+def inventory_local_metadata(
+    source_dir: Path,
+    video_ops: list,
+    media_type: str,
+    library_root: Path,
+) -> dict[str, Path]:
+    """Map artifact slot keys to pre-existing companion files.
+
+    Only kinds with a writable slot are inventoried (e.g. banner.jpg is
+    not) — everything else follows the normal unmatched sweep.
+    """
+    found: dict[str, Path] = {}
+    if not source_dir.is_dir():
+        return found
+
+    def record(slot: str, path: Path) -> None:
+        found.setdefault(slot, path)
+
+    try:
+        entries = sorted(source_dir.iterdir())
+    except OSError:
+        return found
+
+    for entry in entries:
+        if not entry.is_file():
+            continue
+        stem = entry.stem.lower()
+        ext = entry.suffix.lower()
+        if ext in _IMAGE_EXTS:
+            if stem in _POSTER_STEMS:
+                record("poster", entry)
+            elif stem in _FANART_STEMS:
+                record("fanart", entry)
+            elif stem in _LOGO_STEMS:
+                record("clearlogo", entry)
+            elif stem.startswith("season-specials"):
+                record("season_poster:0", entry)
+            else:
+                match = _SEASON_IMAGE_RE.match(stem)
+                if match:
+                    record(f"season_poster:{int(match.group(1))}", entry)
+        elif ext == ".nfo":
+            if media_type == MediaType.TV and stem == "tvshow":
+                record("nfo:show", entry)
+            elif media_type == MediaType.MOVIE and stem == "movie":
+                record("nfo:show", entry)
+
+    for op in video_ops:
+        src = Path(library_root) / op.original_relative
+        parent, orig_stem = src.parent, src.stem
+        nfo = parent / f"{orig_stem}.nfo"
+        if nfo.is_file():
+            record(f"nfo:episode:{op.original_relative}", nfo)
+            if media_type == MediaType.MOVIE:
+                record("nfo:show", nfo)     # movie NFO named after the file
+        for ext in (".jpg", ".jpeg", ".png"):
+            thumb = parent / f"{orig_stem}-thumb{ext}"
+            plain = parent / f"{orig_stem}{ext}"
+            if thumb.is_file():
+                record(f"episode_thumb:{op.original_relative}", thumb)
+                break
+            if plain.is_file():
+                record(f"episode_thumb:{op.original_relative}", plain)
+                break
+    return found
+
+
+def apply_prefer_local(job, plan: dict | None, library_root: Path) -> None:
+    """Fulfill plan slots from existing local files (spec: sourcing policy).
+
+    Fulfilled slots become carry RenameOps (moved through the normal
+    rename path — revert restores them to the source). Plex-extra
+    duplicates of a locally-fulfilled slot are dropped: a carry is a
+    move, and one source file cannot land at two targets.
+    """
+    if not plan or not plan.get("prefer_local"):
+        return
+    from ...job_store import RenameOp
+
+    library_root = Path(library_root)
+    video_ops = _selected_video_ops(job)
+    source_dir = library_root / job.source_folder
+    inventory = inventory_local_metadata(
+        source_dir, video_ops, job.media_type, library_root)
+    if not inventory:
+        return
+
+    def carry(entry: dict, local: Path) -> None:
+        target = _posix(entry["target_relative"])
+        new_name = f"{PurePosixPath(target.name).stem}{local.suffix.lower()}"
+        try:
+            original_rel = str(local.relative_to(library_root))
+        except ValueError:
+            original_rel = str(local)
+        job.rename_ops.append(RenameOp(
+            original_relative=original_rel,
+            new_name=new_name,
+            target_dir_relative=str(target.parent),
+            status="OK",
+            selected=True,
+            file_type="nfo" if local.suffix.lower() == ".nfo" else "artwork",
+        ))
+
+    for key in ("nfo_files", "artwork"):
+        kept = []
+        for entry in plan[key]:
+            local = inventory.get(entry.get("slot", ""))
+            if local is None:
+                kept.append(entry)
+                continue
+            if not entry.get("plex_extra"):
+                carry(entry, local)
+        plan[key] = kept
