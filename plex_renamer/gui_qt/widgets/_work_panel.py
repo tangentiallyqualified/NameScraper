@@ -160,6 +160,7 @@ class MediaWorkPanel(QFrame):
         self._search_box.setEnabled(False)
         self._approve_all_button.hide()
         self._primary_action_button.hide()
+        self._strip_scroll.hide()
 
     def exit_bulk_assign(self) -> None:
         self._table_stack.setCurrentWidget(self._table_view)
@@ -167,6 +168,8 @@ class MediaWorkPanel(QFrame):
         self._search_box.setEnabled(True)
         if self._state is not None:
             self.update_toolbar(self._state)
+            self._strip_key = None
+            self._refresh_strip(self._state)
 
     # -- UI scaffold ---------------------------------------------------------
 

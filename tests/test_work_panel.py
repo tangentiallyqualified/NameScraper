@@ -150,6 +150,17 @@ class WorkPanelTests(QtSmokeBase):
         self.assertTrue(panel.segmented_filter.isEnabled())
         panel.close()
 
+    def test_bulk_assign_hides_season_strip(self):
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        self.assertTrue(panel._strip_buttons)  # fixture renders at least one chip
+        self.assertFalse(panel._strip_scroll.isHidden())
+        panel.enter_bulk_assign()
+        self.assertTrue(panel._strip_scroll.isHidden())
+        panel.exit_bulk_assign()
+        self.assertFalse(panel._strip_scroll.isHidden())
+        panel.close()
+
     def test_overflow_menu_emits_bulk_assign_requested(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
