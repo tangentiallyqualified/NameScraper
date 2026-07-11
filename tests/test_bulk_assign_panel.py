@@ -118,6 +118,7 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_files_sorted_and_searchable(self):
         panel = self._panel()
+        panel._files_filter.setCurrentText("All")   # all 4 previews, including the assigned one
         model = panel._files_model
         names = [model.index(r, 0).data() for r in range(model.rowCount())]
         # all primary files, including the pre-claimed one, sorted by name
@@ -133,6 +134,7 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_files_pane_lists_assigned_files(self):
         panel = self._panel()
+        panel._files_filter.setCurrentText("All")   # assigned files only show under All
         names = [
             panel._files_model.data(panel._files_model.index(r, 0))
             for r in range(panel._files_model.rowCount())
@@ -304,6 +306,8 @@ class BulkAssignPanelTests(QtSmokeBase):
         fid = self._first_free_file_id(panel)
         panel._handle_drop(fid, (1, 3))
         panel._handle_drop(fid, (1, 4))
+        # staged-to-a-slot files drop out of the default Problems view
+        panel._files_filter.setCurrentText("All")
         model = panel._files_model
         row = next(r for r in range(model.rowCount()) if model.file_id_at(r) == fid)
         text = model.index(row, 0).data()
@@ -381,6 +385,7 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_selecting_file_highlights_its_slots(self):
         panel = self._panel()   # has claimed.mkv on S01E02
+        panel._files_filter.setCurrentText("All")   # assigned file only visible under All
         fid = panel._claimed_file_by_key[(1, 2)]
         panel._select_file(fid)
         selected_keys = [panel._slots_model.slot_key_at(i.row())
@@ -411,3 +416,98 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertNotIn("CONFLICT:", text)
         for fid, _name in self._conflict_claimants(panel):
             self.assertIn(fid, panel.staged_unassigns())
+
+    # -- Task 12: problems filters + collapsible season headers -----------
+
+    def test_files_pane_defaults_to_problems(self):
+        panel = self._panel()
+        self.assertEqual(panel._files_filter.currentText(), "Problems")
+        names = [panel._files_model.index(r, 0).data()
+                  for r in range(panel._files_model.rowCount())]
+        self.assertFalse(any("(assigned)" in n for n in names))
+        panel._files_filter.setCurrentText("All")
+        names = [panel._files_model.index(r, 0).data()
+                  for r in range(panel._files_model.rowCount())]
+        self.assertTrue(any("(assigned)" in n for n in names))
+
+    def test_files_pane_problems_includes_conflicted_and_drops_staged(self):
+        panel = self._panel_with_conflict()
+        # both conflict claimants show up under the default Problems filter
+        conflict_ids = {fid for fid, _name in self._conflict_claimants(panel)}
+        visible_ids = {
+            panel._files_model.file_id_at(r)
+            for r in range(panel._files_model.rowCount())
+        }
+        self.assertTrue(conflict_ids.issubset(visible_ids))
+        # staging a free file onto a slot drops it out of the Problems view
+        free_fid = self._first_free_file_id(panel)
+        self.assertIn(free_fid, visible_ids)
+        panel._handle_drop(free_fid, (1, 3))
+        visible_ids = {
+            panel._files_model.file_id_at(r)
+            for r in range(panel._files_model.rowCount())
+        }
+        self.assertNotIn(free_fid, visible_ids)
+
+    def test_slots_pane_defaults_to_all(self):
+        panel = self._panel()
+        self.assertEqual(panel._slots_filter.currentText(), "All")
+
+    def test_slots_problems_filter_shows_only_problem_slots(self):
+        panel = self._panel()
+        panel._slots_filter.setCurrentText("Problems")
+        rows = [panel._slots_model.index(r, 0).data()
+                for r in range(panel._slots_model.rowCount())
+                if panel._slots_model.slot_key_at(r) is not None]
+        self.assertTrue(rows)
+        self.assertTrue(all("missing" in t or "CONFLICT" in t or "unassign" in t for t in rows))
+
+    def test_slots_problems_filter_hides_ordinary_assigned_rows(self):
+        panel = self._panel()
+        panel._slots_filter.setCurrentText("Problems")
+        row = panel._slots_model.row_for_key((1, 2))   # cleanly claimed by claimed.mkv
+        self.assertEqual(row, -1)
+
+    def test_season_headers_show_counts_and_collapse(self):
+        panel = self._panel()
+        header_row = next(r for r in range(panel._slots_model.rowCount())
+                          if panel._slots_model.slot_key_at(r) is None)
+        text = panel._slots_model.index(header_row, 0).data()
+        self.assertRegex(text, r"Season 01 — \d+/\d+ assigned")
+        before = panel._slots_model.rowCount()
+        panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
+        self.assertLess(panel._slots_model.rowCount(), before)
+
+    def test_season_header_toggle_expands_again(self):
+        panel = self._panel()
+        header_row = next(r for r in range(panel._slots_model.rowCount())
+                          if panel._slots_model.slot_key_at(r) is None)
+        before = panel._slots_model.rowCount()
+        panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
+        panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
+        self.assertEqual(panel._slots_model.rowCount(), before)
+
+    def test_season_02_header_shows_counts(self):
+        panel = self._panel()
+        header_row = next(
+            r for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+            and panel._slots_model.season_for_header_row(r) == 2
+        )
+        text = panel._slots_model.index(header_row, 0).data()
+        self.assertRegex(text, r"Season 02 — \d+/\d+ assigned")
+
+    def test_season_for_header_row_returns_none_for_child_rows(self):
+        panel = self._panel()
+        row = panel._slots_model.row_for_key((1, 2))
+        self.assertIsNone(panel._slots_model.season_for_header_row(row))
+
+    def test_collapsed_seasons_reset_on_show_state(self):
+        panel = self._panel()
+        header_row = next(r for r in range(panel._slots_model.rowCount())
+                          if panel._slots_model.slot_key_at(r) is None)
+        panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
+        self.assertTrue(panel._collapsed_seasons)
+        state, service = _bulk_state()
+        panel.show_state(state, service)
+        self.assertEqual(panel._collapsed_seasons, set())

@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from .. import theme
 from .. import _scale
+from .segmented_control import SegmentedControl
 
 FILE_ID_ROLE = Qt.ItemDataRole.UserRole + 1     # int (files model)
 SLOT_KEY_ROLE = Qt.ItemDataRole.UserRole + 1    # tuple[int, int] | None (slots model)
@@ -47,16 +48,24 @@ class BulkFilesModel(QAbstractListModel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._previews: list = []            # all previews, sorted
-        self._visible: list = []              # filtered by search
+        self._visible: list = []              # filtered by mode + search
         self._search_text: str = ""
+        self._filter_mode: str = "problems"
         self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_unassign: set[int] = set()
+        self._conflicted_ids: set[int] = set()
 
-    def set_files(self, previews: list, assigned_key_by_file: dict[int, list[tuple[int, int]]]) -> None:
+    def set_files(
+        self,
+        previews: list,
+        assigned_key_by_file: dict[int, list[tuple[int, int]]],
+        conflicted_ids: set[int] | None = None,
+    ) -> None:
         self.beginResetModel()
         self._previews = sorted(previews, key=lambda p: p.original.name.casefold())
         self._assigned_key_by_file = assigned_key_by_file
+        self._conflicted_ids = set(conflicted_ids or ())
         self._staged_by_file = {}
         self._staged_unassign = set()
         self._apply_filter()
@@ -68,11 +77,21 @@ class BulkFilesModel(QAbstractListModel):
         self._apply_filter()
         self.endResetModel()
 
+    def set_filter_mode(self, mode: str) -> None:
+        self.beginResetModel()
+        self._filter_mode = mode
+        self._apply_filter()
+        self.endResetModel()
+
     def set_staging(
         self,
         staged_pairs: list[tuple[int, tuple[int, int]]],
         staged_unassign: set[int],
     ) -> None:
+        # Full reset (not dataChanged): the Problems filter depends on
+        # staging state, so rows must drop/reappear as files get staged or
+        # unassign-staged, not just repaint in place.
+        self.beginResetModel()
         by_file: dict[int, list[tuple[int, int]]] = {}
         for file_id, key in staged_pairs:
             by_file.setdefault(file_id, []).append(key)
@@ -80,11 +99,8 @@ class BulkFilesModel(QAbstractListModel):
             keys.sort(key=lambda k: k[1])
         self._staged_by_file = by_file
         self._staged_unassign = set(staged_unassign)
-        if not self._visible:
-            return
-        top_left = self.index(0, 0)
-        bottom_right = self.index(len(self._visible) - 1, 0)
-        self.dataChanged.emit(top_left, bottom_right)
+        self._apply_filter()
+        self.endResetModel()
 
     def unstaged_file_ids(self) -> list[int]:
         """Visible (search-filtered) file ids free to be auto-staged, in
@@ -107,13 +123,19 @@ class BulkFilesModel(QAbstractListModel):
         return True
 
     def _apply_filter(self) -> None:
-        if not self._search_text:
-            self._visible = list(self._previews)
-            return
-        self._visible = [
-            preview for preview in self._previews
-            if self._search_text in preview.original.name.casefold()
-        ]
+        visible = list(self._previews)
+        if self._filter_mode == "problems":
+            visible = [p for p in visible if self._is_problem(p.file_id)]
+        if self._search_text:
+            visible = [p for p in visible if self._search_text in p.original.name.casefold()]
+        self._visible = visible
+
+    def _is_problem(self, file_id: int) -> bool:
+        if file_id in self._conflicted_ids:
+            return True
+        if file_id in self._staged_by_file:
+            return False
+        return file_id not in self._assigned_key_by_file or file_id in self._staged_unassign
 
     # -- QAbstractListModel overrides ------------------------------------
 
@@ -222,6 +244,7 @@ class BulkSlotsModel(QAbstractListModel):
         self._rows: list[tuple[tuple[int, int] | None, str, str]] = []
         # each row: (slot_key_or_None, display_text, foreground_token)
         self._claimed_keys: set[tuple[int, int]] = set()
+        self._season_by_header_row: dict[int, int] = {}
 
     def set_slots(
         self,
@@ -229,13 +252,17 @@ class BulkSlotsModel(QAbstractListModel):
         staged_names: dict[tuple[int, int], str],
         unassign_file_ids: set[int],
         search: str = "",
+        filter_problems: bool = False,
+        collapsed_seasons: set[int] | None = None,
     ) -> None:
         self.beginResetModel()
         self._rows = []
+        self._season_by_header_row = {}
         self._claimed_keys = {
             (choice.season, choice.episode)
             for choice in choices if choice.claimed_by
         }
+        collapsed_seasons = collapsed_seasons or set()
         needle = search.casefold()
         by_season: dict[int, list] = {}
         for choice in choices:
@@ -268,11 +295,23 @@ class BulkSlotsModel(QAbstractListModel):
                 else:
                     text = f"{choice.label} — missing"
                     tone = "warning"
+                if filter_problems and tone not in ("warning", "error"):
+                    continue
                 child_rows.append((key, text, tone))
             if not child_rows:
                 continue
-            header = "Specials" if season == 0 else f"Season {season:02d}"
-            self._rows.append((None, f"{header} ({len(season_choices)})", ""))
+            assigned = sum(
+                1 for choice in season_choices
+                if len(choice.claimants) == 1 and choice.claimed_file_id not in unassign_file_ids
+            )
+            header_label = "Specials" if season == 0 else f"Season {season:02d}"
+            prefix = "▸ " if season in collapsed_seasons else "▾ "
+            self._rows.append(
+                (None, f"{prefix}{header_label} — {assigned}/{len(season_choices)} assigned", ""),
+            )
+            self._season_by_header_row[len(self._rows) - 1] = season
+            if season in collapsed_seasons:
+                continue
             self._rows.extend(child_rows)
         self.endResetModel()
 
@@ -280,6 +319,9 @@ class BulkSlotsModel(QAbstractListModel):
         if 0 <= row < len(self._rows):
             return self._rows[row][0]
         return None
+
+    def season_for_header_row(self, row: int) -> int | None:
+        return self._season_by_header_row.get(row)
 
     def is_claimed(self, key: tuple[int, int]) -> bool:
         return key in self._claimed_keys
@@ -399,6 +441,7 @@ class BulkAssignPanel(QFrame):
         self._staged_pairs: list[tuple[int, tuple[int, int]]] = []
         self._staged_unassign: set[int] = set()
         self._slot_search_text: str = ""
+        self._collapsed_seasons: set[int] = set()
         self._build_ui()
 
     # -- UI scaffold ------------------------------------------------------
@@ -417,6 +460,9 @@ class BulkAssignPanel(QFrame):
         self._files_caption = QLabel("Files (0)")
         self._files_caption.setProperty("cssClass", "caption")
         left.addWidget(self._files_caption)
+        self._files_filter = SegmentedControl(["Problems", "All"])
+        self._files_filter.currentTextChanged.connect(self._on_files_filter_changed)
+        left.addWidget(self._files_filter)
         self._search_box = QLineEdit()
         self._search_box.setPlaceholderText("Filter files…")
         self._search_box.setClearButtonEnabled(True)
@@ -434,6 +480,9 @@ class BulkAssignPanel(QFrame):
         self._slots_caption = QLabel("Episode slots")
         self._slots_caption.setProperty("cssClass", "caption")
         right.addWidget(self._slots_caption)
+        self._slots_filter = SegmentedControl(["All", "Problems"])
+        self._slots_filter.currentTextChanged.connect(self._on_slots_filter_changed)
+        right.addWidget(self._slots_filter)
         self._slot_search_box = QLineEdit()
         self._slot_search_box.setPlaceholderText("Filter episodes…")
         self._slot_search_box.setClearButtonEnabled(True)
@@ -509,8 +558,15 @@ class BulkAssignPanel(QFrame):
         self._staged_unassign = set()
         self._slot_search_text = ""
         self._slot_search_box.setText("")
+        self._collapsed_seasons = set()
         self._status_label.setText("")
-        self._files_model.set_files(self._previews, self._assigned_key_by_file)
+        conflicted_ids = {
+            file_id
+            for claimants in self._claims_by_key.values()
+            if len(claimants) > 1
+            for file_id, _name in claimants
+        }
+        self._files_model.set_files(self._previews, self._assigned_key_by_file, conflicted_ids)
         self._files_caption.setText(f"Files ({len(self._previews)})")
         self._refresh_views()
 
@@ -564,6 +620,14 @@ class BulkAssignPanel(QFrame):
         self._refresh_views()
 
     def _on_slot_clicked(self, index: QModelIndex) -> None:
+        season = self._slots_model.season_for_header_row(index.row())
+        if season is not None:
+            if season in self._collapsed_seasons:
+                self._collapsed_seasons.discard(season)
+            else:
+                self._collapsed_seasons.add(season)
+            self._refresh_views()
+            return
         key = self._slots_model.slot_key_at(index.row())
         if key is None:
             return
@@ -623,8 +687,14 @@ class BulkAssignPanel(QFrame):
     def _on_search_changed(self, text: str) -> None:
         self._files_model.set_search(text)
 
+    def _on_files_filter_changed(self, text: str) -> None:
+        self._files_model.set_filter_mode("problems" if text == "Problems" else "all")
+
     def _on_slot_search_changed(self, text: str) -> None:
         self._slot_search_text = text
+        self._refresh_views()
+
+    def _on_slots_filter_changed(self, _text: str) -> None:
         self._refresh_views()
 
     def _on_apply_clicked(self) -> None:
@@ -665,7 +735,12 @@ class BulkAssignPanel(QFrame):
             for file_id, key in self._staged_pairs
         }
         self._slots_model.set_slots(
-            self._choices, staged_names, set(self._staged_unassign), self._slot_search_text,
+            self._choices,
+            staged_names,
+            set(self._staged_unassign),
+            self._slot_search_text,
+            filter_problems=self._slots_filter.currentText() == "Problems",
+            collapsed_seasons=set(self._collapsed_seasons),
         )
         self._apply_button.setEnabled(bool(self._staged_pairs) or bool(self._staged_unassign))
 
