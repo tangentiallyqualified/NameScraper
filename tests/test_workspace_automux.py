@@ -383,6 +383,63 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             "the selected state (b.mkv) must be probed before the other state",
         )
 
+    def test_warm_releases_inflight_when_preview_list_shrinks_midflight(self):
+        # Round-4 hardening: _run_probe used to read preview_items[index]
+        # OUTSIDE its try/finally. If a rematch/rescan rebuilt the list
+        # shorter while a warm probe waited in the pool, the IndexError
+        # skipped the finally and leaked the _inflight key -- a later
+        # expansion of that row then dedup-skipped forever, wedging its
+        # tracks widget on "Reading tracks...". One bad item also aborted
+        # _warm_rest's whole sweep. Both must now be survivable.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        workspace, states = self._workspace_with_states(states=states, selected_index=0)
+
+        # Capture pool submissions instead of running them, so the preview
+        # list can be rebuilt between enqueue and execution.
+        deferred: list = []
+        submit_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn))
+        submit_patch.start()
+        self.addCleanup(submit_patch.stop)
+        probe_patch = patch.object(
+            svc_mod, "probe_file",
+            side_effect=lambda mkv, path: ProbeResult(
+                path=str(path), ok=True, tracks=[]))
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(
+            svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+        # selected state's item probe + the single warm-the-rest task
+        self.assertEqual(len(deferred), 2)
+        self.assertTrue(
+            workspace._automux._inflight,
+            "the selected item's slot must be reserved at enqueue time")
+
+        states[0].preview_items = []       # rescan rebuilt the list shorter
+
+        for fn in deferred:
+            fn()                           # must not raise
+
+        self.assertEqual(
+            workspace._automux._inflight, set(),
+            "the out-of-range probe must still release its _inflight slot")
+        self.assertFalse(states[0].mux_plans)
+        self.assertTrue(
+            states[1].mux_plans,
+            "warming must continue to the next state despite the shrink")
+
     def test_button_hidden_when_no_plan_has_actions(self):
         workspace, state = self._workspace_with_selected_state(plan_actions=False)
         workspace._automux.update_button(state)

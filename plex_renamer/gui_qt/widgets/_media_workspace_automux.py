@@ -108,9 +108,17 @@ class MediaWorkspaceAutoMuxCoordinator:
         callers just need to have reserved the slot via ``_begin_probe``
         first."""
         key = (id(state), index)
-        item = state.preview_items[index]
         bridge = self._bridge
         try:
+            # Re-check bounds at execution time: a rematch/rescan can rebuild
+            # state.preview_items shorter (same state object, new list) while
+            # this probe waits in the pool -- and the lookup must sit inside
+            # the try so the finally always releases the _inflight slot (a
+            # leaked key would dedup-skip this row's probes forever, wedging
+            # its tracks widget on "Reading tracks...").
+            if not (0 <= index < len(state.preview_items)):
+                return
+            item = state.preview_items[index]
             probe = automux_service.probe_file(mkvmerge, item.original)
             if not probe.ok:
                 bridge.plan_ready.emit(
@@ -239,7 +247,13 @@ class MediaWorkspaceAutoMuxCoordinator:
                 if prepared is None:
                     continue
                 mkvmerge, source_root, settings = prepared
-                self._run_probe(state, index, mkvmerge, source_root, settings)
+                try:
+                    self._run_probe(state, index, mkvmerge, source_root, settings)
+                except Exception:                             # noqa: BLE001
+                    # One item's probe failure (unexpected mkvmerge error,
+                    # racing preview rebuild, ...) must not abort warming
+                    # for every remaining item/state in this sweep.
+                    continue
 
     # ── Movie panel (Task 6) / header button (Task 7) ─────────────────
 
