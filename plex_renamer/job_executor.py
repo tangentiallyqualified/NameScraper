@@ -30,6 +30,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ._job_execution_metadata import execute_metadata_plan
 from ._job_execution_remux import execute_remux_op
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
@@ -384,11 +385,14 @@ def _execute_remux(
     mux_ops = [op for op in job.rename_ops if op.mux and op.selected
                and op.status == "OK" and op.new_name]
     total = len(mux_ops)
+    embed_title = bool(
+        job.metadata_plan and job.metadata_plan.get("embed_title"))
     for index, op in enumerate(mux_ops):
         def _on_percent(percent, _index=index):
             if progress_cb is not None:
                 progress_cb(_index, total, percent)
 
+        title = Path(op.new_name).stem if embed_title else None
         execute_remux_op(
             op,
             source_root=Path(job.library_root),
@@ -396,6 +400,7 @@ def _execute_remux(
             result=result,
             on_percent=_on_percent,
             set_active_temp=set_active_temp,
+            title=title,
         )
     return result
 
@@ -511,6 +516,23 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
                 moved_from_paths.append(output_path)
         except OSError as e:
             errors.append(f"Could not remove remux output {output_path.name}: {e}")
+
+    # Delete metadata sidecars created by the decorate phase.
+    for created_str in undo.get("created_files", []):
+        created_path = Path(created_str)
+        if output_boundary is not None:
+            try:
+                created_path.resolve(strict=False).relative_to(output_boundary)
+            except (OSError, ValueError):
+                errors.append(
+                    f"Created file is outside the output root: {created_path}")
+                continue
+        try:
+            if created_path.exists():
+                created_path.unlink()
+                moved_from_paths.append(created_path)
+        except OSError as e:
+            errors.append(f"Could not remove metadata file {created_path.name}: {e}")
 
     # Revert folder renames (in reverse order)
     dir_rename_map: dict[Path, Path] = {}
@@ -646,14 +668,26 @@ class QueueExecutor:
         callbacks when start/stop is toggled repeatedly.
     """
 
-    def __init__(self, store: JobStore):
+    def __init__(
+        self,
+        store: JobStore,
+        image_fetcher: Callable[[str], bytes | None] | None = None,
+    ):
         self.store = store
+        self._image_fetcher = image_fetcher
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._running = False
 
         # Listener-based callbacks (additive — callers must clear to avoid dups)
         self._listeners: list[dict[str, Callable | None]] = []
+
+    def set_image_fetcher(
+        self, fetcher: Callable[[str], bytes | None] | None,
+    ) -> None:
+        """Inject the artwork downloader (wired to TMDBClient at app
+        bootstrap). The executor itself stays network-agnostic."""
+        self._image_fetcher = fetcher
 
     def add_listener(
         self,
@@ -796,6 +830,16 @@ class QueueExecutor:
                     set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p))
             else:
                 result = executor_fn(job, self._make_progress_cb(job))
+
+            if job.metadata_plan and result.renamed_count > 0:
+                # Decorate phase (spec: local-metadata-artwork). Appends
+                # to result.log_entry/errors — must run before undo_data
+                # is persisted below; never raises for per-file problems.
+                execute_metadata_plan(
+                    job,
+                    result=result,
+                    fetch_image_bytes=self._image_fetcher,
+                )
 
             if result.errors and result.renamed_count == 0:
                 error_msg = "; ".join(result.errors[:5])

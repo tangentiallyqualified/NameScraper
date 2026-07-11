@@ -76,6 +76,10 @@ class QueueController:
     def clear_listeners(self) -> None:
         self.executor.clear_listeners()
 
+    def set_image_fetcher(self, fetcher) -> None:
+        """Forward the artwork downloader to the executor."""
+        self.executor.set_image_fetcher(fetcher)
+
     # ── Properties ──────────────────────────────────────────────────
 
     @property

@@ -70,6 +70,7 @@ def execute_remux_op(
     on_percent: Callable[[int], None] | None = None,
     set_active_temp: Callable[[str | None], None] | None = None,
     runner: Callable | None = None,
+    title: str | None = None,
 ) -> bool:
     """Execute one mux op.  Returns True on success; errors go to *result*."""
     # Late-bound default so tests can monkeypatch run_mkvmerge at module level.
@@ -116,6 +117,7 @@ def execute_remux_op(
     args = build_mkvmerge_args(
         mkvmerge_path=mkvmerge, source=src, output=temp, plan=plan,
         resolve_sub=lambda rel: source_root / rel,
+        title=title,
     )
 
     try:
