@@ -13,7 +13,7 @@ from __future__ import annotations
 import html
 import os
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QFrame,
@@ -118,6 +118,26 @@ class EpisodeExpansionCard(QFrame):
         self._title_label: QLabel | None = None
         self._status_pill: QLabel | None = None
         self._build_ui()
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        """QWidget.sizeHint() normally forwards to layout().totalSizeHint(),
+        but Qt caches that independently of layout().sizeHint() and does
+        not reliably invalidate it when a child already living inside this
+        (persistent-editor) card changes its own preferred size later --
+        exactly what happens when the AutoMux tracks widget repopulates
+        from a probing placeholder to a many-track plan after the editor
+        has already been measured once (Task 8's async plan_ready ->
+        notify_expanded_row_changed reflow).
+
+        A second, independent layer of the same quirk: _files_section (the
+        tracks widget's actual parent layout) is a nested, non-top-level
+        sub-layout with its own cached sizeHint that Qt only ever
+        auto-invalidates on the *top-level* layout (this widget's own
+        updateGeometry() chain stops at self.layout(), never reaching
+        _files_section). Explicitly invalidating it here forces a fresh
+        recompute on every query instead of trusting either cache."""
+        self._files_section.invalidate()
+        return self.layout().sizeHint()
 
     # -- Layout scaffold -----------------------------------------------
 

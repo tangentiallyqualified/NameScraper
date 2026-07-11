@@ -356,6 +356,22 @@ class EpisodeTableModel(QAbstractListModel):
     def expanded_row(self) -> int | None:
         return self._expanded_row
 
+    def notify_expanded_row_changed(self) -> None:
+        """Re-measure the expanded row after its editor's content changed
+        out from under it (async AutoMux plan arrival landing after the
+        editor's initial sizeHint() -- Task 8). The delegate listens for
+        EXPANDED_ROLE in dataChanged and re-emits sizeHintChanged.
+
+        Safe as a no-op when nothing is expanded (warm_plans_for_states,
+        Task 4, can land plans for states/rows that are not the one
+        currently shown) and cheap when it isn't: one dataChanged emit for
+        a single row.
+        """
+        if self._expanded_row is None or not (0 <= self._expanded_row < len(self._entries)):
+            return
+        index = self.index(self._expanded_row, 0)
+        self.dataChanged.emit(index, index, [EXPANDED_ROLE])
+
     def refresh_checks(self) -> None:
         if self._media_type != "movie" or self._state is None or not self._entries:
             return

@@ -137,6 +137,15 @@ class MediaWorkspaceAutoMuxCoordinator:
                 widget.show_no_actions()
         except RuntimeError:
             self._widgets.pop(key, None)    # widget already deleted by Qt
+            return
+        # The widget just repopulated (Task 8): if it belongs to the row
+        # currently expanded in the TV table, its editor's cached sizeHint()
+        # (taken when the row opened) is now stale -- tell the model so the
+        # delegate re-measures. Movie mode has no expanded-row concept (the
+        # tracks widget is inlined in the work panel), and
+        # notify_expanded_row_changed() is a no-op there / whenever the
+        # widget that changed isn't the expanded row's own.
+        self._workspace._work_panel.model.notify_expanded_row_changed()
 
     def _on_plan_edited(self, state, index: int, plan: dict) -> None:
         state.mux_plans[index] = plan

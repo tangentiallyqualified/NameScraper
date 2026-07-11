@@ -38,6 +38,21 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
 
         return widget._rows_host.findChildren(QCheckBox)
 
+    def _plan_with_tracks(self, count=30):
+        decisions = [
+            {"track_id": i, "track_type": "audio", "codec": "aac",
+             "language": "eng", "name": f"Track {i}", "keep": True,
+             "make_default": i == 0, "reason": "retained"}
+            for i in range(count)
+        ]
+        return {
+            "output_name": "Many.mkv",
+            "track_decisions": decisions,
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+
     def test_show_plan_renders_rows(self):
         widget = self._widget()
         widget.show_plan(PLAN)
@@ -76,6 +91,21 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget = self._widget()
         widget.show_plan(PLAN, locked=True)
         self.assertTrue(all(not b.isEnabled() for b in self._boxes(widget)))
+
+    def test_many_tracks_height_is_capped_and_scrollable(self):
+        widget = self._widget()
+        plan = self._plan_with_tracks(count=30)
+        widget.show_plan(plan)
+        widget.adjustSize()
+        from plex_renamer.gui_qt import _scale
+        self.assertLessEqual(widget.sizeHint().height(), _scale.px(8 * 24 + 80))
+        # QScrollArea only recomputes its scrollbar range once its viewport
+        # is actually shown/polished -- pump the queue after show() so the
+        # offscreen platform delivers the pending layout/resize events.
+        widget.show()
+        self._app.processEvents()
+        self._app.processEvents()
+        self.assertTrue(widget._rows_scroll.verticalScrollBar().maximum() > 0)
 
     def test_placeholder_and_error_states(self):
         widget = self._widget()

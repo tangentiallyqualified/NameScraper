@@ -10,12 +10,24 @@ from __future__ import annotations
 
 import copy
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFrame,
+    QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import _scale
 
 _TYPE_LABEL = {"video": "VID", "audio": "AUD", "subtitles": "SUB"}
+
+# Track lists past this many rows scroll instead of stretching the
+# expansion card / movie work panel indefinitely (Task 8).
+_MAX_VISIBLE_ROWS = 8
+_ROW_H_U = 24
 
 
 class AutoMuxTracksWidget(QFrame):
@@ -35,7 +47,13 @@ class AutoMuxTracksWidget(QFrame):
         self._rows = QVBoxLayout(self._rows_host)
         self._rows.setContentsMargins(0, 0, 0, 0)
         self._rows.setSpacing(_scale.px(2))
-        layout.addWidget(self._rows_host)
+        self._rows_scroll = QScrollArea()
+        self._rows_scroll.setWidgetResizable(True)
+        self._rows_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._rows_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._rows_scroll.setWidget(self._rows_host)
+        self._rows_scroll.setMaximumHeight(_scale.px(_MAX_VISIBLE_ROWS * _ROW_H_U))
+        layout.addWidget(self._rows_scroll)
         self._notice = QLabel("")
         self._notice.setProperty("cssClass", "caption")
         self._notice.setWordWrap(True)
@@ -47,6 +65,7 @@ class AutoMuxTracksWidget(QFrame):
         self._plan = None
         self._clear_rows()
         self._notice.setText("Reading tracks…")
+        self.updateGeometry()
 
     def show_error(self, error: str) -> None:
         self._plan = None
@@ -54,11 +73,13 @@ class AutoMuxTracksWidget(QFrame):
         self._notice.setText(
             f"Tracks unavailable — {error}. "
             "This file will be renamed without remuxing.")
+        self.updateGeometry()
 
     def show_no_actions(self) -> None:
         self._plan = None
         self._clear_rows()
         self._notice.setText("No AutoMux actions apply to this file.")
+        self.updateGeometry()
 
     def show_plan(self, plan: dict, *, locked: bool = False) -> None:
         self._plan = copy.deepcopy(plan)
@@ -68,6 +89,7 @@ class AutoMuxTracksWidget(QFrame):
             box = QCheckBox(self._embedded_label(decision))
             box.setChecked(bool(decision["keep"]))
             box.setEnabled(decision["track_type"] != "video" and not locked)
+            box.setMinimumHeight(_scale.px(20))
             box.toggled.connect(
                 lambda checked, p=pos, b=box: self._on_embedded_toggled(p, checked, b))
             self._rows.addWidget(box)
@@ -75,9 +97,32 @@ class AutoMuxTracksWidget(QFrame):
             box = QCheckBox(self._merge_label(merge))
             box.setChecked(merge["action"] == "merge")
             box.setEnabled(not locked)
+            box.setMinimumHeight(_scale.px(20))
             box.toggled.connect(
                 lambda checked, p=pos: self._on_merge_toggled(p, checked))
             self._rows.addWidget(box)
+        self.updateGeometry()
+
+    # ── Sizing ────────────────────────────────────────────────────────
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        """QScrollArea.sizeHint() caches its contents widget's ideal size
+        the first time it is queried and never invalidates that cache on
+        its own (a long-standing Qt quirk) -- once this widget is measured
+        while probing (rows_host near-empty), a later many-track
+        show_plan() would silently keep reporting the old, small height,
+        defeating notify_expanded_row_changed's whole point (Task 8). Read
+        the row-list contribution straight from rows_host (always fresh)
+        and clamp it to the scroll area's cap ourselves instead of
+        trusting the scroll area's own sizeHint()."""
+        base = super().sizeHint()
+        margins = self.layout().contentsMargins()
+        spacing = self.layout().spacing()
+        rows_height = min(self._rows_host.sizeHint().height(), self._rows_scroll.maximumHeight())
+        total = margins.top() + margins.bottom() + self._heading.sizeHint().height() + spacing + rows_height
+        if self._notice.text():
+            total += spacing + self._notice.sizeHint().height()
+        return QSize(base.width(), total)
 
     # ── Internals ─────────────────────────────────────────────────────
 
