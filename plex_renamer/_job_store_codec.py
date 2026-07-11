@@ -66,4 +66,5 @@ def row_to_job(
         data_source=row["data_source"],
         depends_on=row["depends_on"],
         rename_ops=rename_ops,
+        metadata_plan=deserialize_undo_data(row["metadata_plan"]),
     )

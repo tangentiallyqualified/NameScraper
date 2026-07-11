@@ -120,6 +120,10 @@ class RenameJob:
     # Undo data (populated after execution)
     undo_data: dict | None = None   # The log_entry dict from RenameResult
 
+    # Serialized MetadataPlan dict baked at queue time (spec:
+    # local-metadata-artwork). None = feature off when the job was queued.
+    metadata_plan: dict | None = None
+
     # Job type + data source (extensibility)
     job_kind: str = JobKind.RENAME
     data_source: str = "tmdb"
@@ -282,6 +286,7 @@ class JobStore:
         """
         ops_json = serialize_rename_ops(job.rename_ops)
         undo_json = serialize_undo_data(job.undo_data)
+        metadata_plan_json = serialize_undo_data(job.metadata_plan)
         job.updated_at = datetime.now(timezone.utc).isoformat()
 
         with self._lock:
@@ -314,8 +319,8 @@ class JobStore:
                         media_name, poster_path, library_root, output_root,
                         source_folder, show_folder_rename, status,
                         error_message, position, undo_data, job_kind,
-                        data_source, depends_on, rename_ops
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        data_source, depends_on, rename_ops, metadata_plan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job.job_id, job.created_at, job.updated_at,
                     job.media_type, job.tmdb_id,
@@ -323,6 +328,7 @@ class JobStore:
                     job.output_root, job.source_folder, job.show_folder_rename,
                     job.status, job.error_message, job.position, undo_json,
                     job.job_kind, job.data_source, job.depends_on, ops_json,
+                    metadata_plan_json,
                 ))
                 conn.commit()
             except sqlite3.IntegrityError as e:
