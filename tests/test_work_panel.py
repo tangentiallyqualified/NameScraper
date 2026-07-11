@@ -1,5 +1,5 @@
 # tests/test_work_panel.py
-"""Work panel assembly: header, strip, toolbar rules, footer, scroll-to-season."""
+"""Work panel assembly: header, strip, toolbar rules, scroll-to-season."""
 from __future__ import annotations
 
 from conftest_qt import QtSmokeBase

@@ -155,6 +155,12 @@ class EpisodeExpansionCard(QFrame):
                 self.setToolTip("Collapse")
 
             def mousePressEvent(self, event) -> None:  # noqa: N802
+                # Final-review fix: only a left click should collapse the
+                # card -- right/middle clicks used to collapse it too
+                # because the button wasn't checked.
+                if event.button() != Qt.MouseButton.LeftButton:
+                    super().mousePressEvent(event)
+                    return
                 self._card.collapse_requested.emit()
                 event.accept()
 

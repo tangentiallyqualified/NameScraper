@@ -102,15 +102,6 @@ class BulkFilesModel(QAbstractListModel):
         self._apply_filter()
         self.endResetModel()
 
-    def unstaged_file_ids(self) -> list[int]:
-        """Visible (mode- and search-filtered) file ids free to be
-        auto-staged, in display order: never-claimed files and
-        unassign-staged files."""
-        return [
-            preview.file_id for preview in self._visible
-            if self._stageable(preview.file_id)
-        ]
-
     def stageable_file_ids(self) -> list[int]:
         """Every stageable file id in the FULL pool, ignoring the current
         mode/search filter. Auto-map must consider every candidate file

@@ -207,7 +207,7 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def _first_free_file_id(self, panel) -> int:
         model = panel._files_model
-        unstaged = model.unstaged_file_ids()
+        unstaged = model.stageable_file_ids()
         if not unstaged:
             raise AssertionError("no free/stageable file in fixture")
         return unstaged[0]
@@ -242,11 +242,11 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel = self._panel()
         model = panel._files_model
         claimed_fid = panel._claimed_file_by_key[(1, 2)]
-        self.assertNotIn(claimed_fid, model.unstaged_file_ids())
+        self.assertNotIn(claimed_fid, model.stageable_file_ids())
         # stage the unassign via the slot click path, then it becomes stageable
         row_slot = panel._slots_model.row_for_key((1, 2))
         panel._on_slot_clicked(panel._slots_model.index(row_slot, 0))
-        self.assertIn(claimed_fid, model.unstaged_file_ids())
+        self.assertIn(claimed_fid, model.stageable_file_ids())
 
     def test_click_claimed_slot_stages_unassign_and_frees_file(self):
         panel = self._panel()
@@ -257,7 +257,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel._on_slot_clicked(panel._slots_model.index(row, 0))
         self.assertTrue(panel.staged_unassigns())
         fid = panel.staged_unassigns()[0]
-        self.assertIn(fid, panel._files_model.unstaged_file_ids())
+        self.assertIn(fid, panel._files_model.stageable_file_ids())
 
     def test_click_claimed_slot_toggles_unassign_off(self):
         panel = self._panel()

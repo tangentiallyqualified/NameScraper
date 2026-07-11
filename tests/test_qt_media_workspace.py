@@ -363,6 +363,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace._update_action_bar()
         self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "caution")
+        # Final-review fix: force the AutoMux button visible first so the
+        # reset path's hide() call is actually exercised, not just trivially
+        # true because it started out hidden.
+        workspace._work_panel.automux_button.show()
 
         workspace._media_ctrl.batch_states.clear()
         workspace.refresh_from_controller()
@@ -370,6 +374,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertTrue(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._fix_match_btn.property("cssClass"), "secondary")
         self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "primary")
+        self.assertTrue(workspace._work_panel.automux_button.isHidden())
         workspace.close()
 
     def test_media_workspace_hides_single_season_badge_for_multi_season_preview(self):

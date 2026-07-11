@@ -39,6 +39,24 @@ class EpisodeExpansionCardTests(QtSmokeBase):
                          QPoint(header.width() - 10, header.height() // 2))
         self.assertTrue(fired)
 
+    def test_right_click_on_header_does_not_collapse(self):
+        # Final-review fix: mousePressEvent used to collapse on ANY button,
+        # so a right-click (which normally opens a context menu elsewhere)
+        # would also collapse the card.
+        from PySide6.QtCore import QPoint, Qt
+        from PySide6.QtTest import QTest
+        card = self._card_with_episode()
+        card.resize(600, 300)
+        card.show()
+        QTest.qWaitForWindowExposed(card)
+        fired = []
+        card.collapse_requested.connect(lambda: fired.append(True))
+        header = card._header_widget
+        QTest.mouseClick(header, Qt.MouseButton.RightButton,
+                         Qt.KeyboardModifier.NoModifier,
+                         QPoint(header.width() - 10, header.height() // 2))
+        self.assertFalse(fired)
+
     def test_episode_content_and_actions(self):
         from PySide6.QtWidgets import QLabel
         from plex_renamer.gui_qt.widgets._episode_expansion import (

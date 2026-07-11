@@ -161,3 +161,8 @@ class MediaWorkspaceRefreshCoordinator:
         _apply_css_class(workspace._queue_inline_btn, "primary")
         workspace._queue_inline_btn.setEnabled(False)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())
+        # Final-review fix: this same early-return path left the AutoMux
+        # toggle button showing whatever tone/text it last had for the prior
+        # selection -- hide it like the rest of the header resets to a
+        # neutral empty-ready state.
+        workspace._work_panel.automux_button.hide()
