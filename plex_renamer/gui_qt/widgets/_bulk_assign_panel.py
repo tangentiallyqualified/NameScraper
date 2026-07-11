@@ -1,10 +1,11 @@
 # plex_renamer/gui_qt/widgets/_bulk_assign_panel.py
 """BulkAssignPanel — two-pane files→slots surface for GUI V4 Plan 4 (Bulk Assign).
 
-Two ``QListView``s (unassigned files / episode slots) over two small
-``QAbstractListModel``s, plus a purely local staging dict. Nothing here calls
-into ``EpisodeMappingService`` — staging is panel-local; the owner applies the
-staged pairs via ``apply_requested`` (Task 4 wiring, not this module).
+Two ``QListView``s (all files / episode slots) over two small
+``QAbstractListModel``s, plus purely local staging state (assign pairs +
+unassign file ids). Nothing here calls into ``EpisodeMappingService`` —
+staging is panel-local; the owner applies the staged pairs and unassigns via
+``apply_requested``.
 """
 from __future__ import annotations
 
@@ -40,19 +41,25 @@ _MIME_FILE_ID = "application/x-namescraper-file-id"
 # ── files pane ───────────────────────────────────────────────────────────
 
 class BulkFilesModel(QAbstractListModel):
-    """Unassigned-file rows: checkable, searchable, staged-aware."""
+    """All-file rows: checkable pool files, read-only assigned files, staged
+    files (unassign-staged and/or restaged onto one or more slots)."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._previews: list = []            # all previews, sorted
         self._visible: list = []              # filtered by search
         self._search_text: str = ""
-        self._staged: dict[int, tuple[int, int]] = {}
+        self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
+        self._staged_by_file: dict[int, list[tuple[int, int]]] = {}
+        self._staged_unassign: set[int] = set()
         self._checked: set[int] = set()
 
-    def set_files(self, previews: list) -> None:
+    def set_files(self, previews: list, assigned_key_by_file: dict[int, list[tuple[int, int]]]) -> None:
         self.beginResetModel()
         self._previews = sorted(previews, key=lambda p: p.original.name.casefold())
+        self._assigned_key_by_file = assigned_key_by_file
+        self._staged_by_file = {}
+        self._staged_unassign = set()
         self._checked = set()
         self._apply_filter()
         self.endResetModel()
@@ -63,9 +70,19 @@ class BulkFilesModel(QAbstractListModel):
         self._apply_filter()
         self.endResetModel()
 
-    def set_staged(self, staged: dict[int, tuple[int, int]]) -> None:
-        self._staged = staged
-        self._checked -= staged.keys()
+    def set_staging(
+        self,
+        staged_pairs: list[tuple[int, tuple[int, int]]],
+        staged_unassign: set[int],
+    ) -> None:
+        by_file: dict[int, list[tuple[int, int]]] = {}
+        for file_id, key in staged_pairs:
+            by_file.setdefault(file_id, []).append(key)
+        for keys in by_file.values():
+            keys.sort(key=lambda k: k[1])
+        self._staged_by_file = by_file
+        self._staged_unassign = set(staged_unassign)
+        self._checked -= set(by_file.keys())
         if not self._visible:
             return
         top_left = self.index(0, 0)
@@ -79,16 +96,24 @@ class BulkFilesModel(QAbstractListModel):
         ]
 
     def unstaged_file_ids(self) -> list[int]:
-        """Visible (search-filtered) file ids not yet staged, in display order."""
+        """Visible (search-filtered) file ids free to be auto-staged, in
+        display order: never-claimed files and unassign-staged files."""
         return [
             preview.file_id for preview in self._visible
-            if preview.file_id not in self._staged
+            if self._checkable(preview.file_id)
         ]
 
     def file_id_at(self, row: int) -> int | None:
         if 0 <= row < len(self._visible):
             return self._visible[row].file_id
         return None
+
+    def _checkable(self, file_id: int) -> bool:
+        if file_id in self._staged_by_file:
+            return False
+        if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
+            return False
+        return True
 
     def _apply_filter(self) -> None:
         if not self._search_text:
@@ -115,7 +140,7 @@ class BulkFilesModel(QAbstractListModel):
             | Qt.ItemFlag.ItemIsSelectable
             | Qt.ItemFlag.ItemIsDragEnabled
         )
-        if preview.file_id not in self._staged:
+        if self._checkable(preview.file_id):
             flags |= Qt.ItemFlag.ItemIsUserCheckable
         return flags
 
@@ -123,40 +148,57 @@ class BulkFilesModel(QAbstractListModel):
         if not index.isValid():
             return None
         preview = self._visible[index.row()]
-        staged_key = self._staged.get(preview.file_id)
+        file_id = preview.file_id
+        name = preview.original.name
+        staged_keys = self._staged_by_file.get(file_id)
+        assigned_keys = self._assigned_key_by_file.get(file_id)
+        unassign_staged = file_id in self._staged_unassign
         if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
-            name = preview.original.name
-            if staged_key is not None:
-                season, episode = staged_key
-                return f"{name}  →  S{season:02d}E{episode:02d}"
+            if staged_keys:
+                label = ", ".join(f"S{s:02d}E{e:02d}" for s, e in staged_keys)
+                return f"{name}  →  {label}"
+            if assigned_keys and not unassign_staged:
+                label = ", ".join(f"S{s:02d}E{e:02d}" for s, e in sorted(assigned_keys))
+                return f"{name}  ·  {label} (assigned)"
+            if assigned_keys and unassign_staged:
+                return f"{name}  ·  unassigned on apply"
             return name
         if role == Qt.ItemDataRole.ToolTipRole:
             tooltip = str(preview.original)
-            if staged_key is not None:
-                season, episode = staged_key
-                tooltip = f"{tooltip} — S{season:02d}E{episode:02d}"
+            if staged_keys:
+                label = ", ".join(f"S{s:02d}E{e:02d}" for s, e in staged_keys)
+                tooltip = f"{tooltip} — {label}"
+            elif assigned_keys and not unassign_staged:
+                label = ", ".join(f"S{s:02d}E{e:02d}" for s, e in sorted(assigned_keys))
+                tooltip = f"{tooltip} — {label} (assigned)"
+            elif assigned_keys and unassign_staged:
+                tooltip = f"{tooltip} — will unassign on apply"
             return tooltip
         if role == Qt.ItemDataRole.CheckStateRole:
-            if staged_key is not None:
+            if not self._checkable(file_id):
                 return None
             return (
                 Qt.CheckState.Checked.value
-                if preview.file_id in self._checked
+                if file_id in self._checked
                 else Qt.CheckState.Unchecked.value
             )
         if role == Qt.ItemDataRole.ForegroundRole:
-            if staged_key is not None:
+            if staged_keys:
                 return theme.qcolor("accent")
+            if assigned_keys and not unassign_staged:
+                return theme.qcolor("text_dim")
+            if assigned_keys and unassign_staged:
+                return theme.qcolor("warning")
             return None
         if role == FILE_ID_ROLE:
-            return preview.file_id
+            return file_id
         return None
 
     def setData(self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole) -> bool:  # noqa: N802
         if not index.isValid() or role != Qt.ItemDataRole.CheckStateRole:
             return False
         preview = self._visible[index.row()]
-        if preview.file_id in self._staged:
+        if not self._checkable(preview.file_id):
             return False
         checked = value == Qt.CheckState.Checked.value or value == Qt.CheckState.Checked
         if checked:
@@ -182,7 +224,7 @@ class BulkFilesModel(QAbstractListModel):
 
 
 class BulkFilesView(QListView):
-    """Drag source: unassigned-file rows, shift-range check toggling."""
+    """Drag source: file rows, shift-range check toggling."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -251,33 +293,49 @@ class BulkSlotsModel(QAbstractListModel):
         # each row: (slot_key_or_None, display_text, foreground_token)
         self._claimed_keys: set[tuple[int, int]] = set()
 
-    def set_slots(self, choices: list, staged_names: dict[tuple[int, int], str]) -> None:
+    def set_slots(
+        self,
+        choices: list,
+        staged_names: dict[tuple[int, int], str],
+        unassign_file_ids: set[int],
+        search: str = "",
+    ) -> None:
         self.beginResetModel()
         self._rows = []
         self._claimed_keys = {
             (choice.season, choice.episode)
             for choice in choices if choice.claimed_by
         }
+        needle = search.casefold()
         by_season: dict[int, list] = {}
         for choice in choices:
             by_season.setdefault(choice.season, []).append(choice)
         for season in sorted(by_season):
-            season_choices = by_season[season]
-            header = "Specials" if season == 0 else f"Season {season:02d}"
-            self._rows.append((None, f"{header} ({len(season_choices)})", ""))
-            for choice in sorted(season_choices, key=lambda c: c.episode):
+            season_choices = sorted(by_season[season], key=lambda c: c.episode)
+            child_rows: list[tuple[tuple[int, int] | None, str, str]] = []
+            for choice in season_choices:
+                if needle and needle not in choice.label.casefold():
+                    continue
                 key = (choice.season, choice.episode)
                 staged_name = staged_names.get(key)
                 if staged_name is not None:
                     text = f"{choice.label}  →  {staged_name}"
                     tone = "accent"
+                elif choice.claimed_by and choice.claimed_file_id in unassign_file_ids:
+                    text = f"{choice.label} — will unassign: {choice.claimed_by}"
+                    tone = "warning"
                 elif choice.claimed_by:
                     text = f"{choice.label} — {choice.claimed_by}"
                     tone = "text_dim"
                 else:
                     text = f"{choice.label} — missing"
                     tone = "warning"
-                self._rows.append((key, text, tone))
+                child_rows.append((key, text, tone))
+            if not child_rows:
+                continue
+            header = "Specials" if season == 0 else f"Season {season:02d}"
+            self._rows.append((None, f"{header} ({len(season_choices)})", ""))
+            self._rows.extend(child_rows)
         self.endResetModel()
 
     def slot_key_at(self, row: int) -> tuple[int, int] | None:
@@ -327,7 +385,11 @@ class BulkSlotsModel(QAbstractListModel):
 
 
 class BulkSlotsView(QListView):
-    """Drop target: emits pair_dropped when a file is dragged onto a free slot row."""
+    """Drop target: emits pair_dropped when a file is dragged onto a slot row.
+
+    Free/claimed validation happens at the panel level (``_handle_drop``), not
+    here — the view only excludes header rows.
+    """
 
     pair_dropped = Signal(int, tuple)  # file_id, (season, episode)
 
@@ -345,10 +407,7 @@ class BulkSlotsView(QListView):
         model = self.model()
         if not isinstance(model, BulkSlotsModel):
             return None
-        key = model.slot_key_at(index.row())
-        if key is None or model.is_claimed(key):
-            return None
-        return key
+        return model.slot_key_at(index.row())
 
     def dragEnterEvent(self, event) -> None:  # noqa: N802
         if event.mimeData().hasFormat(_MIME_FILE_ID):
@@ -387,7 +446,7 @@ class BulkSlotsView(QListView):
 class BulkAssignPanel(QFrame):
     """Files/slots two-pane staging surface for GUI V4 Plan 4 Bulk Assign."""
 
-    apply_requested = Signal(list)   # list[tuple[int, int, int]] (file_id, season, episode)
+    apply_requested = Signal(list, list)   # assign_pairs, unassign_file_ids
     cancelled = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -396,8 +455,11 @@ class BulkAssignPanel(QFrame):
         self._service = None
         self._choices: list = []
         self._previews: list = []
-        self._staged: dict[int, tuple[int, int]] = {}
-        self._anchor_key: tuple[int, int] | None = None
+        self._claimed_file_by_key: dict[tuple[int, int], int] = {}
+        self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
+        self._staged_pairs: list[tuple[int, tuple[int, int]]] = []
+        self._staged_unassign: set[int] = set()
+        self._slot_search_text: str = ""
         self._build_ui()
 
     # -- UI scaffold ------------------------------------------------------
@@ -413,7 +475,7 @@ class BulkAssignPanel(QFrame):
 
         left = QVBoxLayout()
         left.setSpacing(_scale.px(4))
-        self._files_caption = QLabel("Unassigned files (0)")
+        self._files_caption = QLabel("Files (0)")
         self._files_caption.setProperty("cssClass", "caption")
         left.addWidget(self._files_caption)
         self._search_box = QLineEdit()
@@ -432,6 +494,11 @@ class BulkAssignPanel(QFrame):
         self._slots_caption = QLabel("Episode slots")
         self._slots_caption.setProperty("cssClass", "caption")
         right.addWidget(self._slots_caption)
+        self._slot_search_box = QLineEdit()
+        self._slot_search_box.setPlaceholderText("Filter episodes…")
+        self._slot_search_box.setClearButtonEnabled(True)
+        self._slot_search_box.textChanged.connect(self._on_slot_search_changed)
+        right.addWidget(self._slot_search_box)
         self._slots_model = BulkSlotsModel(self)
         self._slots_view = BulkSlotsView()
         self._slots_view.setModel(self._slots_model)
@@ -453,6 +520,11 @@ class BulkAssignPanel(QFrame):
         self._auto_map_button.setProperty("cssClass", "secondary")
         self._auto_map_button.clicked.connect(self.auto_map_remaining)
         button_row.addWidget(self._auto_map_button)
+
+        self._unassign_all_button = QPushButton("Unassign all")
+        self._unassign_all_button.setProperty("cssClass", "danger-outline")
+        self._unassign_all_button.clicked.connect(self.unassign_all)
+        button_row.addWidget(self._unassign_all_button)
 
         self._reset_button = QPushButton("Reset")
         self._reset_button.setProperty("cssClass", "secondary")
@@ -484,32 +556,37 @@ class BulkAssignPanel(QFrame):
         self._state = state
         self._service = service
         self._choices = service.episode_slot_choices(state)
-        self._previews = service.unassigned_file_previews(state)
-        self._staged = {}
-        self._anchor_key = None
+        self._previews = service.all_primary_file_previews(state)
+        self._claimed_file_by_key = {
+            (choice.season, choice.episode): choice.claimed_file_id
+            for choice in self._choices if choice.claimed_file_id is not None
+        }
+        self._assigned_key_by_file = {}
+        for key, file_id in self._claimed_file_by_key.items():
+            self._assigned_key_by_file.setdefault(file_id, []).append(key)
+        self._staged_pairs = []
+        self._staged_unassign = set()
+        self._slot_search_text = ""
+        self._slot_search_box.setText("")
         self._status_label.setText("")
-        self._files_model.set_files(self._previews)
-        self._files_caption.setText(f"Unassigned files ({len(self._previews)})")
+        self._files_model.set_files(self._previews, self._assigned_key_by_file)
+        self._files_caption.setText(f"Files ({len(self._previews)})")
         self._refresh_views()
 
     def staged_pairs(self) -> list[tuple[int, int, int]]:
-        return [
-            (file_id, season, episode)
-            for file_id, (season, episode) in sorted(self._staged.items())
-        ]
+        return [(file_id, season, episode) for file_id, (season, episode) in self._staged_pairs]
+
+    def staged_unassigns(self) -> list[int]:
+        return sorted(self._staged_unassign)
 
     def assign_in_order(self) -> None:
         file_ids = self._files_model.checked_file_ids()
         keys = self._free_keys_sorted()
-        if self._anchor_key is not None:
-            ordered_keys = [key for key in keys if key >= self._anchor_key]
-        else:
-            ordered_keys = keys
-        staged_now: list[int] = []
-        for file_id, key in zip(file_ids, ordered_keys):
-            self._staged[file_id] = key
-            staged_now.append(file_id)
-        leftover = len(file_ids) - len(staged_now)
+        staged_now = 0
+        for file_id, key in zip(file_ids, keys):
+            self._staged_pairs.append((file_id, key))
+            staged_now += 1
+        leftover = len(file_ids) - staged_now
         if leftover > 0:
             self._status_label.setText(f"{leftover} file(s) left unstaged — no free slots")
         else:
@@ -520,65 +597,104 @@ class BulkAssignPanel(QFrame):
         file_ids = self._files_model.unstaged_file_ids()
         keys = self._free_keys_sorted()
         for file_id, key in zip(file_ids, keys):
-            self._staged[file_id] = key
+            self._staged_pairs.append((file_id, key))
+        self._refresh_views()
+
+    def unassign_all(self) -> None:
+        self._staged_unassign = set(self._assigned_key_by_file)
+        self._status_label.setText("")
         self._refresh_views()
 
     def reset_staging(self) -> None:
-        self._staged = {}
-        self._anchor_key = None
+        self._staged_pairs = []
+        self._staged_unassign = set()
         self._status_label.setText("")
         self._refresh_views()
 
     # -- Drag / click handlers ---------------------------------------------
 
     def _handle_drop(self, file_id: int, key: tuple[int, int]) -> None:
-        if self._is_claimed(key) or self._is_staged(key):
+        if not self._key_is_free(key):
             return
-        self._staged = {
-            fid: existing_key for fid, existing_key in self._staged.items()
-            if fid != file_id
-        }
-        self._staged[file_id] = key
+        if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
+            self._status_label.setText("Unassign this file first (click its slot)")
+            return
+        staged = self._staged_keys_for(file_id)
+        if staged:
+            if staged[0][0] != key[0]:
+                self._status_label.setText("A file can only be staged into one season")
+                return
+            episodes = sorted(episode for _season, episode in staged)
+            if key[1] not in (episodes[0] - 1, episodes[-1] + 1):
+                self._status_label.setText("A file can only be staged onto adjacent episodes")
+                return
+        self._staged_pairs.append((file_id, key))
+        self._status_label.setText("")
         self._refresh_views()
 
     def _on_slot_clicked(self, index: QModelIndex) -> None:
         key = self._slots_model.slot_key_at(index.row())
         if key is None:
             return
-        self._anchor_key = key
-        season, episode = key
-        self._status_label.setText(f"Start at S{season:02d}E{episode:02d}")
+        file_id = self._claimed_file_by_key.get(key)
+        if file_id is None:
+            return
+        if file_id in self._staged_unassign:
+            self._staged_unassign.discard(file_id)
+            # Re-claiming the slot also drops any pairs staged into the
+            # slot(s) this file is reclaiming.
+            vacated = set(self._assigned_key_by_file.get(file_id, []))
+            self._staged_pairs = [
+                (fid, k) for fid, k in self._staged_pairs if k not in vacated
+            ]
+        else:
+            self._staged_unassign.add(file_id)
+        self._status_label.setText("")
+        self._refresh_views()
 
     def _on_search_changed(self, text: str) -> None:
         self._files_model.set_search(text)
 
+    def _on_slot_search_changed(self, text: str) -> None:
+        self._slot_search_text = text
+        self._refresh_views()
+
     def _on_apply_clicked(self) -> None:
-        self.apply_requested.emit(self.staged_pairs())
+        self.apply_requested.emit(self.staged_pairs(), self.staged_unassigns())
 
     # -- Internal helpers ---------------------------------------------------
 
-    def _is_claimed(self, key: tuple[int, int]) -> bool:
-        return self._slots_model.is_claimed(key)
+    def _staged_key_set(self) -> set[tuple[int, int]]:
+        return {key for _file_id, key in self._staged_pairs}
 
-    def _is_staged(self, key: tuple[int, int]) -> bool:
-        return key in self._staged.values()
+    def _staged_keys_for(self, file_id: int) -> list[tuple[int, int]]:
+        return [key for fid, key in self._staged_pairs if fid == file_id]
+
+    def _key_is_free(self, key: tuple[int, int]) -> bool:
+        if key in self._staged_key_set():
+            return False
+        claimed_file_id = self._claimed_file_by_key.get(key)
+        return claimed_file_id is None or claimed_file_id in self._staged_unassign
 
     def _free_keys_sorted(self) -> list[tuple[int, int]]:
+        staged = self._staged_key_set()
         return sorted(
             (choice.season, choice.episode)
             for choice in self._choices
-            if not choice.claimed_by
-            and (choice.season, choice.episode) not in self._staged.values()
+            if (choice.season, choice.episode) not in staged
+            and self._key_is_free((choice.season, choice.episode))
         )
 
     def _refresh_views(self) -> None:
-        self._files_model.set_staged(dict(self._staged))
+        self._files_model.set_staging(list(self._staged_pairs), set(self._staged_unassign))
         staged_names = {
             key: self._file_name(file_id)
-            for file_id, key in self._staged.items()
+            for file_id, key in self._staged_pairs
         }
-        self._slots_model.set_slots(self._choices, staged_names)
-        self._apply_button.setEnabled(bool(self._staged))
+        self._slots_model.set_slots(
+            self._choices, staged_names, set(self._staged_unassign), self._slot_search_text,
+        )
+        self._apply_button.setEnabled(bool(self._staged_pairs) or bool(self._staged_unassign))
 
     def _file_name(self, file_id: int) -> str:
         for preview in self._previews:

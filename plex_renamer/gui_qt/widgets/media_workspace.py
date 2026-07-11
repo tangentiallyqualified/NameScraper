@@ -317,8 +317,8 @@ class MediaWorkspace(QWidget):
     def _enter_bulk_assign(self) -> None:
         self._action_coordinator.enter_bulk_assign()
 
-    def _on_bulk_apply(self, pairs: list) -> None:
-        self._action_coordinator.apply_bulk_assignments(pairs)
+    def _on_bulk_apply(self, pairs: list, unassign_file_ids: list | None = None) -> None:
+        self._action_coordinator.apply_bulk_assignments(pairs, unassign_file_ids)
 
     def _on_bulk_cancel(self) -> None:
         self._action_coordinator.cancel_bulk_assign()
