@@ -2435,7 +2435,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def test_unassign_all_button_clears_every_assigned_file(self):
+    def test_unassign_all_clicked_clears_every_assigned_file(self):
+        # The overflow-menu "Unassign All" entry is gone (Task 9), but the
+        # unassign_all_clicked signal and the coordinator it drives remain
+        # reachable programmatically -- exercise them directly.
         from PySide6.QtWidgets import QMessageBox
 
         from plex_renamer.engine._episode_projection import project_preview_items
@@ -2468,21 +2471,17 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         )
         workspace.show_ready()
 
-        unassign_all_action = workspace._work_panel._unassign_all_action
-        # Both files start assigned, so the overflow menu action is shown and enabled.
-        self.assertTrue(unassign_all_action.isVisible())
-        self.assertTrue(unassign_all_action.isEnabled())
         self.assertIsNotNone(table._assignments.get(first.file_id))
         self.assertIsNotNone(table._assignments.get(second.file_id))
 
-        # The trigger raises the danger confirm dialog (Plan 4 Task 4); stub the
-        # blocking modal exec() to auto-answer "Unassign All" (Yes) so the
-        # offscreen run still exercises the real trigger -> confirm -> unassign
-        # chain without sitting in a modal event loop.
+        # Emitting the signal raises the danger confirm dialog (Plan 4 Task 4);
+        # stub the blocking modal exec() to auto-answer "Unassign All" (Yes) so
+        # the offscreen run still exercises the real signal -> confirm ->
+        # unassign chain without sitting in a modal event loop.
         with patch.object(
             QMessageBox, "exec", return_value=QMessageBox.StandardButton.Yes,
         ):
-            unassign_all_action.trigger()
+            workspace._work_panel.unassign_all_clicked.emit()
         self._app.processEvents()
 
         # Every file is now unassigned in the table...
@@ -2491,8 +2490,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # ...and the reprojected previews carry no rename target.
         for preview in state.preview_items:
             self.assertIsNone(preview.new_name)
-        # Nothing left to unassign, so the action disables itself.
-        self.assertFalse(unassign_all_action.isEnabled())
 
         workspace.close()
 

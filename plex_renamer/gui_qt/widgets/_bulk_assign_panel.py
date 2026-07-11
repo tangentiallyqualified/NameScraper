@@ -16,7 +16,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QDrag, QMouseEvent
+from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListView,
     QPushButton,
-    QStyleOptionViewItem,
     QVBoxLayout,
     QWidget,
 )
@@ -41,7 +40,7 @@ _MIME_FILE_ID = "application/x-namescraper-file-id"
 # ── files pane ───────────────────────────────────────────────────────────
 
 class BulkFilesModel(QAbstractListModel):
-    """All-file rows: checkable pool files, read-only assigned files, staged
+    """All-file rows: stageable pool files, read-only assigned files, staged
     files (unassign-staged and/or restaged onto one or more slots)."""
 
     def __init__(self, parent=None) -> None:
@@ -52,7 +51,6 @@ class BulkFilesModel(QAbstractListModel):
         self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_unassign: set[int] = set()
-        self._checked: set[int] = set()
 
     def set_files(self, previews: list, assigned_key_by_file: dict[int, list[tuple[int, int]]]) -> None:
         self.beginResetModel()
@@ -60,7 +58,6 @@ class BulkFilesModel(QAbstractListModel):
         self._assigned_key_by_file = assigned_key_by_file
         self._staged_by_file = {}
         self._staged_unassign = set()
-        self._checked = set()
         self._apply_filter()
         self.endResetModel()
 
@@ -82,25 +79,18 @@ class BulkFilesModel(QAbstractListModel):
             keys.sort(key=lambda k: k[1])
         self._staged_by_file = by_file
         self._staged_unassign = set(staged_unassign)
-        self._checked -= set(by_file.keys())
         if not self._visible:
             return
         top_left = self.index(0, 0)
         bottom_right = self.index(len(self._visible) - 1, 0)
         self.dataChanged.emit(top_left, bottom_right)
 
-    def checked_file_ids(self) -> list[int]:
-        return [
-            preview.file_id for preview in self._visible
-            if preview.file_id in self._checked
-        ]
-
     def unstaged_file_ids(self) -> list[int]:
         """Visible (search-filtered) file ids free to be auto-staged, in
         display order: never-claimed files and unassign-staged files."""
         return [
             preview.file_id for preview in self._visible
-            if self._checkable(preview.file_id)
+            if self._stageable(preview.file_id)
         ]
 
     def file_id_at(self, row: int) -> int | None:
@@ -108,7 +98,7 @@ class BulkFilesModel(QAbstractListModel):
             return self._visible[row].file_id
         return None
 
-    def _checkable(self, file_id: int) -> bool:
+    def _stageable(self, file_id: int) -> bool:
         if file_id in self._staged_by_file:
             return False
         if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
@@ -134,15 +124,11 @@ class BulkFilesModel(QAbstractListModel):
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
-        preview = self._visible[index.row()]
-        flags = (
+        return (
             Qt.ItemFlag.ItemIsEnabled
             | Qt.ItemFlag.ItemIsSelectable
             | Qt.ItemFlag.ItemIsDragEnabled
         )
-        if self._checkable(preview.file_id):
-            flags |= Qt.ItemFlag.ItemIsUserCheckable
-        return flags
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
@@ -174,14 +160,6 @@ class BulkFilesModel(QAbstractListModel):
             elif assigned_keys and unassign_staged:
                 tooltip = f"{tooltip} — will unassign on apply"
             return tooltip
-        if role == Qt.ItemDataRole.CheckStateRole:
-            if not self._checkable(file_id):
-                return None
-            return (
-                Qt.CheckState.Checked.value
-                if file_id in self._checked
-                else Qt.CheckState.Unchecked.value
-            )
         if role == Qt.ItemDataRole.ForegroundRole:
             if staged_keys:
                 return theme.qcolor("accent")
@@ -193,20 +171,6 @@ class BulkFilesModel(QAbstractListModel):
         if role == FILE_ID_ROLE:
             return file_id
         return None
-
-    def setData(self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole) -> bool:  # noqa: N802
-        if not index.isValid() or role != Qt.ItemDataRole.CheckStateRole:
-            return False
-        preview = self._visible[index.row()]
-        if not self._checkable(preview.file_id):
-            return False
-        checked = value == Qt.CheckState.Checked.value or value == Qt.CheckState.Checked
-        if checked:
-            self._checked.add(preview.file_id)
-        else:
-            self._checked.discard(preview.file_id)
-        self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
-        return True
 
     def mimeTypes(self) -> list[str]:  # noqa: N802
         return [_MIME_FILE_ID]
@@ -224,50 +188,15 @@ class BulkFilesModel(QAbstractListModel):
 
 
 class BulkFilesView(QListView):
-    """Drag source: file rows, shift-range check toggling."""
+    """Drag source: file rows, single-select."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setSelectionMode(QListView.SelectionMode.ExtendedSelection)
+        self.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollMode(QListView.ScrollMode.ScrollPerPixel)
-        self._last_check_row: int = -1
-
-    def _check_zone_rect(self, index: QModelIndex):
-        option = QStyleOptionViewItem()
-        self.initViewItemOption(option)
-        option.rect = self.visualRect(index)
-        style = self.style()
-        return style.subElementRect(
-            style.SubElement.SE_ItemViewItemCheckIndicator, option, self,
-        )
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
-        index = self.indexAt(pos)
-        if index.isValid() and bool(index.flags() & Qt.ItemFlag.ItemIsUserCheckable):
-            check_rect = self._check_zone_rect(index)
-            if check_rect.contains(pos):
-                model = self.model()
-                current = index.data(Qt.ItemDataRole.CheckStateRole)
-                next_value = (
-                    Qt.CheckState.Unchecked.value
-                    if current == Qt.CheckState.Checked.value
-                    else Qt.CheckState.Checked.value
-                )
-                if event.modifiers() & Qt.KeyboardModifier.ShiftModifier and self._last_check_row != -1:
-                    lo, hi = sorted((self._last_check_row, index.row()))
-                    for row in range(lo, hi + 1):
-                        target = model.index(row, 0)
-                        if target.flags() & Qt.ItemFlag.ItemIsUserCheckable:
-                            model.setData(target, next_value, Qt.ItemDataRole.CheckStateRole)
-                else:
-                    model.setData(index, next_value, Qt.ItemDataRole.CheckStateRole)
-                self._last_check_row = index.row()
-                return
-        super().mousePressEvent(event)
 
     def startDrag(self, supportedActions) -> None:  # noqa: N802
         index = self.currentIndex()
@@ -511,11 +440,6 @@ class BulkAssignPanel(QFrame):
 
         button_row = QHBoxLayout()
         button_row.setSpacing(_scale.px(8))
-        self._assign_button = QPushButton("Assign in order")
-        self._assign_button.setProperty("cssClass", "primary")
-        self._assign_button.clicked.connect(self.assign_in_order)
-        button_row.addWidget(self._assign_button)
-
         self._auto_map_button = QPushButton("Auto-map remaining")
         self._auto_map_button.setProperty("cssClass", "secondary")
         self._auto_map_button.clicked.connect(self.auto_map_remaining)
@@ -578,20 +502,6 @@ class BulkAssignPanel(QFrame):
 
     def staged_unassigns(self) -> list[int]:
         return sorted(self._staged_unassign)
-
-    def assign_in_order(self) -> None:
-        file_ids = self._files_model.checked_file_ids()
-        keys = self._free_keys_sorted()
-        staged_now = 0
-        for file_id, key in zip(file_ids, keys):
-            self._staged_pairs.append((file_id, key))
-            staged_now += 1
-        leftover = len(file_ids) - staged_now
-        if leftover > 0:
-            self._status_label.setText(f"{leftover} file(s) left unstaged — no free slots")
-        else:
-            self._status_label.setText("")
-        self._refresh_views()
 
     def auto_map_remaining(self) -> None:
         file_ids = self._files_model.unstaged_file_ids()

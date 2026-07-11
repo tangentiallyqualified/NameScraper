@@ -320,7 +320,6 @@ class MediaWorkPanel(QFrame):
         self._overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         overflow_menu = QMenu(self._overflow_button)
         overflow_menu.addAction("Bulk Assign…", self.bulk_assign_requested.emit)
-        self._unassign_all_action = overflow_menu.addAction("Unassign All", self.unassign_all_clicked.emit)
         self._overflow_button.setMenu(overflow_menu)
         if self._media_type == "movie":
             self._overflow_button.hide()
@@ -487,7 +486,6 @@ class MediaWorkPanel(QFrame):
         guide = self._model.guide()
         has_review = guide is not None and any(row.status == "Review" for row in guide.rows)
         self._approve_all_button.setVisible(has_review)
-        self._sync_unassign_all_action(state)
 
     def scroll_to_folder_section(self) -> None:
         key = self._model.folder_section_key()
@@ -529,20 +527,6 @@ class MediaWorkPanel(QFrame):
 
     def _on_header_clicked(self, section_key: str) -> None:
         self._model.toggle_section(section_key)
-
-    # -- Toolbar rule helpers ------------------------------------------------
-
-    def _sync_unassign_all_action(self, state: ScanState) -> None:
-        table = state.assignments
-        has_assignments = table is not None and any(
-            preview.file_id is not None
-            and table.assignment_for(preview.file_id) is not None
-            for preview in state.preview_items
-        )
-        self._unassign_all_action.setVisible(has_assignments)
-        self._unassign_all_action.setEnabled(
-            has_assignments and not state.queued and not state.scanning
-        )
 
     def _is_season_fully_missing(self, season: int) -> bool:
         guide = self._model.guide()

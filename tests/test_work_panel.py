@@ -251,26 +251,26 @@ class WorkPanelTests(QtSmokeBase):
         fired: list[bool] = []
         panel.bulk_assign_requested.connect(lambda: fired.append(True))
         actions = panel.overflow_button.menu().actions()
-        self.assertEqual([a.text() for a in actions], ["Bulk Assign…", "Unassign All"])
+        self.assertEqual([a.text() for a in actions], ["Bulk Assign…"])
         actions[0].trigger()
         self.assertEqual(fired, [True])
 
-    def test_unassign_all_lives_in_overflow_menu(self):
+    def test_overflow_menu_has_no_unassign_all(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         labels = [a.text() for a in panel.overflow_button.menu().actions()]
-        self.assertIn("Unassign All", labels)
+        self.assertNotIn("Unassign All", labels)
         self.assertIn("Bulk Assign…", labels)
 
-    def test_unassign_all_menu_action_emits_signal(self):
+    def test_unassign_all_clicked_signal_still_reachable_programmatically(self):
+        # The overflow-menu entry is gone (Task 9), but the signal itself and
+        # MediaWorkspaceActionCoordinator.unassign_all_episode_mappings remain
+        # -- exercised directly here since there's no more UI to trigger it.
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         fired: list[bool] = []
         panel.unassign_all_clicked.connect(lambda: fired.append(True))
-        actions = {a.text(): a for a in panel.overflow_button.menu().actions()}
-        action = actions["Unassign All"]
-        action.setEnabled(True)   # fixture has no assignments; force-enable to test wiring
-        action.trigger()
+        panel.unassign_all_clicked.emit()
         self.assertEqual(fired, [True])
 
     def test_inline_action_clicked_reemits_as_inline_row_action(self):

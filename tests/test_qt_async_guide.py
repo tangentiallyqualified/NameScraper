@@ -197,8 +197,8 @@ class AsyncGuideWorkPanelTests(QtSmokeBase):
 
     def test_mid_bulk_delivery_keeps_hidden_toolbar_and_bulk_mode(self):
         """Review I2: a guide landing mid-bulk must not re-show the Approve
-        All button (or the overflow menu housing Unassign All) that
-        enter_bulk_assign hid; the toolbar re-derives on exit_bulk_assign."""
+        All button (or the overflow menu) that enter_bulk_assign hid; the
+        toolbar re-derives on exit_bulk_assign."""
         from plex_renamer.app.services.episode_projection_cache import (
             EpisodeProjectionCacheService,
         )
@@ -227,19 +227,17 @@ class AsyncGuideWorkPanelTests(QtSmokeBase):
             self.assertIn("episode", {e.kind for e in panel.model._entries})
             self.assertTrue(panel.bulk_assign_active())     # bulk mode survived
             self.assertFalse(panel.approve_all_button.isVisible())
-            self.assertFalse(panel.overflow_button.isVisible())  # hides Unassign All too
+            self.assertFalse(panel.overflow_button.isVisible())
             self.assertTrue(panel.summary_label.text())     # footer still refreshed
             panel.exit_bulk_assign()
             self.assertFalse(panel.bulk_assign_active())
             self.assertTrue(panel.overflow_button.isVisible())  # re-derived on exit
-            self.assertTrue(panel._unassign_all_action.isVisible())  # re-derived on exit
             panel.close()
 
     def test_same_state_repopulate_mid_bulk_keeps_buttons_hidden(self):
         """Re-review M6: refresh_from_controller repopulates the panel with the
         same state during bulk; show_state's unconditional update_toolbar must
-        not re-show the hidden Approve All button (or the overflow menu
-        housing Unassign All)."""
+        not re-show the hidden Approve All button (or the overflow menu)."""
         from plex_renamer.app.services.episode_projection_cache import (
             EpisodeProjectionCacheService,
         )
@@ -257,7 +255,6 @@ class AsyncGuideWorkPanelTests(QtSmokeBase):
         state = _table_state("Show A")
         cache.prepare_state(state)                       # cached: sync render
         panel.show_state(state, collapsed_sections=set())
-        self.assertTrue(panel._unassign_all_action.isVisible())
         self.assertTrue(panel.overflow_button.isVisible())
         panel.enter_bulk_assign()   # overflow visibility itself is re-derived by
         # update_toolbar, not by enter_bulk_assign directly; the repopulate
@@ -268,7 +265,6 @@ class AsyncGuideWorkPanelTests(QtSmokeBase):
         self.assertFalse(panel.overflow_button.isVisible())
         panel.exit_bulk_assign()
         self.assertTrue(panel.overflow_button.isVisible())
-        self.assertTrue(panel._unassign_all_action.isVisible())
         panel.close()
 
 

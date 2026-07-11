@@ -1,6 +1,6 @@
 # tests/test_bulk_assign_panel.py
-"""BulkAssignPanel staging: assign-in-order, auto-map, drag pairs, unassign
-staging, episode filter, and apply payload."""
+"""BulkAssignPanel staging: auto-map, drag pairs, unassign staging, episode
+filter, and apply payload."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -62,11 +62,10 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def _first_free_file_id(self, panel) -> int:
         model = panel._files_model
-        for row in range(model.rowCount()):
-            index = model.index(row, 0)
-            if index.flags() & __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.ItemFlag.ItemIsUserCheckable:
-                return model.file_id_at(row)
-        raise AssertionError("no free/checkable file in fixture")
+        unstaged = model.unstaged_file_ids()
+        if not unstaged:
+            raise AssertionError("no free/stageable file in fixture")
+        return unstaged[0]
 
     def test_files_sorted_and_searchable(self):
         panel = self._panel()
@@ -92,25 +91,17 @@ class BulkAssignPanelTests(QtSmokeBase):
         assert any("S01E02" in n for n in names)          # assigned file visible with mapping
         assert any("(assigned)" in n for n in names)
 
-    def test_assigned_file_is_check_disabled_until_unassign_staged(self):
-        from PySide6.QtCore import Qt
-
+    def test_assigned_file_is_not_stageable_until_unassign_staged(self):
         panel = self._panel()
         model = panel._files_model
-        row = next(
-            r for r in range(model.rowCount())
-            if model.file_id_at(r) == panel._claimed_file_by_key[(1, 2)]
-        )
-        index = model.index(row, 0)
-        self.assertFalse(bool(index.flags() & Qt.ItemFlag.ItemIsUserCheckable))
-        # stage the unassign via the slot click path, then it becomes checkable
+        claimed_fid = panel._claimed_file_by_key[(1, 2)]
+        self.assertNotIn(claimed_fid, model.unstaged_file_ids())
+        # stage the unassign via the slot click path, then it becomes stageable
         row_slot = panel._slots_model.row_for_key((1, 2))
         panel._on_slot_clicked(panel._slots_model.index(row_slot, 0))
-        self.assertTrue(bool(index.flags() & Qt.ItemFlag.ItemIsUserCheckable))
+        self.assertIn(claimed_fid, model.unstaged_file_ids())
 
     def test_click_claimed_slot_stages_unassign_and_frees_file(self):
-        from PySide6.QtCore import Qt
-
         panel = self._panel()
         row = next(
             r for r in range(panel._slots_model.rowCount())
@@ -119,11 +110,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel._on_slot_clicked(panel._slots_model.index(row, 0))
         self.assertTrue(panel.staged_unassigns())
         fid = panel.staged_unassigns()[0]
-        checkable_ids = [
-            panel._files_model.file_id_at(r) for r in range(panel._files_model.rowCount())
-            if panel._files_model.flags(panel._files_model.index(r, 0)) & Qt.ItemFlag.ItemIsUserCheckable
-        ]
-        self.assertIn(fid, checkable_ids)
+        self.assertIn(fid, panel._files_model.unstaged_file_ids())
 
     def test_click_claimed_slot_toggles_unassign_off(self):
         panel = self._panel()
@@ -184,24 +171,14 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertEqual(panel.staged_unassigns(), [])
         self.assertFalse(panel._apply_button.isEnabled())
 
-    def test_assign_in_order_fills_free_slots_top_down(self):
+    def test_no_assign_in_order_button_or_checkboxes(self):
         from PySide6.QtCore import Qt
 
         panel = self._panel()
+        self.assertFalse(hasattr(panel, "_assign_button"))
         model = panel._files_model
-        # check the three never-assigned files (a.mkv, b.mkv, c.mkv)
-        checked = 0
         for row in range(model.rowCount()):
-            name = model.index(row, 0).data()
-            if name.startswith(("a.mkv", "b.mkv", "c.mkv")):
-                model.setData(model.index(row, 0), Qt.CheckState.Checked.value,
-                              Qt.ItemDataRole.CheckStateRole)
-                checked += 1
-        self.assertEqual(checked, 3)
-        panel.assign_in_order()
-        pairs = {(season, episode) for _fid, season, episode in panel.staged_pairs()}
-        self.assertEqual(pairs, {(1, 1), (1, 3), (1, 4)})   # E02 claimed → skipped, top-down fill
-        self.assertEqual(model.checked_file_ids(), [])
+            self.assertFalse(bool(model.flags(model.index(row, 0)) & Qt.ItemFlag.ItemIsUserCheckable))
 
     def test_auto_map_remaining_fills_unclaimed_in_order(self):
         panel = self._panel()
