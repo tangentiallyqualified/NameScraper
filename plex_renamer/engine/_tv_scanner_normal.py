@@ -341,4 +341,19 @@ def build_normal_table(
                             show_name=show_info.get('name'),
                         )
 
+    # Register slots for every TMDB season the local scan didn't touch —
+    # the bulk-assign surface must be able to offer (and table.assign must
+    # accept) seasons that simply have no local files yet. The map is
+    # already fetched and cached; this costs no network.
+    for season_num, season_data in tmdb_seasons.items():
+        if season_num in registered_seasons or season_num == 0:
+            continue
+        titles = dict(season_data.get("titles", {}) or {})
+        count = int(season_data.get("count", 0) or 0)
+        for episode_num in range(1, count + 1):
+            titles.setdefault(episode_num, "")
+        if titles:
+            _register_season_slots(table, season_num, titles, season_data.get("episodes", {}))
+            registered_seasons.add(season_num)
+
     return table
