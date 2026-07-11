@@ -147,7 +147,7 @@ class TMDBClientTests(unittest.TestCase):
             first_result = first_client.get_tv_details(321)
 
             self.assertEqual(first_result["name"], "Andor")
-            first_client._get_safe.assert_called_once_with("/tv/321")
+            first_client._get_safe.assert_called_once_with("/tv/321", {"append_to_response": "credits,images", "include_image_language": "en,null"})
             first_client._session.close()
 
             second_client = TMDBClient(
