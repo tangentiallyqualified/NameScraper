@@ -74,6 +74,39 @@ class QtSmokeBase(unittest.TestCase):
 
     # -- Shared helpers --------------------------------------------------
 
+    def _dispose_top_level_widgets(self, *widget_types: type) -> None:
+        """Deterministically destroy this test's top-level widgets.
+
+        Opt-in per-test teardown for classes that build a heavyweight
+        widget tree (e.g. a full MediaWorkspace) in most tests without
+        explicit disposal. Left to accumulate until tearDownClass's single
+        gc.collect(), dozens of such trees form enough Python<->Qt
+        reference cycles that Python 3.14's GC finalizing them in one
+        sweep has been observed to corrupt the native heap (access
+        violation, 0xC0000005) on Windows — the same crash class already
+        documented on tearDownClass above. Destroying each test's widgets
+        at a safe point right after the test keeps the per-collection
+        cycle count small. Call from an overridden tearDown().
+
+        Pass the widget class(es) to dispose (e.g. ``MediaWorkspace``) —
+        restricting by type is required, not just polite: earlier test
+        modules leak closed-but-alive top-level windows whose backing
+        TemporaryDirectory services are already cleaned up, and calling
+        ``close()`` on those (e.g. MainWindow's closeEvent persisting
+        window geometry) raises FileNotFoundError.
+        """
+        import gc
+
+        if not widget_types:
+            raise ValueError("pass the widget type(s) this test class creates")
+        for widget in list(self._app.topLevelWidgets()):
+            if isinstance(widget, widget_types):
+                widget.close()
+                widget.deleteLater()
+        self._app.processEvents()
+        gc.collect()
+        self._app.processEvents()
+
     def _reset_main_window_queue(self, window) -> None:
         queued_ids = [job.job_id for job in window.queue_ctrl.get_queue()]
         if queued_ids:

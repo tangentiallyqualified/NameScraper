@@ -32,13 +32,20 @@ class BusyOverlayTests(QtSmokeBase):
         self.assertIsNone(host.findChild(BusyOverlay))
 
     def test_deferred_scope_shows_once_delay_elapses(self):
+        import time
+
         from PySide6.QtTest import QTest
 
         from plex_renamer.gui_qt.widgets.busy_overlay import busy_scope
 
         host = self._host()
         with busy_scope(host, delay_ms=1) as overlay:
-            QTest.qWait(50)
+            # Poll rather than a single fixed qWait: under machine load a
+            # lone qWait(50) intermittently returns before the 1ms deferred
+            # timer has fired (observed flake in full smoke runs).
+            deadline = time.monotonic() + 5.0
+            while not overlay.isVisible() and time.monotonic() < deadline:
+                QTest.qWait(10)
             self.assertTrue(overlay.isVisible())
 
     def test_exception_inside_scope_still_removes_overlay(self):

@@ -26,6 +26,15 @@ from conftest_qt import QtSmokeBase
 
 
 class QtMediaWorkspaceTests(QtSmokeBase):
+    def tearDown(self):
+        # ~90 tests here each build a full MediaWorkspace inline with no
+        # disposal; dispose per test to keep GC cycle counts small (see
+        # QtSmokeBase._dispose_top_level_widgets for the crash this avoids).
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        self._dispose_top_level_widgets(MediaWorkspace)
+        super().tearDown()
+
     def test_media_workspace_queue_buttons_use_distinct_labels(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
@@ -4631,6 +4640,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
 
 class BulkAssignWorkspaceTests(QtSmokeBase):
+    def tearDown(self):
+        # Same per-test disposal as QtMediaWorkspaceTests: every test here
+        # builds a MediaWorkspace via _tv_workspace_with_table_state.
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        self._dispose_top_level_widgets(MediaWorkspace)
+        super().tearDown()
+
     def _bulk_table_state(self, folder_name: str, *, media_id: int = 101, assign_first: bool = False):
         from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
         from plex_renamer.engine.episode_assignments import (
@@ -4695,7 +4712,10 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
             queue_controller=_FakeQueueController(),
             settings_service=settings,
         )
-        self.addCleanup(workspace.close)
+        # No addCleanup(workspace.close) here: tearDown's
+        # _dispose_top_level_widgets already close+deleteLater's the
+        # workspace, and cleanups run *after* tearDown — a close() cleanup
+        # would then poke an already-deleted C++ object and raise.
         workspace.resize(1200, 700)
         workspace.show()
         workspace.show_ready()
