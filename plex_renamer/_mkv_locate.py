@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 _EXE_NAME = "mkvmerge.exe" if os.name == "nt" else "mkvmerge"
+_PROPEDIT_NAME = "mkvpropedit.exe" if os.name == "nt" else "mkvpropedit"
 
 
 def find_mkvmerge(explicit_path: str = "") -> Path | None:
@@ -33,6 +34,32 @@ def find_mkvmerge(explicit_path: str = "") -> Path | None:
         base = os.environ.get(env_var)
         if base:
             exe = Path(base) / "MKVToolNix" / _EXE_NAME
+            if exe.is_file():
+                return exe
+    return None
+
+
+def find_mkvpropedit(mkvmerge_setting: str = "") -> Path | None:
+    """Resolve mkvpropedit — it ships beside mkvmerge in MKVToolNix.
+
+    Prefers the sibling of the resolved mkvmerge (so a custom install
+    keeps both tools consistent), then PATH, then the standard install
+    folders.
+    """
+    mkvmerge = find_mkvmerge(mkvmerge_setting)
+    if mkvmerge is not None:
+        sibling = mkvmerge.parent / _PROPEDIT_NAME
+        if sibling.is_file():
+            return sibling
+
+    which = shutil.which("mkvpropedit")
+    if which:
+        return Path(which)
+
+    for env_var in ("ProgramFiles", "ProgramFiles(x86)"):
+        base = os.environ.get(env_var)
+        if base:
+            exe = Path(base) / "MKVToolNix" / _PROPEDIT_NAME
             if exe.is_file():
                 return exe
     return None

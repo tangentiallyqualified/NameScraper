@@ -25,8 +25,11 @@ def build_mkvmerge_args(
     output: Path,
     plan: MuxPlan,
     resolve_sub: Callable[[str], Path],
+    title: str | None = None,
 ) -> list[str]:
     args: list[str] = [mkvmerge_path, "--output", str(output)]
+    if title:
+        args += ["--title", title]
 
     audio = [d for d in plan.track_decisions if d.track_type == "audio"]
     subs = [d for d in plan.track_decisions if d.track_type == "subtitles"]
@@ -59,3 +62,13 @@ def build_mkvmerge_args(
         args.append(str(sub_path))
 
     return args
+
+
+def build_mkvpropedit_title_args(
+    propedit_path: str,
+    target: Path,
+    title: str,
+) -> list[str]:
+    """argv to set the container title in place (no remux)."""
+    return [str(propedit_path), str(target),
+            "--edit", "info", "--set", f"title={title}"]
