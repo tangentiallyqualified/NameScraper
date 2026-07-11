@@ -33,6 +33,17 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "automux_default_audio_language": (str,),
     "automux_strip_track_names": (bool,),
     "automux_no_fear": (bool,),
+    "metadata_enabled": (bool,),
+    "metadata_prefer_local": (bool,),
+    "metadata_write_nfo": (bool,),
+    "metadata_write_episode_nfo": (bool,),
+    "metadata_write_poster": (bool,),
+    "metadata_write_fanart": (bool,),
+    "metadata_write_season_posters": (bool,),
+    "metadata_write_episode_thumbs": (bool,),
+    "metadata_write_clearlogo": (bool,),
+    "metadata_plex_naming": (bool,),
+    "metadata_embed_title": (bool,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -65,6 +76,17 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "automux_default_audio_language": "",
     "automux_strip_track_names": False,
     "automux_no_fear": False,
+    "metadata_enabled": False,
+    "metadata_prefer_local": False,
+    "metadata_write_nfo": True,
+    "metadata_write_episode_nfo": True,
+    "metadata_write_poster": True,
+    "metadata_write_fanart": True,
+    "metadata_write_season_posters": True,
+    "metadata_write_episode_thumbs": True,
+    "metadata_write_clearlogo": True,
+    "metadata_plex_naming": False,
+    "metadata_embed_title": True,
 }
 
 

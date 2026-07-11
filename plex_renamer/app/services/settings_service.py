@@ -310,6 +310,96 @@ class SettingsService:
     def automux_no_fear(self, value: bool) -> None:
         self.set("automux_no_fear", bool(value))
 
+    # ── Metadata export ───────────────────────────────────────────────────
+
+    @property
+    def metadata_enabled(self) -> bool:
+        return bool(self.get("metadata_enabled"))
+
+    @metadata_enabled.setter
+    def metadata_enabled(self, value: bool) -> None:
+        self.set("metadata_enabled", bool(value))
+
+    @property
+    def metadata_prefer_local(self) -> bool:
+        return bool(self.get("metadata_prefer_local"))
+
+    @metadata_prefer_local.setter
+    def metadata_prefer_local(self, value: bool) -> None:
+        self.set("metadata_prefer_local", bool(value))
+
+    @property
+    def metadata_write_nfo(self) -> bool:
+        return bool(self.get("metadata_write_nfo"))
+
+    @metadata_write_nfo.setter
+    def metadata_write_nfo(self, value: bool) -> None:
+        self.set("metadata_write_nfo", bool(value))
+
+    @property
+    def metadata_write_episode_nfo(self) -> bool:
+        return bool(self.get("metadata_write_episode_nfo"))
+
+    @metadata_write_episode_nfo.setter
+    def metadata_write_episode_nfo(self, value: bool) -> None:
+        self.set("metadata_write_episode_nfo", bool(value))
+
+    @property
+    def metadata_write_poster(self) -> bool:
+        return bool(self.get("metadata_write_poster"))
+
+    @metadata_write_poster.setter
+    def metadata_write_poster(self, value: bool) -> None:
+        self.set("metadata_write_poster", bool(value))
+
+    @property
+    def metadata_write_fanart(self) -> bool:
+        return bool(self.get("metadata_write_fanart"))
+
+    @metadata_write_fanart.setter
+    def metadata_write_fanart(self, value: bool) -> None:
+        self.set("metadata_write_fanart", bool(value))
+
+    @property
+    def metadata_write_season_posters(self) -> bool:
+        return bool(self.get("metadata_write_season_posters"))
+
+    @metadata_write_season_posters.setter
+    def metadata_write_season_posters(self, value: bool) -> None:
+        self.set("metadata_write_season_posters", bool(value))
+
+    @property
+    def metadata_write_episode_thumbs(self) -> bool:
+        return bool(self.get("metadata_write_episode_thumbs"))
+
+    @metadata_write_episode_thumbs.setter
+    def metadata_write_episode_thumbs(self, value: bool) -> None:
+        self.set("metadata_write_episode_thumbs", bool(value))
+
+    @property
+    def metadata_write_clearlogo(self) -> bool:
+        return bool(self.get("metadata_write_clearlogo"))
+
+    @metadata_write_clearlogo.setter
+    def metadata_write_clearlogo(self, value: bool) -> None:
+        self.set("metadata_write_clearlogo", bool(value))
+
+    @property
+    def metadata_plex_naming(self) -> bool:
+        return bool(self.get("metadata_plex_naming"))
+
+    @metadata_plex_naming.setter
+    def metadata_plex_naming(self, value: bool) -> None:
+        self.set("metadata_plex_naming", bool(value))
+
+    @property
+    def metadata_embed_title(self) -> bool:
+        return bool(self.get("metadata_embed_title"))
+
+    @metadata_embed_title.setter
+    def metadata_embed_title(self, value: bool) -> None:
+        self.set("metadata_embed_title", bool(value))
+
     @property
     def automux_any_enabled(self) -> bool:
         """True when at least one AutoMux action toggle is on (spec §8.1)."""
