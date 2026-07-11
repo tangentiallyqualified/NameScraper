@@ -10,6 +10,7 @@ from ._media_helpers import (
     roster_group as _roster_group,
     roster_selection_key as _roster_selection_key,
 )
+from ._media_workspace_action_bar import _apply_css_class
 from ._workspace_widget_primitives import _CheckBinding
 
 
@@ -148,7 +149,14 @@ class MediaWorkspaceRefreshCoordinator:
         workspace._set_roster_queue_button_text("Queue Checked")
         workspace._roster_queue_btn.setToolTip("")
         workspace._update_roster_selection_header([])
+        # Task 3 fix: this reset path returns from refresh_from_controller
+        # BEFORE _update_action_bar runs, so undo anything a prior tie
+        # selection made sticky -- a hidden Fix Match button and caution
+        # tones would otherwise survive into the empty-ready view.
+        workspace._fix_match_btn.setVisible(True)
+        _apply_css_class(workspace._fix_match_btn, "secondary")
         workspace._fix_match_btn.setEnabled(False)
         workspace._fix_match_btn.setText("Fix Match")
+        _apply_css_class(workspace._queue_inline_btn, "primary")
         workspace._queue_inline_btn.setEnabled(False)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())

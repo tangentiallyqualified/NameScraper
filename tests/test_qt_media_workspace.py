@@ -353,6 +353,25 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertIsNone(button.property("sizeVariant"))
         workspace.close()
 
+    def test_empty_batch_reset_restores_header_button_tones(self):
+        # Regression (Task 3 review): the empty-batch refresh path returns
+        # via _reset_empty_ready_state BEFORE _update_action_bar runs, so the
+        # reset itself must undo tie styling -- otherwise a hidden Fix Match
+        # button and a caution-toned primary button survive into the
+        # empty-ready view.
+        workspace, _state = self._workspace_with_selected_state(tie_detected=True, needs_review=True)
+        workspace._update_action_bar()
+        self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
+        self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "caution")
+
+        workspace._media_ctrl.batch_states.clear()
+        workspace.refresh_from_controller()
+
+        self.assertTrue(workspace._fix_match_btn.isVisibleTo(workspace))
+        self.assertEqual(workspace._fix_match_btn.property("cssClass"), "secondary")
+        self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "primary")
+        workspace.close()
+
     def test_media_workspace_hides_single_season_badge_for_multi_season_preview(self):
         # NOTE: the "Season N" roster meta-line badge this test targeted was
         # removed by the GUI V4 roster spec (poster-forward layout, no
