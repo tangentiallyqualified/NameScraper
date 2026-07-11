@@ -615,6 +615,7 @@ class BulkAssignPanel(QFrame):
 
     def _handle_drop(self, file_id: int, key: tuple[int, int]) -> None:
         if not self._key_is_free(key):
+            self._status_label.setText("That episode is taken — click its slot to unassign it first")
             return
         if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
             self._status_label.setText("Unassign this file first (click its slot)")

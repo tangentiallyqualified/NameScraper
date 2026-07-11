@@ -4875,14 +4875,14 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         panel.auto_map_remaining()
         seen: dict[str, bool] = {}
 
-        def observing_apply(service_self, state, pairs):
+        def observing_apply(service_self, state, *, assign_pairs, unassign_file_ids):
             overlay = workspace._work_panel.findChild(BusyOverlay)
             seen["visible"] = overlay is not None and overlay.isVisible()
-            return (len(pairs), 0)
+            return (len(assign_pairs), 0)
 
         with patch(
             "plex_renamer.gui_qt.widgets._media_workspace_actions."
-            "EpisodeMappingService.apply_assignments",
+            "EpisodeMappingService.apply_bulk",
             new=observing_apply,
         ):
             workspace._on_bulk_apply(panel.staged_pairs())

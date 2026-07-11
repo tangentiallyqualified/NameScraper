@@ -85,6 +85,7 @@ class MediaWorkPanel(QFrame):
         self._overview_cache: "OrderedDict[str, str]" = OrderedDict()
         self._loading_tokens: set[str] = set()
         self._overview_expanded = False
+        self._overview_token_applied: str | None = None
         self._series_overview_text = ""
         self._episode_overview_active = False
         self._bridge = _OverviewBridge()
@@ -467,7 +468,7 @@ class MediaWorkPanel(QFrame):
         when the chips haven't actually changed."""
         self.update_footer()
         self.update_toolbar(self._state)
-        if self._state is not None:
+        if self._state is not None and not self.bulk_assign_active():
             self._refresh_strip(self._state)
 
     def update_toolbar(self, state: ScanState | None) -> None:
@@ -742,8 +743,17 @@ class MediaWorkPanel(QFrame):
         the freshest series text rather than stale text captured before the
         async response landed. Only the *display* is gated on the episode
         flag: while an episode is expanded, the visible label must keep
-        showing the episode text."""
-        del token
+        showing the episode text.
+
+        A change in ``token`` means the panel switched to a different
+        series/movie -- any overview expansion from the previous series must
+        not leak into the new one, so the toggle is reset to collapsed.
+        Same-token re-applies (an async response landing for the series
+        already on screen) leave the user's expand/collapse choice alone."""
+        if token != self._overview_token_applied:
+            self._overview_token_applied = token
+            self._overview_expanded = False
+            self._overview_toggle.setText("more")
         self._series_overview_text = text
         if not self._episode_overview_active:
             self._set_overview_label(text)

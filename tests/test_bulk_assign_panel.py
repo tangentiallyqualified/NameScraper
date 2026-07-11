@@ -219,6 +219,18 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertIn((file_id, 1, 4), panel.staged_pairs())
         self.assertEqual(len(panel.staged_pairs()), 1)
 
+    def test_drop_onto_claimed_slot_sets_status_message(self):
+        # Final-review fix: a drop rejected by _key_is_free used to no-op
+        # silently, including on the unassign-first discovery path, leaving
+        # the user with no feedback about why the drop did nothing.
+        panel = self._panel()
+        file_id = panel._files_model.file_id_at(0)
+        panel._status_label.setText("")
+        panel._handle_drop(file_id, (1, 2))          # (1, 2) is pre-claimed
+        self.assertNotIn((file_id, 1, 2), panel.staged_pairs())
+        self.assertEqual(panel.staged_pairs(), [])
+        self.assertTrue(panel._status_label.text())
+
     def test_same_file_can_stage_multiple_slots_same_season(self):
         panel = self._panel()
         fid = self._first_free_file_id(panel)

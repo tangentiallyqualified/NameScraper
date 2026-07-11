@@ -238,6 +238,7 @@ class MediaWorkspaceActionCoordinator:
         unassign_file_ids: list[int] | None = None,
     ) -> None:
         workspace = self._workspace
+        unassign_file_ids = list(unassign_file_ids or [])
         # Commit against the state bulk mode was entered on: the staged
         # file_ids/slot keys are only meaningful against that state's table.
         state = self._bulk_state
@@ -246,30 +247,8 @@ class MediaWorkspaceActionCoordinator:
         panel.exit_bulk_assign()
         if state is None:
             return
-        if unassign_file_ids is None:
-            # Legacy single-list callers (no unassign staging): unchanged
-            # behavior, routed through apply_assignments as before.
-            if not pairs:
-                return
-            if state.assignments is None:
-                # Table vanished between enter and Apply (rescan/reset).
-                workspace.status_message.emit("No assignments were applied.", 4000)
-                return
-            with busy_scope(workspace._work_panel, "Applying assignments…", immediate=True):
-                applied, skipped = EpisodeMappingService().apply_assignments(state, pairs)
-                if applied == 0:
-                    workspace.status_message.emit("No assignments were applied.", 4000)
-                    return
-                _refresh_episode_projection(workspace, state)
-                workspace.refresh_from_controller()
-            tone = "error" if skipped else "success"
-            message = f"Assigned {applied} file(s)."
-            if skipped:
-                message += f" {skipped} skipped (slot already claimed or no longer valid)."
-            workspace.toast_requested.emit("Bulk Assign", message, tone)
-            return
         # Bulk Assign v2: assign pairs and unassigns applied together in one
-        # reproject via apply_bulk. Task 3 owns final messaging/tests here.
+        # reproject via apply_bulk.
         if not pairs and not unassign_file_ids:
             return
         if state.assignments is None:

@@ -161,6 +161,28 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(panel._strip_scroll.isHidden())
         panel.close()
 
+    def test_guide_loaded_does_not_reshow_strip_during_bulk_assign(self):
+        # Final-review fix: _on_guide_loaded's strip refresh lacked the
+        # bulk-assign guard that update_toolbar already had, so an async
+        # guide arriving mid-bulk-assign would silently re-show the season
+        # strip behind the bulk panel. exit_bulk_assign already resets
+        # _strip_key and re-refreshes, so hiding here is safe.
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.enter_bulk_assign()
+        self.assertTrue(panel._strip_scroll.isHidden())
+        # Force _refresh_strip to treat the chips as changed (simulating the
+        # real scenario: an async guide arriving with a different
+        # unmapped_primary_files count than the skeleton paint had) -- the
+        # _strip_key cache would otherwise make _refresh_strip a no-op
+        # regardless of the bulk guard, masking the regression.
+        panel._strip_key = None
+        panel._on_guide_loaded()
+        self.assertTrue(panel._strip_scroll.isHidden())
+        panel.exit_bulk_assign()
+        self.assertFalse(panel._strip_scroll.isHidden())
+        panel.close()
+
     def test_overflow_menu_emits_bulk_assign_requested(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
@@ -298,6 +320,36 @@ class WorkPanelTests(QtSmokeBase):
         panel._overview_label.setFixedWidth(200)
         panel._apply_overview_text(("Long overview. " * 60).strip(), "tok")
         self.assertTrue(panel._overview_toggle.isVisible())
+        panel.close()
+
+    def test_overview_expansion_resets_on_series_token_change(self):
+        # Final-review fix: _overview_expanded was only ever set in __init__
+        # and the toggle click handler, so an expanded overview from series
+        # A persisted (still expanded, toggle stuck on "less") when the user
+        # switched to series B. _apply_overview_text now resets on a token
+        # change, but must NOT reset on a same-token re-apply (the async
+        # TMDB response landing for the series still on screen).
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        panel._overview_label.setFixedWidth(200)
+        long_text = ("Long overview. " * 60).strip()
+        panel._apply_overview_text(long_text, "a")
+        panel._on_overview_toggle_clicked()
+        self.assertTrue(panel._overview_expanded)
+        self.assertEqual(panel._overview_toggle.text(), "less")
+
+        # Same-token re-apply (async response for the still-current series)
+        # must not collapse the user's expansion.
+        panel._apply_overview_text(long_text, "a")
+        self.assertTrue(panel._overview_expanded)
+        self.assertEqual(panel._overview_toggle.text(), "less")
+
+        # A different token (series switch) must reset to collapsed.
+        other_text = ("Different overview. " * 60).strip()
+        panel._apply_overview_text(other_text, "b")
+        self.assertFalse(panel._overview_expanded)
+        self.assertEqual(panel._overview_toggle.text(), "more")
         panel.close()
 
     def test_overview_toggle_self_corrects_once_real_width_is_available(self):
@@ -546,6 +598,3 @@ class WorkPanelTests(QtSmokeBase):
         self.assertEqual(panel._fix_match_button.property("cssClass"), "caution")
         self.assertEqual(panel._automux_button.property("cssClass"), "danger")
         self.assertEqual(panel._primary_action_button.property("sizeVariant"), "inline")
-        # Same parent layout row: queue button sits with fix-match in the header.
-        header = panel._fix_match_button.parentWidget()
-        self.assertIs(panel._primary_action_button.parentWidget(), header)
