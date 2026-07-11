@@ -598,3 +598,10 @@ class WorkPanelTests(QtSmokeBase):
         self.assertEqual(panel._fix_match_button.property("cssClass"), "caution")
         self.assertEqual(panel._automux_button.property("cssClass"), "danger")
         self.assertEqual(panel._primary_action_button.property("sizeVariant"), "inline")
+
+    def test_source_pill_has_no_percentage(self):
+        panel, state = self._panel_with_matched_state(confidence=0.93)
+        panel.refresh_header(state)
+        self.assertEqual(panel._source_pill.text(), "TMDB")
+        self.assertNotIn("%", panel._source_pill.text())
+        panel.close()

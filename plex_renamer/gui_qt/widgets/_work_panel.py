@@ -433,7 +433,7 @@ class MediaWorkPanel(QFrame):
             return
         self._title_label.setText(state.display_name)
         source = (state.active_episode_source or "tmdb").upper()
-        self._source_pill.setText(f"{source} · {clamped_percent(state.confidence)}%")
+        self._source_pill.setText(source)
         status_text, _color = state_status(state, media_type=self._media_type)
         tone = state_status_tone(state, media_type=self._media_type)
         tone = "warning" if tone == "accent" else tone
