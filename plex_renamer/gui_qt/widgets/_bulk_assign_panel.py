@@ -111,6 +111,17 @@ class BulkFilesModel(QAbstractListModel):
             if self._stageable(preview.file_id)
         ]
 
+    def stageable_file_ids(self) -> list[int]:
+        """Every stageable file id in the FULL pool, ignoring the current
+        mode/search filter. Auto-map must consider every candidate file
+        regardless of whether the Problems/All toggle or search box happens
+        to be hiding it right now — the files pane defaults to a Problems
+        filter, which would otherwise silently shrink what Auto-map maps."""
+        return [
+            preview.file_id for preview in self._previews
+            if self._stageable(preview.file_id)
+        ]
+
     def file_id_at(self, row: int) -> int | None:
         if 0 <= row < len(self._visible):
             return self._visible[row].file_id
@@ -578,10 +589,26 @@ class BulkAssignPanel(QFrame):
         return sorted(self._staged_unassign)
 
     def auto_map_remaining(self) -> None:
-        file_ids = self._files_model.unstaged_file_ids()
-        keys = self._free_keys_sorted()
-        for file_id, key in zip(file_ids, keys):
-            self._staged_pairs.append((file_id, key))
+        """Stage every stageable file whose scan-time parse evidence points
+        at a still-free slot. Unlike the old positional zip, a file with no
+        usable evidence is left unstaged rather than filled in arbitrarily —
+        see EpisodeMappingService.suggest_assignments."""
+        if self._service is None or self._state is None:
+            return
+        file_ids = self._files_model.stageable_file_ids()
+        taken = {
+            (choice.season, choice.episode)
+            for choice in self._choices
+            if not self._key_is_free((choice.season, choice.episode))
+        }
+        pairs = self._service.suggest_assignments(self._state, file_ids, taken=taken)
+        for file_id, season, episode in pairs:
+            self._staged_pairs.append((file_id, (season, episode)))
+        mapped_ids = {file_id for file_id, _season, _episode in pairs}
+        leftover = len([file_id for file_id in file_ids if file_id not in mapped_ids])
+        self._status_label.setText(
+            f"{leftover} file(s) left unstaged — no episode evidence" if leftover else ""
+        )
         self._refresh_views()
 
     def unassign_all(self) -> None:
@@ -719,15 +746,6 @@ class BulkAssignPanel(QFrame):
         # staged for unassign — a single claimant unassigning still leaves
         # the slot contested.
         return all(file_id in self._staged_unassign for file_id, _name in claimants)
-
-    def _free_keys_sorted(self) -> list[tuple[int, int]]:
-        staged = self._staged_key_set()
-        return sorted(
-            (choice.season, choice.episode)
-            for choice in self._choices
-            if (choice.season, choice.episode) not in staged
-            and self._key_is_free((choice.season, choice.episode))
-        )
 
     def _refresh_views(self) -> None:
         self._files_model.set_staging(list(self._staged_pairs), set(self._staged_unassign))

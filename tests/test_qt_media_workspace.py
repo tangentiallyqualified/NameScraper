@@ -4731,8 +4731,20 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         for episode in range(1, 5):
             table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
         file_ids: list[int] = []
-        for name in ("a.mkv", "b.mkv", "c.mkv"):
-            entry = table.add_file(Path(f"C:/library/tv/{folder_name}/{name}"))
+        # Each file carries scan-time parse evidence matching its own free
+        # slot (a->E01, b->E02, c->E03) so auto_map_remaining (Task 14:
+        # evidence-based, no positional fallback) still maps all three.
+        evidence_by_name = {
+            "a.mkv": (1,),
+            "b.mkv": (2,),
+            "c.mkv": (3,),
+        }
+        for name, episodes in evidence_by_name.items():
+            entry = table.add_file(
+                Path(f"C:/library/tv/{folder_name}/{name}"),
+                parsed_episodes=episodes,
+                season_hint=1,
+            )
             table.mark_unassigned(entry.file_id, "no episode parsed")
             file_ids.append(entry.file_id)
         if assign_first:

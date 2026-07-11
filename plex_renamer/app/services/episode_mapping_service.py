@@ -198,6 +198,45 @@ class EpisodeMappingService:
         table.resolve_conflict(season, episode, winner_file_id=winner.file_id)
         self.reproject(state)
 
+    def suggest_assignments(
+        self,
+        state: ScanState,
+        file_ids: list[int],
+        *,
+        taken: set[tuple[int, int]],
+    ) -> list[tuple[int, int, int]]:
+        """Evidence-based staging suggestions for Bulk Assign's Auto-map.
+
+        Uses each file's scan-time parse evidence only — a file with no
+        parsed episodes (or whose target slot is missing or already taken)
+        is skipped, never positional-filled: silent wrong mappings cost far
+        more than leaving a file unstaged.
+
+        ``taken`` is the SOLE source of already-occupied slots — this method
+        deliberately does NOT also consult ``table.claimed_slots()``. The
+        table doesn't know about in-progress panel staging (e.g. a file the
+        caller has staged to unassign); the caller owns availability and
+        must pass a ``taken`` set that already reflects it. Folding in
+        ``table.claimed_slots()`` here would re-block slots the caller just
+        freed, breaking the Unassign-all -> Auto-map-remaining round trip.
+        """
+        table = self._require_table(state)
+        claimed = set(taken)
+        suggestions: list[tuple[int, int, int]] = []
+        for file_id in file_ids:
+            entry = table.files.get(file_id)
+            if entry is None or not entry.parsed_episodes:
+                continue
+            season = entry.season_hint if entry.season_hint is not None else entry.folder_season
+            if season is None:
+                continue
+            keys = [(season, episode) for episode in entry.parsed_episodes]
+            if any(key not in table.slots or key in claimed for key in keys):
+                continue
+            claimed.update(keys)
+            suggestions.extend((file_id, season, episode) for _season, episode in keys)
+        return suggestions
+
     # ── choices for the dialogs ─────────────────────────────────────
 
     def episode_slot_choices(self, state: ScanState) -> list[EpisodeSlotChoice]:

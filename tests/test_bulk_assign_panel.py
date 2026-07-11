@@ -20,10 +20,70 @@ def _bulk_state(slots: int = 5, names: tuple[str, ...] = ("b.mkv", "a.mkv", "c.m
         table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
     table.add_slot(EpisodeSlot(season=2, episode=1, title="Pilot"))
     for name in names:
-        entry = table.add_file(Path(f"C:/lib/Show/{name}"))
+        # b.mkv carries real scan-time parse evidence (S01E01); a.mkv/c.mkv
+        # don't, so auto-map tests can tell evidence-driven staging apart
+        # from a positional fill. E01 is free (only E02 is pre-claimed).
+        evidence = {"parsed_episodes": (1,), "season_hint": 1} if name == "b.mkv" else {}
+        entry = table.add_file(Path(f"C:/lib/Show/{name}"), **evidence)
         table.mark_unassigned(entry.file_id, "no episode parsed")
     claimed = table.add_file(Path("C:/lib/Show/claimed.mkv"))
     table.assign(claimed.file_id, 1, [2], origin=ORIGIN_MANUAL)   # E02 pre-claimed
+    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state.scanned = True
+    state.assignments = table
+    service = EpisodeMappingService()
+    service.reproject(state)
+    return state, service
+
+
+def _fid_by_name(panel, name: str) -> int:
+    return next(p.file_id for p in panel._previews if p.original.name == name)
+
+
+def _bulk_state_with_parsed_files():
+    """b.mkv parses to S01E03; a.mkv has no parse evidence at all — used to
+    prove auto-map follows evidence rather than filling the first free slot
+    it finds (the old positional-zip bug)."""
+    from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
+    from plex_renamer.engine import ScanState
+    from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
+
+    table = EpisodeAssignmentTable()
+    for episode in range(1, 5):
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+    parsed = table.add_file(
+        Path("C:/lib/Show/b - S01E03.mkv"), parsed_episodes=(3,), season_hint=1,
+    )
+    table.mark_unassigned(parsed.file_id, "could not parse episode number")
+    unparsed = table.add_file(Path("C:/lib/Show/a.mkv"))
+    table.mark_unassigned(unparsed.file_id, "could not parse episode number")
+    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state.scanned = True
+    state.assignments = table
+    service = EpisodeMappingService()
+    service.reproject(state)
+    return state, service
+
+
+def _bulk_state_assigned_with_evidence():
+    """One file, already assigned, whose OWN parse evidence points at the
+    exact slot it's assigned to — for the Unassign-all -> Auto-map-remaining
+    round trip (the file must be able to re-stage onto the slot it just
+    vacated, even though the underlying table still shows it claimed until
+    Apply actually runs)."""
+    from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
+    from plex_renamer.engine import ScanState
+    from plex_renamer.engine.episode_assignments import (
+        ORIGIN_AUTO, EpisodeAssignmentTable, EpisodeSlot,
+    )
+
+    table = EpisodeAssignmentTable()
+    for episode in range(1, 5):
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+    entry = table.add_file(
+        Path("C:/lib/Show/Show - S01E01.mkv"), parsed_episodes=(1,), season_hint=1,
+    )
+    table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
     state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
     state.scanned = True
     state.assignments = table
@@ -92,6 +152,42 @@ class BulkAssignPanelTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._bulk_assign_panel import BulkAssignPanel
 
         state, service = _bulk_state_with_conflict()
+        panel = BulkAssignPanel()
+        panel.resize(900, 600)
+        panel.show_state(state, service)
+
+        def _cleanup() -> None:
+            import gc
+
+            panel.deleteLater()
+            self._app.processEvents()
+            gc.collect()
+
+        self.addCleanup(_cleanup)
+        return panel
+
+    def _panel_with_parsed_files(self):
+        from plex_renamer.gui_qt.widgets._bulk_assign_panel import BulkAssignPanel
+
+        state, service = _bulk_state_with_parsed_files()
+        panel = BulkAssignPanel()
+        panel.resize(900, 600)
+        panel.show_state(state, service)
+
+        def _cleanup() -> None:
+            import gc
+
+            panel.deleteLater()
+            self._app.processEvents()
+            gc.collect()
+
+        self.addCleanup(_cleanup)
+        return panel
+
+    def _panel_assigned_with_evidence(self):
+        from plex_renamer.gui_qt.widgets._bulk_assign_panel import BulkAssignPanel
+
+        state, service = _bulk_state_assigned_with_evidence()
         panel = BulkAssignPanel()
         panel.resize(900, 600)
         panel.show_state(state, service)
@@ -244,12 +340,49 @@ class BulkAssignPanelTests(QtSmokeBase):
         for row in range(model.rowCount()):
             self.assertFalse(bool(model.flags(model.index(row, 0)) & Qt.ItemFlag.ItemIsUserCheckable))
 
-    def test_auto_map_remaining_fills_unclaimed_in_order(self):
+    def test_auto_map_remaining_uses_evidence_not_positional_fill(self):
+        # Task 14 regression: only b.mkv carries scan-time parse evidence
+        # (S01E01). a.mkv/c.mkv have none and must stay unstaged rather than
+        # being zipped onto the remaining free slots (E03/E04/E05) the old
+        # positional fill would have used.
         panel = self._panel()
         panel.auto_map_remaining()
-        episodes = sorted(episode for _fid, _s, episode in panel.staged_pairs())
-        self.assertEqual(episodes, [1, 3, 4])       # 3 files onto E01/E03/E04 (E02 claimed)
-        self.assertEqual(len(panel.staged_pairs()), 3)
+        self.assertEqual(panel.staged_pairs(), [(_fid_by_name(panel, "b.mkv"), 1, 1)])
+        self.assertIn("2 file(s) left unstaged", panel._status_label.text())
+
+    def test_auto_map_uses_evidence_not_position(self):
+        panel = self._panel_with_parsed_files()   # b.mkv parses to S01E03, a.mkv unparsable
+        panel.auto_map_remaining()
+        staged = {fid: key for fid, key in panel._staged_pairs}
+        parsed_fid = _fid_by_name(panel, "b - S01E03.mkv")
+        unparsed_fid = _fid_by_name(panel, "a.mkv")
+        self.assertEqual(staged[parsed_fid], (1, 3))       # NOT the first free slot
+        self.assertNotIn(unparsed_fid, staged)
+
+    def test_auto_map_considers_full_pool_not_just_problems_filter(self):
+        # auto_map_remaining must not be limited by the files pane's current
+        # mode/search filter — the Problems default view still shows b.mkv
+        # (it's unassigned), but this proves the "All" filter or a search
+        # box narrowing the visible rows wouldn't silently shrink the pool.
+        panel = self._panel()
+        panel._search_box.setText("nonexistent-needle")   # visible rows -> 0
+        self.assertEqual(panel._files_model.rowCount(), 0)
+        panel.auto_map_remaining()
+        self.assertEqual(panel.staged_pairs(), [(_fid_by_name(panel, "b.mkv"), 1, 1)])
+
+    def test_unassign_all_then_auto_map_restages_evidence_file(self):
+        # The taken/claimed_slots round trip this task's brief called out:
+        # a file already assigned to a slot that also matches its own parse
+        # evidence must be able to re-stage onto that same slot after
+        # Unassign-all, even though the underlying table still reports the
+        # slot as claimed until Apply actually runs.
+        panel = self._panel_assigned_with_evidence()
+        file_id = panel._claimed_file_by_key[(1, 1)]
+        panel.unassign_all()
+        self.assertEqual(panel.staged_pairs(), [])
+        self.assertIn(file_id, panel.staged_unassigns())
+        panel.auto_map_remaining()
+        self.assertIn((file_id, 1, 1), panel.staged_pairs())
 
     def test_drop_stages_single_pair_and_rejects_claimed(self):
         panel = self._panel()
