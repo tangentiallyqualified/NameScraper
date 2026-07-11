@@ -31,6 +31,7 @@ from ._batch_tv_match_policy import (
     count_season_subdirs as _count_tv_season_subdirs,
     episode_count_tiebreak as _episode_count_tiebreak,
     primary_name_breaks_tie as _primary_name_breaks_tie,
+    year_hint_breaks_tie as _year_hint_breaks_tie,
 )
 from ._batch_tv_season_merge import (
     expanded_season_folders as _expanded_tv_season_folders,
@@ -309,10 +310,10 @@ class BatchTVOrchestrator:
                 elif abs(ep_file_count - tmdb_ep_count) <= 2:
                     best_score = min(best_score + 0.05, 1.0)
 
-        # Clamp the winner onto the [0, 1] scale BEFORE tie detection and
-        # storage. Stacked exact-title bonuses push raw scores past 1.0;
-        # comparing an unclamped winner against a clamped runner-up fakes a
-        # margin (1.15 vs 1.0) and lets a same-name pair dodge the tie flag.
+        # Clamp the winner onto the [0, 1] scale for the stored/returned
+        # confidence. Stacked exact-title bonuses push raw scores past 1.0;
+        # tie detection below compares the RAW scores instead (see comment
+        # there) so this clamp doesn't affect the margin calculation.
         best_score = min(best_score, 1.0)
 
         alternates = pick_alternate_matches(
@@ -321,20 +322,24 @@ class BatchTVOrchestrator:
             limit=3,
         )
 
+        # Tie detection compares RAW scored values: shared boosts (alt-title,
+        # episode evidence) cancel out on both sides, while per-candidate
+        # evidence like a year-hint match survives. Clamping both sides first
+        # (the previous approach) erased real margins once boosts pushed both
+        # raw scores past 1.0 — the Powerpuff 1998-vs-2016 regression.
         tie_detected = False
         if len(scored) >= 2 and not tie_broken_by_counts:
-            for result, score in scored:
+            raw_by_id = {result.get("id"): score for result, score in scored}
+            raw_best = raw_by_id.get(best.get("id"), best_score)
+            for result, raw_runner in scored:
                 if result.get("id") != best.get("id"):
-                    # Compare on the same clamped scale as best_score:
-                    # stacked boosts push raw scores past 1.0 while the
-                    # winner's was clamped, faking a huge negative margin.
-                    runner_score = min(score, 1.0)
                     if (
-                        best_score - runner_score <= SCORE_TIE_MARGIN
+                        raw_best - raw_runner <= SCORE_TIE_MARGIN
                         and best_score >= get_auto_accept_threshold()
                         and not _primary_name_breaks_tie(
                             best, result, score_name, year_hint,
                         )
+                        and not _year_hint_breaks_tie(best, result, year_hint)
                     ):
                         tie_detected = True
                     break
@@ -949,16 +954,15 @@ class BatchMovieOrchestrator:
             best, best_score = scored[0]
             alternates = [result for result, score in scored[1:4] if score > 0.3]
 
-            # Tie detection compares raw (pre-adjustment) scores on a common
-            # clamped scale so evidence caps below can't fake a tie.
+            # Tie detection compares raw scores (shared boosts cancel); the
+            # stored confidence below is clamped separately.
             pre_adjust_best = min(best_score, 1.0)
             tie_detected = False
             if len(scored) >= 2:
-                for result, score in scored:
+                for result, raw_runner in scored:
                     if result.get("id") != best.get("id"):
-                        runner_score = min(score, 1.0)
                         if (
-                            pre_adjust_best - runner_score <= SCORE_TIE_MARGIN
+                            best_score - raw_runner <= SCORE_TIE_MARGIN
                             and pre_adjust_best >= get_auto_accept_threshold()
                         ):
                             tie_detected = True

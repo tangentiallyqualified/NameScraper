@@ -132,3 +132,27 @@ def primary_name_breaks_tie(
             return True
         return best_diff <= runner_diff
     return True
+
+
+def year_hint_breaks_tie(
+    best: dict,
+    runner_up: dict,
+    year_hint: str | None,
+) -> bool:
+    """True when the folder's year hint matches exactly one candidate.
+
+    Same-name remake pairs ("The Powerpuff Girls" 1998 vs 2016) saturate
+    every title-based signal; the year in the folder path is then the only —
+    and decisive — identity evidence.
+    """
+    if not year_hint:
+        return False
+    try:
+        hint = int(year_hint)
+        best_year = int(best.get("year") or 0)
+        runner_year = int(runner_up.get("year") or 0)
+    except (ValueError, TypeError):
+        return False
+    if not best_year or not runner_year:
+        return False
+    return best_year == hint and runner_year != hint
