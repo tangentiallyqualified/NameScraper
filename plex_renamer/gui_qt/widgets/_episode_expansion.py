@@ -127,7 +127,20 @@ class EpisodeExpansionCard(QFrame):
         outer.setContentsMargins(margin, margin, margin, margin)
         outer.setSpacing(_scale.px(8))
 
-        top_row = QHBoxLayout()
+        class _CollapseHeader(QWidget):
+            def __init__(self, card: "EpisodeExpansionCard") -> None:
+                super().__init__(card)
+                self._card = card
+                self.setCursor(Qt.CursorShape.PointingHandCursor)
+                self.setToolTip("Collapse")
+
+            def mousePressEvent(self, event) -> None:  # noqa: N802
+                self._card.collapse_requested.emit()
+                event.accept()
+
+        self._header_widget = _CollapseHeader(self)
+        top_row = QHBoxLayout(self._header_widget)
+        top_row.setContentsMargins(0, 0, 0, 0)
         self._collapse_button = QToolButton()
         self._collapse_button.setText(_COLLAPSE_GLYPH)
         self._collapse_button.setProperty("cssClass", "expansion-collapse")
@@ -137,13 +150,12 @@ class EpisodeExpansionCard(QFrame):
         self._collapse_button.clicked.connect(self.collapse_requested.emit)
         top_row.addWidget(self._collapse_button)
         self._title_label = QLabel("")
-        self._title_label.setProperty("cssClass", "row-title")
         top_row.addWidget(self._title_label)
         self._status_pill = QLabel("")
         self._status_pill.setProperty("cssClass", "status-pill")
         top_row.addWidget(self._status_pill)
         top_row.addStretch()
-        outer.addLayout(top_row)
+        outer.addWidget(self._header_widget)
 
         self._actions_row = QHBoxLayout()
         self._actions_row.setSpacing(_scale.px(6))

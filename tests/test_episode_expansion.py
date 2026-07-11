@@ -13,6 +13,32 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
         return EpisodeExpansionCard()
 
+    def _card_with_episode(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+        state, guide = _guide_state()
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[0])
+        return card
+
+    def test_title_is_regular_weight(self):
+        card = self._card_with_episode()
+        self.assertNotEqual(card._title_label.property("cssClass"), "row-title")
+
+    def test_click_anywhere_on_header_collapses(self):
+        from PySide6.QtCore import QPoint, Qt
+        from PySide6.QtTest import QTest
+        card = self._card_with_episode()
+        card.resize(600, 300)
+        card.show()
+        QTest.qWaitForWindowExposed(card)
+        fired = []
+        card.collapse_requested.connect(lambda: fired.append(True))
+        header = card._header_widget
+        QTest.mouseClick(header, Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier,
+                         QPoint(header.width() - 10, header.height() // 2))
+        self.assertTrue(fired)
+
     def test_episode_content_and_actions(self):
         from PySide6.QtWidgets import QLabel
         from plex_renamer.gui_qt.widgets._episode_expansion import (
