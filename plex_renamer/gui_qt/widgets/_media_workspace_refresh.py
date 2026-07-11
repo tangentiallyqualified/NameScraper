@@ -31,6 +31,7 @@ class MediaWorkspaceRefreshCoordinator:
         workspace._sync_roster_items(states)
         workspace._roster_syncing = False
         workspace._roster_panel.view.setUpdatesEnabled(True)
+        workspace._automux.warm_plans_for_states(states)
 
         if not states:
             self._reset_empty_ready_state()

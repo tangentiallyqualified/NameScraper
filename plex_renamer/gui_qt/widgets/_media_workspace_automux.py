@@ -119,6 +119,8 @@ class MediaWorkspaceAutoMuxCoordinator:
                 state.mux_plans[index] = plan
         self._refresh_widget(state, index)
         self._refresh_roster_row(state)
+        if state is self._workspace._selected_state():
+            self.update_button(state)
 
     def _refresh_widget(self, state, index: int) -> None:
         key = (id(state), index)
@@ -151,6 +153,24 @@ class MediaWorkspaceAutoMuxCoordinator:
         if model is not None:
             model.refresh_state(state_index)
 
+    # ── Proactive plan warming (Task 4) ──────────────────────────────
+
+    def warm_plans_for_states(self, states) -> None:
+        """Kick background probes for every preview item that has no cached
+        plan/error yet, so roster chips and the toggle button appear without
+        requiring an expansion. Cheap to call repeatedly: _request's
+        _inflight dedup plus the cached plan/error checks below make an
+        already-warmed state a no-op."""
+        if not self.available():
+            return
+        for state in states:
+            for index, item in enumerate(state.preview_items):
+                if item.file_id is None:
+                    continue
+                if index in state.mux_plans or index in state.mux_probe_errors:
+                    continue
+                self._request(state, index)
+
     # ── Movie panel (Task 6) / header button (Task 7) ─────────────────
 
     def on_state_shown(self, state) -> None:
@@ -166,10 +186,17 @@ class MediaWorkspaceAutoMuxCoordinator:
         panel.set_automux_tracks(self.tracks_widget_for(state, 0))
 
     def update_button(self, state) -> None:
-        """Spec §8.1: visible only when AutoMux is enabled AND mkvmerge is
-        available; locked with a tooltip while the entry is queued."""
+        """Spec §8.1: visible only when AutoMux is enabled, mkvmerge is
+        available, AND the state actually has a plan with actions (Task 4)
+        -- ignoring automux_disabled, so a disabled-but-eligible entry can
+        still be re-enabled from the button. Locked with a tooltip while
+        the entry is queued."""
         button = self._workspace._work_panel.automux_button
-        if state is None or not self.available():
+        if (
+            state is None
+            or not self.available()
+            or not automux_service.state_mux_eligible(state)
+        ):
             button.hide()
             return
         button.show()

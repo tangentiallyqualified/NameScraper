@@ -21,6 +21,21 @@ PLAN = {
     "warnings": [], "user_modified": False,
 }
 
+# A plan that carries no actionable decision (all tracks kept as-is, no
+# subtitle merge) -- plan_has_actions()/state_mux_eligible() must treat this
+# the same as "no plan at all" for eligibility purposes (Task 4).
+NO_ACTION_PLAN = {
+    "output_name": "Show - S01E01 - Pilot.mkv",
+    "track_decisions": [
+        {"track_id": 1, "track_type": "audio", "codec": "aac",
+         "language": "eng", "name": "", "keep": True,
+         "make_default": True, "reason": "retained"},
+    ],
+    "subtitle_merges": [],
+    "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+    "warnings": [], "user_modified": False,
+}
+
 
 class _RosterModelStub:
     def __init__(self):
@@ -53,6 +68,7 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
             new_name="Show - S01E01 - Pilot.mkv",
             target_dir=base / "out" / "Show (2020)" / "Season 01",
             season=1, episodes=[1], status="OK", media_type="tv",
+            file_id=1,
         )
         return ScanState(
             folder=base / "lib" / "Show",
@@ -86,6 +102,7 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
                 movie_folder=None,
             ),
             _current_states=lambda: [state],
+            _selected_state=lambda: None,
             _roster_panel=SimpleNamespace(model=roster_model),
         )
         coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
@@ -171,11 +188,19 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             _roster_panel=SimpleNamespace(model=_RosterModelStub()),
         )
         coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        workspace._automux = coordinator
         self.addCleanup(_dispose_coordinator, coordinator)
         return coordinator, panel
 
     def _make_state(self):
         return WorkspaceAutoMuxTests._state(self)
+
+    def _make_eligible_state(self):
+        """A state whose cached plan has actions -- Task 4's eligibility
+        gate (state_mux_eligible) requires this for the button to show."""
+        state = self._make_state()
+        state.mux_plans[0] = dict(PLAN)
+        return state
 
     def _make_settings(self):
         return WorkspaceAutoMuxTests._settings(self)
@@ -187,7 +212,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.assertTrue(panel.automux_button.isHidden())
 
     def test_button_toggles_disable(self):
-        state = self._make_state()
+        state = self._make_eligible_state()
         coordinator, panel = self._button_fixture(
             settings=self._make_settings(), state=state)
         coordinator.update_button(state)
@@ -201,7 +226,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # Task 10: filled danger while it says Disable AutoMux (AutoMux is
         # currently active), filled caution while it says Enable AutoMux
         # (AutoMux is currently disabled -- re-enabling is the caution action).
-        state = self._make_state()
+        state = self._make_eligible_state()
         coordinator, panel = self._button_fixture(
             settings=self._make_settings(), state=state)
         coordinator.update_button(state)
@@ -210,7 +235,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.assertEqual(panel.automux_button.property("cssClass"), "caution")
 
     def test_button_locked_while_queued(self):
-        state = self._make_state()
+        state = self._make_eligible_state()
         state.queued = True
         coordinator, panel = self._button_fixture(
             settings=self._make_settings(), state=state)
@@ -219,6 +244,95 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.assertIn("Unqueue", panel.automux_button.toolTip())
         coordinator.toggle_selected()
         self.assertFalse(state.automux_disabled)   # locked: no toggle
+
+    # ── Task 4: proactive warming + eligibility gate ─────────────────
+
+    def _workspace_with_states(self):
+        """(workspace, states) wired with a real coordinator at
+        workspace._automux and no cached plans yet, so
+        warm_plans_for_states must probe every item from scratch."""
+        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
+            MediaWorkspaceAutoMuxCoordinator,
+        )
+
+        states = [self._make_state(), self._make_state()]
+        workspace = SimpleNamespace(
+            _settings=self._make_settings(),
+            _media_type="tv",
+            _media_ctrl=SimpleNamespace(
+                tv_root_folder=Path(self._main_window_tmp.name) / "lib",
+                movie_folder=None,
+            ),
+            _current_states=lambda: states,
+            _selected_state=lambda: None,
+            _roster_panel=SimpleNamespace(model=_RosterModelStub()),
+        )
+        coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        workspace._automux = coordinator
+        self.addCleanup(_dispose_coordinator, coordinator)
+        return workspace, states
+
+    def _workspace_with_selected_state(self, *, plan_actions: bool):
+        """(workspace, state) via _button_fixture, with a cached plan
+        already applied (no background probe involved) so
+        state_mux_eligible reflects `plan_actions`."""
+        state = self._make_state()
+        state.mux_plans[0] = dict(PLAN if plan_actions else NO_ACTION_PLAN)
+        coordinator, panel = self._button_fixture(
+            settings=self._make_settings(), state=state)
+        panel.show()
+        return coordinator._workspace, state
+
+    def _drain_thread_pool(self):
+        # _submit_bg is patched (in test_warm_plans_probes_without_expansion)
+        # to run work synchronously, mirroring
+        # test_workspace_poster_warmup.py's _drain_background -- nothing is
+        # left in flight to drain.
+        pass
+
+    def test_warm_plans_probes_without_expansion(self):
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        workspace, states = self._workspace_with_states()
+        sync_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+        probe_patch = patch.object(
+            svc_mod, "probe_file",
+            side_effect=lambda mkv, path: ProbeResult(
+                path=str(path), ok=True, tracks=[]))
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(
+            svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+        self._drain_thread_pool()
+
+        for state in states:
+            self.assertTrue(state.mux_plans, "plans must be warmed proactively")
+
+    def test_button_hidden_when_no_plan_has_actions(self):
+        workspace, state = self._workspace_with_selected_state(plan_actions=False)
+        workspace._automux.update_button(state)
+        self.assertFalse(workspace._work_panel.automux_button.isVisible())
+
+    def test_button_shown_when_disabled_but_eligible(self):
+        workspace, state = self._workspace_with_selected_state(plan_actions=True)
+        state.automux_disabled = True
+        workspace._automux.update_button(state)
+        self.assertTrue(workspace._work_panel.automux_button.isVisible())
+        self.assertEqual(
+            workspace._work_panel.automux_button.text(), "Enable AutoMux")
 
     def test_roster_chip_reflects_mux_actions(self):
         from plex_renamer.gui_qt.widgets._roster_model import RosterModel

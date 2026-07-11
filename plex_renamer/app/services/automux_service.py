@@ -162,6 +162,12 @@ def state_has_mux_actions(state: ScanState) -> bool:
     return any(plan_has_actions(plan) for plan in state.mux_plans.values())
 
 
+def state_mux_eligible(state: ScanState) -> bool:
+    """True when any cached plan carries actions, regardless of the
+    per-show disable flag (the toggle button must stay reachable)."""
+    return any(plan_has_actions(plan) for plan in state.mux_plans.values())
+
+
 def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
     """Plans to bake into a queue job — None when AutoMux contributes
     nothing (disabled entry, or every plan edited down to a no-op)."""
