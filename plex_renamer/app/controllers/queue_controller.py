@@ -105,6 +105,8 @@ class QueueController:
         source_folder: Path,
         show_folder_rename: str | None = None,
         poster_path: str | None = None,
+        settings_service=None,
+        tmdb_client=None,
     ) -> RenameJob:
         """Build and enqueue a single rename job.
 
@@ -123,6 +125,8 @@ class QueueController:
             source_folder=source_folder,
             show_folder_rename=show_folder_rename,
             poster_path=poster_path,
+            settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     def add_tv_batch(
@@ -132,6 +136,7 @@ class QueueController:
         output_root: Path,
         command_gating: CommandGatingService,
         settings_service=None,
+        tmdb_client=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all checked TV shows.
 
@@ -146,6 +151,7 @@ class QueueController:
             output_root=output_root,
             command_gating=command_gating,
             settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     def add_movie_batch(
@@ -155,6 +161,7 @@ class QueueController:
         output_root: Path,
         command_gating: CommandGatingService,
         settings_service=None,
+        tmdb_client=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all eligible movies.
 
@@ -168,6 +175,7 @@ class QueueController:
             output_root=output_root,
             command_gating=command_gating,
             settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     # ── Direct rename recording ────────────────────────────────────

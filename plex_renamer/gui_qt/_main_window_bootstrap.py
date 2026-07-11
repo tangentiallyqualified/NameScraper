@@ -35,6 +35,17 @@ class MainWindowBootstrapCoordinator:
         )
 
         window.queue_ctrl = queue_controller_factory(window._job_store)
+
+        from ..app.services.metadata_service import make_image_fetcher
+        from ..keys import get_api_key
+
+        window.queue_ctrl.set_image_fetcher(make_image_fetcher(
+            get_client=lambda: window._tmdb,
+            api_key_lookup=get_api_key,
+            cache_service=window._cache_service,
+            language=window.settings_service.match_language,
+        ))
+
         window.media_ctrl = media_controller_factory(
             job_store=window._job_store,
             command_gating=window._command_gating,

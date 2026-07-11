@@ -312,3 +312,55 @@ def apply_prefer_local(job, plan: dict | None, library_root: Path) -> None:
             if not entry.get("plex_extra"):
                 carry(entry, local)
         plan[key] = kept
+
+
+def attach_metadata_plan(
+    job,
+    *,
+    tmdb_client,
+    settings_service,
+    library_root,
+) -> None:
+    """Bake the metadata plan onto *job* at queue-submission time.
+
+    Mirrors how mux plans are baked (spec §5.1 pattern): settings are
+    frozen into the plan now; later settings changes do not affect
+    queued jobs.
+    """
+    plan = build_metadata_plan(job, tmdb_client, settings_service)
+    if plan is None:
+        return
+    apply_prefer_local(job, plan, Path(library_root))
+    job.metadata_plan = finalize_plan(plan)
+
+
+def make_image_fetcher(
+    *,
+    get_client,
+    api_key_lookup,
+    cache_service=None,
+    language: str = "en-US",
+):
+    """Artwork downloader for the executor's decorate phase.
+
+    Prefers the app's live TMDB client; when none exists yet (fresh
+    start, queue run before any scan) lazily builds a private client if
+    an API key is stored. TMDBClient construction is GUI-free, so this
+    is safe from the executor's worker thread. Returns None per call
+    when no client can be built — decorate records warnings.
+    """
+    holder: dict = {}
+
+    def fetch(image_path: str) -> bytes | None:
+        client = get_client() or holder.get("client")
+        if client is None:
+            api_key = api_key_lookup("TMDB")
+            if not api_key:
+                return None
+            from ...tmdb import TMDBClient
+            client = TMDBClient(
+                api_key, language=language, cache_service=cache_service)
+            holder["client"] = client
+        return client.fetch_image_bytes(image_path)
+
+    return fetch

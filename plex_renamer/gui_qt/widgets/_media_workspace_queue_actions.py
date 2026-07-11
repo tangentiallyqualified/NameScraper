@@ -149,6 +149,8 @@ def queue_states(
                 output_root,
                 workspace._media_ctrl.command_gating,
                 settings_service=workspace._settings,
+                tmdb_client=(workspace._tmdb_provider()
+                             if workspace._tmdb_provider is not None else None),
             )
             try:
                 workspace._media_ctrl.sync_queued_states()

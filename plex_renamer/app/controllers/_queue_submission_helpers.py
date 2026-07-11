@@ -21,6 +21,7 @@ from ..services.automux_service import (
     ensure_state_plans,
 )
 from ..services.command_gating_service import CommandGatingService
+from ..services.metadata_service import attach_metadata_plan, metadata_active
 
 
 def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dict] | None:
@@ -30,6 +31,21 @@ def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dic
         return None
     ensure_state_plans(state, settings_service, library_root)
     return effective_mux_plans(state)
+
+
+def _bake_metadata_plan(job, settings_service, tmdb_client, library_root) -> None:
+    """Attach the metadata plan when the feature is active (spec:
+    local-metadata-artwork; baked at queue time like mux plans)."""
+    if settings_service is None or tmdb_client is None:
+        return
+    if not metadata_active(settings_service):
+        return
+    attach_metadata_plan(
+        job,
+        tmdb_client=tmdb_client,
+        settings_service=settings_service,
+        library_root=library_root,
+    )
 
 
 @dataclass
@@ -64,6 +80,8 @@ def add_single_queue_job(
     source_folder: Path,
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
+    settings_service=None,
+    tmdb_client=None,
 ) -> RenameJob:
     job = build_rename_job_from_items(
         items=items,
@@ -79,6 +97,7 @@ def add_single_queue_job(
     )
     if not job.selected_ops:
         raise ValueError("No actionable rename operations are selected.")
+    _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
     job_store.add_job(job)
     return job
 
@@ -91,6 +110,7 @@ def add_tv_batch_jobs(
     output_root: Path,
     command_gating: CommandGatingService,
     settings_service=None,
+    tmdb_client=None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
 
@@ -128,6 +148,7 @@ def add_tv_batch_jobs(
             checked_indices=checked,
             mux_plans=mux_plans,
         )
+        _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
 
         try:
             job_store.add_job(job)
@@ -149,6 +170,7 @@ def add_movie_batch_jobs(
     output_root: Path,
     command_gating: CommandGatingService,
     settings_service=None,
+    tmdb_client=None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
 
@@ -193,6 +215,7 @@ def add_movie_batch_jobs(
             poster_path=state.media_info.get("poster_path"),
             mux_plans=mux_plans,
         )
+        _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
 
         try:
             job_store.add_job(job)
