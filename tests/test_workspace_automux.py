@@ -247,15 +247,21 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
     # ── Task 4: proactive warming + eligibility gate ─────────────────
 
-    def _workspace_with_states(self):
+    def _workspace_with_states(self, *, states=None, selected_index: int | None = None):
         """(workspace, states) wired with a real coordinator at
         workspace._automux and no cached plans yet, so
-        warm_plans_for_states must probe every item from scratch."""
+        warm_plans_for_states must probe every item from scratch.
+
+        ``selected_index`` (final-review fix) lets a test pin which state
+        ``workspace._selected_state()`` reports as currently selected, so
+        warm-order assertions can be made against it."""
         from plex_renamer.gui_qt.widgets._media_workspace_automux import (
             MediaWorkspaceAutoMuxCoordinator,
         )
 
-        states = [self._make_state(), self._make_state()]
+        if states is None:
+            states = [self._make_state(), self._make_state()]
+        selected = states[selected_index] if selected_index is not None else None
         workspace = SimpleNamespace(
             _settings=self._make_settings(),
             _media_type="tv",
@@ -264,13 +270,23 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
                 movie_folder=None,
             ),
             _current_states=lambda: states,
-            _selected_state=lambda: None,
+            _selected_state=lambda: selected,
             _roster_panel=SimpleNamespace(model=_RosterModelStub()),
         )
         coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
         workspace._automux = coordinator
         self.addCleanup(_dispose_coordinator, coordinator)
         return workspace, states
+
+    def _make_named_state(self, name: str):
+        """A state whose preview item's path is distinguishable from other
+        states' -- for probe-order assertions where every state built from
+        ``_make_state`` would otherwise share the same fixed "a.mkv" path."""
+        state = self._make_state()
+        state.preview_items[0].original = (
+            Path(self._main_window_tmp.name) / "lib" / "Show" / name
+        )
+        return state
 
     def _workspace_with_selected_state(self, *, plan_actions: bool):
         """(workspace, state) via _button_fixture, with a cached plan
@@ -320,6 +336,52 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         for state in states:
             self.assertTrue(state.mux_plans, "plans must be warmed proactively")
+
+    def test_warm_plans_probes_selected_state_before_others(self):
+        # Final-review fix: warming every state's items through _request
+        # dumped one pool task per preview item across the whole library
+        # into the shared 8-worker pool before the selected show's guide
+        # build was even submitted. warm_plans_for_states must now probe
+        # the SELECTED state's items first and only then fan out (via a
+        # single deferred task) over the rest.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        # Select the SECOND state -- if warming still went in list order,
+        # this test would see "a.mkv" probed first and fail.
+        workspace, states = self._workspace_with_states(states=states, selected_index=1)
+        sync_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(
+            svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+        self._drain_thread_pool()
+
+        self.assertEqual(
+            probed_names, ["b.mkv", "a.mkv"],
+            "the selected state (b.mkv) must be probed before the other state",
+        )
 
     def test_button_hidden_when_no_plan_has_actions(self):
         workspace, state = self._workspace_with_selected_state(plan_actions=False)
