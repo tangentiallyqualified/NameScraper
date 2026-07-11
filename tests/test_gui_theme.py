@@ -91,6 +91,11 @@ def test_no_hex_literals_outside_theme_module():
 
 _PLEX_ALLOWED_SUBSTRINGS = ("plex_renamer", "PLEX_RENAMER", "plex-renamer")  # package/env names, not UI copy
 
+# Files whose Plex mentions are deliberate third-party-compatibility copy
+# (the Plex media server as an export target), not app branding. The
+# de-branding plan keeps factual convention references ("Plex/Jellyfin-style").
+_PLEX_ALLOWED_FILES = {"_settings_metadata_page.py"}
+
 
 def _plex_literals(path: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -111,6 +116,8 @@ def _plex_literals(path: Path) -> list[str]:
 def test_no_plex_string_literals_in_gui():
     offenders: list[str] = []
     for path in sorted(_GUI_ROOT.rglob("*.py")):
+        if path.name in _PLEX_ALLOWED_FILES:
+            continue
         offenders.extend(_plex_literals(path))
     assert offenders == [], "\n".join(offenders)
 

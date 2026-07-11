@@ -39,7 +39,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 return BatchQueueResult(added=len(states))
 
         class _FakeMediaController:
@@ -780,7 +780,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -1220,7 +1220,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, output_root, command_gating, settings_service=None):
+            def add_movie_batch(self, states, root, output_root, command_gating, settings_service=None, tmdb_client=None):
                 self.called = True
                 return BatchQueueResult(added=len(states))
 
@@ -4176,7 +4176,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4257,7 +4257,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4353,7 +4353,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 self.called = True
                 raise RuntimeError("queue boom")
 
@@ -4438,7 +4438,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -4502,7 +4502,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             seen: dict[str, bool] = {}
             original_add = queue_ctrl.add_tv_batch
 
-            def observing_add(states, root, output_root, gating, settings_service=None):
+            def observing_add(states, root, output_root, gating,
+                              settings_service=None, tmdb_client=None):
                 overlay = workspace.findChild(BusyOverlay)
                 seen["visible"] = overlay is not None and overlay.isVisible()
                 return original_add(states, root, output_root, gating)
@@ -4521,7 +4522,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4772,7 +4773,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
             states.append(self._bulk_table_state("Other Show", media_id=102))
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None):
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
                 return None
 
         class _FakeMediaController:
