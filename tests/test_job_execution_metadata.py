@@ -162,6 +162,78 @@ def test_propedit_unavailable_is_single_warning(tmp_path, monkeypatch):
     assert sum("mkvpropedit" in e for e in result.errors) == 1
 
 
+def test_top_dir_remap_applied_to_nfo_and_artwork(tmp_path):
+    out = tmp_path / "out"
+    plan = base_plan()
+    job = make_job(tmp_path, plan)
+    result = _result()
+    result.log_entry["top_dir_remap"] = {
+        str(out / "Show (2019)"): str(out / "Show (2019) (2)"),
+    }
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=lambda p: b"img")
+
+    nfo = out / "Show (2019) (2)" / "tvshow.nfo"
+    poster = out / "Show (2019) (2)" / "poster.jpg"
+    assert nfo.read_text(encoding="utf-8") == "<tvshow/>"
+    assert poster.read_bytes() == b"img"
+    assert not (out / "Show (2019)").exists()
+    assert set(result.log_entry["created_files"]) == {str(nfo), str(poster)}
+    assert result.errors == []
+
+
+def test_top_dir_remap_applied_to_embed_title_target(tmp_path):
+    out = tmp_path / "out"
+    fake_propedit = tmp_path / "mkvpropedit.exe"
+    fake_propedit.write_bytes(b"")
+    plan = base_plan(embed_title=True, mkvpropedit_path=str(fake_propedit),
+                      nfo_files=[], artwork=[])
+    job = make_job(tmp_path, plan)
+    remapped_target = (out / "Show (2019) (2)" / "Season 01" /
+                        "Show (2019) - S01E01 - Pilot.mkv")
+    remapped_target.parent.mkdir(parents=True)
+    remapped_target.write_bytes(b"mkv")
+
+    result = _result()
+    result.log_entry["top_dir_remap"] = {
+        str(out / "Show (2019)"): str(out / "Show (2019) (2)"),
+    }
+    calls = []
+    execute_metadata_plan(
+        job, result=result,
+        propedit_runner=lambda a: calls.append(a) or (0, ""))
+
+    assert len(calls) == 1
+    assert calls[0][1] == str(remapped_target)
+    assert result.errors == []
+
+
+def test_missing_target_relative_skips_with_warning_nfo_and_artwork(tmp_path):
+    plan = base_plan()
+    del plan["nfo_files"][0]["target_relative"]
+    del plan["artwork"][0]["target_relative"]
+    job = make_job(tmp_path, plan)
+    result = _result()
+    execute_metadata_plan(job, result=result, fetch_image_bytes=lambda p: b"img")
+
+    assert result.log_entry.get("created_files", []) == []
+    assert any("nfo skipped" in e for e in result.errors)
+    assert any("artwork skipped" in e for e in result.errors)
+
+
+def test_missing_content_and_tmdb_path_skip_with_warning(tmp_path):
+    plan = base_plan()
+    del plan["nfo_files"][0]["content"]
+    del plan["artwork"][0]["tmdb_path"]
+    job = make_job(tmp_path, plan)
+    result = _result()
+    execute_metadata_plan(job, result=result, fetch_image_bytes=lambda p: b"img")
+
+    assert result.log_entry.get("created_files", []) == []
+    assert any("nfo skipped" in e for e in result.errors)
+    assert any("artwork skipped" in e for e in result.errors)
+
+
 def test_no_plan_is_noop(tmp_path):
     job = make_job(tmp_path, None)
     result = _result()

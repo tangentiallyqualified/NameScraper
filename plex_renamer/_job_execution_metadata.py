@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path, PurePath
 
+from ._job_execution_filesystem import apply_top_dir_remap
 from ._mkv_command import build_mkvpropedit_title_args
 from ._mkv_locate import find_mkvpropedit
 from .engine.models import RenameResult
@@ -49,9 +50,14 @@ def _resolve_target(
     output_root: Path,
     output_boundary: Path,
     relative: str,
+    top_dir_remap: dict[Path, Path],
     result: RenameResult,
 ) -> Path | None:
-    target = output_root / relative
+    # The rename phase may have remapped a colliding top-level output dir
+    # (e.g. "Show (2019)" -> "Show (2019) (2)"); the plan's target paths
+    # are static and pre-date that remap, so route through it here too —
+    # otherwise sidecars land in the wrong (pre-existing) folder.
+    target = apply_top_dir_remap(output_root / relative, top_dir_remap)
     try:
         target.resolve(strict=False).relative_to(output_boundary)
     except (OSError, ValueError):
@@ -59,6 +65,11 @@ def _resolve_target(
             f"Metadata target escapes the output root: {relative}")
         return None
     return target
+
+
+def _load_top_dir_remap(result: RenameResult) -> dict[Path, Path]:
+    raw = result.log_entry.get("top_dir_remap") or {}
+    return {Path(old): Path(new) for old, new in raw.items()}
 
 
 def execute_metadata_plan(
@@ -77,28 +88,45 @@ def execute_metadata_plan(
     output_boundary = output_root.resolve(strict=False)
     prefer_local = bool(plan.get("prefer_local"))
     created = result.log_entry.setdefault("created_files", [])
+    top_dir_remap = _load_top_dir_remap(result)
 
     for nfo in plan.get("nfo_files", []):
+        target_relative = nfo.get("target_relative")
+        content = nfo.get("content")
+        if target_relative is None or content is None:
+            result.errors.append(
+                "Metadata plan entry missing target_relative/content "
+                "— nfo skipped")
+            continue
         target = _resolve_target(
-            output_root, output_boundary, nfo["target_relative"], result)
+            output_root, output_boundary, target_relative, top_dir_remap,
+            result)
         if target is None:
             continue
         if prefer_local and target.exists():
             continue
         try:
-            _write_atomic(target, str(nfo["content"]).encode("utf-8"))
+            _write_atomic(target, str(content).encode("utf-8"))
             created.append(str(target))
         except OSError as e:
             result.errors.append(f"Could not write {target.name}: {e}")
 
     for art in plan.get("artwork", []):
+        target_relative = art.get("target_relative")
+        tmdb_path = art.get("tmdb_path")
+        if target_relative is None or tmdb_path is None:
+            result.errors.append(
+                "Metadata plan entry missing target_relative/tmdb_path "
+                "— artwork skipped")
+            continue
         target = _resolve_target(
-            output_root, output_boundary, art["target_relative"], result)
+            output_root, output_boundary, target_relative, top_dir_remap,
+            result)
         if target is None:
             continue
         if prefer_local and target.exists():
             continue
-        data = fetch_image_bytes(art["tmdb_path"]) if fetch_image_bytes else None
+        data = fetch_image_bytes(tmdb_path) if fetch_image_bytes else None
         if not data:
             result.errors.append(
                 f"Artwork unavailable (offline or uncached): {target.name}")
@@ -111,7 +139,7 @@ def execute_metadata_plan(
 
     if plan.get("embed_title"):
         _embed_titles(
-            job, plan, result, output_root, output_boundary,
+            job, plan, result, output_root, output_boundary, top_dir_remap,
             propedit_runner or run_mkvpropedit)
 
 
@@ -121,6 +149,7 @@ def _embed_titles(
     result: RenameResult,
     output_root: Path,
     output_boundary: Path,
+    top_dir_remap: dict[Path, Path],
     runner: Callable[[list[str]], tuple[int, str]],
 ) -> None:
     """mkvpropedit title pass for plainly-renamed MKVs.
@@ -148,7 +177,9 @@ def _embed_titles(
         propedit = str(located)
 
     for op in ops:
-        target = output_root / op.target_dir_relative / op.new_name
+        target_dir = apply_top_dir_remap(
+            output_root / op.target_dir_relative, top_dir_remap)
+        target = target_dir / op.new_name
         try:
             target.resolve(strict=False).relative_to(output_boundary)
         except (OSError, ValueError):

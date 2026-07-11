@@ -110,6 +110,13 @@ def select_logo_path(details: dict | None, language: str) -> str | None:
     if not details:
         return None
     logos = (details.get("images") or {}).get("logos") or []
+    # TMDB serves some logos as .svg; those would be written into a
+    # clearlogo.png file unrenderable by Plex/media players, so only
+    # PNG candidates are eligible before scoring.
+    logos = [
+        logo for logo in logos
+        if str(logo.get("file_path") or "").lower().endswith(".png")
+    ]
     lang2 = (language or "en-US").split("-")[0]
 
     def score(logo: dict) -> tuple[float, int]:

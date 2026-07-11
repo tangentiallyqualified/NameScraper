@@ -171,6 +171,9 @@ def _execute_output_rename(job: RenameJob, progress_cb=None) -> RenameResult:
         renames=renames,
     )
     if remap:
+        result.log_entry["top_dir_remap"] = {
+            str(old_top): str(new_top) for old_top, new_top in remap.items()
+        }
         renames = [
             (
                 src,
@@ -835,11 +838,17 @@ class QueueExecutor:
                 # Decorate phase (spec: local-metadata-artwork). Appends
                 # to result.log_entry/errors — must run before undo_data
                 # is persisted below; never raises for per-file problems.
-                execute_metadata_plan(
-                    job,
-                    result=result,
-                    fetch_image_bytes=self._image_fetcher,
-                )
+                # A total blowup here (e.g. an unexpected exception from
+                # a malformed plan) must still leave the job COMPLETED —
+                # metadata must never fail a job or block queueing.
+                try:
+                    execute_metadata_plan(
+                        job,
+                        result=result,
+                        fetch_image_bytes=self._image_fetcher,
+                    )
+                except Exception as e:
+                    result.errors.append(f"Metadata phase failed: {e}")
 
             if result.errors and result.renamed_count == 0:
                 error_msg = "; ".join(result.errors[:5])

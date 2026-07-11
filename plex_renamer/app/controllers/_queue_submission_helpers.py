@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -23,6 +24,8 @@ from ..services.automux_service import (
 from ..services.command_gating_service import CommandGatingService
 from ..services.metadata_service import attach_metadata_plan, metadata_active
 
+_log = logging.getLogger(__name__)
+
 
 def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dict] | None:
     """Ensure and collect this entry's mux plans at queue time (spec §5.1:
@@ -40,12 +43,22 @@ def _bake_metadata_plan(job, settings_service, tmdb_client, library_root) -> Non
         return
     if not metadata_active(settings_service):
         return
-    attach_metadata_plan(
-        job,
-        tmdb_client=tmdb_client,
-        settings_service=settings_service,
-        library_root=library_root,
-    )
+    try:
+        attach_metadata_plan(
+            job,
+            tmdb_client=tmdb_client,
+            settings_service=settings_service,
+            library_root=library_root,
+        )
+    except Exception:
+        # A single show's metadata bake (e.g. a TMDB call raising) must
+        # never abort queueing the whole batch — leave the job
+        # undecorated and continue. Core invariant: metadata must never
+        # fail a job or block queueing.
+        _log.warning(
+            "Metadata plan bake failed for job %r; queueing without "
+            "metadata plan.", getattr(job, "job_id", None), exc_info=True)
+        job.metadata_plan = None
 
 
 @dataclass

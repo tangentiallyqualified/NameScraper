@@ -83,6 +83,22 @@ def test_fetch_image_bytes_handles_missing_path(client):
     assert client.fetch_image_bytes("") is None
 
 
+def test_fetch_image_bytes_404_returns_none_and_caches_nothing(
+        client, monkeypatch):
+    class FakeResponse:
+        ok = False
+        status_code = 404
+        content = b"<html>not found</html>"
+
+    def fake_get(url, timeout=10):
+        return FakeResponse()
+
+    monkeypatch.setattr(client._transport.session, "get", fake_get)
+    data = client.fetch_image_bytes("/missing.jpg")
+    assert data is None
+    assert client._cache_service.store == {}
+
+
 def test_select_logo_prefers_language_then_null():
     details = {"images": {"logos": [
         {"file_path": "/de.png", "iso_639_1": "de",
@@ -98,3 +114,23 @@ def test_select_logo_prefers_language_then_null():
     assert select_logo_path(details, "fr-FR") == "/null.png"
     assert select_logo_path({}, "en-US") is None
     assert select_logo_path(None, "en-US") is None
+
+
+def test_select_logo_skips_svg_even_with_highest_votes():
+    details = {"images": {"logos": [
+        {"file_path": "/best.svg", "iso_639_1": "en",
+         "vote_average": 99.0, "vote_count": 999},
+        {"file_path": "/second.png", "iso_639_1": "en",
+         "vote_average": 5.0, "vote_count": 3},
+    ]}}
+    assert select_logo_path(details, "en-US") == "/second.png"
+
+
+def test_select_logo_all_svg_pool_returns_none():
+    details = {"images": {"logos": [
+        {"file_path": "/one.svg", "iso_639_1": "en",
+         "vote_average": 9.0, "vote_count": 9},
+        {"file_path": "/two.SVG", "iso_639_1": None,
+         "vote_average": 5.0, "vote_count": 5},
+    ]}}
+    assert select_logo_path(details, "en-US") is None

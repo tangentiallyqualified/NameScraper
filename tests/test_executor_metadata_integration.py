@@ -84,6 +84,67 @@ def test_offline_artwork_completes_with_warning(tmp_path):
     assert (out / "Show (2019)" / "tvshow.nfo").exists()
 
 
+def test_decorate_respects_output_collision_remap(tmp_path):
+    library_root, out = make_env(tmp_path)
+
+    # Pre-existing "Show (2019)" folder — forces the rename phase to
+    # remap the top-level output dir to "Show (2019) (1)".
+    pre_existing = out / "Show (2019)"
+    pre_existing.mkdir()
+    marker = pre_existing / "marker.txt"
+    marker.write_bytes(b"pre-existing")
+    before_marker = marker.read_bytes()
+
+    store = JobStore(db_path=tmp_path / "jobs.db")
+    job = store.add_job(make_job(library_root, out, dict(PLAN)))
+    executor = QueueExecutor(store, image_fetcher=lambda p: b"img")
+    assert executor.execute_single_job(job.job_id)
+
+    done = store.get_job(job.job_id)
+    assert done.status == JobStatus.COMPLETED
+
+    remapped = out / "Show (2019) (1)"
+    video = remapped / "Season 01" / "Show (2019) - S01E01 - Pilot.mkv"
+    nfo = remapped / "tvshow.nfo"
+    poster = remapped / "poster.jpg"
+    assert video.exists()
+    assert nfo.exists()
+    assert poster.read_bytes() == b"img"
+
+    # The pre-existing folder is untouched — only the marker remains.
+    assert {p.name for p in pre_existing.iterdir()} == {"marker.txt"}
+    assert marker.read_bytes() == before_marker
+
+    assert set(done.undo_data["created_files"]) == {str(nfo), str(poster)}
+
+    ok, errors = revert_job(done)
+    assert ok, errors
+    assert not remapped.exists()
+    assert pre_existing.exists()
+    assert marker.read_bytes() == before_marker
+    assert (library_root / "Show" / "Show.S01E01.mkv").exists()
+
+
+def test_malformed_metadata_entry_completes_with_warning(tmp_path):
+    library_root, out = make_env(tmp_path)
+    plan = dict(PLAN)
+    # Malformed: missing "target_relative" — must be skipped with a
+    # warning, not crash the decorate phase or the job.
+    plan["nfo_files"] = [{"content": "<tvshow/>", "slot": "nfo:show"}]
+
+    store = JobStore(db_path=tmp_path / "jobs.db")
+    job = store.add_job(make_job(library_root, out, plan))
+    executor = QueueExecutor(store, image_fetcher=lambda p: b"img")
+    assert executor.execute_single_job(job.job_id)
+
+    done = store.get_job(job.job_id)
+    assert done.status == JobStatus.COMPLETED
+    assert "nfo skipped" in (done.error_message or "")
+    assert done.undo_data is not None
+    assert (out / "Show (2019)" / "Season 01" /
+            "Show (2019) - S01E01 - Pilot.mkv").exists()
+
+
 def test_remux_op_receives_title(tmp_path, monkeypatch):
     library_root, out = make_env(tmp_path)
     captured = {}
