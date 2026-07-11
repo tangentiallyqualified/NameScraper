@@ -155,6 +155,19 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertEqual(panel.staged_pairs(), [])
         self.assertFalse(panel._apply_button.isEnabled())
 
+    def test_unassign_all_clears_manual_staging(self):
+        panel = self._panel()
+        free_fid = self._first_free_file_id(panel)
+        panel._handle_drop(free_fid, (1, 1))          # manual stage
+        self.assertTrue(panel.staged_pairs())
+        panel.unassign_all()
+        self.assertEqual(panel.staged_pairs(), [])     # staging cleared
+        self.assertEqual(
+            set(panel.staged_unassigns()),
+            set(panel._assigned_key_by_file),          # all pre-assigned files staged for unassign
+        )
+        self.assertTrue(panel._apply_button.isEnabled())
+
     def test_unassign_all_stages_every_claimed_slot(self):
         panel = self._panel()
         panel.unassign_all()
@@ -281,7 +294,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel._apply_button.click()
         self.assertEqual(len(fired), 1)
         pairs, unassigns = fired[0]
-        self.assertEqual(len(pairs), 3)
+        self.assertEqual(len(pairs), 0)      # unassign_all clears manually staged pairs
         self.assertEqual(unassigns, [panel._claimed_file_by_key[(1, 2)]])
         panel.reset_staging()
         self.assertEqual(panel.staged_pairs(), [])

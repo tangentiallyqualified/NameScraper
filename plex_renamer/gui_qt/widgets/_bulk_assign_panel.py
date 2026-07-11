@@ -511,6 +511,9 @@ class BulkAssignPanel(QFrame):
         self._refresh_views()
 
     def unassign_all(self) -> None:
+        """Stage a full reset: every pre-existing assignment is unassigned
+        AND every manually staged pair from this session is dropped."""
+        self._staged_pairs = []
         self._staged_unassign = set(self._assigned_key_by_file)
         self._status_label.setText("")
         self._refresh_views()
