@@ -30,6 +30,7 @@ _CHEVRON_U, _PILL_H_U, _MARGIN_U = 16, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
 _INLINE_ACTION_W_U, _INLINE_ACTION_H_U = 84, 20
+_ACTION_STRIP_U = 24
 
 _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "muted": "text_dim"}
 
@@ -53,13 +54,25 @@ _INLINE_ASSIGN_KINDS = {"unmapped", "duplicate"}
 _FLASH_DURATION_MS = 700
 
 
-def _inline_action_spec(row_data: EpisodeRowData) -> str | None:
-    """Action id for the row's inline button, or None."""
+def _row_inline_actions(row_data: EpisodeRowData) -> tuple[tuple[str, str], ...]:
+    """(action_id, label) pairs for a row's inline button(s).
+
+    Missing File / unmapped / duplicate rows keep the legacy single button
+    (placed left of the pill, painted with `_paint_action_button`'s accent
+    style below). Everything else defers to the model-computed
+    `row_data.inline_actions` action strip (Task 6).
+    """
     if row_data.status_text == "Missing File":
-        return "assign_file"
+        return (("assign_file", "Assign file…"),)
     if row_data.kind in _INLINE_ASSIGN_KINDS:
-        return "assign_unmapped"
-    return None
+        return (("assign_unmapped", "Assign…"),)
+    return row_data.inline_actions
+
+
+def _is_legacy_action_row(row_data: EpisodeRowData) -> bool:
+    """True for rows whose inline action renders left of the pill (today's
+    single-button placement) rather than on the bottom action strip."""
+    return row_data.status_text == "Missing File" or row_data.kind in _INLINE_ASSIGN_KINDS
 
 
 class EpisodeTableDelegate(QStyledItemDelegate):
@@ -138,26 +151,49 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + (option_rect.height() - height) // 2
         return QRect(x, y, width, height)
 
-    def inline_action_rect(self, option_rect: QRect, row_data: EpisodeRowData) -> QRect:
-        if _inline_action_spec(row_data) is None:
-            return QRect()
+    def inline_action_rects(self, option_rect: QRect, row_data: EpisodeRowData) -> list[tuple[str, QRect]]:
+        """Hit/paint rects for the row's inline action button(s).
+
+        Legacy rows (Missing File / unmapped / duplicate) get a single rect
+        left of the pill, vertically centered — today's placement. Everything
+        else with `row_data.inline_actions` gets a bottom-row action strip,
+        right-aligned, buttons laid out right-to-left from the row's right
+        margin (so the returned list stays in left-to-right button order).
+        """
+        actions = _row_inline_actions(row_data)
+        if not actions:
+            return []
         margin = _scale.px(_MARGIN_U)
-        pill = self._pill_rect(option_rect, row_data, self._view.fontMetrics()) if self._view else QRect()
-        width = _scale.px(_INLINE_ACTION_W_U)
         height = _scale.px(_INLINE_ACTION_H_U)
-        x = pill.x() - margin - width
-        y = option_rect.y() + (option_rect.height() - height) // 2
-        return QRect(x, y, width, height)
+        metrics = self._view.fontMetrics() if self._view else None
+        if _is_legacy_action_row(row_data):
+            pill = self._pill_rect(option_rect, row_data, metrics) if metrics else QRect()
+            width = _scale.px(_INLINE_ACTION_W_U)
+            x = pill.x() - margin - width
+            y = option_rect.y() + (option_rect.height() - height) // 2
+            return [(actions[0][0], QRect(x, y, width, height))]
+        rects: list[tuple[str, QRect]] = []
+        y = option_rect.bottom() - margin - height
+        x = option_rect.right() - margin
+        for action_id, label in reversed(actions):
+            width = (metrics.horizontalAdvance(label) if metrics else 60) + 2 * _scale.px(_PILL_HPAD_U)
+            x -= width
+            rects.append((action_id, QRect(x, y, width, height)))
+            x -= _scale.px(4)
+        rects.reverse()
+        return rects
 
     def text_right_edge(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
         """X coordinate the row's text lines must not cross: the pill, or the
-        inline action button when the row has one."""
+        legacy inline action button when the row has one. Action-strip
+        buttons live on their own bottom row and never constrain the text
+        width, so only the legacy placement is considered here."""
         pill = self._pill_rect(option_rect, row_data, metrics)
         right = pill.x()
-        if _inline_action_spec(row_data) is not None:
-            action = self.inline_action_rect(option_rect, row_data)
-            if action.isValid():
-                right = min(right, action.x())
+        if _is_legacy_action_row(row_data):
+            rects = self.inline_action_rects(option_rect, row_data)
+            if rects and rects[0][1].isValid():
+                right = min(right, rects[0][1].x())
         return right - _scale.px(_MARGIN_U)
 
     # -- Tooltip -------------------------------------------------------------
@@ -211,11 +247,15 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         if kind == "movie-file":
             return QSize(0, _scale.px(_ROW_MOVIE_U))
         row_data = index.data(ROW_DATA_ROLE)
-        if kind in _DOUBLE_LINE_KINDS and row_data is not None and row_data.filename:
+        base = _ROW_SINGLE_U
+        if row_data is not None:
             if row_data.subtitle_name:
-                return QSize(0, _scale.px(_ROW_TRIPLE_U))
-            return QSize(0, _scale.px(_ROW_DOUBLE_U))
-        return QSize(0, _scale.px(_ROW_SINGLE_U))
+                base = _ROW_TRIPLE_U
+            elif kind in _DOUBLE_LINE_KINDS and row_data.filename:
+                base = _ROW_DOUBLE_U
+            if row_data.inline_actions:
+                return QSize(0, _scale.px(base + _ACTION_STRIP_U))
+        return QSize(0, _scale.px(base))
 
     # -- Editor (expansion card; wired fully in Task 5) ----------------------
 
@@ -415,21 +455,33 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
-        if _inline_action_spec(row_data) is not None:
-            self._paint_inline_action(painter, option.rect, row_data)
+        for action_id, rect in self.inline_action_rects(option.rect, row_data):
+            self._paint_action_button(painter, rect, row_data, action_id)
 
-    def _paint_inline_action(self, painter: QPainter, option_rect: QRect, row_data: EpisodeRowData) -> None:
-        rect = self.inline_action_rect(option_rect, row_data)
+    def _paint_action_button(
+        self, painter: QPainter, rect: QRect, row_data: EpisodeRowData, action_id: str,
+    ) -> None:
         if not rect.isValid():
             return
+        label = next((lbl for aid, lbl in _row_inline_actions(row_data) if aid == action_id), "")
         painter.save()
-        fill = theme.qcolor("accent")
-        fill.setAlphaF(0.14)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(fill)
-        painter.drawRoundedRect(rect, theme.radius("sm"), theme.radius("sm"))
-        painter.setPen(theme.qcolor("accent"))
-        label = "Assign file…" if row_data.status_text == "Missing File" else "Assign…"
+        radius = theme.radius("sm")
+        if action_id == "approve":
+            fill = theme.qcolor("accent")
+            fill.setAlphaF(0.14)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(fill)
+            painter.drawRoundedRect(rect, radius, radius)
+            painter.setPen(theme.qcolor("accent"))
+        else:
+            fill = theme.qcolor("text_dim")
+            fill.setAlphaF(0.10)
+            border = theme.qcolor("text_dim")
+            border.setAlphaF(0.4)
+            painter.setPen(QPen(border, 1))
+            painter.setBrush(fill)
+            painter.drawRoundedRect(rect.adjusted(0, 0, -1, -1), radius, radius)
+            painter.setPen(theme.qcolor("text"))
         painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), label)
         painter.restore()
 
@@ -477,9 +529,8 @@ class EpisodeTableView(QListView):
             if isinstance(delegate, EpisodeTableDelegate) and kind in (_CHEVRON_KINDS | _INLINE_ASSIGN_KINDS):
                 rect = self.visualRect(index)
                 row_data = index.data(ROW_DATA_ROLE)
-                action_id = _inline_action_spec(row_data) if row_data is not None else None
-                if action_id is not None:
-                    action_rect = delegate.inline_action_rect(rect, row_data)
+                rects = delegate.inline_action_rects(rect, row_data) if row_data is not None else []
+                for action_id, action_rect in rects:
                     if action_rect.isValid() and action_rect.contains(pos):
                         self._intercepted_row = index.row()
                         self.inline_action_clicked.emit(index, action_id)

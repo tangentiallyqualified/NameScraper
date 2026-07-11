@@ -2,6 +2,8 @@
 """EpisodeTableDelegate/View painting smoke, size hints, hit-testing."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from conftest_qt import QtSmokeBase
 from test_episode_table_model import _guide_state
 
@@ -30,7 +32,9 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         self.assertEqual(view.sizeHintForRow(0), _scale.px(30))     # section label
         self.assertEqual(view.sizeHintForRow(2), _scale.px(30))     # season header
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))     # episode w/ filename + subtitle line
-        self.assertEqual(view.sizeHintForRow(4), _scale.px(52))     # episode w/ filename line only
+        # row 4 ("Two") is Review and adjacent to row 5's Missing File slot
+        # (E02/E03) -> double-line height plus the Task 6 action strip.
+        self.assertEqual(view.sizeHintForRow(4), _scale.px(52 + 24))
         self.assertEqual(view.sizeHintForRow(5), _scale.px(34))     # ghost (no filename)
 
     def test_subtitle_row_is_taller_than_plain_row(self):
@@ -38,11 +42,14 @@ class EpisodeTableDelegateTests(QtSmokeBase):
 
         state, guide = _guide_state()
         view, model, delegate = self._view(state, guide)
-        # row 3 ("One") has a subtitle companion -> triple-line height;
-        # row 4 ("Two") has none -> double-line height.
+        # row 3 ("One") has a subtitle companion -> triple-line height, no
+        # action strip (it's Mapped with no adjacent Missing File slot).
+        # row 4 ("Two") is Review, which always carries the Task 6 action
+        # strip (approve/reassign/unassign), regardless of subtitle/filename
+        # lines -> double-line height plus the strip allowance.
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))
-        self.assertEqual(view.sizeHintForRow(4), _scale.px(52))
-        self.assertGreater(view.sizeHintForRow(3), view.sizeHintForRow(4))
+        self.assertEqual(view.sizeHintForRow(4), _scale.px(52 + 24))
+        self.assertGreater(view.sizeHintForRow(3), view.sizeHintForRow(5))  # vs. plain ghost row
 
     def test_render_grab(self):
         state, guide = _guide_state()
@@ -134,6 +141,110 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton,
                          Qt.KeyboardModifier.NoModifier, rect.center())
         self.assertEqual(fired, [True])
+        view.close()
+
+
+class ActionStripTests(QtSmokeBase):
+    """Task 6: collapsed-row action-strip buttons on Review/Mapped rows."""
+
+    def _view_with_rows(self, statuses):
+        from plex_renamer.app.models.state_models import (
+            EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary,
+        )
+        from plex_renamer.engine.models import ScanState
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
+
+        state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+        state.scanned = True
+        rows = [
+            EpisodeGuideRow(season=1, episode=i, title=f"Ep{i}", status=status)
+            for i, status in enumerate(statuses, start=1)
+        ]
+        guide = EpisodeGuide(rows=rows, summary=EpisodeGuideSummary())
+        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: guide)
+        model.show_state(state, collapsed_sections=set())
+        view = EpisodeTableView()
+        delegate = EpisodeTableDelegate(view, media_type="tv")
+        view.setModel(model)
+        view.setItemDelegate(delegate)
+        view.resize(700, 500)
+        return view, model, delegate
+
+    def _index_for_status(self, model, status):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        for row in range(model.rowCount()):
+            if model.row_kind_at(row) != "episode":
+                continue
+            if model.index(row, 0).data(ROW_DATA_ROLE).status_text == status:
+                return model.index(row, 0)
+        raise AssertionError(f"no episode row with status {status!r}")
+
+    def _option(self):
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        return QStyleOptionViewItem()
+
+    def _click(self, view, pos):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+
+    def test_actionable_row_is_taller_and_buttons_hit(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        view, model, delegate = self._view_with_rows(statuses=["Review", "Mapped"])
+        view.show()
+        review_index = self._index_for_status(model, "Review")
+        mapped_index = self._index_for_status(model, "Mapped")
+        self.assertGreater(
+            delegate.sizeHint(self._option(), review_index).height(),
+            delegate.sizeHint(self._option(), mapped_index).height(),
+        )
+        rects = delegate.inline_action_rects(view.visualRect(review_index),
+                                             review_index.data(ROW_DATA_ROLE))
+        self.assertEqual([a for a, _r in rects], ["approve", "reassign", "unassign"])
+        fired = []
+        view.inline_action_clicked.connect(lambda idx, aid: fired.append(aid))
+        self._click(view, rects[0][1].center())
+        self.assertEqual(fired, ["approve"])
+        view.close()
+
+    def test_mapped_row_adjacent_to_missing_gets_assign_to_more_strip(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        view, model, delegate = self._view_with_rows(statuses=["Mapped", "Missing File"])
+        view.show()
+        mapped_index = self._index_for_status(model, "Mapped")
+        rects = delegate.inline_action_rects(view.visualRect(mapped_index),
+                                              mapped_index.data(ROW_DATA_ROLE))
+        self.assertEqual([a for a, _r in rects], ["assign_to_more"])
+        view.close()
+
+    def test_non_actionable_row_height_unchanged(self):
+        from plex_renamer.gui_qt import _scale
+
+        view, model, delegate = self._view_with_rows(statuses=["Conflict"])
+        view.show()
+        conflict_index = self._index_for_status(model, "Conflict")
+        self.assertEqual(delegate.sizeHint(self._option(), conflict_index).height(), _scale.px(34))
+        view.close()
+
+    def test_approve_button_uses_accent_others_neutral(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        row_data = EpisodeRowData(
+            kind="episode", title="S01E01", status_text="Review", status_tone="warning",
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign…"), ("unassign", "Unassign")),
+        )
+        rects = delegate.inline_action_rects(view.visualRect(model.index(0, 0)), row_data)
+        ids = [a for a, _r in rects]
+        self.assertEqual(ids, ["approve", "reassign", "unassign"])
         view.close()
 
 
@@ -295,7 +406,9 @@ class InlineMissingActionTests(QtSmokeBase):
         view = EpisodeTableView()
         d = EpisodeTableDelegate(view, media_type="tv")
         row = EpisodeRowData(kind="episode", title="S01E03", status_text="Missing File", status_tone="muted")
-        rect = d.inline_action_rect(QRect(0, 0, 400, 34), row)
+        rects = d.inline_action_rects(QRect(0, 0, 400, 34), row)
+        self.assertEqual(len(rects), 1)
+        rect = rects[0][1]
         self.assertTrue(rect.isValid() and rect.width() > 0)
 
     def test_non_missing_row_has_no_inline_action(self):
@@ -305,7 +418,7 @@ class InlineMissingActionTests(QtSmokeBase):
         view = EpisodeTableView()
         d = EpisodeTableDelegate(view, media_type="tv")
         row = EpisodeRowData(kind="episode", title="S01E01", status_text="Review", status_tone="warning")
-        self.assertFalse(d.inline_action_rect(QRect(0, 0, 400, 34), row).isValid())
+        self.assertEqual(d.inline_action_rects(QRect(0, 0, 400, 34), row), [])
         view.close()
 
 
@@ -323,8 +436,9 @@ class InlineAssignUnmappedActionTests(QtSmokeBase):
         d = self._delegate()
         row = EpisodeRowData(kind="unmapped", title="a.mkv", status_text="Unassigned",
                              status_tone="warning", filename="a.mkv", detail="reason")
-        rect = d.inline_action_rect(QRect(0, 0, 600, 52), row)
-        self.assertTrue(rect.isValid())
+        rects = d.inline_action_rects(QRect(0, 0, 600, 52), row)
+        self.assertEqual(len(rects), 1)
+        self.assertTrue(rects[0][1].isValid())
 
     def test_duplicate_row_has_inline_assign_rect(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
@@ -332,8 +446,9 @@ class InlineAssignUnmappedActionTests(QtSmokeBase):
         d = self._delegate()
         row = EpisodeRowData(kind="duplicate", title="b.mkv", status_text="Duplicate",
                              status_tone="muted", filename="b.mkv", detail="reason")
-        rect = d.inline_action_rect(QRect(0, 0, 600, 52), row)
-        self.assertTrue(rect.isValid())
+        rects = d.inline_action_rects(QRect(0, 0, 600, 52), row)
+        self.assertEqual(len(rects), 1)
+        self.assertTrue(rects[0][1].isValid())
 
     def test_mapped_row_has_no_inline_assign_rect(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
@@ -341,17 +456,17 @@ class InlineAssignUnmappedActionTests(QtSmokeBase):
         d = self._delegate()
         row = EpisodeRowData(kind="episode", title="S01E01", status_text="Mapped",
                              status_tone="success", confidence_pct=90)
-        self.assertFalse(d.inline_action_rect(QRect(0, 0, 600, 52), row).isValid())
+        self.assertEqual(d.inline_action_rects(QRect(0, 0, 600, 52), row), [])
 
     def test_unmapped_action_label_differs_from_missing_file(self):
-        from plex_renamer.gui_qt.widgets._episode_table_delegate import _inline_action_spec
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import _row_inline_actions
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
         unmapped_row = EpisodeRowData(kind="unmapped", title="a.mkv", status_text="Unassigned",
                                       status_tone="warning", filename="a.mkv", detail="reason")
         missing_row = EpisodeRowData(kind="episode", title="S01E03", status_text="Missing File",
                                      status_tone="muted")
-        self.assertEqual(_inline_action_spec(unmapped_row), "assign_unmapped")
-        self.assertEqual(_inline_action_spec(missing_row), "assign_file")
+        self.assertEqual(_row_inline_actions(unmapped_row), (("assign_unmapped", "Assign…"),))
+        self.assertEqual(_row_inline_actions(missing_row), (("assign_file", "Assign file…"),))
 
     def test_unmapped_row_inline_action_click_emits_assign_unmapped(self):
         from PySide6.QtCore import Qt
@@ -369,8 +484,9 @@ class InlineAssignUnmappedActionTests(QtSmokeBase):
         )
         row_data = model.index(unmapped_row, 0).data(ROW_DATA_ROLE)
         rect = view.visualRect(model.index(unmapped_row, 0))
+        action_rect = delegate.inline_action_rects(rect, row_data)[0][1]
         QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton,
-                         Qt.KeyboardModifier.NoModifier, delegate.inline_action_rect(rect, row_data).center())
+                         Qt.KeyboardModifier.NoModifier, action_rect.center())
         self.assertEqual(hits, [(unmapped_row, "assign_unmapped")])
         view.close()
 
@@ -391,6 +507,6 @@ class InlineActionTextWidthTest(QtSmokeBase):
             status_tone="warning", filename="x.mkv", detail="reason",
         )
         rect = QRect(0, 0, 600, 52)
-        action_rect = delegate.inline_action_rect(rect, row_data)
+        action_rect = delegate.inline_action_rects(rect, row_data)[0][1]
         text_right = delegate.text_right_edge(rect, row_data, view.fontMetrics())
         self.assertLessEqual(text_right, action_rect.x())

@@ -60,6 +60,66 @@ class EpisodeTableModelTests(QtSmokeBase):
                          folder_preview=folder_preview)
         return model
 
+    def _model_with_guide(self, statuses):
+        """A minimal single-season guide with one row per status, in order
+        (episode numbers 1..N) — enough to exercise inline_actions adjacency
+        without the full _guide_state() fixture's companions/completeness."""
+        from plex_renamer.app.models.state_models import (
+            EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary,
+        )
+        from plex_renamer.engine.models import ScanState
+
+        state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+        state.scanned = True
+        rows = [
+            EpisodeGuideRow(season=1, episode=i, title=f"Ep{i}", status=status)
+            for i, status in enumerate(statuses, start=1)
+        ]
+        guide = EpisodeGuide(rows=rows, summary=EpisodeGuideSummary())
+        return self._model(state, guide)
+
+    def _row_data_for_status(self, model, status):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        for row in range(model.rowCount()):
+            if model.row_kind_at(row) != "episode":
+                continue
+            data = model.index(row, 0).data(ROW_DATA_ROLE)
+            if data.status_text == status:
+                return data
+        raise AssertionError(f"no episode row with status {status!r}")
+
+    def test_review_rows_carry_inline_actions(self):
+        model = self._model_with_guide(statuses=["Review", "Mapped"])
+        review = self._row_data_for_status(model, "Review")
+        ids = [action_id for action_id, _label in review.inline_actions]
+        self.assertEqual(ids, ["approve", "reassign", "unassign"])
+        mapped = self._row_data_for_status(model, "Mapped")
+        self.assertEqual(mapped.inline_actions, ())
+
+    def test_row_adjacent_to_missing_slot_offers_assign_to_more(self):
+        model = self._model_with_guide(statuses=["Mapped", "Missing File"])
+        mapped = self._row_data_for_status(model, "Mapped")
+        self.assertIn("assign_to_more", [a for a, _ in mapped.inline_actions])
+
+    def test_review_row_adjacent_to_missing_slot_inserts_assign_to_more(self):
+        model = self._model_with_guide(statuses=["Review", "Missing File"])
+        review = self._row_data_for_status(model, "Review")
+        ids = [action_id for action_id, _label in review.inline_actions]
+        self.assertEqual(ids, ["approve", "reassign", "assign_to_more", "unassign"])
+
+    def test_conflict_row_has_no_inline_actions(self):
+        model = self._model_with_guide(statuses=["Conflict", "Missing File"])
+        conflict = self._row_data_for_status(model, "Conflict")
+        self.assertEqual(conflict.inline_actions, ())
+
+    def test_missing_file_row_has_no_inline_actions_field_populated(self):
+        # The legacy "Assign file..." single button is a delegate concern
+        # (_row_inline_actions), not a model-owned inline_actions entry.
+        model = self._model_with_guide(statuses=["Mapped", "Missing File"])
+        missing = self._row_data_for_status(model, "Missing File")
+        self.assertEqual(missing.inline_actions, ())
+
     def test_unmapped_section_row_locates_label(self):
         state, guide = _guide_state()
         model = self._model(state, guide)

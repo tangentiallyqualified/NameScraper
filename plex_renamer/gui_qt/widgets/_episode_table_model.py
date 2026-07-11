@@ -52,6 +52,26 @@ def _subtitle_companion_name(row: EpisodeGuideRow) -> str:
     return ""
 
 
+def _inline_actions_for(row: EpisodeGuideRow, season_has_missing: bool) -> tuple[tuple[str, str], ...]:
+    """Collapsed-row action-strip buttons for an episode row (Task 6).
+
+    Review rows always get approve/reassign/unassign; when the row sits
+    next to a Missing File slot (same season, episode number +-1) an
+    assign_to_more button is inserted before unassign. Mapped rows only
+    get a bare assign_to_more when adjacent to a missing slot. Everything
+    else (Conflict, Missing File itself) keeps today's legacy single button,
+    painted separately from this action strip.
+    """
+    if row.status == "Review":
+        actions = [("approve", "Approve"), ("reassign", "Reassign…"), ("unassign", "Unassign")]
+        if season_has_missing:
+            actions.insert(2, ("assign_to_more", "To more…"))
+        return tuple(actions)
+    if row.status == "Mapped" and season_has_missing:
+        return (("assign_to_more", "To more…"),)
+    return ()
+
+
 def _percent_from_label(value: str) -> int | None:
     text = value.strip()
     if not text.endswith("%"):
@@ -86,6 +106,7 @@ class EpisodeRowData:
     companion_count: int = 0
     subtitle_name: str = ""        # real path of a matched external subtitle companion
     tooltip: str = ""
+    inline_actions: tuple[tuple[str, str], ...] = ()   # (action_id, short label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -689,8 +710,16 @@ class EpisodeTableModel(QAbstractListModel):
             )
             if is_collapsed:
                 continue
+            # Adjacency for the inline action strip (Task 6): a per-season
+            # set of Missing File episode numbers, computed once so each
+            # row's ±1 check is an O(1) membership test.
+            missing_episode_numbers = {r.episode for r in season_rows if r.status == "Missing File"}
             for row in rows:
-                entry = self._episode_entry(state, row, section_key)
+                season_has_missing = (
+                    (row.episode - 1) in missing_episode_numbers
+                    or (row.episode + 1) in missing_episode_numbers
+                )
+                entry = self._episode_entry(state, row, section_key, season_has_missing=season_has_missing)
                 if entry is not None:
                     yield entry
 
@@ -717,7 +746,14 @@ class EpisodeTableModel(QAbstractListModel):
             text += ", …"
         return f" · missing {text}"
 
-    def _episode_entry(self, state: ScanState, row: EpisodeGuideRow, section_key: str) -> _Entry | None:
+    def _episode_entry(
+        self,
+        state: ScanState,
+        row: EpisodeGuideRow,
+        section_key: str,
+        *,
+        season_has_missing: bool = False,
+    ) -> _Entry | None:
         preview_index = None
         if row.primary_file is not None and row.primary_file in state.preview_items:
             preview_index = state.preview_items.index(row.primary_file)
@@ -742,6 +778,7 @@ class EpisodeTableModel(QAbstractListModel):
             companion_count=len(row.companions),
             subtitle_name=_subtitle_companion_name(row),
             tooltip=row.target_rename or "",
+            inline_actions=_inline_actions_for(row, season_has_missing),
         )
         if not self._passes_search(row_data):
             return None
