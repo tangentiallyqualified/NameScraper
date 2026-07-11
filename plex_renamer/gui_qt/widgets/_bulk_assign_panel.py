@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import (
     QAbstractListModel,
+    QItemSelectionModel,
     QMimeData,
     QModelIndex,
     Qt,
@@ -250,6 +251,14 @@ class BulkSlotsModel(QAbstractListModel):
                 if staged_name is not None:
                     text = f"{choice.label}  →  {staged_name}"
                     tone = "accent"
+                elif len(choice.claimants) > 1:
+                    names = ", ".join(name for _fid, name in choice.claimants)
+                    if all(fid in unassign_file_ids for fid, _name in choice.claimants):
+                        text = f"{choice.label} — will unassign: {names}"
+                        tone = "warning"
+                    else:
+                        text = f"{choice.label} — CONFLICT: {names}"
+                        tone = "error"
                 elif choice.claimed_by and choice.claimed_file_id in unassign_file_ids:
                     text = f"{choice.label} — will unassign: {choice.claimed_by}"
                     tone = "warning"
@@ -384,6 +393,7 @@ class BulkAssignPanel(QFrame):
         self._service = None
         self._choices: list = []
         self._previews: list = []
+        self._claims_by_key: dict[tuple[int, int], list[tuple[int, str]]] = {}
         self._claimed_file_by_key: dict[tuple[int, int], int] = {}
         self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_pairs: list[tuple[int, tuple[int, int]]] = []
@@ -415,6 +425,7 @@ class BulkAssignPanel(QFrame):
         self._files_model = BulkFilesModel(self)
         self._files_view = BulkFilesView()
         self._files_view.setModel(self._files_model)
+        self._files_view.selectionModel().currentRowChanged.connect(self._on_file_selected)
         left.addWidget(self._files_view, stretch=1)
         panes.addLayout(left, stretch=1)
 
@@ -481,13 +492,19 @@ class BulkAssignPanel(QFrame):
         self._service = service
         self._choices = service.episode_slot_choices(state)
         self._previews = service.all_primary_file_previews(state)
+        self._claims_by_key = {
+            (choice.season, choice.episode): list(choice.claimants)
+            for choice in self._choices if choice.claimants
+        }
         self._claimed_file_by_key = {
-            (choice.season, choice.episode): choice.claimed_file_id
-            for choice in self._choices if choice.claimed_file_id is not None
+            key: claimants[0][0]
+            for key, claimants in self._claims_by_key.items()
+            if len(claimants) == 1
         }
         self._assigned_key_by_file = {}
-        for key, file_id in self._claimed_file_by_key.items():
-            self._assigned_key_by_file.setdefault(file_id, []).append(key)
+        for key, claimants in self._claims_by_key.items():
+            for file_id, _name in claimants:
+                self._assigned_key_by_file.setdefault(file_id, []).append(key)
         self._staged_pairs = []
         self._staged_unassign = set()
         self._slot_search_text = ""
@@ -550,25 +567,58 @@ class BulkAssignPanel(QFrame):
         key = self._slots_model.slot_key_at(index.row())
         if key is None:
             return
-        file_id = self._claimed_file_by_key.get(key)
-        if file_id is None:
+        claimants = self._claims_by_key.get(key, [])
+        if not claimants:
             return
-        if file_id in self._staged_unassign:
-            self._staged_unassign.discard(file_id)
-            # Re-claiming the slot drops any pairs staged into the slot(s)
-            # this file is reclaiming, AND any pairs the file itself staged
-            # elsewhere while it was unassign-staged — otherwise cancelling
-            # the unassign leaves a hidden (file, new_slot) pair that would
-            # silently move the file on Apply.
-            vacated = set(self._assigned_key_by_file.get(file_id, []))
-            self._staged_pairs = [
-                (fid, k) for fid, k in self._staged_pairs
-                if k not in vacated and fid != file_id
-            ]
+        claimant_ids = [file_id for file_id, _name in claimants]
+        # A conflicted slot toggles unassign for ALL its claimants together —
+        # there is no single "the" claimant to resolve individually here.
+        all_unassign_staged = all(fid in self._staged_unassign for fid in claimant_ids)
+        if all_unassign_staged:
+            for file_id in claimant_ids:
+                self._staged_unassign.discard(file_id)
+                # Re-claiming the slot drops any pairs staged into the slot(s)
+                # this file is reclaiming, AND any pairs the file itself staged
+                # elsewhere while it was unassign-staged — otherwise cancelling
+                # the unassign leaves a hidden (file, new_slot) pair that would
+                # silently move the file on Apply.
+                vacated = set(self._assigned_key_by_file.get(file_id, []))
+                self._staged_pairs = [
+                    (fid, k) for fid, k in self._staged_pairs
+                    if k not in vacated and fid != file_id
+                ]
         else:
-            self._staged_unassign.add(file_id)
+            for file_id in claimant_ids:
+                self._staged_unassign.add(file_id)
         self._status_label.setText("")
         self._refresh_views()
+
+    def _select_file(self, file_id: int) -> None:
+        model = self._files_model
+        for row in range(model.rowCount()):
+            if model.file_id_at(row) == file_id:
+                self._files_view.setCurrentIndex(model.index(row, 0))
+                return
+
+    def _on_file_selected(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        file_id = self._files_model.file_id_at(current.row()) if current.isValid() else None
+        if file_id is None:
+            return
+        keys = set(self._staged_keys_for(file_id)) | set(self._assigned_key_by_file.get(file_id, []))
+        selection_model = self._slots_view.selectionModel()
+        selection_model.clearSelection()
+        first_row = -1
+        for key in sorted(keys):
+            row = self._slots_model.row_for_key(key)
+            if row < 0:
+                continue
+            if first_row < 0:
+                first_row = row
+            selection_model.select(
+                self._slots_model.index(row, 0), QItemSelectionModel.SelectionFlag.Select,
+            )
+        if first_row >= 0:
+            self._slots_view.scrollTo(self._slots_model.index(first_row, 0))
 
     def _on_search_changed(self, text: str) -> None:
         self._files_model.set_search(text)
@@ -591,8 +641,13 @@ class BulkAssignPanel(QFrame):
     def _key_is_free(self, key: tuple[int, int]) -> bool:
         if key in self._staged_key_set():
             return False
-        claimed_file_id = self._claimed_file_by_key.get(key)
-        return claimed_file_id is None or claimed_file_id in self._staged_unassign
+        claimants = self._claims_by_key.get(key)
+        if not claimants:
+            return True
+        # A conflicted slot only frees up once EVERY claimant has been
+        # staged for unassign — a single claimant unassigning still leaves
+        # the slot contested.
+        return all(file_id in self._staged_unassign for file_id, _name in claimants)
 
     def _free_keys_sorted(self) -> list[tuple[int, int]]:
         staged = self._staged_key_set()

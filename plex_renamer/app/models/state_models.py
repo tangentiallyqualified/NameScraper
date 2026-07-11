@@ -197,6 +197,7 @@ class EpisodeSlotChoice:
     title: str = ""
     claimed_by: str | None = None
     claimed_file_id: int | None = None
+    claimants: tuple[tuple[int, str], ...] = ()   # (file_id, filename) for every claim
 
     @property
     def label(self) -> str:

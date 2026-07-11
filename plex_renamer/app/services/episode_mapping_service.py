@@ -205,6 +205,10 @@ class EpisodeMappingService:
         choices: list[EpisodeSlotChoice] = []
         for key, slot in sorted(table.slots.items()):
             claims = table.claims(*key)
+            claimants = tuple(
+                (claim.file_id, table.files[claim.file_id].path.name)
+                for claim in claims
+            )
             claimed_file_id = claims[0].file_id if len(claims) == 1 else None
             claimant = table.files.get(claimed_file_id) if claimed_file_id is not None else None
             choices.append(EpisodeSlotChoice(
@@ -213,6 +217,7 @@ class EpisodeMappingService:
                 title=slot.title,
                 claimed_by=claimant.path.name if claimant else None,
                 claimed_file_id=claimed_file_id,
+                claimants=claimants,
             ))
         return choices
 

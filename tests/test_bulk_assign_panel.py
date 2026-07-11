@@ -36,6 +36,34 @@ def _number_of_claimed_slots(state) -> int:
     return len(state.assignments.assignments())
 
 
+def _bulk_state_with_conflict(slots: int = 5, names: tuple[str, ...] = ("b.mkv", "a.mkv", "c.mkv")):
+    """Like _bulk_state, but (1, 2) is contested by two files instead of
+    cleanly claimed by one."""
+    from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
+    from plex_renamer.engine import ScanState
+    from plex_renamer.engine.episode_assignments import (
+        ORIGIN_AUTO, EpisodeAssignmentTable, EpisodeSlot,
+    )
+
+    table = EpisodeAssignmentTable()
+    for episode in range(1, slots + 1):
+        table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
+    table.add_slot(EpisodeSlot(season=2, episode=1, title="Pilot"))
+    for name in names:
+        entry = table.add_file(Path(f"C:/lib/Show/{name}"))
+        table.mark_unassigned(entry.file_id, "no episode parsed")
+    claimant_a = table.add_file(Path("C:/lib/Show/conflict_a.mkv"))
+    claimant_b = table.add_file(Path("C:/lib/Show/conflict_b.mkv"))
+    table.assign(claimant_a.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
+    table.assign(claimant_b.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
+    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state.scanned = True
+    state.assignments = table
+    service = EpisodeMappingService()
+    service.reproject(state)
+    return state, service
+
+
 class BulkAssignPanelTests(QtSmokeBase):
     def _panel(self):
         from plex_renamer.gui_qt.widgets._bulk_assign_panel import BulkAssignPanel
@@ -59,6 +87,27 @@ class BulkAssignPanelTests(QtSmokeBase):
 
         self.addCleanup(_cleanup)
         return panel
+
+    def _panel_with_conflict(self):
+        from plex_renamer.gui_qt.widgets._bulk_assign_panel import BulkAssignPanel
+
+        state, service = _bulk_state_with_conflict()
+        panel = BulkAssignPanel()
+        panel.resize(900, 600)
+        panel.show_state(state, service)
+
+        def _cleanup() -> None:
+            import gc
+
+            panel.deleteLater()
+            self._app.processEvents()
+            gc.collect()
+
+        self.addCleanup(_cleanup)
+        return panel
+
+    def _conflict_claimants(self, panel) -> list[tuple[int, str]]:
+        return list(panel._claims_by_key.get((1, 2), []))
 
     def _first_free_file_id(self, panel) -> int:
         model = panel._files_model
@@ -316,3 +365,49 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel._on_slot_clicked(panel._slots_model.index(row, 0))
         text = panel._slots_model.index(row, 0).data()
         self.assertIn("will unassign", text)
+
+    def test_conflicted_slot_renders_as_conflict_not_missing(self):
+        panel = self._panel_with_conflict()
+        row = panel._slots_model.row_for_key((1, 2))
+        text = panel._slots_model.index(row, 0).data()
+        self.assertIn("CONFLICT", text.upper())
+        self.assertNotIn("missing", text)
+
+    def test_conflicted_files_are_not_stageable(self):
+        panel = self._panel_with_conflict()
+        for fid, _name in self._conflict_claimants(panel):
+            panel._handle_drop(fid, (1, 3))
+            self.assertNotIn(fid, [f for f, _k in panel._staged_pairs])
+
+    def test_selecting_file_highlights_its_slots(self):
+        panel = self._panel()   # has claimed.mkv on S01E02
+        fid = panel._claimed_file_by_key[(1, 2)]
+        panel._select_file(fid)
+        selected_keys = [panel._slots_model.slot_key_at(i.row())
+                         for i in panel._slots_view.selectionModel().selectedIndexes()]
+        self.assertIn((1, 2), selected_keys)
+
+    def test_third_file_cannot_drop_onto_an_unresolved_conflicted_slot(self):
+        panel = self._panel_with_conflict()
+        free_fid = self._first_free_file_id(panel)
+        panel._handle_drop(free_fid, (1, 2))    # (1, 2) is still contested
+        self.assertNotIn((free_fid, (1, 2)), panel._staged_pairs)
+        self.assertTrue(panel._status_label.text())
+
+    def test_third_file_can_drop_onto_conflicted_slot_once_fully_unassign_staged(self):
+        panel = self._panel_with_conflict()
+        row = panel._slots_model.row_for_key((1, 2))
+        panel._on_slot_clicked(panel._slots_model.index(row, 0))   # stage unassign for both claimants
+        free_fid = self._first_free_file_id(panel)
+        panel._handle_drop(free_fid, (1, 2))
+        self.assertIn((free_fid, (1, 2)), panel._staged_pairs)
+
+    def test_conflicted_slot_with_all_claimants_unassign_staged_reads_as_will_unassign(self):
+        panel = self._panel_with_conflict()
+        row = panel._slots_model.row_for_key((1, 2))
+        panel._on_slot_clicked(panel._slots_model.index(row, 0))
+        text = panel._slots_model.index(row, 0).data()
+        self.assertIn("will unassign", text)
+        self.assertNotIn("CONFLICT:", text)
+        for fid, _name in self._conflict_claimants(panel):
+            self.assertIn(fid, panel.staged_unassigns())

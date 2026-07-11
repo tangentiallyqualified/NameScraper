@@ -262,6 +262,25 @@ class TestTableBackedService:
         assert claimed.claimed_by == "e1.mkv"
         assert free.claimed_by is None
 
+    def _state_with_conflict_on(self, season: int, episode: int):
+        """ScanState where two files both claim (season, episode)."""
+        state = table_state()
+        table = state.assignments
+        first = table.add_file(ROOT / "conflict_a.mkv")
+        second = table.add_file(ROOT / "conflict_b.mkv")
+        table.assign(first.file_id, season, [episode], origin=ORIGIN_AUTO, confidence=0.8)
+        table.assign(second.file_id, season, [episode], origin=ORIGIN_AUTO, confidence=0.8)
+        service = EpisodeMappingService()
+        service.reproject(state)
+        return state, service
+
+    def test_slot_choices_expose_all_claimants(self):
+        state, service = self._state_with_conflict_on(season=1, episode=2)
+        choice = next(c for c in service.episode_slot_choices(state)
+                      if (c.season, c.episode) == (1, 2))
+        assert len(choice.claimants) == 2
+        assert choice.claimed_file_id is None   # single-claim contract preserved
+
     def test_guide_lists_unassigned_with_reason(self):
         state = table_state()
         service = EpisodeMappingService()
