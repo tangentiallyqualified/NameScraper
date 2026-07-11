@@ -130,6 +130,7 @@ class SettingsTab(QScrollArea):
                 "Matching",
                 "API Keys",
                 "Data",
+                "Metadata",
                 "AutoMux",
             ]
         )
@@ -144,6 +145,7 @@ class SettingsTab(QScrollArea):
         self._build_matching_section()
         self._build_api_keys_section()
         self._build_data_section()
+        self._build_metadata_section()
         self._build_automux_section()
         self._build_advanced_section()
 
@@ -174,6 +176,11 @@ class SettingsTab(QScrollArea):
 
     def _build_data_section(self) -> None:
         self._sections_builder.build_data_section()
+
+    # ── Metadata ─────────────────────────────────────────────────
+
+    def _build_metadata_section(self) -> None:
+        self._sections_builder.build_metadata_section()
 
     # ── AutoMux ──────────────────────────────────────────────────
 

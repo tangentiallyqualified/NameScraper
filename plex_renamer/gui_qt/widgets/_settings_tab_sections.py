@@ -357,6 +357,13 @@ class SettingsTabSectionsBuilder:
 
         self._add_page(section)
 
+    def build_metadata_section(self) -> None:
+        from ._settings_metadata_page import MetadataSettingsPage
+
+        tab = self._tab
+        tab._metadata_page = MetadataSettingsPage(settings_service=tab._settings)
+        self._add_page(tab._metadata_page)
+
     def build_automux_section(self) -> None:
         from ._settings_automux_page import AutoMuxSettingsPage
 
