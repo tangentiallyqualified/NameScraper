@@ -4889,6 +4889,44 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self.assertTrue(seen.get("visible"))
         self.assertIsNone(workspace._work_panel.findChild(BusyOverlay))
 
+    def test_apply_stages_unassign_and_assign_together(self):
+        # Bulk Assign v2: one unassign + one assign staged in the same
+        # session must both land through a single apply_requested(pairs,
+        # unassigns) round trip - the table changes both ways and the
+        # toast reports both counts.
+        workspace = self._tv_workspace_with_table_state(assign_first=True)
+        state = workspace._selected_state()
+        table = state.assignments
+        unassign_file_id = table.claims(1, 1)[0].file_id     # a.mkv, claims S01E01
+        assign_file_id = next(
+            entry.file_id for entry in table.files.values()
+            if entry.path.name == "c.mkv"                    # unassigned fixture file
+        )
+        workspace._enter_bulk_assign()
+        panel = workspace._work_panel.bulk_panel
+        # Stage the unassign via the real slot-click path.
+        row_slot = panel._slots_model.row_for_key((1, 1))
+        panel._on_slot_clicked(panel._slots_model.index(row_slot, 0))
+        self.assertEqual(panel.staged_unassigns(), [unassign_file_id])
+        # Stage the assign via the real drag/drop path, onto a free slot.
+        panel._handle_drop(assign_file_id, (1, 3))
+        self.assertIn((assign_file_id, 1, 3), panel.staged_pairs())
+        toasts: list[tuple] = []
+        workspace.toast_requested.connect(lambda *a: toasts.append(a))
+        panel._apply_button.click()
+        self.assertFalse(workspace._work_panel.bulk_assign_active())
+        self.assertEqual(len(toasts), 1)
+        self.assertEqual(toasts[0][2], "success")
+        self.assertIn("Assigned 1 file(s).", toasts[0][1])
+        self.assertIn("Unassigned 1 file(s).", toasts[0][1])
+        # The unassigned file lost its claim...
+        self.assertIsNone(table.assignment_for(unassign_file_id))
+        # ...and the newly assigned file picked up the staged slot.
+        new_assignment = table.assignment_for(assign_file_id)
+        self.assertIsNotNone(new_assignment)
+        self.assertEqual(new_assignment.season, 1)
+        self.assertEqual(tuple(new_assignment.episodes), (3,))
+
 
 # ---------------------------------------------------------------------------
 # EpisodeAssignDialog tests
