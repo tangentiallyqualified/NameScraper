@@ -149,6 +149,32 @@ def test_combo_uses_dropdown_list_mode_and_svg_arrow():
     assert "chevron_down_svg" in text
 
 
+def test_combo_drop_down_has_explicit_subcontrol_geometry():
+    # Task 15 candidate A: an unset subcontrol-origin/position on
+    # QComboBox::drop-down leaves hitTestComplexControl to guess at the
+    # control's geometry, which is the leading suspect for arrow-only
+    # opening on Windows. Pin the explicit geometry so it can't regress.
+    text = (_GUI_ROOT / "resources" / "theme.qss.tmpl").read_text(encoding="utf-8")
+    match = re.search(r"QComboBox::drop-down\s*\{([^}]*)\}", text)
+    assert match, "QComboBox::drop-down rule not found"
+    body = match.group(1)
+    assert "subcontrol-origin: padding;" in body
+    assert "subcontrol-position: center right;" in body
+
+
+def test_combo_popup_child_widgets_have_explicit_background():
+    # Task 15 flicker mitigation: child widgets inside the popup's
+    # QAbstractItemView must not fall back to an unstyled background for
+    # a frame while the popup is first shown.
+    rendered = theme.load_stylesheet()
+    assert "QComboBox QAbstractItemView QWidget" in rendered
+    match = re.search(
+        r"QComboBox QAbstractItemView QWidget\s*\{([^}]*)\}", rendered
+    )
+    assert match, "QComboBox QAbstractItemView QWidget rule not found"
+    assert f"background-color: {theme.color('card')};" in match.group(1)
+
+
 def test_settings_sections_have_no_header_icons():
     import inspect
     from plex_renamer.gui_qt.widgets import _settings_tab_sections as mod

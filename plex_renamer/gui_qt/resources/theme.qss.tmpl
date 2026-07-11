@@ -661,8 +661,13 @@ QComboBox {
     padding: 6px 8px;
     color: ${text};
     min-width: 120px;
-    combobox-popup: 0;   /* dropdown list below the widget; popup-over mode
-                            swallowed the release and closed instantly */
+    /* combobox-popup: 0 forces the dropdown list into non-native/list mode.
+       Originally added because the popup appeared to swallow the release
+       and close instantly; that was actually the transient-window
+       suppressor blanking the popup, fixed properly in cbe5eae. If the
+       live desktop pass still shows arrow-only opening or flicker, drop
+       this line next (reverts to Qt's default popup-over mode). */
+    combobox-popup: 0;
 }
 
 QComboBox:hover {
@@ -674,6 +679,8 @@ QComboBox:focus {
 }
 
 QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
     border: none;
     width: 24px;
 }
@@ -691,6 +698,10 @@ QComboBox QAbstractItemView {
     selection-background-color: ${card_hover};
     selection-color: ${text};
     outline: none;
+}
+
+QComboBox QAbstractItemView QWidget {
+    background-color: ${card};
 }
 
 
