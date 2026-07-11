@@ -33,7 +33,8 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         self.assertEqual(view.sizeHintForRow(2), _scale.px(30))     # season header
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))     # episode w/ filename + subtitle line
         # row 4 ("Two") is Review and adjacent to row 5's Missing File slot
-        # (E02/E03) -> double-line height plus the Task 6 action strip.
+        # (E02/E03) -> its Task 6 strip carries FOUR actions (approve,
+        # reassign, assign_to_more, unassign); double-line height + strip.
         self.assertEqual(view.sizeHintForRow(4), _scale.px(52 + 24))
         self.assertEqual(view.sizeHintForRow(5), _scale.px(34))     # ghost (no filename)
 
@@ -41,15 +42,18 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         from plex_renamer.gui_qt import _scale
 
         state, guide = _guide_state()
+        # Neutralize the Task 6 action strip so this stays the original
+        # triple-line vs double-line comparison: make "Two" Mapped (Review
+        # rows always carry a strip) and drop the season's Missing File
+        # slot (a Mapped row adjacent to one would get assign_to_more).
+        guide.rows[1].status = "Mapped"
+        guide.rows[2].status = "Mapped"
         view, model, delegate = self._view(state, guide)
-        # row 3 ("One") has a subtitle companion -> triple-line height, no
-        # action strip (it's Mapped with no adjacent Missing File slot).
-        # row 4 ("Two") is Review, which always carries the Task 6 action
-        # strip (approve/reassign/unassign), regardless of subtitle/filename
-        # lines -> double-line height plus the strip allowance.
+        # row 3 ("One") has a subtitle companion -> triple-line height;
+        # row 4 ("Two") has none -> plain double-line height.
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))
-        self.assertEqual(view.sizeHintForRow(4), _scale.px(52 + 24))
-        self.assertGreater(view.sizeHintForRow(3), view.sizeHintForRow(5))  # vs. plain ghost row
+        self.assertEqual(view.sizeHintForRow(4), _scale.px(52))
+        self.assertGreater(view.sizeHintForRow(3), view.sizeHintForRow(4))
 
     def test_render_grab(self):
         state, guide = _guide_state()
@@ -245,6 +249,32 @@ class ActionStripTests(QtSmokeBase):
         rects = delegate.inline_action_rects(view.visualRect(model.index(0, 0)), row_data)
         ids = [a for a, _r in rects]
         self.assertEqual(ids, ["approve", "reassign", "unassign"])
+        view.close()
+
+    def test_action_strip_does_not_squeeze_text_width(self):
+        """Brief constraint: strip buttons live on their own bottom row and
+        must not reserve horizontal text width — text_right_edge for a
+        Review row carrying a strip must match the pill-only computation
+        of an identical row without one."""
+        from PySide6.QtCore import QRect
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        base = dict(kind="episode", title="S01E01 · Pilot", status_text="Review",
+                    status_tone="warning", confidence_pct=61, filename="s01e01.mkv")
+        with_strip = EpisodeRowData(
+            **base,
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign…"), ("unassign", "Unassign")),
+        )
+        without_strip = EpisodeRowData(**base)
+        rect = QRect(0, 0, 600, 76)
+        metrics = view.fontMetrics()
+        self.assertEqual(
+            delegate.text_right_edge(rect, with_strip, metrics),
+            delegate.text_right_edge(rect, without_strip, metrics),
+        )
+        # And the strip really is present for the actionable variant.
+        self.assertEqual(len(delegate.inline_action_rects(rect, with_strip)), 3)
         view.close()
 
 

@@ -455,15 +455,15 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
 
+        labels = dict(_row_inline_actions(row_data))
         for action_id, rect in self.inline_action_rects(option.rect, row_data):
-            self._paint_action_button(painter, rect, row_data, action_id)
+            self._paint_action_button(painter, rect, action_id, labels.get(action_id, ""))
 
     def _paint_action_button(
-        self, painter: QPainter, rect: QRect, row_data: EpisodeRowData, action_id: str,
+        self, painter: QPainter, rect: QRect, action_id: str, label: str,
     ) -> None:
         if not rect.isValid():
             return
-        label = next((lbl for aid, lbl in _row_inline_actions(row_data) if aid == action_id), "")
         painter.save()
         radius = theme.radius("sm")
         if action_id == "approve":
