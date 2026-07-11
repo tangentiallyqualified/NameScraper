@@ -212,20 +212,17 @@ class MediaWorkPanel(QFrame):
         title_row.addWidget(self._status_pill)
 
         self._fix_match_button = QPushButton("Fix Match")
-        self._fix_match_button.setProperty("cssClass", "caution")
-        self._fix_match_button.setProperty("sizeVariant", "inline")
+        self._fix_match_button.setProperty("cssClass", "secondary")
         self._fix_match_button.setEnabled(False)
         title_row.addWidget(self._fix_match_button)
 
         self._automux_button = QPushButton("Disable AutoMux")
         self._automux_button.setProperty("cssClass", "danger")
-        self._automux_button.setProperty("sizeVariant", "inline")
         self._automux_button.hide()
         title_row.addWidget(self._automux_button)
 
         self._primary_action_button = QPushButton("")
         self._primary_action_button.setProperty("cssClass", "primary")
-        self._primary_action_button.setProperty("sizeVariant", "inline")
         self._primary_action_button.setEnabled(False)
         title_row.addWidget(self._primary_action_button)
 

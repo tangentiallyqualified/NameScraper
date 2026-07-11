@@ -590,14 +590,19 @@ class WorkPanelTests(QtSmokeBase):
         self.assertEqual(toolbar.indexOf(panel.fix_match_button), -1)
 
     def test_header_buttons_restyled_and_colocated(self):
-        # Task 10: Fix Match (caution), AutoMux toggle (danger while enabled),
-        # and Queue This Show (primary, sizeVariant="inline") all sit in the
-        # same header title row, visually parallel to Approve All.
+        # Task 10: Fix Match, AutoMux toggle (danger while enabled), and
+        # Queue This Show all sit in the same header title row, visually
+        # parallel to Approve All.
+        # Task 3: Fix Match's default cssClass is neutral ("secondary") --
+        # the action bar re-tones it to "caution" per-state -- and all three
+        # header buttons use the default (big-format) size, no sizeVariant.
         state, guide = _guide_state()
         panel = self._panel(state, guide)
-        self.assertEqual(panel._fix_match_button.property("cssClass"), "caution")
+        self.assertEqual(panel._fix_match_button.property("cssClass"), "secondary")
         self.assertEqual(panel._automux_button.property("cssClass"), "danger")
-        self.assertEqual(panel._primary_action_button.property("sizeVariant"), "inline")
+        self.assertIsNone(panel._primary_action_button.property("sizeVariant"))
+        self.assertIsNone(panel._fix_match_button.property("sizeVariant"))
+        self.assertIsNone(panel._automux_button.property("sizeVariant"))
 
     def test_source_pill_has_no_percentage(self):
         panel, state = self._panel_with_matched_state(confidence=0.93)

@@ -9,10 +9,22 @@ from ._media_workspace_action_state import (
     can_inline_approve as _can_inline_approve,
     can_inline_assign_season as _can_inline_assign_season,
     fix_match_label as _fix_match_label,
+    fix_match_tone as _fix_match_tone,
     needs_inline_match_choice as _needs_inline_match_choice,
     primary_action_label as _primary_action_label,
 )
 from ._media_workspace_queue_actions import queue_eligibility as _queue_eligibility
+
+
+def _apply_css_class(button, css_class: str) -> None:
+    if button.property("cssClass") == css_class:
+        return
+    button.setProperty("cssClass", css_class)
+    style = button.style()
+    if style is not None:
+        style.unpolish(button)
+        style.polish(button)
+        button.update()
 
 
 def update_action_bar(workspace) -> None:
@@ -47,6 +59,9 @@ def sync_action_button_metrics(workspace) -> None:
 
 
 def _update_fix_match_button(workspace, selected_state: ScanState | None) -> None:
+    tie_active = bool(selected_state and _needs_inline_match_choice(selected_state))
+    workspace._fix_match_btn.setVisible(not tie_active)
+    _apply_css_class(workspace._fix_match_btn, _fix_match_tone(selected_state))
     can_fix = bool(selected_state and _can_fix_match(selected_state))
     workspace._fix_match_btn.setEnabled(can_fix)
     workspace._fix_match_btn.setText(_fix_match_label(workspace, selected_state))
@@ -67,9 +82,14 @@ def _update_inline_action_button(workspace, selected_state: ScanState | None) ->
         workspace._queue_inline_btn.setText(_primary_action_label(workspace, selected_state))
         workspace._queue_inline_btn.setEnabled(False)
         workspace._queue_inline_btn.setToolTip("")
+        _apply_css_class(workspace._queue_inline_btn, "primary")
         return
 
     workspace._queue_inline_btn.setText(_primary_action_label(workspace, selected_state))
+    _apply_css_class(
+        workspace._queue_inline_btn,
+        "caution" if _needs_inline_match_choice(selected_state) else "primary",
+    )
     if (
         _can_inline_assign_season(workspace, selected_state)
         or _needs_inline_match_choice(selected_state)

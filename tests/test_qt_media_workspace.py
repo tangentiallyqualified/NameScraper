@@ -291,9 +291,66 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertEqual(workspace._fix_match_btn.text(), "Choose Match")
+        # Task 3: Fix Match no longer doubles as Choose Match during a tie --
+        # it's hidden entirely so the single caution-toned primary button is
+        # the sole "Choose Match" affordance.
+        self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._queue_inline_btn.text(), "Choose Match")
+        self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "caution")
 
+        workspace.close()
+
+    def _workspace_with_selected_state(self, *, tie_detected: bool = False, needs_review: bool = False):
+        """Build a one-show TV workspace whose selected state has the given
+        needs_review/tie_detected flags, for header-button tone/visibility
+        assertions (Task 3)."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        confidence = 0.42 if needs_review else 1.0
+        state = ScanState(
+            folder=Path("C:/library/tv/Header.Show.2024"),
+            media_info={"id": 101, "name": "Header Show", "year": "2024"},
+            preview_items=[],
+            scanned=True,
+            checked=False,
+            confidence=confidence,
+            tie_detected=tie_detected,
+        )
+        media_ctrl = self._make_fake_media_ctrl(state)
+        workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl)
+        workspace.resize(1200, 700)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+        return workspace, state
+
+    def test_tie_state_shows_single_caution_choose_match(self):
+        workspace, state = self._workspace_with_selected_state(tie_detected=True, needs_review=True)
+        workspace._update_action_bar()
+        self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
+        self.assertEqual(workspace._queue_inline_btn.text(), "Choose Match")
+        self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "caution")
+        workspace.close()
+
+    def test_matched_state_has_neutral_fix_match(self):
+        workspace, state = self._workspace_with_selected_state(tie_detected=False, needs_review=False)
+        workspace._update_action_bar()
+        self.assertTrue(workspace._fix_match_btn.isVisibleTo(workspace))
+        self.assertEqual(workspace._fix_match_btn.text(), "Fix Match")
+        self.assertEqual(workspace._fix_match_btn.property("cssClass"), "secondary")
+        workspace.close()
+
+    def test_review_state_has_caution_fix_match(self):
+        workspace, state = self._workspace_with_selected_state(tie_detected=False, needs_review=True)
+        workspace._update_action_bar()
+        self.assertEqual(workspace._fix_match_btn.property("cssClass"), "caution")
+        workspace.close()
+
+    def test_header_buttons_use_default_size_variant(self):
+        workspace, _state = self._workspace_with_selected_state()
+        for button in (workspace._fix_match_btn, workspace._queue_inline_btn,
+                       workspace._work_panel.automux_button):
+            self.assertIsNone(button.property("sizeVariant"))
         workspace.close()
 
     def test_media_workspace_hides_single_season_badge_for_multi_season_preview(self):
