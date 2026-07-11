@@ -474,9 +474,37 @@ class BulkAssignPanelTests(QtSmokeBase):
                           if panel._slots_model.slot_key_at(r) is None)
         text = panel._slots_model.index(header_row, 0).data()
         self.assertRegex(text, r"Season 01 — \d+/\d+ assigned")
+        # exact math: 5 season-1 slots, exactly one (E02) single-claimed
+        self.assertEqual(text, "▾ Season 01 — 1/5 assigned")
         before = panel._slots_model.rowCount()
         panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
         self.assertLess(panel._slots_model.rowCount(), before)
+        self.assertEqual(
+            panel._slots_model.index(header_row, 0).data(),
+            "▸ Season 01 — 1/5 assigned",
+        )
+
+    def test_unassign_staged_claimant_drops_out_of_header_count(self):
+        panel = self._panel()
+        row = panel._slots_model.row_for_key((1, 2))
+        panel._on_slot_clicked(panel._slots_model.index(row, 0))   # stage unassign of E02
+        header_row = next(r for r in range(panel._slots_model.rowCount())
+                          if panel._slots_model.slot_key_at(r) is None)
+        self.assertEqual(
+            panel._slots_model.index(header_row, 0).data(),
+            "▾ Season 01 — 0/5 assigned",
+        )
+
+    def test_conflicted_slot_does_not_count_as_assigned_in_header(self):
+        panel = self._panel_with_conflict()
+        header_row = next(r for r in range(panel._slots_model.rowCount())
+                          if panel._slots_model.slot_key_at(r) is None)
+        # (1, 2) is contested by two claimants — a conflicted slot is not
+        # "assigned", so season 1's count stays at 0/5.
+        self.assertEqual(
+            panel._slots_model.index(header_row, 0).data(),
+            "▾ Season 01 — 0/5 assigned",
+        )
 
     def test_season_header_toggle_expands_again(self):
         panel = self._panel()
@@ -495,7 +523,8 @@ class BulkAssignPanelTests(QtSmokeBase):
             and panel._slots_model.season_for_header_row(r) == 2
         )
         text = panel._slots_model.index(header_row, 0).data()
-        self.assertRegex(text, r"Season 02 — \d+/\d+ assigned")
+        # exact math: season 2 has one slot (Pilot), unclaimed
+        self.assertEqual(text, "▾ Season 02 — 0/1 assigned")
 
     def test_season_for_header_row_returns_none_for_child_rows(self):
         panel = self._panel()

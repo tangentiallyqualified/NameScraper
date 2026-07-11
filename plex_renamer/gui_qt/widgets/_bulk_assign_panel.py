@@ -103,8 +103,9 @@ class BulkFilesModel(QAbstractListModel):
         self.endResetModel()
 
     def unstaged_file_ids(self) -> list[int]:
-        """Visible (search-filtered) file ids free to be auto-staged, in
-        display order: never-claimed files and unassign-staged files."""
+        """Visible (mode- and search-filtered) file ids free to be
+        auto-staged, in display order: never-claimed files and
+        unassign-staged files."""
         return [
             preview.file_id for preview in self._visible
             if self._stageable(preview.file_id)
