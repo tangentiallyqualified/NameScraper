@@ -333,6 +333,51 @@ class MovieRowFlatTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
         self.assertNotIn("movie-file", d._CHEVRON_KINDS)
 
+    def _movie_view(self, previews):
+        from plex_renamer.engine.models import ScanState
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
+
+        state = ScanState(folder=Path("C:/lib/Movie"),
+                           media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state.scanned = True
+        state.preview_items = previews
+        model = EpisodeTableModel(media_type="movie")
+        model.show_state(state, collapsed_sections=set())
+        view = EpisodeTableView()
+        delegate = EpisodeTableDelegate(view, media_type="movie")
+        view.setModel(model)
+        view.setItemDelegate(delegate)
+        view.resize(700, 500)
+        return view, model, delegate
+
+    def test_movie_file_rows_are_double_line_with_target(self):
+        """Round5 spec 2b regression: movie-file rows set title+target (no
+        filename) but "movie-file" was never a double-line kind, so the
+        rename-preview second line never painted. A row with a rename
+        target must be taller than one without (e.g. an unrenamed
+        duplicate)."""
+        from PySide6.QtWidgets import QStyleOptionViewItem
+        from plex_renamer.engine.models import PreviewItem
+
+        with_target = PreviewItem(
+            original=Path("C:/lib/Movie/dune.mkv"), new_name="Dune (2021).mkv",
+            target_dir=None, season=None, episodes=[], status="OK", media_type="movie",
+        )
+        without_target = PreviewItem(
+            original=Path("C:/lib/Movie/dune copy.mkv"), new_name=None,
+            target_dir=None, season=None, episodes=[],
+            status="DUPLICATE: copy of dune.mkv", media_type="movie",
+        )
+        view, model, delegate = self._movie_view([with_target, without_target])
+        option = QStyleOptionViewItem()
+        hint = delegate.sizeHint(option, model.index(0, 0))
+        single = delegate.sizeHint(option, model.index(1, 0))
+        self.assertGreater(hint.height(), single.height())
+        view.close()
+
 
 class ChevronGlyphTests(QtSmokeBase):
     def test_row_chevron_matches_expansion_collapse_glyph_family(self):

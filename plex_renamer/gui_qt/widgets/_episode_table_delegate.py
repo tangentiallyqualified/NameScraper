@@ -24,7 +24,7 @@ from ._episode_table_model import (
     EpisodeRowData,
 )
 
-_ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U, _ROW_MOVIE_U = 30, 34, 52, 52
+_ROW_HEADER_U, _ROW_SINGLE_U, _ROW_DOUBLE_U = 30, 34, 52
 _ROW_TRIPLE_U = 68
 _CHEVRON_U, _PILL_H_U, _MARGIN_U = 16, 18, 8
 _PILL_HPAD_U = 8
@@ -48,10 +48,24 @@ _PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
 
 _HEADER_KINDS = {"section-header", "section-label"}
 _CHEVRON_KINDS = {"episode"}
-_DOUBLE_LINE_KINDS = {"episode", "unmapped", "duplicate", "orphan", "folder"}
+_DOUBLE_LINE_KINDS = {"episode", "unmapped", "duplicate", "orphan", "folder", "movie-file"}
 _INLINE_ASSIGN_KINDS = {"unmapped", "duplicate"}
 
 _FLASH_DURATION_MS = 700
+
+
+def _second_line_source(row_data: EpisodeRowData) -> str:
+    """Text the row's second line renders, if any.
+
+    Movie-file rows set `title` + `target` (no `filename` — the file isn't
+    renamed in place, so there's no separate "original filename" to show);
+    the target *is* the rename preview. Every other double-line kind uses
+    `detail` (an override, e.g. an unassignment reason) falling back to
+    `filename`.
+    """
+    if row_data.kind == "movie-file":
+        return row_data.target
+    return row_data.detail or row_data.filename
 
 
 def _row_inline_actions(row_data: EpisodeRowData) -> tuple[tuple[str, str], ...]:
@@ -272,14 +286,12 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             return QSize(0, _scale.px(_ROW_SINGLE_U))
         if kind == "skeleton":
             return QSize(0, _scale.px(_ROW_SINGLE_U))
-        if kind == "movie-file":
-            return QSize(0, _scale.px(_ROW_MOVIE_U))
         row_data = index.data(ROW_DATA_ROLE)
         base = _ROW_SINGLE_U
         if row_data is not None:
             if row_data.subtitle_name:
                 base = _ROW_TRIPLE_U
-            elif kind in _DOUBLE_LINE_KINDS and row_data.filename:
+            elif kind in _DOUBLE_LINE_KINDS and _second_line_source(row_data):
                 base = _ROW_DOUBLE_U
             if row_data.inline_actions:
                 return QSize(0, _scale.px(base + _ACTION_STRIP_U))
@@ -451,11 +463,12 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         title_width = max(0, self.text_right_edge(option.rect, row_data, metrics) - title_x)
         line_height = metrics.lineSpacing()
 
-        # Row height (delegate.sizeHint) is driven by row_data.filename alone —
+        # Row height (delegate.sizeHint) is driven by _second_line_source alone —
         # keep the second-line trigger identical so painting never overflows
         # a single-line row (e.g. compact view_mode, which blanks filename
         # even when companions are present).
-        has_second_line = bool(row_data.filename)
+        second_source = _second_line_source(row_data)
+        has_second_line = bool(second_source)
         if has_second_line:
             # Pair the title's baseline with the now top-anchored pill
             # (round5 §3) instead of the wider row margin.
@@ -470,7 +483,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         if has_second_line:
             second_line_rect = QRect(title_x, first_line_y + line_height, title_width, line_height)
-            second_source = row_data.detail or row_data.filename
             second_text = metrics.elidedText(second_source, Qt.TextElideMode.ElideMiddle, title_width)
             painter.setPen(theme.qcolor("text_dim"))
             painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), second_text)
