@@ -30,7 +30,6 @@ _CHEVRON_U, _PILL_H_U, _MARGIN_U = 16, 18, 8
 _PILL_HPAD_U = 8
 _FALLBACK_EXPANDED_HEIGHT_U = 220
 _INLINE_ACTION_W_U, _INLINE_ACTION_H_U = 84, 20
-_ACTION_STRIP_U = 24
 
 _TONE_COLOR = {"success": "success", "warning": "warning", "error": "error", "muted": "text_dim"}
 
@@ -165,24 +164,28 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + _scale.px(4)
         return QRect(x, y, width, height)
 
-    def _left_anchor(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
-        """X coordinate of the leftmost pill/inline-action rect on the row --
-        the anchor the MUX chip (and text_right_edge) sit left of. Covers
-        both the legacy single button and the (now top-aligned) action
-        strip, since both render left of the pill on its row."""
+    def _top_line_anchor(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
+        """X coordinate of the leftmost pill/inline-action rect on the row's
+        *top* line -- the anchor the MUX chip sits left of. Covers the
+        pill and, for legacy rows only, the single legacy button (still
+        painted left of the pill on the same row); non-legacy rows' action
+        column lives below the top line and never affects it (geometry
+        contract v2, Task 5)."""
         anchor = self._pill_rect(option_rect, row_data, metrics).x()
-        rects = self.inline_action_rects(option_rect, row_data)
-        valid_xs = [rect.x() for _aid, rect in rects if rect.isValid()]
-        if valid_xs:
-            anchor = min(anchor, min(valid_xs))
+        if _is_legacy_action_row(row_data):
+            rects = self.inline_action_rects(option_rect, row_data)
+            valid_xs = [rect.x() for _aid, rect in rects if rect.isValid()]
+            if valid_xs:
+                anchor = min(anchor, min(valid_xs))
         return anchor
 
     def mux_chip_rect(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> QRect:
         """Compact 'MUX' chip rect, sat left of the pill (and legacy inline
         action, when present) -- invalid QRect() when the row's file will
-        not actually be muxed (round5 §1b). Shares the pill's y/height
-        (round5 §3) so the chip sits on the same top-anchored baseline as
-        the pill and any inline action buttons."""
+        not actually be muxed (round5 §1b). Shares the pill's y/height so
+        the chip sits on the same top-anchored top line as the pill; the
+        (now vertical) action column lives below and never affects the
+        chip's placement (geometry contract v2, Task 5)."""
         if not row_data.mux_active:
             return QRect()
         text = "MUX"
@@ -190,52 +193,77 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         margin = _scale.px(_MARGIN_U)
         pill = self._pill_rect(option_rect, row_data, metrics)
         width = metrics.horizontalAdvance(text) + 2 * pad
-        x = self._left_anchor(option_rect, row_data, metrics) - margin - width
+        x = self._top_line_anchor(option_rect, row_data, metrics) - margin - width
         return QRect(x, pill.y(), width, pill.height())
+
+    def _action_column_rects(
+        self, option_rect: QRect, row_data: EpisodeRowData, metrics,
+        *, pill: QRect, actions: tuple[tuple[str, str], ...],
+    ) -> list[tuple[str, QRect]]:
+        """Geometry contract v2 (Task 5): a right-aligned vertical column of
+        buttons under the pill -- one per line, uniform width (the widest
+        of the pill+chip cluster or any single button's own natural
+        width), pill-height each, px(4) gaps above the first button and
+        between subsequent ones."""
+        pad = _scale.px(_PILL_HPAD_U)
+        gap = _scale.px(4)
+        chip = self.mux_chip_rect(option_rect, row_data, metrics)
+        cluster_width = pill.width()
+        if chip.isValid():
+            cluster_width += _scale.px(_MARGIN_U) + chip.width()
+        button_widths = [
+            (metrics.horizontalAdvance(label) if metrics else 60) + 2 * pad
+            for _aid, label in actions
+        ]
+        width = max([cluster_width, *button_widths])
+        height = pill.height()
+        right = pill.right()
+        y = pill.bottom() + gap
+        rects: list[tuple[str, QRect]] = []
+        for action_id, _label in actions:
+            rects.append((action_id, QRect(right - width + 1, y, width, height)))
+            y += height + gap
+        return rects
 
     def inline_action_rects(self, option_rect: QRect, row_data: EpisodeRowData) -> list[tuple[str, QRect]]:
         """Hit/paint rects for the row's inline action button(s).
 
         Legacy rows (Missing File / unmapped / duplicate) get a single rect
         left of the pill, vertically centered — today's placement (left
-        untouched by round5 §3). Everything else with `row_data.inline_actions`
-        gets an action strip on the pill's own row: same y/height as the
-        pill, laid out right-to-left starting a margin left of it (so the
-        returned list stays in left-to-right button order).
+        untouched by round5 §3 / round6 Task 5). Everything else with
+        `row_data.inline_actions` gets a right-aligned vertical column
+        stacked below the pill (geometry contract v2, Task 5) --
+        `_action_column_rects` above.
         """
         actions = _row_inline_actions(row_data)
         if not actions:
             return []
-        margin = _scale.px(_MARGIN_U)
-        height = _scale.px(_INLINE_ACTION_H_U)
         metrics = self._view.fontMetrics() if self._view else None
         pill = self._pill_rect(option_rect, row_data, metrics) if metrics else QRect()
         if _is_legacy_action_row(row_data):
+            margin = _scale.px(_MARGIN_U)
             width = _scale.px(_INLINE_ACTION_W_U)
+            height = _scale.px(_INLINE_ACTION_H_U)
             x = pill.x() - margin - width
             y = option_rect.y() + (option_rect.height() - height) // 2
             return [(actions[0][0], QRect(x, y, width, height))]
-        rects: list[tuple[str, QRect]] = []
-        y = pill.y()
-        height = pill.height()
-        x = pill.x() - margin
-        for action_id, label in reversed(actions):
-            width = (metrics.horizontalAdvance(label) if metrics else 60) + 2 * _scale.px(_PILL_HPAD_U)
-            x -= width
-            rects.append((action_id, QRect(x, y, width, height)))
-            x -= _scale.px(4)
-        rects.reverse()
-        return rects
+        return self._action_column_rects(option_rect, row_data, metrics, pill=pill, actions=actions)
 
     def text_right_edge(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
-        """X coordinate the row's text lines must not cross: the pill, any
-        inline action button(s) (legacy single button or the action strip,
-        both now sharing the pill's row per round5 §3), or the MUX chip
-        when the row's file will be muxed -- whichever sits leftmost."""
-        right = self._left_anchor(option_rect, row_data, metrics)
+        """X coordinate the row's text lines must not cross -- applied to
+        every text line (title, filename/detail, subtitle), since the
+        button column stacks below the top line and can be wider than it.
+        Clears the pill, the legacy inline action button, the MUX chip,
+        and the (now vertical) action column, whichever sits leftmost
+        (geometry contract v2, Task 5)."""
+        right = self._top_line_anchor(option_rect, row_data, metrics)
         chip = self.mux_chip_rect(option_rect, row_data, metrics)
         if chip.isValid():
             right = min(right, chip.x())
+        if not _is_legacy_action_row(row_data):
+            rects = self.inline_action_rects(option_rect, row_data)
+            if rects:
+                right = min(right, min(rect.x() for _aid, rect in rects))
         return right - _scale.px(_MARGIN_U)
 
     # -- Tooltip -------------------------------------------------------------
@@ -294,7 +322,15 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             elif kind in _DOUBLE_LINE_KINDS and _second_line_source(row_data):
                 base = _ROW_DOUBLE_U
             if row_data.inline_actions:
-                return QSize(0, _scale.px(base + _ACTION_STRIP_U))
+                # Geometry contract v2 (Task 5): height must fit whichever is
+                # taller, the text block or the pill + n-button column
+                # stacked below it (no flat _ACTION_STRIP_U reservation).
+                text_height = _scale.px(base)
+                gap = _scale.px(4)
+                pill_height = _scale.px(_PILL_H_U)
+                n = len(row_data.inline_actions)
+                column_height = gap + pill_height + n * (pill_height + gap) + gap
+                return QSize(0, max(text_height, column_height))
         return QSize(0, _scale.px(base))
 
     # -- Editor (expansion card; wired fully in Task 5) ----------------------

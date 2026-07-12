@@ -26,6 +26,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
 
     def test_size_hints_by_kind(self):
         from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
 
         state, guide = _guide_state()
         view, model, delegate = self._view(state, guide)
@@ -33,9 +34,14 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         self.assertEqual(view.sizeHintForRow(2), _scale.px(30))     # season header
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))     # episode w/ filename + subtitle line
         # row 4 ("Two") is Review and adjacent to row 5's Missing File slot
-        # (E02/E03) -> its Task 6 strip carries FOUR actions (approve,
-        # reassign, assign_to_more, unassign); double-line height + strip.
-        self.assertEqual(view.sizeHintForRow(4), _scale.px(52 + 24))
+        # (E02/E03) -> its strip carries FOUR actions (approve, reassign,
+        # assign_to_more, unassign) stacked in a column below the pill
+        # (geometry contract v2) -- height is whichever is taller, the
+        # double-line text block or the pill + 4-button column.
+        gap = _scale.px(4)
+        pill_h = _scale.px(d._PILL_H_U)
+        column_height = gap + pill_h + 4 * (pill_h + gap) + gap
+        self.assertEqual(view.sizeHintForRow(4), max(_scale.px(52), column_height))
         self.assertEqual(view.sizeHintForRow(5), _scale.px(34))     # ghost (no filename)
 
     def test_subtitle_row_is_taller_than_plain_row(self):
@@ -251,37 +257,45 @@ class ActionStripTests(QtSmokeBase):
         self.assertEqual(ids, ["approve", "reassign", "unassign"])
         view.close()
 
-    def test_action_strip_shares_pill_row_and_squeezes_text_width(self):
-        """Round5 spec 3 (Task 4): strip buttons now render inline with the
-        pill (top-anchored, same row) instead of on a separate bottom strip,
-        so they must reserve horizontal text width just like the pill and
-        legacy inline action already do. Supersedes the old Task 6 "strip
-        never squeezes text" constraint now that the strip shares the pill's
-        row instead of living below the text."""
+    def test_action_column_only_squeezes_text_when_wider_than_pill(self):
+        """Geometry contract v2 (Task 5): the button column stacks *below*
+        the pill now, not beside it, so its mere presence must not squeeze
+        the title the way the old (round5) inline strip did -- only a
+        column genuinely wider than the pill cluster should narrow
+        text_right_edge. This directly protects the fix for the reported
+        bug (buttons squeezing the title at narrow widths)."""
         from PySide6.QtCore import QRect
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
         view, model, delegate = self._view_with_rows(statuses=["Review"])
         base = dict(kind="episode", title="S01E01 · Pilot", status_text="Review",
                     status_tone="warning", confidence_pct=61, filename="s01e01.mkv")
-        with_strip = EpisodeRowData(
+        without_strip = EpisodeRowData(**base)
+        narrow_strip = EpisodeRowData(
             **base,
             inline_actions=(("approve", "Approve"), ("reassign", "Reassign…"), ("unassign", "Unassign")),
         )
-        without_strip = EpisodeRowData(**base)
-        rect = QRect(0, 0, 600, 76)
-        metrics = view.fontMetrics()
-        self.assertLess(
-            delegate.text_right_edge(rect, with_strip, metrics),
-            delegate.text_right_edge(rect, without_strip, metrics),
+        wide_strip = EpisodeRowData(
+            **base,
+            inline_actions=(("wide", "A Very Long Action Label That Dwarfs The Pill"),),
         )
+        rect = QRect(0, 0, 600, 96)
+        metrics = view.fontMetrics()
+        baseline_edge = delegate.text_right_edge(rect, without_strip, metrics)
+        # Buttons narrower than the pill: stacking them below it must not
+        # cost the title any horizontal width.
+        self.assertEqual(delegate.text_right_edge(rect, narrow_strip, metrics), baseline_edge)
+        # A button wider than the pill DOES need to squeeze the title,
+        # since the (right-aligned) column then extends further left.
+        self.assertLess(delegate.text_right_edge(rect, wide_strip, metrics), baseline_edge)
         # And the strip really is present for the actionable variant.
-        self.assertEqual(len(delegate.inline_action_rects(rect, with_strip)), 3)
+        self.assertEqual(len(delegate.inline_action_rects(rect, narrow_strip)), 3)
         view.close()
 
     def test_pill_and_inline_actions_top_aligned_share_baseline(self):
-        """Round5 spec 3 (Task 4): the pill is top-anchored (not vertically
-        centered) and the action-strip buttons share its exact y/height."""
+        """Geometry contract v2 (Task 5): the pill stays top-anchored (not
+        vertically centered), but the action buttons no longer share its
+        baseline -- they stack in a column strictly below it instead."""
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
         from PySide6.QtCore import QRect
@@ -292,20 +306,23 @@ class ActionStripTests(QtSmokeBase):
             status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
             inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
         )
-        option_rect = QRect(0, 0, 600, 76)
+        option_rect = QRect(0, 0, 600, 96)
         metrics = view.fontMetrics()
         pill = delegate._pill_rect(option_rect, row_data, metrics)
         self.assertEqual(pill.y(), option_rect.y() + _scale.px(4))
         rects = delegate.inline_action_rects(option_rect, row_data)
         self.assertTrue(rects, "review rows must expose inline actions")
         for _aid, rect in rects:
-            self.assertEqual(rect.y(), pill.y())
+            self.assertGreaterEqual(rect.y(), pill.bottom() + _scale.px(4) - 1)
+            self.assertNotEqual(rect.y(), pill.y())
             self.assertEqual(rect.height(), pill.height())
         view.close()
 
     def test_no_overlap_between_buttons_and_pill(self):
-        """Round5 spec 3 (Task 4): buttons and pill never overlap, and the
-        title's right edge stops before the leftmost control."""
+        """Geometry contract v2 (Task 5): the button column sits entirely
+        below the pill (never beside it and never overlapping it), and the
+        title's right edge stops before whichever control -- pill or
+        column -- sits leftmost."""
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
         from PySide6.QtCore import QRect
 
@@ -315,16 +332,88 @@ class ActionStripTests(QtSmokeBase):
             status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
             inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
         )
-        option_rect = QRect(0, 0, 600, 76)
+        option_rect = QRect(0, 0, 600, 96)
         metrics = view.fontMetrics()
         pill = delegate._pill_rect(option_rect, row_data, metrics)
         rects = [r for _aid, r in delegate.inline_action_rects(option_rect, row_data)]
-        ordered = sorted(rects + [pill], key=lambda r: r.x())
-        for left, right in zip(ordered, ordered[1:]):
-            self.assertLess(left.right(), right.x(), f"{left} overlaps {right}")
+        prev_bottom = pill.bottom()
+        for rect in rects:
+            self.assertGreater(rect.y(), prev_bottom, f"{rect} overlaps/precedes {prev_bottom=}")
+            prev_bottom = rect.bottom()
+        leftmost = min([pill.x()] + [r.x() for r in rects])
         self.assertLessEqual(
-            delegate.text_right_edge(option_rect, row_data, metrics), ordered[0].x(),
+            delegate.text_right_edge(option_rect, row_data, metrics), leftmost,
         )
+        view.close()
+
+    def test_action_buttons_stack_vertically_under_pill(self):
+        """Geometry contract v2 (Task 5): buttons stack one per line under
+        the pill, right-aligned to it, uniform width, px(4) gaps."""
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        row_data = EpisodeRowData(
+            kind="episode", title="S01E01 · Pilot", status_text="Review",
+            status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
+            mux_active=True,
+        )
+        option_rect = QRect(0, 0, 600, 96)
+        metrics = view.fontMetrics()
+        pill = delegate._pill_rect(option_rect, row_data, metrics)
+        rects = [r for _aid, r in delegate.inline_action_rects(option_rect, row_data)]
+        self.assertEqual(len(rects), 3)
+        prev_bottom = pill.bottom()
+        for rect in rects:
+            self.assertGreaterEqual(rect.y(), prev_bottom + _scale.px(4) - 1)  # below the previous element
+            self.assertEqual(rect.right(), pill.right())                       # right-aligned column
+            prev_bottom = rect.bottom()
+        widths = {r.width() for r in rects}
+        self.assertEqual(len(widths), 1)                                       # uniform width
+        view.close()
+
+    def test_text_right_edge_clears_the_column(self):
+        """Geometry contract v2 (Task 5): text_right_edge clears the pill,
+        the MUX chip, and the button column -- whichever sits leftmost."""
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        row_data = EpisodeRowData(
+            kind="episode", title="S01E01 · Pilot", status_text="Review",
+            status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
+            mux_active=True,
+        )
+        option_rect = QRect(0, 0, 600, 96)
+        metrics = view.fontMetrics()
+        pill = delegate._pill_rect(option_rect, row_data, metrics)
+        chip = delegate.mux_chip_rect(option_rect, row_data, metrics)
+        rects = [r for _aid, r in delegate.inline_action_rects(option_rect, row_data)]
+        edge = delegate.text_right_edge(option_rect, row_data, metrics)
+        leftmost = min([pill.x()] + [r.x() for r in rects] + ([chip.x()] if chip.isValid() else []))
+        self.assertLessEqual(edge, leftmost)
+        view.close()
+
+    def test_size_hint_fits_the_column(self):
+        """Geometry contract v2 (Task 5): sizeHint grows to fit the pill +
+        n-button column when that's taller than the text block, with no
+        leftover flat _ACTION_STRIP_U reservation."""
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        index = self._index_for_status(model, "Review")
+        n = len(index.data(ROW_DATA_ROLE).inline_actions)
+        self.assertGreater(n, 0)
+        hint = delegate.sizeHint(self._option(), index)
+        gap = _scale.px(4)
+        pill_h = _scale.px(d._PILL_H_U)
+        expected_min = gap + pill_h + n * (pill_h + gap) + gap
+        self.assertGreaterEqual(hint.height(), expected_min)
         view.close()
 
 
