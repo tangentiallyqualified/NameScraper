@@ -8,9 +8,11 @@ from plex_renamer.app.services.automux_service import (
     companion_subs_for_item,
     effective_mux_plans,
     ensure_state_plans,
+    file_mux_active,
     mux_settings_from_service,
     plan_has_actions,
     state_has_mux_actions,
+    state_mux_eligible,
 )
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.engine.models import CompanionFile, PreviewItem, ScanState
@@ -160,3 +162,47 @@ def test_reset_gui_state_clears_automux_session(tmp_path):
     assert state.automux_disabled is False
     assert state.mux_plans == {}
     assert state.mux_probe_errors == {}
+
+
+def test_mux_opt_outs_excluded_from_state_has_mux_actions(tmp_path):
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
+                   "subtitle_merges": []}
+    state = _state(tmp_path, _item(tmp_path))
+    state.mux_plans[0] = action_plan
+    assert state_has_mux_actions(state) is True
+    state.mux_opt_outs.add(0)
+    assert state_has_mux_actions(state) is False
+    # show-level eligibility ignores opt-outs (button stays reachable)
+    assert state_mux_eligible(state) is True
+
+
+def test_effective_mux_plans_drops_opted_out_indices(tmp_path):
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
+                   "subtitle_merges": []}
+    state = _state(tmp_path, _item(tmp_path))
+    state.mux_plans[0] = action_plan
+    state.mux_plans[1] = dict(action_plan)
+    state.mux_opt_outs.add(0)
+    plans = effective_mux_plans(state)
+    assert set(plans) == {1}
+
+
+def test_file_mux_active(tmp_path):
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
+                   "subtitle_merges": []}
+    state = _state(tmp_path, _item(tmp_path))
+    state.mux_plans[0] = action_plan
+    assert file_mux_active(state, 0) is True
+    assert file_mux_active(state, 1) is False   # no plan
+    state.mux_opt_outs.add(0)
+    assert file_mux_active(state, 0) is False
+    state.mux_opt_outs.discard(0)
+    state.automux_disabled = True
+    assert file_mux_active(state, 0) is False
+
+
+def test_session_reset_clears_opt_outs(tmp_path):
+    state = _state(tmp_path, _item(tmp_path))
+    state.mux_opt_outs.add(3)
+    state.reset_gui_state()
+    assert state.mux_opt_outs == set()

@@ -159,13 +159,26 @@ def plan_has_actions(plan: dict) -> bool:
 def state_has_mux_actions(state: ScanState) -> bool:
     if state.automux_disabled:
         return False
-    return any(plan_has_actions(plan) for plan in state.mux_plans.values())
+    return any(
+        plan_has_actions(plan)
+        for index, plan in state.mux_plans.items()
+        if index not in state.mux_opt_outs
+    )
 
 
 def state_mux_eligible(state: ScanState) -> bool:
     """True when any cached plan carries actions, regardless of the
     per-show disable flag (the toggle button must stay reachable)."""
     return any(plan_has_actions(plan) for plan in state.mux_plans.values())
+
+
+def file_mux_active(state: ScanState, index: int) -> bool:
+    """True when this preview item will actually be muxed: cached plan
+    with actions, not opted out, AutoMux not disabled for the entry."""
+    if state.automux_disabled or index in state.mux_opt_outs:
+        return False
+    plan = state.mux_plans.get(index)
+    return plan is not None and plan_has_actions(plan)
 
 
 def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
@@ -175,6 +188,6 @@ def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
         return None
     plans = {
         index: plan for index, plan in state.mux_plans.items()
-        if plan_has_actions(plan)
+        if index not in state.mux_opt_outs and plan_has_actions(plan)
     }
     return plans or None

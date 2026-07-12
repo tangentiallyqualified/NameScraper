@@ -209,6 +209,8 @@ class ScanState:
     automux_disabled: bool = False
     mux_plans: dict[int, dict] = field(default_factory=dict)
     mux_probe_errors: dict[int, str] = field(default_factory=dict)
+    # Per-file AutoMux opt-out (session-scoped; spec: gui-round5 §4b).
+    mux_opt_outs: set[int] = field(default_factory=set)
 
     # Season metadata
     season_names: dict[int, str] = field(default_factory=dict)
@@ -297,6 +299,7 @@ class ScanState:
         self.automux_disabled = False
         self.mux_plans.clear()
         self.mux_probe_errors.clear()
+        self.mux_opt_outs.clear()
 
     def reset_scan(self) -> None:
         self.scanner = None
