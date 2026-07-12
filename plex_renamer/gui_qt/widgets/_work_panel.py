@@ -648,8 +648,10 @@ class MediaWorkPanel(QFrame):
         fm = self._overview_label.fontMetrics()
         two_lines = 2 * fm.lineSpacing() + _scale.px(_OVERVIEW_CLAMP_PAD_U)
         if self._overview_expanded:
+            self._overview_label.setMinimumHeight(0)
             self._overview_label.setMaximumHeight(16777215)
         else:
+            self._overview_label.setMinimumHeight(two_lines)
             self._overview_label.setMaximumHeight(two_lines)
         self._overview_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 

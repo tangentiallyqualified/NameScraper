@@ -590,6 +590,32 @@ class WorkPanelTests(QtSmokeBase):
         # clamp must be >= two full line heights (no mid-letter clipping)
         self.assertGreaterEqual(panel._overview_label.maximumHeight(), 2 * fm.lineSpacing())
 
+    def test_overview_label_height_stable_across_text_lengths(self):
+        # Task 8: only maximumHeight was pinned when collapsed, so a
+        # 1-line overview left minimumHeight at 0 and the label shrank to
+        # its content -- shifting everything below it when the user
+        # switched from a show with a long overview to one with a short
+        # one. Both bounds must be pinned to the same two-line height
+        # while collapsed, regardless of how much text is set.
+        from plex_renamer.gui_qt import _scale
+
+        state, guide = _guide_state()
+        panel = self._panel(state, guide)
+        panel.show()
+        fm = panel._overview_label.fontMetrics()
+        two_lines = 2 * fm.lineSpacing() + _scale.px(6)   # _OVERVIEW_CLAMP_PAD_U
+
+        panel._apply_overview_text("A short one-line overview.", "tok-a")
+        self._app.processEvents()
+        self.assertEqual(panel._overview_label.minimumHeight(), two_lines)
+        self.assertEqual(panel._overview_label.maximumHeight(), two_lines)
+
+        panel._apply_overview_text(("Long overview. " * 60).strip(), "tok-b")
+        self._app.processEvents()
+        self.assertEqual(panel._overview_label.minimumHeight(), two_lines)
+        self.assertEqual(panel._overview_label.maximumHeight(), two_lines)   # still clamped collapsed
+        panel.close()
+
     def test_series_chip_present_in_strip(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
