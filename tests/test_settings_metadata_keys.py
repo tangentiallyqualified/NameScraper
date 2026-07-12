@@ -18,6 +18,8 @@ METADATA_KEYS = {
     "metadata_write_clearlogo": True,
     "metadata_plex_naming": False,
     "metadata_embed_title": True,
+    "metadata_embed_cover": True,
+    "metadata_embed_tags": True,
 }
 
 

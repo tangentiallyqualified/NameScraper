@@ -401,6 +401,22 @@ class SettingsService:
         self.set("metadata_embed_title", bool(value))
 
     @property
+    def metadata_embed_cover(self) -> bool:
+        return bool(self.get("metadata_embed_cover"))
+
+    @metadata_embed_cover.setter
+    def metadata_embed_cover(self, value: bool) -> None:
+        self.set("metadata_embed_cover", bool(value))
+
+    @property
+    def metadata_embed_tags(self) -> bool:
+        return bool(self.get("metadata_embed_tags"))
+
+    @metadata_embed_tags.setter
+    def metadata_embed_tags(self, value: bool) -> None:
+        self.set("metadata_embed_tags", bool(value))
+
+    @property
     def automux_any_enabled(self) -> bool:
         """True when at least one AutoMux action toggle is on (spec §8.1)."""
         return (

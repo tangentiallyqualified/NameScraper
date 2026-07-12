@@ -44,6 +44,8 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "metadata_write_clearlogo": (bool,),
     "metadata_plex_naming": (bool,),
     "metadata_embed_title": (bool,),
+    "metadata_embed_cover": (bool,),
+    "metadata_embed_tags": (bool,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -87,6 +89,8 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "metadata_write_clearlogo": True,
     "metadata_plex_naming": False,
     "metadata_embed_title": True,
+    "metadata_embed_cover": True,
+    "metadata_embed_tags": True,
 }
 
 
