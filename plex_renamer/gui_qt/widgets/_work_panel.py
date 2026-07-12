@@ -184,11 +184,6 @@ class MediaWorkPanel(QFrame):
         outer.setSpacing(_scale.px(8))
 
         self._build_header(outer)
-        # Movie-mode inline AutoMux tracks section (spec §8.2). Managed by
-        # MediaWorkspaceAutoMuxCoordinator.on_state_shown via
-        # set_automux_tracks(); stays empty in TV mode.
-        self._automux_tracks_host = QVBoxLayout()
-        outer.addLayout(self._automux_tracks_host)
         self._build_strip(outer)
         self._build_toolbar(outer)
         self._build_table(
@@ -197,6 +192,18 @@ class MediaWorkPanel(QFrame):
             guide_builder=guide_builder,
             guide_store=guide_store,
         )
+        # Movie-mode inline AutoMux tracks section (spec §8.2, round5 Task 6
+        # §2a). Managed by MediaWorkspaceAutoMuxCoordinator.on_state_shown
+        # via set_automux_tracks(); stays empty in TV mode. Placed AFTER the
+        # table so the compact folder/movie-file block sits on top and the
+        # tracks section expands to fill the remaining space below it. The
+        # stretch factor itself is only applied in movie mode (see
+        # _sync_movie_mode_visibility) -- giving it an unconditional
+        # stretch=1 here would make this always-empty-in-TV-mode layout
+        # compete for half the vertical space against the table's own
+        # stretch=1 in TV mode.
+        self._automux_tracks_host = QVBoxLayout()
+        outer.addLayout(self._automux_tracks_host)
 
     def _build_header(self, outer: QVBoxLayout) -> None:
         title_row = QHBoxLayout()
@@ -357,6 +364,13 @@ class MediaWorkPanel(QFrame):
         self._table_stack.addWidget(self._table_view)
         self._table_stack.addWidget(self._bulk_panel)
         outer.addWidget(stack_host, stretch=1)
+        # Movie mode compacts the table to its content height (round5 Task 6
+        # §2a) so the AutoMux tracks section below it can expand into the
+        # rest of the panel. Row heights aren't known until the model has
+        # rows, and rows can change outside show_state() (e.g. movie-mode
+        # refresh_checks()'s _rebuild()), so recompute on every model reset
+        # rather than only from show_state().
+        self._model.modelReset.connect(self._sync_movie_mode_visibility)
 
     # -- Public API -------------------------------------------------------
 
@@ -537,8 +551,30 @@ class MediaWorkPanel(QFrame):
 
     def _sync_movie_mode_visibility(self) -> None:
         if self._media_type != "movie":
+            # TV mode: the table keeps its ordinary stretch=1 (unbounded)
+            # sizing from _build_table -- explicit default in case Qt's
+            # QWIDGETSIZE_MAX (16777215) sentinel value ever changes.
+            self._table_view.setMaximumHeight(16777215)
             return
         self._strip_scroll.hide()
+        self._compact_movie_table_height()
+        # The tracks host is only given its expanding stretch factor in
+        # movie mode (see _build_ui) -- an unconditional stretch=1 would make
+        # this always-empty-in-TV layout compete for half the vertical space
+        # against the table's own stretch=1 in TV mode.
+        self.layout().setStretchFactor(self._automux_tracks_host, 1)
+
+    def _compact_movie_table_height(self) -> None:
+        """Size the movie-mode table (folder block + movie-file rows) to its
+        content height so the AutoMux tracks section below it gets the
+        remaining vertical space (round5 Task 6 §2a)."""
+        total_height = 0
+        for row in range(self._model.rowCount()):
+            hint = self._table_view.sizeHintForRow(row)
+            if hint > 0:
+                total_height += hint
+        frame = self._table_view.frameWidth()
+        self._table_view.setMaximumHeight(total_height + 2 * frame + _scale.px(4))
 
     # -- Season strip --------------------------------------------------------
 

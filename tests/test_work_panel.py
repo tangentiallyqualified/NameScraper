@@ -336,6 +336,53 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(panel.check_summary.isVisible())
         panel.close()
 
+    def test_movie_mode_tracks_below_table_and_table_compact(self):
+        # Round5 Task 6 (spec 2a): in movie mode the folder block + movie-file
+        # table sits ABOVE the AutoMux tracks section, sized to its own
+        # content, while the tracks host takes the remaining vertical space.
+        from PySide6.QtWidgets import QWidget
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="movie")
+        state = self._movie_state_actionable()
+        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.show()
+
+        tracks = QWidget()
+        tracks.setMinimumHeight(400)
+        panel.set_automux_tracks(tracks)
+
+        outer = panel.layout()
+
+        def _find_position(target) -> int:
+            for i in range(outer.count()):
+                item = outer.itemAt(i)
+                if item.widget() is not None and _contains_widget(item.widget(), target):
+                    return i
+                if item.layout() is not None and item.layout() is target:
+                    return i
+            raise AssertionError(f"{target!r} not found in outer layout")
+
+        def _contains_widget(container, target) -> bool:
+            if container is target:
+                return True
+            layout = container.layout()
+            if layout is None:
+                return False
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item.widget() is not None and _contains_widget(item.widget(), target):
+                    return True
+            return False
+
+        table_pos = _find_position(panel._table_view)
+        tracks_pos = _find_position(panel._automux_tracks_host)
+        self.assertLess(table_pos, tracks_pos, "folder/table block must sit above the tracks")
+
+        view = panel.table_view
+        self.assertLess(view.maximumHeight(), 16777215)
+        panel.close()
+
     def test_refresh_header_reuses_strip_buttons_when_seasons_unchanged(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
