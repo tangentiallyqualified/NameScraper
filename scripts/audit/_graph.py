@@ -10,6 +10,10 @@ from . import _artifacts
 ROOT_PACKAGE = "plex_renamer"
 
 
+def _in_root_package(module: str) -> bool:
+    return module == ROOT_PACKAGE or module.startswith(ROOT_PACKAGE + ".")
+
+
 def _module_name(rel_posix: str) -> str:
     parts = list(Path(rel_posix).with_suffix("").parts)
     if parts[-1] == "__init__":
@@ -201,6 +205,37 @@ def _strongly_connected(adj: dict[str, list[str]]) -> list[list[str]]:
     return sorted(cycles)
 
 
+def _reexport_map(modules: dict[str, dict], trees: dict) -> dict[tuple[str, str], tuple[str, str]]:
+    """(module, exported name) -> (origin module, origin name) for __init__ re-exports."""
+    reexports: dict[tuple[str, str], tuple[str, str]] = {}
+    for name, tree in trees.items():
+        if not modules[name]["path"].endswith("__init__.py"):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            target = (node.module if node.level == 0
+                      else _resolve_relative(name, True, node.level, node.module))
+            if not target or not _in_root_package(target):
+                continue
+            for alias in node.names:
+                reexports[(name, alias.asname or alias.name)] = (target, alias.name)
+    return reexports
+
+
+def _resolve_symbol(sym_index: dict, reexports: dict, target: str, name: str):
+    """Follow __init__ re-export chains (bounded) to the defining symbol."""
+    for _ in range(5):
+        sym = sym_index.get((target, name))
+        if sym is not None:
+            return sym
+        step = reexports.get((target, name))
+        if step is None:
+            return None
+        target, name = step
+    return None
+
+
 def build_graph(repo_root: Path, inventory: dict) -> dict:
     modules: dict[str, dict] = {}
     trees: dict[str, ast.Module] = {}
@@ -219,6 +254,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
 
     # symbol lookup for imported_by attribution
     sym_index = {(mod, s["name"]): s for mod, m in modules.items() for s in m["symbols"]}
+    reexports = _reexport_map(modules, trees)
 
     for name, tree in trees.items():
         is_init = modules[name]["path"].endswith("__init__.py")
@@ -227,17 +263,17 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name.startswith(ROOT_PACKAGE):
+                    if _in_root_package(alias.name):
                         internal.add(alias.name)
                     else:
                         external.add(alias.name.split(".")[0])
             elif isinstance(node, ast.ImportFrom):
-                if node.level == 0 and node.module and not node.module.startswith(ROOT_PACKAGE):
+                if node.level == 0 and node.module and not _in_root_package(node.module):
                     external.add(node.module.split(".")[0])
                     continue
                 target = (node.module if node.level == 0
                           else _resolve_relative(name, is_init, node.level, node.module))
-                if not target or not target.startswith(ROOT_PACKAGE):
+                if not target or not _in_root_package(target):
                     continue
                 for alias in node.names:
                     # `from pkg import submodule` imports a module, not a symbol
@@ -245,7 +281,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
                         internal.add(f"{target}.{alias.name}")
                         continue
                     internal.add(target)
-                    sym = sym_index.get((target, alias.name))
+                    sym = _resolve_symbol(sym_index, reexports, target, alias.name)
                     if sym is not None and name not in sym["imported_by"]:
                         sym["imported_by"].append(name)
         resolved = sorted(m for m in internal if m in modules and m != name)
