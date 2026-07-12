@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...app.services.command_gating_service import CommandGatingService
 from ...engine import ScanState
 from ._media_helpers import (
     is_state_queue_approvable as _is_state_queue_approvable,
@@ -103,7 +104,7 @@ class MediaWorkspaceRefreshCoordinator:
                 state.check_vars[key] = _CheckBinding(
                     bool(
                         state.checked
-                        and item.is_actionable
+                        and CommandGatingService.is_queue_relevant(state, index)
                         and _is_state_queue_approvable(state, media_type=workspace._media_type)
                     )
                 )
@@ -115,7 +116,7 @@ class MediaWorkspaceRefreshCoordinator:
                 self.ensure_check_bindings(state)
                 actionable_values: list[bool] = []
                 for index, item in enumerate(state.preview_items):
-                    if not item.is_actionable:
+                    if not CommandGatingService.is_queue_relevant(state, index):
                         continue
                     key = str(index)
                     binding = state.check_vars.get(key)

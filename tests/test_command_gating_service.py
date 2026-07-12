@@ -9,6 +9,13 @@ from plex_renamer.app.services.command_gating_service import CommandGatingServic
 from plex_renamer.engine import PreviewItem, ScanState, build_rename_job_from_state
 
 
+_ACTION_PLAN = {
+    "track_decisions": [],
+    "subtitle_merges": [{"source_relative": "Show/a.eng.srt", "action": "merge",
+                          "language": "eng", "set_default": False}],
+}
+
+
 def _item(status: str = "OK", new_name: str = "New.mkv", original: str = "Old.mkv") -> PreviewItem:
     return PreviewItem(
         original=Path(f"C:/library/tv/Show/{original}"),
@@ -270,6 +277,44 @@ class CommandGatingServiceTests(unittest.TestCase):
         self.assertTrue(result.enabled)
         self.assertEqual(result.selected_indices, [0, 1])
         self.assertEqual(result.eligible_file_count, 2)
+
+    def test_mux_only_state_is_queueable(self):
+        # Round6 §1: a correctly-named item (new_name == original name, no
+        # rename needed) with an action-bearing mux plan must still be
+        # queueable via the show-level "select all" path.
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show/Season 01/Show - S01E01.mkv"),
+            new_name="Show - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = _state(items=[item], checked=True)
+        self.assertFalse(item.is_actionable)
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertEqual(result.command_state, QueueCommandState.ENABLED)
+        self.assertEqual(result.selected_indices, [0])
+
+    def test_mux_only_state_optout_not_queueable(self):
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show/Season 01/Show - S01E01.mkv"),
+            new_name="Show - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = _state(items=[item], checked=True)
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+        state.mux_opt_outs.add(0)
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertNotEqual(result.command_state, QueueCommandState.ENABLED)
 
     def test_tv_show_level_queue_blocks_unresolved_episode_review(self):
         state = _state(

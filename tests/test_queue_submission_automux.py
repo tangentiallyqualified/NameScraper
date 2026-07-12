@@ -8,6 +8,7 @@ from plex_renamer.app.controllers._queue_submission_helpers import (
     add_tv_batch_jobs,
 )
 from plex_renamer.app.services import automux_service as svc_mod
+from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.constants import JobKind
 from plex_renamer.engine.models import CompanionFile, PreviewItem, ScanState
@@ -352,3 +353,51 @@ def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
     )
     assert result.added == 1
     assert store.jobs[0].job_kind == JobKind.REMUX
+
+
+def test_mux_only_state_queued_through_real_gating(tmp_path, monkeypatch):
+    """Round6 §1 mandatory end-to-end coverage: a checked state whose only
+    relevant item is mux-only (correctly-named, action-bearing plan) must be
+    evaluated ENABLED by the REAL CommandGatingService (no _Gating fake),
+    its index must appear in selected_indices, and the job built from that
+    selection must contain the mux op with selected=True. This is the exact
+    chain RC-round6-task2-review found broken: allow_show_level_queue's
+    is_actionable_item-only selection and evaluate()'s actionable
+    intersection previously stripped mux-only indices before job_executor
+    ever saw them."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    state = _tv_state_correctly_named(tmp_path)
+    # An approved, high-confidence match: require_resolved_review=True (as
+    # add_tv_batch_jobs always passes) must not trip on an unrelated
+    # needs_review flag -- this test is only about mux-only selection.
+    state.confidence = 1.0
+    # Seed a cached, action-bearing plan so the REAL gating call (which runs
+    # before _mux_plans_for_state/ensure_state_plans in add_tv_batch_jobs)
+    # sees this index as mux-active.
+    state.mux_plans[0] = {"subtitle_merges": [{"action": "merge"}]}
+
+    gating = CommandGatingService()
+    eligibility = gating.evaluate_scan_state(
+        state, require_resolved_review=True, allow_show_level_queue=True,
+    )
+    assert eligibility.enabled
+    assert eligibility.selected_indices == [0]
+
+    store = _FakeStore()
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=gating,
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    assert job.job_kind == JobKind.REMUX
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    assert len(video_ops) == 1
+    op = video_ops[0]
+    assert op.mux is not None
+    assert op.selected is True

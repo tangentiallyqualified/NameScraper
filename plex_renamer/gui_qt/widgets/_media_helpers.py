@@ -119,7 +119,14 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if any(item.is_review for item in state.preview_items):
         return False
-    return any(item.is_actionable for item in state.preview_items)
+    # Round6 §1: a correctly-named file with an action-bearing mux plan is
+    # queue-relevant even though it produces no rename op by itself — the
+    # approvable check must not exclude it (see CommandGatingService.
+    # is_queue_relevant).
+    return any(
+        CommandGatingService.is_queue_relevant(state, index)
+        for index in range(len(state.preview_items))
+    )
 
 
 def has_episode_problems(state: ScanState) -> bool:

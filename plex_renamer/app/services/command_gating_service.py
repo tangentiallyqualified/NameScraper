@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 
 from ...engine import PreviewItem, ScanState, get_checked_indices_from_state
+from ...engine.models import file_mux_active
 from ...parsing import build_show_folder_name
 from ..models import QueueCommandState, QueueEligibility
 
@@ -21,7 +22,9 @@ class CommandGatingService:
             return False
         if any(item.status != "OK" for item in state.preview_items):
             return False
-        if any(item.is_actionable for item in state.preview_items):
+        if any(item.is_actionable for item in state.preview_items) or any(
+            file_mux_active(state, i) for i in range(len(state.preview_items))
+        ):
             return False
 
         show_name = state.media_info.get("name")
@@ -45,6 +48,7 @@ class CommandGatingService:
         is_queued: bool = False,
         needs_review: bool = False,
         require_resolved_review: bool = False,
+        mux_active_indices: set[int] | None = None,
     ) -> QueueEligibility:
         """Return queue command state for a flat preview item list."""
         if is_scanning:
@@ -73,6 +77,7 @@ class CommandGatingService:
 
         selected = set(selected_indices or set())
         actionable = [index for index, item in enumerate(items) if self.is_actionable_item(item)]
+        actionable = sorted(set(actionable) | (mux_active_indices or set()))
         eligible_selected = sorted(index for index in selected if index in actionable)
         blocked_counts = self._blocked_counts(items)
 
@@ -139,15 +144,15 @@ class CommandGatingService:
         selected: set[int] = set()
         if allow_show_level_queue and state.checked:
             selected = {
-                index for index, item in enumerate(state.preview_items)
-                if self.is_actionable_item(item)
+                index for index in range(len(state.preview_items))
+                if self.is_queue_relevant(state, index)
             }
         elif state.check_vars:
             selected = get_checked_indices_from_state(state)
         elif state.checked:
             selected = {
-                index for index, item in enumerate(state.preview_items)
-                if self.is_actionable_item(item)
+                index for index in range(len(state.preview_items))
+                if self.is_queue_relevant(state, index)
             }
 
         if require_resolved_review and any(
@@ -173,6 +178,9 @@ class CommandGatingService:
             is_queued=state.queued,
             needs_review=state.needs_review,
             require_resolved_review=require_resolved_review,
+            mux_active_indices={
+                i for i in range(len(state.preview_items)) if file_mux_active(state, i)
+            },
         )
 
     def summarize_scan_states(
@@ -234,6 +242,13 @@ class CommandGatingService:
     def is_actionable_item(item: PreviewItem) -> bool:
         """True when an item should produce a rename/move operation."""
         return item.is_actionable and not item.is_unmatched
+
+    @classmethod
+    def is_queue_relevant(cls, state: ScanState, index: int) -> bool:
+        """Actionable OR will be muxed (round6 §1) — the selection/queue
+        surfaces treat both identically."""
+        item = state.preview_items[index]
+        return cls.is_actionable_item(item) or file_mux_active(state, index)
 
     @classmethod
     def _blocked_counts(cls, items: list[PreviewItem]) -> dict[str, int]:

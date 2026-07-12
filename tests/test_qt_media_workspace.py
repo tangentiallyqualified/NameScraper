@@ -575,6 +575,71 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_check_bindings_cover_mux_only_items(self):
+        """Round6 §1: a correctly-named OK item (no rename needed) with an
+        action-bearing mux plan is still queue-relevant. The check binding
+        must be created and must follow state.checked, instead of staying
+        False/absent because the item itself is not a renameable action."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/"
+                        "Example Show (2024) - S01E01.mkv"
+                    ),
+                    new_name="Example Show (2024) - S01E01.mkv",
+                    target_dir=Path("C:/library/tv/Example.Show.2024/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        self.assertFalse(state.preview_items[0].is_actionable)
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": "Example Show (2024) - S01E01.eng.srt",
+                "language": "eng",
+                "set_default": False,
+            }],
+        }
+
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        self.assertIn("0", state.check_vars)
+        self.assertTrue(state.checked)
+        self.assertIs(state.check_vars["0"].get(), True)
+
+        workspace.close()
+
     def test_media_workspace_approved_movie_auto_checks_preview_file(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
