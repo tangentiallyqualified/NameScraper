@@ -6,6 +6,7 @@ from typing import Any
 
 from PySide6.QtCore import QModelIndex
 
+from ...app.services.command_gating_service import CommandGatingService
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
 
 
@@ -46,11 +47,13 @@ class MediaWorkspaceSyncCoordinator:
         state.checked = checked
         workspace._ensure_check_bindings(state)
         can_queue = _is_state_queue_approvable(state, media_type=workspace._media_type)
-        for index, preview in enumerate(state.preview_items):
+        for index in range(len(state.preview_items)):
             binding = state.check_vars.get(str(index))
             if binding is None or not hasattr(binding, "set"):
                 continue
-            binding.set(bool(checked and can_queue and preview.is_actionable))
+            binding.set(bool(
+                checked and can_queue and CommandGatingService.is_queue_relevant(state, index)
+            ))
 
         if workspace._selected_state() is state:
             workspace._populate_preview(state)

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ...app.services.command_gating_service import CommandGatingService
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
 from ._media_workspace_action_bar import (
@@ -134,9 +135,9 @@ class MediaWorkspaceActionCoordinator:
         """
         workspace = self._workspace
         workspace._ensure_check_bindings(state)
-        for index, item in enumerate(state.preview_items):
+        for index in range(len(state.preview_items)):
             binding = state.check_vars.get(str(index))
-            if binding is not None and item.is_actionable:
+            if binding is not None and CommandGatingService.is_queue_relevant(state, index):
                 binding.set(True)
         state.checked = True
 

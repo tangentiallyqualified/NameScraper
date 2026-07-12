@@ -19,6 +19,7 @@ from plex_renamer.engine import (
     RenameResult,
     ScanState,
     SeasonCompleteness,
+    get_checked_indices_from_state,
 )
 from plex_renamer.job_store import JobStore
 
@@ -700,6 +701,146 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace._check_all()
 
+        self.assertTrue(state.checked)
+        self.assertIs(state.check_vars["0"].get(), True)
+
+        workspace.close()
+
+    def test_check_bindings_cover_mux_only_items_movie(self):
+        """Final-round6-review fix: a movie ScanState whose only item is
+        mux-only (correctly named, action-bearing mux plan, not opted out)
+        must end up checked after the REAL check-toggle sync path
+        (_set_state_checked -> MediaWorkspaceSyncCoordinator.set_state_checked)
+        runs. That coordinator previously gated its binding.set() call on
+        preview.is_actionable alone, so it stomped the binding back to False
+        even though the show is queue-relevant via its mux plan."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = [state]
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        original = Path("C:/library/movies/Example Movie (2024)/Example Movie (2024).mkv")
+        state = ScanState(
+            folder=original.parent,
+            media_info={"id": 101, "title": "Example Movie", "year": "2024", "_media_type": "movie"},
+            preview_items=[
+                PreviewItem(
+                    original=original,
+                    new_name="Example Movie (2024).mkv",
+                    target_dir=original.parent,
+                    season=None,
+                    episodes=[],
+                    status="OK",
+                    media_type="movie",
+                    media_id=101,
+                    media_name="Example Movie",
+                )
+            ],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        self.assertFalse(state.preview_items[0].is_actionable)
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": "Example Movie (2024).eng.srt",
+                "language": "eng",
+                "set_default": False,
+            }],
+        }
+
+        workspace = MediaWorkspace(media_type="movie", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        workspace._set_state_checked(state, True)
+
+        self.assertIn("0", state.check_vars)
+        self.assertTrue(state.checked)
+        self.assertIs(state.check_vars["0"].get(), True)
+        self.assertIn(0, get_checked_indices_from_state(state))
+
+        workspace.close()
+
+    def test_auto_check_for_queue_covers_mux_only_item(self):
+        """Final-round6-review fix: _auto_check_for_queue (the Approve All
+        Episode Mappings pre-tick helper) previously gated its binding.set()
+        call on item.is_actionable alone, so a mux-only, correctly-named
+        file was never pre-ticked even though it is queue-relevant via its
+        mux plan."""
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeMediaController:
+            def __init__(self, state):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [state]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/"
+                        "Example Show (2024) - S01E01.mkv"
+                    ),
+                    new_name="Example Show (2024) - S01E01.mkv",
+                    target_dir=Path("C:/library/tv/Example.Show.2024/Season 01"),
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        self.assertFalse(state.preview_items[0].is_actionable)
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": "Example Show (2024) - S01E01.eng.srt",
+                "language": "eng",
+                "set_default": False,
+            }],
+        }
+
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show_ready()
+
+        workspace._action_coordinator._auto_check_for_queue(state)
+
+        self.assertIn("0", state.check_vars)
         self.assertTrue(state.checked)
         self.assertIs(state.check_vars["0"].get(), True)
 
