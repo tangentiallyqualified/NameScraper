@@ -240,3 +240,98 @@ def test_no_plan_is_noop(tmp_path):
     execute_metadata_plan(job, result=result)
     assert result.errors == []
     assert "created_files" not in result.log_entry
+
+
+def _extras_plan(tmp_path, *, embed_title=True, tags_xml="<Tags/>",
+                 cover="/p.jpg"):
+    fake_propedit = tmp_path / "mkvpropedit.exe"
+    fake_propedit.write_bytes(b"")
+    return base_plan(
+        embed_title=embed_title, mkvpropedit_path=str(fake_propedit),
+        nfo_files=[], artwork=[],
+        embed_extras=[{"op": "Show/a.mkv", "tags_xml": tags_xml,
+                       "cover_tmdb_path": cover}])
+
+
+def _make_target(job) -> Path:
+    target = (Path(job.output_root) / "Show (2019)" / "Season 01" /
+              "Show (2019) - S01E01 - Pilot.mkv")
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"mkv")
+    return target
+
+
+def test_embed_extras_tags_and_cover_in_propedit_args(tmp_path):
+    job = make_job(tmp_path, _extras_plan(tmp_path))
+    _make_target(job)
+    seen = {}
+
+    def fake_runner(args):
+        seen["args"] = list(args)
+        tags_arg = args[args.index("--tags") + 1]     # "global:<path>"
+        seen["tags_content"] = Path(
+            tags_arg.split(":", 1)[1]).read_text(encoding="utf-8")
+        seen["cover_exists_at_run"] = Path(
+            args[args.index("--add-attachment") + 1]).exists()
+        return 0, ""
+
+    result = _result()
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=lambda p: b"jpgbytes",
+        propedit_runner=fake_runner)
+
+    args = seen["args"]
+    assert "--set" in args                      # title still embedded
+    tags_value = args[args.index("--tags") + 1]
+    assert tags_value.startswith("global:")
+    assert seen["tags_content"] == "<Tags/>"
+    assert seen["cover_exists_at_run"] is True
+    assert args[args.index("--attachment-name") + 1] == "cover.jpg"
+    # Temp files removed after the run.
+    assert not Path(tags_value.split(":", 1)[1]).exists()
+    assert not Path(args[args.index("--add-attachment") + 1]).exists()
+    assert result.errors == []
+
+
+def test_embed_extras_run_without_title(tmp_path):
+    job = make_job(tmp_path, _extras_plan(tmp_path, embed_title=False))
+    _make_target(job)
+    calls = []
+    result = _result()
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=lambda p: b"jpg",
+        propedit_runner=lambda a: calls.append(list(a)) or (0, ""))
+    assert len(calls) == 1
+    assert "--edit" not in calls[0]
+    assert "--tags" in calls[0]
+
+
+def test_cover_fetch_failure_warns_but_tags_still_embed(tmp_path):
+    job = make_job(tmp_path, _extras_plan(tmp_path))
+    _make_target(job)
+    calls = []
+    result = _result()
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=lambda p: None,
+        propedit_runner=lambda a: calls.append(list(a)) or (0, ""))
+    assert len(calls) == 1
+    assert "--tags" in calls[0]
+    assert "--add-attachment" not in calls[0]
+    assert any("Cover art unavailable" in e for e in result.errors)
+
+
+def test_embed_extras_mux_ops_skipped_by_propedit_pass(tmp_path):
+    mux_op = RenameOp(
+        original_relative="Show/a.mkv",
+        new_name="Show (2019) - S01E01 - Pilot.mkv",
+        target_dir_relative="Show (2019)/Season 01",
+        status="OK", season=1, episodes=[1],
+        mux={"anything": True})
+    job = make_job(tmp_path, _extras_plan(tmp_path, embed_title=False),
+                   ops=[mux_op])
+    calls = []
+    result = _result()
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=lambda p: b"jpg",
+        propedit_runner=lambda a: calls.append(a) or (0, ""))
+    assert calls == []      # mux ops embed during the mux itself

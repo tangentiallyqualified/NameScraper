@@ -11,8 +11,10 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import tempfile
 import uuid
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path, PurePath
 
 from ._job_execution_filesystem import apply_top_dir_remap
@@ -44,6 +46,59 @@ def _write_atomic(target: Path, data: bytes) -> None:
     except OSError:
         temp.unlink(missing_ok=True)
         raise
+
+
+def _write_temp(data: bytes, suffix: str) -> Path:
+    fd, name = tempfile.mkstemp(prefix="plexrn-embed-", suffix=suffix)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+    return Path(name)
+
+
+@contextmanager
+def materialized_extras(entry, fetch_image_bytes, result, display_name):
+    """Yield (tags_path, cover_path) temp files for one embed_extras
+    entry; both may be None. Files are always deleted on exit. Problems
+    are warnings on *result*, never exceptions (metadata never fails a
+    job)."""
+    tags_path: Path | None = None
+    cover_path: Path | None = None
+    try:
+        xml = (entry or {}).get("tags_xml")
+        if xml:
+            try:
+                tags_path = _write_temp(str(xml).encode("utf-8"), ".xml")
+            except OSError as e:
+                result.errors.append(
+                    f"Could not stage tags for {display_name}: {e}")
+        tmdb_path = (entry or {}).get("cover_tmdb_path")
+        if tmdb_path:
+            data = None
+            fetch_failed = False
+            if fetch_image_bytes is not None:
+                try:
+                    data = fetch_image_bytes(tmdb_path)
+                except Exception as e:
+                    fetch_failed = True
+                    result.errors.append(
+                        f"Cover fetch failed for {display_name}: {e}")
+            if data:
+                try:
+                    cover_path = _write_temp(data, ".jpg")
+                except OSError as e:
+                    result.errors.append(
+                        f"Could not stage cover for {display_name}: {e}")
+            elif not fetch_failed:
+                # Only one warning per cover — the except above already
+                # recorded the failure when the fetch itself blew up.
+                result.errors.append(
+                    "Cover art unavailable (offline or uncached): "
+                    f"{display_name}")
+        yield tags_path, cover_path
+    finally:
+        for path in (tags_path, cover_path):
+            if path is not None:
+                path.unlink(missing_ok=True)
 
 
 def _resolve_target(
@@ -137,13 +192,13 @@ def execute_metadata_plan(
         except OSError as e:
             result.errors.append(f"Could not write {target.name}: {e}")
 
-    if plan.get("embed_title"):
-        _embed_titles(
+    if plan.get("embed_title") or plan.get("embed_extras"):
+        _embed_metadata(
             job, plan, result, output_root, output_boundary, top_dir_remap,
-            propedit_runner or run_mkvpropedit)
+            propedit_runner or run_mkvpropedit, fetch_image_bytes)
 
 
-def _embed_titles(
+def _embed_metadata(
     job,
     plan: dict,
     result: RenameResult,
@@ -151,18 +206,24 @@ def _embed_titles(
     output_boundary: Path,
     top_dir_remap: dict[Path, Path],
     runner: Callable[[list[str]], tuple[int, str]],
+    fetch_image_bytes: Callable[[str], bytes | None] | None,
 ) -> None:
-    """mkvpropedit title pass for plainly-renamed MKVs.
+    """mkvpropedit pass (title/tags/cover) for plainly-renamed MKVs.
 
-    Mux ops are excluded — REMUX outputs get their title via mkvmerge
-    --title during the mux. Non-MKV files are skipped (mkvpropedit is
+    Mux ops are excluded — REMUX outputs get their embeds via mkvmerge
+    flags during the mux. Non-MKV files are skipped (mkvpropedit is
     MKV-only).
     """
+    embed_title = bool(plan.get("embed_title"))
+    extras_by_op = {
+        e.get("op"): e for e in plan.get("embed_extras") or []
+    }
     ops = [
         op for op in job.rename_ops
         if op.selected and op.file_type == "video" and op.new_name
         and op.new_name.lower().endswith(".mkv") and not op.mux
         and (op.status == "OK" or op.status.startswith("REVIEW"))
+        and (embed_title or op.original_relative in extras_by_op)
     ]
     if not ops:
         return
@@ -172,7 +233,7 @@ def _embed_titles(
         located = find_mkvpropedit("")
         if located is None:
             result.errors.append(
-                "mkvpropedit is not available — embedded titles skipped")
+                "mkvpropedit is not available — embedded metadata skipped")
             return
         propedit = str(located)
 
@@ -188,13 +249,24 @@ def _embed_titles(
             continue
         if not target.exists():
             continue    # this op's rename failed/was skipped upstream
-        title = PurePath(op.new_name).stem
-        args = build_mkvpropedit_args(propedit, target, title=title)
-        try:
-            returncode, tail = runner(args)
-        except (OSError, subprocess.SubprocessError) as e:
-            result.errors.append(f"mkvpropedit failed for {target.name}: {e}")
-            continue
-        if returncode not in (0, 1):    # 1 = completed with warnings
-            result.errors.append(
-                f"mkvpropedit exited {returncode} for {target.name}: {tail}")
+
+        title = PurePath(op.new_name).stem if embed_title else None
+        entry = extras_by_op.get(op.original_relative)
+        with materialized_extras(
+                entry, fetch_image_bytes, result, op.new_name) as (
+                tags_path, cover_path):
+            if title is None and tags_path is None and cover_path is None:
+                continue
+            args = build_mkvpropedit_args(
+                propedit, target,
+                title=title, tags_path=tags_path, cover_path=cover_path)
+            try:
+                returncode, tail = runner(args)
+            except (OSError, subprocess.SubprocessError) as e:
+                result.errors.append(
+                    f"mkvpropedit failed for {target.name}: {e}")
+                continue
+            if returncode not in (0, 1):    # 1 = completed with warnings
+                result.errors.append(
+                    f"mkvpropedit exited {returncode} for {target.name}: "
+                    f"{tail}")
