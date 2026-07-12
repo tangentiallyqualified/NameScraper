@@ -57,5 +57,6 @@ def test_run_writes_changes_and_baseline_capped(synthetic_repo: Path):
         assert _diff.run(synthetic_repo, None) == 0
     changes = (synthetic_repo / "docs" / "audit" / "CHANGES.md").read_text(encoding="utf-8")
     assert changes.count("## Audit ") == 10  # capped
+    assert "\n\n\n" not in changes  # no blank-line growth between sections
     baseline = (synthetic_repo / "docs" / "audit" / "baseline.json")
     assert baseline.exists()

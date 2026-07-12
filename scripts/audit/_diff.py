@@ -92,8 +92,9 @@ def run(repo_root: Path, options) -> int:
         existing = changes_path.read_text(encoding="utf-8")
         body = existing.split("# Audit Change Log", 1)[-1].lstrip("\n")
     sections = re.split(r"(?=^## Audit )", body, flags=re.MULTILINE)
-    sections = [s for s in sections if s.strip()]
-    new_body = "\n\n".join([_section(repo_root, result, baseline, metrics)] + sections[: HISTORY_CAP - 1])
+    sections = [s.strip() for s in sections if s.strip()]
+    new_section = _section(repo_root, result, baseline, metrics).strip()
+    new_body = "\n\n".join([new_section] + sections[: HISTORY_CAP - 1])
     changes_path.parent.mkdir(parents=True, exist_ok=True)
     changes_path.write_text(header + new_body.rstrip() + "\n", encoding="utf-8")
 
