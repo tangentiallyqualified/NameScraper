@@ -92,11 +92,17 @@ def _run_radon(repo_root: Path, inventory: dict) -> tuple[list[dict], dict]:
 
 def _assess_dead_code(findings: list[dict], graph: dict) -> None:
     fan_in_by_symbol: dict[tuple[str, str], int] = {}
+    entrypoint_paths: set[str] = set()
     for mod in graph["modules"].values():
+        if mod.get("entrypoint"):
+            entrypoint_paths.add(mod["path"])
         for sym in mod["symbols"]:
             fan_in_by_symbol[(mod["path"], sym["name"])] = len(sym["imported_by"])
     for f in findings:
         if f["category"] != "dead-code":
+            continue
+        if f["path"] in entrypoint_paths:
+            f["assessment"] = "entrypoint"
             continue
         refs = fan_in_by_symbol.get((f["path"], f["symbol"] or ""))
         f["assessment"] = "high-confidence" if refs == 0 else "low-confidence"

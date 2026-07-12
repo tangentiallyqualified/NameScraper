@@ -150,3 +150,13 @@ def test_corrupt_contracts_degrades_not_aborts(synthetic_repo: Path):
     assert a["tool_status"]["contracts"]["ok"] is False
     assert a["tool_status"]["contracts"]["reason"]
     assert not [f for f in a["findings"] if f["category"] == "layer-violation"]
+
+
+def test_dead_code_in_entrypoint_module_protected(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
+        '"""Entry."""\n\n\ndef orphan() -> None:\n    """Unused."""\n    print("x")\n',
+        encoding="utf-8",
+    )
+    a = _analysis_for(synthetic_repo)
+    hits = [f for f in a["findings"] if f["category"] == "dead-code" and f["symbol"] == "orphan"]
+    assert hits and hits[0]["assessment"] == "entrypoint"

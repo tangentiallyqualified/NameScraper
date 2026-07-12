@@ -72,3 +72,26 @@ def test_external_imports_top_level_only(synthetic_repo: Path):
     )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.net"]["external_imports"] == ["collections", "urllib"]
+
+
+def test_entrypoint_modules_flagged(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
+        '"""Entry."""\n\n\ndef main() -> None:\n    """Run."""\n    print("hi")\n',
+        encoding="utf-8",
+    )
+    (synthetic_repo / "pyproject.toml").write_text(
+        '[project]\nname = "mini"\nversion = "0"\n\n[project.scripts]\nmini = "plex_renamer.beta:run"\n',
+        encoding="utf-8",
+    )
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
+    assert g["modules"]["plex_renamer.beta"]["entrypoint"] is True
+    assert g["modules"]["plex_renamer.alpha"]["entrypoint"] is False
+
+
+def test_no_pyproject_still_detects_dunder_main(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
+        '"""Entry."""\n', encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
+    assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False

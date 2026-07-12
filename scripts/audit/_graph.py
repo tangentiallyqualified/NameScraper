@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import tomllib
 from pathlib import Path
 
 from . import _artifacts
@@ -14,6 +15,22 @@ def _module_name(rel_posix: str) -> str:
     if parts[-1] == "__init__":
         parts = parts[:-1]
     return ".".join(parts)
+
+
+def _entrypoint_modules(repo_root: Path, module_names: set[str]) -> set[str]:
+    eps = {name for name in module_names
+           if name == "__main__" or name.endswith(".__main__")}
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            return eps
+        for target in data.get("project", {}).get("scripts", {}).values():
+            module = target.split(":", 1)[0].strip()
+            if module in module_names:
+                eps.add(module)
+    return eps
 
 
 def _resolve_relative(current_module: str, is_init: bool, level: int, module: str | None) -> str | None:
@@ -167,6 +184,10 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
     for name, mod in modules.items():
         for target in mod["imports"]:
             modules[target]["fan_in"] += 1
+
+    entrypoints = _entrypoint_modules(repo_root, set(modules))
+    for name, mod in modules.items():
+        mod["entrypoint"] = name in entrypoints
 
     for mod in modules.values():
         for sym in mod["symbols"]:
