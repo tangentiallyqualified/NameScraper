@@ -111,6 +111,24 @@ class MetadataSettingsPage(SettingsSectionCard):
         self._embed_title_cb = self._toggle(
             body, "Set the MKV title to the final name",
             "metadata_embed_title")
+        self._embed_cover_cb = self._toggle(
+            body, "Embed cover art", "metadata_embed_cover")
+        cover_note = QLabel(
+            "Attaches the poster inside each MKV (cover.jpg) so players "
+            "show a thumbnail. Adds a few hundred KB per file.")
+        cover_note.setProperty("cssClass", "caption")
+        cover_note.setWordWrap(True)
+        body.addWidget(cover_note)
+
+        self._embed_tags_cb = self._toggle(
+            body, "Embed tags", "metadata_embed_tags")
+        tags_note = QLabel(
+            "Writes title, episode numbers, date, synopsis, and genres "
+            "into the MKV container.")
+        tags_note.setProperty("cssClass", "caption")
+        tags_note.setWordWrap(True)
+        body.addWidget(tags_note)
+
         self._propedit_status = QLabel("")
         self._propedit_status.setProperty("cssClass", "caption")
         self._propedit_status.setWordWrap(True)
@@ -126,8 +144,8 @@ class MetadataSettingsPage(SettingsSectionCard):
         if found is None:
             self._propedit_status.setText(
                 "mkvpropedit was not found (it ships with MKVToolNix, next "
-                "to mkvmerge). Titles are skipped until it is available; "
-                "AutoMux jobs still embed titles during the mux.")
+                "to mkvmerge). Embedded metadata is skipped until it is "
+                "available; AutoMux jobs still embed during the mux.")
         else:
             self._propedit_status.setText(f"Found: {found}")
 
