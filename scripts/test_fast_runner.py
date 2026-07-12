@@ -128,21 +128,28 @@ def main() -> int:
     _write_logs(log_dir, result.stdout, result.stderr)
 
     if args.coverage:
-        import json as _json
-        import subprocess as _sp
-        from datetime import datetime, timezone
-        commit = None
-        try:
-            rev = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
-                          capture_output=True, text=True, timeout=15)
-            commit = rev.stdout.strip() or None if rev.returncode == 0 else None
-        except (OSError, _sp.SubprocessError):
-            pass
-        (repo_root / ".coverage.meta.json").write_text(
-            _json.dumps({"commit": commit,
-                         "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}),
-            encoding="utf-8",
-        )
+        meta_path = repo_root / ".coverage.meta.json"
+        if result.returncode != 0:
+            try:
+                meta_path.unlink()
+            except OSError:
+                pass
+        else:
+            import json as _json
+            import subprocess as _sp
+            from datetime import datetime, timezone
+            commit = None
+            try:
+                rev = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
+                              capture_output=True, text=True, timeout=15)
+                commit = rev.stdout.strip() or None if rev.returncode == 0 else None
+            except (OSError, _sp.SubprocessError):
+                pass
+            meta_path.write_text(
+                _json.dumps({"commit": commit,
+                             "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}),
+                encoding="utf-8",
+            )
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
     combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]

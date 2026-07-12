@@ -84,7 +84,8 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
 
 def run(repo_root: Path, options) -> int:
     fresh = bool(getattr(options, "with_coverage", False))
-    max_age = int(getattr(options, "coverage_max_age", 15) or 15)
+    raw_age = getattr(options, "coverage_max_age", None)
+    max_age = 15 if raw_age is None else int(raw_age)
     cov = collect_coverage(repo_root, fresh=fresh, max_age_commits=max_age)
     _artifacts.write_artifact(repo_root, "coverage", cov)
     if cov["available"]:
