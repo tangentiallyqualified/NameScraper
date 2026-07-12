@@ -177,6 +177,7 @@ class _ToastCard(QFrame):
         return max(self._line_height(), self._message_label.heightForWidth(width))
 
     def _sync_clamp(self) -> None:
+        before = self._body.height()
         collapsed = self._line_height() * _CLAMP_LINES + _scale.px(4)
         full = self._full_text_height()
         needs_clamp = full > collapsed
@@ -185,18 +186,20 @@ class _ToastCard(QFrame):
             self._expanded = False
             self._show_more_btn.setText("Show more")
             self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            self._body.setFixedHeight(full)
-            return
-        if self._expanded:
+            applied = full
+        elif self._expanded:
             window = self.window()
             cap = full
             if window is not None and window is not self:
                 cap = max(collapsed, int(window.height() * _EXPAND_WINDOW_FRACTION))
             self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            self._body.setFixedHeight(min(full, cap))
+            applied = min(full, cap)
         else:
             self._body.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            self._body.setFixedHeight(collapsed)
+            applied = collapsed
+        self._body.setFixedHeight(applied)
+        if self._body.height() != before:
+            self.layout_changed.emit()
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)

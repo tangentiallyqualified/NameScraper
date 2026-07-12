@@ -186,3 +186,52 @@ class ToastManagerDefaultTests(_ToastCardTestBase):
         card = manager._toast_widgets()[0]
         self.assertEqual(card._duration_ms, 0)
         host.close()
+
+    def test_second_toast_reposition_settles_to_current_sizehints(self):
+        """Manager and card geometry must settle to the cards' real sizeHints.
+
+        Regression for a stale-height race: `_sync_clamp` (fired from
+        resizeEvent/showEvent) recomputes a card's clamped body height
+        without notifying the manager, so `_reposition` can commit
+        container/card geometry from a pre-clamp `sizeHint()`. Reproduction:
+        add a second toast to an already-visible manager. Its initial
+        showEvent-driven clamp is delivered asynchronously (after
+        `show_toast()` returns), so the synchronous `_reposition()` pass
+        bakes in the card's *unclamped* sizeHint. Once the deferred clamp
+        lands during `processEvents()`, the card's real sizeHint shrinks
+        back down -- but with nothing telling the manager, its committed
+        geometry (and the card's actual assigned height) stay wrong
+        forever, leaving dead space and a mispositioned container.
+        """
+        from plex_renamer.gui_qt.widgets.toast_manager import ToastManager
+        from plex_renamer.gui_qt.widgets._toast_manager_layout import (
+            plan_toast_manager_geometry,
+        )
+
+        host = QWidget()
+        host.resize(800, 600)
+        manager = ToastManager(host)
+        host.show()
+        self._app.processEvents()
+
+        manager.show_toast(title="One", message=_LONG * 6, tone="accent")
+        self._app.processEvents()
+        card1 = manager._toast_widgets()[0]
+        card1._show_more_btn.click()
+        self._app.processEvents()
+
+        manager.show_toast(title="Two", message=_LONG * 6, tone="accent")
+        self._app.processEvents()
+
+        toasts = manager._toast_widgets()
+        spacing = manager._layout.spacing()
+        expected = plan_toast_manager_geometry(
+            host.width(),
+            host.height(),
+            toast_heights=[t.sizeHint().height() for t in toasts],
+            spacing=spacing,
+        )
+        self.assertEqual(manager.height(), expected.height)
+        for toast in toasts:
+            self.assertEqual(toast.height(), toast.layout().sizeHint().height())
+        host.close()
