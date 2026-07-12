@@ -78,6 +78,66 @@ def _tv_state(tmp_path):
     )
 
 
+def _tv_state_two(tmp_path):
+    """Two actionable episodes, each with a mergeable subtitle companion."""
+    lib = tmp_path / "lib"
+
+    def _item(name: str, ep: int) -> PreviewItem:
+        return PreviewItem(
+            original=lib / "Show" / f"{name}.mkv",
+            new_name=f"Show - S01E0{ep} - Ep.mkv",
+            target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
+            season=1, episodes=[ep], status="OK", media_type="tv",
+            companions=[CompanionFile(
+                original=lib / "Show" / f"{name}.eng.srt",
+                new_name=f"Show - S01E0{ep} - Ep.eng.srt",
+                file_type="subtitle")],
+        )
+
+    return ScanState(
+        folder=lib / "Show",
+        media_info={"id": 7, "name": "Show", "year": "2020"},
+        preview_items=[_item("a", 1), _item("b", 2)],
+        scanned=True, checked=True, relative_folder="Show",
+    )
+
+
+def test_per_episode_optout_excludes_only_that_file(tmp_path, monkeypatch):
+    """Spec §4b end-to-end: with plans for {0, 1} and mux_opt_outs={0}, the
+    baked job muxes index 1's file and leaves index 0 on a plain rename op."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    state = _tv_state_two(tmp_path)
+    state.mux_opt_outs = {0}
+    store = _FakeStore()
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    assert job.job_kind == JobKind.REMUX   # index 1 still muxes
+    video_ops = {
+        op.original_relative: op
+        for op in job.rename_ops
+        if op.file_type == "video"
+    }
+    a_rel = str(Path("Show/a.mkv"))
+    b_rel = str(Path("Show/b.mkv"))
+    assert video_ops[a_rel].mux is None        # opted out -> plain rename
+    assert video_ops[b_rel].mux is not None     # still muxed
+    # The opted-out episode's subtitle is NOT consumed by a mux, so it keeps
+    # its own rename op; the muxed one's subtitle is merged away.
+    originals = [op.original_relative for op in job.rename_ops]
+    assert str(Path("Show/a.eng.srt")) in originals
+    assert str(Path("Show/b.eng.srt")) not in originals
+
+
 def test_tv_batch_bakes_remux_job(tmp_path, monkeypatch):
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     store = _FakeStore()

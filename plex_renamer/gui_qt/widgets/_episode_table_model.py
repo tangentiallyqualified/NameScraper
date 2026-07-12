@@ -310,6 +310,11 @@ class EpisodeTableModel(QAbstractListModel):
             return None
         return self._entries[row].guide_row
 
+    def row_data_at(self, row: int) -> EpisodeRowData | None:
+        if row < 0 or row >= len(self._entries):
+            return None
+        return self._entries[row].row_data
+
     def row_for_preview_index(self, preview_index: int) -> int:
         for row, entry in enumerate(self._entries):
             if entry.preview_index == preview_index:

@@ -153,8 +153,10 @@ class QtSmokeBase(unittest.TestCase):
         return view.indexWidget(model.index(row, 0))
 
     def _card_action_button(self, card, action_id: str):
-        """The expansion card's QPushButton whose actionId property matches, or None."""
-        for button in card._action_buttons:
+        """The expansion card's QPushButton whose actionId property matches, or
+        None. Covers both the header parity strip (above-fold ids promoted next
+        to the pill, round5 §4a) and the below-fold actions row."""
+        for button in list(card._header_action_buttons) + list(card._action_buttons):
             if button.property("actionId") == action_id:
                 return button
         return None

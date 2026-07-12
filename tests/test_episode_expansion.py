@@ -311,6 +311,105 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         texts = [w.text() for w in card.findChildren(QLabel)]
         self.assertTrue(any("Subtitle Output" in t for t in texts))
 
+    # -- Round5 §4a header parity + §4b per-episode opt-out ---------------
+
+    def test_header_hosts_above_fold_actions_and_right_aligned_pill(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        review_row = guide.rows[1]   # Review, confidence 61%
+        card = EpisodeExpansionCard()
+        card.show_episode(
+            state, review_row, mux_plan=None, preview_index=0,
+            above_fold_ids=("approve", "reassign", "unassign"),
+        )
+        header_buttons = [b.property("actionId") for b in card.header_action_buttons()]
+        self.assertEqual(header_buttons, ["approve", "reassign", "unassign"])
+        below = [b.property("actionId") for b in card.action_buttons()]
+        self.assertNotIn("approve", below)
+        self.assertNotIn("reassign", below)
+        self.assertNotIn("unassign", below)
+        self.assertIn("assign_to_more", below)
+        # Pill mirrors the collapsed row's text and is the LAST widget in the
+        # header row (far right, after the above-fold buttons).
+        self.assertEqual(card.status_pill_text(), "REVIEW 61%")
+        header_row = card._header_row
+        self.assertIs(
+            header_row.itemAt(header_row.count() - 1).widget(), card._status_pill
+        )
+
+    def test_header_pill_uses_review_confidence_band_tone(self):
+        # Delegate parity: a 61% Review row lands in the mid band -> warning,
+        # not the flat Review tone (round5 §4a mirrors pill_tone bands).
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[1], above_fold_ids=("approve",))
+        self.assertEqual(card._status_pill.property("tone"), "warning")
+
+    def test_mux_optout_button_toggles_and_reflects_state(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        mapped_row = guide.rows[0]
+        plan = {
+            "track_decisions": [],
+            "subtitle_merges": [
+                {"action": "merge", "source_relative": "x.srt", "language": "eng"}
+            ],
+        }
+        state.mux_plans[0] = plan
+        card = EpisodeExpansionCard()
+        card.show_episode(state, mapped_row, mux_plan=state.mux_plans[0], preview_index=0)
+        button = card.mux_optout_button()
+        self.assertIsNotNone(button)
+        self.assertIn("Disable AutoMux", button.text())
+        state.mux_opt_outs.add(0)
+        card.show_episode(state, mapped_row, mux_plan=state.mux_plans[0], preview_index=0)
+        self.assertIn("Enable AutoMux", card.mux_optout_button().text())
+
+    def test_mux_optout_button_absent_without_plan(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[0], mux_plan=None, preview_index=0)
+        self.assertIsNone(card.mux_optout_button())
+
+    def test_mux_optout_button_click_emits_toggle_signal(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        plan = {"subtitle_merges": [
+            {"action": "merge", "source_relative": "x.srt", "language": "eng"}]}
+        state.mux_plans[0] = plan
+        card = EpisodeExpansionCard()
+        card.show_episode(state, guide.rows[0], mux_plan=plan, preview_index=0)
+        fired: list[bool] = []
+        card.mux_optout_toggled.connect(lambda: fired.append(True))
+        card.mux_optout_button().click()
+        self.assertEqual(fired, [True])
+
+    def test_episode_row_actions_vocabulary_is_frozen(self):
+        # The frozen contract: ids/order for every status must not change.
+        from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+
+        def ids(status):
+            row = EpisodeGuideRow(season=1, episode=1, title="X", status=status)
+            return [aid for aid, _ in episode_row_actions(row)]
+
+        self.assertEqual(ids("Missing File"), ["assign_file"])
+        self.assertEqual(
+            ids("Conflict"),
+            ["keep_this", "reassign", "assign_to_more", "unassign"],
+        )
+        self.assertEqual(
+            ids("Review"), ["approve", "reassign", "assign_to_more", "unassign"]
+        )
+        self.assertEqual(ids("Mapped"), ["reassign", "assign_to_more", "unassign"])
+
     def test_path_rows_bold_their_labels(self):
         from PySide6.QtWidgets import QLabel
 

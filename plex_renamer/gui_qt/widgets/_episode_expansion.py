@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app.models.state_models import EpisodeGuideRow
+from ...app.services.automux_service import plan_has_actions
 from ...engine import ScanState
 from .. import _scale
 from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
@@ -39,6 +40,35 @@ _PILL_TONE = {
     "Conflict": "error",
     "Missing File": "muted",
 }
+
+# Review-confidence band tones -- mirror _episode_table_delegate.pill_tone so
+# the expansion header pill matches the collapsed row's pill exactly.
+_PILL_BAND_HIGH_PCT, _PILL_BAND_MID_PCT = 85, 50
+
+
+def _percent_from_label(value: str) -> int | None:
+    """Parse a "NN%" confidence label to an int, mirroring the model helper."""
+    text = (value or "").strip()
+    if not text.endswith("%"):
+        return None
+    try:
+        return max(0, min(100, int(round(float(text[:-1])))))
+    except ValueError:
+        return None
+
+
+def _pill_tone_for(row: EpisodeGuideRow) -> str:
+    """Pill tone matching the collapsed-row delegate, including the Review
+    confidence bands (success/warning/error) rather than a flat warning."""
+    if row.status == "Review":
+        pct = _percent_from_label(row.confidence_label)
+        if pct is not None:
+            if pct >= _PILL_BAND_HIGH_PCT:
+                return "success"
+            if pct >= _PILL_BAND_MID_PCT:
+                return "warning"
+            return "error"
+    return _PILL_TONE.get(row.status, "muted")
 
 
 def _subtitle_is_merged(mux_plan: dict | None, subtitle) -> bool:
@@ -108,15 +138,22 @@ class EpisodeExpansionCard(QFrame):
     action_requested = Signal(str)
     collapse_requested = Signal()
     open_dir_requested = Signal(str)
+    # Per-episode AutoMux opt-out toggle (round5 spec §4b). A NEW signal path,
+    # deliberately separate from action_requested so the frozen
+    # episode_row_actions id vocabulary stays byte-identical.
+    mux_optout_toggled = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("cssClass", "expansion-card")
         self._action_buttons: list[QPushButton] = []
+        self._header_action_buttons: list[QPushButton] = []
+        self._mux_optout_button: QPushButton | None = None
         self._copy_buttons: list[QToolButton] = []
         self._open_dir_buttons: list[QToolButton] = []
         self._title_label: QLabel | None = None
         self._status_pill: QLabel | None = None
+        self._header_row: QHBoxLayout | None = None
         self._build_ui()
 
     def sizeHint(self) -> QSize:  # noqa: N802
@@ -167,6 +204,8 @@ class EpisodeExpansionCard(QFrame):
         self._header_widget = _CollapseHeader(self)
         top_row = QHBoxLayout(self._header_widget)
         top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(_scale.px(6))
+        self._header_row = top_row
         self._collapse_button = QToolButton()
         self._collapse_button.setText(_COLLAPSE_GLYPH)
         self._collapse_button.setProperty("cssClass", "expansion-collapse")
@@ -177,10 +216,13 @@ class EpisodeExpansionCard(QFrame):
         top_row.addWidget(self._collapse_button)
         self._title_label = QLabel("")
         top_row.addWidget(self._title_label)
+        # Header parity (round5 spec §4a): title, stretch, above-fold action
+        # buttons (inserted per-episode before the pill), then the status pill
+        # LAST so it right-aligns exactly like the collapsed row's pill.
+        top_row.addStretch()
         self._status_pill = QLabel("")
         self._status_pill.setProperty("cssClass", "status-pill")
         top_row.addWidget(self._status_pill)
-        top_row.addStretch()
         outer.addWidget(self._header_widget)
 
         self._actions_row = QHBoxLayout()
@@ -211,10 +253,17 @@ class EpisodeExpansionCard(QFrame):
     # -- Public API -------------------------------------------------------
 
     def show_episode(
-        self, state: ScanState, row: EpisodeGuideRow, *, mux_plan: dict | None = None
+        self,
+        state: ScanState,
+        row: EpisodeGuideRow,
+        *,
+        mux_plan: dict | None = None,
+        preview_index: int | None = None,
+        above_fold_ids: tuple[str, ...] = (),
     ) -> None:
         self._reset_content()
         self._apply_header(row)
+        self._build_header_actions(row, above_fold_ids)
         part_specs = self._multi_part_chip_specs(state, row)
         if part_specs:
             self._files_section.addWidget(_ChipStrip(part_specs, self))
@@ -239,7 +288,30 @@ class EpisodeExpansionCard(QFrame):
                 self._build_labeled_path(
                     "Subtitle Output", subtitle.new_name or "", open_dir=False
                 )
-        self._build_actions_row(episode_row_actions(row))
+        self._build_actions_row(
+            episode_row_actions(row),
+            above_fold_ids=above_fold_ids,
+            state=state,
+            mux_plan=mux_plan,
+            preview_index=preview_index,
+        )
+
+    # -- Test/introspection accessors -------------------------------------
+
+    def header_action_buttons(self) -> list[QPushButton]:
+        """Above-fold action buttons hosted in the header row (left of the
+        pill), in the order they were supplied."""
+        return list(self._header_action_buttons)
+
+    def action_buttons(self) -> list[QPushButton]:
+        """Below-fold action buttons (the ones NOT promoted to the header)."""
+        return list(self._action_buttons)
+
+    def status_pill_text(self) -> str:
+        return self._status_pill.text() if self._status_pill is not None else ""
+
+    def mux_optout_button(self) -> QPushButton | None:
+        return self._mux_optout_button
 
     def add_tracks_widget(self, widget: QWidget) -> None:
         """Insert the AutoMux tracks section after the file-path rows
@@ -258,16 +330,50 @@ class EpisodeExpansionCard(QFrame):
         if label.endswith("%") and row.status in ("Mapped", "Review"):
             pill_text = f"{pill_text} {label}"
         self._status_pill.setText(pill_text)
-        self._status_pill.setProperty("tone", _PILL_TONE.get(row.status, "muted"))
+        self._status_pill.setProperty("tone", _pill_tone_for(row))
         style = self._status_pill.style()
         if style is not None:
             style.unpolish(self._status_pill)
             style.polish(self._status_pill)
 
+    def _make_action_button(self, action_id: str, label: str) -> QPushButton:
+        button = QPushButton(label)
+        button.setProperty("actionId", action_id)
+        button.setProperty("cssClass", "primary" if action_id == "approve" else "secondary")
+        button.clicked.connect(
+            lambda _checked=False, aid=action_id: self.action_requested.emit(aid))
+        return button
+
+    def _build_header_actions(
+        self, row: EpisodeGuideRow, above_fold_ids: tuple[str, ...]
+    ) -> None:
+        """Promote the collapsed row's inline-strip actions into the header,
+        left of the status pill. Labels come from the frozen
+        ``episode_row_actions`` map so the header and below-fold rows share a
+        single label source."""
+        if not above_fold_ids or self._header_row is None:
+            return
+        labels = dict(episode_row_actions(row))
+        insert_at = self._header_row.count() - 1   # just before the pill
+        for action_id in above_fold_ids:
+            button = self._make_action_button(action_id, labels.get(action_id, action_id))
+            self._header_row.insertWidget(insert_at, button)
+            insert_at += 1
+            self._header_action_buttons.append(button)
+
     def _reset_content(self) -> None:
         self._action_buttons = []
         self._copy_buttons = []
         self._open_dir_buttons = []
+        self._mux_optout_button = None
+        # Header action buttons live in the shared header row (not their own
+        # layout), so drop them individually rather than clearing that row.
+        if self._header_row is not None:
+            for button in self._header_action_buttons:
+                self._header_row.removeWidget(button)
+                button.setParent(None)
+                button.deleteLater()
+        self._header_action_buttons = []
         self._clear_layout(self._files_section)
         self._clear_layout(self._target_row)
         self._clear_layout(self._actions_row)
@@ -315,13 +421,45 @@ class EpisodeExpansionCard(QFrame):
             for index in range(1, len(non_conflict) + 1)
         ]
 
-    def _build_actions_row(self, actions: list[tuple[str, str]]) -> None:
+    def _build_actions_row(
+        self,
+        actions: list[tuple[str, str]],
+        *,
+        above_fold_ids: tuple[str, ...] = (),
+        state: ScanState | None = None,
+        mux_plan: dict | None = None,
+        preview_index: int | None = None,
+    ) -> None:
         for action_id, label in actions:
-            button = QPushButton(label)
-            button.setProperty("actionId", action_id)
-            button.setProperty("cssClass", "primary" if action_id == "approve" else "secondary")
-            button.clicked.connect(lambda _checked=False, aid=action_id: self.action_requested.emit(aid))
+            if action_id in above_fold_ids:
+                continue    # already hosted in the header row
+            button = self._make_action_button(action_id, label)
             self._actions_row.addWidget(button)
             self._action_buttons.append(button)
 
+        self._maybe_add_optout_button(state, mux_plan, preview_index)
         self._actions_row.addStretch()
+
+    def _maybe_add_optout_button(
+        self, state: ScanState | None, mux_plan: dict | None, preview_index: int | None
+    ) -> None:
+        """Add the per-episode AutoMux opt-out toggle when this file has a
+        cached action-bearing plan (or is already opted out, so it can be
+        re-enabled). Session-scoped on ``state.mux_opt_outs`` -- no persistence."""
+        if state is None or preview_index is None:
+            return
+        opted_out = preview_index in state.mux_opt_outs
+        has_actions = bool(mux_plan) and plan_has_actions(mux_plan)
+        if not (has_actions or opted_out):
+            return
+        label = (
+            "Enable AutoMux for this episode"
+            if opted_out
+            else "Disable AutoMux for this episode"
+        )
+        button = QPushButton(label)
+        button.setProperty("actionId", "mux_optout")
+        button.setProperty("cssClass", "caution")
+        button.clicked.connect(lambda _checked=False: self.mux_optout_toggled.emit())
+        self._actions_row.addWidget(button)
+        self._mux_optout_button = button

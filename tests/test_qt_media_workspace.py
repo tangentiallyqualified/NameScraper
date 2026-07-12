@@ -2926,7 +2926,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # New API: the expansion card carries the Approve button plus reassign /
         # unassign actions for Review rows.
         self.assertIsNotNone(self._card_action_button(card, "approve"))
-        card_labels = [b.text() for b in card._action_buttons]
+        # Round5 §4a: Review above-fold actions (reassign/unassign) are hosted
+        # in the header parity strip; the card still carries them.
+        card_labels = [b.text() for b in (card._header_action_buttons + card._action_buttons)]
         self.assertIn("Reassign...", card_labels)
         self.assertIn("Unassign", card_labels)
 
@@ -2986,8 +2988,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         card = self._open_expansion_card(workspace, card_row)
         self.assertIsNotNone(card)
 
-        # New API: no per-row Fix button; reassign is an expansion-card action.
-        card_labels = [b.text() for b in card._action_buttons]
+        # New API: no per-row Fix button; reassign is an expansion-card action
+        # (round5 §4a hosts it in the header parity strip for Review rows).
+        card_labels = [b.text() for b in (card._header_action_buttons + card._action_buttons)]
         self.assertIn("Reassign...", card_labels)
 
         workspace.close()

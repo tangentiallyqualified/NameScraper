@@ -171,6 +171,32 @@ class MediaWorkspaceStateCoordinator:
         if guide_row is not None:
             workspace._action_coordinator.handle_episode_row_action(state, guide_row, action_id)
 
+    def _above_fold_ids(self, model, row: int) -> tuple[str, ...]:
+        """The collapsed row's inline-strip action ids, forwarded to the card
+        so the expansion header hosts the SAME buttons (single source of
+        truth: the model's row_data)."""
+        row_data = model.row_data_at(row)
+        if row_data is None:
+            return ()
+        return tuple(aid for aid, _label in row_data.inline_actions)
+
+    def _feed_card(self, card, state, guide_row, above_fold_ids) -> int | None:
+        """Populate an expansion card from the guide row, re-adding the
+        AutoMux tracks widget below the file paths. Returns the preview
+        index (None when the row has no primary file)."""
+        workspace = self._workspace
+        preview_index = _preview_index_for_row(state, guide_row)
+        mux_plan = state.mux_plans.get(preview_index) if preview_index is not None else None
+        card.show_episode(
+            state, guide_row, mux_plan=mux_plan,
+            preview_index=preview_index, above_fold_ids=above_fold_ids,
+        )
+        if preview_index is not None:
+            tracks = workspace._automux.tracks_widget_for(state, preview_index)
+            if tracks is not None:
+                card.add_tracks_widget(tracks)
+        return preview_index
+
     def expansion_card_for_index(self, index: QModelIndex):
         from ._episode_expansion import EpisodeExpansionCard
 
@@ -184,13 +210,9 @@ class MediaWorkspaceStateCoordinator:
         guide_row = model.guide_row_at(row)
         if guide_row is None:
             return None
-        preview_index = _preview_index_for_row(state, guide_row)
-        mux_plan = state.mux_plans.get(preview_index) if preview_index is not None else None
-        card.show_episode(state, guide_row, mux_plan=mux_plan)
-        if preview_index is not None:
-            tracks = workspace._automux.tracks_widget_for(state, preview_index)
-            if tracks is not None:
-                card.add_tracks_widget(tracks)
+        preview_index = self._feed_card(
+            card, state, guide_row, self._above_fold_ids(model, row)
+        )
         card.action_requested.connect(
             lambda action_id, s=state, r=guide_row: workspace._action_coordinator.handle_episode_row_action(
                 s, r, action_id
@@ -198,7 +220,30 @@ class MediaWorkspaceStateCoordinator:
         )
         card.collapse_requested.connect(self._close_expansion)
         card.open_dir_requested.connect(workspace._open_directory)
+        if preview_index is not None:
+            card.mux_optout_toggled.connect(
+                lambda s=state, pi=preview_index: workspace._action_coordinator.toggle_episode_mux_optout(
+                    s, pi
+                )
+            )
         return card
+
+    def refresh_expansion_card(self) -> None:
+        """Re-show the currently expanded row's card in place (e.g. after a
+        per-episode AutoMux opt-out toggle) so its opt-out button label and
+        header follow the fresh session state."""
+        workspace = self._workspace
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+        row = model.expanded_row()
+        if row is None:
+            return
+        card = view.indexWidget(model.index(row, 0))
+        state = model.state()
+        guide_row = model.guide_row_at(row)
+        if card is None or state is None or guide_row is None:
+            return
+        self._feed_card(card, state, guide_row, self._above_fold_ids(model, row))
 
     def update_preview_master_state(self, state: ScanState | None) -> None:
         self._workspace._work_panel.update_master_state(state)

@@ -457,6 +457,29 @@ class MediaWorkspaceActionCoordinator:
         workspace.refresh_from_controller()
         workspace.status_message.emit(message, 3000)
 
+    def toggle_episode_mux_optout(self, state: ScanState, preview_index: int) -> None:
+        """Flip this episode's session-scoped AutoMux opt-out (round5 §4b).
+
+        No persistence: the exclusion lives only on ``state.mux_opt_outs`` and
+        is honored at queue time by ``effective_mux_plans``. Refreshes the
+        collapsed rows' MUX pill, the roster chip, the header toggle button,
+        and the open expansion card so every surface follows immediately."""
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit(
+                "Finish or cancel the queued/scanning state first.", 3000,
+            )
+            return
+        if preview_index in state.mux_opt_outs:
+            state.mux_opt_outs.discard(preview_index)
+        else:
+            state.mux_opt_outs.add(preview_index)
+        workspace._work_panel.model.refresh_row_data(state)
+        workspace._automux._refresh_roster_row(state)
+        if state is workspace._selected_state():
+            workspace._automux.update_button(state)
+        workspace._state_coordinator.refresh_expansion_card()
+
     def prompt_assign_season(
         self,
         state: ScanState,

@@ -332,6 +332,173 @@ class AsyncPlanReflowTests(QtSmokeBase):
         workspace.close()
 
 
+class PerEpisodeMuxOptOutTests(QtSmokeBase):
+    """Round5 §4b: the expansion card's per-episode AutoMux opt-out button
+    records the exclusion on ScanState.mux_opt_outs and refreshes every
+    surface (collapsed row MUX pill, roster AutoMux chip)."""
+
+    @staticmethod
+    def _make_state():
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = Path("C:/library/tv/OptOut")
+        show_info = {"id": 303, "name": "OptOut Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        entry = table.add_file(folder / "Season 01" / "OptOut.S01E01.mkv")
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 303, "media_name": "OptOut Show"},
+        )
+        return state
+
+    def _make_settings(self):
+        from plex_renamer.app.services.settings_service import SettingsService
+
+        base = Path(self._main_window_tmp.name)
+        svc = SettingsService(base / "automux_optout.json")
+        svc.automux_merge_subs = True
+        svc.automux_merge_sub_languages = ["eng"]
+        exe = base / "mkvmerge.exe"
+        exe.write_bytes(b"")
+        svc.mkvmerge_path = str(exe)
+        return svc
+
+    @staticmethod
+    def _make_fake_media_ctrl(state):
+        class _FakeMediaController:
+            def __init__(self, s):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [s]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = state.folder.parent
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        return _FakeMediaController(state)
+
+    @staticmethod
+    def _first_expandable_row(model):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        for row in range(model.rowCount()):
+            data = model.index(row, 0).data(ROW_DATA_ROLE)
+            if data is not None and data.kind == "episode" and data.status_text != "Missing File":
+                return row
+        raise AssertionError("no expandable episode row found")
+
+    @staticmethod
+    def _action_plan():
+        # One stripped audio track -> plan_has_actions() is True.
+        return {
+            "output_name": "OptOut.S01E01.mkv",
+            "track_decisions": [
+                {"track_id": 0, "track_type": "video", "codec": "h264",
+                 "language": "und", "name": "", "keep": True,
+                 "make_default": True, "reason": "kept"},
+                {"track_id": 1, "track_type": "audio", "codec": "aac",
+                 "language": "jpn", "name": "", "keep": False,
+                 "make_default": False, "reason": "stripped"},
+            ],
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+
+    @staticmethod
+    def _roster_has_automux_chip(workspace, state):
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE as RRD
+
+        model = workspace._roster_panel.model
+        state_index = workspace._current_states().index(state)
+        row = model.row_for_state_index(state_index)
+        data = model.index(row, 0).data(RRD)
+        return any(chip.text == "AutoMux" for chip in data.chips)
+
+    def _expanded_workspace(self):
+        """Build a workspace whose selected show already has an action-bearing
+        AutoMux plan cached for preview index 0, then expand that row (so the
+        card is created with the plan present -- the normal warmed flow)."""
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state = self._make_state()
+        settings = self._make_settings()
+        ctrl = self._make_fake_media_ctrl(state)
+        # Drive the plan through the bridge directly; the real background probe
+        # would race a live worker against teardown.
+        no_probe = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: None)
+        no_probe.start()
+        self.addCleanup(no_probe.stop)
+
+        workspace = MediaWorkspace(
+            media_type="tv", media_controller=ctrl, settings_service=settings,
+        )
+        workspace.resize(760, 640)
+        workspace.show()
+        workspace.show_ready()
+        # Warmed plan lands before the user expands the row.
+        workspace._automux._bridge.plan_ready.emit(state, 0, self._action_plan(), "")
+        self._app.processEvents()
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+        row = self._first_expandable_row(model)
+        workspace._on_table_expand_requested(model.index(row, 0))
+        self._app.processEvents()
+        return workspace, state, view, model
+
+    def test_optout_button_excludes_file_and_drops_chips(self):
+        from plex_renamer.app.services import automux_service
+
+        workspace, state, view, model = self._expanded_workspace()
+
+        row = model.expanded_row()
+        self.assertTrue(automux_service.state_has_mux_actions(state))
+        self.assertTrue(model.row_data_at(row).mux_active)
+        self.assertTrue(self._roster_has_automux_chip(workspace, state))
+
+        card = view.indexWidget(model.index(row, 0))
+        button = card.mux_optout_button()
+        self.assertIsNotNone(button)
+        self.assertIn("Disable AutoMux", button.text())
+
+        button.click()
+        self._app.processEvents()
+
+        # The exclusion is recorded and every surface follows it.
+        self.assertEqual(state.mux_opt_outs, {0})
+        self.assertFalse(model.row_data_at(row).mux_active)
+        self.assertFalse(automux_service.state_has_mux_actions(state))
+        self.assertFalse(self._roster_has_automux_chip(workspace, state))
+        # The re-shown card now offers to re-enable AutoMux for this episode.
+        card = view.indexWidget(model.index(row, 0))
+        self.assertIn("Enable AutoMux", card.mux_optout_button().text())
+        workspace.close()
+
+
 class ExpansionCardHeaderTests(QtSmokeBase):
     """The expansion card must keep the episode title and status visible
     (R2 M3): the delegate stops painting the row when it expands, so the
