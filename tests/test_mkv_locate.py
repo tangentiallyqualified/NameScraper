@@ -18,7 +18,8 @@ def test_explicit_file_wins(tmp_path, monkeypatch):
 
 def test_explicit_directory_resolves_exe(tmp_path, monkeypatch):
     _no_which(monkeypatch)
-    exe = tmp_path / "mkvmerge.exe"
+    # Directory resolution appends the platform-specific binary name.
+    exe = tmp_path / _mkv_locate._EXE_NAME
     exe.write_bytes(b"")
     assert find_mkvmerge(str(tmp_path)) == exe
 
@@ -41,7 +42,7 @@ def test_program_files_fallback(tmp_path, monkeypatch):
     _no_which(monkeypatch)
     toolnix = tmp_path / "MKVToolNix"
     toolnix.mkdir()
-    exe = toolnix / "mkvmerge.exe"
+    exe = toolnix / _mkv_locate._EXE_NAME
     exe.write_bytes(b"")
     monkeypatch.setenv("ProgramFiles", str(tmp_path))
     monkeypatch.delenv("ProgramFiles(x86)", raising=False)

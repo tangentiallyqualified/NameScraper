@@ -7,6 +7,14 @@ from pathlib import Path
 from conftest_qt import QtSmokeBase
 from test_episode_table_model import _guide_state
 
+# A rename preview whose rendered width exceeds the 700px test view under any
+# font, so truncation checks don't depend on platform font metrics.
+_UNFITTABLE_RENAME = (
+    "Show - S01E02 - "
+    + "A Very Long Episode Title That Cannot Possibly Fit " * 20
+    + ".mkv"
+)
+
 
 class EpisodeTableDelegateTests(QtSmokeBase):
     def _view(self, state, guide):
@@ -642,9 +650,7 @@ class HelpEventTests(QtSmokeBase):
         # also be truncated and helpEvent would return True, so expansion is
         # the only thing this test can be asserting on.
         state, guide = _guide_state()
-        guide.rows[1].target_rename = (
-            "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
-        )
+        guide.rows[1].target_rename = _UNFITTABLE_RENAME
         view, model, delegate = self._view(state, guide, width=700)
         view.show()
         index = model.index(4, 0)
@@ -657,14 +663,11 @@ class HelpEventTests(QtSmokeBase):
     def test_help_event_shown_when_collapsed_and_truncated(self):
         # Row 4 ("Two") carries a four-button action strip (round5 Task 4:
         # the strip now shares the pill's top-anchored row and reserves
-        # horizontal text width), which alone squeezes the available title
-        # width down to a few pixels even at this width -- give it a long
-        # rename preview so the computed available width can't fit it ->
+        # horizontal text width), so the available title width is well under
+        # the 700px view -- give it a rename preview that cannot fit ->
         # helpEvent must show it.
         state, guide = _guide_state()
-        guide.rows[1].target_rename = (
-            "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
-        )
+        guide.rows[1].target_rename = _UNFITTABLE_RENAME
         view, model, delegate = self._view(state, guide, width=700)
         view.show()
         index = model.index(4, 0)
