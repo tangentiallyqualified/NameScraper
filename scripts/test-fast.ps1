@@ -1,5 +1,6 @@
 param(
     [switch]$VerbosePytest,
+    [switch]$Coverage,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$PytestArgs
 )
@@ -19,6 +20,9 @@ if (-not (Test-Path $python)) {
 $runnerArgs = @($runner)
 if ($VerbosePytest) {
     $runnerArgs += "--verbose-pytest"
+}
+if ($Coverage) {
+    $runnerArgs += "--coverage"
 }
 if ($null -ne $PytestArgs -and $PytestArgs.Count -gt 0) {
     $runnerArgs += $PytestArgs

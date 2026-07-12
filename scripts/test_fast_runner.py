@@ -10,6 +10,8 @@ from pathlib import Path
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the non-Qt (fast) test suite with concise reporting.")
     parser.add_argument("--verbose-pytest", action="store_true", help="Do not pass -q to pytest.")
+    parser.add_argument("--coverage", action="store_true",
+                        help="Run under coverage; writes .coverage and .coverage.meta.json at repo root.")
     parser.add_argument("pytest_args", nargs="*", help="Additional arguments forwarded to pytest.")
     return parser.parse_args()
 
@@ -74,8 +76,11 @@ def main() -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
     junit_log = log_dir / "latest.junit.xml"
 
-    command = [
-        str(python),
+    command = [str(python)]
+    if args.coverage:
+        command += ["-m", "coverage", "run", f"--data-file={repo_root / '.coverage'}",
+                    "--source=plex_renamer"]
+    command += [
         "-m",
         "pytest",
         "--ignore=tests/test_qt_main_window.py",
@@ -121,6 +126,23 @@ def main() -> int:
     )
 
     _write_logs(log_dir, result.stdout, result.stderr)
+
+    if args.coverage:
+        import json as _json
+        import subprocess as _sp
+        from datetime import datetime, timezone
+        commit = None
+        try:
+            rev = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
+                          capture_output=True, text=True, timeout=15)
+            commit = rev.stdout.strip() or None if rev.returncode == 0 else None
+        except OSError:
+            pass
+        (repo_root / ".coverage.meta.json").write_text(
+            _json.dumps({"commit": commit,
+                         "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}),
+            encoding="utf-8",
+        )
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
     combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]
