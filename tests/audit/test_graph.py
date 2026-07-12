@@ -57,3 +57,18 @@ def test_run_writes_artifact(synthetic_repo: Path):
     assert _graph.run(synthetic_repo, None) == 0
     data = _artifacts.read_artifact(synthetic_repo, "graph")
     assert "plex_renamer.alpha" in data["modules"]
+
+
+def test_external_imports_captured(synthetic_repo: Path):
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.alpha"]["external_imports"] == ["json"]
+    assert g["modules"]["plex_renamer.beta"]["external_imports"] == []
+
+
+def test_external_imports_top_level_only(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "net.py").write_text(
+        '"""Net."""\nimport urllib.request\nfrom collections import OrderedDict\n',
+        encoding="utf-8",
+    )
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.net"]["external_imports"] == ["collections", "urllib"]

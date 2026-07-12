@@ -125,6 +125,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         modules[name] = {
             "path": rec["path"], "doc": _first_doc_line(tree),
             "imports": [], "fan_in": 0, "fan_out": 0, "symbols": _symbols(tree),
+            "external_imports": [],
         }
 
     # symbol lookup for imported_by attribution
@@ -133,12 +134,18 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
     for name, tree in trees.items():
         is_init = modules[name]["path"].endswith("__init__.py")
         internal: set[str] = set()
+        external: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name.startswith(ROOT_PACKAGE):
                         internal.add(alias.name)
+                    else:
+                        external.add(alias.name.split(".")[0])
             elif isinstance(node, ast.ImportFrom):
+                if node.level == 0 and node.module and not node.module.startswith(ROOT_PACKAGE):
+                    external.add(node.module.split(".")[0])
+                    continue
                 target = (node.module if node.level == 0
                           else _resolve_relative(name, is_init, node.level, node.module))
                 if not target or not target.startswith(ROOT_PACKAGE):
@@ -155,6 +162,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         resolved = sorted(m for m in internal if m in modules and m != name)
         modules[name]["imports"] = resolved
         modules[name]["fan_out"] = len(resolved)
+        modules[name]["external_imports"] = sorted(external)
 
     for name, mod in modules.items():
         for target in mod["imports"]:
