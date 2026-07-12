@@ -55,3 +55,10 @@ def test_rerun_preserves_curated_prose(synthetic_repo: Path):
     overview_path.write_text("CURATED NOTE\n\n" + content, encoding="utf-8")
     _render_human.run(synthetic_repo, None)
     assert overview_path.read_text(encoding="utf-8").startswith("CURATED NOTE")
+
+
+def test_replace_generated_appends_when_markers_absent():
+    merged = _render_human.replace_generated("Just prose, no markers.", "metrics", "new table")
+    assert merged.startswith("Just prose, no markers.")
+    assert "audit:generated:start metrics" in merged
+    assert "new table" in merged

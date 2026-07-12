@@ -6,6 +6,8 @@ from pathlib import Path
 
 from . import _artifacts
 
+_package_of = _artifacts.package_of
+
 START = "<!-- audit:generated:start {name} -->"
 END = "<!-- audit:generated:end {name} -->"
 
@@ -20,11 +22,6 @@ def replace_generated(existing: str | None, section: str, body: str) -> str:
     if existing:
         return existing.rstrip() + "\n\n" + block + "\n"
     return block + "\n"
-
-
-def _package_of(path: str) -> str:
-    parts = Path(path).parts
-    return parts[1] if len(parts) > 2 else "root"
 
 
 def _mermaid_packages(graph: dict) -> str:

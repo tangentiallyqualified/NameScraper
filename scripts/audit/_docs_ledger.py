@@ -20,6 +20,14 @@ def load_ledger(repo_root: Path) -> list[dict]:
 def staleness(repo_root: Path, entries: list[dict]) -> list[dict]:
     report = []
     for entry in entries:
+        if not (isinstance(entry, dict) and isinstance(entry.get("path"), str)
+                and isinstance(entry.get("reviewed_commit"), str)
+                and isinstance(entry.get("sources"), list)):
+            path = entry.get("path", "?") if isinstance(entry, dict) else "?"
+            report.append({"path": str(path), "reviewed_commit": "?",
+                           "stale": True, "changed_sources": [],
+                           "error": "malformed ledger entry"})
+            continue
         changed = _artifacts.changed_files_since(repo_root, entry["reviewed_commit"], *entry["sources"])
         if changed is None:
             report.append({"path": entry["path"], "reviewed_commit": entry["reviewed_commit"],
@@ -36,8 +44,12 @@ def _render(repo_root: Path, report: list[dict], inventory: dict) -> str:
     if report:
         lines += ["| Doc | Reviewed at | Status |", "|---|---|---|"]
         for r in report:
-            status = ("STALE: " + ", ".join(f"`{c}`" for c in r["changed_sources"])
-                      if r["stale"] else "current")
+            if r["error"]:
+                status = f"UNKNOWN ({r['error']})"
+            elif r["stale"]:
+                status = "STALE: " + ", ".join(f"`{c}`" for c in r["changed_sources"])
+            else:
+                status = "current"
             lines.append(f"| `{r['path']}` | {r['reviewed_commit']} | {status} |")
     else:
         lines.append("_No docs enrolled. Add entries to docs/audit/doc-ledger.toml._")
