@@ -95,3 +95,13 @@ def test_no_pyproject_still_detects_dunder_main(synthetic_repo: Path):
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
     assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False
+
+
+def test_malformed_pyproject_schema_does_not_abort(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
+        '"""Entry."""\n', encoding="utf-8")
+    (synthetic_repo / "pyproject.toml").write_text(
+        'project = "not a table"\n', encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
+    assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False

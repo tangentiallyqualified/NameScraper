@@ -18,18 +18,24 @@ def _module_name(rel_posix: str) -> str:
 
 
 def _entrypoint_modules(repo_root: Path, module_names: set[str]) -> set[str]:
+    """Modules runnable directly: dunder-main files and [project.scripts] targets."""
     eps = {name for name in module_names
            if name == "__main__" or name.endswith(".__main__")}
     pyproject = repo_root / "pyproject.toml"
-    if pyproject.exists():
-        try:
-            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError):
-            return eps
-        for target in data.get("project", {}).get("scripts", {}).values():
+    if not pyproject.exists():
+        return eps
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        scripts = data.get("project", {}).get("scripts", {})
+        targets = scripts.values() if isinstance(scripts, dict) else []
+        for target in targets:
+            if not isinstance(target, str):
+                continue
             module = target.split(":", 1)[0].strip()
             if module in module_names:
                 eps.add(module)
+    except Exception:
+        return eps
     return eps
 
 
