@@ -39,7 +39,6 @@ def queue_selected_state(workspace, *, warning_box: Any = QMessageBox) -> None:
         # both media types: this function always acts on one selected state,
         # whether it is a movie or a TV show.
         workspace._set_state_checked(state, True)
-    state.checked = True
     try:
         queue_states(
             workspace,
@@ -49,7 +48,17 @@ def queue_selected_state(workspace, *, warning_box: Any = QMessageBox) -> None:
         )
     finally:
         if not state.queued:
-            state.checked = original_checked
+            if original_checked:
+                state.checked = True
+            else:
+                # The auto-check above was ours: unwind it through the same
+                # sync hook so the check_vars bindings (and the visible
+                # roster checkbox) revert together with the flag. Early
+                # returns inside queue_states (missing output folder,
+                # eligibility bail) and exceptions all land here without a
+                # refresh, so a bare flag reset would leave the checkbox
+                # visibly checked over an unchecked state.
+                workspace._set_state_checked(state, False)
 
 
 def queue_checked(

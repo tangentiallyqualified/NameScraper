@@ -4700,6 +4700,192 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_queue_selected_movie_reverts_auto_check_when_queue_fails(self):
+        """If the queue attempt bails after the auto-check, the revert must
+        unwind BOTH state.checked and the per-file check_vars bindings -
+        otherwise the roster checkbox stays visibly checked over an
+        unchecked state."""
+        from plex_renamer.gui_qt.widgets._media_workspace_queue_actions import (
+            queue_selected_state,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _ExplodingQueueController:
+            def __init__(self):
+                self.called = False
+
+            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+                self.called = True
+                raise RuntimeError("queue boom")
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        class _FakeWarningBox:
+            calls: list = []
+
+            @staticmethod
+            def warning(parent, title, text):
+                _FakeWarningBox.calls.append((title, text))
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
+            state = ScanState(
+                folder=Path("C:/library/movies/Arrival.2016"),
+                media_info={"id": 22, "title": "Arrival", "year": "2016"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                        new_name="Arrival (2016).mkv",
+                        target_dir=Path("C:/library/movies/Arrival (2016)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=22,
+                        media_name="Arrival",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.movie_library_states = [state]
+            queue_ctrl = _ExplodingQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertFalse(state.checked)
+
+            queue_selected_state(workspace, warning_box=_FakeWarningBox)
+
+            self.assertTrue(queue_ctrl.called)
+            self.assertEqual(len(_FakeWarningBox.calls), 1)
+            self.assertEqual(_FakeWarningBox.calls[0][0], "Queue Failed")
+            # Auto-check fully unwound: flag AND bindings back to False.
+            self.assertFalse(state.checked)
+            self.assertFalse(state.queued)
+            self.assertEqual(
+                {key: binding.get() for key, binding in state.check_vars.items()},
+                {"0": False},
+            )
+
+            workspace.close()
+
+    def test_queue_selected_show_auto_checks_unchecked_state(self):
+        """TV parity for round5 5a: 'Queue This Show' shares queue_selected_state
+        with the movie path, so an unchecked show is auto-checked too."""
+        from plex_renamer.gui_qt.widgets._media_workspace_queue_actions import (
+            queue_selected_state,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def __init__(self):
+                self.called_with = None
+                self.checked_at_call = None
+
+            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+                self.called_with = list(states)
+                self.checked_at_call = [state.checked for state in states]
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        class _FakeWarningBox:
+            calls: list = []
+
+            @staticmethod
+            def warning(parent, title, text):
+                _FakeWarningBox.calls.append((title, text))
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "tv-output"
+            output.mkdir()
+            settings.tv_output_folder = str(output)
+            state = ScanState(
+                folder=Path("C:/library/tv/Show.One.2024"),
+                media_info={"id": 101, "name": "Show One", "year": "2024"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/tv/Show.One.2024/Season 01/Show.One.S01E01.mkv"),
+                        new_name="Show One (2024) - S01E01 - Pilot.mkv",
+                        target_dir=Path("C:/library/tv/Show.One.2024/Season 01"),
+                        season=1,
+                        episodes=[1],
+                        status="OK",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.batch_states = [state]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="tv",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertFalse(state.checked)
+
+            queue_selected_state(workspace, warning_box=_FakeWarningBox)
+
+            self.assertEqual(queue_ctrl.called_with, [state])
+            self.assertEqual(queue_ctrl.checked_at_call, [True])
+            self.assertEqual(_FakeWarningBox.calls, [])
+
+            workspace.close()
+
     def test_media_workspace_movie_refresh_keeps_same_folder_movies_unique_after_approval(self):
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
