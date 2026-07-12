@@ -24,3 +24,10 @@ def test_overview_lists_dependency_issues(synthetic_repo: Path):
 def test_overview_dependency_section_clean_when_no_findings(synthetic_repo: Path):
     text = overview_for(synthetic_repo)  # no pyproject in synthetic repo
     assert "_None. Declared dependencies match imports._" in text
+
+
+def test_overview_lists_layer_violations(synthetic_repo: Path):
+    contracts = '[[forbid]]\nfrom = "plex_renamer.beta"\nto = "plex_renamer.alpha"\nreason = "layering"\n'
+    text = overview_for(synthetic_repo, contracts_text=contracts)
+    assert "## Layer contracts" in text
+    assert "forbidden by contract" in text

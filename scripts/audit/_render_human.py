@@ -83,6 +83,8 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
         "## Most depended upon\n\n| Module | Fan-in |\n|---|---|\n" + "\n".join(_top10(metrics, "fan_in")),
         "## Dependency issues\n\n"
         + _finding_list(analysis, "dependency", "_None. Declared dependencies match imports._"),
+        "## Layer contracts\n\n"
+        + _finding_list(analysis, "layer-violation", "_No violations._"),
         "## Dead-code review checklist\n\n" + _dead_checklist(analysis),
     ]
     commit = _artifacts.current_commit(repo_root) or "unknown"

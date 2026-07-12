@@ -152,6 +152,28 @@ def _dep_finding(rule: str, symbol: str, message: str) -> dict:
     }
 
 
+def _module_prefixed(module: str, prefix: str) -> bool:
+    return module == prefix or module.startswith(prefix + ".")
+
+
+def _check_contracts(graph: dict, contracts_text: str) -> list[dict]:
+    rules = tomllib.loads(contracts_text).get("forbid", [])
+    findings = []
+    for name, mod in sorted(graph["modules"].items()):
+        for target in mod["imports"]:
+            for rule in rules:
+                if _module_prefixed(name, rule["from"]) and _module_prefixed(target, rule["to"]):
+                    reason = rule.get("reason", "")
+                    findings.append({
+                        "source": "contracts", "rule": "forbidden-import",
+                        "path": mod["path"], "line": 1, "symbol": target,
+                        "message": f"{name} imports {target} - forbidden by contract "
+                                   f"{rule['from']} -> {rule['to']} ({reason})",
+                        "confidence": 100, "category": "layer-violation",
+                    })
+    return findings
+
+
 def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
     project = tomllib.loads(pyproject_text).get("project", {})
     runtime = {_normalize_dist(_req_name(r)) for r in project.get("dependencies", [])}
@@ -189,7 +211,8 @@ def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
 
 def run_analysis(repo_root: Path, inventory: dict, graph: dict,
                  allowlist_text: str | None = None,
-                 pyproject_text: str | None = None) -> dict:
+                 pyproject_text: str | None = None,
+                 contracts_text: str | None = None) -> dict:
     if allowlist_text is None:
         default = Path(__file__).parent / "allowlist.toml"
         allowlist_text = default.read_text(encoding="utf-8") if default.exists() else "ignore = []\n"
@@ -219,6 +242,17 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
         tool_status["deps"] = {"ok": True, "reason": None}
     except Exception as exc:
         tool_status["deps"] = {"ok": False, "reason": str(exc)[:200]}
+
+    try:
+        if contracts_text is None:
+            default_contracts = Path(__file__).parent / "contracts.toml"
+            contracts_text = (default_contracts.read_text(encoding="utf-8")
+                              if default_contracts.exists() else "")
+        if contracts_text:
+            findings.extend(_check_contracts(graph, contracts_text))
+        tool_status["contracts"] = {"ok": True, "reason": None}
+    except Exception as exc:
+        tool_status["contracts"] = {"ok": False, "reason": str(exc)[:200]}
 
     _assess_dead_code(findings, graph)
     _apply_allowlist(findings, allowlist_text)

@@ -54,7 +54,7 @@ def test_allowlist_marks_finding(synthetic_repo: Path):
 
 def test_tool_status_reported(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
-    assert set(a["tool_status"]) == {"ruff", "vulture", "radon", "deps"}
+    assert set(a["tool_status"]) == {"ruff", "vulture", "radon", "deps", "contracts"}
     assert all(v["ok"] for v in a["tool_status"].values())
 
 
@@ -113,3 +113,40 @@ def test_corrupt_pyproject_degrades_not_aborts(synthetic_repo: Path):
     assert a["tool_status"]["deps"]["ok"] is False
     assert a["tool_status"]["deps"]["reason"]
     assert not [f for f in a["findings"] if f["category"] == "dependency"]
+
+
+CONTRACTS_FAKE = '''\
+[[forbid]]
+from = "plex_renamer.beta"
+to = "plex_renamer.alpha"
+reason = "test rule"
+'''
+
+
+def test_contract_violation_reported(synthetic_repo: Path):
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    a = _analyze.run_analysis(synthetic_repo, inv, graph, contracts_text=CONTRACTS_FAKE)
+    hits = [f for f in a["findings"] if f["category"] == "layer-violation"]
+    assert len(hits) == 1
+    assert hits[0]["path"] == "plex_renamer/beta.py"
+    assert hits[0]["symbol"] == "plex_renamer.alpha"
+    assert "test rule" in hits[0]["message"]
+    assert a["tool_status"]["contracts"]["ok"] is True
+
+
+def test_contract_not_violated_in_allowed_direction(synthetic_repo: Path):
+    allowed = '[[forbid]]\nfrom = "plex_renamer.alpha"\nto = "plex_renamer.beta"\nreason = "reverse"\n'
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    a = _analyze.run_analysis(synthetic_repo, inv, graph, contracts_text=allowed)
+    assert not [f for f in a["findings"] if f["category"] == "layer-violation"]
+
+
+def test_corrupt_contracts_degrades_not_aborts(synthetic_repo: Path):
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    a = _analyze.run_analysis(synthetic_repo, inv, graph, contracts_text="not = valid [ toml")
+    assert a["tool_status"]["contracts"]["ok"] is False
+    assert a["tool_status"]["contracts"]["reason"]
+    assert not [f for f in a["findings"] if f["category"] == "layer-violation"]
