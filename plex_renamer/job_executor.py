@@ -30,7 +30,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ._job_execution_metadata import execute_metadata_plan
+from ._job_execution_metadata import execute_metadata_plan, materialized_extras
 from ._job_execution_remux import execute_remux_op
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
@@ -377,6 +377,7 @@ def _execute_remux(
     job: RenameJob,
     progress_cb=None,
     set_active_temp: Callable[[str | None], None] | None = None,
+    fetch_image_bytes: Callable[[str], bytes | None] | None = None,
 ) -> RenameResult:
     """Mixed-op REMUX job: plain moves first, then mkvmerge ops (spec §6/§7)."""
     plain_ops = [op for op in job.rename_ops if not op.mux]
@@ -390,21 +391,31 @@ def _execute_remux(
     total = len(mux_ops)
     embed_title = bool(
         job.metadata_plan and job.metadata_plan.get("embed_title"))
+    extras_by_op = {
+        e.get("op"): e
+        for e in ((job.metadata_plan or {}).get("embed_extras") or [])
+    }
     for index, op in enumerate(mux_ops):
         def _on_percent(percent, _index=index):
             if progress_cb is not None:
                 progress_cb(_index, total, percent)
 
         title = Path(op.new_name).stem if embed_title else None
-        execute_remux_op(
-            op,
-            source_root=Path(job.library_root),
-            output_root=Path(job.output_root),
-            result=result,
-            on_percent=_on_percent,
-            set_active_temp=set_active_temp,
-            title=title,
-        )
+        entry = extras_by_op.get(op.original_relative)
+        with materialized_extras(
+                entry, fetch_image_bytes, result, op.new_name) as (
+                tags_path, cover_path):
+            execute_remux_op(
+                op,
+                source_root=Path(job.library_root),
+                output_root=Path(job.output_root),
+                result=result,
+                on_percent=_on_percent,
+                set_active_temp=set_active_temp,
+                title=title,
+                tags_path=tags_path,
+                cover_path=cover_path,
+            )
     return result
 
 
@@ -830,7 +841,8 @@ class QueueExecutor:
             if job.job_kind == JobKind.REMUX:
                 result = executor_fn(
                     job, self._make_progress_cb(job),
-                    set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p))
+                    set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p),
+                    fetch_image_bytes=self._image_fetcher)
             else:
                 result = executor_fn(job, self._make_progress_cb(job))
 
