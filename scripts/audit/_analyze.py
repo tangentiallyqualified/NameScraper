@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 import tomllib
@@ -112,8 +113,83 @@ def _apply_allowlist(findings: list[dict], allowlist_text: str) -> None:
         )
 
 
+_REQ_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _normalize_dist(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _req_name(requirement: str) -> str:
+    m = _REQ_NAME.match(requirement.strip())
+    return m.group(0) if m else requirement.strip()
+
+
+def _dist_top_levels() -> dict[str, set[str]]:
+    """Normalized installed-distribution name -> top-level import names it provides."""
+    from importlib.metadata import packages_distributions
+
+    mapping: dict[str, set[str]] = {}
+    for top_level, dists in packages_distributions().items():
+        for dist in dists:
+            mapping.setdefault(_normalize_dist(dist), set()).add(top_level)
+    return mapping
+
+
+def _tops_for(deps: set[str], dist_tops: dict[str, set[str]]) -> set[str]:
+    tops: set[str] = set()
+    for dep in deps:
+        # fall back to a name guess when the distribution is not installed
+        tops |= dist_tops.get(dep, {dep.replace("-", "_")})
+    return tops
+
+
+def _dep_finding(rule: str, symbol: str, message: str) -> dict:
+    return {
+        "source": "deps", "rule": rule, "path": "pyproject.toml", "line": 1,
+        "symbol": symbol, "message": message, "confidence": 100,
+        "category": "dependency",
+    }
+
+
+def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
+    project = tomllib.loads(pyproject_text).get("project", {})
+    runtime = {_normalize_dist(_req_name(r)) for r in project.get("dependencies", [])}
+    dev: set[str] = set()
+    for reqs in project.get("optional-dependencies", {}).values():
+        dev |= {_normalize_dist(_req_name(r)) for r in reqs}
+
+    imported: set[str] = set()
+    for mod in graph["modules"].values():
+        imported |= set(mod.get("external_imports", []))
+    imported -= set(sys.stdlib_module_names)
+
+    dist_tops = _dist_top_levels()
+    findings = []
+    for dep in sorted(runtime):
+        if not (_tops_for({dep}, dist_tops) & imported):
+            findings.append(_dep_finding(
+                "unused-dependency", dep,
+                f"declared dependency '{dep}' is never imported by plex_renamer"))
+    runtime_tops = _tops_for(runtime, dist_tops)
+    dev_tops = _tops_for(dev, dist_tops)
+    for top in sorted(imported):
+        if top in runtime_tops:
+            continue
+        if top in dev_tops:
+            findings.append(_dep_finding(
+                "dev-dependency-in-prod", top,
+                f"'{top}' is imported by plex_renamer but only declared as a dev dependency"))
+        else:
+            findings.append(_dep_finding(
+                "undeclared-dependency", top,
+                f"'{top}' is imported by plex_renamer but not declared in pyproject.toml"))
+    return findings
+
+
 def run_analysis(repo_root: Path, inventory: dict, graph: dict,
-                 allowlist_text: str | None = None) -> dict:
+                 allowlist_text: str | None = None,
+                 pyproject_text: str | None = None) -> dict:
     if allowlist_text is None:
         default = Path(__file__).parent / "allowlist.toml"
         allowlist_text = default.read_text(encoding="utf-8") if default.exists() else "ignore = []\n"
@@ -133,6 +209,16 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
         tool_status["radon"] = {"ok": True, "reason": None}
     except Exception as exc:
         tool_status["radon"] = {"ok": False, "reason": str(exc)[:200]}
+
+    if pyproject_text is None:
+        pyproject_path = repo_root / "pyproject.toml"
+        pyproject_text = pyproject_path.read_text(encoding="utf-8") if pyproject_path.exists() else ""
+    try:
+        if pyproject_text:
+            findings.extend(_check_dependencies(graph, pyproject_text))
+        tool_status["deps"] = {"ok": True, "reason": None}
+    except Exception as exc:
+        tool_status["deps"] = {"ok": False, "reason": str(exc)[:200]}
 
     _assess_dead_code(findings, graph)
     _apply_allowlist(findings, allowlist_text)

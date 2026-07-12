@@ -58,6 +58,15 @@ def _dead_checklist(analysis: dict) -> str:
     return "\n".join(lines) if lines else "_No dead-code candidates. Clean._"
 
 
+def _finding_list(analysis: dict, category: str, empty: str) -> str:
+    lines = [
+        f"- `{f['path']}` {f['symbol'] or ''} ({f['rule']}) - {f['message']}"
+        for f in analysis.get("findings", [])
+        if f["category"] == category and not f.get("allowlisted")
+    ]
+    return "\n".join(lines) if lines else empty
+
+
 def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict) -> str:
     h = metrics["headline"]
     cov = f"{h['avg_coverage']}%" if h["avg_coverage"] is not None else "n/a"
@@ -72,6 +81,8 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
         "## Largest modules\n\n| Module | LOC |\n|---|---|\n" + "\n".join(_top10(metrics, "loc")),
         "## Most complex\n\n| Module | Max CC |\n|---|---|\n" + "\n".join(_top10(metrics, "max_complexity")),
         "## Most depended upon\n\n| Module | Fan-in |\n|---|---|\n" + "\n".join(_top10(metrics, "fan_in")),
+        "## Dependency issues\n\n"
+        + _finding_list(analysis, "dependency", "_None. Declared dependencies match imports._"),
         "## Dead-code review checklist\n\n" + _dead_checklist(analysis),
     ]
     commit = _artifacts.current_commit(repo_root) or "unknown"

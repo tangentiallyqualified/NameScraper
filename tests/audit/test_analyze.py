@@ -54,5 +54,53 @@ def test_allowlist_marks_finding(synthetic_repo: Path):
 
 def test_tool_status_reported(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
-    assert set(a["tool_status"]) == {"ruff", "vulture", "radon"}
+    assert set(a["tool_status"]) == {"ruff", "vulture", "radon", "deps"}
     assert all(v["ok"] for v in a["tool_status"].values())
+
+
+PYPROJECT_FAKE = '''\
+[project]
+name = "mini"
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+'''
+
+
+def _dep_rules(repo: Path) -> set[tuple[str, str]]:
+    inv = _inventory.build_inventory(repo)
+    graph = _graph.build_graph(repo, inv)
+    a = _analyze.run_analysis(repo, inv, graph, pyproject_text=PYPROJECT_FAKE)
+    return {(f["rule"], f["symbol"]) for f in a["findings"] if f["category"] == "dependency"}
+
+
+def test_unused_and_undeclared_dependencies(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "uses_tomlkit.py").write_text(
+        '"""Uses an undeclared package."""\nimport tomlkit\n', encoding="utf-8")
+    rules = _dep_rules(synthetic_repo)
+    assert ("unused-dependency", "requests") in rules
+    assert ("undeclared-dependency", "tomlkit") in rules
+
+
+def test_dev_dependency_in_prod(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "uses_pytest.py").write_text(
+        '"""Imports a dev-only tool."""\nimport pytest\n', encoding="utf-8")
+    assert ("dev-dependency-in-prod", "pytest") in _dep_rules(synthetic_repo)
+
+
+def test_stdlib_imports_not_flagged(synthetic_repo: Path):
+    # alpha imports json (stdlib); it must not appear as undeclared
+    assert not any(sym == "json" for _rule, sym in _dep_rules(synthetic_repo))
+
+
+def test_missing_pyproject_is_ok(synthetic_repo: Path):
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    a = _analyze.run_analysis(synthetic_repo, inv, graph)  # no pyproject in synthetic repo
+    assert a["tool_status"]["deps"]["ok"] is True
+    assert not [f for f in a["findings"] if f["category"] == "dependency"]
