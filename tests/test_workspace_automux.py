@@ -518,6 +518,53 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         row = model._build_row_data(state)
         self.assertNotIn("AutoMux", [chip.text for chip in row.chips])
 
+    # ── Task 3 (round5 §1b): warm-time work-panel refresh wiring ─────
+
+    def test_plan_ready_refreshes_work_panel_model_when_selected(self):
+        """_on_plan_ready must tell the work-panel's episode table model to
+        rebuild its row_data for the selected state, so a collapsed row's
+        MUX chip appears the moment a background plan lands -- no reselect
+        needed."""
+        from unittest.mock import patch
+
+        state = self._make_eligible_state()
+        coordinator, panel = self._button_fixture(
+            settings=self._make_settings(), state=state)
+        with patch.object(panel.model, "refresh_row_data") as mock_refresh:
+            coordinator._on_plan_ready(state, 0, dict(PLAN), "")
+        mock_refresh.assert_called_once_with(state)
+
+    def test_plan_ready_skips_work_panel_refresh_when_not_selected(self):
+        """A background plan can land for any warmed state, not just the
+        one currently shown -- refreshing the (unrelated) visible table
+        would be wasted work, so the refresh call is gated on selection,
+        same as update_button just above it."""
+        from unittest.mock import patch
+        from types import SimpleNamespace
+
+        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
+            MediaWorkspaceAutoMuxCoordinator,
+        )
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        state = self._make_eligible_state()
+        other_state = self._make_state()
+        panel = MediaWorkPanel(media_type="tv")
+        workspace = SimpleNamespace(
+            _settings=self._make_settings(),
+            _media_type="tv",
+            _media_ctrl=None,
+            _work_panel=panel,
+            _current_states=lambda: [state, other_state],
+            _selected_state=lambda: other_state,
+            _roster_panel=SimpleNamespace(model=_RosterModelStub()),
+        )
+        coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        self.addCleanup(_dispose_coordinator, coordinator)
+        with patch.object(panel.model, "refresh_row_data") as mock_refresh:
+            coordinator._on_plan_ready(state, 0, dict(PLAN), "")
+        mock_refresh.assert_not_called()
+
 
 class MoviePanelAutoMuxTests(QtSmokeBase):
     def test_set_automux_tracks_inserts_and_clears(self):

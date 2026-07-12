@@ -382,3 +382,50 @@ class EpisodeTableModelTests(QtSmokeBase):
         state, guide = _guide_state()
         model = self._model(state, guide)
         self.assertEqual(model.folder_section_key(), "folder-preview")
+
+
+# A plan that carries an actionable decision (mirrors PLAN in
+# test_workspace_automux.py, trimmed to what plan_has_actions() checks).
+_ACTION_PLAN = {
+    "track_decisions": [],
+    "subtitle_merges": [{"source_relative": "Show/a.eng.srt", "action": "merge",
+                          "language": "eng", "set_default": False}],
+}
+
+
+class MuxActiveRowDataTests(QtSmokeBase):
+    """Round5 spec 1b: EpisodeRowData.mux_active mirrors file_mux_active()."""
+
+    def _model(self, state, guide):
+        return EpisodeTableModelTests._model(self, state, guide)
+
+    def _row_data_for_status(self, model, status):
+        return EpisodeTableModelTests._row_data_for_status(self, model, status)
+
+    def test_episode_row_data_carries_mux_active(self):
+        state, guide = _guide_state()
+        # "One" (status Mapped) maps to preview_items[0] in _guide_state().
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+        model = self._model(state, guide)
+        row_data = self._row_data_for_status(model, "Mapped")
+        self.assertTrue(row_data.mux_active)
+
+        state.mux_opt_outs.add(0)
+        model = self._model(state, guide)
+        row_data = self._row_data_for_status(model, "Mapped")
+        self.assertFalse(row_data.mux_active)
+
+    def test_refresh_row_data_flips_mux_active_after_plan_lands(self):
+        """Warm-time refresh wiring (Task 3 step 5): mutating
+        state.mux_plans after the model is built and calling
+        refresh_row_data(state) must rebuild row_data so mux_active
+        reflects the newly-landed plan without a reselect."""
+        state, guide = _guide_state()
+        model = self._model(state, guide)
+        row_data = self._row_data_for_status(model, "Mapped")
+        self.assertFalse(row_data.mux_active)
+
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+        model.refresh_row_data(state)
+        row_data = self._row_data_for_status(model, "Mapped")
+        self.assertTrue(row_data.mux_active)

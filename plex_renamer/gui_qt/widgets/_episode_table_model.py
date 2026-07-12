@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Signal
 
 from ...app.models.state_models import EpisodeGuide, EpisodeGuideRow
+from ...app.services.automux_service import file_mux_active
 from ...engine import ScanState
 from ...thread_pool import submit as _submit_bg
 from ._formatting import clamped_percent
@@ -107,6 +108,7 @@ class EpisodeRowData:
     subtitle_name: str = ""        # real path of a matched external subtitle companion
     tooltip: str = ""
     inline_actions: tuple[tuple[str, str], ...] = ()   # (action_id, short label)
+    mux_active: bool = False   # this file's plan will actually mux (round5 §1b)
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,6 +382,35 @@ class EpisodeTableModel(QAbstractListModel):
             top_left = self.index(0, 0)
             bottom_right = self.index(len(self._entries) - 1, 0)
             self.dataChanged.emit(top_left, bottom_right, [ROW_DATA_ROLE])
+
+    def refresh_row_data(self, state: ScanState) -> None:
+        """Recompute mux_active for every entry currently shown for *state*
+        -- used when a background AutoMux plan lands (round5 Task 3) so a
+        collapsed row's MUX chip appears without the user reselecting the
+        row/state. A no-op when *state* isn't the one currently shown: a
+        warm can land for any scanned state, not just the selected one
+        (mirrors notify_expanded_row_changed's safe-no-op guard above).
+
+        Deliberately NOT a full self._rebuild(): that does beginResetModel/
+        endResetModel, which drops persistent editors and the expanded-row
+        sentinel -- it would silently collapse whatever row Task 8's async
+        reflow is keeping open. Recomputing row_data in place and emitting
+        a targeted dataChanged keeps that editor alive."""
+        if state is not self._state or not self._entries:
+            return
+        for row, entry in enumerate(self._entries):
+            # Only "episode" entries carry a real mux_active (the builder
+            # never computes it for movie-file rows); skipping other kinds
+            # keeps this in lockstep with a fresh _rebuild() instead of
+            # drifting a movie row's flag true until the next rebuild wipes it.
+            if entry.kind != "episode" or entry.preview_index is None:
+                continue
+            mux_active = file_mux_active(state, entry.preview_index)
+            if entry.row_data.mux_active == mux_active:
+                continue
+            self._entries[row] = replace(entry, row_data=replace(entry.row_data, mux_active=mux_active))
+            index = self.index(row, 0)
+            self.dataChanged.emit(index, index, [ROW_DATA_ROLE])
 
     # -- Internal rebuild helpers -----------------------------------------
 
@@ -795,6 +826,8 @@ class EpisodeTableModel(QAbstractListModel):
             subtitle_name=_subtitle_companion_name(row),
             tooltip=row.target_rename or "",
             inline_actions=_inline_actions_for(row, season_has_missing),
+            mux_active=(preview_index is not None
+                        and file_mux_active(state, preview_index)),
         )
         if not self._passes_search(row_data):
             return None

@@ -149,6 +149,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         self._refresh_roster_row(state)
         if state is self._workspace._selected_state():
             self.update_button(state)
+            self._workspace._work_panel.model.refresh_row_data(state)
 
     def _refresh_widget(self, state, index: int) -> None:
         key = (id(state), index)

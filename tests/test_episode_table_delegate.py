@@ -339,6 +339,70 @@ class PillConfidenceTests(QtSmokeBase):
         self.assertEqual(d.pill_text(r), "Mapped 93%")
 
 
+class MuxChipTests(QtSmokeBase):
+    """Round5 spec 1b: collapsed-row MUX chip painted left of the pill."""
+
+    def _delegate(self):
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import (
+            EpisodeTableDelegate, EpisodeTableView,
+        )
+        view = EpisodeTableView()
+        return EpisodeTableDelegate(view, media_type="tv")
+
+    def _row(self, **kw):
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        base = dict(kind="episode", title="S01E01 · Pilot", status_text="Mapped",
+                    status_tone="success", confidence_pct=93, mux_active=True)
+        base.update(kw)
+        return EpisodeRowData(**base)
+
+    def test_mux_chip_painted_left_of_pill_when_active(self):
+        from PySide6.QtCore import QRect
+
+        d = self._delegate()
+        option_rect = QRect(0, 0, 600, 52)
+        metrics = d._view.fontMetrics()
+        row_data = self._row(mux_active=True)
+        chip = d.mux_chip_rect(option_rect, row_data, metrics)
+        pill = d._pill_rect(option_rect, row_data, metrics)
+        self.assertTrue(chip.isValid())
+        self.assertLess(chip.right(), pill.x())
+
+        inactive = self._row(mux_active=False)
+        self.assertFalse(d.mux_chip_rect(option_rect, inactive, metrics).isValid())
+
+    def test_mux_chip_sits_left_of_legacy_inline_action(self):
+        """Missing File rows keep their legacy inline-action button left of
+        the pill; the chip must sit further left of that button, not just
+        the pill (brief: reuse inline_action_rects' left-anchor logic)."""
+        from PySide6.QtCore import QRect
+
+        d = self._delegate()
+        option_rect = QRect(0, 0, 600, 52)
+        metrics = d._view.fontMetrics()
+        row_data = self._row(status_text="Missing File", status_tone="muted",
+                              confidence_pct=None, mux_active=True)
+        chip = d.mux_chip_rect(option_rect, row_data, metrics)
+        action_rect = d.inline_action_rects(option_rect, row_data)[0][1]
+        self.assertTrue(chip.isValid())
+        self.assertLess(chip.right(), action_rect.x())
+
+    def test_text_right_edge_stops_before_mux_chip(self):
+        from PySide6.QtCore import QRect
+
+        d = self._delegate()
+        option_rect = QRect(0, 0, 600, 52)
+        metrics = d._view.fontMetrics()
+        active = self._row(mux_active=True)
+        inactive = self._row(mux_active=False)
+        chip = d.mux_chip_rect(option_rect, active, metrics)
+        self.assertLess(d.text_right_edge(option_rect, active, metrics), chip.x())
+        self.assertGreater(
+            d.text_right_edge(option_rect, inactive, metrics),
+            d.text_right_edge(option_rect, active, metrics),
+        )
+
+
 class StatusWashTests(QtSmokeBase):
     def test_status_wash_tokens_cover_review_and_conflict(self):
         from plex_renamer.gui_qt.widgets._episode_table_delegate import _STATUS_WASH

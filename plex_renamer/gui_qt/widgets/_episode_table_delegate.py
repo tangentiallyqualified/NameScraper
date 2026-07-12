@@ -151,6 +151,31 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         y = option_rect.y() + (option_rect.height() - height) // 2
         return QRect(x, y, width, height)
 
+    def _left_anchor(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
+        """X coordinate of the leftmost pill/legacy-action rect on the row --
+        the anchor the MUX chip (and text_right_edge) sit left of."""
+        anchor = self._pill_rect(option_rect, row_data, metrics).x()
+        if _is_legacy_action_row(row_data):
+            rects = self.inline_action_rects(option_rect, row_data)
+            if rects and rects[0][1].isValid():
+                anchor = min(anchor, rects[0][1].x())
+        return anchor
+
+    def mux_chip_rect(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> QRect:
+        """Compact 'MUX' chip rect, sat left of the pill (and legacy inline
+        action, when present) -- invalid QRect() when the row's file will
+        not actually be muxed (round5 §1b)."""
+        if not row_data.mux_active:
+            return QRect()
+        text = "MUX"
+        pad = _scale.px(_PILL_HPAD_U)
+        height = _scale.px(_PILL_H_U)
+        margin = _scale.px(_MARGIN_U)
+        width = metrics.horizontalAdvance(text) + 2 * pad
+        x = self._left_anchor(option_rect, row_data, metrics) - margin - width
+        y = option_rect.y() + (option_rect.height() - height) // 2
+        return QRect(x, y, width, height)
+
     def inline_action_rects(self, option_rect: QRect, row_data: EpisodeRowData) -> list[tuple[str, QRect]]:
         """Hit/paint rects for the row's inline action button(s).
 
@@ -184,16 +209,15 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return rects
 
     def text_right_edge(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
-        """X coordinate the row's text lines must not cross: the pill, or the
-        legacy inline action button when the row has one. Action-strip
-        buttons live on their own bottom row and never constrain the text
-        width, so only the legacy placement is considered here."""
-        pill = self._pill_rect(option_rect, row_data, metrics)
-        right = pill.x()
-        if _is_legacy_action_row(row_data):
-            rects = self.inline_action_rects(option_rect, row_data)
-            if rects and rects[0][1].isValid():
-                right = min(right, rects[0][1].x())
+        """X coordinate the row's text lines must not cross: the pill, the
+        legacy inline action button when the row has one, or the MUX chip
+        when the row's file will be muxed. Action-strip buttons live on
+        their own bottom row and never constrain the text width, so only
+        the legacy placement is considered here."""
+        right = self._left_anchor(option_rect, row_data, metrics)
+        chip = self.mux_chip_rect(option_rect, row_data, metrics)
+        if chip.isValid():
+            right = min(right, chip.x())
         return right - _scale.px(_MARGIN_U)
 
     # -- Tooltip -------------------------------------------------------------
@@ -454,6 +478,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
                 painter.drawText(third_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), sub_text)
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
+        self._paint_mux_chip(painter, self.mux_chip_rect(option.rect, row_data, metrics))
 
         labels = dict(_row_inline_actions(row_data))
         for action_id, rect in self.inline_action_rects(option.rect, row_data):
@@ -499,6 +524,22 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.drawRoundedRect(pill_rect, radius, radius)
         painter.setPen(theme.qcolor(tone_token))
         painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), text.upper())
+        painter.restore()
+
+    def _paint_mux_chip(self, painter: QPainter, chip_rect: QRect) -> None:
+        """Compact 'MUX' chip -- same visual language as _paint_pill but a
+        fixed "info" tone (matches the roster AutoMux chip, _roster_model.py)."""
+        if not chip_rect.isValid():
+            return
+        fill = theme.qcolor("info")
+        fill.setAlphaF(0.12)
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(fill)
+        radius = theme.radius("pill")
+        painter.drawRoundedRect(chip_rect, radius, radius)
+        painter.setPen(theme.qcolor("info"))
+        painter.drawText(chip_rect, int(Qt.AlignmentFlag.AlignCenter), "MUX")
         painter.restore()
 
 
