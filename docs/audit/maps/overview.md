@@ -74,6 +74,55 @@ graph LR
 | `plex_renamer/gui_qt/widgets/_media_helpers.py` | 12 |
 | `plex_renamer/thread_pool.py` | 12 |
 
+## Dependency issues
+
+_None. Declared dependencies match imports._
+
+## Layer contracts
+
+- `plex_renamer/engine/_batch_orchestrators.py` plex_renamer.app.services (forbidden-import) - plex_renamer.engine._batch_orchestrators imports plex_renamer.app.services - forbidden by contract plex_renamer.engine -> plex_renamer.app (engine is the bottom layer - orchestration imports engine, not the reverse)
+- `plex_renamer/engine/_movie_scanner.py` plex_renamer.app.services (forbidden-import) - plex_renamer.engine._movie_scanner imports plex_renamer.app.services - forbidden by contract plex_renamer.engine -> plex_renamer.app (engine is the bottom layer - orchestration imports engine, not the reverse)
+
+## External effects
+
+| Module | Effects |
+|---|---|
+| `plex_renamer/__main__.py` | env |
+| `plex_renamer/_job_execution_filesystem.py` | file-delete, file-move, file-write |
+| `plex_renamer/_job_execution_metadata.py` | file-delete, file-move, file-write, subprocess |
+| `plex_renamer/_job_execution_remux.py` | file-delete, file-move, file-write, subprocess |
+| `plex_renamer/_job_path_propagation.py` | file-move |
+| `plex_renamer/_lang_normalize.py` | file-move |
+| `plex_renamer/_mkv_locate.py` | env |
+| `plex_renamer/_mkv_probe.py` | subprocess |
+| `plex_renamer/_parsing_names.py` | file-move |
+| `plex_renamer/_parsing_titles.py` | file-move |
+| `plex_renamer/_tmdb_image_cache.py` | file-move |
+| `plex_renamer/_tmdb_transport.py` | network |
+| `plex_renamer/app/controllers/_job_projection_helpers.py` | file-move |
+| `plex_renamer/app/controllers/_movie_state_helpers.py` | file-move |
+| `plex_renamer/app/services/cache_service.py` | file-move |
+| `plex_renamer/app/services/metadata_service.py` | file-move |
+| `plex_renamer/app/services/movie_library_discovery_service.py` | file-move |
+| `plex_renamer/app/services/settings_service.py` | file-move, file-write |
+| `plex_renamer/app/services/tv_library_discovery_service.py` | file-move |
+| `plex_renamer/constants.py` | file-write |
+| `plex_renamer/engine/_batch_orchestrators.py` | file-move |
+| `plex_renamer/engine/_batch_tv_duplicates.py` | file-move |
+| `plex_renamer/engine/_episode_resolution.py` | file-move |
+| `plex_renamer/engine/_queue_bridge.py` | file-move |
+| `plex_renamer/engine/_rename_execution.py` | file-delete, file-move, file-write |
+| `plex_renamer/gui_qt/app.py` | env |
+| `plex_renamer/gui_qt/widgets/_automux_tracks.py` | file-move |
+| `plex_renamer/gui_qt/widgets/_episode_expansion.py` | file-move |
+| `plex_renamer/gui_qt/widgets/_media_helpers.py` | file-move |
+| `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` | network |
+| `plex_renamer/gui_qt/widgets/status_chip.py` | file-move |
+| `plex_renamer/job_executor.py` | file-delete, file-move, file-write |
+| `plex_renamer/job_store.py` | file-delete |
+| `plex_renamer/keys.py` | file-write |
+| `plex_renamer/tmdb.py` | file-move |
+
 ## Dead-code review checklist
 
 - [ ] `plex_renamer/_job_store_db.py:58` row_factory (low-confidence)
@@ -256,5 +305,5 @@ graph LR
 - [ ] `plex_renamer/job_store.py:658` get_queued_tmdb_ids (low-confidence)
 - [ ] `plex_renamer/tmdb.py:110` _get (low-confidence)
 
-_Generated at commit b57f426 by scripts\audit.cmd._
+_Generated at commit 0a637a3 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->
