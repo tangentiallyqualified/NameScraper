@@ -1,4 +1,4 @@
-<!-- Generated at commit a491dc2; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated at commit 9964529; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -110,11 +110,11 @@
 - `run_tv_scan(state, tmdb, scanner_factory, duplicate_checker) -> None` (used by: plex_renamer.app.controllers._single_show_scan_helpers)
 
 ### `plex_renamer/app/controllers/media_controller.py` — UI-neutral orchestration of TV and movie scanning sessions.
-- `MediaController` — UI-neutral orchestration of TV and movie scanning sessions. (used by: plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
+- `MediaController` — UI-neutral orchestration of TV and movie scanning sessions. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
 - Tests: tests/test_media_controller.py
 
 ### `plex_renamer/app/controllers/queue_controller.py` — UI-neutral job queue management.
-- `QueueController` — UI-neutral job queue management. (used by: plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
+- `QueueController` — UI-neutral job queue management. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
 - Tests: tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py
 
 ### `plex_renamer/app/models/__init__.py` — Typed application-layer models shared across controllers and services.
@@ -122,22 +122,22 @@
 
 ### `plex_renamer/app/models/state_models.py` — Structured application-layer state models used by Phase 1 services.
 - `utc_now_iso() -> str` — Return the current UTC time as an ISO-8601 string.
-- `ScanLifecycle` — Normalized scan lifecycle states for UI-neutral progress reporting. (used by: plex_renamer.app.models)
-- `RefreshState` — Freshness state for cached metadata and scan snapshots. (used by: plex_renamer.app.models)
-- `QueueCommandState` — State model for queue command gating. (used by: plex_renamer.app.models)
-- `TVDirectoryRole` — Directory classification used during nested batch-TV discovery. (used by: plex_renamer.app.models)
-- `ScanProgress` — Structured progress payload replacing free-form status strings. (used by: plex_renamer.app.models)
-- `CacheEntry` — A persisted cache entry with freshness and eviction metadata. (used by: plex_renamer.app.models)
-- `CacheLookup` — Result of a cache lookup with the resolved freshness state. (used by: plex_renamer.app.models)
-- `QueueEligibility` — Queue gating result for a single item set or scan state. (used by: plex_renamer.app.models)
-- `EpisodeGuideSummary` (used by: plex_renamer.app.models)
-- `EpisodeGuideRow` (used by: plex_renamer.app.models, plex_renamer.gui_qt.widgets._episode_expansion, plex_renamer.gui_qt.widgets._episode_table_model)
-- `UnmappedFileRow` (used by: plex_renamer.app.models)
-- `EpisodeSlotChoice` — One pickable episode slot for the assignment dialog. (used by: plex_renamer.app.models, plex_renamer.gui_qt.widgets.episode_assign_dialog)
-- `EpisodeGuide` (used by: plex_renamer.app.models, plex_renamer.gui_qt.widgets._episode_table_model)
-- `TVDiscoveryCandidate` — A discovered TV show root found during recursive library traversal. (used by: plex_renamer.app.models)
-- `MovieDirectoryRole` — Directory classification used during nested batch-movie discovery. (used by: plex_renamer.app.models)
-- `MovieDiscoveryCandidate` — A discovered movie root or multi-movie folder found during recursive library traversal. (used by: plex_renamer.app.models)
+- `ScanLifecycle` — Normalized scan lifecycle states for UI-neutral progress reporting. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.controllers._controller_lifecycle_workflow, plex_renamer.app.controllers._controller_state_helpers, plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._scan_operation_helpers, plex_renamer.app.controllers._single_show_scan_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.models, plex_renamer.gui_qt._main_window_scan, plex_renamer.gui_qt.widgets.scan_progress)
+- `RefreshState` — Freshness state for cached metadata and scan snapshots. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.cache_service, plex_renamer.app.services.refresh_policy_service)
+- `QueueCommandState` — State model for queue command gating. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.command_gating_service)
+- `TVDirectoryRole` — Directory classification used during nested batch-TV discovery. (used by: plex_renamer.app.models, plex_renamer.app.services._tv_library_classification, plex_renamer.app.services.tv_library_discovery_service)
+- `ScanProgress` — Structured progress payload replacing free-form status strings. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.controllers._controller_lifecycle_workflow, plex_renamer.app.controllers._scan_operation_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.models, plex_renamer.gui_qt._main_window_bridges, plex_renamer.gui_qt._main_window_scan, plex_renamer.gui_qt.main_window)
+- `CacheEntry` — A persisted cache entry with freshness and eviction metadata. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.cache_service)
+- `CacheLookup` — Result of a cache lookup with the resolved freshness state. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.cache_service)
+- `QueueEligibility` — Queue gating result for a single item set or scan state. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.app.models, plex_renamer.app.services.command_gating_service)
+- `EpisodeGuideSummary` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
+- `EpisodeGuideRow` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.gui_qt.widgets._episode_expansion, plex_renamer.gui_qt.widgets._episode_table_model)
+- `UnmappedFileRow` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
+- `EpisodeSlotChoice` — One pickable episode slot for the assignment dialog. (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.gui_qt.widgets.episode_assign_dialog)
+- `EpisodeGuide` (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model)
+- `TVDiscoveryCandidate` — A discovered TV show root found during recursive library traversal. (used by: plex_renamer.app.models, plex_renamer.app.services.tv_library_discovery_service)
+- `MovieDirectoryRole` — Directory classification used during nested batch-movie discovery. (used by: plex_renamer.app.models, plex_renamer.app.services._movie_library_classification, plex_renamer.app.services.movie_library_discovery_service)
+- `MovieDiscoveryCandidate` — A discovered movie root or multi-movie folder found during recursive library traversal. (used by: plex_renamer.app.models, plex_renamer.app.services.movie_library_discovery_service)
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_qt_media_workspace.py, tests/test_work_panel.py
 
 ### `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services.
@@ -171,11 +171,11 @@
 - Tests: tests/test_automux_service.py
 
 ### `plex_renamer/app/services/cache_service.py` — Persistent metadata cache with freshness tracking and bounded eviction.
-- `PersistentCacheService` — SQLite-backed cache for persisted metadata and scan-related state. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window)
+- `PersistentCacheService` — SQLite-backed cache for persisted metadata and scan-related state. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window)
 - Tests: tests/conftest_qt.py, tests/test_cache_service.py, tests/test_media_controller.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_settings_longpath.py, tests/test_settings_tab_cache.py, tests/test_tmdb.py
 
 ### `plex_renamer/app/services/command_gating_service.py` — Queue command gating extracted from widget click handlers.
-- `CommandGatingService` — Compute queue eligibility independently of any GUI toolkit. (used by: plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_helpers, plex_renamer.gui_qt.widgets._media_workspace_actions, plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._media_workspace_sync)
+- `CommandGatingService` — Compute queue eligibility independently of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_helpers, plex_renamer.gui_qt.widgets._media_workspace_actions, plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._media_workspace_sync)
 - Tests: tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_submission_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections.
@@ -197,7 +197,7 @@
 - Tests: tests/test_metadata_embed_extras.py, tests/test_metadata_local_inventory.py, tests/test_metadata_service.py, tests/test_queue_metadata_wiring.py
 
 ### `plex_renamer/app/services/movie_library_discovery_service.py` — Recursive movie-library discovery for nested batch scan workflows.
-- `MovieLibraryDiscoveryService` — Discover nested movie roots without misclassifying container or TV folders. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services)
+- `MovieLibraryDiscoveryService` — Discover nested movie roots without misclassifying container or TV folders. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.engine._batch_orchestrators)
 
 ### `plex_renamer/app/services/output_destination_service.py` — Validation helpers for user-configured output destinations.
 - `output_path_risks_long_paths(root, *, reserve) -> bool` — True when *root* is long enough that a generated rename path could
@@ -209,7 +209,7 @@
 
 ### `plex_renamer/app/services/refresh_policy_service.py` — Refresh policy rules for metadata TTLs, cooldowns, and rescan scope.
 - `ManualRefreshDecision`
-- `RefreshPolicyService` — Central refresh policy rules, independent of any GUI toolkit. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.cache_service, plex_renamer.gui_qt.main_window)
+- `RefreshPolicyService` — Central refresh policy rules, independent of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.cache_service, plex_renamer.gui_qt.main_window)
 - Tests: tests/test_cache_service.py, tests/test_media_controller.py, tests/test_refresh_policy_service.py, tests/test_tmdb.py
 
 ### `plex_renamer/app/services/settings_service.py` — Lightweight JSON-backed user preferences.
@@ -217,5 +217,5 @@
 - Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_media_controller.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/tv_library_discovery_service.py` — Recursive TV-library discovery for nested batch scan workflows.
-- `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services)
+- `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
 - Tests: tests/test_haikyuu_matching.py

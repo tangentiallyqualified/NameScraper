@@ -1,4 +1,4 @@
-<!-- Generated at commit a491dc2; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated at commit 9964529; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -60,11 +60,11 @@
 ### `plex_renamer/gui_qt/models/__init__.py` — Qt item models for the PySide6 shell.
 
 ### `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py` — Status-based proxy model for queue and history tables.
-- `JobStatusFilterProxyModel` — Filter RenameJob rows by a set of allowed status strings. (used by: plex_renamer.gui_qt.models)
+- `JobStatusFilterProxyModel` — Filter RenameJob rows by a set of allowed status strings. (used by: plex_renamer.gui_qt.models, plex_renamer.gui_qt.widgets._job_list_tab)
 
 ### `plex_renamer/gui_qt/models/job_table_model.py` — Table model for queue/history jobs.
 - `files_cell_text(job) -> str` — Spec §11 Files column: '3 files (2 comp.)'; companion suffix drops at 0.
-- `JobTableModel` — Read-only model exposing RenameJob rows to a QTableView. (used by: plex_renamer.gui_qt.models)
+- `JobTableModel` — Read-only model exposing RenameJob rows to a QTableView. (used by: plex_renamer.gui_qt.models, plex_renamer.gui_qt.widgets._job_list_tab)
 - Tests: tests/test_qt_queue_history.py, tests/test_queue_tab_remux.py
 
 ### `plex_renamer/gui_qt/theme.py` — GUI V4 design tokens — the single source of truth for color and shape.

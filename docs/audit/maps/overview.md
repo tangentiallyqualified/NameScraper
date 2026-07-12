@@ -24,7 +24,7 @@ graph LR
 |---|---|
 | Modules | 175 |
 | Total LOC | 39056 |
-| Avg coverage | 70.6% |
+| Avg coverage | 8.9% |
 | Import cycles | 2 |
 | Modules over complexity threshold | 62 |
 | Dead symbols (high confidence) | 17 |
@@ -285,5 +285,5 @@ _None. Declared dependencies match imports._
 - [ ] `plex_renamer/job_store.py:658` get_queued_tmdb_ids (low-confidence)
 - [ ] `plex_renamer/tmdb.py:110` _get (low-confidence)
 
-_Generated at commit a491dc2 by scripts\audit.cmd._
+_Generated at commit 9964529 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->
