@@ -383,6 +383,59 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             "the selected state (b.mkv) must be probed before the other state",
         )
 
+    def test_warm_plans_covers_movie_items_without_file_id(self):
+        # Task 1 (spec 1a): the movie scanner never sets file_id, so the old
+        # `item.file_id is None` skip condition excluded every movie preview
+        # item from background warming -- roster badges only appeared after
+        # the user clicked the row. Movie items must warm via is_actionable
+        # just like TV items do.
+        from unittest.mock import patch
+
+        from plex_renamer.engine.models import PreviewItem, ScanState
+        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
+            MediaWorkspaceAutoMuxCoordinator,
+        )
+
+        base = Path(self._main_window_tmp.name)
+        item = PreviewItem(
+            original=base / "lib" / "Movie (2020).mkv",
+            new_name="Movie (2020).mkv",
+            target_dir=base / "out" / "Movie (2020)",
+            season=None, episodes=[], status="OK", media_type="movie",
+            file_id=None,
+        )
+        state = ScanState(
+            folder=base / "lib",
+            media_info={"id": 7, "name": "Movie", "year": "2020"},
+            preview_items=[item], scanned=True,
+        )
+        workspace = SimpleNamespace(
+            _settings=self._make_settings(),
+            _media_type="movie",
+            _media_ctrl=SimpleNamespace(
+                tv_root_folder=None,
+                movie_folder=base / "lib",
+            ),
+            _current_states=lambda: [state],
+            _selected_state=lambda: None,
+            _roster_panel=SimpleNamespace(model=_RosterModelStub()),
+        )
+        coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
+        self.addCleanup(_dispose_coordinator, coordinator)
+
+        requested: list[int] = []
+        request_patch = patch.object(
+            MediaWorkspaceAutoMuxCoordinator, "_request",
+            side_effect=lambda state, index: requested.append(index))
+        request_patch.start()
+        self.addCleanup(request_patch.stop)
+
+        coordinator.warm_plans_for_states([state])
+
+        self.assertEqual(
+            requested, [0],
+            "movie item with file_id=None must still be warmed")
+
     def test_warm_releases_inflight_when_preview_list_shrinks_midflight(self):
         # Round-4 hardening: _run_probe used to read preview_items[index]
         # OUTSIDE its try/finally. If a rematch/rescan rebuilt the list

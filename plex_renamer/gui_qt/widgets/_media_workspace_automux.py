@@ -226,7 +226,7 @@ class MediaWorkspaceAutoMuxCoordinator:
 
     def _warm_state_items(self, state) -> None:
         for index, item in enumerate(state.preview_items):
-            if item.file_id is None:
+            if not item.is_actionable:
                 continue
             if index in state.mux_plans or index in state.mux_probe_errors:
                 continue
@@ -239,7 +239,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         time rather than at submit time."""
         for state in states:
             for index, item in enumerate(state.preview_items):
-                if item.file_id is None:
+                if not item.is_actionable:
                     continue
                 if index in state.mux_plans or index in state.mux_probe_errors:
                     continue
