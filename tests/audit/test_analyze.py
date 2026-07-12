@@ -104,3 +104,12 @@ def test_missing_pyproject_is_ok(synthetic_repo: Path):
     a = _analyze.run_analysis(synthetic_repo, inv, graph)  # no pyproject in synthetic repo
     assert a["tool_status"]["deps"]["ok"] is True
     assert not [f for f in a["findings"] if f["category"] == "dependency"]
+
+
+def test_corrupt_pyproject_degrades_not_aborts(synthetic_repo: Path):
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    a = _analyze.run_analysis(synthetic_repo, inv, graph, pyproject_text="not = valid [ toml")
+    assert a["tool_status"]["deps"]["ok"] is False
+    assert a["tool_status"]["deps"]["reason"]
+    assert not [f for f in a["findings"] if f["category"] == "dependency"]

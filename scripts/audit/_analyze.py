@@ -210,10 +210,10 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
     except Exception as exc:
         tool_status["radon"] = {"ok": False, "reason": str(exc)[:200]}
 
-    if pyproject_text is None:
-        pyproject_path = repo_root / "pyproject.toml"
-        pyproject_text = pyproject_path.read_text(encoding="utf-8") if pyproject_path.exists() else ""
     try:
+        if pyproject_text is None:
+            pyproject_path = repo_root / "pyproject.toml"
+            pyproject_text = pyproject_path.read_text(encoding="utf-8") if pyproject_path.exists() else ""
         if pyproject_text:
             findings.extend(_check_dependencies(graph, pyproject_text))
         tool_status["deps"] = {"ok": True, "reason": None}
