@@ -134,6 +134,7 @@ class MediaWorkspaceUiCoordinator:
 
         panel.filter_changed.connect(workspace._on_episode_filter_changed)
         panel.search_changed.connect(workspace._on_episode_search_changed)
+        panel.episode_search_changed.connect(workspace._on_episode_code_search_changed)
         panel.approve_all_clicked.connect(workspace._approve_all_episode_mappings)
         panel.unassign_all_clicked.connect(workspace._unassign_all_episode_mappings)
         panel.season_chip_clicked.connect(panel.scroll_to_season)

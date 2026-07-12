@@ -57,6 +57,7 @@ def _overview_token(state: ScanState, media_type: str) -> str:
 class MediaWorkPanel(QFrame):
     filter_changed = Signal(str)          # "all"|"problems"
     search_changed = Signal(str)
+    episode_search_changed = Signal(str)
     approve_all_clicked = Signal()
     unassign_all_clicked = Signal()
     season_chip_clicked = Signal(int)     # season number (0 = specials)
@@ -134,6 +135,10 @@ class MediaWorkPanel(QFrame):
         return self._search_box
 
     @property
+    def episode_search_box(self) -> QLineEdit:
+        return self._episode_search_box
+
+    @property
     def segmented_filter(self) -> SegmentedControl:
         return self._segmented_filter
 
@@ -160,6 +165,7 @@ class MediaWorkPanel(QFrame):
         self._table_stack.setCurrentWidget(self._bulk_panel)
         self._segmented_filter.hide()
         self._search_box.hide()
+        self._episode_search_box.hide()
         self._summary_label.hide()
         self._approve_all_button.hide()
         self._primary_action_button.hide()
@@ -169,6 +175,7 @@ class MediaWorkPanel(QFrame):
         self._table_stack.setCurrentWidget(self._table_view)
         self._segmented_filter.show()
         self._search_box.show()
+        self._episode_search_box.show()
         self._summary_label.show()
         if self._state is not None:
             self.update_toolbar(self._state)
@@ -297,6 +304,12 @@ class MediaWorkPanel(QFrame):
         self._search_box.setClearButtonEnabled(True)
         self._search_box.textChanged.connect(self.search_changed.emit)
         toolbar.addWidget(self._search_box)
+
+        self._episode_search_box = QLineEdit()
+        self._episode_search_box.setPlaceholderText("Filter episodes…")
+        self._episode_search_box.setClearButtonEnabled(True)
+        self._episode_search_box.textChanged.connect(self.episode_search_changed.emit)
+        toolbar.addWidget(self._episode_search_box)
 
         self._summary_label = QLabel("")
         self._summary_label.setProperty("cssClass", "caption")
@@ -502,9 +515,11 @@ class MediaWorkPanel(QFrame):
             # not re-show them behind the bulk panel.
             self._segmented_filter.hide()
             self._search_box.hide()
+            self._episode_search_box.hide()
         else:
             self._segmented_filter.setVisible(not is_movie)
             self._search_box.setVisible(not is_movie)
+            self._episode_search_box.setVisible(not is_movie)
         if is_movie or state is None or bulk_active:
             self._approve_all_button.hide()
             return

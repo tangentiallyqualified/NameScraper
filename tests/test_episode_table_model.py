@@ -45,6 +45,39 @@ def _guide_state():
     return state, guide
 
 
+def _episode_filter_state():
+    """Two-season guide for episode-filter matching tests (title substring,
+    SxxEyy, NxMM, bare season) -- S02E05 titled 'Winterfell' with a '1080p'
+    filename to exercise the AND-with-filename-filter case."""
+    from plex_renamer.app.models.state_models import (
+        EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary, UnmappedFileRow,
+    )
+    from plex_renamer.engine.models import PreviewItem, ScanState
+
+    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+    state.scanned = True
+    p1 = PreviewItem(original=Path("C:/lib/Show/s01e01.mkv"), new_name="Show - S01E01 - Alpha.mkv",
+                     target_dir=None, season=1, episodes=[1], status="OK")
+    p2 = PreviewItem(original=Path("C:/lib/Show/s02e05.1080p.mkv"), new_name="Show - S02E05 - Winterfell.mkv",
+                     target_dir=None, season=2, episodes=[5], status="OK")
+    p3 = PreviewItem(original=Path("C:/lib/Show/s02e06.mkv"), new_name="Show - S02E06 - Beta.mkv",
+                     target_dir=None, season=2, episodes=[6], status="OK")
+    state.preview_items = [p1, p2, p3]
+    guide = EpisodeGuide(
+        rows=[
+            EpisodeGuideRow(season=1, episode=1, title="Alpha", primary_file=p1,
+                            target_rename="Show - S01E01 - Alpha.mkv", status="Mapped"),
+            EpisodeGuideRow(season=2, episode=5, title="Winterfell", primary_file=p2,
+                            target_rename="Show - S02E05 - Winterfell.mkv", status="Mapped"),
+            EpisodeGuideRow(season=2, episode=6, title="Beta", primary_file=p3,
+                            target_rename="Show - S02E06 - Beta.mkv", status="Mapped"),
+        ],
+        unmapped_primary_files=[UnmappedFileRow(original=Path("C:/lib/Show/extra.mkv"), reason="no episode parsed")],
+        summary=EpisodeGuideSummary(mapped_episodes=3, mapped_primary_files=3, unmapped_primary_files=1),
+    )
+    return state, guide
+
+
 class _StubSettings:
     def __init__(self, view_mode: str = "normal") -> None:
         self.view_mode = view_mode
@@ -213,6 +246,47 @@ class EpisodeTableModelTests(QtSmokeBase):
         self.assertEqual(len(episode_rows), 1)
         model.set_search_text("")
         self.assertEqual(len([r for r in range(model.rowCount()) if model.row_kind_at(r) == "episode"]), 3)
+
+    def _episode_titles(self, model):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        return [
+            model.index(r, 0).data(ROW_DATA_ROLE).title
+            for r in range(model.rowCount())
+            if model.row_kind_at(r) == "episode"
+        ]
+
+    def test_episode_filter_matches_title_and_codes(self):
+        state, guide = _episode_filter_state()
+        model = self._model(state, guide)
+
+        model.set_episode_search("s02e05")
+        self.assertEqual(self._episode_titles(model), ["S02E05 · Winterfell"])
+
+        model.set_episode_search("2x05")
+        self.assertEqual(self._episode_titles(model), ["S02E05 · Winterfell"])
+
+        model.set_episode_search("winterfell")
+        self.assertEqual(self._episode_titles(model), ["S02E05 · Winterfell"])
+
+        model.set_episode_search("s02")
+        self.assertEqual(self._episode_titles(model), ["S02E05 · Winterfell", "S02E06 · Beta"])
+
+    def test_episode_filter_ands_with_filename_filter(self):
+        state, guide = _episode_filter_state()
+        model = self._model(state, guide)
+        model.set_search_text("1080p")
+        model.set_episode_search("s02")
+        self.assertEqual(self._episode_titles(model), ["S02E05 · Winterfell"])
+
+    def test_episode_filter_ignores_non_episode_sections(self):
+        state, guide = _episode_filter_state()
+        model = self._model(state, guide)
+        model.set_episode_search("zzz-no-match")
+        kinds = [model.row_kind_at(r) for r in range(model.rowCount())]
+        self.assertIn("unmapped", kinds)
+        self.assertIn("section-label", kinds)
+        self.assertEqual(self._episode_titles(model), [])
 
     def test_collapse_hides_member_rows(self):
         state, guide = _guide_state()

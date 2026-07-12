@@ -231,6 +231,10 @@ class MediaWorkspace(QWidget):
         self._work_panel.model.set_search_text(text)
         self._work_panel.update_footer()
 
+    def _on_episode_code_search_changed(self, text: str) -> None:
+        self._work_panel.model.set_episode_search(text)
+        self._work_panel.update_footer()
+
     def _on_table_section_toggled(self, section_key: str) -> None:
         self._state_coordinator.on_table_section_toggled(section_key)
 

@@ -97,6 +97,17 @@ class WorkPanelTests(QtSmokeBase):
         panel.search_box.setText("abc")
         self.assertEqual(searches, ["abc"])
 
+    def test_episode_filter_box_present_with_placeholder(self):
+        panel = self._panel(*_guide_state())
+        self.assertEqual(panel.episode_search_box.placeholderText(), "Filter episodes…")
+
+    def test_episode_filter_box_emits_signal(self):
+        panel = self._panel(*_guide_state())
+        searches: list[str] = []
+        panel.episode_search_changed.connect(searches.append)
+        panel.episode_search_box.setText("s02")
+        self.assertEqual(searches, ["s02"])
+
     def test_filter_has_no_unmapped_segment(self):
         panel = self._panel(*_guide_state())
         self.assertEqual(set(panel.segmented_filter._buttons), {"All", "Problems"})
@@ -171,6 +182,7 @@ class WorkPanelTests(QtSmokeBase):
         panel.show()
         self.assertFalse(panel.segmented_filter.isVisible())
         self.assertFalse(panel.search_box.isVisible())
+        self.assertFalse(panel.episode_search_box.isVisible())
         self.assertIsNotNone(panel.master_check)   # shown/hidden by update_master_state (Task 5 wiring)
         self.assertEqual(len(panel._strip_buttons), 0)
         panel.close()

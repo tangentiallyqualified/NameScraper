@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from dataclasses import dataclass, replace
 
@@ -146,6 +147,7 @@ class EpisodeTableModel(QAbstractListModel):
         self._folder_preview: tuple[str, str] | None = None
         self._filter_mode = "all"
         self._search_text = ""
+        self._episode_search = ""
         self._expanded_row: int | None = None
         self._entries: list[_Entry] = []
         self._cached_guide_provider = cached_guide_provider
@@ -253,6 +255,16 @@ class EpisodeTableModel(QAbstractListModel):
 
     def search_text(self) -> str:
         return self._search_text
+
+    def set_episode_search(self, text: str) -> None:
+        normalized = text.casefold().strip()
+        if normalized == self._episode_search:
+            return
+        self._episode_search = normalized
+        self._rebuild()
+
+    def episode_search(self) -> str:
+        return self._episode_search
 
     def toggle_section(self, section_key: str) -> None:
         if section_key in self._collapsed_sections:
@@ -834,7 +846,7 @@ class EpisodeTableModel(QAbstractListModel):
             mux_active=(preview_index is not None
                         and file_mux_active(state, preview_index)),
         )
-        if not self._passes_search(row_data):
+        if not self._passes_search(row_data) or not self._passes_episode_search(row):
             return None
         return _Entry(
             kind="episode",
@@ -887,6 +899,22 @@ class EpisodeTableModel(QAbstractListModel):
             return True
         haystacks = (row_data.title, row_data.filename, row_data.target)
         return any(self._search_text in haystack.casefold() for haystack in haystacks if haystack)
+
+    _EPISODE_CODE_RE = re.compile(r"^(?:s(?P<s1>\d{1,2})(?:e(?P<e1>\d{1,3}))?|(?P<s2>\d{1,2})x(?P<e2>\d{1,3}))$")
+
+    def _passes_episode_search(self, guide_row: EpisodeGuideRow | None) -> bool:
+        if not self._episode_search:
+            return True
+        if guide_row is None:
+            return True                     # non-episode entries ignore this filter
+        match = self._EPISODE_CODE_RE.match(self._episode_search)
+        if match:
+            season = int(match.group("s1") or match.group("s2"))
+            episode = match.group("e1") or match.group("e2")
+            if guide_row.season != season:
+                return False
+            return episode is None or guide_row.episode == int(episode)
+        return self._episode_search in (guide_row.title or "").casefold()
 
 
 _STATUS_TONE = {
