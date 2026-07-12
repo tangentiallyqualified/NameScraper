@@ -276,6 +276,56 @@ def test_ensure_state_plans_probes_correctly_named_items(tmp_path):
     assert state.preview_items[0].original in probed_paths
 
 
+def test_get_checked_indices_includes_mux_active_items(tmp_path):
+    """Direct unit test of the widened get_checked_indices_from_state:
+    a checked actionable item (0) and a checked mux-active-but-correctly-
+    named item (1) are included; a checked correctly-named item with no
+    plan (2) and an unchecked mux-active item (3) are not."""
+    from plex_renamer.engine._queue_bridge import get_checked_indices_from_state
+
+    lib = tmp_path / "lib"
+
+    def _actionable(name: str, ep: int) -> PreviewItem:
+        return PreviewItem(
+            original=lib / "Show" / f"{name}.mkv",
+            new_name=f"Show - S01E0{ep} - Ep.mkv",
+            target_dir=lib / "Show",
+            season=1, episodes=[ep], status="OK", media_type="tv",
+        )
+
+    def _correct(ep: int) -> PreviewItem:
+        # new_name == original.name, target_dir == parent -> not actionable
+        return PreviewItem(
+            original=lib / "Show" / f"Show - S01E0{ep} - Ep.mkv",
+            new_name=f"Show - S01E0{ep} - Ep.mkv",
+            target_dir=lib / "Show",
+            season=1, episodes=[ep], status="OK", media_type="tv",
+        )
+
+    action_plan = {"subtitle_merges": [
+        {"action": "merge", "source_relative": "Show/x.eng.srt"}]}
+    state = ScanState(
+        folder=lib / "Show",
+        media_info={"id": 7, "name": "Show", "year": "2020"},
+        preview_items=[
+            _actionable("a", 1),   # 0: checked + actionable -> in
+            _correct(2),           # 1: checked + mux-active -> in
+            _correct(3),           # 2: checked, no plan -> out
+            _correct(4),           # 3: mux-active but UNCHECKED -> out
+        ],
+        scanned=True, checked=True, relative_folder="Show",
+    )
+    state.mux_plans = {1: action_plan, 3: action_plan}
+    state.check_vars = {
+        "0": SimpleNamespace(get=lambda: True),
+        "1": SimpleNamespace(get=lambda: True),
+        "2": SimpleNamespace(get=lambda: True),
+        "3": SimpleNamespace(get=lambda: False),
+    }
+
+    assert get_checked_indices_from_state(state) == {0, 1}
+
+
 def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     lib = tmp_path / "lib"
