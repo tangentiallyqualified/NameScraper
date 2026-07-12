@@ -123,7 +123,10 @@ def ensure_state_plans(
     if only_index is not None:
         indices: list[int] = [only_index]
     else:
-        indices = sorted(state.actionable_indices)
+        indices = sorted(
+            index for index, item in enumerate(state.preview_items)
+            if item_mux_probe_eligible(item)
+        )
     for index in indices:
         if not (0 <= index < len(state.preview_items)):
             continue

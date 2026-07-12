@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..constants import JobKind, MediaType
-from .models import PreviewItem, ScanState
+from .models import PreviewItem, ScanState, file_mux_active
 
 
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
@@ -14,7 +14,7 @@ def get_checked_indices_from_state(state: ScanState) -> set[int]:
         index for index, item in enumerate(state.preview_items)
         if state.check_vars.get(str(index)) is not None
         and state.check_vars[str(index)].get()
-        and _is_queue_actionable(item)
+        and (_is_queue_actionable(item) or file_mux_active(state, index))
     }
 
 
@@ -47,7 +47,8 @@ def _build_rename_ops(
 
     ops = []
     for index, item in enumerate(items):
-        if not _is_queue_actionable(item):
+        plan_for_index = (mux_plans or {}).get(index)
+        if not _is_queue_actionable(item) and plan_for_index is None:
             continue
 
         target_dir = item.target_dir or item.original.parent
@@ -66,7 +67,7 @@ def _build_rename_ops(
             # rebuild the canonical output-relative destination instead.
             target_rel = _fallback_target_relative(item, target_dir, show_folder)
 
-        plan = (mux_plans or {}).get(index)
+        plan = plan_for_index
         merged_paths: set[str] = set()
         new_name = item.new_name
         if plan:

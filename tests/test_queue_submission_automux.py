@@ -184,6 +184,98 @@ def test_disabled_state_stays_rename(tmp_path, monkeypatch):
     assert store.jobs[0].job_kind == JobKind.RENAME
 
 
+def _tv_state_correctly_named(tmp_path):
+    """Single item whose name is already correct (is_actionable False) but
+    which still has a subtitle companion eligible for an AutoMux merge."""
+    lib = tmp_path / "lib"
+    item = PreviewItem(
+        original=lib / "Show" / "Show - S01E01 - Pilot.mkv",
+        new_name="Show - S01E01 - Pilot.mkv",
+        target_dir=lib / "Show",
+        season=1, episodes=[1], status="OK", media_type="tv",
+        companions=[CompanionFile(
+            original=lib / "Show" / "Show - S01E01 - Pilot.eng.srt",
+            new_name="Show - S01E01 - Pilot.eng.srt",
+            file_type="subtitle")],
+    )
+    state = ScanState(
+        folder=lib / "Show",
+        media_info={"id": 7, "name": "Show", "year": "2020"},
+        preview_items=[item], scanned=True, checked=True,
+        relative_folder="Show",
+    )
+    state.check_vars = {"0": SimpleNamespace(get=lambda: True)}
+    return state
+
+
+def test_mux_only_op_for_correctly_named_file(tmp_path, monkeypatch):
+    """A correctly-named file (is_actionable False) with an action-bearing
+    mux plan must still be baked into the job as a mux-only op."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    state = _tv_state_correctly_named(tmp_path)
+    store = _FakeStore()
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    assert job.job_kind == JobKind.REMUX
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    assert len(video_ops) == 1
+    op = video_ops[0]
+    assert op.new_name == "Show - S01E01 - Pilot.mkv"
+    assert op.mux is not None
+
+
+def test_mux_only_file_optout_produces_no_op(tmp_path, monkeypatch):
+    """Opting out of the mux for a correctly-named file must leave it with
+    no op at all — there is nothing left to bake (no rename, no mux)."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    state = _tv_state_correctly_named(tmp_path)
+    state.mux_opt_outs = {0}
+    store = _FakeStore()
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    video_rel = str(Path("Show/Show - S01E01 - Pilot.mkv"))
+    sub_rel = str(Path("Show/Show - S01E01 - Pilot.eng.srt"))
+    originals = [op.original_relative for op in job.rename_ops]
+    assert video_rel not in originals
+    assert sub_rel not in originals
+
+
+def test_ensure_state_plans_probes_correctly_named_items(tmp_path):
+    """ensure_state_plans must widen its probing to correctly-named (OK)
+    items, not just state.actionable_indices, so mux-only plans exist."""
+    state = _tv_state_correctly_named(tmp_path)
+    svc = _settings(tmp_path)
+    probed_paths = []
+
+    def fake_prober(mkv, path):
+        probed_paths.append(path)
+        return _probe_ok()
+
+    svc_mod.ensure_state_plans(state, svc, tmp_path / "lib", prober=fake_prober)
+
+    assert state.preview_items[0].original in probed_paths
+
+
 def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     lib = tmp_path / "lib"
