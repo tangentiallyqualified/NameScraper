@@ -4602,6 +4602,104 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
             workspace.close()
 
+    def test_queue_selected_movie_auto_checks_unchecked_state(self):
+        """Clicking 'queue this movie' on an unchecked entry IS the approval
+        (round5 5a) - it must auto-check the entry rather than refuse with
+        'select at least one actionable file'."""
+        from plex_renamer.gui_qt.widgets._media_workspace_queue_actions import (
+            queue_selected_state,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        class _FakeQueueController:
+            def __init__(self):
+                self.called_with = None
+                self.checked_at_call = None
+
+            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+                # Capture checked-state at call time: a successful queue
+                # legitimately unchecks the item afterward (queued items move
+                # to the QUEUED group and are no longer "selected to queue"),
+                # so the meaningful assertion is what gating saw, not what
+                # survives the post-queue refresh.
+                self.called_with = list(states)
+                self.checked_at_call = [state.checked for state in states]
+                for state in states:
+                    state.queued = True
+                return BatchQueueResult(added=len(states))
+
+        class _FakeMediaController:
+            def __init__(self):
+                self.command_gating = CommandGatingService()
+                self.batch_states = []
+                self.movie_library_states = []
+                self.library_selected_index = None
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = Path("C:/library/tv")
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.movie_library_states):
+                    return self.movie_library_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        class _FakeWarningBox:
+            calls: list = []
+
+            @staticmethod
+            def warning(parent, title, text):
+                _FakeWarningBox.calls.append((title, text))
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            output = Path(tmp) / "movie-output"
+            output.mkdir()
+            settings.movie_output_folder = str(output)
+            state = ScanState(
+                folder=Path("C:/library/movies/Arrival.2016"),
+                media_info={"id": 22, "title": "Arrival", "year": "2016"},
+                preview_items=[
+                    PreviewItem(
+                        original=Path("C:/library/movies/Arrival.2016/Arrival.2016.mkv"),
+                        new_name="Arrival (2016).mkv",
+                        target_dir=Path("C:/library/movies/Arrival (2016)"),
+                        season=None,
+                        episodes=[],
+                        status="OK",
+                        media_type="movie",
+                        media_id=22,
+                        media_name="Arrival",
+                    )
+                ],
+                scanned=True,
+                checked=False,
+                confidence=1.0,
+            )
+            media_ctrl = _FakeMediaController()
+            media_ctrl.movie_library_states = [state]
+            queue_ctrl = _FakeQueueController()
+
+            workspace = MediaWorkspace(
+                media_type="movie",
+                media_controller=media_ctrl,
+                queue_controller=queue_ctrl,
+                settings_service=settings,
+            )
+            workspace.show_ready()
+
+            self.assertFalse(state.checked)
+
+            queue_selected_state(workspace, warning_box=_FakeWarningBox)
+
+            self.assertEqual(queue_ctrl.called_with, [state])
+            self.assertEqual(queue_ctrl.checked_at_call, [True])
+            self.assertEqual(_FakeWarningBox.calls, [])
+
+            workspace.close()
+
     def test_media_workspace_movie_refresh_keeps_same_folder_movies_unique_after_approval(self):
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
