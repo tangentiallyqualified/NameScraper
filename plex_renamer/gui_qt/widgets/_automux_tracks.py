@@ -93,6 +93,18 @@ class AutoMuxTracksWidget(QFrame):
             box.toggled.connect(
                 lambda checked, p=pos, b=box: self._on_embedded_toggled(p, checked, b))
             self._rows.addWidget(box)
+            # A widget added to an already-visible ancestor (this card is a
+            # persistent editor, already shown, when a late plan repopulates
+            # it) stays invisible until Qt processes a posted show/polish
+            # event -- and QBoxLayout::sizeHint() treats an invisible item as
+            # empty (contributes 0), so every ancestor sizeHint() up through
+            # this widget's own override, _files_section, and the card's
+            # outer layout reports a stale (pre-populate) size for one whole
+            # event-loop pass. Showing each row synchronously as it is added
+            # closes that gap (Task 4, round6): the row-below-target
+            # framing test caught this as a real, event-loop-pass-wide
+            # viewport snap.
+            box.show()
         for pos, merge in enumerate(self._plan.get("subtitle_merges", [])):
             box = QCheckBox(self._merge_label(merge))
             box.setChecked(merge["action"] == "merge")
@@ -101,6 +113,7 @@ class AutoMuxTracksWidget(QFrame):
             box.toggled.connect(
                 lambda checked, p=pos: self._on_merge_toggled(p, checked))
             self._rows.addWidget(box)
+            box.show()  # see the comment above -- same visibility/sizeHint gap
         self.updateGeometry()
 
     # ── Sizing ────────────────────────────────────────────────────────

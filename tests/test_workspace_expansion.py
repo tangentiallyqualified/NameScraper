@@ -332,6 +332,223 @@ class AsyncPlanReflowTests(QtSmokeBase):
         workspace.close()
 
 
+class AsyncPlanLateArrivalFramingTests(QtSmokeBase):
+    """Task 4 (round6): the round5 fix (commit 9e646a6) pins the
+    *synchronous* open-path lurch -- notify_expanded_row_changed() called
+    right after openPersistentEditor in on_table_expand_requested so the
+    delegate re-measures against the real (if small/probing-state) editor
+    immediately, with no stale fallback height for the first relayout.
+
+    The user's reported symptom is a snap that happens *after a brief
+    delay* -- this targets the ASYNC path instead: the row is expanded
+    first (settling at whatever height the editor has *then*, e.g. a
+    "Reading tracks..." placeholder), and only later does the mkvmerge
+    probe's plan arrive (_on_plan_ready -> _refresh_widget ->
+    notify_expanded_row_changed), regrowing the card. If that late
+    regrowth's relayout drags the viewport along with it (rather than only
+    growing the row in place), the target row's own on-screen top and/or
+    the scrollbar value will have moved by the time events settle -- the
+    delayed snap."""
+
+    _EPISODE_COUNT = 40
+    _TARGET_EPISODE = 20
+
+    @staticmethod
+    def _make_state():
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = Path("C:/library/tv/LateSnap")
+        show_info = {"id": 505, "name": "LateSnap Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        for ep in range(1, AsyncPlanLateArrivalFramingTests._EPISODE_COUNT + 1):
+            table.add_slot(EpisodeSlot(season=1, episode=ep, title=f"Episode {ep}"))
+            entry = table.add_file(folder / "Season 01" / f"LateSnap.S01E{ep:02d}.mkv")
+            table.assign(entry.file_id, 1, [ep], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 505, "media_name": "LateSnap Show"},
+        )
+        return state
+
+    def _make_settings(self):
+        from plex_renamer.app.services.settings_service import SettingsService
+
+        base = Path(self._main_window_tmp.name)
+        svc = SettingsService(base / "automux_latesnap.json")
+        svc.automux_merge_subs = True
+        svc.automux_merge_sub_languages = ["eng"]
+        exe = base / "mkvmerge.exe"
+        exe.write_bytes(b"")
+        svc.mkvmerge_path = str(exe)
+        return svc
+
+    @staticmethod
+    def _make_fake_media_ctrl(state):
+        class _FakeMediaController:
+            def __init__(self, s):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [s]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = state.folder.parent
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        return _FakeMediaController(state)
+
+    def _workspace(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state = self._make_state()
+        settings = self._make_settings()
+        ctrl = self._make_fake_media_ctrl(state)
+        # The real background probe is irrelevant to this test -- the late
+        # plan arrival is driven directly through the bridge, exactly like
+        # AsyncPlanReflowTests above -- and letting it run for real would
+        # race a live worker thread against test teardown.
+        no_probe = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: None)
+        no_probe.start()
+        self.addCleanup(no_probe.stop)
+
+        workspace = MediaWorkspace(
+            media_type="tv", media_controller=ctrl, settings_service=settings,
+        )
+        # A small viewport relative to 40 rows guarantees the list is
+        # scrollable and a mid-list row can sit mid-viewport.
+        workspace.resize(760, 480)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+        return workspace, state
+
+    @staticmethod
+    def _row_for_episode(model, episode: int):
+        for row in range(model.rowCount()):
+            guide_row = model.guide_row_at(row)
+            if guide_row is not None and guide_row.episode == episode:
+                return row
+        raise AssertionError(f"no row found for episode {episode}")
+
+    @staticmethod
+    def _deliver_plan(workspace, state, preview_index: int, *, tracks: int) -> None:
+        decisions = [
+            {"track_id": i, "track_type": "audio", "codec": "aac",
+             "language": "eng", "name": f"Track {i}", "keep": True,
+             "make_default": i == 0, "reason": "retained"}
+            for i in range(tracks)
+        ]
+        plan = {
+            "output_name": "LateSnap.mkv",
+            "track_decisions": decisions,
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+        workspace._automux._bridge.plan_ready.emit(state, preview_index, plan, "")
+
+    def test_late_plan_arrival_keeps_viewport_framing_stable(self):
+        from PySide6.QtWidgets import QAbstractItemView
+
+        workspace, state = self._workspace()
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+
+        target_row = self._row_for_episode(model, self._TARGET_EPISODE)
+        target_index = model.index(target_row, 0)
+        below_index = model.index(target_row + 1, 0)
+        preview_index = next(
+            i for i, item in enumerate(state.preview_items)
+            if item.episodes == [self._TARGET_EPISODE]
+        )
+
+        # Position the target row mid-viewport, then expand it with NO plan
+        # cached yet -- the card opens on the "Reading tracks..." probing
+        # placeholder (small height), same as a real cold expand.
+        view.setCurrentIndex(target_index)
+        view.scrollTo(target_index, QAbstractItemView.ScrollHint.PositionAtCenter)
+        self._app.processEvents()
+
+        workspace._on_table_expand_requested(target_index)
+        self._app.processEvents()
+
+        before_top = view.visualRect(target_index).top()
+        before_scroll = view.verticalScrollBar().value()
+        before_below = view.visualRect(below_index).top()
+
+        # The mkvmerge probe's plan lands late, asynchronously, through the
+        # exact _on_plan_ready -> _refresh_widget -> notify_expanded_row_changed
+        # path -- growing the card from the probing placeholder to a
+        # populated 30-track list.
+        self._deliver_plan(workspace, state, preview_index, tracks=30)
+
+        # Captured immediately, with NO processEvents yet: this is what a
+        # single synchronous slot invocation (the direct-connection
+        # plan_ready emit) leaves behind before Qt's event loop runs again.
+        # This must match what the user sees once the event loop *does*
+        # settle (below) -- if it doesn't, something corrected the layout
+        # on a later, indirectly-triggered pass, which is exactly the
+        # delayed "snap" this test guards against. (Comparing this reading
+        # against view.sizeHintForRow() instead -- as the round5 sibling
+        # test does -- would not catch this particular bug: the staleness
+        # here lives inside the editor's own sizeHint() computation, so a
+        # fresh delegate query is *equally* stale at this instant. Comparing
+        # this immediate reading to the settled reading below is what
+        # actually discriminates it.)
+        immediate_below = view.visualRect(below_index).top()
+
+        for _ in range(5):
+            self._app.processEvents()
+
+        after_top = view.visualRect(target_index).top()
+        after_scroll = view.verticalScrollBar().value()
+        settled_below = view.visualRect(below_index).top()
+
+        self.assertNotEqual(
+            before_below, settled_below,
+            "sanity check: the 30-track plan should have grown the row "
+            "-- the row below should have moved down from its pre-plan "
+            "position",
+        )
+        self.assertEqual(
+            before_top, after_top,
+            "the late-arriving AutoMux plan moved the expanded row's own "
+            "on-screen top position",
+        )
+        self.assertEqual(
+            before_scroll, after_scroll,
+            "the late-arriving AutoMux plan changed the scrollbar value",
+        )
+        self.assertEqual(
+            immediate_below, settled_below,
+            "the row below the expanded one moved between the synchronous "
+            "plan-arrival return and the event loop settling -- the "
+            "delayed viewport snap this test guards against",
+        )
+        workspace.close()
+
+
 class PerEpisodeMuxOptOutTests(QtSmokeBase):
     """Round5 §4b: the expansion card's per-episode AutoMux opt-out button
     records the exclusion on ScanState.mux_opt_outs and refreshes every
