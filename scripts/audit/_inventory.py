@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,13 +20,11 @@ _SOURCE_REF = re.compile(r"(?:plex_renamer|scripts|tests)[\w\\/.-]*?\.\w{2,4}")
 
 
 def _iter_files(repo_root: Path):
-    for path in sorted(repo_root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(repo_root)
-        if any(part in EXCLUDED_DIRS for part in rel.parts):
-            continue
-        yield path, rel
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = sorted(d for d in dirnames if d not in EXCLUDED_DIRS)
+        for filename in sorted(filenames):
+            path = Path(dirpath) / filename
+            yield path, path.relative_to(repo_root)
 
 
 def _loc(path: Path) -> int:
@@ -52,15 +50,7 @@ def _test_imports(path: Path) -> list[str]:
 
 
 def _git_last_touched(repo_root: Path, rel: Path) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--format=%cI", "--", rel.as_posix()],
-            cwd=repo_root, capture_output=True, text=True, timeout=15,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    out = result.stdout.strip()
-    return out if result.returncode == 0 and out else None
+    return _artifacts._git(repo_root, "log", "-1", "--format=%cI", "--", rel.as_posix()) or None
 
 
 def _doc_record(repo_root: Path, path: Path, rel: Path) -> dict:
@@ -103,6 +93,7 @@ def build_inventory(repo_root: Path) -> dict:
 
 
 def run(repo_root: Path, options) -> int:
-    _artifacts.write_artifact(repo_root, "inventory", build_inventory(repo_root))
-    print(f"inventory: {len(list((repo_root / 'plex_renamer').rglob('*.py')))} package files indexed")
+    inventory = build_inventory(repo_root)
+    _artifacts.write_artifact(repo_root, "inventory", inventory)
+    print(f"inventory: {len(inventory['python_files'])} package files indexed")
     return 0
