@@ -133,6 +133,15 @@ class MediaWorkspaceStateCoordinator:
         self._close_expansion()
         model.set_expanded_row(row)
         view.openPersistentEditor(model.index(row, 0))
+        # set_expanded_row's dataChanged fired (and the view relaid out the
+        # row) before the editor above existed, so the delegate's sizeHint
+        # fell back to _FALLBACK_EXPANDED_HEIGHT_U instead of the real
+        # editor height -- every row below sat at the wrong offset. Re-notify
+        # now that the editor is registered so the view re-measures against
+        # the actual card immediately, instead of leaving that correction to
+        # land on some later, indirectly-triggered relayout (the "expands,
+        # then after a delay snaps" viewport lurch, round5 Task 9).
+        model.notify_expanded_row_changed()
         guide_row = model.guide_row_at(row)
         if guide_row is not None:
             workspace._work_panel.set_episode_overview(guide_row.overview, guide_row.air_date)

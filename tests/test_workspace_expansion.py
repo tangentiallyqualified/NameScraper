@@ -518,3 +518,215 @@ class ExpansionCardHeaderTests(QtSmokeBase):
         assert f"S{guide_row.season:02d}E{guide_row.episode:02d}" in card._title_label.text()
         assert guide_row.title in card._title_label.text()
         assert card._status_pill.text().startswith(guide_row.status.upper())
+
+
+class ExpansionViewportStabilityTests(QtSmokeBase):
+    """Task 9: expanding an episode row mid-scroll must not lurch the
+    viewport.
+
+    Root cause (found by instrumenting the row-below-target's
+    ``view.visualRect().top()`` across the expand call): ``set_expanded_row``
+    fires ``dataChanged``/``sizeHintChanged`` for the target row *before*
+    ``openPersistentEditor`` has created the editor widget, so
+    ``EpisodeTableDelegate.sizeHint`` falls back to
+    ``_FALLBACK_EXPANDED_HEIGHT_U`` (220px) for that first, synchronous
+    relayout -- laying out every row below the expanded one at the wrong
+    offset. The correct height (driven by the real editor's ``sizeHint()``,
+    e.g. 430px with a populated AutoMux tracks list) only lands on a *later*,
+    separately-triggered relayout (observed here: one extra
+    ``QApplication.processEvents()`` pass), which is exactly the "expands,
+    then after a delay snaps" symptom from the round5 feedback backlog.
+
+    The target row's own on-screen top and the scrollbar value never move
+    (growing a row cannot move its own top, and growth alone never forces a
+    downward scrollbar clamp) -- those are asserted here as a stability
+    belt-and-suspenders, but the row-below check is what actually pins the
+    bug: it must already reflect the *real* editor height immediately after
+    the expand call returns, with no extra event-loop pass required to
+    settle."""
+
+    _EPISODE_COUNT = 40
+    _TARGET_EPISODE = 20
+
+    @staticmethod
+    def _make_state():
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = Path("C:/library/tv/Lurch")
+        show_info = {"id": 404, "name": "Lurch Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        for ep in range(1, ExpansionViewportStabilityTests._EPISODE_COUNT + 1):
+            table.add_slot(EpisodeSlot(season=1, episode=ep, title=f"Episode {ep}"))
+            entry = table.add_file(folder / "Season 01" / f"Lurch.S01E{ep:02d}.mkv")
+            table.assign(entry.file_id, 1, [ep], origin=ORIGIN_AUTO, confidence=1.0)
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 404, "media_name": "Lurch Show"},
+        )
+        return state
+
+    def _make_settings(self):
+        from plex_renamer.app.services.settings_service import SettingsService
+
+        base = Path(self._main_window_tmp.name)
+        svc = SettingsService(base / "automux_lurch.json")
+        svc.automux_merge_subs = True
+        svc.automux_merge_sub_languages = ["eng"]
+        exe = base / "mkvmerge.exe"
+        exe.write_bytes(b"")
+        svc.mkvmerge_path = str(exe)
+        return svc
+
+    @staticmethod
+    def _make_fake_media_ctrl(state):
+        class _FakeMediaController:
+            def __init__(self, s):
+                self.command_gating = CommandGatingService()
+                self.batch_states = [s]
+                self.movie_library_states = []
+                self.library_selected_index = 0
+                self.movie_folder = Path("C:/library/movies")
+                self.tv_root_folder = state.folder.parent
+                self.refresh_episode_guide = MagicMock()
+                self.invalidate_episode_guide = MagicMock()
+
+            def select_show(self, index):
+                self.library_selected_index = index
+                if 0 <= index < len(self.batch_states):
+                    return self.batch_states[index]
+                return None
+
+            def sync_queued_states(self):
+                return None
+
+        return _FakeMediaController(state)
+
+    def _workspace(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        state = self._make_state()
+        settings = self._make_settings()
+        ctrl = self._make_fake_media_ctrl(state)
+        # Drive the AutoMux plan through the bridge directly -- the real
+        # background probe would race a live worker thread against test
+        # teardown (same rationale as AsyncPlanReflowTests above).
+        no_probe = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: None)
+        no_probe.start()
+        self.addCleanup(no_probe.stop)
+
+        workspace = MediaWorkspace(
+            media_type="tv", media_controller=ctrl, settings_service=settings,
+        )
+        # A small viewport relative to 40 rows guarantees the list is
+        # scrollable and a mid-list row can sit mid-viewport.
+        workspace.resize(760, 480)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+        return workspace, state
+
+    @staticmethod
+    def _row_for_episode(model, episode: int):
+        # Same lookup the expand path itself uses (model.guide_row_at).
+        for row in range(model.rowCount()):
+            guide_row = model.guide_row_at(row)
+            if guide_row is not None and guide_row.episode == episode:
+                return row
+        raise AssertionError(f"no row found for episode {episode}")
+
+    @staticmethod
+    def _warm_plan(workspace, state, preview_index: int, *, tracks: int) -> None:
+        """Land a many-track AutoMux plan for *preview_index* before the row
+        is ever expanded -- the normal "warmed" flow (Task 4) -- so the
+        expansion card is built with a fully populated tracks widget from
+        the start (a large, real jump in editor height: ~52px collapsed to
+        several hundred px expanded), matching the real-world conditions
+        where the fallback-vs-actual height gap is large enough to matter."""
+        decisions = [
+            {"track_id": i, "track_type": "audio", "codec": "aac",
+             "language": "eng", "name": f"Track {i}", "keep": True,
+             "make_default": i == 0, "reason": "retained"}
+            for i in range(tracks)
+        ]
+        plan = {
+            "output_name": "Lurch.mkv",
+            "track_decisions": decisions,
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+        workspace._automux._bridge.plan_ready.emit(state, preview_index, plan, "")
+
+    def test_expanding_row_keeps_viewport_framing_stable(self):
+        from PySide6.QtWidgets import QAbstractItemView
+
+        workspace, state = self._workspace()
+        model = workspace._work_panel.model
+        view = workspace._work_panel.table_view
+
+        target_row = self._row_for_episode(model, self._TARGET_EPISODE)
+        target_index = model.index(target_row, 0)
+        below_index = model.index(target_row + 1, 0)
+
+        preview_index = next(
+            i for i, item in enumerate(state.preview_items)
+            if item.episodes == [self._TARGET_EPISODE]
+        )
+        self._warm_plan(workspace, state, preview_index, tracks=30)
+        self._app.processEvents()
+
+        # Position the target row mid-viewport before expanding.
+        view.setCurrentIndex(target_index)
+        view.scrollTo(target_index, QAbstractItemView.ScrollHint.PositionAtCenter)
+        self._app.processEvents()
+
+        before_top = view.visualRect(target_index).top()
+        before_scroll = view.verticalScrollBar().value()
+
+        workspace._on_table_expand_requested(target_index)
+
+        # No processEvents yet: this is what a single synchronous click
+        # handler leaves behind before Qt's event loop runs again. The row
+        # below the expanded one must already reflect the *real* editor
+        # height here -- not a placeholder later corrected by some
+        # unrelated, indirectly-triggered relayout.
+        expected_below_top = before_top + view.sizeHintForRow(target_row)
+        self.assertEqual(
+            view.visualRect(below_index).top(), expected_below_top,
+            "the row below the expanded one used a stale/fallback height "
+            "immediately after expansion -- the real correction landed "
+            "later (the delayed 'snap' this test guards against)",
+        )
+
+        for _ in range(5):
+            self._app.processEvents()
+
+        after_top = view.visualRect(target_index).top()
+        after_scroll = view.verticalScrollBar().value()
+
+        self.assertEqual(
+            before_top, after_top,
+            "expanding the row moved its on-screen top position",
+        )
+        self.assertEqual(
+            before_scroll, after_scroll,
+            "expanding the row changed the scrollbar value",
+        )
+        self.assertEqual(
+            view.visualRect(below_index).top(), expected_below_top,
+            "the row below the expanded one moved after settling -- a "
+            "delayed relayout changed the layout further",
+        )
+        workspace.close()
