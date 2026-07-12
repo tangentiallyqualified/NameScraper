@@ -195,7 +195,10 @@ class MediaWorkspaceStateCoordinator:
         index (None when the row has no primary file)."""
         workspace = self._workspace
         preview_index = _preview_index_for_row(state, guide_row)
-        mux_plan = state.mux_plans.get(preview_index) if preview_index is not None else None
+        if preview_index is not None and preview_index not in state.mux_opt_outs:
+            mux_plan = state.mux_plans.get(preview_index)
+        else:
+            mux_plan = None
         card.show_episode(
             state, guide_row, mux_plan=mux_plan,
             preview_index=preview_index, above_fold_ids=above_fold_ids,

@@ -360,6 +360,7 @@ class MediaWorkPanel(QFrame):
         self._table_view.inline_action_clicked.connect(self.inline_row_action.emit)
         self._bulk_panel = BulkAssignPanel()
         stack_host = QWidget()
+        self._table_stack_host = stack_host
         self._table_stack = QStackedLayout(stack_host)
         self._table_stack.addWidget(self._table_view)
         self._table_stack.addWidget(self._bulk_panel)
@@ -553,8 +554,12 @@ class MediaWorkPanel(QFrame):
         if self._media_type != "movie":
             # TV mode: the table keeps its ordinary stretch=1 (unbounded)
             # sizing from _build_table -- explicit default in case Qt's
-            # QWIDGETSIZE_MAX (16777215) sentinel value ever changes.
+            # QWIDGETSIZE_MAX (16777215) sentinel value ever changes. The
+            # stack host (see _compact_movie_table_height) must be restored
+            # too, or a prior movie-mode cap would linger and clip the TV
+            # table.
             self._table_view.setMaximumHeight(16777215)
+            self._table_stack_host.setMaximumHeight(16777215)
             return
         self._strip_scroll.hide()
         self._compact_movie_table_height()
@@ -574,7 +579,16 @@ class MediaWorkPanel(QFrame):
             if hint > 0:
                 total_height += hint
         frame = self._table_view.frameWidth()
-        self._table_view.setMaximumHeight(total_height + 2 * frame + _scale.px(4))
+        cap = total_height + 2 * frame + _scale.px(4)
+        self._table_view.setMaximumHeight(cap)
+        # _table_view is nested inside stack_host's QStackedLayout (see
+        # _build_table), which does not propagate a stacked child's
+        # maximumHeight up to the host. Without also capping the host, the
+        # outer layout's stretch=1 item (stack_host itself) still claims
+        # ~half the panel's free space, stranding it as a dead gap between
+        # the folder block and the tracks section below (final whole-branch
+        # review Finding 1) instead of routing it to the tracks host.
+        self._table_stack_host.setMaximumHeight(cap)
 
     # -- Season strip --------------------------------------------------------
 

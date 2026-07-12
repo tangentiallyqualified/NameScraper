@@ -730,3 +730,88 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
             "delayed relayout changed the layout further",
         )
         workspace.close()
+
+
+class OptedOutMuxPlanNotFedToCardTests(QtSmokeBase):
+    """Final whole-branch review Finding 1 (round5): once an episode is
+    opted out of AutoMux (state.mux_opt_outs), MediaWorkspaceStateCoordinator
+    ._feed_card must stop handing the card that episode's stale mux_plan --
+    otherwise the card still thinks the subtitle got merged by AutoMux and
+    hides the Subtitle Output row / prints the "merged into the video" note,
+    even though the opted-out file gets a standalone rename op in the real
+    bake."""
+
+    class _FakeAutoMux:
+        def tracks_widget_for(self, state, preview_index):
+            return None
+
+    class _FakeWorkspace:
+        def __init__(self):
+            self._automux = OptedOutMuxPlanNotFedToCardTests._FakeAutoMux()
+
+    def _feed_card(self, state, guide_row):
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+        from plex_renamer.gui_qt.widgets._media_workspace_state import (
+            MediaWorkspaceStateCoordinator,
+        )
+
+        coordinator = MediaWorkspaceStateCoordinator(self._FakeWorkspace())
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        coordinator._feed_card(card, state, guide_row, ())
+        return card
+
+    def test_optout_suppresses_merged_note_and_keeps_output_row(self):
+        from PySide6.QtWidgets import QLabel
+
+        state, guide = _guide_state()
+        row = guide.rows[0]  # "One" -> preview_items[0], has a subtitle companion
+        sub = next(c for c in row.companions if c.file_type == "subtitle")
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": str(sub.original).replace("\\", "/"),
+                "language": "eng",
+            }],
+        }
+        state.mux_opt_outs.add(0)
+
+        card = self._feed_card(state, row)
+
+        texts = [w.text() for w in card.findChildren(QLabel)]
+        self.assertFalse(
+            any("merged into the video" in t for t in texts),
+            "card still claims an opted-out subtitle was merged by AutoMux",
+        )
+        self.assertTrue(any("Subtitle Output" in t for t in texts))
+        button = card.mux_optout_button()
+        self.assertIsNotNone(button)
+        self.assertIn("Enable AutoMux", button.text())
+
+    def test_non_optout_still_shows_merged_note(self):
+        """Control: without the opt-out, the same plan still suppresses the
+        Subtitle Output row and shows the merged note -- confirms the fix is
+        gated on mux_opt_outs, not a blanket change to mux_plan feeding."""
+        from PySide6.QtWidgets import QLabel
+
+        state, guide = _guide_state()
+        row = guide.rows[0]
+        sub = next(c for c in row.companions if c.file_type == "subtitle")
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": str(sub.original).replace("\\", "/"),
+                "language": "eng",
+            }],
+        }
+
+        card = self._feed_card(state, row)
+
+        texts = [w.text() for w in card.findChildren(QLabel)]
+        self.assertTrue(any("merged into the video" in t for t in texts))
+        self.assertFalse(any("Subtitle Output" in t for t in texts))
+        button = card.mux_optout_button()
+        self.assertIsNotNone(button)
+        self.assertIn("Disable AutoMux", button.text())

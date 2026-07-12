@@ -383,6 +383,54 @@ class WorkPanelTests(QtSmokeBase):
         self.assertLess(view.maximumHeight(), 16777215)
         panel.close()
 
+    def test_movie_mode_freed_space_goes_to_tracks_not_gap(self):
+        # Final whole-branch review Finding 1: the compact-table max-height
+        # cap in _compact_movie_table_height lands on _table_view, but the
+        # outer layout's stretch=1 item is stack_host (the QStackedLayout
+        # wrapper around _table_view + the bulk-assign panel). QStackedLayout
+        # does not propagate the child's maximumHeight to the host, so a tall
+        # panel splits its free space ~50/50 between stack_host and the
+        # tracks host, creating a dead gap INSIDE stack_host instead of
+        # routing that space to the tracks section (spec 2a).
+        from PySide6.QtWidgets import QWidget
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="movie")
+        state = self._movie_state_actionable()
+        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.resize(760, 900)
+        panel.show()
+
+        tracks = QWidget()
+        tracks.setMinimumHeight(400)
+        panel.set_automux_tracks(tracks)
+
+        self._app.processEvents()
+        panel.layout().activate()
+        self._app.processEvents()
+
+        view = panel.table_view
+        stack_host = view.parentWidget()
+        table_cap = view.maximumHeight()
+
+        # The stack host must not be granted materially more height than the
+        # compact table needs -- otherwise the excess becomes a dead gap
+        # inside the host that never reaches the tracks section below it.
+        self.assertLessEqual(
+            stack_host.height(), table_cap + 20,
+            f"stack_host got {stack_host.height()}px but the table only needs "
+            f"{table_cap}px -- freed space is trapped as a dead gap instead "
+            f"of going to the tracks section",
+        )
+
+        # The freed space must instead go to the tracks section, not
+        # disappear as blank space between the folder block and the tracks.
+        self.assertGreater(
+            tracks.height(), panel.height() - table_cap - 200,
+            "tracks section did not receive the freed panel space",
+        )
+        panel.close()
+
     def test_refresh_header_reuses_strip_buttons_when_seasons_unchanged(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
