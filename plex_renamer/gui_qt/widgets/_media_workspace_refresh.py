@@ -82,8 +82,10 @@ class MediaWorkspaceRefreshCoordinator:
         for state in workspace._current_states():
             state.checked = _is_state_queue_approvable(state, media_type=workspace._media_type)
             self.ensure_check_bindings(state)
-            for index, preview in enumerate(state.preview_items):
-                state.check_vars[str(index)].set(bool(state.checked and preview.is_actionable))
+            for index in range(len(state.preview_items)):
+                state.check_vars[str(index)].set(
+                    bool(state.checked and CommandGatingService.is_queue_relevant(state, index))
+                )
         workspace.refresh_from_controller()
 
     def uncheck_all(self) -> None:
