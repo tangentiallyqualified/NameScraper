@@ -50,9 +50,14 @@ def _write_atomic(target: Path, data: bytes) -> None:
 
 def _write_temp(data: bytes, suffix: str) -> Path:
     fd, name = tempfile.mkstemp(prefix="plexrn-embed-", suffix=suffix)
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(data)
-    return Path(name)
+    path = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
 
 
 @contextmanager
@@ -68,7 +73,7 @@ def materialized_extras(entry, fetch_image_bytes, result, display_name):
         if xml:
             try:
                 tags_path = _write_temp(str(xml).encode("utf-8"), ".xml")
-            except OSError as e:
+            except Exception as e:
                 result.errors.append(
                     f"Could not stage tags for {display_name}: {e}")
         tmdb_path = (entry or {}).get("cover_tmdb_path")
@@ -85,7 +90,7 @@ def materialized_extras(entry, fetch_image_bytes, result, display_name):
             if data:
                 try:
                     cover_path = _write_temp(data, ".jpg")
-                except OSError as e:
+                except Exception as e:
                     result.errors.append(
                         f"Could not stage cover for {display_name}: {e}")
             elif not fetch_failed:

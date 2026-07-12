@@ -34,7 +34,18 @@ def _tag(root: ET.Element, target_type_value: int) -> ET.Element:
     return tag
 
 
+def _drop_childless_tags(root: ET.Element) -> None:
+    # MKVToolNix's tags-XML validator rejects a <Tag> with no <Simple>
+    # child ("<Tag> is missing the <Simple> child."), aborting the whole
+    # mkvpropedit/mkvmerge call. A details dict with no renderable
+    # fields (or an empty {}) must not produce one.
+    for tag in list(root.findall("Tag")):
+        if tag.find("Simple") is None:
+            root.remove(tag)
+
+
 def _serialize(root: ET.Element) -> str:
+    _drop_childless_tags(root)
     ET.indent(root)
     return _DECLARATION + ET.tostring(root, encoding="unicode") + "\n"
 

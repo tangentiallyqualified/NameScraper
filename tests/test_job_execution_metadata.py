@@ -320,6 +320,30 @@ def test_cover_fetch_failure_warns_but_tags_still_embed(tmp_path):
     assert any("Cover art unavailable" in e for e in result.errors)
 
 
+def test_cover_fetch_raises_warns_but_tags_still_embed(tmp_path):
+    # A fetcher that raises (not just returns None) must not escape
+    # execute_metadata_plan — the remux/rename path has no outer
+    # containment around this call, so an uncaught exception here would
+    # fail the whole job.
+    job = make_job(tmp_path, _extras_plan(tmp_path))
+    _make_target(job)
+    calls = []
+    result = _result()
+
+    def raising_fetch(path):
+        raise RuntimeError("boom")
+
+    execute_metadata_plan(
+        job, result=result, fetch_image_bytes=raising_fetch,
+        propedit_runner=lambda a: calls.append(list(a)) or (0, ""))
+
+    assert len(calls) == 1
+    assert "--tags" in calls[0]
+    assert "--add-attachment" not in calls[0]
+    assert sum("Cover fetch failed" in e for e in result.errors) == 1
+    assert not any("Cover art unavailable" in e for e in result.errors)
+
+
 def test_embed_extras_mux_ops_skipped_by_propedit_pass(tmp_path):
     mux_op = RenameOp(
         original_relative="Show/a.mkv",

@@ -102,3 +102,24 @@ def test_multi_episode_emits_one_50_tag_per_block():
 def test_unicode_survives():
     root = _root(render_movie_tags({"title": "Yuru Camp△ \U0001f3d5"}))
     assert _simples(root.find("Tag"))["TITLE"] == ["Yuru Camp△ \U0001f3d5"]
+
+
+def test_empty_show_details_drops_childless_70_tag():
+    # A show_details of {} must not emit a childless 70-level Tag —
+    # MKVToolNix's tags-XML validator rejects <Tag> with no <Simple>
+    # children, which would abort the whole propedit/mux call.
+    root = _root(render_episode_tags({}, BLOCKS[:1]))
+    by_target = _tags_by_target(root)
+    assert "70" not in by_target
+    assert set(by_target) == {"60", "50"}
+
+
+def test_empty_blocks_leaves_only_70_tag():
+    root = _root(render_episode_tags(SHOW_DETAILS, []))
+    by_target = _tags_by_target(root)
+    assert set(by_target) == {"70"}
+
+
+def test_empty_movie_details_emits_no_tag_elements():
+    root = _root(render_movie_tags({}))
+    assert root.findall("Tag") == []
