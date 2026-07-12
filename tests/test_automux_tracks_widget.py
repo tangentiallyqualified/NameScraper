@@ -153,6 +153,31 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         self.assertEqual(
             widget._rows_scroll.maximumHeight(), _scale.px(8 * 24))
 
+    def test_fill_mode_keeps_minimum_height_bounded_with_large_plan(self):
+        # Review finding (Task 7): in fill mode sizeHint() may grow with
+        # content (that is the point -- the movie host's layout hands the
+        # widget the panel's free space), but minimumSizeHint() must NOT:
+        # MediaWorkPanel sits directly in a non-collapsible QSplitter,
+        # which floors pane sizes at minimumSizeHint(), so a 20+-track
+        # plan would otherwise force an unshrinkable, oversized pane on a
+        # short window. Rows are scrollable in every mode, so shrinking
+        # below content height is always safe.
+        from plex_renamer.gui_qt import _scale
+
+        widget = self._widget()
+        widget.set_fill_mode(True)
+        widget.show_plan(self._plan_with_tracks(count=20))
+        cap_plus_chrome = _scale.px(8 * 24 + 40)   # row cap + heading row slack
+        self.assertLessEqual(
+            widget.minimumSizeHint().height(), cap_plus_chrome,
+            f"fill-mode minimumSizeHint {widget.minimumSizeHint().height()}px "
+            f"scales with track count -- it must stay bounded at the 8-row "
+            f"cap (+chrome) so the splitter pane can shrink",
+        )
+        # The preferred size still grows with content in fill mode -- the
+        # bounded minimum must not accidentally re-cap it.
+        self.assertGreater(widget.sizeHint().height(), cap_plus_chrome)
+
     def test_notice_elides_long_text_and_sets_full_tooltip(self):
         # Long notice text (e.g. a long mkvmerge error) must not blow out the
         # heading row's width -- it elides, with the FULL text available as

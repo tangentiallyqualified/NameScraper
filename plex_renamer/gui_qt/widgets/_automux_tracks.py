@@ -105,7 +105,6 @@ class AutoMuxTracksWidget(QFrame):
         self._rows_scroll.setWidget(self._rows_host)
         self._rows_scroll.setMaximumHeight(_scale.px(_MAX_VISIBLE_ROWS * _ROW_H_U))
         layout.addWidget(self._rows_scroll)
-        self._fill_mode = False
 
     # ── Display states ────────────────────────────────────────────────
 
@@ -174,8 +173,10 @@ class AutoMuxTracksWidget(QFrame):
         with ``True`` when installing a widget via
         ``MediaWorkPanel.set_automux_tracks`` (spec §4) -- the expansion
         card path never calls it, so cards keep the capped/scrollable
-        behavior unconditionally."""
-        self._fill_mode = fill
+        behavior unconditionally. The mode is fully encoded in the scroll
+        area's maximumHeight + size policy -- no separate flag is kept, and
+        minimumSizeHint() stays bounded at the fixed 8-row cap regardless
+        (see its docstring)."""
         policy = self._rows_scroll.sizePolicy()
         if fill:
             self._rows_scroll.setMaximumHeight(16777215)
@@ -196,18 +197,12 @@ class AutoMuxTracksWidget(QFrame):
         show_plan() would silently keep reporting the old, small height,
         defeating notify_expanded_row_changed's whole point (Task 8). Read
         the row-list contribution straight from rows_host (always fresh)
-        and clamp it to the scroll area's cap ourselves instead of
-        trusting the scroll area's own sizeHint()."""
-        base = super().sizeHint()
-        margins = self.layout().contentsMargins()
-        spacing = self.layout().spacing()
-        rows_height = min(self._rows_host.sizeHint().height(), self._rows_scroll.maximumHeight())
-        # The heading row (heading label + inline notice, spec §4) already
-        # accounts for the notice's reserved height -- it's no longer a
-        # separate bottom row, so there is no second notice contribution
-        # to add here.
-        total = margins.top() + margins.bottom() + self._heading_row.sizeHint().height() + spacing + rows_height
-        return QSize(base.width(), total)
+        and clamp it to the scroll area's LIVE cap ourselves instead of
+        trusting the scroll area's own sizeHint() -- in fill mode
+        (set_fill_mode(True)) that cap is lifted, so the preferred size
+        grows with content and the movie host's layout hands the widget
+        the panel's free space."""
+        return self._hint_with_rows_cap(self._rows_scroll.maximumHeight())
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802
         """Qt's default minimumSizeHint() forwards to
@@ -226,8 +221,29 @@ class AutoMuxTracksWidget(QFrame):
         sizeHint() above whenever real content is smaller than it (probing
         placeholder, error/no-actions notice, or just a few tracks),
         reserving genuine dead whitespace in every host (Task 7, spec §4).
-        Mirroring sizeHint() here closes that gap at its source."""
-        return self.sizeHint()
+
+        The rows contribution here is clamped to the FIXED 8-row cap, not
+        the scroll area's live maximumHeight: in fill mode the live cap is
+        lifted, and a minimum that grows with track count would become an
+        unshrinkable hard floor on the whole movie work panel (it sits
+        directly in a non-collapsible QSplitter, which floors pane sizes
+        at minimumSizeHint -- review finding, Task 7). Rows are scrollable
+        in every mode, so shrinking below content is always safe. Outside
+        fill mode the live cap IS the fixed cap, making this identical to
+        sizeHint() -- which is what closes the whitespace gap above."""
+        return self._hint_with_rows_cap(_scale.px(_MAX_VISIBLE_ROWS * _ROW_H_U))
+
+    def _hint_with_rows_cap(self, rows_cap: int) -> QSize:
+        base = super().sizeHint()
+        margins = self.layout().contentsMargins()
+        spacing = self.layout().spacing()
+        rows_height = min(self._rows_host.sizeHint().height(), rows_cap)
+        # The heading row (heading label + inline notice, spec §4) already
+        # accounts for the notice's reserved height -- it's no longer a
+        # separate bottom row, so there is no second notice contribution
+        # to add here.
+        total = margins.top() + margins.bottom() + self._heading_row.sizeHint().height() + spacing + rows_height
+        return QSize(base.width(), total)
 
     # ── Internals ─────────────────────────────────────────────────────
 
