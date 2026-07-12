@@ -348,6 +348,70 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         card.show_episode(state, guide.rows[1], above_fold_ids=("approve",))
         self.assertEqual(card._status_pill.property("tone"), "warning")
 
+    # -- Round6 Task 6: header column parity + capsule pill ----------------
+
+    def test_header_actions_stack_under_pill(self):
+        # Geometry contract v2 mirrored on the card (Task 6): above-fold
+        # buttons form a right-aligned vertical column directly under the
+        # pill, not siblings in the header row -- "the row grew in place."
+        from PySide6.QtTest import QTest
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        state, guide = _guide_state()
+        review_row = guide.rows[1]   # Review, confidence 61%
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        card.show_episode(
+            state, review_row, mux_plan=None, preview_index=0,
+            above_fold_ids=("approve", "reassign", "unassign"),
+        )
+        buttons = card.header_action_buttons()
+        self.assertEqual(
+            [b.property("actionId") for b in buttons],
+            ["approve", "reassign", "unassign"],
+        )
+        self.assertTrue(all(b.property("cssClass") == "row-action" for b in buttons))
+        card.resize(600, 300)
+        card.show()
+        QTest.qWaitForWindowExposed(card)
+        self._app.processEvents()
+        pill = card._status_pill
+        # Buttons live directly under `card`; the pill lives under
+        # `_header_widget` -- map both right edges into card-local
+        # coordinates before comparing (mapTo, not raw .geometry(), since
+        # the two widgets sit in different parent frames).
+        pill_right = pill.mapTo(card, pill.rect().topRight()).x()
+        pill_bottom = pill.mapTo(card, pill.rect().bottomLeft()).y()
+        for button in buttons:
+            button_right = button.mapTo(card, button.rect().topRight()).x()
+            self.assertLessEqual(abs(button_right - pill_right), 2)
+        ys = [button.geometry().y() for button in buttons]
+        self.assertEqual(ys, sorted(ys))
+        self.assertGreater(ys[0], pill_bottom)
+
+    def test_status_pill_is_a_capsule(self):
+        # Root-cause fix: theme radius_pill=10 exceeds half of a ~16px label
+        # height, so Qt silently drops the QSS border-radius and the pill
+        # paints as a rectangle. The new class fixes the height to the
+        # delegate's pill height and uses a radius <= half of it.
+        from PySide6.QtTest import QTest
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+        from plex_renamer.gui_qt.widgets._episode_table_delegate import _PILL_H_U
+
+        state, guide = _guide_state()
+        mapped_row = guide.rows[0]
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        card.show_episode(state, mapped_row, preview_index=0)
+        card.resize(600, 300)
+        card.show()
+        QTest.qWaitForWindowExposed(card)
+        self._app.processEvents()
+        pill = card._status_pill
+        self.assertEqual(pill.height(), _scale.px(_PILL_H_U))
+        self.assertEqual(pill.property("cssClass"), "expansion-pill")
+
     def test_mux_optout_button_toggles_and_reflects_state(self):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 

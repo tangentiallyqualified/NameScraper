@@ -904,6 +904,105 @@ QLabel[cssClass="status-pill"][tone="muted"] {
     border: 1px solid ${text_dim};
 }
 
+/* Expansion-card status pill (Task 6, round6 spec §3): a fixed-height
+   capsule that mirrors the collapsed row's painted pill
+   (_episode_table_delegate._PILL_H_U = 18px). The card sets a matching
+   setFixedHeight(18) in Python; border-radius here is height // 2 = 9,
+   deliberately NOT the theme "pill" radius token (10px) -- that token
+   exceeds half of an 18px (or the prior ~16px) label height, and Qt
+   silently drops an oversized QSS border-radius, which is exactly why the
+   pill used to render as a rectangle. */
+QLabel[cssClass="expansion-pill"] {
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 9px;
+    padding: 0px 8px;
+}
+
+QLabel[cssClass="expansion-pill"][tone="success"] {
+    background-color: rgba(63, 185, 80, 0.12);
+    color: ${success};
+    border: 1px solid ${success};
+}
+
+QLabel[cssClass="expansion-pill"][tone="warning"] {
+    background-color: rgba(210, 153, 34, 0.12);
+    color: ${warning};
+    border: 1px solid ${warning};
+}
+
+QLabel[cssClass="expansion-pill"][tone="error"] {
+    background-color: rgba(229, 83, 75, 0.12);
+    color: ${error};
+    border: 1px solid ${error};
+}
+
+QLabel[cssClass="expansion-pill"][tone="info"] {
+    background-color: rgba(88, 166, 255, 0.12);
+    color: ${info};
+    border: 1px solid ${info};
+}
+
+QLabel[cssClass="expansion-pill"][tone="muted"] {
+    background-color: ${card_hover};
+    color: ${text_dim};
+    border: 1px solid ${text_dim};
+}
+
+/* Expansion-card row-action buttons (Task 6): same visual language as the
+   collapsed row's painted action-column buttons
+   (_episode_table_delegate._paint_action_button) -- fixed height matching
+   the pill (18px, set via setFixedHeight in Python; min/max-height here
+   back that up), radius_sm corners, accent-tinted primary fill, dim
+   secondary fill+border, caution reusing the existing caution palette.
+   Used by the header column, the below-fold row, and the per-episode
+   AutoMux opt-out button alike -- expanding must read as the same
+   controls, not a fresh re-render. */
+QPushButton[cssClass="row-action"] {
+    min-height: 18px;
+    max-height: 18px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0px 8px;
+    border-radius: ${radius_sm}px;
+}
+
+QPushButton[cssClass="row-action"][tone="primary"] {
+    background-color: rgba(0, 164, 220, 0.14);
+    color: ${accent};
+    border: none;
+}
+QPushButton[cssClass="row-action"][tone="primary"]:hover {
+    background-color: rgba(0, 164, 220, 0.22);
+}
+QPushButton[cssClass="row-action"][tone="primary"]:pressed {
+    background-color: rgba(0, 164, 220, 0.30);
+}
+
+QPushButton[cssClass="row-action"][tone="secondary"] {
+    background-color: rgba(155, 155, 155, 0.10);
+    color: ${text};
+    border: 1px solid rgba(155, 155, 155, 0.4);
+}
+QPushButton[cssClass="row-action"][tone="secondary"]:hover {
+    background-color: rgba(155, 155, 155, 0.18);
+}
+QPushButton[cssClass="row-action"][tone="secondary"]:pressed {
+    background-color: rgba(155, 155, 155, 0.24);
+}
+
+QPushButton[cssClass="row-action"][tone="caution"] {
+    background-color: ${warning};
+    color: ${on_accent};
+    border: none;
+}
+QPushButton[cssClass="row-action"][tone="caution"]:hover {
+    background-color: ${warning};
+}
+QPushButton[cssClass="row-action"][tone="caution"]:pressed {
+    background-color: ${warning};
+}
+
 
 /* ─── Cards (Level 2 panels) ─────────────────────────────────────── */
 

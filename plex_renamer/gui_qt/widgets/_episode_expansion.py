@@ -34,6 +34,12 @@ from .status_chip import ChipSpec, chip_rects, chip_row_height, paint_chip_row
 _OPEN_DIR_GLYPH = "📂"
 _COLLAPSE_GLYPH = "▾"
 
+# Mirrors _episode_table_delegate._PILL_H_U (geometry contract v2, Task 5/6)
+# -- NOT imported, so the painted collapsed row and this QSS-styled card can
+# evolve independently. Keep in sync by hand; see task-6-report.md metrics
+# table if this drifts from the delegate's painted pill height.
+_PILL_HEIGHT_U = 18
+
 _PILL_TONE = {
     "Mapped": "success",
     "Review": "warning",
@@ -216,14 +222,29 @@ class EpisodeExpansionCard(QFrame):
         top_row.addWidget(self._collapse_button)
         self._title_label = QLabel("")
         top_row.addWidget(self._title_label)
-        # Header parity (round5 spec §4a): title, stretch, above-fold action
-        # buttons (inserted per-episode before the pill), then the status pill
-        # LAST so it right-aligns exactly like the collapsed row's pill.
+        # Header parity (round5 spec §4a): title, stretch, then the status
+        # pill LAST so it right-aligns exactly like the collapsed row's pill.
         top_row.addStretch()
         self._status_pill = QLabel("")
-        self._status_pill.setProperty("cssClass", "status-pill")
+        self._status_pill.setProperty("cssClass", "expansion-pill")
+        self._status_pill.setFixedHeight(_scale.px(_PILL_HEIGHT_U))
         top_row.addWidget(self._status_pill)
         outer.addWidget(self._header_widget)
+
+        # Geometry contract v2 mirrored on the card (Task 6): above-fold
+        # action buttons form their own right-aligned vertical column
+        # directly under the pill -- not siblings inserted into the header
+        # row (that was round5's approach; it made the header re-render
+        # rather than "grow in place"). An QHBoxLayout with addStretch()
+        # anchors the column's right edge to the same right margin the
+        # pill sits flush against.
+        self._header_actions_host = QHBoxLayout()
+        self._header_actions_host.setContentsMargins(0, 0, 0, 0)
+        self._header_actions_host.addStretch()
+        self._header_actions_column = QVBoxLayout()
+        self._header_actions_column.setSpacing(_scale.px(4))
+        self._header_actions_host.addLayout(self._header_actions_column)
+        outer.addLayout(self._header_actions_host)
 
         self._actions_row = QHBoxLayout()
         self._actions_row.setSpacing(_scale.px(6))
@@ -299,8 +320,8 @@ class EpisodeExpansionCard(QFrame):
     # -- Test/introspection accessors -------------------------------------
 
     def header_action_buttons(self) -> list[QPushButton]:
-        """Above-fold action buttons hosted in the header row (left of the
-        pill), in the order they were supplied."""
+        """Above-fold action buttons, stacked in a right-aligned column
+        directly under the status pill, in the order they were supplied."""
         return list(self._header_action_buttons)
 
     def action_buttons(self) -> list[QPushButton]:
@@ -339,7 +360,13 @@ class EpisodeExpansionCard(QFrame):
     def _make_action_button(self, action_id: str, label: str) -> QPushButton:
         button = QPushButton(label)
         button.setProperty("actionId", action_id)
-        button.setProperty("cssClass", "primary" if action_id == "approve" else "secondary")
+        # Every card button (header column, below-fold, opt-out) shares the
+        # same "row-action" visual language as the collapsed row's painted
+        # buttons (geometry contract v2, Task 5/6) -- the tone property picks
+        # the per-state fill/text from theme.qss.tmpl.
+        button.setProperty("cssClass", "row-action")
+        button.setProperty("tone", "primary" if action_id == "approve" else "secondary")
+        button.setFixedHeight(_scale.px(_PILL_HEIGHT_U))
         button.clicked.connect(
             lambda _checked=False, aid=action_id: self.action_requested.emit(aid))
         return button
@@ -347,18 +374,17 @@ class EpisodeExpansionCard(QFrame):
     def _build_header_actions(
         self, row: EpisodeGuideRow, above_fold_ids: tuple[str, ...]
     ) -> None:
-        """Promote the collapsed row's inline-strip actions into the header,
-        left of the status pill. Labels come from the frozen
-        ``episode_row_actions`` map so the header and below-fold rows share a
-        single label source."""
-        if not above_fold_ids or self._header_row is None:
+        """Promote the collapsed row's inline-strip actions into a
+        right-aligned column stacked directly under the status pill (mirrors
+        the delegate's action column, geometry contract v2). Labels come from
+        the frozen ``episode_row_actions`` map so the header and below-fold
+        rows share a single label source."""
+        if not above_fold_ids:
             return
         labels = dict(episode_row_actions(row))
-        insert_at = self._header_row.count() - 1   # just before the pill
         for action_id in above_fold_ids:
             button = self._make_action_button(action_id, labels.get(action_id, action_id))
-            self._header_row.insertWidget(insert_at, button)
-            insert_at += 1
+            self._header_actions_column.addWidget(button)
             self._header_action_buttons.append(button)
 
     def _reset_content(self) -> None:
@@ -366,14 +392,8 @@ class EpisodeExpansionCard(QFrame):
         self._copy_buttons = []
         self._open_dir_buttons = []
         self._mux_optout_button = None
-        # Header action buttons live in the shared header row (not their own
-        # layout), so drop them individually rather than clearing that row.
-        if self._header_row is not None:
-            for button in self._header_action_buttons:
-                self._header_row.removeWidget(button)
-                button.setParent(None)
-                button.deleteLater()
         self._header_action_buttons = []
+        self._clear_layout(self._header_actions_column)
         self._clear_layout(self._files_section)
         self._clear_layout(self._target_row)
         self._clear_layout(self._actions_row)
@@ -459,7 +479,9 @@ class EpisodeExpansionCard(QFrame):
         )
         button = QPushButton(label)
         button.setProperty("actionId", "mux_optout")
-        button.setProperty("cssClass", "caution")
+        button.setProperty("cssClass", "row-action")
+        button.setProperty("tone", "caution")
+        button.setFixedHeight(_scale.px(_PILL_HEIGHT_U))
         button.clicked.connect(lambda _checked=False: self.mux_optout_toggled.emit())
         self._actions_row.addWidget(button)
         self._mux_optout_button = button
