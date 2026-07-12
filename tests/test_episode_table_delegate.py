@@ -251,11 +251,13 @@ class ActionStripTests(QtSmokeBase):
         self.assertEqual(ids, ["approve", "reassign", "unassign"])
         view.close()
 
-    def test_action_strip_does_not_squeeze_text_width(self):
-        """Brief constraint: strip buttons live on their own bottom row and
-        must not reserve horizontal text width — text_right_edge for a
-        Review row carrying a strip must match the pill-only computation
-        of an identical row without one."""
+    def test_action_strip_shares_pill_row_and_squeezes_text_width(self):
+        """Round5 spec 3 (Task 4): strip buttons now render inline with the
+        pill (top-anchored, same row) instead of on a separate bottom strip,
+        so they must reserve horizontal text width just like the pill and
+        legacy inline action already do. Supersedes the old Task 6 "strip
+        never squeezes text" constraint now that the strip shares the pill's
+        row instead of living below the text."""
         from PySide6.QtCore import QRect
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
@@ -269,12 +271,60 @@ class ActionStripTests(QtSmokeBase):
         without_strip = EpisodeRowData(**base)
         rect = QRect(0, 0, 600, 76)
         metrics = view.fontMetrics()
-        self.assertEqual(
+        self.assertLess(
             delegate.text_right_edge(rect, with_strip, metrics),
             delegate.text_right_edge(rect, without_strip, metrics),
         )
         # And the strip really is present for the actionable variant.
         self.assertEqual(len(delegate.inline_action_rects(rect, with_strip)), 3)
+        view.close()
+
+    def test_pill_and_inline_actions_top_aligned_share_baseline(self):
+        """Round5 spec 3 (Task 4): the pill is top-anchored (not vertically
+        centered) and the action-strip buttons share its exact y/height."""
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        row_data = EpisodeRowData(
+            kind="episode", title="S01E01 · Pilot", status_text="Review",
+            status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
+        )
+        option_rect = QRect(0, 0, 600, 76)
+        metrics = view.fontMetrics()
+        pill = delegate._pill_rect(option_rect, row_data, metrics)
+        self.assertEqual(pill.y(), option_rect.y() + _scale.px(4))
+        rects = delegate.inline_action_rects(option_rect, row_data)
+        self.assertTrue(rects, "review rows must expose inline actions")
+        for _aid, rect in rects:
+            self.assertEqual(rect.y(), pill.y())
+            self.assertEqual(rect.height(), pill.height())
+        view.close()
+
+    def test_no_overlap_between_buttons_and_pill(self):
+        """Round5 spec 3 (Task 4): buttons and pill never overlap, and the
+        title's right edge stops before the leftmost control."""
+        from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
+        from PySide6.QtCore import QRect
+
+        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        row_data = EpisodeRowData(
+            kind="episode", title="S01E01 · Pilot", status_text="Review",
+            status_tone="warning", confidence_pct=61, filename="s01e01.mkv",
+            inline_actions=(("approve", "Approve"), ("reassign", "Reassign"), ("unassign", "Unassign")),
+        )
+        option_rect = QRect(0, 0, 600, 76)
+        metrics = view.fontMetrics()
+        pill = delegate._pill_rect(option_rect, row_data, metrics)
+        rects = [r for _aid, r in delegate.inline_action_rects(option_rect, row_data)]
+        ordered = sorted(rects + [pill], key=lambda r: r.x())
+        for left, right in zip(ordered, ordered[1:]):
+            self.assertLess(left.right(), right.x(), f"{left} overlaps {right}")
+        self.assertLessEqual(
+            delegate.text_right_edge(option_rect, row_data, metrics), ordered[0].x(),
+        )
         view.close()
 
 
@@ -367,6 +417,9 @@ class MuxChipTests(QtSmokeBase):
         pill = d._pill_rect(option_rect, row_data, metrics)
         self.assertTrue(chip.isValid())
         self.assertLess(chip.right(), pill.x())
+        # Round5 §3: chip shares the pill's top-anchored baseline.
+        self.assertEqual(chip.y(), pill.y())
+        self.assertEqual(chip.height(), pill.height())
 
         inactive = self._row(mux_active=False)
         self.assertFalse(d.mux_chip_rect(option_rect, inactive, metrics).isValid())
@@ -450,15 +503,15 @@ class HelpEventTests(QtSmokeBase):
     def test_help_event_suppressed_when_row_expanded(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import EXPANDED_ROLE
 
-        # Same long tooltip + narrow view as the "shown when truncated" case
-        # below: without the EXPANDED_ROLE guard this would also be
-        # truncated and helpEvent would return True, so expansion is the
-        # only thing this test can be asserting on.
+        # Same long tooltip + squeezed-width view as the "shown when
+        # truncated" case below: without the EXPANDED_ROLE guard this would
+        # also be truncated and helpEvent would return True, so expansion is
+        # the only thing this test can be asserting on.
         state, guide = _guide_state()
         guide.rows[1].target_rename = (
             "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
         )
-        view, model, delegate = self._view(state, guide, width=260)
+        view, model, delegate = self._view(state, guide, width=700)
         view.show()
         index = model.index(4, 0)
         model.set_expanded_row(4)
@@ -468,13 +521,17 @@ class HelpEventTests(QtSmokeBase):
         view.close()
 
     def test_help_event_shown_when_collapsed_and_truncated(self):
-        # Give row 4 ("Two") a long rename preview and a narrow view so the
-        # computed available width can't fit it -> helpEvent must show it.
+        # Row 4 ("Two") carries a four-button action strip (round5 Task 4:
+        # the strip now shares the pill's top-anchored row and reserves
+        # horizontal text width), which alone squeezes the available title
+        # width down to a few pixels even at this width -- give it a long
+        # rename preview so the computed available width can't fit it ->
+        # helpEvent must show it.
         state, guide = _guide_state()
         guide.rows[1].target_rename = (
             "Show - S01E02 - A Very Long Episode Title That Cannot Possibly Fit.mkv"
         )
-        view, model, delegate = self._view(state, guide, width=260)
+        view, model, delegate = self._view(state, guide, width=700)
         view.show()
         index = model.index(4, 0)
         handled = self._help_event_result(view, delegate, index)

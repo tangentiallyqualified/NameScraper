@@ -148,42 +148,46 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         margin = _scale.px(_MARGIN_U)
         width = metrics.horizontalAdvance(text) + 2 * pad
         x = option_rect.right() - margin - width
-        y = option_rect.y() + (option_rect.height() - height) // 2
+        y = option_rect.y() + _scale.px(4)
         return QRect(x, y, width, height)
 
     def _left_anchor(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
-        """X coordinate of the leftmost pill/legacy-action rect on the row --
-        the anchor the MUX chip (and text_right_edge) sit left of."""
+        """X coordinate of the leftmost pill/inline-action rect on the row --
+        the anchor the MUX chip (and text_right_edge) sit left of. Covers
+        both the legacy single button and the (now top-aligned) action
+        strip, since both render left of the pill on its row."""
         anchor = self._pill_rect(option_rect, row_data, metrics).x()
-        if _is_legacy_action_row(row_data):
-            rects = self.inline_action_rects(option_rect, row_data)
-            if rects and rects[0][1].isValid():
-                anchor = min(anchor, rects[0][1].x())
+        rects = self.inline_action_rects(option_rect, row_data)
+        valid_xs = [rect.x() for _aid, rect in rects if rect.isValid()]
+        if valid_xs:
+            anchor = min(anchor, min(valid_xs))
         return anchor
 
     def mux_chip_rect(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> QRect:
         """Compact 'MUX' chip rect, sat left of the pill (and legacy inline
         action, when present) -- invalid QRect() when the row's file will
-        not actually be muxed (round5 §1b)."""
+        not actually be muxed (round5 §1b). Shares the pill's y/height
+        (round5 §3) so the chip sits on the same top-anchored baseline as
+        the pill and any inline action buttons."""
         if not row_data.mux_active:
             return QRect()
         text = "MUX"
         pad = _scale.px(_PILL_HPAD_U)
-        height = _scale.px(_PILL_H_U)
         margin = _scale.px(_MARGIN_U)
+        pill = self._pill_rect(option_rect, row_data, metrics)
         width = metrics.horizontalAdvance(text) + 2 * pad
         x = self._left_anchor(option_rect, row_data, metrics) - margin - width
-        y = option_rect.y() + (option_rect.height() - height) // 2
-        return QRect(x, y, width, height)
+        return QRect(x, pill.y(), width, pill.height())
 
     def inline_action_rects(self, option_rect: QRect, row_data: EpisodeRowData) -> list[tuple[str, QRect]]:
         """Hit/paint rects for the row's inline action button(s).
 
         Legacy rows (Missing File / unmapped / duplicate) get a single rect
-        left of the pill, vertically centered — today's placement. Everything
-        else with `row_data.inline_actions` gets a bottom-row action strip,
-        right-aligned, buttons laid out right-to-left from the row's right
-        margin (so the returned list stays in left-to-right button order).
+        left of the pill, vertically centered — today's placement (left
+        untouched by round5 §3). Everything else with `row_data.inline_actions`
+        gets an action strip on the pill's own row: same y/height as the
+        pill, laid out right-to-left starting a margin left of it (so the
+        returned list stays in left-to-right button order).
         """
         actions = _row_inline_actions(row_data)
         if not actions:
@@ -191,15 +195,16 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         margin = _scale.px(_MARGIN_U)
         height = _scale.px(_INLINE_ACTION_H_U)
         metrics = self._view.fontMetrics() if self._view else None
+        pill = self._pill_rect(option_rect, row_data, metrics) if metrics else QRect()
         if _is_legacy_action_row(row_data):
-            pill = self._pill_rect(option_rect, row_data, metrics) if metrics else QRect()
             width = _scale.px(_INLINE_ACTION_W_U)
             x = pill.x() - margin - width
             y = option_rect.y() + (option_rect.height() - height) // 2
             return [(actions[0][0], QRect(x, y, width, height))]
         rects: list[tuple[str, QRect]] = []
-        y = option_rect.bottom() - margin - height
-        x = option_rect.right() - margin
+        y = pill.y()
+        height = pill.height()
+        x = pill.x() - margin
         for action_id, label in reversed(actions):
             width = (metrics.horizontalAdvance(label) if metrics else 60) + 2 * _scale.px(_PILL_HPAD_U)
             x -= width
@@ -209,11 +214,10 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return rects
 
     def text_right_edge(self, option_rect: QRect, row_data: EpisodeRowData, metrics) -> int:
-        """X coordinate the row's text lines must not cross: the pill, the
-        legacy inline action button when the row has one, or the MUX chip
-        when the row's file will be muxed. Action-strip buttons live on
-        their own bottom row and never constrain the text width, so only
-        the legacy placement is considered here."""
+        """X coordinate the row's text lines must not cross: the pill, any
+        inline action button(s) (legacy single button or the action strip,
+        both now sharing the pill's row per round5 §3), or the MUX chip
+        when the row's file will be muxed -- whichever sits leftmost."""
         right = self._left_anchor(option_rect, row_data, metrics)
         chip = self.mux_chip_rect(option_rect, row_data, metrics)
         if chip.isValid():
@@ -442,7 +446,6 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
     def _paint_body(self, painter: QPainter, option: QStyleOptionViewItem, row_data: EpisodeRowData, *, ghost: bool) -> None:
         metrics = painter.fontMetrics()
-        margin = _scale.px(_MARGIN_U)
         title_x = self._title_x(option.rect, row_data)
         pill_rect = self._pill_rect(option.rect, row_data, metrics)
         title_width = max(0, self.text_right_edge(option.rect, row_data, metrics) - title_x)
@@ -454,7 +457,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         # even when companions are present).
         has_second_line = bool(row_data.filename)
         if has_second_line:
-            first_line_y = option.rect.y() + margin
+            # Pair the title's baseline with the now top-anchored pill
+            # (round5 §3) instead of the wider row margin.
+            first_line_y = option.rect.y() + _scale.px(4)
         else:
             first_line_y = option.rect.y() + (option.rect.height() - line_height) // 2
         first_line_rect = QRect(title_x, first_line_y, title_width, line_height)
