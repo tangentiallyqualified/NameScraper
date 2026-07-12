@@ -913,7 +913,11 @@ QLabel[cssClass="status-pill"][tone="muted"] {
    silently drops an oversized QSS border-radius, which is exactly why the
    pill used to render as a rectangle. */
 QLabel[cssClass="expansion-pill"] {
-    font-size: 10px;
+    /* 13px, NOT status-pill's 10px: the delegate paints the collapsed
+       row's pill text with the app default font (13px, no setFont in its
+       paint path), and font parity is what makes expanding read as "the
+       row grew in place". */
+    font-size: 13px;
     font-weight: 600;
     border-radius: 9px;
     padding: 0px 8px;
@@ -959,9 +963,14 @@ QLabel[cssClass="expansion-pill"][tone="muted"] {
    AutoMux opt-out button alike -- expanding must read as the same
    controls, not a fresh re-render. */
 QPushButton[cssClass="row-action"] {
-    min-height: 18px;
-    max-height: 18px;
-    font-size: 11px;
+    /* Height comes from setFixedHeight(px(18)) in _episode_expansion.py,
+       NOT from QSS min/max-height: those set the CONTENT box, so bordered
+       tones (secondary/caution) would grow to 20px total while the
+       borderless primary stayed 18px -- breaking the uniform-height parity
+       with the delegate's painted column.
+       13px font for the same reason as expansion-pill above: the delegate
+       paints its action-column button labels with the app default font. */
+    font-size: 13px;
     font-weight: 600;
     padding: 0px 8px;
     border-radius: ${radius_sm}px;
