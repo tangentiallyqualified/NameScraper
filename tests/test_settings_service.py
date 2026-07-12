@@ -261,6 +261,29 @@ class TestSettingsValidation(unittest.TestCase):
         self.assertEqual(svc.match_language, "en-US")
 
 
+class TestCacheMaxSizeBytes(unittest.TestCase):
+    """cache_max_size_bytes default and clamping behavior."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "settings.json"
+        self.svc = SettingsService(path=self.path)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_cache_max_size_default_is_one_gib(self):
+        self.assertEqual(self.svc.cache_max_size_bytes, 1024 ** 3)
+
+    def test_cache_max_size_clamps_to_ceiling(self):
+        self.svc.cache_max_size_bytes = 99 * 1024 ** 3      # above 8 GiB
+        self.assertEqual(self.svc.cache_max_size_bytes, 8 * 1024 ** 3)
+
+    def test_cache_max_size_clamps_to_floor(self):
+        self.svc.cache_max_size_bytes = 1                    # below floor
+        self.assertEqual(self.svc.cache_max_size_bytes, 64 * 1024 * 1024)
+
+
 class TestOutputDestinations(unittest.TestCase):
     """Persistent TV/movie output folder settings and validation."""
 

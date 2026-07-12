@@ -139,6 +139,8 @@ class SeasonCompleteness:
     matched: int
     missing: list[tuple[int, str]]
     matched_episodes: list[tuple[int, str]] = field(default_factory=list)
+    review: int = 0   # expected episodes mapped only by review-status files
+    review_episodes: list[tuple[int, str]] = field(default_factory=list)
 
     @property
     def is_complete(self) -> bool:
@@ -200,6 +202,15 @@ class ScanState:
     season_header_positions: list[tuple[int, int, int]] = field(default_factory=list)
     display_order: list[int] = field(default_factory=list)
     collapsed_seasons: set[int] = field(default_factory=set)
+
+    # AutoMux session state (mkvmerge spec §5.1) — per-entry, resets on
+    # rescan/app restart. Keys are preview-item indices; values are
+    # serialized MuxPlan dicts (engine/_mux_planner.MuxPlan.to_dict()).
+    automux_disabled: bool = False
+    mux_plans: dict[int, dict] = field(default_factory=dict)
+    mux_probe_errors: dict[int, str] = field(default_factory=dict)
+    # Per-file AutoMux opt-out (session-scoped; spec: gui-round5 §4b).
+    mux_opt_outs: set[int] = field(default_factory=set)
 
     # Season metadata
     season_names: dict[int, str] = field(default_factory=dict)
@@ -285,6 +296,10 @@ class ScanState:
         self.season_header_positions.clear()
         self.display_order.clear()
         self.collapsed_seasons.clear()
+        self.automux_disabled = False
+        self.mux_plans.clear()
+        self.mux_probe_errors.clear()
+        self.mux_opt_outs.clear()
 
     def reset_scan(self) -> None:
         self.scanner = None
@@ -294,6 +309,29 @@ class ScanState:
         self.scanned = False
         self.scan_error = None
         self.reset_gui_state()
+
+
+def plan_has_actions(plan: dict) -> bool:
+    """Mirror of MuxPlan.has_actions for serialized plans (user edits can
+    reduce a plan to a no-op; such plans must not force a remux).
+
+    Moved from automux_service (round6 §1) so engine-level code can use it
+    without an engine -> app import; automux_service re-exports it."""
+    if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
+        return True
+    return any(
+        m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+
+
+def file_mux_active(state: ScanState, index: int) -> bool:
+    """True when this preview item will actually be muxed: cached plan
+    with actions, not opted out, AutoMux not disabled for the entry.
+
+    Moved from automux_service (round6 §1) — see plan_has_actions."""
+    if state.automux_disabled or index in state.mux_opt_outs:
+        return False
+    plan = state.mux_plans.get(index)
+    return plan is not None and plan_has_actions(plan)
 
 
 @dataclass(frozen=True)

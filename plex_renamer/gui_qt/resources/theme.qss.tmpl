@@ -1,0 +1,1299 @@
+/* ─── NameScraper — Jellyfin-inspired dark theme ─────────────────────
+   TEMPLATE: rendered by gui_qt/theme.py (string.Template).  Do not put
+   raw hex here — use the token and radius_* placeholders defined in
+   theme.COLORS/RADII (see theme.py for the substitution syntax).
+   rgba(...) washes below are hand-derived from token RGB values (QSS
+   cannot compute alpha from a hex token) — update them if the palette
+   in theme.py changes.  success=63,185,80  warning=210,153,34
+   error=229,83,75  info=88,166,255  accent=0,164,220  text_dim=155,155,155.
+   Spacing: 4px grid.  Typography: Segoe UI / SF Pro / sans-serif.
+   ─────────────────────────────────────────────────────────────────── */
+
+
+/* ─── Global defaults ────────────────────────────────────────────── */
+
+* {
+    font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: ${text};
+}
+
+QMainWindow {
+    background-color: ${bg};
+}
+
+QStatusBar {
+    background-color: ${surface};
+    color: ${text_dim};
+    border-top: 1px solid ${border};
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QWidget {
+    background-color: transparent;
+}
+
+
+/* ─── Menu bar ───────────────────────────────────────────────────── */
+
+QMenuBar {
+    background-color: ${surface};
+    border-bottom: 1px solid ${border};
+    padding: 2px 0px;
+    font-size: 13px;
+}
+
+QMenuBar::item {
+    background-color: transparent;
+    padding: 4px 12px;
+    border-radius: ${radius_sm}px;
+}
+
+QMenuBar::item:selected {
+    background-color: ${card_hover};
+}
+
+QMenu {
+    background-color: ${card};
+    border: 1px solid ${border};
+    border-radius: ${radius_lg}px;
+    padding: 4px 0px;
+}
+
+QMenu::item {
+    padding: 6px 32px 6px 16px;
+}
+
+QMenu::item:selected {
+    background-color: ${card_hover};
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: ${border};
+    margin: 4px 8px;
+}
+
+QMenu::item:disabled {
+    color: ${text_muted};
+}
+
+
+/* ─── Tab bar ────────────────────────────────────────────────────── */
+
+QTabWidget::pane {
+    border: none;
+    background-color: ${bg};
+    top: -1px;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
+}
+
+QTabBar {
+    background-color: ${surface};
+    border-bottom: 1px solid ${border};
+}
+
+QTabBar::tab {
+    background-color: transparent;
+    color: ${text_dim};
+    padding: 12px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 22px;
+}
+
+QTabBar::tab:selected {
+    color: ${accent};
+    border-bottom: 2px solid ${accent};
+}
+
+QTabBar::tab:hover:!selected {
+    color: ${text};
+    border-bottom: 2px solid ${border_light};
+}
+
+QWidget[cssClass="tab-badge"] {
+    background-color: transparent;
+}
+
+QLabel[cssClass="tab-badge-count"] {
+    background-color: ${input_bg};
+    color: ${text};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_pill}px;
+    padding: 2px 9px;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 22px;
+    qproperty-alignment: AlignCenter;
+}
+
+QLabel[cssClass="tab-badge-pip"] {
+    background-color: ${error};
+    border-radius: ${radius_sm}px;
+}
+
+
+/* ─── Scroll areas ───────────────────────────────────────────────── */
+
+QScrollArea {
+    border: none;
+    background-color: ${bg};
+}
+
+QTableView {
+    background-color: ${surface};
+    alternate-background-color: ${card};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    gridline-color: transparent;
+    selection-background-color: ${selection_bg};
+    selection-color: ${text};
+}
+
+QTableView::item:hover {
+    background-color: transparent;
+}
+
+QTreeWidget[cssClass="job-preview-tree"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    outline: none;
+    padding: 0px;
+    show-decoration-selected: 0;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::item {
+    padding: 2px 0px;
+    margin: 0px;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::item:hover,
+QTreeWidget[cssClass="job-preview-tree"]::item:selected {
+    background-color: transparent;
+    color: ${text};
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::branch {
+    background: transparent;
+}
+
+QTreeWidget[cssClass="job-preview-tree"]::branch:hover,
+QTreeWidget[cssClass="job-preview-tree"]::branch:selected {
+    background: transparent;
+}
+
+QHeaderView::section {
+    background-color: ${card};
+    color: ${text_dim};
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid ${border};
+    border-right: 1px solid ${border};
+    font-weight: 600;
+}
+
+QListWidget {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    outline: none;
+    padding: 4px;
+}
+
+QListWidget::item {
+    background-color: ${card};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    margin: 4px 0px;
+    padding: 8px;
+}
+
+QListWidget::item:selected {
+    background-color: ${selection_bg};
+    border-color: ${accent};
+}
+
+QListWidget[cssClass="row-host-list"] {
+    padding: 6px;
+}
+
+QListWidget[cssClass="row-host-list"]::item {
+    background-color: transparent;
+    border: none;
+    margin: 3px 0px;
+    padding: 0px;
+}
+
+QListWidget[cssClass="row-host-list"]::item:selected {
+    background-color: transparent;
+    border: none;
+}
+
+QListWidget[cssClass="row-host-list"]:focus {
+    outline: none;
+}
+
+QLabel[cssClass="media-poster"] {
+    background-color: ${card};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    padding: 8px;
+}
+
+QScrollBar:vertical {
+    background-color: ${bg};
+    width: 10px;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background-color: ${border_light};
+    min-height: 32px;
+    border-radius: ${radius_sm}px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: ${text_muted};
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    height: 0px;
+    background: none;
+}
+
+QScrollBar:horizontal {
+    background-color: ${bg};
+    height: 10px;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: ${border_light};
+    min-width: 32px;
+    border-radius: ${radius_sm}px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: ${text_muted};
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    width: 0px;
+    background: none;
+}
+
+QFrame[cssClass="separator"] {
+    background-color: ${border};
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}
+
+QFrame[cssClass="callout-banner"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+}
+
+
+QLabel[cssClass="drop-zone-icon"] {
+    font-size: 48px;
+    color: ${text_muted};
+}
+
+QLabel[cssClass="recent-folder-name"] {
+    color: ${text};
+    font-size: 13px;
+}
+
+QLabel[cssClass="recent-folder-path"] {
+    color: ${text_dim};
+    font-size: 11px;
+}
+
+QLabel[tone="success"] {
+    color: ${success};
+}
+
+QLabel[tone="error"] {
+    color: ${error};
+}
+
+QLabel[tone="muted"] {
+    color: ${text_dim};
+}
+
+/* Toasts (spec §9) — card styling lives here, not inline. */
+QFrame#toastCard {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_lg}px;
+}
+QLabel[cssClass="toast-icon"] {
+    font-weight: 600;
+}
+QLabel[cssClass="toast-icon"][tone="success"] { color: ${success}; }
+QLabel[cssClass="toast-icon"][tone="error"] { color: ${error}; }
+QLabel[cssClass="toast-icon"][tone="accent"] { color: ${info}; }
+QScrollArea[cssClass="toast-body"] {
+    background: transparent;
+    border: 0;
+}
+QScrollArea[cssClass="toast-body"] > QWidget > QWidget {
+    background: transparent;
+}
+QProgressBar[cssClass="toast-countdown"] {
+    background: ${border};
+    border: 0;
+    border-radius: 1px;
+}
+QProgressBar[cssClass="toast-countdown"][tone="success"]::chunk { background: ${success}; border-radius: 1px; }
+QProgressBar[cssClass="toast-countdown"][tone="error"]::chunk { background: ${error}; border-radius: 1px; }
+QProgressBar[cssClass="toast-countdown"][tone="accent"]::chunk { background: ${info}; border-radius: 1px; }
+QPushButton[cssClass="toast-close"] {
+    background-color: transparent;
+    color: ${text_dim};
+    border: none;
+    border-radius: ${radius_sm}px;
+    font-size: 12px;
+    padding: 0;
+}
+QPushButton[cssClass="toast-close"]:hover {
+    background-color: ${card_hover};
+    color: ${text};
+}
+QPushButton[cssClass="toast-close"]:pressed {
+    background-color: ${selection_bg};
+}
+QPushButton[cssClass="toast-inline"] {
+    background-color: transparent;
+    color: ${text};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    padding: 2px 8px;
+    font-size: 11px;
+}
+QPushButton[cssClass="toast-inline"]:hover {
+    background-color: ${card_hover};
+    border-color: ${text_muted};
+}
+
+
+/* ─── Splitters ──────────────────────────────────────────────────── */
+
+QSplitter::handle {
+    background-color: ${border};
+}
+
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+
+QSplitter::handle:vertical {
+    height: 1px;
+}
+
+QSplitter::handle:hover {
+    background-color: ${accent};
+}
+
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
+
+/* Primary button */
+QPushButton {
+    background-color: ${accent};
+    color: ${on_accent};
+    border: none;
+    border-radius: ${radius_md}px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton:hover {
+    background-color: ${accent_hover};
+}
+
+QPushButton:pressed {
+    background-color: ${accent_pressed};
+}
+
+QPushButton:disabled {
+    background-color: ${border};
+    color: ${text_muted};
+}
+
+QPushButton:focus {
+    outline: none;
+}
+
+QPushButton[cssClass="primary"][sizeVariant="compact"] {
+    padding: 6px 4px;
+}
+
+QPushButton[cssClass="primary"][sizeVariant="inline"] {
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: ${radius_sm}px;
+}
+
+/* Secondary / outline button */
+QPushButton[cssClass="secondary"] {
+    background-color: transparent;
+    color: ${text};
+    border: 1px solid ${border_light};
+}
+
+QPushButton[cssClass="secondary"]:disabled {
+    background-color: ${card_hover};
+    color: ${text_dim};
+    border-color: ${border_light};
+}
+
+QPushButton[cssClass="secondary"]:hover {
+    background-color: ${card_hover};
+    border-color: ${text_muted};
+}
+
+QPushButton[cssClass="secondary"]:pressed {
+    background-color: ${card};
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="detail"] {
+    padding: 6px 12px;
+    min-height: 34px;
+    font-size: 12px;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="compact"] {
+    text-align: left;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="compact"]:checked {
+    background-color: ${selection_bg};
+    color: ${accent};
+    border-color: ${accent};
+    font-weight: 600;
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="compact"]:checked:hover {
+    background-color: ${card_hover};
+    color: ${accent};
+    border-color: ${accent};
+}
+
+QPushButton[cssClass="secondary"][sizeVariant="inline"] {
+    text-align: center;
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: ${radius_sm}px;
+}
+
+/* Danger button */
+QPushButton[cssClass="danger"] {
+    background-color: ${error};
+    color: ${text};
+}
+
+QPushButton[cssClass="danger"]:hover {
+    background-color: ${error_hover};
+}
+
+/* Danger outline button (destructive-but-not-primary; spec §6 Unassign All) */
+QPushButton[cssClass="danger-outline"] {
+    background-color: transparent;
+    color: ${error};
+    border: 1px solid ${error};
+}
+
+QPushButton[cssClass="danger-outline"]:hover {
+    background-color: rgba(229, 83, 75, 0.12);
+}
+
+QPushButton[cssClass="danger-outline"]:disabled {
+    color: ${text_dim};
+    border-color: ${border_light};
+}
+
+QPushButton[cssClass="danger-outline"][sizeVariant="compact"] {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+/* Caution (filled warning) button */
+QPushButton[cssClass="caution"] {
+    background-color: ${warning};
+    color: ${on_accent};
+    border: none;
+}
+QPushButton[cssClass="caution"]:hover {
+    background-color: ${warning};
+}
+QPushButton[cssClass="caution"]:pressed {
+    background-color: ${warning};
+}
+QPushButton[cssClass="caution"]:disabled {
+    background-color: ${card_hover};
+    color: ${text_dim};
+}
+QPushButton[cssClass="caution"][sizeVariant="inline"],
+QPushButton[cssClass="danger"][sizeVariant="inline"] {
+    padding: 1px 8px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: ${radius_sm}px;
+}
+
+QToolButton[cssClass="toolbar-overflow"] {
+    background-color: transparent;
+    color: ${text};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    padding: 1px 8px;
+}
+
+QToolButton[cssClass="toolbar-overflow"]::menu-indicator {
+    image: none;
+}
+
+QToolButton[cssClass="toolbar-overflow"]:hover {
+    background-color: ${card_hover};
+}
+
+QWidget[cssClass="segmented-control"] {
+    background-color: transparent;
+}
+
+QPushButton[cssClass="segment"] {
+    background-color: ${card};
+    color: ${text_dim};
+    border: 1px solid ${border_light};
+    border-right: none;
+    border-radius: 0px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QPushButton[cssClass="segment"][segmentPosition="first"] {
+    border-top-left-radius: ${radius_md}px;
+    border-bottom-left-radius: ${radius_md}px;
+}
+
+QPushButton[cssClass="segment"][segmentPosition="last"] {
+    border-top-right-radius: ${radius_md}px;
+    border-bottom-right-radius: ${radius_md}px;
+    border-right: 1px solid ${border_light};
+}
+
+QPushButton[cssClass="segment"]:hover {
+    background-color: ${card_hover};
+    color: ${text};
+}
+
+QPushButton[cssClass="segment"]:checked {
+    background-color: ${selection_bg};
+    color: ${accent};
+    border-color: ${accent};
+}
+
+QPushButton[cssClass="segment"]:checked[segmentPosition="last"] {
+    border-right: 1px solid ${accent};
+}
+
+QPushButton[cssClass="segment"]:disabled {
+    background-color: ${surface};
+    color: ${text_muted};
+    border-color: ${border};
+}
+
+
+/* ─── Input fields ───────────────────────────────────────────────── */
+
+QLineEdit {
+    background-color: ${input_bg};
+    border: 1px solid ${border};
+    border-radius: ${radius_sm}px;
+    padding: 6px 8px;
+    color: ${text};
+    selection-background-color: ${accent_dim};
+}
+
+QLineEdit:focus {
+    border-color: ${accent};
+}
+
+QLineEdit:disabled {
+    color: ${text_muted};
+    background-color: ${card};
+}
+
+
+/* ─── Combo boxes ────────────────────────────────────────────────── */
+
+QComboBox {
+    background-color: ${input_bg};
+    border: 1px solid ${border};
+    border-radius: ${radius_sm}px;
+    padding: 6px 8px;
+    color: ${text};
+    min-width: 120px;
+    /* combobox-popup: 0 forces the dropdown list into non-native/list mode.
+       Originally added because the popup appeared to swallow the release
+       and close instantly; that was actually the transient-window
+       suppressor blanking the popup, fixed properly in cbe5eae. If the
+       live desktop pass still shows arrow-only opening or flicker, drop
+       this line next (reverts to Qt's default popup-over mode). */
+    combobox-popup: 0;
+}
+
+QComboBox:hover {
+    border-color: ${border_light};
+}
+
+QComboBox:focus {
+    border-color: ${accent};
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    border: none;
+    width: 24px;
+}
+
+QComboBox::down-arrow {
+    image: url("${chevron_down_svg}");
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: ${card};
+    border: 1px solid ${border};
+    selection-background-color: ${card_hover};
+    selection-color: ${text};
+    outline: none;
+}
+
+QComboBox QAbstractItemView QWidget {
+    background-color: ${card};
+}
+
+
+/* ─── Sliders ────────────────────────────────────────────────────── */
+
+QSlider::groove:horizontal {
+    background-color: ${border};
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background-color: ${accent};
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: ${radius_md}px;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: ${accent_hover};
+}
+
+QSlider::sub-page:horizontal {
+    background-color: ${accent};
+    border-radius: 2px;
+}
+
+
+/* ─── Check boxes ────────────────────────────────────────────────── */
+
+QCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox:focus {
+    outline: none;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    background-color: ${input_bg};
+}
+
+QCheckBox::indicator:hover {
+    border-color: ${text_dim};
+    background-color: ${card_hover};
+}
+
+QCheckBox::indicator:checked {
+    background-color: ${success};
+    border-color: ${success_dim};
+    image: url("${check_svg}");
+}
+
+QCheckBox::indicator:indeterminate {
+    background-color: ${info};
+    border-color: ${info};
+}
+
+QCheckBox[cssClass="master-check"]::indicator {
+    width: 18px;
+    height: 18px;
+}
+
+
+/* ─── Progress bars ──────────────────────────────────────────────── */
+
+QProgressBar {
+    background-color: ${border};
+    border: none;
+    border-radius: ${radius_sm}px;
+    height: 6px;
+    text-align: center;
+    font-size: 1px;  /* effectively hide text — 0px triggers Qt warnings */
+}
+
+QProgressBar::chunk {
+    background-color: ${accent};
+    border-radius: ${radius_sm}px;
+}
+
+
+/* ─── Labels ─────────────────────────────────────────────────────── */
+
+QLabel {
+    background-color: transparent;
+}
+
+QLabel[cssClass="heading"] {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+QLabel[cssClass="caption"] {
+    font-size: 11px;
+    color: ${text_dim};
+}
+
+QLabel[cssClass="text-dim"] {
+    color: ${text_dim};
+}
+
+QLabel[cssClass="text-muted"] {
+    color: ${text_muted};
+}
+
+QLabel[cssClass="badge"] {
+    font-size: 10px;
+    font-weight: 600;
+}
+
+QLabel[cssClass="row-title"] {
+    color: ${text};
+    font-weight: 600;
+}
+
+QLabel[cssClass="row-target"] {
+    color: ${accent};
+}
+
+QLabel[cssClass="job-preview-target"] {
+    color: ${accent};
+    font-weight: 600;
+}
+
+/* Job preview companion type badge (spec §11/§13 grouping seam). */
+QLabel[cssClass="type-badge"] {
+    background-color: rgba(155, 155, 155, 0.15);
+    color: ${text_dim};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_sm}px;
+    padding: 0px 6px;
+    font-size: 10px;
+    font-weight: 600;
+}
+QLabel[cssClass="job-detail-error"] {
+    color: ${error};
+}
+
+/* History revert confirmation banner (spec §11). */
+QFrame[cssClass="revert-banner"] {
+    background-color: rgba(210, 153, 34, 0.10);
+    border: 1px solid ${warning};
+    border-radius: ${radius_md}px;
+}
+QLabel[cssClass="revert-banner-text"] {
+    color: ${warning};
+    background: transparent;
+}
+
+QFrame[cssClass="table-empty-state"] {
+    background: transparent;
+    border: none;
+}
+
+QLabel[cssClass="job-detail-fact-value"] {
+    color: ${text};
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel[cssClass="status-pill"] {
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: ${radius_pill}px;
+    padding: 1px 6px;
+}
+
+QLabel[cssClass="status-pill"][tone="success"] {
+    background-color: rgba(63, 185, 80, 0.12);
+    color: ${success};
+    border: 1px solid ${success};
+}
+
+QLabel[cssClass="status-pill"][tone="warning"] {
+    background-color: rgba(210, 153, 34, 0.12);
+    color: ${warning};
+    border: 1px solid ${warning};
+}
+
+QLabel[cssClass="status-pill"][tone="error"] {
+    background-color: rgba(229, 83, 75, 0.12);
+    color: ${error};
+    border: 1px solid ${error};
+}
+
+QLabel[cssClass="status-pill"][tone="info"] {
+    background-color: rgba(88, 166, 255, 0.12);
+    color: ${info};
+    border: 1px solid ${info};
+}
+
+QLabel[cssClass="status-pill"][tone="muted"] {
+    background-color: ${card_hover};
+    color: ${text_dim};
+    border: 1px solid ${text_dim};
+}
+
+/* Expansion-card status pill (Task 6, round6 spec §3): a fixed-height
+   capsule that mirrors the collapsed row's painted pill
+   (_episode_table_delegate._PILL_H_U = 18px). The card sets a matching
+   setFixedHeight(18) in Python; border-radius here is height // 2 = 9,
+   deliberately NOT the theme "pill" radius token (10px) -- that token
+   exceeds half of an 18px (or the prior ~16px) label height, and Qt
+   silently drops an oversized QSS border-radius, which is exactly why the
+   pill used to render as a rectangle. */
+QLabel[cssClass="expansion-pill"] {
+    /* 13px, NOT status-pill's 10px: the delegate paints the collapsed
+       row's pill text with the app default font (13px, no setFont in its
+       paint path), and font parity is what makes expanding read as "the
+       row grew in place". */
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 9px;
+    padding: 0px 8px;
+}
+
+QLabel[cssClass="expansion-pill"][tone="success"] {
+    background-color: rgba(63, 185, 80, 0.12);
+    color: ${success};
+    border: 1px solid ${success};
+}
+
+QLabel[cssClass="expansion-pill"][tone="warning"] {
+    background-color: rgba(210, 153, 34, 0.12);
+    color: ${warning};
+    border: 1px solid ${warning};
+}
+
+QLabel[cssClass="expansion-pill"][tone="error"] {
+    background-color: rgba(229, 83, 75, 0.12);
+    color: ${error};
+    border: 1px solid ${error};
+}
+
+QLabel[cssClass="expansion-pill"][tone="info"] {
+    background-color: rgba(88, 166, 255, 0.12);
+    color: ${info};
+    border: 1px solid ${info};
+}
+
+QLabel[cssClass="expansion-pill"][tone="muted"] {
+    background-color: ${card_hover};
+    color: ${text_dim};
+    border: 1px solid ${text_dim};
+}
+
+/* Expansion-card row-action buttons (Task 6): same visual language as the
+   collapsed row's painted action-column buttons
+   (_episode_table_delegate._paint_action_button) -- fixed height matching
+   the pill (18px, set via setFixedHeight in Python; no min/max-height here,
+   see below), radius_sm corners, accent-tinted primary fill, dim
+   secondary fill+border, caution reusing the existing caution palette.
+   Used by the header column, the below-fold row, and the per-episode
+   AutoMux opt-out button alike -- expanding must read as the same
+   controls, not a fresh re-render. */
+QPushButton[cssClass="row-action"] {
+    /* Height comes from setFixedHeight(px(18)) in _episode_expansion.py,
+       NOT from QSS min/max-height: those set the CONTENT box, so bordered
+       tones (secondary/caution) would grow to 20px total while the
+       borderless primary stayed 18px -- breaking the uniform-height parity
+       with the delegate's painted column.
+       13px font for the same reason as expansion-pill above: the delegate
+       paints its action-column button labels with the app default font. */
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0px 8px;
+    border-radius: ${radius_sm}px;
+}
+
+QPushButton[cssClass="row-action"][tone="primary"] {
+    background-color: rgba(0, 164, 220, 0.14);
+    color: ${accent};
+    border: none;
+}
+QPushButton[cssClass="row-action"][tone="primary"]:hover {
+    background-color: rgba(0, 164, 220, 0.22);
+}
+QPushButton[cssClass="row-action"][tone="primary"]:pressed {
+    background-color: rgba(0, 164, 220, 0.30);
+}
+
+QPushButton[cssClass="row-action"][tone="secondary"] {
+    background-color: rgba(155, 155, 155, 0.10);
+    color: ${text};
+    border: 1px solid rgba(155, 155, 155, 0.4);
+}
+QPushButton[cssClass="row-action"][tone="secondary"]:hover {
+    background-color: rgba(155, 155, 155, 0.18);
+}
+QPushButton[cssClass="row-action"][tone="secondary"]:pressed {
+    background-color: rgba(155, 155, 155, 0.24);
+}
+
+QPushButton[cssClass="row-action"][tone="caution"] {
+    background-color: ${warning};
+    color: ${on_accent};
+    border: none;
+}
+QPushButton[cssClass="row-action"][tone="caution"]:hover {
+    background-color: ${warning};
+}
+QPushButton[cssClass="row-action"][tone="caution"]:pressed {
+    background-color: ${warning};
+}
+
+
+/* ─── Cards (Level 2 panels) ─────────────────────────────────────── */
+
+QFrame[cssClass="card"] {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_md}px;
+}
+
+/* Expanded-episode editor card (R2 M3, neutralized Task 5): square corners
+   like an inline row, but neutral surface/border — no selection-blue frame. */
+QFrame[cssClass="expansion-card"] {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: 0px;
+}
+
+QToolButton[cssClass="expansion-collapse"] {
+    background: transparent;
+    border: none;
+    color: ${text_dim};
+    padding: 0;
+}
+QToolButton[cssClass="expansion-collapse"]:hover {
+    color: ${text};
+}
+
+QLabel[cssClass="job-poster-card"] {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_md}px;
+}
+
+QFrame[cssClass="job-detail-empty-card"] {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_md}px;
+}
+
+QFrame[cssClass="job-detail-facts-card"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+}
+
+QFrame[cssClass="media-detail-content-surface"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_lg}px;
+}
+
+QFrame[cssClass="roster-row-card"],
+QFrame[cssClass="preview-row-card"] {
+    background-color: ${card};
+    border: 1px solid transparent;
+    border-radius: ${radius_md}px;
+}
+
+QFrame[cssClass="roster-row-card"]:hover,
+QFrame[cssClass="preview-row-card"]:hover {
+    background-color: ${card_hover};
+}
+
+QFrame[cssClass="roster-row-card"][selectionState="selected"],
+QFrame[cssClass="preview-row-card"][selectionState="selected"] {
+    background-color: ${selection_bg};
+    border: 1px solid ${accent};
+}
+
+/* Graceful status shading (replaces the left-edge fringe) */
+QFrame[cssClass="roster-row-card"][band="high"],
+QFrame[cssClass="preview-row-card"][band="high"] { background-color: rgba(63, 185, 80, 0.05); }
+QFrame[cssClass="roster-row-card"][band="medium"],
+QFrame[cssClass="preview-row-card"][band="medium"] { background-color: rgba(210, 153, 34, 0.05); }
+QFrame[cssClass="roster-row-card"][band="low"],
+QFrame[cssClass="preview-row-card"][band="low"],
+QFrame[cssClass="preview-row-card"][band="error"] { background-color: rgba(229, 83, 75, 0.06); }
+QFrame[cssClass="roster-row-card"][band="muted"],
+QFrame[cssClass="preview-row-card"][band="muted"] { background-color: ${card}; }
+
+QFrame[cssClass="card"]:hover {
+    background-color: ${card_hover};
+}
+
+
+/* ─── Panels (Level 1) ───────────────────────────────────────────── */
+
+QFrame[cssClass="panel"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+}
+
+QFrame[cssClass="panel"][panelVariant="square"] {
+    border-radius: 0px;
+}
+
+
+/* ─── Settings sections ──────────────────────────────────────────── */
+
+QFrame[cssClass="settings-section"] {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_lg}px;
+    padding: 16px;
+}
+
+QFrame[cssClass="settings-section"][sectionRole="page"] {
+    background-color: ${surface};
+    border-color: ${border};
+}
+
+QListWidget[cssClass="settings-nav"] {
+    background-color: ${surface};
+    border: 1px solid ${border};
+    border-radius: ${radius_md}px;
+    padding: 6px;
+}
+
+QListWidget[cssClass="settings-nav"]::item {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: ${radius_sm}px;
+    margin: 2px 0px;
+    padding: 9px 10px;
+}
+
+QListWidget[cssClass="settings-nav"]::item:selected {
+    background-color: ${selection_bg};
+    border-color: ${accent};
+    color: ${accent};
+}
+
+QStackedWidget[cssClass="settings-stack"] {
+    background-color: transparent;
+    border: none;
+}
+
+QLineEdit[cssClass="path-input"] {
+    background-color: ${input_bg};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_md}px;
+    padding: 7px 9px;
+}
+
+QLineEdit[cssClass="path-input"]:focus {
+    border-color: ${accent};
+}
+
+QLabel[cssClass="field-label"] {
+    color: ${text};
+    font-weight: 600;
+}
+
+QLabel[cssClass="caption"][tone="success"] {
+    color: ${success};
+}
+
+QLabel[cssClass="caption"][tone="error"] {
+    color: ${error};
+}
+
+QLabel[cssClass="caption"][tone="warning"] {
+    color: ${warning};
+}
+
+
+/* ─── Drop zone ──────────────────────────────────────────────────── */
+
+QFrame[cssClass="drop-zone"] {
+    background-color: transparent;
+    border: 2px dashed ${border_light};
+    border-radius: ${radius_lg}px;
+}
+
+QFrame[cssClass="drop-zone"][dragOver="true"] {
+    border-color: ${accent};
+    background-color: rgba(0, 164, 220, 0.06);
+}
+
+
+/* ─── Tooltips ───────────────────────────────────────────────────── */
+
+QToolTip {
+    background-color: ${card};
+    color: ${text};
+    border: 1px solid ${border};
+    border-radius: ${radius_sm}px;
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+
+/* ─── Group box (collapsible sections) ───────────────────────────── */
+
+QGroupBox {
+    background-color: ${card};
+    border: 1px solid ${border_light};
+    border-radius: ${radius_lg}px;
+    margin-top: 16px;
+    padding: 16px;
+    padding-top: 24px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 8px;
+    color: ${text};
+}
+
+
+/* ─── Sticky season header overlay ──────────────────────────────── */
+
+QLabel[cssClass="sticky-season-header"] {
+    background-color: ${section_header_bg};
+    color: ${accent};
+    font-weight: bold;
+    font-size: 10pt;
+    padding: 4px 12px;
+    border-bottom: 1px solid ${border_light};
+}
+
+
+/* ─── Season strip (work-panel header) ───────────────────────────── */
+
+/* No distinct fill on the scroll area/host -- the strip inherits the
+   panel's own surface color instead of rendering as an off-color rectangle. */
+QScrollArea[cssClass="season-strip-scroll"] {
+    background: transparent;
+    border: 0;
+}
+QScrollArea[cssClass="season-strip-scroll"] > QWidget > QWidget {
+    background: transparent;
+}
+QWidget[cssClass="season-strip-scroll"] {
+    background: transparent;
+}
+
+QPushButton[cssClass="season-strip-chip"] {
+    background-color: ${card};
+    border: 1px solid ${border};
+    border-radius: ${radius_sm}px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="success"] {
+    background-color: rgba(63, 185, 80, 0.12);
+    border-color: rgba(63, 185, 80, 0.35);
+    color: ${success};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="warning"] {
+    background-color: rgba(210, 153, 34, 0.12);
+    border-color: rgba(210, 153, 34, 0.35);
+    color: ${warning};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="muted"] {
+    background-color: rgba(155, 155, 155, 0.12);
+    border-color: rgba(155, 155, 155, 0.35);
+    color: ${text_dim};
+}
+
+QPushButton[cssClass="season-strip-chip"][tone="info"] {
+    background-color: rgba(88, 166, 255, 0.12);
+    border-color: rgba(88, 166, 255, 0.35);
+    color: ${info};
+}
+
+QPushButton[cssClass="season-strip-chip"]:hover {
+    background-color: ${card_hover};
+    border-color: ${border_light};
+}
+
+QPushButton[cssClass="season-strip-chip"]:pressed,
+QPushButton[cssClass="season-strip-chip"]:checked {
+    background-color: ${accent};
+    border-color: ${accent};
+    color: ${on_accent};
+}

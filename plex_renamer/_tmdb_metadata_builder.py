@@ -98,3 +98,38 @@ def build_season_payload(data: dict | None) -> dict[str, Any]:
         "episodes": episodes,
         "season_poster_path": data.get("poster_path"),
     }
+
+
+def select_logo_path(details: dict | None, language: str) -> str | None:
+    """Best clearlogo path from a widened details payload.
+
+    Highest (vote_average, vote_count) among logos matching the primary
+    language subtag, falling back to language-neutral (null) logos, else
+    None. Pre-widening cache entries have no "images" key — returns None.
+    """
+    if not details:
+        return None
+    logos = (details.get("images") or {}).get("logos") or []
+    # TMDB serves some logos as .svg; those would be written into a
+    # clearlogo.png file unrenderable by Plex/media players, so only
+    # PNG candidates are eligible before scoring.
+    logos = [
+        logo for logo in logos
+        if str(logo.get("file_path") or "").lower().endswith(".png")
+    ]
+    lang2 = (language or "en-US").split("-")[0]
+
+    def score(logo: dict) -> tuple[float, int]:
+        return (
+            float(logo.get("vote_average") or 0),
+            int(logo.get("vote_count") or 0),
+        )
+
+    for wanted in (lang2, None):
+        pool = [
+            logo for logo in logos
+            if logo.get("iso_639_1") == wanted and logo.get("file_path")
+        ]
+        if pool:
+            return max(pool, key=score)["file_path"]
+    return None

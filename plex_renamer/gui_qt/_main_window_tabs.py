@@ -67,6 +67,7 @@ class MainWindowTabsCoordinator:
             cache_service=window._cache_service,
             clear_tmdb_callback=window._drop_tmdb_client,
             clear_history_callback=window._clear_history_from_settings,
+            history_count_callback=window._history_count_for_settings,
         )
 
         window._tabs.addTab(window._settings_tab, "Settings")
@@ -87,6 +88,12 @@ class MainWindowTabsCoordinator:
         window._queue_tab.queue_changed.connect(window._on_queue_changed)
         window._tv_workspace.status_message.connect(window.statusBar().showMessage)
         window._movie_workspace.status_message.connect(window.statusBar().showMessage)
+        for workspace in (window._tv_workspace, window._movie_workspace):
+            workspace.toast_requested.connect(
+                lambda title, message, tone, window=window: window._toast_manager.show_toast(
+                    title=title, message=message, tone=tone,
+                )
+            )
         window._history_tab.history_changed.connect(window._on_queue_changed)
         window._settings_tab.view_mode_changed.connect(window._apply_view_mode)
         window._settings_tab.companion_visibility_changed.connect(window._apply_companion_visibility)
@@ -111,12 +118,8 @@ class MainWindowTabsCoordinator:
 
     def _build_badges(self) -> None:
         window = self._window
-        window._tv_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
-        window._movie_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
         window._queue_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
         window._history_badge = TabBadge(parent=window._tabs)
         tab_bar = window._tabs.tabBar()
-        tab_bar.setTabButton(self._tv_index, QTabBar.ButtonPosition.RightSide, window._tv_badge)
-        tab_bar.setTabButton(self._movies_index, QTabBar.ButtonPosition.RightSide, window._movie_badge)
         tab_bar.setTabButton(self._queue_index, QTabBar.ButtonPosition.RightSide, window._queue_badge)
         tab_bar.setTabButton(self._history_index, QTabBar.ButtonPosition.RightSide, window._history_badge)

@@ -137,7 +137,9 @@ class QueueControllerTests(unittest.TestCase):
             columns = {entry[1] for entry in row}
             version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
             self.assertIn("poster_path", columns)
-            self.assertEqual(version, 3)
+            self.assertIn("active_temp", columns)
+            self.assertIn("metadata_plan", columns)
+            self.assertEqual(version, 5)
         finally:
             migrated.close()
 
@@ -179,7 +181,9 @@ class QueueControllerTests(unittest.TestCase):
             columns = {entry[1] for entry in row}
             version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
             self.assertIn("output_root", columns)
-            self.assertEqual(version, 3)
+            self.assertIn("active_temp", columns)
+            self.assertIn("metadata_plan", columns)
+            self.assertEqual(version, 5)
         finally:
             migrated.close()
 

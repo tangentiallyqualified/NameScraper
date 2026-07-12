@@ -1,4 +1,4 @@
-"""UI-neutral application-layer services and models for Plex Renamer."""
+"""UI-neutral application-layer services and models for NameScraper."""
 
 from .controllers import (
     BatchQueueResult,

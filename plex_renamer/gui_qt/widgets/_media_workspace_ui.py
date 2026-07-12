@@ -7,11 +7,9 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
-from .. import _scale
-from ._media_workspace_preview import MediaWorkspacePreviewPanel
+from ._work_panel import MediaWorkPanel
 from ._media_workspace_roster import MediaWorkspaceRosterPanel
 from .empty_state import EmptyStateWidget
-from .media_detail_panel import MediaDetailPanel
 from .scan_progress import ScanProgressWidget
 
 
@@ -61,13 +59,11 @@ class MediaWorkspaceUiCoordinator:
         workspace._splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self._build_roster_panel()
-        self._build_preview_panel()
-        self._build_detail_panel()
+        self._build_work_panel()
 
         workspace._splitter.addWidget(workspace._roster_panel)
-        workspace._splitter.addWidget(workspace._preview_panel)
-        workspace._splitter.addWidget(workspace._detail_panel)
-        workspace._splitter.setSizes([320, 540, 380])
+        workspace._splitter.addWidget(workspace._work_panel)
+        workspace._splitter.setSizes([380, 860])
         workspace._splitter.setChildrenCollapsible(False)
 
         ready_layout.addWidget(workspace._splitter, stretch=1)
@@ -79,88 +75,84 @@ class MediaWorkspaceUiCoordinator:
             media_type=workspace._media_type,
             settings_service=workspace._settings,
             tmdb_provider=workspace._tmdb_provider,
-            set_item_check_state_callback=lambda item, checked: workspace._set_item_check_state(
-                item,
-                checked,
-                preview=False,
-            ),
-            prompt_assign_season_callback=workspace._prompt_assign_season,
         )
-        workspace._roster_list = workspace._roster_panel.list_widget
         workspace._roster_master_check = workspace._roster_panel.master_check
         workspace._roster_selection_summary = workspace._roster_panel.selection_summary
         workspace._roster_queue_btn = workspace._roster_panel.queue_button
         workspace._roster_master_check.stateChanged.connect(workspace._on_roster_master_changed)
         workspace._roster_queue_btn.clicked.connect(workspace._queue_checked)
-        workspace._roster_list.itemChanged.connect(workspace._on_roster_item_changed)
-        workspace._roster_list.itemClicked.connect(workspace._on_roster_item_clicked)
-        workspace._roster_list.currentItemChanged.connect(workspace._on_roster_current_item_changed)
+        workspace._roster_panel.state_selected.connect(workspace._on_roster_state_selected)
+        workspace._roster_panel.check_toggled.connect(workspace._on_roster_check_toggled)
+        workspace._roster_panel.group_toggled.connect(workspace._on_roster_group_toggled)
         workspace._set_roster_queue_button_text("Queue Checked")
 
-    def _build_preview_panel(self) -> None:
+    def _build_work_panel(self) -> None:
         workspace = self._workspace
-        workspace._preview_panel = MediaWorkspacePreviewPanel(
+        workspace._work_panel = MediaWorkPanel(
             media_type=workspace._media_type,
             settings_service=workspace._settings,
-            set_item_check_state_callback=lambda item, checked: workspace._set_item_check_state(
-                item,
-                checked,
-                preview=True,
-            ),
-            episode_filter_changed_callback=lambda: (
-                workspace._populate_preview(workspace._selected_state())
-                if workspace._selected_state() is not None
-                else None
-            ),
-            episode_row_action_callback=lambda state, row, action_id: workspace._action_coordinator.handle_episode_row_action(state, row, action_id),
-            approve_all_episode_callback=workspace._approve_all_episode_mappings,
-            unassign_all_episode_callback=workspace._unassign_all_episode_mappings,
-            episode_guide_provider=(
+            tmdb_provider=workspace._tmdb_provider,
+            guide_provider=(
                 workspace._media_ctrl.episode_guide_for_state
                 if workspace._media_ctrl is not None
                 and hasattr(workspace._media_ctrl, "episode_guide_for_state")
                 else None
             ),
+            cached_guide_provider=(
+                workspace._media_ctrl.cached_episode_guide_for_state
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "cached_episode_guide_for_state")
+                else None
+            ),
+            guide_builder=(
+                workspace._media_ctrl.build_episode_guide_snapshot
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "build_episode_guide_snapshot")
+                else None
+            ),
+            guide_store=(
+                workspace._media_ctrl.store_episode_guide
+                if workspace._media_ctrl is not None
+                and hasattr(workspace._media_ctrl, "store_episode_guide")
+                else None
+            ),
         )
-        workspace._preview_list = workspace._preview_panel.list_widget
-        workspace._preview_master_check = workspace._preview_panel.master_check
-        workspace._preview_check_summary = workspace._preview_panel.check_summary
-        workspace._fix_match_btn = workspace._preview_panel.fix_match_button
-        workspace._queue_inline_btn = workspace._preview_panel.primary_action_button
-        workspace._unassign_all_btn = workspace._preview_panel.unassign_all_button
-        workspace._folder_plan_label = workspace._preview_panel.folder_plan_label
-        workspace._preview_summary = workspace._preview_panel.summary_label
-        workspace._sticky_header = workspace._preview_panel.sticky_header
-        workspace._preview_master_check.stateChanged.connect(workspace._on_preview_master_changed)
+        panel = workspace._work_panel
+        panel.setProperty("panelVariant", "square")
+        workspace._fix_match_btn = panel.fix_match_button
+        workspace._queue_inline_btn = panel.primary_action_button
         workspace._fix_match_btn.clicked.connect(workspace._fix_match)
         workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
+        panel.automux_button.clicked.connect(workspace._toggle_automux)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())
         workspace._sync_action_button_metrics()
-        workspace._preview_list.itemChanged.connect(workspace._on_preview_item_changed)
-        workspace._preview_list.currentItemChanged.connect(workspace._on_preview_current_item_changed)
-        workspace._preview_list.itemClicked.connect(workspace._on_preview_item_clicked)
 
-    def _build_detail_panel(self) -> None:
-        workspace = self._workspace
-        workspace._detail_panel = MediaDetailPanel(
-            tmdb_provider=workspace._tmdb_provider,
-            settings_service=workspace._settings,
-        )
-        workspace._detail_panel.setProperty("panelVariant", "square")
-        workspace._detail_panel.setMinimumWidth(_scale.px(340))
-        workspace._preview_panel.fix_match_button.hide()
-        workspace._preview_panel.primary_action_button.hide()
-        workspace._fix_match_btn = workspace._detail_panel.fix_match_button
-        workspace._queue_inline_btn = workspace._detail_panel.primary_action_button
-        workspace._queue_preflight_label = workspace._detail_panel.queue_preflight_label
-        workspace._fix_match_btn.clicked.connect(workspace._fix_match)
-        workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
-        workspace._queue_inline_btn.setText(workspace._queue_selected_label())
-        workspace._sync_action_button_metrics()
+        # The panel self-toggles the model on header clicks; the workspace
+        # coordinator owns the shared collapsed set + footer refresh instead,
+        # so drop the panel's internal connection to avoid a double toggle.
+        panel.table_view.header_clicked.disconnect(panel._on_header_clicked)
+
+        panel.filter_changed.connect(workspace._on_episode_filter_changed)
+        panel.search_changed.connect(workspace._on_episode_search_changed)
+        panel.episode_search_changed.connect(workspace._on_episode_code_search_changed)
+        panel.approve_all_clicked.connect(workspace._approve_all_episode_mappings)
+        panel.unassign_all_clicked.connect(workspace._unassign_all_episode_mappings)
+        panel.season_chip_clicked.connect(panel.scroll_to_season)
+        panel.table_view.chevron_clicked.connect(workspace._on_table_expand_requested)
+        panel.table_view.expand_key_pressed.connect(workspace._on_table_expand_requested)
+        panel.inline_row_action.connect(workspace._on_inline_row_action)
+        panel.table_view.header_clicked.connect(workspace._on_table_section_toggled)
+        panel.table_view.clicked.connect(workspace._on_table_row_clicked)
+        panel.table_view.selectionModel().currentChanged.connect(workspace._on_table_current_changed)
+        panel._delegate.expansion_card_provider = workspace._expansion_card_for_index
+
+        panel.bulk_assign_requested.connect(workspace._enter_bulk_assign)
+        panel.bulk_panel.apply_requested.connect(workspace._on_bulk_apply)
+        panel.bulk_panel.cancelled.connect(workspace._on_bulk_cancel)
 
     def _restore_splitter_positions(self) -> None:
         workspace = self._workspace
         if workspace._settings:
             positions = workspace._settings.splitter_positions
-            if positions and len(positions) == 3:
+            if positions and len(positions) == 2:
                 workspace._splitter.setSizes(positions)

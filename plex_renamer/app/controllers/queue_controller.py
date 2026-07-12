@@ -55,22 +55,30 @@ class QueueController:
         on_job_completed: Callable[[RenameJob, RenameResult], None] | None = None,
         on_job_failed: Callable[[RenameJob, str], None] | None = None,
         on_queue_finished: Callable[[], None] | None = None,
+        on_job_progress: Callable[[RenameJob, int, int, int], None] | None = None,
     ) -> int:
         """Register a listener.  Returns listener index.
 
         Callbacks fire from the executor's background thread — the widget
         layer is responsible for marshaling to the main thread.
+        ``on_job_progress`` receives ``(job, op_index, op_count, percent)``
+        for running remux ops (spec §7.2).
         """
         listener_id = self.executor.add_listener(
             on_started=on_job_started,
             on_completed=on_job_completed,
             on_failed=on_job_failed,
             on_finished=on_queue_finished,
+            on_progress=on_job_progress,
         )
         return listener_id
 
     def clear_listeners(self) -> None:
         self.executor.clear_listeners()
+
+    def set_image_fetcher(self, fetcher) -> None:
+        """Forward the artwork downloader to the executor."""
+        self.executor.set_image_fetcher(fetcher)
 
     # ── Properties ──────────────────────────────────────────────────
 
@@ -97,6 +105,8 @@ class QueueController:
         source_folder: Path,
         show_folder_rename: str | None = None,
         poster_path: str | None = None,
+        settings_service=None,
+        tmdb_client=None,
     ) -> RenameJob:
         """Build and enqueue a single rename job.
 
@@ -115,6 +125,8 @@ class QueueController:
             source_folder=source_folder,
             show_folder_rename=show_folder_rename,
             poster_path=poster_path,
+            settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     def add_tv_batch(
@@ -123,6 +135,8 @@ class QueueController:
         library_root: Path,
         output_root: Path,
         command_gating: CommandGatingService,
+        settings_service=None,
+        tmdb_client=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all checked TV shows.
 
@@ -136,6 +150,8 @@ class QueueController:
             library_root=library_root,
             output_root=output_root,
             command_gating=command_gating,
+            settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     def add_movie_batch(
@@ -144,6 +160,8 @@ class QueueController:
         library_root: Path,
         output_root: Path,
         command_gating: CommandGatingService,
+        settings_service=None,
+        tmdb_client=None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all eligible movies.
 
@@ -156,6 +174,8 @@ class QueueController:
             library_root=library_root,
             output_root=output_root,
             command_gating=command_gating,
+            settings_service=settings_service,
+            tmdb_client=tmdb_client,
         )
 
     # ── Direct rename recording ────────────────────────────────────

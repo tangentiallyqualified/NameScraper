@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, Signal, QUrl
+from PySide6.QtCore import QObject, QRect, Qt, Signal, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QHeaderView,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
@@ -95,6 +96,48 @@ class _ElidedPreviewLabel(QLabel):
         super().setText(display)
 
 
+class _WrappedFitLabel(QLabel):
+    """Word-wrapped label that reserves its wrapped height at its ACTUAL width.
+
+    Under a Maximum-height card the layout gives word-wrapped labels no
+    height-for-width pass, and the empty card is centered at its sizeHint
+    width (``AlignCenter`` overrides the card's Expanding policy), so its
+    runtime width sits well below ``maximumWidth()``. A minimum height
+    computed from the max width therefore under-provisions and the last line
+    clips. Re-pinning from the real laid-out width on every text change,
+    resize, and show keeps the wrapped text fully visible at any font, DPI,
+    or panel size.
+    """
+
+    def _repin_wrapped_height(self) -> None:
+        width = self.width()
+        if width <= 1:
+            return
+        # QLabel.heightForWidth folds in the current minimumHeight (it returns
+        # max(text_height, minimumHeight)), so re-pinning from it would ratchet
+        # the reserved height ever taller. Measure the true wrapped text height
+        # from font metrics instead -- stable regardless of the current minimum.
+        content_width = max(1, width - 2 * self.margin())
+        text_rect = self.fontMetrics().boundingRect(
+            QRect(0, 0, content_width, 1 << 20),
+            int(Qt.TextFlag.TextWordWrap),
+            self.text(),
+        )
+        self.setMinimumHeight(text_rect.height() + 2 * self.margin())
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        super().setText(text)
+        self._repin_wrapped_height()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._repin_wrapped_height()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._repin_wrapped_height()
+
+
 class _RenamePreviewWidget(QWidget):
     """Compact preview row with labeled original and renamed values."""
 
@@ -105,6 +148,7 @@ class _RenamePreviewWidget(QWidget):
         after: str,
         before_label: str = "Original",
         after_label: str = "New",
+        badge: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -127,6 +171,16 @@ class _RenamePreviewWidget(QWidget):
         self._after.setProperty("cssClass", "job-preview-target")
         self._after.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(self._after, 0, 1)
+
+        if badge:
+            self._badge_label = QLabel(badge)
+            self._badge_label.setProperty("cssClass", "type-badge")
+            self._badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._badge_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            layout.addWidget(
+                self._badge_label, 0, 2,
+                alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+            )
 
         self._before_key = QLabel(before_label)
         self._before_key.setProperty("cssClass", "caption")
@@ -212,13 +266,12 @@ class JobDetailPanel(QFrame):
         self._empty_title.setMinimumHeight((self._empty_title.fontMetrics().lineSpacing() * 2) + 10)
         empty_card_layout.addWidget(self._empty_title)
 
-        self._empty_message = QLabel("")
+        self._empty_message = _WrappedFitLabel("")
         self._empty_message.setProperty("cssClass", "text-dim")
         self._empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_message.setWordWrap(True)
         self._empty_message.setMargin(4)
         self._empty_message.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self._empty_message.setMinimumHeight((self._empty_message.fontMetrics().lineSpacing() * 3) + 12)
         empty_card_layout.addWidget(self._empty_message)
 
         empty_layout.addWidget(self._empty_card, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -260,11 +313,27 @@ class JobDetailPanel(QFrame):
         self._meta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         body.addWidget(self._meta)
 
+        # Per-job remux progress (spec §7.2); shown only while progress
+        # events arrive for the displayed job.
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setTextVisible(True)
+        self._progress_bar.hide()
+        body.addWidget(self._progress_bar)
+
         self._summary = QLabel("")
         self._summary.setMargin(1)
         self._summary.setWordWrap(True)
         self._summary.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         body.addWidget(self._summary)
+
+        self._irreversible_note = QLabel(
+            "No Fear remux — source files were deleted; this job cannot "
+            "be reverted.")
+        self._irreversible_note.setProperty("cssClass", "job-detail-error")
+        self._irreversible_note.setWordWrap(True)
+        self._irreversible_note.hide()
+        body.addWidget(self._irreversible_note)
 
         self._facts_card = QFrame()
         self._facts_card.setProperty("cssClass", "job-detail-facts-card")
@@ -343,6 +412,7 @@ class JobDetailPanel(QFrame):
         layout.addWidget(self._preview_tree, stretch=1)
 
         self._error = QLabel("")
+        self._error.setProperty("cssClass", "job-detail-error")
         self._error.setWordWrap(True)
         self._error.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout.addWidget(self._error)
@@ -371,6 +441,8 @@ class JobDetailPanel(QFrame):
             label.setToolTip("")
         self._preview_tree.clear()
         self._error.setText("")
+        self._progress_bar.hide()
+        self._irreversible_note.hide()
         self._open_source_btn.hide()
         self._open_target_btn.hide()
         self._open_source_btn.setEnabled(False)
@@ -403,13 +475,19 @@ class JobDetailPanel(QFrame):
             self._open_target_btn.setEnabled(self.can_open_target_folder())
         else:
             self._open_target_btn.setEnabled(False)
-        if job.error_message:
-            self._error.setText(job.error_message)
-            self._error.setStyleSheet("color: #d44040;")
-        else:
-            self._error.setText("")
-            self._error.setStyleSheet("")
+        self._error.setText(job.error_message or "")
+        self._progress_bar.hide()
+        self._irreversible_note.setVisible(
+            bool(job.undo_data and job.undo_data.get("irreversible")))
         self._request_poster(job)
+
+    def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
+        """Per-job remux progress bar (spec §7.2); ignores stale job ids."""
+        if job_id != self._current_job_id:
+            return
+        self._progress_bar.setFormat(f"File {op_index + 1} of {op_count} — %p%")
+        self._progress_bar.setValue(percent)
+        self._progress_bar.show()
 
     def can_open_source_folder(self) -> bool:
         return self._current_job is not None and self._resolve_openable_path(self._current_job.source_path) is not None
@@ -461,44 +539,29 @@ class JobDetailPanel(QFrame):
         if isinstance(entry, JobPreviewGroup):
             header = self._make_group_header(self._preview_tree, entry.label)
             for row in entry.rows:
-                self._add_preview_row(
-                    header,
-                    before=row.before,
-                    after=row.after,
-                    before_label=row.before_label,
-                    after_label=row.after_label,
-                )
+                self._add_preview_row(header, row=row)
             header.setExpanded(entry.expanded)
             self._update_group_header_label(header, expanded=entry.expanded)
             return
 
-        self._add_preview_row(
-            self._preview_tree,
-            before=entry.before,
-            after=entry.after,
-            before_label=entry.before_label,
-            after_label=entry.after_label,
-        )
+        self._add_preview_row(self._preview_tree, row=entry)
 
-    def _add_preview_row(
-        self,
-        parent,
-        *,
-        before: str,
-        after: str,
-        before_label: str = "Original",
-        after_label: str = "New",
-    ) -> QTreeWidgetItem:
+    def _add_preview_row(self, parent, *, row: JobPreviewRow) -> QTreeWidgetItem:
         item = QTreeWidgetItem(parent, [""])
         widget = _RenamePreviewWidget(
-            before=before,
-            after=after,
-            before_label=before_label,
-            after_label=after_label,
+            before=row.before,
+            after=row.after,
+            before_label=row.before_label,
+            after_label=row.after_label,
+            badge=row.badge,
             parent=self._preview_tree,
         )
         item.setSizeHint(0, widget.sizeHint())
         self._preview_tree.setItemWidget(item, 0, widget)
+        for child in row.children:
+            self._add_preview_row(item, row=child)
+        if row.children:
+            item.setExpanded(True)
         return item
 
     def _make_group_header(self, parent, label: str) -> QTreeWidgetItem:
@@ -511,19 +574,32 @@ class JobDetailPanel(QFrame):
         toggle_preview_group_item(item)
 
     def _on_preview_group_expanded(self, item: QTreeWidgetItem) -> None:
-        if item.childCount() <= 0:
+        if not self._is_preview_group_header(item):
             return
         self._update_group_header_label(item, expanded=True)
 
     def _on_preview_group_collapsed(self, item: QTreeWidgetItem) -> None:
-        if item.childCount() <= 0:
+        if not self._is_preview_group_header(item):
             return
         self._update_group_header_label(item, expanded=False)
+
+    @staticmethod
+    def _is_preview_group_header(item: QTreeWidgetItem) -> bool:
+        # Group headers stash their base label in UserRole (see
+        # create_preview_group_header); ordinary rows — including video rows
+        # with nested companion children — must never receive the arrow
+        # prefix, because their delegate-painted text would bleed through
+        # behind the transparent row widget.
+        if item.childCount() <= 0:
+            return False
+        return item.data(0, Qt.ItemDataRole.UserRole) is not None
 
     def _refresh_preview_item_sizes(self, *_args) -> None:
         refresh_preview_item_sizes(self._preview_tree)
 
     def _update_empty_message(self) -> None:
+        # _WrappedFitLabel re-pins its own wrapped height from its actual
+        # laid-out width on setText/resize/show, so the last line cannot clip.
         self._empty_message.setText(job_detail_empty_message(history_mode=self._history_mode))
 
     def _primary_target_path(self, job: RenameJob) -> Path | None:

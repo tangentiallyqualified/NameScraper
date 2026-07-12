@@ -1,4 +1,4 @@
-"""Build TV episode-guide and queue-preflight projections."""
+"""Build TV episode-guide projections."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from ..models import (
     EpisodeGuideRow,
     EpisodeGuideSummary,
     EpisodeSlotChoice,
-    QueuePreflightSummary,
     UnmappedFileRow,
 )
 
@@ -128,6 +127,68 @@ class EpisodeMappingService:
             self.reproject(state)
         return count
 
+    def apply_assignments(
+        self, state: ScanState, pairs: list[tuple[int, int, int]],
+    ) -> tuple[int, int]:
+        """Apply (file_id, season, episode) pairs as one batch (Bulk Assign).
+
+        Thin wrapper over ``apply_bulk`` with no unassigns; kept so existing
+        callers are unaffected.
+        """
+        return self.apply_bulk(state, assign_pairs=pairs, unassign_file_ids=[])
+
+    def apply_bulk(
+        self,
+        state: ScanState,
+        *,
+        assign_pairs: list[tuple[int, int, int]],
+        unassign_file_ids: list[int],
+    ) -> tuple[int, int]:
+        """One-shot Bulk Assign apply: unassign first, then grouped assigns,
+        exactly one reproject. Returns (applied_assignments, skipped).
+
+        Assign pairs are grouped by (file_id, season) into one
+        ``table.assign(..., displace=True)`` call per file, so a file with
+        multiple (file_id, season, episode) pairs lands as one contiguous
+        multi-episode run instead of overwriting itself pair by pair.
+        """
+        from ...engine.episode_assignments import ORIGIN_MANUAL
+
+        table = self._require_table(state)
+        changed = False
+        for file_id in unassign_file_ids:
+            table.unassign(file_id)
+            changed = True
+        grouped: dict[tuple[int, int], list[int]] = {}
+        for file_id, season, episode in assign_pairs:
+            grouped.setdefault((file_id, season), []).append(episode)
+        applied = 0
+        skipped = 0
+        for (file_id, season), episodes in grouped.items():
+            try:
+                table.assign(
+                    file_id, season, sorted(set(episodes)),
+                    origin=ORIGIN_MANUAL, displace=True,
+                )
+            except ValueError:
+                skipped += 1
+                continue
+            applied += 1
+            changed = True
+        if changed:
+            self.reproject(state)
+        return applied, skipped
+
+    def unassign_all(self, state: ScanState) -> int:
+        """Unassign every assigned file with one reproject (bulk Unassign All)."""
+        table = self._require_table(state)
+        file_ids = [assignment.file_id for assignment in table.assignments()]
+        for file_id in file_ids:
+            table.unassign(file_id)
+        if file_ids:
+            self.reproject(state)
+        return len(file_ids)
+
     def resolve_conflict(
         self, state: ScanState, season: int, episode: int, winner: PreviewItem,
     ) -> None:
@@ -137,20 +198,72 @@ class EpisodeMappingService:
         table.resolve_conflict(season, episode, winner_file_id=winner.file_id)
         self.reproject(state)
 
+    def suggest_assignments(
+        self,
+        state: ScanState,
+        file_ids: list[int],
+        *,
+        taken: set[tuple[int, int]],
+    ) -> list[tuple[int, int, int]]:
+        """Evidence-based staging suggestions for Bulk Assign's Auto-map.
+
+        Uses each file's scan-time parse evidence only — a file with no
+        parsed episodes (or whose target slot is missing or already taken)
+        is skipped, never positional-filled: silent wrong mappings cost far
+        more than leaving a file unstaged.
+
+        ``taken`` is the SOLE source of already-occupied slots — this method
+        deliberately does NOT also consult ``table.claimed_slots()``. The
+        table doesn't know about in-progress panel staging (e.g. a file the
+        caller has staged to unassign); the caller owns availability and
+        must pass a ``taken`` set that already reflects it. Folding in
+        ``table.claimed_slots()`` here would re-block slots the caller just
+        freed, breaking the Unassign-all -> Auto-map-remaining round trip.
+        """
+        table = self._require_table(state)
+        claimed = set(taken)
+        suggestions: list[tuple[int, int, int]] = []
+        for file_id in file_ids:
+            entry = table.files.get(file_id)
+            if entry is None or not entry.parsed_episodes:
+                continue
+            season = entry.season_hint if entry.season_hint is not None else entry.folder_season
+            if season is None:
+                continue
+            keys = [(season, episode) for episode in entry.parsed_episodes]
+            if any(key not in table.slots or key in claimed for key in keys):
+                continue
+            claimed.update(keys)
+            suggestions.extend((file_id, season, episode) for _season, episode in keys)
+        return suggestions
+
     # ── choices for the dialogs ─────────────────────────────────────
 
     def episode_slot_choices(self, state: ScanState) -> list[EpisodeSlotChoice]:
         table = self._require_table(state)
         choices: list[EpisodeSlotChoice] = []
         for key, slot in sorted(table.slots.items()):
-            claimant = table.claimant(*key)
+            claims = table.claims(*key)
+            claimants = tuple(
+                (claim.file_id, table.files[claim.file_id].path.name)
+                for claim in claims
+            )
+            claimed_file_id = claims[0].file_id if len(claims) == 1 else None
+            claimant = table.files.get(claimed_file_id) if claimed_file_id is not None else None
             choices.append(EpisodeSlotChoice(
                 season=slot.season,
                 episode=slot.episode,
                 title=slot.title,
                 claimed_by=claimant.path.name if claimant else None,
+                claimed_file_id=claimed_file_id,
+                claimants=claimants,
             ))
         return choices
+
+    def all_primary_file_previews(self, state: ScanState) -> list[PreviewItem]:
+        """Every scanned primary file, assigned or not (Bulk Assign pool)."""
+        self._require_table(state)
+        return [p for p in state.preview_items if p.file_id is not None]
 
     def unassigned_file_previews(self, state: ScanState) -> list[PreviewItem]:
         table = self._require_table(state)
@@ -303,49 +416,6 @@ class EpisodeMappingService:
         )
         return guide
 
-    def build_queue_preflight(self, state: ScanState) -> QueuePreflightSummary:
-        guide = self.build_episode_guide(state)
-        actionable_primary_ids: set[int] = set()
-        companion_count = 0
-        review_required = 0
-        for row in guide.rows:
-            preview = row.primary_file
-            if preview is None or preview.is_conflict or not preview.is_actionable:
-                continue
-            if preview.is_review:
-                review_required += 1
-                continue
-            if id(preview) in actionable_primary_ids:
-                continue
-            actionable_primary_ids.add(id(preview))
-            companion_count += len(preview.companions)
-
-        conflicts = guide.summary.conflicts
-        if state.assignments is not None:
-            conflicts = len(state.assignments.conflicts())
-        mapped_primary_files = len(actionable_primary_ids)
-        enabled = bool(mapped_primary_files and conflicts == 0 and review_required == 0)
-        parts = [
-            f"{mapped_primary_files} mapped file{'s' if mapped_primary_files != 1 else ''}",
-            f"{companion_count} companion{'s' if companion_count != 1 else ''}",
-            f"{guide.summary.missing_episodes} missing",
-            f"{guide.summary.unmapped_primary_files} unmapped",
-            f"{guide.summary.orphan_companion_files} orphan companion{'s' if guide.summary.orphan_companion_files != 1 else ''}",
-            f"{conflicts} conflict{'s' if conflicts != 1 else ''}",
-            f"{review_required} review",
-        ]
-        return QueuePreflightSummary(
-            enabled=enabled,
-            mapped_primary_files=mapped_primary_files,
-            companion_files=companion_count,
-            missing_episodes=guide.summary.missing_episodes,
-            unmapped_primary_files=guide.summary.unmapped_primary_files,
-            orphan_companion_files=guide.summary.orphan_companion_files,
-            conflicts=conflicts,
-            review_required=review_required,
-            summary_text=" - ".join(parts),
-        )
-
     @staticmethod
     def _is_episode_mapped(preview: PreviewItem) -> bool:
         return (
@@ -394,6 +464,9 @@ class EpisodeMappingService:
             return ""
         for matched_episode, title in season.matched_episodes:
             if matched_episode == episode:
+                return title
+        for review_episode, title in season.review_episodes:
+            if review_episode == episode:
                 return title
         for missing_episode, title in season.missing:
             if missing_episode == episode:

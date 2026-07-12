@@ -24,9 +24,14 @@ def primary_action_label(workspace, state: ScanState | None) -> str:
 
 
 def fix_match_label(_workspace, state: ScanState | None) -> str:
-    if state is not None and needs_inline_match_choice(state):
-        return "Choose Match"
+    del state
     return "Fix Match"
+
+
+def fix_match_tone(state: ScanState | None) -> str:
+    if state is not None and (state.needs_review or state.tie_detected):
+        return "caution"
+    return "secondary"
 
 
 def needs_inline_match_choice(state: ScanState) -> bool:

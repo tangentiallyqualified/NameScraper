@@ -32,6 +32,9 @@ _log = logging.getLogger(__name__)
 
 _SETTINGS_FILE = LOG_DIR / "settings.json"
 
+_CACHE_MIN_BYTES = 64 * 1024 * 1024        # 64 MiB floor
+_CACHE_MAX_BYTES = 8 * 1024 ** 3           # 8 GiB ceiling (S2)
+
 
 class SettingsService:
     """Read/write user preferences backed by a JSON file."""
@@ -68,7 +71,7 @@ class SettingsService:
 
     @property
     def hide_already_named(self) -> bool:
-        """Whether to hide Plex-ready items from the library roster."""
+        """Whether to hide fully-ready items from the library roster."""
         return bool(self.get("hide_already_named"))
 
     @hide_already_named.setter
@@ -142,6 +145,17 @@ class SettingsService:
         self.set("view_mode", value)
 
     @property
+    def cache_max_size_bytes(self) -> int:
+        """On-disk metadata cache byte cap, clamped to [64 MiB, 8 GiB]."""
+        raw = int(self.get("cache_max_size_bytes") or (1024 ** 3))
+        return max(_CACHE_MIN_BYTES, min(_CACHE_MAX_BYTES, raw))
+
+    @cache_max_size_bytes.setter
+    def cache_max_size_bytes(self, value: int) -> None:
+        clamped = max(_CACHE_MIN_BYTES, min(_CACHE_MAX_BYTES, int(value)))
+        self.set("cache_max_size_bytes", clamped)
+
+    @property
     def show_companion_files(self) -> bool:
         """Whether companion files are visible in the preview panel."""
         return bool(self.get("show_companion_files"))
@@ -197,6 +211,219 @@ class SettingsService:
     @show_confidence_bars.setter
     def show_confidence_bars(self, value: bool) -> None:
         self.set("show_confidence_bars", bool(value))
+
+    # ── AutoMux (mkvmerge) ────────────────────────────────────────────
+
+    @property
+    def mkvmerge_path(self) -> str:
+        return str(self.get("mkvmerge_path"))
+
+    @mkvmerge_path.setter
+    def mkvmerge_path(self, value: str) -> None:
+        self.set("mkvmerge_path", value)
+
+    @property
+    def automux_merge_subs(self) -> bool:
+        return bool(self.get("automux_merge_subs"))
+
+    @automux_merge_subs.setter
+    def automux_merge_subs(self, value: bool) -> None:
+        self.set("automux_merge_subs", bool(value))
+
+    @property
+    def automux_merge_sub_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_merge_sub_languages")]
+
+    @automux_merge_sub_languages.setter
+    def automux_merge_sub_languages(self, value: list[str]) -> None:
+        self.set("automux_merge_sub_languages", list(value))
+
+    @property
+    def automux_default_sub_language(self) -> str:
+        return str(self.get("automux_default_sub_language"))
+
+    @automux_default_sub_language.setter
+    def automux_default_sub_language(self, value: str) -> None:
+        self.set("automux_default_sub_language", value)
+
+    @property
+    def automux_untagged_sub_language(self) -> str:
+        return str(self.get("automux_untagged_sub_language"))
+
+    @automux_untagged_sub_language.setter
+    def automux_untagged_sub_language(self, value: str) -> None:
+        self.set("automux_untagged_sub_language", value)
+
+    @property
+    def automux_strip_subs(self) -> bool:
+        return bool(self.get("automux_strip_subs"))
+
+    @automux_strip_subs.setter
+    def automux_strip_subs(self, value: bool) -> None:
+        self.set("automux_strip_subs", bool(value))
+
+    @property
+    def automux_retain_sub_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_retain_sub_languages")]
+
+    @automux_retain_sub_languages.setter
+    def automux_retain_sub_languages(self, value: list[str]) -> None:
+        self.set("automux_retain_sub_languages", list(value))
+
+    @property
+    def automux_strip_audio(self) -> bool:
+        return bool(self.get("automux_strip_audio"))
+
+    @automux_strip_audio.setter
+    def automux_strip_audio(self, value: bool) -> None:
+        self.set("automux_strip_audio", bool(value))
+
+    @property
+    def automux_retain_audio_languages(self) -> list[str]:
+        return [str(v) for v in self.get("automux_retain_audio_languages")]
+
+    @automux_retain_audio_languages.setter
+    def automux_retain_audio_languages(self, value: list[str]) -> None:
+        self.set("automux_retain_audio_languages", list(value))
+
+    @property
+    def automux_default_audio_language(self) -> str:
+        return str(self.get("automux_default_audio_language"))
+
+    @automux_default_audio_language.setter
+    def automux_default_audio_language(self, value: str) -> None:
+        self.set("automux_default_audio_language", value)
+
+    @property
+    def automux_strip_track_names(self) -> bool:
+        return bool(self.get("automux_strip_track_names"))
+
+    @automux_strip_track_names.setter
+    def automux_strip_track_names(self, value: bool) -> None:
+        self.set("automux_strip_track_names", bool(value))
+
+    @property
+    def automux_no_fear(self) -> bool:
+        return bool(self.get("automux_no_fear"))
+
+    @automux_no_fear.setter
+    def automux_no_fear(self, value: bool) -> None:
+        self.set("automux_no_fear", bool(value))
+
+    # ── Metadata export ───────────────────────────────────────────────────
+
+    @property
+    def metadata_enabled(self) -> bool:
+        return bool(self.get("metadata_enabled"))
+
+    @metadata_enabled.setter
+    def metadata_enabled(self, value: bool) -> None:
+        self.set("metadata_enabled", bool(value))
+
+    @property
+    def metadata_prefer_local(self) -> bool:
+        return bool(self.get("metadata_prefer_local"))
+
+    @metadata_prefer_local.setter
+    def metadata_prefer_local(self, value: bool) -> None:
+        self.set("metadata_prefer_local", bool(value))
+
+    @property
+    def metadata_write_nfo(self) -> bool:
+        return bool(self.get("metadata_write_nfo"))
+
+    @metadata_write_nfo.setter
+    def metadata_write_nfo(self, value: bool) -> None:
+        self.set("metadata_write_nfo", bool(value))
+
+    @property
+    def metadata_write_episode_nfo(self) -> bool:
+        return bool(self.get("metadata_write_episode_nfo"))
+
+    @metadata_write_episode_nfo.setter
+    def metadata_write_episode_nfo(self, value: bool) -> None:
+        self.set("metadata_write_episode_nfo", bool(value))
+
+    @property
+    def metadata_write_poster(self) -> bool:
+        return bool(self.get("metadata_write_poster"))
+
+    @metadata_write_poster.setter
+    def metadata_write_poster(self, value: bool) -> None:
+        self.set("metadata_write_poster", bool(value))
+
+    @property
+    def metadata_write_fanart(self) -> bool:
+        return bool(self.get("metadata_write_fanart"))
+
+    @metadata_write_fanart.setter
+    def metadata_write_fanart(self, value: bool) -> None:
+        self.set("metadata_write_fanart", bool(value))
+
+    @property
+    def metadata_write_season_posters(self) -> bool:
+        return bool(self.get("metadata_write_season_posters"))
+
+    @metadata_write_season_posters.setter
+    def metadata_write_season_posters(self, value: bool) -> None:
+        self.set("metadata_write_season_posters", bool(value))
+
+    @property
+    def metadata_write_episode_thumbs(self) -> bool:
+        return bool(self.get("metadata_write_episode_thumbs"))
+
+    @metadata_write_episode_thumbs.setter
+    def metadata_write_episode_thumbs(self, value: bool) -> None:
+        self.set("metadata_write_episode_thumbs", bool(value))
+
+    @property
+    def metadata_write_clearlogo(self) -> bool:
+        return bool(self.get("metadata_write_clearlogo"))
+
+    @metadata_write_clearlogo.setter
+    def metadata_write_clearlogo(self, value: bool) -> None:
+        self.set("metadata_write_clearlogo", bool(value))
+
+    @property
+    def metadata_plex_naming(self) -> bool:
+        return bool(self.get("metadata_plex_naming"))
+
+    @metadata_plex_naming.setter
+    def metadata_plex_naming(self, value: bool) -> None:
+        self.set("metadata_plex_naming", bool(value))
+
+    @property
+    def metadata_embed_title(self) -> bool:
+        return bool(self.get("metadata_embed_title"))
+
+    @metadata_embed_title.setter
+    def metadata_embed_title(self, value: bool) -> None:
+        self.set("metadata_embed_title", bool(value))
+
+    @property
+    def metadata_embed_cover(self) -> bool:
+        return bool(self.get("metadata_embed_cover"))
+
+    @metadata_embed_cover.setter
+    def metadata_embed_cover(self, value: bool) -> None:
+        self.set("metadata_embed_cover", bool(value))
+
+    @property
+    def metadata_embed_tags(self) -> bool:
+        return bool(self.get("metadata_embed_tags"))
+
+    @metadata_embed_tags.setter
+    def metadata_embed_tags(self, value: bool) -> None:
+        self.set("metadata_embed_tags", bool(value))
+
+    @property
+    def automux_any_enabled(self) -> bool:
+        """True when at least one AutoMux action toggle is on (spec §8.1)."""
+        return (
+            self.automux_merge_subs
+            or self.automux_strip_subs
+            or self.automux_strip_audio
+        )
 
     # ── Window state ───────────────────────────────────────────────────
 

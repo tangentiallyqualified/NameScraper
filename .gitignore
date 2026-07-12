@@ -9,8 +9,19 @@ __pycache__/
 .scan-dumps/
 
 .claude/
-.vscode/settings.json
+.vscode/
 
 plex_renamer/test_library.zip
-docs/test_library/
-docs/local/
+
+# SDD scratch (task briefs, reports, progress ledger)
+.superpowers/
+
+# Not tracked: AI-assistant instructions, internal docs, and the real-library
+# scan harness. scan_real_library.py is the only scripts/ or tests/ file that
+# touches a real media drive; the rest of scripts/ and all of tests/ stay
+# tracked. Already-committed files are only ignored for NEW additions here --
+# untrack existing ones with `git rm --cached <path>` (or `-r` for a folder).
+# (docs/ supersedes the former docs/test_library/ and docs/local/ entries.)
+CLAUDE.md
+docs/
+scripts/scan_real_library.py

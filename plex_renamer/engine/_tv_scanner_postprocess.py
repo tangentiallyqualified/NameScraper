@@ -40,12 +40,17 @@ def build_completeness_report(
 ) -> CompletenessReport:
     """Compute completeness of matched episodes vs TMDB expectations."""
     matched_by_season: dict[int, set[int]] = defaultdict(set)
+    review_by_season: dict[int, set[int]] = defaultdict(set)
     for index, item in enumerate(items):
+        if item.season is None or not item.episodes:
+            continue
+        if item.is_episode_review:
+            for episode_num in item.episodes:
+                review_by_season[item.season].add(episode_num)
         if checked_indices is not None and index not in checked_indices:
             continue
-        if item.season is not None and item.episodes:
-            for episode_num in item.episodes:
-                matched_by_season[item.season].add(episode_num)
+        for episode_num in item.episodes:
+            matched_by_season[item.season].add(episode_num)
 
     seasons: dict[int, SeasonCompleteness] = {}
 
@@ -53,7 +58,8 @@ def build_completeness_report(
         expected_eps = set(season_data["titles"].keys())
         matched_eps = matched_by_season.get(season_num, set())
         matched_valid = matched_eps & expected_eps
-        missing_eps = expected_eps - matched_valid
+        review_valid = (review_by_season.get(season_num, set()) & expected_eps) - matched_valid
+        missing_eps = expected_eps - matched_valid - review_valid
 
         missing_details = []
         for episode_num in sorted(missing_eps):
@@ -65,12 +71,19 @@ def build_completeness_report(
             title = season_data["titles"].get(episode_num, f"Episode {episode_num}")
             matched_details.append((episode_num, title))
 
+        review_details = []
+        for episode_num in sorted(review_valid):
+            title = season_data["titles"].get(episode_num, f"Episode {episode_num}")
+            review_details.append((episode_num, title))
+
         seasons[season_num] = SeasonCompleteness(
             season=season_num,
             expected=len(expected_eps),
             matched=len(matched_valid),
             missing=missing_details,
             matched_episodes=matched_details,
+            review=len(review_valid),
+            review_episodes=review_details,
         )
 
     total_expected = sum(season.expected for season_num, season in seasons.items() if season_num > 0)

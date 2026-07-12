@@ -29,6 +29,10 @@ def _is_titleish_bare_number(name: str, digit_start: int, digit_end: int) -> boo
     before = name[:digit_start].rstrip()
     if before.endswith("#"):
         return True
+    # A release year straight after the number marks a movie-style title
+    # ("Apollo 13 1995 1080p ..."): the number belongs to the title.
+    if re.match(r"[\s._\-]+(?:19|20)\d{2}(?!\d)", name[digit_end:]):
+        return True
     word = re.search(r"([A-Za-z]+)$", before)
     return bool(word and word.group(1).lower() in _NUMBER_WORD_PREFIXES)
 
@@ -114,16 +118,79 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, True
 
+    # Air-date naming (daily/talk shows): YYYY.MM.DD / YYYY-MM-DD. The
+    # month/day digits must never be read as episode numbers, and the dash
+    # branch below would otherwise eat a dashed date as a range. There is no
+    # air-date episode matching downstream yet, so the file carries no
+    # episode evidence. S##E##/NxNN branches run first, so a name with both
+    # keeps its explicit episode parse.
+    date_match = re.search(
+        r"(?<!\d)(?:19|20)\d{2}[.\-_ ](?:0?[1-9]|1[0-2])[.\-_ ](?:0?[1-9]|[12]\d|3[01])(?!\d)",
+        name,
+    )
+    if date_match:
+        return [], None, False
+
+    # Episode-marker chain WITHOUT a season prefix: "E01E02", "E01-E02",
+    # "EP01-EP02", "E01 - E02". Two or more E-points are required \u2014 a lone
+    # "Ep 05 - Title" keeps its dedicated branch below (title extraction).
+    # No season evidence, so is_season_relative stays False like the other
+    # season-less branches.
+    echain = re.search(
+        r"\b(EP?\d{1,3}(?:(?:\s*-\s*|-)?EP?\d{1,3})+)(?![A-Za-z0-9])",
+        name,
+        re.IGNORECASE,
+    )
+    if echain:
+        points = [
+            int(num)
+            for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)
+        ]
+        if len(points) == 2 and points[1] - points[0] > 1:
+            episodes = _expand_range(points[0], points[1])
+        else:
+            episodes = points
+        rest = name[echain.end():]
+        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
+        return episodes, title, False
+
+    # Adjacent NN-NN range at a token boundary ("Show 01-02"). The negative
+    # lookbehind keeps spaced-dash forms ("Anime - 01-03") on the dash branch
+    # below, which owns their title extraction.
+    adjacent = re.search(
+        r"(?:^|(?<![-\s])[\s._(])(\d{1,3})-(\d{1,3})(?![A-Za-z0-9])",
+        name,
+    )
+    if adjacent:
+        start_num = int(adjacent.group(1))
+        end_num = int(adjacent.group(2))
+        if (
+            start_num not in RESOLUTION_NUMBERS
+            and end_num not in RESOLUTION_NUMBERS
+            and not (YEAR_MIN <= start_num <= YEAR_MAX)
+            and end_num > start_num
+            and end_num - start_num <= 3
+        ):
+            return list(range(start_num, end_num + 1)), None, False
+
+    # Resolution values (480/720/1080/2160) are NOT rejected here: the regex
+    # already refuses a p/i suffix (the "$"/"- title" structure fails), so a
+    # clean dash-delimited bare number is an episode even when it collides
+    # with a resolution value \u2014 long-running anime reach 720/1080 (P-H2).
+    # The 4-digit widening covers 1000+ absolute numbering; the year guard
+    # still rejects 1900-2099.
+    # A zero-padded 4-digit number (0083, 0080) is a Gundam-style title
+    # designation, never a 1000+ absolute episode.
     match = re.search(
-        r"-\s*(\d{1,3})(?:v\d+)?['\u2032]?(?:\s*-\s*(\d{1,3})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
+        r"-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
         name,
     )
     if match:
         start_num = int(match.group(1))
         end_num = int(match.group(2)) if match.group(2) else None
-        if start_num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= start_num <= YEAR_MAX):
+        if not (YEAR_MIN <= start_num <= YEAR_MAX):
             episodes = [start_num]
-            if end_num is not None and end_num not in RESOLUTION_NUMBERS:
+            if end_num is not None and not (YEAR_MIN <= end_num <= YEAR_MAX):
                 if end_num >= start_num and end_num - start_num <= 3:
                     episodes = list(range(start_num, end_num + 1))
                 else:
@@ -134,24 +201,38 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
     if bare_match:
         num = int(bare_match.group(1))
-        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
+        # A bare (unparenthesized) release year in the remainder marks a
+        # scene-style movie name whose title leads with a number
+        # ("300.2006.1080p..."); "01. Pilot (2005)" keeps its episode.
+        scene_year_follows = re.search(
+            r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2)
+        )
+        if (
+            num not in RESOLUTION_NUMBERS
+            and not (YEAR_MIN <= num <= YEAR_MAX)
+            and not scene_year_follows
+        ):
             title_text = bare_match.group(2).strip()
             title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
             return [num], strip_release_junk_title(title_text or None), False
 
+    # An explicit Ep/Episode prefix is unambiguous — no resolution-value
+    # rejection needed ("Episode 720" is an episode); the year guard stays.
     match = re.search(
-        r"\b(?:ep?|episode)\s*(\d{1,3})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
+        r"\b(?:ep?|episode)\s*(\d{1,4})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
         name,
         re.IGNORECASE,
     )
     if match:
         num = int(match.group(1))
-        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
+        if not (YEAR_MIN <= num <= YEAR_MAX):
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
+    # The s/S in the lookbehind rejects season-pack markers ("S01" with no
+    # E##) that would otherwise read as episode 1.
     match = re.search(
-        r"(?<![xXhH\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        r"(?<![xXhHsS\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
         name,
         re.IGNORECASE,
     )
@@ -165,6 +246,13 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
                     return [], None, False
             if _is_titleish_bare_number(name, match.start(1), match.end(1)):
                 return [], None, False
+            # A NAME-LEADING number with a release year later in the name is
+            # a movie-style title ("21 Jump Street 2012 ..."), not an
+            # episode; episode-first files ("100 - Title") carry no year.
+            if match.start(1) == 0 and re.search(
+                r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1):]
+            ):
+                return [], None, False
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
             return [num], title, False
 
@@ -177,7 +265,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     # leading bracket so plain titles like "Apollo 13" are never affected. The
     # number is absolute (anime convention) -> is_season_relative is False.
     if raw_stem.lstrip().startswith("["):
-        for bracket in re.finditer(r"\[(\d{1,3})(?:v\d+)?\]", raw_stem):
+        for bracket in re.finditer(r"\[(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?\]", raw_stem):
             num = int(bracket.group(1))
             if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
                 continue
@@ -194,6 +282,12 @@ def extract_season_number(filename: str) -> int | None:
         return int(match.group(1))
 
     match = re.search(r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+
+    # Spelled-out season marker in the FILE name ("Season 1 Episode 2");
+    # mirrors the folder-level get_season fallback.
+    match = re.search(r"\bseason[\s._\-]*(\d{1,2})\b", name, re.IGNORECASE)
     if match:
         return int(match.group(1))
 

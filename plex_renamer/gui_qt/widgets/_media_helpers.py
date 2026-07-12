@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QListWidgetItem, QWidget
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
 from ...app.services.command_gating_service import CommandGatingService
+from .. import theme
 from ._formatting import percent_text
 
 
@@ -42,44 +43,39 @@ def confidence_band(score: float, *, state: ScanState | None = None, media_type:
 
 
 def confidence_fill_color(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
-    return {
-        "high": "#3ea463",
-        "medium": "#e5a00d",
-        "low": "#d44040",
-        "muted": "#777777",
-    }[confidence_band(score, state=state, media_type=media_type)]
+    return band_color(confidence_band(score, state=state, media_type=media_type))
 
 
 def band_color(band: str) -> str:
     return {
-        "high": "#3ea463",
-        "medium": "#e5a00d",
-        "low": "#d44040",
-        "muted": "#777777",
-        "error": "#d44040",
+        "high": theme.color("success"),
+        "medium": theme.color("warning"),
+        "low": theme.color("error"),
+        "muted": theme.color("text_dim"),
+        "error": theme.color("error"),
     }[band]
 
 
 def state_status(state: ScanState, *, media_type: str = "tv") -> tuple[str, QColor]:
     if state.queued:
-        return "Queued", QColor("#4a9eda")
+        return "Queued", theme.qcolor("info")
     if state.scanning:
-        return "Scanning", QColor("#e5a00d")
+        return "Scanning", theme.qcolor("warning")
     if state.scan_error:
-        return "Scan Failed", QColor("#d44040")
+        return "Scan Failed", theme.qcolor("error")
     if state.duplicate_of is not None and media_type == MediaType.MOVIE:
-        return "Duplicate", QColor("#777777")
+        return "Duplicate", theme.qcolor("text_dim")
     if state.show_id is None:
-        return "No Match Found", QColor("#d44040")
+        return "No Match Found", theme.qcolor("error")
     if state.needs_review or state.duplicate_of is not None:
-        return "Review Match", QColor("#e5a00d")
+        return "Review Match", theme.qcolor("warning")
     if has_episode_problems(state):
-        return "Review Episode Matching", QColor("#e5a00d")
+        return "Review Episode Matching", theme.qcolor("warning")
     if state.match_origin == "manual":
-        return "Approved", QColor("#4a9eda")
-    if is_plex_ready_state(state):
-        return "Plex Ready", QColor("#3ea463")
-    return "Matched", QColor("#4a9eda")
+        return "Approved", theme.qcolor("info")
+    if is_fully_ready_state(state):
+        return "Fully Ready", theme.qcolor("success")
+    return "Matched", theme.qcolor("info")
 
 
 def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
@@ -97,13 +93,13 @@ def state_status_tone(state: ScanState, *, media_type: str = "tv") -> str:
         return "accent"
     if has_episode_problems(state):
         return "accent"
-    if is_plex_ready_state(state):
+    if is_fully_ready_state(state):
         return "success"
     return "info"
 
 
-def is_plex_ready_state(state: ScanState) -> bool:
-    return CommandGatingService.is_plex_ready_state(state)
+def is_fully_ready_state(state: ScanState) -> bool:
+    return CommandGatingService.is_fully_ready_state(state)
 
 
 def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
@@ -111,7 +107,7 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if state.duplicate_of is not None or state.show_id is None:
         return False
-    if state.needs_review or is_plex_ready_state(state):
+    if state.needs_review or is_fully_ready_state(state):
         return False
     # Conflicts and unapproved review rows block queueing. Unmapped primary
     # files deliberately do NOT (RC39): they route the show into "Review
@@ -123,7 +119,14 @@ def is_state_queue_approvable(state: ScanState, *, media_type: str) -> bool:
         return False
     if any(item.is_review for item in state.preview_items):
         return False
-    return any(item.is_actionable for item in state.preview_items)
+    # Round6 §1: a correctly-named file with an action-bearing mux plan is
+    # queue-relevant even though it produces no rename op by itself — the
+    # approvable check must not exclude it (see CommandGatingService.
+    # is_queue_relevant).
+    return any(
+        CommandGatingService.is_queue_relevant(state, index)
+        for index in range(len(state.preview_items))
+    )
 
 
 def has_episode_problems(state: ScanState) -> bool:
@@ -139,6 +142,27 @@ def has_episode_problems(state: ScanState) -> bool:
     return any(item.is_episode_review for item in state.preview_items)
 
 
+def is_specials_unmapped_only_state(state: ScanState) -> bool:
+    """All regular (season >= 1) episodes mapped cleanly; the remaining
+    problems involve only specials/extras/unknown-season files (spec §3.1)."""
+    if not has_episode_problems(state):
+        return False
+    completeness = state.completeness
+    if completeness is None or not completeness.seasons:
+        return False
+    if not all(season.is_complete for season in completeness.seasons.values()):
+        return False
+    table = state.assignments
+    if table is not None and any(season >= 1 for (season, _episode) in table.conflicts()):
+        return False
+    for item in state.preview_items:
+        if item.season is not None and item.season >= 1 and (
+            item.is_conflict or item.is_episode_review or item.is_unmatched
+        ):
+            return False
+    return True
+
+
 def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.queued:
         return "queued"
@@ -151,9 +175,11 @@ def roster_group(state: ScanState, *, media_type: str = "tv") -> str:
     if state.needs_review or state.duplicate_of is not None:
         return "review-match"
     if has_episode_problems(state):
+        if is_specials_unmapped_only_state(state):
+            return "specials-unmapped"
         return "review-episodes"
-    if is_plex_ready_state(state):
-        return "plex-ready"
+    if is_fully_ready_state(state):
+        return "fully-ready"
     return "matched"
 
 
@@ -352,8 +378,8 @@ def make_section_header(text: str, *, selectable: bool = False) -> QListWidgetIt
     if selectable:
         flags |= Qt.ItemFlag.ItemIsSelectable
     header.setFlags(flags)
-    header.setForeground(QColor("#f0b429"))
-    header.setBackground(QColor("#2a2110"))
+    header.setForeground(theme.qcolor("accent"))
+    header.setBackground(theme.qcolor("section_header_bg"))
     font = QFont()
     font.setBold(True)
     font.setPointSize(10)

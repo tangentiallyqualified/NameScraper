@@ -35,6 +35,7 @@ class QueueBridge(QObject):
     job_started = Signal(object)
     job_completed = Signal(object, object)
     job_failed = Signal(object, object)
+    job_progress = Signal(object, int, int, int)
     queue_finished = Signal()
     poster_backfill_finished = Signal(int)
     _change_requested = Signal(bool)
@@ -61,6 +62,11 @@ class QueueBridge(QObject):
     def on_job_failed(self, job, error) -> None:
         self.job_failed.emit(job, error)
         self._request_changed()
+
+    def on_job_progress(self, job, op_index: int, op_count: int, percent: int) -> None:
+        # Cross-thread signal emission queues to the GUI thread; progress
+        # is high-frequency, so it bypasses the debounced changed() path.
+        self.job_progress.emit(job, op_index, op_count, percent)
 
     def on_queue_finished(self) -> None:
         self.queue_finished.emit()
@@ -107,11 +113,13 @@ def install_queue_bridge(window: Any) -> QueueBridge:
         on_job_completed=bridge.on_job_completed,
         on_job_failed=bridge.on_job_failed,
         on_queue_finished=bridge.on_queue_finished,
+        on_job_progress=bridge.on_job_progress,
     )
     bridge.changed.connect(window._on_queue_changed)
     bridge.job_started.connect(window._on_job_started)
     bridge.job_completed.connect(window._on_job_completed)
     bridge.job_failed.connect(window._on_job_failed)
+    bridge.job_progress.connect(window._on_job_progress)
     bridge.queue_finished.connect(window._on_queue_finished)
     bridge.poster_backfill_finished.connect(window._on_poster_backfill_finished)
     return bridge

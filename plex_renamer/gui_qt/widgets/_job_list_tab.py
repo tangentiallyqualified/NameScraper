@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter
+from PySide6.QtCore import QEvent, QItemSelectionModel, QModelIndex, QRect, QSize, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMenu,
     QSplitter,
+    QStackedWidget,
     QStyle,
     QStyleOptionButton,
     QStyleOptionViewItem,
@@ -23,14 +25,28 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...constants import JobStatus
 from ...job_store import RenameJob
+from .. import _scale, theme
 from ..models import JobStatusFilterProxyModel, JobTableModel
 from .job_detail_panel import JobDetailPanel
 from .segmented_control import SegmentedControl
 
-_HOVER_COLOR = QColor(36, 36, 36)  # #242424
-_SELECTED_ROW_COLOR = QColor(31, 26, 14)  # #1f1a0e
-_ROW_ACCENT_COLOR = QColor(229, 160, 13)  # #e5a00d
+_HOVER_COLOR = theme.qcolor("card_hover")
+_SELECTED_ROW_COLOR = theme.qcolor("selection_bg")
+
+_STATUS_COLUMN = 1
+_NAME_COLUMN = 2
+# Painted-pill tones (workspace idiom: 12% wash + tone text, radius "pill").
+_JOB_STATUS_TONE = {
+    JobStatus.PENDING: "text_dim",
+    JobStatus.RUNNING: "accent",
+    JobStatus.COMPLETED: "success",
+    JobStatus.FAILED: "error",
+    JobStatus.CANCELLED: "text_dim",
+    JobStatus.REVERTED: "info",
+    JobStatus.REVERT_FAILED: "error",
+}
 
 
 class _CheckableHeaderView(QHeaderView):
@@ -111,11 +127,6 @@ class _HoverRowDelegate(QStyledItemDelegate):
 
         if index.row() == highlight_row:
             painter.fillRect(option.rect, _SELECTED_ROW_COLOR)
-            if index.column() == 0:
-                painter.fillRect(
-                    QRect(option.rect.left(), option.rect.top(), 4, option.rect.height()),
-                    _ROW_ACCENT_COLOR,
-                )
         elif index.row() == self._hover_row:
             painter.fillRect(option.rect, _HOVER_COLOR)
 
@@ -129,8 +140,28 @@ class _HoverRowDelegate(QStyledItemDelegate):
         if index.column() == 0:
             self._paint_checkbox(painter, paint_option, index)
             return
+        if index.column() == _STATUS_COLUMN:
+            self._paint_status_pill(painter, paint_option, index)
+            return
+        if index.column() == _NAME_COLUMN and index.row() == highlight_row:
+            paint_option.palette.setColor(
+                QPalette.ColorRole.Text, theme.qcolor("accent")
+            )
 
         super().paint(painter, paint_option, index)
+
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
+        hint = super().sizeHint(option, index)
+        if index.column() != _STATUS_COLUMN:
+            return hint
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        if not text:
+            return hint
+        # ResizeToContents sizes the section from this hint; reserve the
+        # painted pill (uppercase advance + 2x8px pad) plus the 4px margin
+        # _paint_status_pill's width clamp subtracts.
+        pill_width = option.fontMetrics.horizontalAdvance(str(text).upper()) + _scale.px(16)
+        return QSize(max(hint.width(), pill_width + _scale.px(4)), hint.height())
 
     def _paint_checkbox(
         self,
@@ -154,6 +185,75 @@ class _HoverRowDelegate(QStyledItemDelegate):
         else:
             checkbox.state |= QStyle.StateFlag.State_Off
         self._table.style().drawControl(QStyle.ControlElement.CE_CheckBox, checkbox, painter)
+
+    def _paint_status_pill(
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> None:
+        text = index.data(Qt.ItemDataRole.DisplayRole) or ""
+        job = index.data(Qt.ItemDataRole.UserRole)
+        if not text or job is None:
+            return
+        tone_token = _JOB_STATUS_TONE.get(job.status, "text_dim")
+        color = theme.qcolor(tone_token)
+        label = str(text).upper()
+        metrics = option.fontMetrics
+        pill_width = min(
+            metrics.horizontalAdvance(label) + _scale.px(16),
+            max(_scale.px(24), option.rect.width() - _scale.px(4)),
+        )
+        pill_height = _scale.px(18)  # workspace pill parity (_PILL_H_U)
+        pill_rect = QRect(0, 0, pill_width, pill_height)
+        pill_rect.moveCenter(option.rect.center())
+        wash = QColor(color)
+        wash.setAlphaF(0.12)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(wash)
+        radius = theme.radius("pill")
+        painter.drawRoundedRect(pill_rect, radius, radius)
+        painter.setPen(color)
+        painter.drawText(pill_rect, int(Qt.AlignmentFlag.AlignCenter), label)
+        painter.restore()
+
+
+class _TableEmptyState(QFrame):
+    """Centered icon + heading + hint shown instead of an empty job table
+    (spec §11: illustration treatment consistent with the workspace empty
+    state's drop-zone language)."""
+
+    def __init__(self, *, heading: str, hint: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setProperty("cssClass", "table-empty-state")
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(_scale.px(10))
+
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        style = QApplication.style()
+        if style is not None:
+            icon = style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+            icon_label.setPixmap(icon.pixmap(_scale.icon("xl")))
+        layout.addWidget(icon_label)
+
+        self._heading = QLabel(heading)
+        self._heading.setProperty("cssClass", "heading")
+        self._heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._heading)
+
+        self._hint = QLabel(hint)
+        self._hint.setProperty("cssClass", "text-dim")
+        self._hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._hint.setWordWrap(True)
+        layout.addWidget(self._hint)
+
+    def set_texts(self, *, heading: str, hint: str) -> None:
+        self._heading.setText(heading)
+        self._hint.setText(hint)
 
 
 class _JobListTab(QWidget):
@@ -201,6 +301,7 @@ class _JobListTab(QWidget):
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(_scale.px(36))
         self._table.setShowGrid(False)
         self._header.setStretchLastSection(False)
         self._table.setMouseTracking(True)
@@ -208,15 +309,27 @@ class _JobListTab(QWidget):
         self._header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self._header.resizeSection(0, 36)
         self._header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self._header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        self._header.resizeSection(7, 92)
-        for column in (1, 3, 4, 5, 6, 7):
-            if column == 7:
-                continue
+        self._header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        self._header.resizeSection(6, 92)
+        for column in (1, 3, 4, 5):
             self._header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
 
         self._hover_delegate = _HoverRowDelegate(self._table, parent=self._table)
         self._table.setItemDelegate(self._hover_delegate)
+
+        if history:
+            self._empty_heading = "No history yet"
+            self._empty_hint = "Completed, failed, and reverted jobs will appear here."
+        else:
+            self._empty_heading = "Queue is empty"
+            self._empty_hint = "Approve items in the TV or Movies tab, then queue them here."
+        self._current_filter_label = "All"
+        self._table_empty = _TableEmptyState(
+            heading=self._empty_heading, hint=self._empty_hint
+        )
+        self._table_stack = QStackedWidget()
+        self._table_stack.addWidget(self._table)
+        self._table_stack.addWidget(self._table_empty)
 
         self._table.setSortingEnabled(True)
         self._header.setSectionsClickable(True)
@@ -290,7 +403,7 @@ class _JobListTab(QWidget):
         self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
 
     def _finish_list_pane(self) -> None:
-        self._list_layout.addWidget(self._table, stretch=1)
+        self._list_layout.addWidget(self._table_stack, stretch=1)
         if not self._actions_layout_has_stretch:
             self._actions_layout.insertStretch(0, 1)
             self._actions_layout_has_stretch = True
@@ -324,9 +437,25 @@ class _JobListTab(QWidget):
         return self._model.job_at(source_index.row())
 
     def _apply_filter(self, label: str) -> None:
+        self._current_filter_label = label
         self._proxy.set_allowed_statuses(self._filters.get(label))
         self._retain_visible_checked_jobs()
         self.refresh()
+
+    def _sync_empty_state(self) -> None:
+        if self._proxy.rowCount() > 0:
+            self._table_stack.setCurrentWidget(self._table)
+            return
+        if self._model.rowCount() > 0:
+            self._table_empty.set_texts(
+                heading="No matching jobs",
+                hint=f"No jobs match the {self._current_filter_label} filter.",
+            )
+        else:
+            self._table_empty.set_texts(
+                heading=self._empty_heading, hint=self._empty_hint
+            )
+        self._table_stack.setCurrentWidget(self._table_empty)
 
     def _select_all(self) -> None:
         self._model.set_jobs_checked(self._visible_job_ids(checkable_only=True), True)

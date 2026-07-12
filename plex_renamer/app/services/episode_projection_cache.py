@@ -44,6 +44,27 @@ class EpisodeProjectionCacheService:
             return cached.guide
         return self.prepare_state(state)
 
+    def cached_guide_for_state(self, state: ScanState) -> EpisodeGuide | None:
+        """Signature-checked peek: return the cached guide or None. Never builds."""
+        cached = self._cache.get(self._key_for_state(state))
+        if cached is not None and cached.signature == self.signature_for_state(state):
+            return cached.guide
+        return None
+
+    def build_guide_with_signature(self, state: ScanState) -> tuple[EpisodeGuide, tuple]:
+        """Build a guide plus the signature captured BEFORE the build.
+
+        Safe to call off the GUI thread: pure reads over the state. If the
+        state mutates mid-build, the pre-build signature no longer matches on
+        the next peek, so the stored result degrades to a cache miss instead
+        of a wrong hit.
+        """
+        signature = self.signature_for_state(state)
+        return self._episode_mapping.build_episode_guide(state), signature
+
+    def store_guide(self, state: ScanState, guide: EpisodeGuide, signature: tuple) -> None:
+        self._cache[self._key_for_state(state)] = _CachedEpisodeGuide(signature, guide)
+
     def refresh_state(self, state: ScanState) -> EpisodeGuide:
         self.invalidate_state(state)
         return self.prepare_state(state)

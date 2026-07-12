@@ -16,6 +16,7 @@ Performance features:
 
 from __future__ import annotations
 
+import base64
 import io
 import logging
 from collections.abc import Callable
@@ -48,6 +49,8 @@ from ._tmdb_search_helpers import extract_alternative_titles, search_with_fallba
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
+ORIGINAL_IMAGE_URL_TEMPLATE = "https://image.tmdb.org/t/p/{size}{path}"
+_EXPORT_IMAGE_CACHE_NAMESPACE = "tmdb.export_image"
 _HTTP_POOL_CONNECTIONS = 16
 _HTTP_POOL_MAXSIZE = 32
 
@@ -112,6 +115,15 @@ class TMDBClient:
         """Like _get() but catches TMDBError and returns None."""
         return self._transport.get_json_safe(path, params)
 
+    def _details_params(self) -> dict[str, str]:
+        """Widen details calls with credits + logos — same call count,
+        richer payload (metadata-export spec)."""
+        lang2 = (self.language or "en-US").split("-")[0]
+        return {
+            "append_to_response": "credits,images",
+            "include_image_language": f"{lang2},null",
+        }
+
     # ─── TV Series ────────────────────────────────────────────────────
 
     def search_tv(self, query: str, year: str | None = None) -> list[dict]:
@@ -136,7 +148,7 @@ class TMDBClient:
         if persisted is not None:
             self._metadata_cache_store.show_cache[show_id] = persisted
             return persisted
-        data = self._get_safe(f"/tv/{show_id}")
+        data = self._get_safe(f"/tv/{show_id}", self._details_params())
         if data:
             self._metadata_cache_store.show_cache[show_id] = data
             self._metadata_cache_store.put_tv_details(
@@ -240,7 +252,7 @@ class TMDBClient:
         if persisted is not None:
             self._metadata_cache_store.movie_cache[movie_id] = persisted
             return persisted
-        data = self._get_safe(f"/movie/{movie_id}")
+        data = self._get_safe(f"/movie/{movie_id}", self._details_params())
         if data:
             self._metadata_cache_store.movie_cache[movie_id] = data
             self._metadata_cache_store.put_movie_details(movie_id, data)
@@ -500,6 +512,55 @@ class TMDBClient:
             return img
 
         return None
+
+    def fetch_image_bytes(
+        self,
+        image_path: str | None,
+        size: str = "original",
+    ) -> bytes | None:
+        """Raw image bytes at an export size (default TMDB original).
+
+        Cached persistently under a namespace separate from the UI's
+        resized w500 pipeline so the two never collide. Returns None on
+        missing path or network failure — callers treat that as
+        "artwork unavailable", never as a job failure.
+        """
+        if not image_path:
+            return None
+        normalized = str(image_path).strip().replace("\\", "/")
+        cache_key = f"{size}::{normalized}"
+
+        if self._cache_service is not None:
+            lookup = self._cache_service.get(
+                _EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
+            if lookup.is_hit and lookup.value:
+                encoded = lookup.value.get("bytes_base64")
+                if encoded:
+                    try:
+                        return base64.b64decode(encoded)
+                    except (ValueError, TypeError):
+                        self._cache_service.invalidate(
+                            _EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
+
+        url = ORIGINAL_IMAGE_URL_TEMPLATE.format(size=size, path=normalized)
+        try:
+            payload = self._transport.fetch_bytes(url)
+        except (TMDBNetworkError, TMDBError, OSError) as e:
+            log.debug("Failed to fetch export image %s: %s", normalized, e)
+            return None
+
+        if self._cache_service is not None and payload:
+            self._cache_service.put(
+                _EXPORT_IMAGE_CACHE_NAMESPACE,
+                cache_key,
+                {"bytes_base64": base64.b64encode(payload).decode("ascii")},
+                metadata={
+                    "kind": "tmdb_export_image",
+                    "image_path": normalized,
+                    "size": size,
+                },
+            )
+        return payload or None
 
     def get_cached_poster_path(self, media_id: int, media_type: str = "tv") -> str | None:
         """Return a cached poster path for a media item without making network calls."""

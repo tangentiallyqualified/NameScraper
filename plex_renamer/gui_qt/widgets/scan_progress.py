@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import math
+import random
 
-from PySide6.QtCore import QPointF, Qt, QElapsedTimer, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import QPointF, QRectF, Qt, QElapsedTimer, QTimer, Signal
+from PySide6.QtGui import QLinearGradient, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QProgressBar,
@@ -18,8 +17,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import _scale
+from .. import _scale, theme
 from ...app.models import ScanLifecycle
+from ._workspace_widget_primitives import ElidedLabel
 
 
 _TV_CHECKLIST = [
@@ -53,20 +53,104 @@ _TERMINAL = {
     ScanLifecycle.CANCELLED,
 }
 
+_FILLER_DELAY_MS = 4000
+_TV_FILLERS = (
+    "Politely interrogating TMDB…",
+    "Counting specials twice, just in case…",
+    "Untangling Season 0…",
+    "Cross-checking absolute numbering…",
+    "Politely disagreeing with filenames…",
+    "Reading release-group tea leaves…",
+    "Consulting the episode guide, again…",
+    "Wondering why S01E07 is missing…",
+    "Filing multi-part episodes under 'both'…",
+    "Translating scene names into English…",
+    "Double-checking the double episodes…",
+    "Convincing subtitles to tag along…",
+)
+_MOVIE_FILLERS = (
+    "Politely interrogating TMDB…",
+    "Comparing runtimes and vibes…",
+    "Squinting at release years…",
+    "Sorting sequels from remakes…",
+    "Debating director's cuts…",
+    "Separating remasters from reboots…",
+    "Judging covers by their folders…",
+    "Cross-referencing the credits…",
+    "Asking the extras to identify themselves…",
+    "Filing trailers under 'not the movie'…",
+)
 
-class _ScannerAnimation(QWidget):
-    """Minimal geometric animation for active scan work."""
+
+_CARD_COUNT = 5
+_CONVEYOR_CYCLE_MS = 5_400      # one slot slide; halved so more cards cross per scan
+
+
+def conveyor_offset(elapsed_ms: int, slot_w: int, cycle_ms: int = _CONVEYOR_CYCLE_MS) -> float:
+    if slot_w <= 0 or cycle_ms <= 0:
+        return 0.0
+    phase = (elapsed_ms % cycle_ms) / cycle_ms
+    return phase * slot_w
+
+
+class _ConveyorAnimation(QWidget):
+    """Poster-card conveyor (spec §10): blank cards slide left through a fixed
+    center beam; cards left of the beam render 'filled'.  One repaint timer
+    (the widget's owner drives ``advance()``), QPainter only."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._tick = 0
+        self._clock = QElapsedTimer()
         self._active = False
-        self.setMinimumHeight(_scale.px(220))
+        self._posters: list[QPixmap] = []          # arrival-ordered pool
+        self._seen_keys: set[int] = set()
+        self._card_posters: dict[int, QPixmap | None] = {}  # logical card id -> assignment
+        self._next_poster = 0
+        self._scaled_cache: dict[tuple[int, int, int], QPixmap] = {}
+        self.setMinimumHeight(_scale.px(180))
+
+    def set_posters(self, pixmaps: list[QPixmap]) -> None:
+        for pm in pixmaps:
+            self.add_poster(pm)
+
+    def add_poster(self, pixmap: QPixmap) -> None:
+        if pixmap is None or pixmap.isNull():
+            return
+        if pixmap.cacheKey() in self._seen_keys:
+            return
+        self._seen_keys.add(pixmap.cacheKey())
+        self._posters.append(pixmap)
+        self.update()
+
+    def reset_posters(self) -> None:
+        self._posters = []
+        self._seen_keys = set()
+        self._card_posters = {}
+        self._next_poster = 0
+        self._scaled_cache.clear()
+        self.update()
+
+    def poster_for_card(self, logical_id: int, *, crossed: bool) -> QPixmap | None:
+        """Poster for one logical belt card. Assigned exactly once, at the
+        first query where the card has crossed the beam; cards that cross
+        while the pool is exhausted stay empty forever (no pop-in)."""
+        if logical_id in self._card_posters:
+            return self._card_posters[logical_id]
+        if not crossed:
+            return None
+        poster = None
+        if self._next_poster < len(self._posters):
+            poster = self._posters[self._next_poster]
+            self._next_poster += 1
+        self._card_posters[logical_id] = poster
+        return poster
 
     def set_active(self, active: bool) -> None:
         if self._active == active:
             return
         self._active = active
+        if active:
+            self._clock.restart()
         self.update()
 
     def set_lifecycle(self, lifecycle: ScanLifecycle | None) -> None:
@@ -76,45 +160,107 @@ class _ScannerAnimation(QWidget):
     def advance(self) -> None:
         if not self._active:
             return
-        self._tick = (self._tick + 1) % 360
         self.update()
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        rect = self.rect().adjusted(_scale.px(10), _scale.px(6), -_scale.px(10), -_scale.px(6))
-        if rect.width() <= 0:
+        rect = self.rect().adjusted(_scale.px(12), _scale.px(12), -_scale.px(12), -_scale.px(12))
+        if rect.width() <= 0 or rect.height() <= 0:
             return
+        slot_w = max(1, rect.width() // _CARD_COUNT)
+        card_h = min(rect.height(), int(slot_w * 1.4))
+        card_w = max(_scale.px(24), int(card_h * 2 / 3))
+        y = rect.center().y() - card_h // 2
+        elapsed = self._clock.elapsed() if self._clock.isValid() else 0
+        offset = conveyor_offset(elapsed, slot_w)
+        beam_x = rect.center().x()
+        radius = _scale.px(6)
 
-        center = QPointF(rect.center())
-        base_radius = min(rect.width(), rect.height()) * 0.43
-        pulse = (math.sin(self._tick / 18.0) + 1.0) / 2.0 if self._active else 0.0
-        ring_color = QColor("#3a3a3a")
-        accent = QColor("#e5a00d")
-        accent.setAlpha(110 + int(80 * pulse))
+        blank = theme.qcolor("surface")
+        border = theme.qcolor("border_light")
+        filled_wash = theme.qcolor("accent_alt")
+        filled_wash.setAlpha(36)
 
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(ring_color, _scale.px(4)))
-        painter.drawEllipse(center, base_radius, base_radius)
-        painter.drawEllipse(center, base_radius * 0.58, base_radius * 0.58)
+        cycle = elapsed // _CONVEYOR_CYCLE_MS
+        for index in range(_CARD_COUNT + 2):
+            slot_x = rect.left() + index * slot_w - offset
+            card_x = slot_x + (slot_w - card_w) / 2.0
+            if card_x + card_w < rect.left() or card_x > rect.right():
+                continue
+            card = QRectF(card_x, y, card_w, card_h)
+            center_x = card.center().x()
+            logical_id = index + cycle
+            painter.setPen(QPen(border, max(1, _scale.px(1))))
+            painter.setBrush(blank)
+            painter.drawRoundedRect(card, radius, radius)
+            if self._active and center_x < beam_x - slot_w * 0.5:
+                poster = self.poster_for_card(logical_id, crossed=True)
+                if poster is not None:
+                    painter.save()
+                    painter.setClipRect(card)
+                    dpr = self.devicePixelRatioF()
+                    key = (poster.cacheKey(), int(card.width() * dpr), int(card.height() * dpr))
+                    scaled = self._scaled_cache.get(key)
+                    if scaled is None:
+                        scaled = poster.scaled(
+                            int(card.width() * dpr), int(card.height() * dpr),
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                        scaled.setDevicePixelRatio(dpr)
+                        if len(self._scaled_cache) > 64:
+                            self._scaled_cache.clear()
+                        self._scaled_cache[key] = scaled
+                    painter.drawPixmap(card.topLeft(), scaled)
+                    painter.restore()
+                else:
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(filled_wash)
+                    painter.drawRoundedRect(card, radius, radius)
+                    painter.setBrush(border)
+                    line_w = card_w - _scale.px(12)
+                    painter.drawRoundedRect(
+                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(18), line_w, _scale.px(4)), 2, 2
+                    )
+                    painter.drawRoundedRect(
+                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(10), line_w * 0.6, _scale.px(4)), 2, 2
+                    )
+            if self._active and abs(center_x - beam_x) <= slot_w * 0.5:
+                sweep = (beam_x - (center_x - slot_w * 0.5)) / slot_w
+                beam_pos = card.left() + card.width() * max(0.0, min(1.0, sweep))
+                gradient = QLinearGradient(beam_pos - _scale.px(10), 0.0, beam_pos + _scale.px(10), 0.0)
+                lead = theme.qcolor("accent")
+                lead.setAlpha(0)
+                core = theme.qcolor("accent")
+                core.setAlpha(150)
+                trail = theme.qcolor("accent_alt")
+                trail.setAlpha(0)
+                gradient.setColorAt(0.0, lead)
+                gradient.setColorAt(0.5, core)
+                gradient.setColorAt(1.0, trail)
+                painter.fillRect(
+                    QRectF(beam_pos - _scale.px(10), card.top(), _scale.px(20), card.height()), gradient
+                )
 
-        painter.setPen(QPen(accent, _scale.px(5)))
-        for index in range(6):
-            angle = (self._tick * 1.6 + index * 60) * math.pi / 180.0
-            orbit = base_radius * (0.76 + 0.08 * math.sin((self._tick + index * 12) / 20.0))
-            point = QPointF(
-                center.x() + math.cos(angle) * orbit,
-                center.y() + math.sin(angle) * orbit,
-            )
-            dot_radius = _scale.px(5 + (index % 2))
-            painter.setBrush(accent if index == 0 else QColor("#242424"))
-            painter.drawEllipse(point, dot_radius, dot_radius)
+        if len(self._card_posters) > 64:
+            keep_from = cycle  # everything older than the current window is gone
+            self._card_posters = {
+                lid: pm for lid, pm in self._card_posters.items() if lid >= keep_from
+            }
 
-        core = QColor("#1f1a0e")
-        painter.setBrush(core)
-        painter.setPen(QPen(QColor("#e5a00d"), _scale.px(4)))
-        painter.drawEllipse(center, _scale.px(8 + int(2 * pulse)), _scale.px(8 + int(2 * pulse)))
+
+def overall_progress_fraction(
+    checklist_len: int, active_index: int | None, done: int, total: int, completed: int
+) -> float:
+    """Whole-scan progress in [0,1]: each phase is an equal slice; the active
+    phase contributes its done/total fraction."""
+    if checklist_len <= 0:
+        return 0.0
+    if active_index is None:
+        return max(0.0, min(1.0, completed / checklist_len))
+    frac = (max(0, min(done, total)) / total) if total > 0 else 0.0
+    return max(0.0, min(1.0, (active_index + frac) / checklist_len))
 
 
 class ScanProgressWidget(QWidget):
@@ -130,8 +276,14 @@ class ScanProgressWidget(QWidget):
         self._elapsed_timer.setInterval(1000)
         self._elapsed_timer.timeout.connect(self._update_elapsed)
         self._animation_timer = QTimer(self)
-        self._animation_timer.setInterval(90)
+        self._animation_timer.setInterval(16)
         self._animation_timer.timeout.connect(self._advance_animation)
+        self._filler_timer = QTimer(self)
+        self._filler_timer.setInterval(_FILLER_DELAY_MS)
+        self._filler_timer.timeout.connect(self._rotate_filler)
+        self._fillers = _TV_FILLERS if media_type == "tv" else _MOVIE_FILLERS
+        self._filler_order: list[int] = []
+        self._filler_pos = 0
         self._text_update_timer = QElapsedTimer()
         self._current_lifecycle: ScanLifecycle | None = None
         self._completed_lifecycles: set[ScanLifecycle] = set()
@@ -156,19 +308,31 @@ class ScanProgressWidget(QWidget):
         self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(self._title)
 
-        self._animation = _ScannerAnimation()
-        self._animation.setFixedHeight(_scale.px(260))
+        self._animation = _ConveyorAnimation()
+        self._animation.setFixedHeight(_scale.px(200))
         card_layout.addWidget(self._animation)
 
+        phase_row = QHBoxLayout()
         self._phase_label = QLabel("Initializing scan...")
         self._phase_label.setProperty("cssClass", "heading")
-        card_layout.addWidget(self._phase_label)
+        phase_row.addWidget(self._phase_label, stretch=1)
+        self._step_label = QLabel("")
+        self._step_label.setProperty("cssClass", "caption")
+        phase_row.addWidget(
+            self._step_label, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        card_layout.addLayout(phase_row)
 
-        self._message_label = QLabel("Preparing the scanner.")
-        self._message_label.setProperty("cssClass", "text-dim")
-        self._message_label.setWordWrap(False)
-        self._message_label.setFixedHeight(_scale.px(22))
-        card_layout.addWidget(self._message_label)
+        secondary_row = QHBoxLayout()
+        self._item_label = ElidedLabel("")
+        self._item_label.setProperty("cssClass", "text-dim")
+        self._item_label.setFixedHeight(_scale.px(22))
+        secondary_row.addWidget(self._item_label, stretch=1)
+        self._elapsed_label = QLabel("Elapsed: 0:00")
+        self._elapsed_label.setProperty("cssClass", "text-dim")
+        self._elapsed_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        secondary_row.addWidget(self._elapsed_label, alignment=Qt.AlignmentFlag.AlignRight)
+        card_layout.addLayout(secondary_row)
 
         bar_row = QHBoxLayout()
         self._progress_bar = QProgressBar()
@@ -185,53 +349,6 @@ class ScanProgressWidget(QWidget):
         bar_row.addWidget(self._count_label)
         card_layout.addLayout(bar_row)
 
-        details = QGridLayout()
-        details.setHorizontalSpacing(_scale.px(16))
-        details.setVerticalSpacing(_scale.px(4))
-        details.setColumnStretch(0, 1)
-        details.setColumnStretch(1, 0)
-        self._current_label = QLabel("Current: -")
-        self._current_label.setWordWrap(False)
-        self._current_label.setMinimumWidth(_scale.px(360))
-        self._current_label.setFixedHeight(_scale.px(22))
-        self._current_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._elapsed_label = QLabel("Elapsed: 0:00")
-        self._elapsed_label.setProperty("cssClass", "text-dim")
-        self._elapsed_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        details.addWidget(self._current_label, 0, 0)
-        details.addWidget(self._elapsed_label, 0, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        card_layout.addLayout(details)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setProperty("cssClass", "separator")
-        sep.setFixedHeight(_scale.px(1))
-        card_layout.addWidget(sep)
-
-        self._phase_rows: dict[ScanLifecycle, QLabel] = {}
-        self._phase_labels: dict[ScanLifecycle, QLabel] = {}
-        checklist_grid = QGridLayout()
-        checklist_grid.setHorizontalSpacing(_scale.px(18))
-        checklist_grid.setVerticalSpacing(_scale.px(8))
-        for index, lifecycle in enumerate(self._checklist):
-            icon = QLabel("○")
-            icon.setProperty("cssClass", "scan-phase-icon")
-            icon.setProperty("phaseState", "pending")
-            icon.setFixedWidth(_scale.px(18))
-            icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            label = QLabel(_LIFECYCLE_LABELS.get(lifecycle, str(lifecycle)))
-            label.setProperty("cssClass", "scan-phase-label")
-            label.setProperty("phaseState", "pending")
-
-            row = index // 2
-            column = (index % 2) * 2
-            checklist_grid.addWidget(icon, row, column)
-            checklist_grid.addWidget(label, row, column + 1)
-            self._phase_rows[lifecycle] = icon
-            self._phase_labels[lifecycle] = label
-        card_layout.addLayout(checklist_grid)
-
         btn_row = QHBoxLayout()
         btn_row.addStretch()
         self._cancel_btn = QPushButton("Cancel")
@@ -244,28 +361,40 @@ class ScanProgressWidget(QWidget):
 
         outer.addWidget(card)
 
+    def set_posters(self, pixmaps: list[QPixmap]) -> None:
+        self._animation.set_posters(pixmaps)
+
+    def add_poster(self, pixmap: QPixmap) -> None:
+        self._animation.add_poster(pixmap)
+
+    def reset_posters(self) -> None:
+        self._animation.reset_posters()
+
     def start(self) -> None:
         """Reset the dashboard and start active timers."""
         self._elapsed.start()
         self._elapsed_timer.start()
         self._animation_timer.start()
         self._animation.set_active(True)
+        self._animation.reset_posters()
         self._completed_lifecycles.clear()
         self._current_lifecycle = None
-        self._reset_checklist()
+        self._step_label.setText("")
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
         self._count_label.setText("0/0")
         self._phase_label.setText("Initializing scan...")
-        self._message_label.setText("Preparing the scanner.")
-        self._current_label.setText("Current: -")
+        self._set_item_text("Preparing the scanner…")
         self._elapsed_label.setText("Elapsed: 0:00")
         self._text_update_timer.invalidate()
+        self._reshuffle_fillers()
+        self._filler_timer.start()
 
     def stop(self) -> None:
         """Stop elapsed and animation timers."""
         self._elapsed_timer.stop()
         self._animation_timer.stop()
+        self._filler_timer.stop()
         self._animation.set_active(False)
 
     def update_progress(
@@ -284,15 +413,16 @@ class ScanProgressWidget(QWidget):
             self._set_lifecycle(parsed_lifecycle)
         lifecycle_changed = parsed_lifecycle is not None and parsed_lifecycle != previous_lifecycle
 
-        if total > 0:
-            pct = int((max(0, min(done, total)) / total) * 100)
-            self._progress_bar.setRange(0, 100)
-            self._progress_bar.setValue(pct)
-            self._count_label.setText(f"{done}/{total}")
-        else:
-            self._progress_bar.setRange(0, 100)
-            self._progress_bar.setValue(0)
-            self._count_label.setText("Working")
+        active = (
+            self._checklist.index(self._current_lifecycle)
+            if self._current_lifecycle in self._checklist
+            else None
+        )
+        completed = len(self._completed_lifecycles & set(self._checklist))
+        fraction = overall_progress_fraction(len(self._checklist), active, done, total, completed)
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(int(fraction * 100))
+        self._count_label.setText(f"{done}/{total}" if total > 0 else "Working")
 
         if self._should_update_text(
             lifecycle_changed=lifecycle_changed,
@@ -302,12 +432,11 @@ class ScanProgressWidget(QWidget):
         ):
             if phase:
                 self._phase_label.setText(phase)
-            if message:
-                self._set_elided_text(self._message_label, message)
-            if current_item:
-                self._set_elided_text(self._current_label, f"Current: {current_item}")
-            elif message:
-                self._set_elided_text(self._current_label, message)
+            item_text = current_item or message
+            if item_text:
+                self._set_item_text(item_text)
+                if self._elapsed_timer.isActive():
+                    self._filler_timer.start()   # restart the 4s no-change window
             self._text_update_timer.restart()
 
         if parsed_lifecycle in _TERMINAL:
@@ -345,12 +474,30 @@ class ScanProgressWidget(QWidget):
     def _advance_animation(self) -> None:
         self._animation.advance()
 
-    def _set_elided_text(self, label: QLabel, text: str) -> None:
-        available_width = _label_text_width(label)
-        label.setToolTip(
-            text if label.fontMetrics().horizontalAdvance(text) > available_width else ""
-        )
-        label.setText(_elided_text(label, text))
+    def _set_item_text(self, text: str) -> None:
+        self._item_label.setText(text)
+        self._item_label.setToolTip(text)
+
+    def _reshuffle_fillers(self, *, avoid_first: int | None = None) -> None:
+        order = random.sample(range(len(self._fillers)), len(self._fillers))
+        if avoid_first is not None and len(order) > 1 and order[0] == avoid_first:
+            order[0], order[-1] = order[-1], order[0]
+        self._filler_order = order
+        self._filler_pos = 0
+
+    def _rotate_filler(self) -> None:
+        if not self._fillers or not self._elapsed_timer.isActive():
+            return
+        if self._filler_pos >= len(self._filler_order):
+            last = self._filler_order[-1] if self._filler_order else None
+            self._reshuffle_fillers(avoid_first=last)
+        quip = self._fillers[self._filler_order[self._filler_pos]]
+        self._filler_pos += 1
+        self._item_label.setText(quip)
+        self._item_label.setToolTip("")
+        # A quip replaced the honest item line, so drop the text throttle:
+        # the next real update must reclaim the line immediately.
+        self._text_update_timer.invalidate()
 
     def _should_update_text(
         self,
@@ -374,30 +521,16 @@ class ScanProgressWidget(QWidget):
         seconds = secs % 60
         self._elapsed_label.setText(f"Elapsed: {minutes}:{seconds:02d}")
 
-    def _reset_checklist(self) -> None:
-        for lifecycle, icon in self._phase_rows.items():
-            icon.setText("○")
-            self._set_phase_state(lifecycle, "pending")
-
     def _update_checklist(self) -> None:
-        for lifecycle, icon in self._phase_rows.items():
-            if lifecycle in self._completed_lifecycles:
-                icon.setText("✓")
-                self._set_phase_state(lifecycle, "done")
-            elif lifecycle == self._current_lifecycle:
-                icon.setText("●")
-                self._set_phase_state(lifecycle, "active")
-            else:
-                icon.setText("○")
-                self._set_phase_state(lifecycle, "pending")
-
-    def _set_phase_state(self, lifecycle: ScanLifecycle, state: str) -> None:
-        icon = self._phase_rows[lifecycle]
-        label = self._phase_labels[lifecycle]
-        icon.setProperty("phaseState", state)
-        label.setProperty("phaseState", state)
-        _repolish(icon)
-        _repolish(label)
+        n = len(self._checklist)
+        if self._current_lifecycle in self._checklist:
+            step = self._checklist.index(self._current_lifecycle) + 1
+            self._step_label.setText(f"Step {step} of {n}")
+            self._step_label.setToolTip(
+                "\n".join(_LIFECYCLE_LABELS.get(lc, str(lc)) for lc in self._checklist)
+            )
+        else:
+            self._step_label.setText("")
 
 
 def _parse_lifecycle(lifecycle: str | ScanLifecycle) -> ScanLifecycle | None:
@@ -410,26 +543,3 @@ def _parse_lifecycle(lifecycle: str | ScanLifecycle) -> ScanLifecycle | None:
     except ValueError:
         return None
 
-
-def _repolish(widget: QWidget) -> None:
-    style = widget.style()
-    if style is None:
-        return
-    style.unpolish(widget)
-    style.polish(widget)
-    widget.update()
-
-
-def _label_text_width(label: QLabel) -> int:
-    width = label.contentsRect().width()
-    if width <= 0:
-        width = label.width()
-    return max(1, width)
-
-
-def _elided_text(label: QLabel, text: str) -> str:
-    return label.fontMetrics().elidedText(
-        text,
-        Qt.TextElideMode.ElideRight,
-        _label_text_width(label),
-    )

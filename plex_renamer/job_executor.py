@@ -21,6 +21,7 @@ Also provides ``revert_job()`` for per-job undo without a stack constraint.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import shutil
@@ -29,6 +30,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ._job_execution_metadata import execute_metadata_plan, materialized_extras
+from ._job_execution_remux import execute_remux_op
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
     apply_top_dir_remap,
@@ -92,14 +95,14 @@ def _remap_target_into_final_root(
     Queue execution previously moved files inside the source root and then
     renamed the entire root folder at the end. When leftover source
     directories remained, that pulled stale structure into the finished
-    Plex folder. Remapping root-relative targets avoids that coupling.
+    library folder. Remapping root-relative targets avoids that coupling.
     """
     return remap_target_into_final_root(target_dir, root_folder, final_root)
 
 
 # ─── Job kind executor registry ──────────────────────────────────────────────
 
-def _execute_output_rename(job: RenameJob) -> RenameResult:
+def _execute_output_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     """Execute a destination-aware rename job into its output root."""
     result = RenameResult()
     result.log_entry = {
@@ -168,6 +171,9 @@ def _execute_output_rename(job: RenameJob) -> RenameResult:
         renames=renames,
     )
     if remap:
+        result.log_entry["top_dir_remap"] = {
+            str(old_top): str(new_top) for old_top, new_top in remap.items()
+        }
         renames = [
             (
                 src,
@@ -204,7 +210,7 @@ def _execute_output_rename(job: RenameJob) -> RenameResult:
     return result
 
 
-def _execute_rename(job: RenameJob) -> RenameResult:
+def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     """
     Execute a rename job's file operations.
 
@@ -306,7 +312,7 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     #
     # For movies with their own subdirectory (release folders like
     # "Dune.2021.2160p.REMUX/"), root_folder IS the release directory.
-    # Once renamed files have been moved to the Plex-named target folder,
+    # Once renamed files have been moved to the library-format target folder,
     # anything remaining in the source directory (sample clips, NFOs,
     # extra files the scanner skipped) is relocated into
     # ``target_dir/Unmatched Files/`` rather than deleted.
@@ -367,9 +373,56 @@ def _execute_rename(job: RenameJob) -> RenameResult:
     return result
 
 
+def _execute_remux(
+    job: RenameJob,
+    progress_cb=None,
+    set_active_temp: Callable[[str | None], None] | None = None,
+    fetch_image_bytes: Callable[[str], bytes | None] | None = None,
+) -> RenameResult:
+    """Mixed-op REMUX job: plain moves first, then mkvmerge ops (spec §6/§7)."""
+    plain_ops = [op for op in job.rename_ops if not op.mux]
+    plain_job = dataclasses.replace(job, rename_ops=plain_ops)
+    result = _execute_output_rename(plain_job)
+    result.log_entry.setdefault("remux_outputs", [])
+    result.log_entry["job_id"] = job.job_id
+
+    mux_ops = [op for op in job.rename_ops if op.mux and op.selected
+               and op.status == "OK" and op.new_name]
+    total = len(mux_ops)
+    embed_title = bool(
+        job.metadata_plan and job.metadata_plan.get("embed_title"))
+    extras_by_op = {
+        e.get("op"): e
+        for e in ((job.metadata_plan or {}).get("embed_extras") or [])
+    }
+    for index, op in enumerate(mux_ops):
+        def _on_percent(percent, _index=index):
+            if progress_cb is not None:
+                progress_cb(_index, total, percent)
+
+        title = Path(op.new_name).stem if embed_title else None
+        entry = extras_by_op.get(op.original_relative)
+        with materialized_extras(
+                entry, fetch_image_bytes, result, op.new_name) as (
+                tags_path, cover_path):
+            execute_remux_op(
+                op,
+                source_root=Path(job.library_root),
+                output_root=Path(job.output_root),
+                result=result,
+                on_percent=_on_percent,
+                set_active_temp=set_active_temp,
+                title=title,
+                tags_path=tags_path,
+                cover_path=cover_path,
+            )
+    return result
+
+
 # Registry: add new job kinds here.
-_EXECUTORS: dict[str, Callable[[RenameJob], RenameResult]] = {
+_EXECUTORS: dict[str, Callable[..., RenameResult]] = {
     JobKind.RENAME: _execute_rename,
+    JobKind.REMUX: _execute_remux,
 }
 
 
@@ -442,6 +495,12 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     if not job.undo_data:
         return False, ["No undo data stored for this job."]
 
+    if job.undo_data.get("irreversible"):
+        return False, [
+            "This job replaced its source files (No Fear mode) "
+            "and cannot be reverted."
+        ]
+
     undo = job.undo_data
     library_root = Path(job.library_root)
     source_folder = Path(job.source_folder)
@@ -453,6 +512,41 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         if job.output_root else None
     )
     source_boundary = library_root.resolve(strict=False)
+
+    # Delete remux outputs first — a remuxed file has no "old path" to move
+    # back to; undoing it means removing the generated output.
+    for output_str in undo.get("remux_outputs", []):
+        output_path = Path(output_str)
+        if output_boundary is not None:
+            try:
+                output_path.resolve(strict=False).relative_to(output_boundary)
+            except (OSError, ValueError):
+                errors.append(
+                    f"Remux output is outside the output root: {output_path}")
+                continue
+        try:
+            if output_path.exists():
+                output_path.unlink()
+                moved_from_paths.append(output_path)
+        except OSError as e:
+            errors.append(f"Could not remove remux output {output_path.name}: {e}")
+
+    # Delete metadata sidecars created by the decorate phase.
+    for created_str in undo.get("created_files", []):
+        created_path = Path(created_str)
+        if output_boundary is not None:
+            try:
+                created_path.resolve(strict=False).relative_to(output_boundary)
+            except (OSError, ValueError):
+                errors.append(
+                    f"Created file is outside the output root: {created_path}")
+                continue
+        try:
+            if created_path.exists():
+                created_path.unlink()
+                moved_from_paths.append(created_path)
+        except OSError as e:
+            errors.append(f"Could not remove metadata file {created_path.name}: {e}")
 
     # Revert folder renames (in reverse order)
     dir_rename_map: dict[Path, Path] = {}
@@ -588,8 +682,13 @@ class QueueExecutor:
         callbacks when start/stop is toggled repeatedly.
     """
 
-    def __init__(self, store: JobStore):
+    def __init__(
+        self,
+        store: JobStore,
+        image_fetcher: Callable[[str], bytes | None] | None = None,
+    ):
         self.store = store
+        self._image_fetcher = image_fetcher
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._running = False
@@ -597,12 +696,20 @@ class QueueExecutor:
         # Listener-based callbacks (additive — callers must clear to avoid dups)
         self._listeners: list[dict[str, Callable | None]] = []
 
+    def set_image_fetcher(
+        self, fetcher: Callable[[str], bytes | None] | None,
+    ) -> None:
+        """Inject the artwork downloader (wired to TMDBClient at app
+        bootstrap). The executor itself stays network-agnostic."""
+        self._image_fetcher = fetcher
+
     def add_listener(
         self,
         on_started: Callable[[RenameJob], None] | None = None,
         on_completed: Callable[[RenameJob, RenameResult], None] | None = None,
         on_failed: Callable[[RenameJob, str], None] | None = None,
         on_finished: Callable[[], None] | None = None,
+        on_progress: Callable[[RenameJob, int, int, int], None] | None = None,
     ) -> int:
         """Register a callback listener.  Returns listener index."""
         self._listeners.append({
@@ -610,6 +717,7 @@ class QueueExecutor:
             "completed": on_completed,
             "failed": on_failed,
             "finished": on_finished,
+            "progress": on_progress,
         })
         return len(self._listeners) - 1
 
@@ -677,6 +785,11 @@ class QueueExecutor:
         self._execute_one(job)
         return True
 
+    def _make_progress_cb(self, job: RenameJob):
+        def _cb(op_index: int, op_count: int, percent: int) -> None:
+            self._notify("progress", job, op_index, op_count, percent)
+        return _cb
+
     def _execute_one(self, job: RenameJob) -> None:
         _log.info("Executing job %s: %s", job.job_id[:8], job.media_name)
 
@@ -722,10 +835,32 @@ class QueueExecutor:
             if executor_fn is None:
                 raise ValueError(f"Unknown job kind: {job.job_kind}")
 
-            if job.job_kind == JobKind.RENAME and not job.output_root:
+            if job.job_kind in (JobKind.RENAME, JobKind.REMUX) and not job.output_root:
                 raise ValueError("Legacy pending job must be recreated before execution.")
 
-            result = executor_fn(job)
+            if job.job_kind == JobKind.REMUX:
+                result = executor_fn(
+                    job, self._make_progress_cb(job),
+                    set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p),
+                    fetch_image_bytes=self._image_fetcher)
+            else:
+                result = executor_fn(job, self._make_progress_cb(job))
+
+            if job.metadata_plan and result.renamed_count > 0:
+                # Decorate phase (spec: local-metadata-artwork). Appends
+                # to result.log_entry/errors — must run before undo_data
+                # is persisted below; never raises for per-file problems.
+                # A total blowup here (e.g. an unexpected exception from
+                # a malformed plan) must still leave the job COMPLETED —
+                # metadata must never fail a job or block queueing.
+                try:
+                    execute_metadata_plan(
+                        job,
+                        result=result,
+                        fetch_image_bytes=self._image_fetcher,
+                    )
+                except Exception as e:
+                    result.errors.append(f"Metadata phase failed: {e}")
 
             if result.errors and result.renamed_count == 0:
                 error_msg = "; ".join(result.errors[:5])

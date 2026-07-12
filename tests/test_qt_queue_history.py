@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
@@ -19,8 +20,12 @@ from conftest_qt import QtSmokeBase
 
 
 class QtQueueHistoryTests(QtSmokeBase):
-    def test_job_table_file_and_companion_columns_do_not_double_count(self):
-        from plex_renamer.gui_qt.models.job_table_model import JobTableModel, SORT_ROLE
+    def test_job_table_files_column_merges_selected_counts(self):
+        from plex_renamer.gui_qt.models.job_table_model import (
+            SORT_ROLE,
+            JobTableModel,
+            files_cell_text,
+        )
         from plex_renamer.job_store import RenameJob, RenameOp
 
         job = RenameJob(
@@ -65,10 +70,50 @@ class QtQueueHistoryTests(QtSmokeBase):
         model = JobTableModel(history=False)
         model.set_jobs([job])
 
-        self.assertEqual(model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole), "1")
-        self.assertEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
+        self.assertEqual(model.columnCount(), 7)
+        self.assertEqual(
+            model.headerData(5, Qt.Orientation.Horizontal), "Files"
+        )
+        self.assertEqual(model.headerData(6, Qt.Orientation.Horizontal), "When")
+        # Only the selected pair counts: 1 video + 1 companion.
+        self.assertEqual(
+            model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole),
+            "1 file (1 comp.)",
+        )
         self.assertEqual(model.data(model.index(0, 5), SORT_ROLE), 1)
-        self.assertEqual(model.data(model.index(0, 6), SORT_ROLE), 1)
+        self.assertEqual(files_cell_text(job), "1 file (1 comp.)")
+        # When column renders a formatted date, not a count.
+        self.assertNotEqual(
+            model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1"
+        )
+
+    def test_job_table_files_column_omits_companion_suffix_when_none(self):
+        from plex_renamer.gui_qt.models.job_table_model import files_cell_text
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/a.mkv", new_name="A.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/b.mkv", new_name="B.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/c.mkv", new_name="C.mkv",
+                    target_dir_relative="Show", status="OK",
+                    selected=True, file_type="video",
+                ),
+            ],
+        )
+        self.assertEqual(files_cell_text(job), "3 files")
 
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
@@ -111,17 +156,19 @@ class QtQueueHistoryTests(QtSmokeBase):
             history_tab._revert_selected()
 
             self.assertTrue(history_tab._revert_btn.isHidden())
-            self.assertFalse(history_tab._confirm_revert_btn.isHidden())
-            self.assertFalse(history_tab._cancel_revert_btn.isHidden())
-            self.assertFalse(history_tab._revert_info.isHidden())
+            self.assertTrue(history_tab._revert_banner.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._confirm_revert_btn.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._cancel_revert_btn.isVisibleTo(history_tab))
+            self.assertTrue(history_tab._revert_info.isVisibleTo(history_tab))
             self.assertIn("1 job, 2 files", history_tab._revert_info.text())
 
             history_tab._confirm_revert()
 
             queue_ctrl.revert_job.assert_called_once_with(job.job_id)
-            self.assertTrue(history_tab._confirm_revert_btn.isHidden())
-            self.assertTrue(history_tab._cancel_revert_btn.isHidden())
-            self.assertTrue(history_tab._revert_info.isHidden())
+            self.assertFalse(history_tab._revert_banner.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._confirm_revert_btn.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._cancel_revert_btn.isVisibleTo(history_tab))
+            self.assertFalse(history_tab._revert_info.isVisibleTo(history_tab))
             self.assertFalse(history_tab._revert_btn.isHidden())
             history_tab.close()
             queue_ctrl.close()
@@ -278,10 +325,10 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertFalse(history_tab._header.stretchLastSection())
             self.assertEqual(queue_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
             self.assertEqual(history_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
-            self.assertEqual(queue_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
-            self.assertEqual(history_tab._header.sectionResizeMode(7), QHeaderView.ResizeMode.Fixed)
-            self.assertLessEqual(queue_tab._header.sectionSize(7), 92)
-            self.assertLessEqual(history_tab._header.sectionSize(7), 92)
+            self.assertEqual(queue_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
+            self.assertEqual(history_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
+            self.assertLessEqual(queue_tab._header.sectionSize(6), 92)
+            self.assertLessEqual(history_tab._header.sectionSize(6), 92)
 
             self.assertEqual(queue_tab._model.rowCount(), 1)
             self.assertEqual(history_tab._model.rowCount(), 1)
@@ -293,7 +340,7 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._detail_page)
             self.assertEqual(queue_tab._remove_btn.text(), "Remove Selected")
             self.assertFalse(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
             self.assertFalse(hasattr(queue_tab, "_tv_btn"))
             self.assertFalse(hasattr(queue_tab, "_movie_btn"))
 
@@ -311,12 +358,12 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertEqual(len(queue_tab._selected_jobs()), 1)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Checked)
             self.assertTrue(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
             queue_tab._header.checkStateChanged.emit(Qt.CheckState.Unchecked.value)
             self.assertEqual(len(queue_tab._selected_jobs()), 0)
             self.assertEqual(queue_tab._header.check_state(), Qt.CheckState.Unchecked)
             self.assertFalse(queue_tab._remove_btn.isEnabled())
-            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "secondary")
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
 
             history_tab._header.checkStateChanged.emit(Qt.CheckState.Checked.value)
             self.assertEqual(len(history_tab._selected_jobs()), 1)
@@ -609,15 +656,186 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         window._switch_to_tab(1)
         self._app.processEvents()
-        window._tv_workspace._roster_collapsed["plex-ready"] = False
+        window._tv_workspace._roster_collapsed["fully-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
         self.assertEqual(state.folder, output_root / "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
-        self._assert_roster_section_title(window._tv_workspace, 0, "PLEX READY")
+        self._assert_roster_section_title(window._tv_workspace, 0, "FULLY READY")
 
         window.close()
+
+    def test_job_status_tone_map_covers_every_status(self):
+        from plex_renamer.gui_qt.widgets._job_list_tab import _JOB_STATUS_TONE
+
+        for status in (
+            JobStatus.PENDING, JobStatus.RUNNING, JobStatus.COMPLETED,
+            JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.REVERT_FAILED,
+        ):
+            self.assertIn(status, _JOB_STATUS_TONE)
+
+    def test_queue_table_row_height_and_no_alternation(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            self.assertEqual(
+                tab._table.verticalHeader().defaultSectionSize(), _scale.px(36)
+            )
+            self.assertFalse(tab._table.alternatingRowColors())
+            tab.close()
+            controller.close()
+
+    def test_status_pill_paints_without_error(self):
+        from PySide6.QtGui import QPainter, QPixmap
+        from PySide6.QtWidgets import QStyleOptionViewItem
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            store.add_job(RenameJob(
+                library_root="C:/library", source_folder="Show",
+                media_name="Example Show",
+            ))
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            index = tab._proxy.index(0, 1)
+            self.assertTrue(index.isValid())
+            pixmap = QPixmap(200, 40)
+            painter = QPainter(pixmap)
+            option = QStyleOptionViewItem()
+            option.rect = pixmap.rect()
+            try:
+                tab._hover_delegate._paint_status_pill(painter, option, index)
+            finally:
+                painter.end()
+            tab.close()
+            controller.close()
+
+    def test_remove_and_revert_buttons_use_danger_outline(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets._queue_tab_state import remove_button_css_class
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        self.assertEqual(remove_button_css_class(enabled=True), "danger-outline")
+        self.assertEqual(remove_button_css_class(enabled=False), "danger-outline")
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            queue_tab = QueueTab(controller)
+            history_tab = HistoryTab(controller)
+            self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
+            self.assertEqual(history_tab._revert_btn.property("cssClass"), "danger-outline")
+            queue_tab.close()
+            history_tab.close()
+            controller.close()
+
+    def test_revert_banner_is_a_styled_frame_between_table_and_actions(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            tab = HistoryTab(controller)
+            banner = tab._revert_banner
+            self.assertEqual(banner.property("cssClass"), "revert-banner")
+            self.assertFalse(banner.isVisibleTo(tab))          # hidden until armed
+            self.assertIs(tab._revert_info.parent(), banner)
+            self.assertIs(tab._confirm_revert_btn.parent(), banner)
+            self.assertIs(tab._cancel_revert_btn.parent(), banner)
+            layout_index = tab._list_layout.indexOf(banner)
+            actions_index = tab._list_layout.indexOf(tab._actions_bar)
+            self.assertGreaterEqual(layout_index, 0)
+            self.assertEqual(layout_index, actions_index - 1)  # directly above actions
+            tab.close()
+            controller.close()
+
+    def test_empty_queue_table_shows_illustrated_empty_state(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            controller = QueueController(store)
+            queue_tab = QueueTab(controller)
+            history_tab = HistoryTab(controller)
+            self.assertIs(
+                queue_tab._table_stack.currentWidget(), queue_tab._table_empty
+            )
+            self.assertEqual(queue_tab._table_empty._heading.text(), "Queue is empty")
+            self.assertIs(
+                history_tab._table_stack.currentWidget(), history_tab._table_empty
+            )
+            self.assertEqual(history_tab._table_empty._heading.text(), "No history yet")
+            queue_tab.close()
+            history_tab.close()
+            controller.close()
+
+    def test_jobs_flip_the_stack_to_the_table_and_filters_show_no_match(self):
+        from plex_renamer.app.controllers.queue_controller import QueueController
+        from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
+        from plex_renamer.job_store import RenameJob
+
+        with TemporaryDirectory() as tmp:
+            store = JobStore(db_path=Path(tmp) / "jobs.db")
+            store.add_job(RenameJob(
+                library_root="C:/library", source_folder="Show",
+                media_name="Example Show",
+            ))
+            controller = QueueController(store)
+            tab = QueueTab(controller)
+            self.assertIs(tab._table_stack.currentWidget(), tab._table)
+            tab._filter_control.currentTextChanged.emit("Running")
+            self._app.processEvents()
+            self.assertIs(tab._table_stack.currentWidget(), tab._table_empty)
+            self.assertEqual(tab._table_empty._heading.text(), "No matching jobs")
+            self.assertIn("Running", tab._table_empty._hint.text())
+            tab.close()
+            controller.close()
+
+    def test_status_size_hint_reserves_uppercase_pill_width(self):
+        from PySide6.QtWidgets import QStyleOptionViewItem, QTableView
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.models.job_table_model import JobTableModel
+        from plex_renamer.gui_qt.widgets._job_list_tab import _HoverRowDelegate
+        from plex_renamer.job_store import RenameJob
+
+        # REVERT_FAILED paints the widest pill; ResizeToContents sizes the
+        # Status section from this hint, so it must reserve the uppercase
+        # advance + pill padding + cell margin, not the mixed-case text.
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            status=JobStatus.REVERT_FAILED,
+        )
+        model = JobTableModel(history=True)
+        model.set_jobs([job])
+        table = QTableView()
+        table.setModel(model)
+        delegate = _HoverRowDelegate(table, parent=table)
+        index = model.index(0, 1)
+        option = QStyleOptionViewItem()
+        hint = delegate.sizeHint(option, index)
+        label = str(model.data(index, Qt.ItemDataRole.DisplayRole)).upper()
+        required = (
+            option.fontMetrics.horizontalAdvance(label)
+            + _scale.px(16)
+            + _scale.px(4)
+        )
+        self.assertGreaterEqual(hint.width(), required)
+        table.close()
 
 
 if __name__ == "__main__":

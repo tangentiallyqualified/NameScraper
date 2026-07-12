@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 
 from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
@@ -69,3 +70,43 @@ def test_episode_projection_cache_signature_tracks_match_and_episode_mapping_sta
 
     assert match_signature != first_signature
     assert mapping_signature != match_signature
+
+
+class CachedPeekAndStoreTests(unittest.TestCase):
+    """Plan 5: Qt-free primitives backing the async guide pipeline."""
+
+    def _state(self, name: str = "Show") -> ScanState:
+        state = ScanState(
+            folder=Path(f"C:/library/tv/{name}"),
+            media_info={"id": 5, "name": name, "year": "2024"},
+        )
+        state.scanned = True
+        return state
+
+    def test_cached_guide_for_state_returns_none_when_unbuilt(self):
+        service = EpisodeProjectionCacheService()
+        self.assertIsNone(service.cached_guide_for_state(self._state()))
+
+    def test_cached_guide_for_state_hits_after_prepare_and_misses_after_mutation(self):
+        service = EpisodeProjectionCacheService()
+        state = self._state()
+        built = service.prepare_state(state)
+        self.assertIs(service.cached_guide_for_state(state), built)
+        state.media_info["name"] = "Renamed Show"   # signature-relevant mutation
+        self.assertIsNone(service.cached_guide_for_state(state))
+
+    def test_build_guide_with_signature_matches_prebuild_signature(self):
+        service = EpisodeProjectionCacheService()
+        state = self._state()
+        expected_signature = service.signature_for_state(state)
+        guide, signature = service.build_guide_with_signature(state)
+        self.assertEqual(signature, expected_signature)
+        self.assertIsNotNone(guide)
+
+    def test_store_guide_roundtrips_through_cached_peek(self):
+        service = EpisodeProjectionCacheService()
+        state = self._state()
+        guide, signature = service.build_guide_with_signature(state)
+        service.store_guide(state, guide, signature)
+        self.assertIs(service.cached_guide_for_state(state), guide)
+        self.assertEqual(service.cache_size, 1)

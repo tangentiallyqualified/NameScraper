@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Plex Renamer")
+        self.setWindowTitle("NameScraper")
         self.setMinimumSize(_scale.px(960), _scale.px(600))
         self.statusBar().setSizeGripEnabled(False)
         self.statusBar().hide()
@@ -91,7 +91,6 @@ class MainWindow(QMainWindow):
             self,
             tv_index=_TV,
             movies_index=_MOVIES,
-            history_index=_HISTORY,
         )
         self._state_coordinator = MainWindowStateCoordinator(
             self,
@@ -184,6 +183,9 @@ class MainWindow(QMainWindow):
         count = self.queue_ctrl.clear_history()
         self._history_tab.refresh()
         return count, revertible
+
+    def _history_count_for_settings(self) -> int:
+        return len(self.queue_ctrl.get_history())
 
     def _start_job_poster_backfill(self):
         return self._feedback_coordinator.start_job_poster_backfill(
@@ -319,6 +321,11 @@ class MainWindow(QMainWindow):
     def _on_job_failed(self, job: RenameJob, error: str) -> None:
         self._feedback_coordinator.on_job_failed(job, error)
 
+    def _on_job_progress(
+        self, job: RenameJob, op_index: int, op_count: int, percent: int
+    ) -> None:
+        self._queue_tab.update_job_progress(job, op_index, op_count, percent)
+
     def _on_queue_finished(self) -> None:
         self._feedback_coordinator.on_queue_finished()
 
@@ -338,9 +345,6 @@ class MainWindow(QMainWindow):
 
     def _capture_active_snapshot(self) -> None:
         self._state_coordinator.capture_active_snapshot()
-
-    def _on_undo(self) -> None:
-        self._shell_coordinator.undo_last_rename(message_box_api=QMessageBox)
 
     def _on_compact_toggled(self, checked: bool) -> None:
         self._apply_view_mode("compact" if checked else "normal")

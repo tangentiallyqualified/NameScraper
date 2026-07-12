@@ -23,7 +23,7 @@ class QtMainWindowTests(QtSmokeBase):
         from plex_renamer.gui_qt.main_window import MainWindow
 
         window = MainWindow()
-        self.assertEqual(window.windowTitle(), "Plex Renamer")
+        self.assertEqual(window.windowTitle(), "NameScraper")
         self.assertEqual(window.centralWidget().__class__.__name__, "QTabWidget")
         self.assertEqual(window.centralWidget().currentIndex(), 0)
         self.assertEqual(window.centralWidget().tabText(0), "Settings")
@@ -219,36 +219,6 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertEqual(tooltip_window.windowOpacity(), 1.0)
         tooltip_window.close()
 
-    def test_main_window_undo_reverts_latest_job_and_switches_to_history(self):
-        from PySide6.QtWidgets import QMessageBox
-        from plex_renamer.constants import JobStatus
-        from plex_renamer.engine import RenameResult
-        from plex_renamer.gui_qt.main_window import MainWindow
-        from plex_renamer.job_store import RenameJob
-
-        window = MainWindow()
-        job = RenameJob(
-            library_root="C:/library",
-            source_folder="Show",
-            media_name="Example Show",
-            status=JobStatus.COMPLETED,
-            undo_data={"renames": [{"old": "a", "new": "b"}]},
-        )
-        window.queue_ctrl.get_latest_revertible_job = MagicMock(return_value=job)
-        window.queue_ctrl.revert_job = MagicMock(return_value=(True, []))
-        window._history_tab.select_job = MagicMock()
-
-        with patch(
-            "plex_renamer.gui_qt.main_window.QMessageBox.question",
-            return_value=QMessageBox.StandardButton.Yes,
-        ):
-            window._on_undo()
-
-        window.queue_ctrl.revert_job.assert_called_once_with(job.job_id)
-        window._history_tab.select_job.assert_called_once_with(job.job_id)
-        self.assertEqual(window.centralWidget().currentIndex(), 4)
-        window.close()
-
     def test_main_window_queue_events_create_toasts(self):
         from plex_renamer.constants import JobStatus
         from plex_renamer.engine import RenameResult
@@ -434,8 +404,20 @@ class QtMainWindowTests(QtSmokeBase):
             try:
                 self.assertIn("3 entries", tab._cache_stats.text())
 
-                tab._on_clear_cache()
+                class _YesBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    prompts: list[str] = []
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        cls.prompts.append(text)
+                        return cls.StandardButton.Yes
+
+                tab._actions_coordinator.clear_cache(message_box_api=_YesBox)
                 self._app.processEvents()
+                self.assertIn("3 cached TMDB entries", _YesBox.prompts[0])
 
                 self.assertEqual(dropped_runtime_clients, [True])
                 self.assertEqual(tab._cache_confirm.text(), "Cleared 3 TMDB cache entries.")
@@ -480,6 +462,24 @@ class QtMainWindowTests(QtSmokeBase):
 
             self.assertLess(labels["Default view mode"].mapTo(page, QPoint(0, 0)).y(), _scale.px(120))
             self.assertLess(labels["Display"].height(), _scale.px(80))
+            tab.close()
+
+    def test_settings_section_cards_use_title_header_rows(self):
+        from PySide6.QtWidgets import QFrame
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            settings = SettingsService(path=Path(tmp) / "settings.json")
+            tab = SettingsTab(settings_service=settings)
+            page = tab._destinations_page
+            self.assertEqual(page._heading.text(), "Destinations")
+            self.assertFalse(hasattr(page, "_header_icon"))
+            # Spec §12: header row replaces the heading+separator hairline.
+            separators = [
+                child for child in page.findChildren(QFrame)
+                if child.property("cssClass") == "separator"
+            ]
+            self.assertEqual(separators, [])
             tab.close()
 
     def test_settings_tab_saves_existing_destination_paths(self):
@@ -651,11 +651,13 @@ class QtMainWindowTests(QtSmokeBase):
             message="Found 1 show",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
         window.media_ctrl.scan_all_shows = MagicMock()
 
         window._on_scan_complete()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
@@ -680,11 +682,13 @@ class QtMainWindowTests(QtSmokeBase):
             message="Found 1 show",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
         window.media_ctrl.scan_all_shows = MagicMock()
 
         window._on_scan_complete()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
@@ -713,11 +717,11 @@ class QtMainWindowTests(QtSmokeBase):
             message="Scanned 2 shows",
         )
         window._tv_workspace.show_scanning()
-        window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
 
         window._on_library_changed()
 
-        window._tv_workspace.show_ready.assert_called_once()
+        window._tv_workspace.show_ready_when_posters_warm.assert_called_once()
         window.close()
 
     def test_main_window_does_not_show_ready_during_discovery_library_changed(self):
@@ -740,10 +744,12 @@ class QtMainWindowTests(QtSmokeBase):
             message="Scanning...",
         )
         window._tv_workspace.show_ready = MagicMock()
+        window._tv_workspace.show_ready_when_posters_warm = MagicMock()
 
         window._on_library_changed()
 
         window._tv_workspace.show_ready.assert_not_called()
+        window._tv_workspace.show_ready_when_posters_warm.assert_not_called()
         window.close()
 
     def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):
@@ -889,3 +895,149 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertIn("_scale.px(1440)", source)
         self.assertIn("_scale.px(900)", source)
         self.assertNotIn("window.resize(1440, 900)", source)
+
+    def test_settings_destructive_buttons_are_danger_outline_on_the_data_page(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        self.assertEqual(tab._clear_cache_btn.property("cssClass"), "danger-outline")
+        self.assertEqual(tab._clear_history_btn.property("cssClass"), "danger-outline")
+        nav_texts = [tab._settings_nav.item(i).text() for i in range(tab._settings_nav.count())]
+        self.assertNotIn("Cache", nav_texts)
+        self.assertIn("Data", nav_texts)
+        self.assertEqual(tab._settings_nav.count(), tab._settings_stack.count())
+        # Stats + both destructive actions live on the same (Data) page.
+        data_page = tab._settings_stack.widget(nav_texts.index("Data"))
+        self.assertTrue(tab._cache_stats in data_page.findChildren(type(tab._cache_stats)))
+        self.assertTrue(tab._clear_history_btn in data_page.findChildren(type(tab._clear_history_btn)))
+        tab.close()
+
+    def test_clear_cache_confirm_declined_leaves_cache_intact(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            tab = SettingsTab(cache_service=cache)
+            try:
+                class _NoBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        return "no"
+
+                tab._actions_coordinator.clear_cache(message_box_api=_NoBox)
+                self.assertTrue(cache.get("tmdb.tv_details", "1").is_hit)
+                self.assertIn("1 entries", tab._cache_stats.text())
+            finally:
+                tab.close()
+
+    def test_clear_history_confirm_carries_the_pending_count(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        cleared: list[bool] = []
+
+        def _clear() -> tuple[int, int]:
+            cleared.append(True)
+            return (2, 1)
+
+        tab = SettingsTab(
+            clear_history_callback=_clear,
+            history_count_callback=lambda: 2,
+        )
+        emitted: list[bool] = []
+        tab.history_cleared.connect(lambda: emitted.append(True))
+
+        class _YesBox:
+            class StandardButton:
+                Yes = "yes"
+
+            prompts: list[str] = []
+
+            @classmethod
+            def question(cls, parent, title, text):
+                cls.prompts.append(text)
+                return cls.StandardButton.Yes
+
+        tab._actions_coordinator.clear_history(message_box_api=_YesBox)
+        self.assertIn("2 job history entries", _YesBox.prompts[0])
+        self.assertIn("undo data", _YesBox.prompts[0])
+        self.assertEqual(cleared, [True])
+        self.assertEqual(tab._history_confirm.text(), "Cleared 2 history entries.")
+        self.assertEqual(emitted, [True])
+        tab.close()
+
+    def test_settings_tab_automux_section_reachable(self):
+        # The former hidden "Tools" seam is now the live AutoMux page.
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        nav = tab._settings_nav
+        self.assertEqual(nav.count(), tab._settings_stack.count())
+        automux_row = nav.count() - 1
+        self.assertEqual(nav.item(automux_row).text(), "AutoMux")
+        self.assertFalse(nav.item(automux_row).isHidden())
+        self.assertTrue(
+            nav.item(automux_row).flags() & Qt.ItemFlag.ItemIsSelectable)
+        nav.setCurrentRow(automux_row)
+        self.assertIs(tab._settings_stack.currentWidget(), tab._automux_page)
+        self.assertEqual(tab._automux_page._heading.text(), "AutoMux")
+        tab.close()
+
+    def test_settings_tab_callbacks_are_keyword_only(self):
+        import inspect
+
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        params = inspect.signature(SettingsTab.__init__).parameters
+        for name in (
+            "clear_tmdb_callback",
+            "clear_history_callback",
+            "history_count_callback",
+            "parent",
+        ):
+            self.assertEqual(
+                params[name].kind, inspect.Parameter.KEYWORD_ONLY, name
+            )
+
+    def test_settings_pages_have_no_header_icon(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        tab = SettingsTab()
+        nav = tab._settings_nav
+        for row in range(nav.count()):
+            page = tab._settings_stack.widget(row)
+            self.assertFalse(hasattr(page, "_header_icon"), nav.item(row).text())
+        tab.close()
+
+    def test_declined_confirms_clear_stale_captions(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        with TemporaryDirectory() as tmp:
+            cache = PersistentCacheService(Path(tmp) / "cache.db")
+            cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
+            tab = SettingsTab(
+                cache_service=cache,
+                clear_history_callback=lambda: (0, 0),
+                history_count_callback=lambda: 3,
+            )
+            try:
+                tab._cache_confirm.setText("Cleared 3 TMDB cache entries.")
+                tab._history_confirm.setText("Cleared 2 history entries.")
+
+                class _NoBox:
+                    class StandardButton:
+                        Yes = "yes"
+
+                    @classmethod
+                    def question(cls, parent, title, text):
+                        return "no"
+
+                tab._actions_coordinator.clear_cache(message_box_api=_NoBox)
+                tab._actions_coordinator.clear_history(message_box_api=_NoBox)
+                self.assertEqual(tab._cache_confirm.text(), "")
+                self.assertEqual(tab._history_confirm.text(), "")
+            finally:
+                tab.close()

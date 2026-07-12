@@ -1559,6 +1559,62 @@ class RematchStateTests(_ControllerTestCase):
         self.assertTrue(state.checked)
         self.assertEqual(state.confidence, 1.0)
 
+    def test_approve_match_checks_mux_only_preview_item(self):
+        """Final-round6-review fix: set_actionable_preview_checks (invoked by
+        approve_match via approve_scan_match) previously gated its
+        binding.set() call on item.is_actionable alone, so a correctly-named
+        movie whose only file carries an action-bearing mux plan was never
+        checked on approve even though it is queue-relevant."""
+        movie_file = self.tmp / "Example Movie (2024).mkv"
+        preview = PreviewItem(
+            original=movie_file,
+            new_name="Example Movie (2024).mkv",
+            target_dir=self.tmp,
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=101,
+            media_name="Example Movie",
+        )
+        state = ScanState(
+            folder=self.tmp,
+            source_file=movie_file,
+            media_info={"id": 101, "title": "Example Movie", "year": "2024"},
+            preview_items=[preview],
+            confidence=1.0,
+            scanned=True,
+            checked=False,
+        )
+        self.assertFalse(preview.is_actionable)
+        state.mux_plans[0] = {
+            "track_decisions": [],
+            "subtitle_merges": [{
+                "action": "merge",
+                "source_relative": "Example Movie (2024).eng.srt",
+                "language": "eng",
+                "set_default": False,
+            }],
+        }
+
+        class _Binding:
+            def __init__(self, value: bool) -> None:
+                self._value = value
+
+            def get(self) -> bool:
+                return self._value
+
+            def set(self, value: bool) -> None:
+                self._value = value
+
+        state.check_vars["0"] = _Binding(False)
+        self.set_movie_session([state], preview_items=[preview])
+
+        self.ctrl.approve_match(state)
+
+        self.assertTrue(state.checked)
+        self.assertTrue(state.check_vars["0"].get())
+
 
 class MovieBatchCancellationTests(_ControllerTestCase):
 
@@ -1745,7 +1801,7 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
         self.assertEqual(state.relative_folder, "Example Show (2024)")
         self.assertEqual(state.preview_items[0].original, self.tmp / "Example Show (2024)" / "Season 01" / "Example Show (2024) - S01E01 - Pilot.mkv")
         self.assertFalse(state.preview_items[0].is_actionable)
-        self.assertTrue(self.ctrl.command_gating.is_plex_ready_state(state))
+        self.assertTrue(self.ctrl.command_gating.is_fully_ready_state(state))
 
     def test_apply_completed_destination_tv_job_updates_state_to_output_root(self):
         source_root = self.tmp / "Incoming"

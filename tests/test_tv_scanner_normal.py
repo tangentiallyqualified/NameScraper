@@ -4,8 +4,13 @@ from pathlib import Path
 
 import pytest
 
+from plex_renamer.engine._tv_scanner import TVScanner
 from plex_renamer.engine._tv_scanner_normal import _resolve_into_table
-from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_MANUAL,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
 from plex_renamer.parsing import extract_episode
 
 
@@ -154,3 +159,52 @@ def test_specials_title_evidence_strips_quality_tags():
     assert assignment is not None
     assert assignment.episodes == (2,)
     assert assignment.confidence >= 0.85
+
+
+class _SeasonMapTMDB:
+    """Minimal TMDB stand-in exposing a fixed, pre-fetched season map."""
+
+    language = "en-US"
+
+    def __init__(self, seasons: dict):
+        self._seasons = seasons
+
+    def get_season_map(self, show_id):
+        return self._seasons, None
+
+    def get_season(self, show_id, season_num):
+        return self._seasons.get(
+            season_num, {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+        )
+
+    def get_tv_details(self, show_id):
+        return {"seasons": []}
+
+
+def _season(titles: dict[int, str]) -> dict:
+    return {"titles": titles, "posters": {}, "episodes": {}, "count": len(titles)}
+
+
+SHOW_INFO = {"id": 5, "name": "Demo Show", "year": "2020"}
+
+
+def test_all_tmdb_seasons_get_slots_even_without_local_folders(tmp_path):
+    """Shaun the Sheep S6 bug: TMDB knows about a season with no matched
+    local season directory. Its slots must still be registered so bulk
+    assign can offer it and manual table.assign can target it."""
+    season_dir = tmp_path / "Season 01"
+    season_dir.mkdir()
+    (season_dir / "Demo Show S01E01.mkv").touch()
+    seasons = {
+        1: _season({1: "Ep 1", 2: "Ep 2", 3: "Ep 3"}),
+        6: _season({1: "S6 Ep 1", 2: "S6 Ep 2", 3: "S6 Ep 3", 4: "S6 Ep 4", 5: "S6 Ep 5"}),
+    }
+    scanner = TVScanner(_SeasonMapTMDB(seasons), SHOW_INFO, tmp_path)
+    scanner.scan()
+    table = scanner.assignment_table
+    assert (6, 1) in table.slots
+    assert (6, 5) in table.slots
+
+    # And assigning into the unscanned season must not raise.
+    entry = next(iter(table.files.values()))
+    table.assign(entry.file_id, 6, [1], origin=ORIGIN_MANUAL, displace=True)

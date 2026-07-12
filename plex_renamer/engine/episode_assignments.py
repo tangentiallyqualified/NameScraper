@@ -6,8 +6,8 @@ projection mints episode status strings.
 
 Claims are stored per file but queried per slot as a *list*: policy, not
 schema, decides what multiple claims on one slot mean. Today 2+ claims is a
-conflict; a future duplicates policy may treat extra claims as Plex
-"versions" via ``Assignment.role`` without a data migration.
+conflict; a future duplicates policy may treat extra claims as library
+(Plex/Jellyfin) "versions" via ``Assignment.role`` without a data migration.
 """
 
 from __future__ import annotations
@@ -215,6 +215,14 @@ class EpisodeAssignmentTable:
             for assignment in self._assignments.values()
             if assignment.season == season and episode in assignment.episodes
         ]
+
+    def claimed_slots(self) -> set[tuple[int, int]]:
+        """Every (season, episode) slot currently claimed by an assignment."""
+        return {
+            (assignment.season, episode)
+            for assignment in self._assignments.values()
+            for episode in assignment.episodes
+        }
 
     def conflicts(self) -> dict[tuple[int, int], list[Assignment]]:
         by_slot: dict[tuple[int, int], list[Assignment]] = {}

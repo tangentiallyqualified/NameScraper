@@ -9,8 +9,9 @@ from PySide6.QtGui import QColor
 
 from ...constants import JobStatus
 from ...job_store import RenameJob
+from ..theme import qcolor as _theme_qcolor
 
-_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "Companions", "When"]
+_HEADERS = ["", "Status", "Name", "Type", "Action", "Files", "When"]
 _STATUS_TEXT = {
     JobStatus.PENDING: "Pending",
     JobStatus.RUNNING: "Running",
@@ -31,15 +32,6 @@ _STATUS_SORT_ORDER = {
 }
 
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-_STATUS_COLOR = {
-    JobStatus.PENDING: QColor("#777777"),
-    JobStatus.RUNNING: QColor("#e5a00d"),
-    JobStatus.COMPLETED: QColor("#3ea463"),
-    JobStatus.FAILED: QColor("#d44040"),
-    JobStatus.CANCELLED: QColor("#4a4a4a"),
-    JobStatus.REVERTED: QColor("#4a9eda"),
-    JobStatus.REVERT_FAILED: QColor("#d44040"),
-}
 
 
 def _fmt_dt(value: str) -> str:
@@ -52,13 +44,30 @@ def _fmt_dt(value: str) -> str:
         return value[:16] if value else ""
 
 
+def files_cell_text(job: RenameJob) -> str:
+    """Spec §11 Files column: '3 files (2 comp.)'; companion suffix drops at 0."""
+    videos = job.selected_video_count
+    noun = "file" if videos == 1 else "files"
+    text = f"{videos} {noun}"
+    companions = job.selected_companion_count
+    if companions:
+        text += f" ({companions} comp.)"
+    return text
+
+
+def _transition_tint(token: str, alpha: int) -> QColor:
+    color = _theme_qcolor(token)
+    color.setAlpha(alpha)
+    return color
+
+
 class JobTableModel(QAbstractTableModel):
     """Read-only model exposing RenameJob rows to a QTableView."""
 
     _TRANSITION_COLORS = {
-        JobStatus.COMPLETED: QColor(62, 164, 99, 50),   # success tint
-        JobStatus.FAILED: QColor(212, 64, 64, 50),      # error tint
-        JobStatus.REVERTED: QColor(74, 158, 218, 40),   # info tint
+        JobStatus.COMPLETED: _transition_tint("success", 50),
+        JobStatus.FAILED: _transition_tint("error", 50),
+        JobStatus.REVERTED: _transition_tint("info", 40),
     }
 
     def __init__(self, *, history: bool = False, parent=None) -> None:
@@ -66,6 +75,8 @@ class JobTableModel(QAbstractTableModel):
         self._history = history
         self._jobs: list[RenameJob] = []
         self._checked_job_ids: set[str] = set()
+        # job_id → (op_index, op_count, percent) for running remux jobs.
+        self._progress: dict[str, tuple[int, int, int]] = {}
         self._prev_statuses: dict[str, str] = {}
         self._highlight_jobs: dict[str, str] = {}  # job_id -> new status
         self._highlight_timer = QTimer(self)
@@ -85,6 +96,12 @@ class JobTableModel(QAbstractTableModel):
             self._highlight_jobs = new_highlights
             self._highlight_timer.start()
 
+        running_ids = {job.job_id for job in jobs if job.status == JobStatus.RUNNING}
+        self._progress = {
+            job_id: value for job_id, value in self._progress.items()
+            if job_id in running_ids
+        }
+
         self.beginResetModel()
         self._jobs = list(jobs)
         checkable_ids = {job.job_id for job in self._jobs if self.is_checkable_job(job)}
@@ -100,6 +117,15 @@ class JobTableModel(QAbstractTableModel):
             bottom_right = self.index(len(self._jobs) - 1, self.columnCount() - 1)
             self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.BackgroundRole])
 
+    def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
+        """Live remux progress for a running job (spec §7.2)."""
+        self._progress[job_id] = (op_index, op_count, percent)
+        for row, job in enumerate(self._jobs):
+            if job.job_id == job_id:
+                index = self.index(row, 1)
+                self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
+                break
+
     def jobs(self) -> list[RenameJob]:
         return list(self._jobs)
 
@@ -111,7 +137,13 @@ class JobTableModel(QAbstractTableModel):
 
     def is_checkable_job(self, job: RenameJob) -> bool:
         if self._history:
-            return job.status == JobStatus.COMPLETED and bool(job.undo_data)
+            # No Fear remuxes deleted their sources and can never be
+            # reverted (spec §7.4) — no revert checkbox for them.
+            return (
+                job.status == JobStatus.COMPLETED
+                and bool(job.undo_data)
+                and not job.undo_data.get("irreversible")
+            )
         return job.status == JobStatus.PENDING
 
     def set_checked_job_ids(self, job_ids: set[str]) -> None:
@@ -181,6 +213,10 @@ class JobTableModel(QAbstractTableModel):
             if column == 0:
                 return ""
             if value_column == 0:
+                progress = self._progress.get(job.job_id)
+                if progress is not None and job.status == JobStatus.RUNNING:
+                    op_index, op_count, percent = progress
+                    return f"Running · file {op_index + 1}/{op_count} · {percent}%"
                 return _STATUS_TEXT.get(job.status, job.status.title())
             if value_column == 1:
                 return job.media_name
@@ -189,20 +225,14 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 3:
                 return job.job_kind.title()
             if value_column == 4:
-                return str(job.selected_video_count)
+                return files_cell_text(job)
             if value_column == 5:
-                comp = job.selected_companion_count
-                return str(comp) if comp else ""
-            if value_column == 6:
                 return _fmt_dt(job.updated_at if self._history else job.created_at)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if column in (0, 1, 3, 4, 5, 6, 7):
+            if column in (0, 1, 3, 4, 5, 6):
                 return int(Qt.AlignmentFlag.AlignCenter)
             return int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-
-        if role == Qt.ItemDataRole.ForegroundRole and column == 1:
-            return _STATUS_COLOR.get(job.status)
 
         if role == Qt.ItemDataRole.BackgroundRole:
             highlight_status = self._highlight_jobs.get(job.job_id)
@@ -226,8 +256,6 @@ class JobTableModel(QAbstractTableModel):
             if value_column == 4:
                 return int(job.selected_video_count or 0)
             if value_column == 5:
-                return job.selected_companion_count
-            if value_column == 6:
                 return job.updated_at if self._history else job.created_at
 
         return None

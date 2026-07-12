@@ -196,6 +196,8 @@ class EpisodeSlotChoice:
     episode: int
     title: str = ""
     claimed_by: str | None = None
+    claimed_file_id: int | None = None
+    claimants: tuple[tuple[int, str], ...] = ()   # (file_id, filename) for every claim
 
     @property
     def label(self) -> str:
@@ -214,19 +216,6 @@ class EpisodeGuide:
     duplicate_files: list[UnmappedFileRow] = field(default_factory=list)
     orphan_companion_files: list[Any] = field(default_factory=list)
     summary: EpisodeGuideSummary = field(default_factory=EpisodeGuideSummary)
-
-
-@dataclass(slots=True)
-class QueuePreflightSummary:
-    enabled: bool
-    mapped_primary_files: int = 0
-    companion_files: int = 0
-    missing_episodes: int = 0
-    unmapped_primary_files: int = 0
-    orphan_companion_files: int = 0
-    conflicts: int = 0
-    review_required: int = 0
-    summary_text: str = ""
 
 
 @dataclass(slots=True)

@@ -9,6 +9,13 @@ from plex_renamer.app.services.command_gating_service import CommandGatingServic
 from plex_renamer.engine import PreviewItem, ScanState, build_rename_job_from_state
 
 
+_ACTION_PLAN = {
+    "track_decisions": [],
+    "subtitle_merges": [{"source_relative": "Show/a.eng.srt", "action": "merge",
+                          "language": "eng", "set_default": False}],
+}
+
+
 def _item(status: str = "OK", new_name: str = "New.mkv", original: str = "Old.mkv") -> PreviewItem:
     return PreviewItem(
         original=Path(f"C:/library/tv/Show/{original}"),
@@ -48,7 +55,7 @@ class CommandGatingServiceTests(unittest.TestCase):
     def setUp(self):
         self.svc = CommandGatingService()
 
-    # -- is_plex_ready_state -------------------------------------------------
+    # -- is_fully_ready_state -------------------------------------------------
 
     def test_plex_ready_when_all_ok_and_folder_matches(self):
         # Item must NOT be actionable (same name, same dir) for plex-ready
@@ -61,34 +68,34 @@ class CommandGatingServiceTests(unittest.TestCase):
             status="OK",
         )
         state = _state(items=[item], folder_name="Show (2024)")
-        self.assertTrue(self.svc.is_plex_ready_state(state))
+        self.assertTrue(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_folder_name_mismatches(self):
         state = _state(items=[_item(status="OK")], folder_name="Wrong Name")
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_not_scanned(self):
         state = _state(scanned=False)
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_queued(self):
         state = _state(queued=True)
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_duplicate(self):
         state = _state(duplicate_of="other")
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_review_status(self):
         state = _state(items=[_item(status="REVIEW")])
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_not_plex_ready_when_actionable_items_exist(self):
         # An item that would rename the file is actionable
         item = _item(status="OK", new_name="Different.mkv")
         state = _state(items=[item])
         self.assertTrue(item.is_actionable)
-        self.assertFalse(self.svc.is_plex_ready_state(state))
+        self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_plex_ready_when_no_rename_needed(self):
         item = PreviewItem(
@@ -101,7 +108,7 @@ class CommandGatingServiceTests(unittest.TestCase):
         )
         state = _state(items=[item], folder_name="Show (2024)")
         self.assertFalse(item.is_actionable)
-        self.assertTrue(self.svc.is_plex_ready_state(state))
+        self.assertTrue(self.svc.is_fully_ready_state(state))
 
     # -- evaluate_preview_items ----------------------------------------------
 
@@ -270,6 +277,44 @@ class CommandGatingServiceTests(unittest.TestCase):
         self.assertTrue(result.enabled)
         self.assertEqual(result.selected_indices, [0, 1])
         self.assertEqual(result.eligible_file_count, 2)
+
+    def test_mux_only_state_is_queueable(self):
+        # Round6 §1: a correctly-named item (new_name == original name, no
+        # rename needed) with an action-bearing mux plan must still be
+        # queueable via the show-level "select all" path.
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show/Season 01/Show - S01E01.mkv"),
+            new_name="Show - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = _state(items=[item], checked=True)
+        self.assertFalse(item.is_actionable)
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertEqual(result.command_state, QueueCommandState.ENABLED)
+        self.assertEqual(result.selected_indices, [0])
+
+    def test_mux_only_state_optout_not_queueable(self):
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show/Season 01/Show - S01E01.mkv"),
+            new_name="Show - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = _state(items=[item], checked=True)
+        state.mux_plans[0] = dict(_ACTION_PLAN)
+        state.mux_opt_outs.add(0)
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertNotEqual(result.command_state, QueueCommandState.ENABLED)
 
     def test_tv_show_level_queue_blocks_unresolved_episode_review(self):
         state = _state(

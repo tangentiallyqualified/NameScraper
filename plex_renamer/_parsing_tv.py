@@ -15,21 +15,30 @@ _TV_EPISODE_PATTERNS = [
     re.compile(r"\b\d{1,2}x\d{2,3}\b", re.IGNORECASE),
     re.compile(r"\b(?:Episode|Ep)[\s._-]*\d{1,3}\b", re.IGNORECASE),
     re.compile(r"^\d{1,3}\.\s+\w"),
+    # Air-date naming for daily/talk shows (dotted/dashed 2-digit month and
+    # day only, to stay conservative): The.Daily.Show.2024.01.15....
+    re.compile(r"(?<!\d)(?:19|20)\d{2}[._\-]\d{2}[._\-]\d{2}(?!\d)"),
     # Fansub layout: [Group][Show Title][NN]... where [NN] is a pure-numeric
-    # episode bracket (resolution/version/hash brackets are not pure digits).
-    re.compile(r"^\[[^\]]+\].*\[\d{1,3}\]"),
+    # episode bracket (resolution/version/hash brackets are not pure digits;
+    # a year-shaped bracket like [2006] is a release year).
+    re.compile(r"^\[[^\]]+\].*\[(?!(?:19|20)\d\d\])\d{1,4}(?:v\d+)?\]"),
 ]
 
 # A bracket whose entire content is a bare episode number (optional version).
-_BRACKET_EPISODE_RE = re.compile(r"\[(\d{1,3})(?:v\d+)?\]")
+_BRACKET_EPISODE_RE = re.compile(r"\[(\d{1,4})(?:v\d+)?\]")
 
 _FANSUB_EPISODE_PATTERN = re.compile(
+    # 4-digit numbers cover long-running anime absolute numbering, but a
+    # year-shaped number (19xx/20xx) is a release year and a zero-padded
+    # 4-digit number (0083) is a title designation, not an episode.
+    # An optional v## version tag may trail the episode number.
     r"^\[.+?\]"
     r".+"
     r"\s+-\s+"
-    r"\d{1,3}"
+    r"(?!(?:19|20)\d\d(?!\d))(?!0\d{3}(?!\d))\d{1,4}"
+    r"(?:v\d+)?"
     r"['\u2032]?"
-    r"(?:\s*-\s*\d{1,3}['\u2032]?)*"
+    r"(?:\s*-\s*(?!(?:19|20)\d\d(?!\d))(?!0\d{3}(?!\d))\d{1,4}(?:v\d+)?['\u2032]?)*"
     r"(?:\s|\.|\(|\[|$)",
 )
 
@@ -91,12 +100,16 @@ _TV_TITLE_PREFIX_PATTERNS = (
         r"^(?P<title>.+?)[ ._\-]+\d{1,2}x\d{2,3}(?=[ ._\-]|$)",
         re.IGNORECASE,
     ),
+    # 4-digit forms: a year (19xx/20xx) is a release year and a zero-padded
+    # 4-digit number (0083, 0080) is a title designation (Gundam) \u2014 real
+    # 1000+ absolute episodes never carry a leading zero.
     re.compile(
-        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+\d{1,3}['\u2032]?(?:\s*-\s*\d{1,3}['\u2032]?)*(?=\s|\.|\(|\[|$)",
+        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)\s+-\s+(?!(?:19|20)\d\d(?!\d))(?!0\d{3}(?!\d))\d{1,4}(?:v\d+)?['\u2032]?"
+        r"(?:\s*-\s*(?!(?:19|20)\d\d(?!\d))(?!0\d{3}(?!\d))\d{1,4}(?:v\d+)?['\u2032]?)*(?=\s|\.|\(|\[|$)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)[ ._\-]+\d{1,3}(?:v\d+)?(?=[ ._\-\[(]|$)",
+        r"^(?:\[[^\]]+\]\s*)?(?P<title>.+?)[ ._\-]+(?!(?:19|20)\d\d(?!\d))(?!0\d{3}(?!\d))\d{1,4}(?:v\d+)?(?=[ ._\-\[(]|$)",
         re.IGNORECASE,
     ),
 )

@@ -156,4 +156,11 @@ class TMDBTransport:
             response = self._session.get(url, timeout=timeout)
         except requests.RequestException as exc:
             raise TMDBNetworkError(str(exc)) from exc
+        if not response.ok:
+            # A non-2xx body (e.g. a 404 error page) must never be cached
+            # or written to disk as artwork — raise so callers treat this
+            # the same as a network failure ("artwork unavailable").
+            raise TMDBNetworkError(
+                f"Image fetch failed: HTTP {response.status_code} for {url}"
+            )
         return response.content

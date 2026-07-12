@@ -2,11 +2,58 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QObject, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QSizePolicy, QWidget
 
-from .. import _scale
+from .. import _scale, theme
+
+
+def _check_palette(state: Qt.CheckState) -> tuple[QColor, QColor]:
+    if state == Qt.CheckState.Checked:
+        return theme.qcolor("success"), theme.qcolor("success_dim")
+    if state == Qt.CheckState.PartiallyChecked:
+        return theme.qcolor("info"), theme.qcolor("info")
+    return theme.qcolor("border_light"), theme.qcolor("border_light")
+
+
+def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState) -> None:
+    """Rounded check indicator shared by MasterCheckBox, ToggleSwitch, and the roster delegate."""
+    bg, border = _check_palette(state)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setBrush(bg)
+    painter.setPen(QPen(border, 1.5))
+    painter.drawRoundedRect(rect, 4, 4)
+    pen = QPen(theme.qcolor("on_accent"), 2.0)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    size = rect.width()
+    left, top = rect.x(), rect.y()
+    if state == Qt.CheckState.Checked:
+        painter.drawLine(int(left + size * 0.25), int(top + size * 0.50), int(left + size * 0.43), int(top + size * 0.68))
+        painter.drawLine(int(left + size * 0.43), int(top + size * 0.68), int(left + size * 0.75), int(top + size * 0.32))
+    elif state == Qt.CheckState.PartiallyChecked:
+        y = int(top + size / 2)
+        painter.drawLine(int(left + size * 0.28), y, int(left + size * 0.72), y)
+    painter.restore()
+
+
+def paint_mini_progress(painter: QPainter, rect: QRect, *, value: int, color: QColor) -> None:
+    """4px track+fill bar shared by MiniProgressBar and the roster delegate."""
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(theme.qcolor("border"))
+    painter.drawRoundedRect(rect, 2, 2)
+    clamped = max(0, min(100, value))
+    fill_width = int(rect.width() * (clamped / 100.0))
+    if fill_width > 0:
+        fill_rect = rect.adjusted(0, 0, fill_width - rect.width(), 0)
+        painter.setBrush(color)
+        painter.drawRoundedRect(fill_rect, 2, 2)
+    painter.restore()
 
 
 class _CheckBinding:
@@ -36,13 +83,6 @@ class MasterCheckBox(QCheckBox):
     def _INDICATOR_SIZE(self) -> int:  # noqa: N802 — preserves original API
         return _scale.px(self._INDICATOR_GRID_UNITS)
 
-    _BG_OFF = QColor("#3a3a3a")
-    _BG_ON = QColor("#3ea463")
-    _BG_PARTIAL = QColor("#4a9eda")
-    _BORDER_OFF = QColor("#555555")
-    _BORDER_ON = QColor("#2d7a4a")
-    _CHECK_COLOR = QColor("#ffffff")
-
     def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setProperty("cssClass", "master-check")
@@ -62,36 +102,14 @@ class MasterCheckBox(QCheckBox):
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         state = self.checkState()
-        if state == Qt.CheckState.Checked:
-            bg, border = self._BG_ON, self._BORDER_ON
-        elif state == Qt.CheckState.PartiallyChecked:
-            bg, border = self._BG_PARTIAL, self._BG_PARTIAL
-        else:
-            bg, border = self._BG_OFF, self._BORDER_OFF
-
         indicator_y = (self.height() - self._INDICATOR_SIZE) / 2
         rect_f = QRectF(1.5, indicator_y, self._INDICATOR_SIZE - 3.0, self._INDICATOR_SIZE - 3.0)
-        painter.setBrush(bg)
-        painter.setPen(QPen(border, 1.5))
-        painter.drawRoundedRect(rect_f, self._RADIUS, self._RADIUS)
-
-        pen = QPen(self._CHECK_COLOR, 2.0)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        size = self._INDICATOR_SIZE
-        if state == Qt.CheckState.Checked:
-            painter.drawLine(int(size * 0.25), int(indicator_y + size * 0.50), int(size * 0.43), int(indicator_y + size * 0.68))
-            painter.drawLine(int(size * 0.43), int(indicator_y + size * 0.68), int(size * 0.75), int(indicator_y + size * 0.32))
-        elif state == Qt.CheckState.PartiallyChecked:
-            y = int(indicator_y + size / 2)
-            painter.drawLine(int(size * 0.28), y, int(size * 0.72), y)
+        paint_check_indicator(painter, rect_f, state)
 
         text_rect = self.rect().adjusted(self._INDICATOR_SIZE + 8, 0, 0, 0)
-        painter.setPen(QColor("#8d8d8d") if not self.isEnabled() else QColor("#e0e0e0"))
+        painter.setPen(theme.qcolor("text_dim") if not self.isEnabled() else theme.qcolor("text"))
         painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
         painter.end()
 
@@ -165,13 +183,6 @@ class ToggleSwitch(QCheckBox):
     def _SIZE(self) -> int:  # noqa: N802 — preserves original API
         return _scale.px(self._GRID_UNITS)
 
-    _BG_OFF = QColor("#3a3a3a")
-    _BG_ON = QColor("#3ea463")
-    _BG_PARTIAL = QColor("#4a9eda")
-    _BORDER_OFF = QColor("#555555")
-    _BORDER_ON = QColor("#2d7a4a")
-    _CHECK_COLOR = QColor("#ffffff")
-
     def __init__(self, checked: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setText("")
@@ -185,34 +196,9 @@ class ToggleSwitch(QCheckBox):
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-
-        state = self.checkState()
-        if state == Qt.CheckState.Checked:
-            bg, border = self._BG_ON, self._BORDER_ON
-        elif state == Qt.CheckState.PartiallyChecked:
-            bg, border = self._BG_PARTIAL, self._BG_PARTIAL
-        else:
-            bg, border = self._BG_OFF, self._BORDER_OFF
-
         size = self._SIZE
-        margin = 1.5
-        rect_f = QRectF(margin, margin, size - 2 * margin, size - 2 * margin)
-        painter.setBrush(bg)
-        painter.setPen(QPen(border, 1.5))
-        painter.drawRoundedRect(rect_f, self._RADIUS, self._RADIUS)
-
-        pen = QPen(self._CHECK_COLOR, 2.0)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        if state == Qt.CheckState.Checked:
-            painter.drawLine(int(size * 0.25), int(size * 0.50), int(size * 0.43), int(size * 0.68))
-            painter.drawLine(int(size * 0.43), int(size * 0.68), int(size * 0.75), int(size * 0.32))
-        elif state == Qt.CheckState.PartiallyChecked:
-            y = size // 2
-            painter.drawLine(int(size * 0.28), y, int(size * 0.72), y)
-
+        rect_f = QRectF(1.5, 1.5, size - 3.0, size - 3.0)
+        paint_check_indicator(painter, rect_f, self.checkState())
         painter.end()
 
 
@@ -241,13 +227,5 @@ class MiniProgressBar(QWidget):
         if not rect.isValid():
             return
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2a2a2a"))
-        painter.drawRoundedRect(rect, 2, 2)
-        fill_width = int(rect.width() * (self._value / 100.0))
-        if fill_width <= 0:
-            return
-        fill_rect = rect.adjusted(0, 0, fill_width - rect.width(), 0)
-        painter.setBrush(self._color)
-        painter.drawRoundedRect(fill_rect, 2, 2)
+        paint_mini_progress(painter, rect, value=self._value, color=self._color)
+        painter.end()

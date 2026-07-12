@@ -1,5 +1,5 @@
 """
-Entry point for Plex Renamer.
+Entry point for NameScraper.
 
 Usage:
     python -m plex_renamer

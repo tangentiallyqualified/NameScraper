@@ -5,6 +5,8 @@ from __future__ import annotations
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QHBoxLayout, QLabel, QWidget
 
+from .. import theme
+
 
 class TabBadge(QWidget):
     """Tab-side count badge with optional failure pip."""
@@ -54,10 +56,10 @@ class TabBadge(QWidget):
         self._pip.setVisible(False)  # Pip is deprecated — use badge color instead
         if visible:
             self._count_label.setStyleSheet(
-                "background-color: #d44040; color: #ffffff; border-color: #d44040;"
+                f"background-color: {theme.color('error')}; color: {theme.color('on_accent')}; border-color: {theme.color('error')};"
             )
         else:
             self._count_label.setStyleSheet("")  # Revert to QSS defaults
 
     def failure_visible(self) -> bool:
-        return "d44040" in (self._count_label.styleSheet() or "")
+        return theme.color("error") in (self._count_label.styleSheet() or "")

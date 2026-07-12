@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ...app.services.command_gating_service import CommandGatingService
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
 from ._media_workspace_action_bar import (
@@ -39,6 +40,7 @@ from ._media_workspace_queue_actions import (
     queue_states as _queue_states,
     summarize_skip_reasons as _summarize_skip_reasons,
 )
+from .busy_overlay import busy_scope
 from .episode_assign_dialog import EpisodeAssignDialog
 
 
@@ -51,6 +53,10 @@ def _refresh_episode_projection(workspace, state: ScanState) -> None:
 class MediaWorkspaceActionCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
+        # The state bulk-assign mode was entered on; Apply commits against
+        # this state (not the live roster selection), and a populate with a
+        # different state discards the session. None while inactive.
+        self._bulk_state: ScanState | None = None
 
     def queue_selected_state(self) -> None:
         _queue_selected_state(self._workspace)
@@ -129,9 +135,9 @@ class MediaWorkspaceActionCoordinator:
         """
         workspace = self._workspace
         workspace._ensure_check_bindings(state)
-        for index, item in enumerate(state.preview_items):
+        for index in range(len(state.preview_items)):
             binding = state.check_vars.get(str(index))
-            if binding is not None and item.is_actionable:
+            if binding is not None and CommandGatingService.is_queue_relevant(state, index):
                 binding.set(True)
         state.checked = True
 
@@ -163,39 +169,170 @@ class MediaWorkspaceActionCoordinator:
         workspace.refresh_from_controller()
         workspace.status_message.emit(f"Approved {count} episode mapping(s).", 3000)
 
-    def unassign_all_episode_mappings(self) -> None:
-        """Unassign every currently-assigned file in the selected show.
-
-        Reuses the same per-file unassign path used by the episode row
-        ``unassign`` action so the bulk action stays in lock-step with it.
-        """
+    def unassign_all_episode_mappings(self, *, warning_box: Any = QMessageBox) -> None:
+        """Danger-treated Unassign All: exact-count confirm + bulk-assign offer."""
         workspace = self._workspace
         state = workspace._selected_state()
         if state is None or state.queued or state.scanning:
             return
         if state.assignments is None:
             return
-        service = EpisodeMappingService()
-        assigned_previews = [
-            preview
-            for preview in state.preview_items
-            if preview.file_id is not None
-            and state.assignments.assignment_for(preview.file_id) is not None
-        ]
-        if not assigned_previews:
-            return
-        count = 0
-        for preview in assigned_previews:
-            try:
-                service.unassign_file(state, preview)
-            except ValueError:
-                continue
-            count += 1
+        count = len(state.assignments.assignments())
         if count == 0:
+            return
+        if warning_box is QMessageBox:
+            box = QMessageBox(workspace)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle("Unassign All")
+            box.setText(
+                f"Unassign all {count} assigned file(s) for {state.display_name}?\n"
+                "Every episode mapping for this show will be cleared."
+            )
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.YesToAll
+                | QMessageBox.StandardButton.Cancel
+            )
+            box.button(QMessageBox.StandardButton.Yes).setText("Unassign All")
+            box.button(QMessageBox.StandardButton.YesToAll).setText("Unassign && Bulk Assign…")
+            box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            answer = box.exec()
+        else:
+            answer = warning_box.question(
+                workspace, "Unassign All",
+                f"Unassign all {count} assigned file(s) for {state.display_name}?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.YesToAll
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+        if answer not in (
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.YesToAll,
+        ):
+            return
+        with busy_scope(workspace._work_panel, "Unassigning all…", immediate=True):
+            unassigned = EpisodeMappingService().unassign_all(state)
+            if unassigned == 0:
+                return
+            _refresh_episode_projection(workspace, state)
+            workspace.refresh_from_controller()
+        workspace.status_message.emit(f"Unassigned {unassigned} file(s).", 3000)
+        if answer == QMessageBox.StandardButton.YesToAll:
+            self.enter_bulk_assign()
+
+    def enter_bulk_assign(self) -> None:
+        workspace = self._workspace
+        state = workspace._selected_state()
+        if state is None or state.queued or state.scanning:
+            return
+        if workspace._media_type == "movie" or state.assignments is None:
+            return
+        panel = workspace._work_panel
+        self._bulk_state = state
+        panel.bulk_panel.show_state(state, EpisodeMappingService())
+        panel.enter_bulk_assign()
+
+    def apply_bulk_assignments(
+        self,
+        pairs: list[tuple[int, int, int]],
+        unassign_file_ids: list[int] | None = None,
+    ) -> None:
+        workspace = self._workspace
+        unassign_file_ids = list(unassign_file_ids or [])
+        # Commit against the state bulk mode was entered on: the staged
+        # file_ids/slot keys are only meaningful against that state's table.
+        state = self._bulk_state
+        self._bulk_state = None
+        panel = workspace._work_panel
+        panel.exit_bulk_assign()
+        if state is None:
+            return
+        # Bulk Assign v2: assign pairs and unassigns applied together in one
+        # reproject via apply_bulk.
+        if not pairs and not unassign_file_ids:
+            return
+        if state.assignments is None:
+            workspace.status_message.emit("No assignments were applied.", 4000)
+            return
+        with busy_scope(workspace._work_panel, "Applying assignments…", immediate=True):
+            applied, skipped = EpisodeMappingService().apply_bulk(
+                state, assign_pairs=pairs, unassign_file_ids=unassign_file_ids,
+            )
+            _refresh_episode_projection(workspace, state)
+            workspace.refresh_from_controller()
+        tone = "error" if skipped else "success"
+        parts = []
+        if applied:
+            parts.append(f"Assigned {applied} file(s).")
+        if unassign_file_ids:
+            parts.append(f"Unassigned {len(unassign_file_ids)} file(s).")
+        if skipped:
+            parts.append(f"{skipped} skipped (slot already claimed or no longer valid).")
+        message = " ".join(parts) if parts else "No assignments were applied."
+        workspace.toast_requested.emit("Bulk Assign", message, tone)
+
+    def cancel_bulk_assign(self) -> None:
+        workspace = self._workspace
+        self._bulk_state = None
+        workspace._work_panel.exit_bulk_assign()
+        workspace.status_message.emit("Bulk Assign cancelled - nothing was changed.", 3000)
+
+    def discard_bulk_assign_on_state_change(self, state: ScanState | None) -> None:
+        """Exit bulk mode when the work panel is populated with a different
+        state than the one bulk mode was entered on (roster switch, or a
+        rescan replacing the state object). Same-state repopulates keep the
+        mode: staging staleness up to Apply/Cancel is the plan's boundary.
+        """
+        workspace = self._workspace
+        panel = workspace._work_panel
+        if not panel.bulk_assign_active() or state is self._bulk_state:
+            return
+        self._bulk_state = None
+        panel.bulk_panel.reset_staging()
+        panel.exit_bulk_assign()
+        workspace.status_message.emit("Bulk Assign discarded - selection changed.", 3000)
+
+    def assign_unmapped_file(
+        self,
+        state: ScanState,
+        preview,
+        *,
+        warning_box: Any = QMessageBox,
+        assign_dialog: Any = EpisodeAssignDialog,
+    ) -> None:
+        """Assign an unmapped/duplicate primary file to episode slot(s) (R2 M2)."""
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit(
+                "Finish or cancel the queued/scanning state first.", 3000,
+            )
+            return
+        service = EpisodeMappingService()
+        slots = service.episode_slot_choices(state)
+        if not slots:
+            workspace.status_message.emit("No episode choices are available.", 4000)
+            return
+        selection = assign_dialog.pick_episodes(
+            parent=workspace,
+            title="Assign File",
+            slots=slots,
+            preselected=None,
+            current_keys=None,
+            file_label=preview.original.name,
+        )
+        if selection is None:
+            return
+        season = selection[0][0]
+        episodes = [episode for _season, episode in selection]
+        try:
+            service.assign_file(state, preview, season=season, episodes=episodes)
+        except ValueError as exc:
+            warning_box.warning(workspace, "Episode Assignment Failed", str(exc))
             return
         _refresh_episode_projection(workspace, state)
         workspace.refresh_from_controller()
-        workspace.status_message.emit(f"Unassigned {count} file(s).", 3000)
+        workspace.status_message.emit("File assigned.", 3000)
 
     def handle_episode_row_action(
         self,
@@ -320,6 +457,29 @@ class MediaWorkspaceActionCoordinator:
         _refresh_episode_projection(workspace, state)
         workspace.refresh_from_controller()
         workspace.status_message.emit(message, 3000)
+
+    def toggle_episode_mux_optout(self, state: ScanState, preview_index: int) -> None:
+        """Flip this episode's session-scoped AutoMux opt-out (round5 §4b).
+
+        No persistence: the exclusion lives only on ``state.mux_opt_outs`` and
+        is honored at queue time by ``effective_mux_plans``. Refreshes the
+        collapsed rows' MUX pill, the roster chip, the header toggle button,
+        and the open expansion card so every surface follows immediately."""
+        workspace = self._workspace
+        if state.queued or state.scanning:
+            workspace.status_message.emit(
+                "Finish or cancel the queued/scanning state first.", 3000,
+            )
+            return
+        if preview_index in state.mux_opt_outs:
+            state.mux_opt_outs.discard(preview_index)
+        else:
+            state.mux_opt_outs.add(preview_index)
+        workspace._work_panel.model.refresh_row_data(state)
+        workspace._automux._refresh_roster_row(state)
+        if state is workspace._selected_state():
+            workspace._automux.update_button(state)
+        workspace._state_coordinator.refresh_expansion_card()
 
     def prompt_assign_season(
         self,

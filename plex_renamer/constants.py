@@ -1,5 +1,5 @@
 """
-Shared constants and configuration for Plex Renamer.
+Shared constants and configuration for NameScraper.
 """
 
 import re
@@ -57,6 +57,10 @@ class JobStatus(StrEnum):
 class JobKind(StrEnum):
     """Job type discriminator — extensible for future task types."""
     RENAME = "rename"
+    # Remux via mkvmerge: subtitle merging and/or track stripping.  The
+    # job's ops are mixed — ops with a mux payload run mkvmerge, ops
+    # without run the plain move path (spec §6).
+    REMUX = "remux"
     # Future: download subtitles from the OpenSubtitles API.
     # This is a separate job kind (not an op within RENAME) because it
     # involves network I/O, rate limiting, and credential management.
@@ -86,6 +90,7 @@ RELEASE_NOISE = re.compile(
         |[xh][\.]?26[45]|HEVC|AVC|AV1|MPEG[24]?|VP9|10[\- .]?Bit
         # --- Audio ---
         |AAC(?:[ .\-]?\d\.\d)?|AC3|EAC3|DTS(?:[\- .]?HD)?(?:[\- .]?MA)?
+        |DD[P+]?(?:[ .\-]?\d\.\d)?
         |TrueHD|Atmos|FLAC|LPCM|Opus
         |(?:Dual|Multi)[\- .]?Audio|[257]\.\d
         # --- Release tags ---

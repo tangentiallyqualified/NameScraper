@@ -6,6 +6,8 @@ from logging import Logger
 from pathlib import Path
 from typing import Any
 
+from .widgets.busy_overlay import busy_scope
+
 
 class MainWindowStateCoordinator:
     def __init__(
@@ -91,18 +93,40 @@ class MainWindowStateCoordinator:
             path = Path(folder)
             action = window._recent_tv_menu.addAction(f"{path.name}  ({path})")
             action.triggered.connect(
-                lambda _=False, selected_folder=folder: window._tv_workspace.load_folder(selected_folder)
+                lambda _=False, selected=folder: self._load_recent(selected, media_type="tv")
             )
-        window._recent_tv_menu.setEnabled(bool(window.settings_service.recent_tv_folders))
-
         window._recent_movie_menu.clear()
         for folder in window.settings_service.recent_movie_folders:
             path = Path(folder)
             action = window._recent_movie_menu.addAction(f"{path.name}  ({path})")
             action.triggered.connect(
-                lambda _=False, selected_folder=folder: window._movie_workspace.load_folder(selected_folder)
+                lambda _=False, selected=folder: self._load_recent(selected, media_type="movie")
             )
-        window._recent_movie_menu.setEnabled(bool(window.settings_service.recent_movie_folders))
+
+        self.sync_recent_menu_enabled()
+
+    def _active_media_type(self) -> str:
+        return "movie" if self._window._tabs.currentIndex() == self._movies_index else "tv"
+
+    def sync_recent_menu_enabled(self) -> None:
+        window = self._window
+        active = self._active_media_type()
+        window._recent_tv_menu.setEnabled(
+            active == "tv" and bool(window.settings_service.recent_tv_folders)
+        )
+        window._recent_movie_menu.setEnabled(
+            active == "movie" and bool(window.settings_service.recent_movie_folders)
+        )
+
+    def _load_recent(self, folder: str, *, media_type: str) -> None:
+        """Recent-folder click: land on the owning tab, then load (GUI V4 §14)."""
+        window = self._window
+        if media_type == "tv":
+            self.switch_to_tab(self._tv_index)
+            window._tv_workspace.load_folder(folder)
+            return
+        self.switch_to_tab(self._movies_index)
+        window._movie_workspace.load_folder(folder)
 
     def on_tab_changed(self, index: int) -> None:
         window = self._window
@@ -116,19 +140,22 @@ class MainWindowStateCoordinator:
             window._history_tab.refresh()
         elif index == self._tv_index:
             if window._tv_snapshot is not None:
-                window.media_ctrl.restore_tv_from_tab_switch(window._tv_snapshot)
-                window._tv_workspace.refresh_from_controller()
+                with busy_scope(window, "Restoring…", immediate=True):
+                    window.media_ctrl.restore_tv_from_tab_switch(window._tv_snapshot)
+                    window._tv_workspace.refresh_from_controller()
             elif window._tv_needs_queue_refresh and window._tv_workspace.is_showing_ready():
                 window._tv_workspace.refresh_from_controller()
             window._tv_needs_queue_refresh = False
         elif index == self._movies_index:
             if window._movie_snapshot is not None:
-                window.media_ctrl.restore_movie_from_tab_switch(window._movie_snapshot)
-                window._movie_workspace.refresh_from_controller()
+                with busy_scope(window, "Restoring…", immediate=True):
+                    window.media_ctrl.restore_movie_from_tab_switch(window._movie_snapshot)
+                    window._movie_workspace.refresh_from_controller()
             elif window._movie_needs_queue_refresh and window._movie_workspace.is_showing_ready():
                 window._movie_workspace.refresh_from_controller()
             window._movie_needs_queue_refresh = False
 
+        self.sync_recent_menu_enabled()
         self._logger.debug("Tab switched to %d", index)
 
     def capture_active_snapshot(self) -> None:

@@ -122,6 +122,19 @@ def clean_name(name: str) -> str:
 
 _YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
 
+# Audio channel-count tokens (optionally glued to their codec): DDP5.1,
+# DD5.1, AAC2.0, DTS-HD.MA.5.1, bare 7.1. Once dots become spaces the
+# channel digits look like bare episode numbers ("DDP5 1"), so they must
+# be removed while the dots are still intact. Channel layouts only use
+# .0/.1/.2/.4 and 2-8 mains, which keeps decimal titles ("Evangelion
+# 1.11") safe.
+_AUDIO_CHANNELS_RE = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"(?:(?:DDP?|DD\+|E?AC-?3|AAC|DTS(?:[-. ]?(?:HD|X|MA))*|TrueHD|Atmos|Opus|FLAC|LPCM)[-. ]?)?"
+    r"[2-8]\.[0124]\b",
+    re.IGNORECASE,
+)
+
 
 def _strip_quality_parens(text: str) -> str:
     """Remove parenthetical groups that contain a release-noise token or a year.
@@ -167,6 +180,7 @@ def clean_title_evidence(name: str) -> str:
     """
     name = re.sub(r"\[.*?\]", "", name)
     name = _strip_quality_parens(name)
+    name = _AUDIO_CHANNELS_RE.sub(" ", name)
     if name.count(".") >= 3 and 1 <= name.count("_") <= 3:
         parts = name.split("_")
         rebuilt = parts[0]
@@ -226,7 +240,7 @@ def extract_year(text: str) -> str | None:
         The.Matrix.1999.1080p            ->  "1999"
 
     Falls back to the last year found when no noise boundary is present,
-    which correctly handles Plex-format names like "2001 A Space Odyssey (1968)".
+    which correctly handles library-format (Plex/Jellyfin) names like "2001 A Space Odyssey (1968)".
 
     A run range "(2001-2013)" counts as its START year: TMDB indexes shows by
     first-air date, so the range end would match the wrong entry.

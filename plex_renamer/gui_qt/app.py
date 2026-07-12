@@ -1,4 +1,4 @@
-"""PySide6 application bootstrap (GUI3 entry point).
+"""PySide6 application bootstrap.
 
 Launch with:
     python -m plex_renamer --qt
@@ -9,13 +9,11 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, Qt
 
 _log = logging.getLogger(__name__)
 
-_THEME_PATH = Path(__file__).parent / "resources" / "theme.qss"
 _DEBUG_TRANSIENT_WINDOWS = os.environ.get(
     "PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS", ""
 ).strip().lower() not in {"", "0", "false", "no"}
@@ -90,7 +88,8 @@ class _SuppressTransientPopups(QObject):
             if name in {"toastManager", "toastCard"}:
                 return False
             flags = obj.windowFlags()
-            if obj.windowType() == Qt.WindowType.ToolTip:
+            window_type = obj.windowType()
+            if window_type == Qt.WindowType.ToolTip:
                 return False
             if _DEBUG_TRANSIENT_WINDOWS and flags & _DIAGNOSTIC_FLAGS:
                 _log.debug(
@@ -102,7 +101,10 @@ class _SuppressTransientPopups(QObject):
                     obj.width(),
                     obj.height(),
                 )
-            if not (flags & _TRANSIENT_FLAGS):
+            # Window-type flags share bits (Popup=0x8 is a subset of Tool=0xA
+            # and SplashScreen=0xE), so a bitwise AND also matches combobox
+            # dropdowns. Compare the resolved type exactly.
+            if window_type not in (Qt.WindowType.Tool, Qt.WindowType.SplashScreen):
                 return False
             # Make the window invisible synchronously.  setWindowOpacity(0)
             # maps to Win32 SetLayeredWindowAttributes — takes effect before
@@ -120,9 +122,7 @@ def run() -> None:
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication
     except ImportError:
-        _log.error(
-            "PySide6 is not installed.  Install with:  pip install plex-renamer[qt]"
-        )
+        _log.error("PySide6 is not installed.  Install with:  pip install PySide6")
         sys.exit(1)
 
     from .main_window import MainWindow
@@ -134,16 +134,17 @@ def run() -> None:
     )
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Plex Renamer")
+    app.setApplicationName("NameScraper")
     popup_filter = _SuppressTransientPopups(app)
     app.installEventFilter(popup_filter)
     app._popup_filter = popup_filter
 
-    # Load the global theme stylesheet
-    if _THEME_PATH.exists():
-        app.setStyleSheet(_THEME_PATH.read_text(encoding="utf-8"))
-    else:
-        _log.warning("Theme file not found at %s", _THEME_PATH)
+    # Load the global theme stylesheet (rendered from theme.qss.tmpl)
+    from . import theme as _theme
+    try:
+        app.setStyleSheet(_theme.load_stylesheet())
+    except (OSError, KeyError) as exc:
+        _log.warning("Theme stylesheet failed to load: %s", exc)
 
     window = MainWindow()
     window.showMaximized()

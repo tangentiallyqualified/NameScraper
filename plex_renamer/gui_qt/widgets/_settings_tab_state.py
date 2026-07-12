@@ -7,6 +7,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QFileDialog
 
+from ...app.services.output_destination_service import long_path_warning_text
 from ._media_helpers import repolish as _repolish
 
 
@@ -97,6 +98,16 @@ class SettingsTabStateCoordinator:
         if tab._settings:
             tab._settings.show_confidence_bars = checked
 
+    def on_cache_size(self, index: int) -> None:
+        tab = self._tab
+        value = tab._cache_size_combo.itemData(index)
+        if value is None or tab._settings is None:
+            return
+        tab._settings.cache_max_size_bytes = int(value)
+        if tab._cache_service is not None:
+            tab._cache_service.set_max_size_bytes(tab._settings.cache_max_size_bytes)
+        tab._actions_coordinator.refresh_cache_stats()
+
     def browse_output_folder(self, media_type: str) -> None:
         tab = self._tab
         if media_type == "tv":
@@ -107,8 +118,15 @@ class SettingsTabStateCoordinator:
             title = "Choose movie output folder"
 
         selected = QFileDialog.getExistingDirectory(tab, title, target.text().strip())
-        if selected:
-            target.setText(selected)
+        if not selected:
+            return
+        target.setText(selected)
+
+        warning = long_path_warning_text(selected)
+        if warning:
+            self._set_destination_status(warning, "warning")
+        else:
+            self._clear_destination_status()
 
     def on_save_destinations(self) -> None:
         tab = self._tab
@@ -139,10 +157,21 @@ class SettingsTabStateCoordinator:
         tab._settings.movie_output_folder = movie_path
         tab._tv_output_input.setText(tv_path)
         tab._movie_output_input.setText(movie_path)
-        self._set_destination_status("Output destinations saved.", "success")
+
+        warning = long_path_warning_text(tv_path) or long_path_warning_text(movie_path)
+        if warning:
+            self._set_destination_status(warning, "warning")
+        else:
+            self._set_destination_status("Output destinations saved.", "success")
 
     def _set_destination_status(self, text: str, tone: str) -> None:
         status = self._tab._destinations_status
         status.setText(text)
         status.setProperty("tone", tone)
+        _repolish(status)
+
+    def _clear_destination_status(self) -> None:
+        status = self._tab._destinations_status
+        status.setText("")
+        status.setProperty("tone", "")
         _repolish(status)

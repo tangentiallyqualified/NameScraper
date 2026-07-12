@@ -2,7 +2,34 @@
 
 from __future__ import annotations
 
-from ...constants import JobStatus
+from ...constants import JobKind, JobStatus
+
+
+def remux_confirmation_message(jobs: list) -> str:
+    """Confirmation copy when *jobs* include pending remuxes (spec §7.5).
+    Empty string means no confirmation is needed."""
+    remux = [
+        job for job in jobs
+        if job.status == JobStatus.PENDING and job.job_kind == JobKind.REMUX
+    ]
+    if not remux:
+        return ""
+    mux_file_count = sum(len(job.mux_ops) for job in remux)
+    message = (
+        f"{len(remux)} job(s) will remux {mux_file_count} file(s) with "
+        "mkvmerge.\n\nNew MKV files will be written to the output folder; "
+        "processing can take a long time."
+    )
+    no_fear = any(
+        (op.mux or {}).get("no_fear")
+        for job in remux for op in job.rename_ops
+    )
+    if no_fear:
+        message += (
+            "\n\nNo Fear mode is ON: original source files will be DELETED "
+            "after each successful remux. This cannot be undone."
+        )
+    return message + "\n\nProceed?"
 
 
 def toggle_queue_running(queue_controller) -> None:

@@ -5,6 +5,34 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+# Windows MAX_PATH limit that non-long-path-aware code (and some legacy APIs)
+# still enforce.
+_WINDOWS_MAX_PATH = 260
+
+# Reserve for the generated rename tail appended under the output root, e.g.
+# "\Show Name (Year)\Season NN\Show Name - SNNEnn - Episode Title.ext".
+# Conservative so the warning fires before real overflow rather than after.
+_RENAME_TAIL_RESERVE = 160
+
+
+def output_path_risks_long_paths(root: str | Path, *, reserve: int = _RENAME_TAIL_RESERVE) -> bool:
+    """True when *root* is long enough that a generated rename path could
+    exceed the Windows MAX_PATH limit. Pure/non-blocking: callers still
+    accept the path, this only flags a warning."""
+    root_len = len(str(root or ""))
+    return root_len > 0 and (root_len + reserve) > _WINDOWS_MAX_PATH
+
+
+def long_path_warning_text(root: str | Path) -> str:
+    """User-facing, non-blocking warning for *root*, or "" if not at risk."""
+    if not output_path_risks_long_paths(root):
+        return ""
+    return (
+        "This output folder is long enough that some renamed files may exceed "
+        "the Windows 260-character path limit. Consider a shorter destination "
+        "or enable long-path support in Windows."
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class OutputDestinationStatus:

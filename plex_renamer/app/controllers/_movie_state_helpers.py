@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from ...constants import MediaType
 from ...engine import MovieScanner, PreviewItem, ScanState
+from ..services.command_gating_service import CommandGatingService
 
 
 def build_movie_library_states(
@@ -100,11 +101,11 @@ def movie_state_relative_folder(state: ScanState, movie_folder: Path | None) -> 
 
 def set_actionable_preview_checks(state: ScanState, checked: bool) -> None:
     state.checked = checked
-    for index, item in enumerate(state.preview_items):
+    for index in range(len(state.preview_items)):
         binding = state.check_vars.get(str(index))
         if binding is None or not hasattr(binding, "set"):
             continue
-        binding.set(bool(checked and item.is_actionable))
+        binding.set(bool(checked and CommandGatingService.is_queue_relevant(state, index)))
 
 
 def resolve_movie_preview_review(

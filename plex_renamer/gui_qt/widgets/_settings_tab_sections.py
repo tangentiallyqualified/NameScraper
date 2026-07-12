@@ -21,10 +21,25 @@ from PySide6.QtWidgets import (
 )
 
 
-class SettingsSectionCard(QFrame):
-    """A settings section card with a heading and content area."""
+CACHE_SIZE_CHOICES: tuple[tuple[str, int], ...] = (
+    ("256 MB", 256 * 1024 * 1024),
+    ("512 MB", 512 * 1024 * 1024),
+    ("1 GB", 1024 ** 3),
+    ("2 GB", 2 * 1024 ** 3),
+    ("4 GB", 4 * 1024 ** 3),
+    ("8 GB", 8 * 1024 ** 3),
+)
 
-    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+
+class SettingsSectionCard(QFrame):
+    """A settings section card with a title header row and content area."""
+
+    def __init__(
+        self,
+        title: str,
+        *,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setProperty("cssClass", "settings-section")
 
@@ -38,15 +53,14 @@ class SettingsSectionCard(QFrame):
         self._layout.setSpacing(_scale.px(12))
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        heading = QLabel(title)
-        heading.setProperty("cssClass", "heading")
-        self._layout.addWidget(heading)
+        header_row = QHBoxLayout()
+        header_row.setSpacing(_scale.px(8))
 
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setProperty("cssClass", "separator")
-        separator.setFixedHeight(_scale.px(1))
-        self._layout.addWidget(separator)
+        self._heading = QLabel(title)
+        self._heading.setProperty("cssClass", "heading")
+        header_row.addWidget(self._heading)
+        header_row.addStretch()
+        self._layout.addLayout(header_row)
 
     def add_widget(self, widget: QWidget) -> None:
         self._layout.addWidget(widget)
@@ -287,54 +301,75 @@ class SettingsTabSectionsBuilder:
 
         self._add_page(section)
 
-    def build_cache_section(self) -> None:
+    def build_data_section(self) -> None:
         tab = self._tab
-        section = SettingsSectionCard.page("Cache")
+        section = SettingsSectionCard.page("Data")
+
+        cache_size_row = QHBoxLayout()
+        cache_size_row.addWidget(QLabel("Cache size limit"))
+        tab._cache_size_combo = QComboBox()
+        for label, value in CACHE_SIZE_CHOICES:
+            tab._cache_size_combo.addItem(label, value)
+        current = tab._settings.cache_max_size_bytes if tab._settings else 1024 ** 3
+        idx = tab._cache_size_combo.findData(current)
+        tab._cache_size_combo.setCurrentIndex(idx if idx >= 0 else 2)
+        tab._cache_size_combo.currentIndexChanged.connect(tab._on_cache_size)
+        cache_size_row.addWidget(tab._cache_size_combo)
+        cache_size_row.addStretch()
+        section.add_layout(cache_size_row)
 
         tab._cache_stats = QLabel("Cache statistics will appear here after first scan.")
         tab._cache_stats.setProperty("cssClass", "text-dim")
         section.add_widget(tab._cache_stats)
 
-        row = QHBoxLayout()
+        cache_row = QHBoxLayout()
         tab._clear_cache_btn = QPushButton("Clear TMDB Cache")
-        tab._clear_cache_btn.setProperty("cssClass", "secondary")
+        tab._clear_cache_btn.setProperty("cssClass", "danger-outline")
         tab._clear_cache_btn.setEnabled(tab._cache_service is not None)
         tab._clear_cache_btn.clicked.connect(tab._on_clear_cache)
         if tab._cache_service is None:
             tab._clear_cache_btn.setToolTip("Cache actions are not available yet.")
-        row.addWidget(tab._clear_cache_btn)
+        cache_row.addWidget(tab._clear_cache_btn)
 
         tab._clear_all_btn = QPushButton("Clear All Data")
         tab._clear_all_btn.setProperty("cssClass", "danger")
         tab._clear_all_btn.hide()
-        row.addWidget(tab._clear_all_btn)
-        row.addStretch()
-        section.add_layout(row)
+        cache_row.addWidget(tab._clear_all_btn)
+        cache_row.addStretch()
+        section.add_layout(cache_row)
 
         tab._cache_confirm = QLabel("")
         tab._cache_confirm.setProperty("cssClass", "caption")
         section.add_widget(tab._cache_confirm)
 
-        self._add_page(section)
-
-    def build_data_management_section(self) -> None:
-        tab = self._tab
-        section = SettingsSectionCard.page("Data Management")
-
-        row = QHBoxLayout()
+        history_row = QHBoxLayout()
         tab._clear_history_btn = QPushButton("Clear Job History")
-        tab._clear_history_btn.setProperty("cssClass", "danger")
+        tab._clear_history_btn.setProperty("cssClass", "danger-outline")
         tab._clear_history_btn.setEnabled(tab._clear_history_callback is not None)
         tab._clear_history_btn.clicked.connect(tab._on_clear_history)
-        row.addWidget(tab._clear_history_btn)
-        row.addStretch()
-        section.add_layout(row)
+        history_row.addWidget(tab._clear_history_btn)
+        history_row.addStretch()
+        section.add_layout(history_row)
 
         tab._history_confirm = QLabel("")
         tab._history_confirm.setProperty("cssClass", "caption")
         section.add_widget(tab._history_confirm)
 
         self._add_page(section)
+
+    def build_metadata_section(self) -> None:
+        from ._settings_metadata_page import MetadataSettingsPage
+
+        tab = self._tab
+        tab._metadata_page = MetadataSettingsPage(settings_service=tab._settings)
+        self._add_page(tab._metadata_page)
+
+    def build_automux_section(self) -> None:
+        from ._settings_automux_page import AutoMuxSettingsPage
+
+        tab = self._tab
+        tab._automux_page = AutoMuxSettingsPage(settings_service=tab._settings)
+        self._add_page(tab._automux_page)
 
     def build_advanced_section(self) -> None:
         tab = self._tab

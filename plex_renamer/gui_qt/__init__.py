@@ -1,4 +1,4 @@
-"""PySide6 shell for Plex Renamer.
+"""PySide6 shell for NameScraper.
 
 All orchestration goes through the application layer
 (``plex_renamer.app.controllers``) — widget code handles only

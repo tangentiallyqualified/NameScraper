@@ -1,50 +1,123 @@
-# Plex Renamer
+# NameScraper
 
-Plex Renamer is a desktop application for renaming and reorganizing TV and movie files into Plex-compatible structures using TMDB metadata.
+NameScraper is a desktop app for renaming and reorganizing your TV and movie
+files into the clean, media-server-friendly layout that Plex, Jellyfin, and Emby
+expect — `Show (Year)/Season 01/Show (Year) - S01E01 - Title.ext` — using TMDB
+metadata to identify each release and fill in episode titles.
 
-The project currently ships with two GUI shells built on the same backend:
-
-- `python -m plex_renamer`: tkinter shell, still the default entry point
-- `python -m plex_renamer --qt`: PySide6 shell (`GUI3`), now suitable for active dogfooding across TV, movies, queue, history, and settings
-
-The long-term direction is the PySide6 shell. The current migration work lives on `dev/GUI3`.
+It is built on PySide6 (Qt) with a toolkit-independent backend that does the
+parsing, matching, scan planning, and job execution.
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
+![PySide6](https://img.shields.io/badge/ui-PySide6-41cd52)
 ![TMDB](https://img.shields.io/badge/metadata-TMDB-01d277)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![Platform](https://img.shields.io/badge/platform-Windows%20(primary)%20%7C%20macOS%20%7C%20Linux-lightgrey)
+
+> **Naming note:** the app's display name is **NameScraper**, but the Python
+> package is still `plex_renamer` (and the console script is `plex-renamer`), so
+> you launch it with `python -m plex_renamer`.
 
 ---
 
-## Current Status
+## Status
 
-The backend migration and most Qt parity work are complete.
+The PySide6 UI redesign (tracked internally as "GUI V4") is **complete**. The Qt
+shell is the only shell — the earlier tkinter interface has been removed. The app
+is at version `0.1.0`; it is used and dogfooded, not yet formally packaged for
+distribution.
 
-- Phases 0 through 8 in the migration plan are effectively complete on `dev/GUI3`
-- The PySide6 shell now includes TV, movies, queue, history, settings, detail surfaces, poster loading, queue badges, toasts, and the three-panel roster/preview/detail workflow
-- The tkinter shell remains the default launch path while a few operational/default-switch blockers are still being closed
+The redesign delivered a two-panel workspace, bulk episode assignment, an
+off-thread guide/preview pipeline with a busy overlay, toast notifications, an
+animated loading screen, a restyled queue/history with companion-file surfacing,
+a restyled settings area, and a dark, token-based theme validated at 100/150/200%
+display scaling.
 
-The most accurate implementation notes live in:
-
-- [docs/gui3-pyside6-migration-plan revised.md](docs/gui3-pyside6-migration-plan%20revised.md)
-- [docs/gui3-pyside6-ui-design.md](docs/gui3-pyside6-ui-design.md)
+Development is primarily done and tested on Windows (the shell includes a
+Windows-specific transient-popup suppressor); PySide6 itself is cross-platform.
 
 ---
 
-## Quick Start
+## Features
+
+### TV
+
+- **Single-show** scanning and **batch discovery** of a whole TV root folder.
+- Season/episode parsing across common release naming styles, including
+  anime/fansub **absolute numbering and episode ranges** (e.g.
+  `[Group] Show - 166-167 [...]`) and **multi-episode files** (`S01E01-E02`).
+- **Specials / Season 0** handling, and flat-folder absolute numbering that keeps
+  regular episodes aligned even when TMDB also lists specials.
+- **Companion files** (subtitles, `.nfo`, etc.) are detected and moved alongside
+  their video.
+- **Confidence-gated matching:** high-confidence shows/episodes auto-accept;
+  lower-confidence results are routed to review with alternate-match pickers.
+- **Completeness reporting** against TMDB's episode list (what's matched, what's
+  missing per season).
+
+### Movies
+
+- Bulk movie-folder scanning with automatic filtering of TV episodes that are
+  mixed into movie folders.
+- Confidence-based TMDB matching with manual re-match, and detection of files
+  that are already correctly named.
+- Root-level movie files are moved into `Title (Year)/Title (Year).ext` rather
+  than renaming the selected root folder itself.
+
+### Bulk assign
+
+For shows where automatic mapping needs a hand, **Bulk Assign** mode lets you
+check files and map them onto episode slots in order (with auto-map for the
+remainder), staged in-place and applied in one action.
+
+### Queue & History
+
+- A rename **queue** and **history**, persisted in SQLite, driven through a
+  shared job pipeline.
+- Completed jobs can be **reverted** from History; a failed revert stays visible
+  as `revert_failed` (only clean completions are marked `reverted`).
+- Status pills, poster reuse, and companion files surfaced under their video in
+  the job detail view.
+
+### Settings
+
+- TMDB API key entry, destination folders, display options, and matching
+  thresholds.
+- Destructive actions (clear cache / clear history) live under **Data** behind
+  confirm-with-count dialogs.
+- API keys are stored via the OS keyring when available, falling back to local
+  app-data storage.
+
+---
+
+## The interface
+
+The app opens maximized with five tabs: **Settings**, **TV Shows**, **Movies**,
+**Queue**, and **History**.
+
+The TV and Movie tabs share a two-panel **workspace**:
+
+- **Left — roster:** poster-forward rows grouped by state (queued, review,
+  matched, and dedicated groups like *Specials & Unmapped Only*), with season
+  chips, a status pill, and a confidence bar.
+- **Right — work panel:** a show header (with async-loaded overview), a season
+  strip, a toolbar, and a virtualized episode table with ghost rows for missing
+  episodes and in-place expansion for per-episode detail. A footer shows the file
+  breakdown alongside **Fix Match** and **Queue** actions.
+
+Long-running work (building an episode guide/preview for an uncached show) runs
+off the UI thread behind a busy overlay, so large libraries don't freeze the
+window.
+
+---
+
+## Quick start
+
+### Requirements
+
+- Python **3.11+**
+- A **TMDB API key** (free — https://www.themoviedb.org/settings/api)
 
 ### Install
-
-Create and activate a virtual environment, then install the project.
-
-For the Qt shell, install the `qt` extra:
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[qt]"
-```
-
-If you only want the current default tkinter shell:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -52,214 +125,124 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
 
+PySide6, Pillow, requests, and keyring install as core dependencies — there is no
+separate UI extra.
+
 ### Launch
 
 ```powershell
 .\.venv\Scripts\python.exe -m plex_renamer
-.\.venv\Scripts\python.exe -m plex_renamer --qt
 ```
 
-### First Run
+(Or run the installed `plex-renamer` console script.)
 
-1. Open `Settings`
-2. Enter a TMDB API key
-3. Start with either a TV root folder or a movie root folder
+### First run
 
-API keys are stored via OS keyring when available. If `keyring` is unavailable, the app falls back to local app-data storage.
-
----
-
-## What It Does
-
-### TV Workflows
-
-- Single-show TV scanning
-- Batch TV library discovery from a root folder
-- Season and episode parsing across common release naming styles
-- Anime/fansub episode range parsing for names like `[Group] Show - 166-167 [...]`
-- Specials / Season 0 handling
-- Flat-folder absolute numbering that keeps regular episodes aligned even when TMDB also has Season 0 specials
-- Alternate-match review flows for low-confidence results
-- Completeness reporting against TMDB episode data
-- Plex-style rename plans for files and show folders
-
-### Movie Workflows
-
-- Bulk movie folder scanning
-- Automatic filtering of likely TV episodes mixed into movie folders
-- Confidence-based TMDB matching with manual re-match support
-- Plex-ready detection for already-correct files/folders
-- Root-level movie files are moved into `Title (Year)/Title (Year).ext` inside the selected movie root instead of renaming the selected root folder itself
-- Queue-driven rename execution through the shared job pipeline
-
-### Shared Qt Workflow
-
-The PySide6 shell uses a consistent three-panel layout:
-
-- left: roster grouped by queue/review/readiness state
-- center: preview of rename operations
-- right: metadata and selection details
-
-That same model is used for:
-
-- single-show TV
-- batch TV
-- movie folder scans
-
-### Queue, History, and Undo
-
-- Persistent queue and history stored in SQLite
-- Controller-backed queue execution and revert flows
-- Queue and history detail panels with cached poster reuse
-- Undo/revert data recorded per completed job
-- Failed revert attempts stay visible in history as `revert_failed`; only clean revert completions are marked `reverted`
+1. Open the **Settings** tab.
+2. Enter your **TMDB API key**.
+3. Point the app at a **TV root folder** or a **movie root folder** and scan.
 
 ---
 
-## Shells
-
-### tkinter Shell
-
-- Still the default launch target
-- Uses the shared controllers/services introduced during the migration
-- Remains the safer operational path while the final Qt default-switch blockers are closed
-
-### PySide6 Shell (`--qt`)
-
-- Main shell in active development on `dev/GUI3`
-- Includes tabs for TV, Movies, Queue, History, and Settings
-- Uses the controller layer rather than duplicating orchestration logic in widgets
-- Has received recent stabilization work for:
-  - transient popup flicker on Windows
-  - row/widget styling churn
-  - poster request deduplication
-  - bounded detail metadata caching
-  - thread-safe async settings callbacks
-
----
-
-## Configuration and Debugging
+## Configuration & debugging
 
 ### Logging
 
-You can override the startup log level with:
+Override the startup log level with:
 
 ```powershell
 $env:PLEX_RENAMER_LOG_LEVEL="DEBUG"
 ```
 
-Supported practical values are `INFO` and `DEBUG`.
+Practical values are `INFO` (default) and `DEBUG`.
 
-### Qt Transient Window Diagnostics
+### Transient-window diagnostics (Windows)
 
-There is a targeted diagnostic flag for transient popup debugging in the Qt shell:
+A targeted flag logs candidate transient popup windows, for debugging flicker on
+Windows:
 
 ```powershell
 $env:PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS="1"
-.\.venv\Scripts\python.exe -m plex_renamer --qt
+.\.venv\Scripts\python.exe -m plex_renamer
 ```
-
-That flag is intended only for debugging popup/window issues.
 
 ---
 
 ## Testing
 
-Install dev dependencies if needed:
+Dev dependencies (just pytest) install with the `dev` extra:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[dev,qt]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-Run the full test suite:
+- **Full suite:** `.\.venv\Scripts\python.exe -m pytest`
+- **Fast unit sweep:** `.\scripts\test-fast.cmd`
+- **Qt smoke suite:** `.\scripts\test-smoke.cmd`
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
-```
+The smoke wrapper captures full pytest output to `.pytest_cache/smoke/latest.log`
+and prints a concise pass/fail summary with the real exit code (more reliable
+than reading raw terminal output from offscreen PySide runs).
 
-Run the Qt smoke suite only:
-
-```powershell
-.\scripts\test-smoke.cmd
-```
-
-That wrapper captures the full pytest output to `.pytest_cache/smoke/latest.log` and prints a short pass/fail summary with the real exit code, which is more reliable than reading raw integrated-terminal output from PySide smoke runs.
+There is also an opt-in real-library validation harness,
+`scripts/scan_real_library.py`, used to exercise the batch TV engine against a
+real media drive; it is not part of the automated suite.
 
 ---
 
 ## Architecture
 
-The project is intentionally split into three layers.
+The project is split into three layers, so the backend has no UI dependencies.
 
-### Core Domain Layer
+### Core domain layer
 
-Toolkit-independent logic for parsing, TMDB access, scanning, rename planning, and job persistence.
+Toolkit-independent parsing, TMDB access, scanning/rename planning, and job
+persistence — e.g. `parsing.py` (+ `_parsing_*.py`), `tmdb.py`, the `engine/`
+package (batch TV orchestration, episode resolution, matching), `job_store.py`,
+`job_executor.py`, and `keys.py`.
 
-- `parsing.py`
-- `tmdb.py`
-- `engine.py`
-- `job_store.py`
-- `job_executor.py`
-- `keys.py`
+### Application layer
 
-### Application Layer
+UI-neutral controllers, models, and services shared by the interface — e.g.
+`app/controllers/` (media and queue controllers), `app/models/`, and
+`app/services/` (settings, cache, command gating, refresh policy, episode
+mapping, projection cache, TV/movie library discovery).
 
-UI-neutral controllers, models, and services used by both shells.
+### GUI layer
 
-- `app/controllers/media_controller.py`
-- `app/controllers/queue_controller.py`
-- `app/models/`
-- `app/services/cache_service.py`
-- `app/services/command_gating_service.py`
-- `app/services/refresh_policy_service.py`
-- `app/services/settings_service.py`
-- discovery services for TV and movies
-
-### GUI Layers
-
-- `gui/`: tkinter shell
-- `gui_qt/`: PySide6 shell
-
-Both consume the same backend services and controllers.
+`gui_qt/` — the PySide6 shell: `app.py` bootstrap, `main_window.py`, the rendered
+theme (`theme.py` + `theme.qss.tmpl`), `resources/`, and `widgets/`. It consumes
+the controllers and services rather than duplicating orchestration in widgets.
 
 ---
 
-## Repository Layout
+## Repository layout
 
 ```text
 plex_renamer/
-├── __main__.py
+├── __main__.py          # entry point → gui_qt.app.run()
 ├── constants.py
-├── engine.py
+├── parsing.py           # + _parsing_*.py helpers
+├── tmdb.py              # + _tmdb_*.py helpers
+├── job_store.py         # + _job_store_*.py helpers
 ├── job_executor.py
-├── job_store.py
 ├── keys.py
-├── parsing.py
-├── tmdb.py
+├── thread_pool.py
+├── engine/              # batch TV orchestration, episode resolution, matching
 ├── app/
 │   ├── controllers/
 │   ├── models/
 │   └── services/
-├── gui/
 └── gui_qt/
     ├── app.py
     ├── main_window.py
+    ├── theme.py
     ├── resources/
     └── widgets/
+scripts/                 # test-fast / test-smoke wrappers, real-library harness
 tests/
 docs/
 ```
 
----
-
-## Near-Term Focus
-
-The migration plan’s current recommended follow-up work is now beyond the Phase 8 stabilization pass.
-
-The next likely areas are:
-
-- remaining operational/default-switch blockers for the Qt shell
-- queue/history polish and trust-gap cleanup
-- deciding when `--qt` becomes the default launch path
-
-For the detailed running status, use the migration plan in `docs/` rather than this README.
+Deeper design and implementation notes live under `docs/` (the GUI V4 design spec
+and handoff).

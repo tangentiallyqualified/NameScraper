@@ -651,10 +651,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertFalse(season_header.isExpanded())
         panel._on_preview_item_clicked(season_header, 0)
         self.assertTrue(season_header.isExpanded())
-        self.assertEqual(season_header.text(0), "▾ Season 01 (1 files)")
+        self.assertEqual(season_header.text(0), "▾ Season 01 (1 file)")
         panel._on_preview_item_clicked(season_header, 0)
         self.assertFalse(season_header.isExpanded())
-        self.assertEqual(season_header.text(0), "▸ Season 01 (1 files)")
+        self.assertEqual(season_header.text(0), "▸ Season 01 (1 file)")
         panel.close()
 
     def test_job_detail_panel_open_target_folder_uses_existing_parent(self):
@@ -712,3 +712,170 @@ class QtJobDetailPanelTests(QtSmokeBase):
             "setFixedSize(160, 240)",
         ):
             self.assertNotIn(literal, source)
+
+    def test_preview_tree_nests_companions_under_their_video_with_badges(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/ep1.mkv",
+                    new_name="Show - S01E01 - Pilot.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", season=1, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/ep1.eng.srt",
+                    new_name="Show - S01E01 - Pilot.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", file_type="subtitle",
+                ),
+            ],
+        )
+        panel = JobDetailPanel()
+        panel.resize(520, 700)
+        panel.show()
+        panel.set_job(job)
+        self._app.processEvents()
+
+        tree = panel._preview_tree
+        season_header = None
+        for row in range(tree.topLevelItemCount()):
+            item = tree.topLevelItem(row)
+            if "Season" in item.text(0):
+                season_header = item
+        self.assertIsNotNone(season_header)
+        video_item = season_header.child(0)
+        self.assertEqual(video_item.childCount(), 1)           # companion nested
+        self.assertTrue(video_item.isExpanded())               # visible by default
+        companion_widget = tree.itemWidget(video_item.child(0), 0)
+        self.assertIsNotNone(companion_widget)
+        self.assertEqual(companion_widget._badge_label.text(), "SUB")
+        panel.close()
+
+    def test_video_rows_with_children_keep_arrow_free_text_when_toggled(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob, RenameOp
+
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            media_type="tv",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Show/ep1.mkv",
+                    new_name="Show - S01E01 - Pilot.mkv",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", season=1, file_type="video",
+                ),
+                RenameOp(
+                    original_relative="Show/ep1.eng.srt",
+                    new_name="Show - S01E01 - Pilot.eng.srt",
+                    target_dir_relative="Show/Season 01",
+                    status="OK", file_type="subtitle",
+                ),
+            ],
+        )
+        panel = JobDetailPanel()
+        panel.set_job(job)
+
+        season_header = panel._preview_tree.topLevelItem(0)
+        self.assertIn("Season", season_header.text(0))
+        video_item = season_header.child(0)
+        # The group-header arrow prefix must never leak onto ordinary rows:
+        # their delegate-painted text sits behind the transparent row widget.
+        self.assertEqual(video_item.text(0), "")
+        panel._on_preview_item_clicked(video_item, 0)   # collapse companions
+        self.assertFalse(video_item.isExpanded())
+        self.assertEqual(video_item.text(0), "")
+        panel._on_preview_item_clicked(video_item, 0)   # expand companions
+        self.assertTrue(video_item.isExpanded())
+        self.assertEqual(video_item.text(0), "")
+        # Header arrows still update normally.
+        panel._on_preview_item_clicked(season_header, 0)
+        self.assertTrue(season_header.isExpanded())
+        self.assertTrue(season_header.text(0).startswith("▾ "))
+        panel.close()
+
+    def test_error_label_uses_css_class_not_inline_stylesheet(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        panel = JobDetailPanel()
+        job = RenameJob(
+            library_root="C:/library", source_folder="Show",
+            media_name="Example Show", error_message="boom",
+        )
+        panel.set_job(job)
+        self.assertEqual(panel._error.styleSheet(), "")
+        self.assertEqual(panel._error.property("cssClass"), "job-detail-error")
+        self.assertEqual(panel._error.text(), "boom")
+        panel.close()
+
+    def test_empty_card_message_is_not_clipped_in_either_mode(self):
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+
+        panel = JobDetailPanel()
+        panel.resize(520, 760)
+        panel.show()
+        for history_mode in (False, True):
+            panel.set_history_mode(history_mode)
+            self._app.processEvents()
+            message = panel._empty_message
+            needed = message.heightForWidth(message.width())
+            self.assertGreaterEqual(
+                message.height(), needed,
+                f"empty-card message clipped in history_mode={history_mode}: "
+                f"{message.height()}px shown, {needed}px needed",
+            )
+        panel.close()
+
+    def test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened(self):
+        # The smoke suite runs offscreen without QT_QPA_FONTDIR, so the empty
+        # card's real-font wrapping can't be reproduced here (the clip is
+        # confirmed via offscreen grabs instead). This pins _WrappedFitLabel's
+        # own contract font-independently: at a narrow width it reserves at
+        # least the true wrapped height (no clip), and WIDENING it must shrink
+        # the reserve. The shrink is the ratchet guard: QLabel.heightForWidth
+        # returns max(text_height, minimumHeight), so a heightForWidth-based
+        # re-pin would stay stuck at the taller narrow-width value forever.
+        from PySide6.QtCore import QRect, Qt
+
+        from plex_renamer.gui_qt.widgets.job_detail_panel import _WrappedFitLabel
+
+        text = (
+            "Queued jobs will appear here. Select one to review its rename "
+            "preview, poster, and file locations."
+        )
+        label = _WrappedFitLabel(text)
+        label.setWordWrap(True)
+        label.setMargin(4)
+        label.resize(150, 10)
+        label.show()
+        self._app.processEvents()
+
+        line_spacing = label.fontMetrics().lineSpacing()
+        content_width = label.width() - 2 * label.margin()
+        true_narrow = label.fontMetrics().boundingRect(
+            QRect(0, 0, content_width, 1 << 20),
+            int(Qt.TextFlag.TextWordWrap),
+            text,
+        ).height() + 2 * label.margin()
+
+        narrow_reserve = label.minimumHeight()
+        self.assertGreater(narrow_reserve, line_spacing, "wrap not exercised")
+        self.assertGreaterEqual(narrow_reserve, true_narrow, "reserved height clips the text")
+
+        label.resize(460, 10)
+        self._app.processEvents()
+        self.assertLess(
+            label.minimumHeight(), narrow_reserve,
+            "widening did not shrink the reserved height (heightForWidth ratchet)",
+        )
+        label.close()
