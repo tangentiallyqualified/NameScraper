@@ -99,7 +99,7 @@ def run(repo_root: Path, options) -> int:
     changes_path.write_text(header + new_body.rstrip() + "\n", encoding="utf-8")
 
     new_baseline = {
-        "commit": _artifacts.current_commit(repo_root),
+        "commit": metrics.get("commit") or _artifacts.current_commit(repo_root),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "modules": {p: {k: r[k] for k in BASELINE_FIELDS} for p, r in metrics["modules"].items()},
         "headline": metrics["headline"],

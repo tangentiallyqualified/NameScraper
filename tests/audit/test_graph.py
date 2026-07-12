@@ -161,3 +161,30 @@ def test_effects_write_env_network(synthetic_repo: Path):
 def test_effects_empty_for_pure_module(synthetic_repo: Path):
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.beta"]["effects"] == []
+
+
+def test_str_replace_not_flagged_as_file_move(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "parser.py").write_text(textwrap.dedent('''\
+        """Parser."""
+
+
+        def clean(name: str) -> str:
+            """Normalize separators."""
+            return name.replace(".", " ")
+    '''), encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.parser"]["effects"] == []
+
+
+def test_path_replace_still_flagged(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "swapper.py").write_text(textwrap.dedent('''\
+        """Swapper."""
+        from pathlib import Path
+
+
+        def swap(a: Path, b: Path) -> None:
+            """Replace b with a."""
+            a.replace(b)
+    '''), encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.swapper"]["effects"] == ["file-move"]

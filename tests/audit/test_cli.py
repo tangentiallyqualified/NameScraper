@@ -50,3 +50,19 @@ def test_check_current_baseline(synthetic_repo: Path, capsys):
     rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
     assert rc == 0
     assert "current" in capsys.readouterr().out
+
+
+def test_fast_does_not_restamp_baseline(synthetic_repo: Path, capsys, repo_git):
+    import json
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    (synthetic_repo / "plex_renamer" / "alpha.py").write_text(
+        (synthetic_repo / "plex_renamer" / "alpha.py").read_text(encoding="utf-8") + "\nZ = 1\n",
+        encoding="utf-8")
+    repo_git(synthetic_repo, "add", "-A")
+    repo_git(synthetic_repo, "commit", "-m", "touch alpha")
+    assert cli.main(["--fast", "--repo-root", str(synthetic_repo)]) == 0
+    capsys.readouterr()
+    rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "behind" in out  # --fast must NOT have restamped the baseline to current HEAD

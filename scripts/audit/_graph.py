@@ -32,7 +32,7 @@ _DOTTED_EFFECTS = {
 _METHOD_EFFECTS = {
     "write_text": "file-write", "write_bytes": "file-write",
     "touch": "file-write", "mkdir": "file-write",
-    "rename": "file-move", "replace": "file-move",
+    "rename": "file-move",
     "unlink": "file-delete", "rmdir": "file-delete",
 }
 _NETWORK_IMPORTS = {"requests", "urllib", "urllib3", "http", "socket"}
@@ -71,6 +71,9 @@ def _effects(tree: ast.Module, external_imports: list[str]) -> list[str]:
                 found.add(_DOTTED_EFFECTS[dotted])
             elif isinstance(node.func, ast.Attribute) and node.func.attr in _METHOD_EFFECTS:
                 found.add(_METHOD_EFFECTS[node.func.attr])
+            elif (isinstance(node.func, ast.Attribute) and node.func.attr == "replace"
+                  and len(node.args) == 1):
+                found.add("file-move")
             elif isinstance(node.func, ast.Name) and node.func.id == "open":
                 if _WRITE_MODE_CHARS & set(_open_mode(node)):
                     found.add("file-write")

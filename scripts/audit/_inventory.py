@@ -57,7 +57,7 @@ def _git_last_touched(repo_root: Path, rel: Path) -> str | None:
             ["git", "log", "-1", "--format=%cI", "--", rel.as_posix()],
             cwd=repo_root, capture_output=True, text=True, timeout=15,
         )
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return None
     out = result.stdout.strip()
     return out if result.returncode == 0 and out else None

@@ -136,7 +136,7 @@ def main() -> int:
             rev = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
                           capture_output=True, text=True, timeout=15)
             commit = rev.stdout.strip() or None if rev.returncode == 0 else None
-        except OSError:
+        except (OSError, _sp.SubprocessError):
             pass
         (repo_root / ".coverage.meta.json").write_text(
             _json.dumps({"commit": commit,
