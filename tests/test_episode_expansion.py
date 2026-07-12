@@ -474,6 +474,124 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         )
         self.assertEqual(ids("Mapped"), ["reassign", "assign_to_more", "unassign"])
 
+    # -- Task 7 (spec §4): tracks-widget whitespace diagnosis -------------
+
+    def _expected_card_height(self, card, tracks):
+        """margins + header row + one spacing gap + the tracks widget's OWN
+        sizeHint() -- deliberately NOT card._files_section.sizeHint() or
+        card.layout().sizeHint(), which share the exact
+        widget.sizeHint().expandedTo(widget.minimumSizeHint()) path under
+        test (see test_card_height_matches_tracks_content_no_extra_whitespace)
+        and would silently agree with a still-inflated card total instead of
+        catching it."""
+        outer = card.layout()
+        margins = outer.contentsMargins()
+        header_height = card._header_widget.sizeHint().height()
+        return (
+            margins.top() + margins.bottom()
+            + header_height + outer.spacing()
+            + tracks.sizeHint().height()
+        )
+
+    def test_card_height_matches_tracks_content_no_extra_whitespace(self):
+        # Step 2 diagnosis (task-7-report.md): AutoMuxTracksWidget only
+        # overrode sizeHint(), not minimumSizeHint() -- Qt's
+        # QWidgetItem.sizeHint() (used by ANY parent layout measuring the
+        # widget as a layout item, e.g. this card's _files_section) computes
+        # widget.sizeHint().expandedTo(widget.minimumSizeHint()), and the
+        # un-overridden default minimumSizeHint() walks the tracks widget's
+        # OWN internal layout -- including _rows_scroll, a QScrollArea whose
+        # default minimumSizeHint() is a roughly-constant, content-blind
+        # floor (~frame + scrollbar chrome) -- so whenever real content is
+        # smaller than that floor (probing/error/no-actions placeholder,
+        # or few tracks) the card silently reserves the floor's height
+        # instead of the content's -- extra whitespace.
+        #
+        # A card populated directly via a 3-track show_plan() (the brief's
+        # literal recipe) does NOT reliably discriminate this bug offscreen:
+        # 3 checkbox rows happen to land close enough to the QScrollArea's
+        # content-blind floor (~108px here) that the gap is only ~4px,
+        # under most reasonable tolerances. The placeholder/probing state is
+        # the discriminating snapshot -- its content (~40px) sits ~68px
+        # below that same floor. Verified per Step 2's instructions:
+        # reproduced with the async re-measure sequence in the test below
+        # once the direct-populate snapshot alone proved inconclusive.
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._automux_tracks import AutoMuxTracksWidget
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        tracks = AutoMuxTracksWidget()
+        tracks.show_probing()
+        card.add_tracks_widget(tracks)
+        card.show()
+        self._app.processEvents()
+        self._app.processEvents()
+
+        expected = self._expected_card_height(card, tracks)
+        actual = card.sizeHint().height()
+        self.assertLessEqual(
+            abs(actual - expected), _scale.px(8),
+            f"card.sizeHint() reports {actual}px but the visible sections "
+            f"(header + tracks {tracks.sizeHint().height()}px + "
+            f"margins/spacing) only need {expected}px "
+            f"({actual - expected}px of extra whitespace)",
+        )
+
+    def test_card_height_tracks_late_plan_arrival_no_stale_floor(self):
+        # Reproduces the async re-measure sequence per Step 2's instructions
+        # (populate probing -> show_plan later) so the fix is verified under
+        # the same real bridge-style arrival pattern Task 4 investigated --
+        # both immediately after the synchronous show_plan() call returns
+        # (no processEvents() gap, Task 4-style) and once real 3-track
+        # content has landed (the brief's literal plan size).
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._automux_tracks import AutoMuxTracksWidget
+        from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
+        plan = {
+            "output_name": "X.mkv",
+            "track_decisions": [
+                {"track_id": i, "track_type": "audio", "codec": "aac",
+                 "language": "eng", "name": "", "keep": True,
+                 "make_default": i == 0, "reason": "retained"}
+                for i in range(3)
+            ],
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+        card = EpisodeExpansionCard()
+        self.addCleanup(card.deleteLater)
+        tracks = AutoMuxTracksWidget()
+        tracks.show_probing()
+        card.add_tracks_widget(tracks)
+        card.show()
+        self._app.processEvents()
+        self._app.processEvents()
+
+        tracks.show_plan(plan)
+        immediate = card.sizeHint().height()
+        self._app.processEvents()
+        self._app.processEvents()
+        settled = card.sizeHint().height()
+
+        # The card must reflect the real plan's content immediately -- not
+        # stay pinned at a stale/floor height across the async arrival.
+        self.assertEqual(
+            immediate, settled,
+            "card.sizeHint() changed after processEvents() -- the plan's "
+            "arrival was not reflected immediately",
+        )
+        expected = self._expected_card_height(card, tracks)
+        self.assertLessEqual(
+            abs(settled - expected), _scale.px(8),
+            f"card.sizeHint() reports {settled}px but the visible sections "
+            f"only need {expected}px ({settled - expected}px of extra "
+            "whitespace)",
+        )
+
     def test_path_rows_bold_their_labels(self):
         from PySide6.QtWidgets import QLabel
 

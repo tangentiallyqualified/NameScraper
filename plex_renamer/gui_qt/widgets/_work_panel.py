@@ -434,6 +434,16 @@ class MediaWorkPanel(QFrame):
                 old.hide()
                 old.deleteLater()
         if widget is not None:
+            # Movie mode gives this section the panel's remaining vertical
+            # space (see _sync_movie_mode_visibility's stretch factor) --
+            # lift the widget's own normal 8-row cap so its row viewport can
+            # actually grow into that space instead of staying pinned at 8
+            # rows with a dead gap below it (Task 7, spec §4). Guarded with
+            # getattr: tests (and any future non-AutoMuxTracksWidget host
+            # content) may pass a plain QWidget without this method.
+            set_fill = getattr(widget, "set_fill_mode", None)
+            if callable(set_fill):
+                set_fill(True)
             self._automux_tracks_host.addWidget(widget)
 
     def refresh_header(self, state: ScanState | None) -> None:

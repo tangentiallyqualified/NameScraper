@@ -11,11 +11,14 @@ from __future__ import annotations
 import copy
 
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +33,41 @@ _MAX_VISIBLE_ROWS = 8
 _ROW_H_U = 24
 
 
+class _ElidedNoticeLabel(QLabel):
+    """A QLabel whose ON-SCREEN text elides to whatever width the heading
+    row actually gives it, re-computed from the original source string on
+    every resize so widening later can recover characters an earlier narrow
+    elision dropped (Task 7, spec §4). ``text()`` keeps QLabel's normal
+    contract of returning what is actually rendered -- callers that need
+    the un-elided source use the separately set-and-tracked tooltip
+    (``AutoMuxTracksWidget._set_notice`` sets both from the same string)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__("", parent)
+        self._source_text = ""
+        self.setWordWrap(False)
+        self.setMinimumWidth(0)
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        self._source_text = text
+        self._sync_display_text()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._sync_display_text()
+
+    def _sync_display_text(self) -> None:
+        width = self.width()
+        if width <= 0:
+            # Not laid out yet -- resizeEvent re-elides once sized; showing
+            # the full text meanwhile is harmless (never painted at 0 width).
+            super().setText(self._source_text)
+            return
+        metrics = QFontMetrics(self.font())
+        display = metrics.elidedText(self._source_text, Qt.TextElideMode.ElideRight, width)
+        super().setText(display)
+
+
 class AutoMuxTracksWidget(QFrame):
     plan_edited = Signal(dict)
 
@@ -40,9 +78,22 @@ class AutoMuxTracksWidget(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, _scale.px(4), 0, _scale.px(4))
         layout.setSpacing(_scale.px(4))
+        # Heading row (spec §4): the notice sits inline, right of "Tracks",
+        # in its own row container -- not a separate bottom row -- elided to
+        # whatever width remains and always carrying the full text as a
+        # tooltip (set on every display-state call below).
+        self._heading_row = QWidget()
+        heading_layout = QHBoxLayout(self._heading_row)
+        heading_layout.setContentsMargins(0, 0, 0, 0)
+        heading_layout.setSpacing(_scale.px(6))
         self._heading = QLabel("Tracks")
         self._heading.setProperty("cssClass", "field-label")
-        layout.addWidget(self._heading)
+        heading_layout.addWidget(self._heading)
+        self._notice = _ElidedNoticeLabel()
+        self._notice.setProperty("cssClass", "caption")
+        self._notice.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        heading_layout.addWidget(self._notice, 1)
+        layout.addWidget(self._heading_row)
         self._rows_host = QWidget()
         self._rows = QVBoxLayout(self._rows_host)
         self._rows.setContentsMargins(0, 0, 0, 0)
@@ -54,23 +105,20 @@ class AutoMuxTracksWidget(QFrame):
         self._rows_scroll.setWidget(self._rows_host)
         self._rows_scroll.setMaximumHeight(_scale.px(_MAX_VISIBLE_ROWS * _ROW_H_U))
         layout.addWidget(self._rows_scroll)
-        self._notice = QLabel("")
-        self._notice.setProperty("cssClass", "caption")
-        self._notice.setWordWrap(True)
-        layout.addWidget(self._notice)
+        self._fill_mode = False
 
     # ── Display states ────────────────────────────────────────────────
 
     def show_probing(self) -> None:
         self._plan = None
         self._clear_rows()
-        self._notice.setText("Reading tracks…")
+        self._set_notice("Reading tracks…")
         self.updateGeometry()
 
     def show_error(self, error: str) -> None:
         self._plan = None
         self._clear_rows()
-        self._notice.setText(
+        self._set_notice(
             f"Tracks unavailable — {error}. "
             "This file will be renamed without remuxing.")
         self.updateGeometry()
@@ -78,13 +126,13 @@ class AutoMuxTracksWidget(QFrame):
     def show_no_actions(self) -> None:
         self._plan = None
         self._clear_rows()
-        self._notice.setText("No AutoMux actions apply to this file.")
+        self._set_notice("No AutoMux actions apply to this file.")
         self.updateGeometry()
 
     def show_plan(self, plan: dict, *, locked: bool = False) -> None:
         self._plan = copy.deepcopy(plan)
         self._clear_rows()
-        self._notice.setText("; ".join(plan.get("warnings", [])))
+        self._set_notice("; ".join(plan.get("warnings", [])))
         for pos, decision in enumerate(self._plan.get("track_decisions", [])):
             box = QCheckBox(self._embedded_label(decision))
             box.setChecked(bool(decision["keep"]))
@@ -116,6 +164,28 @@ class AutoMuxTracksWidget(QFrame):
             box.show()  # see the comment above -- same visibility/sizeHint gap
         self.updateGeometry()
 
+    # ── Fill mode ─────────────────────────────────────────────────────
+
+    def set_fill_mode(self, fill: bool) -> None:
+        """``fill=True`` (movie work panel host): lift the row list's 8-row
+        max-height cap and let it expand vertically to fill whatever space
+        the host gives it. ``fill=False`` (expansion card, the default):
+        restore the normal 8-row cap (Task 8). The movie host calls this
+        with ``True`` when installing a widget via
+        ``MediaWorkPanel.set_automux_tracks`` (spec §4) -- the expansion
+        card path never calls it, so cards keep the capped/scrollable
+        behavior unconditionally."""
+        self._fill_mode = fill
+        policy = self._rows_scroll.sizePolicy()
+        if fill:
+            self._rows_scroll.setMaximumHeight(16777215)
+            policy.setVerticalPolicy(QSizePolicy.Policy.Expanding)
+        else:
+            self._rows_scroll.setMaximumHeight(_scale.px(_MAX_VISIBLE_ROWS * _ROW_H_U))
+            policy.setVerticalPolicy(QSizePolicy.Policy.Preferred)
+        self._rows_scroll.setSizePolicy(policy)
+        self.updateGeometry()
+
     # ── Sizing ────────────────────────────────────────────────────────
 
     def sizeHint(self) -> QSize:  # noqa: N802
@@ -132,17 +202,42 @@ class AutoMuxTracksWidget(QFrame):
         margins = self.layout().contentsMargins()
         spacing = self.layout().spacing()
         rows_height = min(self._rows_host.sizeHint().height(), self._rows_scroll.maximumHeight())
-        total = margins.top() + margins.bottom() + self._heading.sizeHint().height() + spacing + rows_height
-        # The notice label sits unconditionally in the layout: even with
-        # empty text a QLabel reports a non-zero sizeHint and the layout
-        # reserves that space, so always account for it. Gating on
-        # self._notice.text() under-reported the hint in the common
-        # no-warnings case and squeezed the scroll viewport below the
-        # intended 8-row cap.
-        total += spacing + self._notice.sizeHint().height()
+        # The heading row (heading label + inline notice, spec §4) already
+        # accounts for the notice's reserved height -- it's no longer a
+        # separate bottom row, so there is no second notice contribution
+        # to add here.
+        total = margins.top() + margins.bottom() + self._heading_row.sizeHint().height() + spacing + rows_height
         return QSize(base.width(), total)
 
+    def minimumSizeHint(self) -> QSize:  # noqa: N802
+        """Qt's default minimumSizeHint() forwards to
+        ``layout().totalMinimumSize()``, which walks this widget's OWN
+        internal layout independently of the sizeHint() override above --
+        including ``_rows_scroll``, a QScrollArea whose default
+        minimumSizeHint() is a roughly-constant, content-blind floor (frame
+        + scrollbar chrome) unrelated to how many rows are actually shown.
+
+        Any PARENT layout measuring this widget as a layout item (the
+        expansion card's ``_files_section``, the movie panel's
+        ``_automux_tracks_host``) computes
+        ``widget.sizeHint().expandedTo(widget.minimumSizeHint())``
+        (``QWidgetItem::sizeHint()``) -- so without this override, that
+        content-blind floor silently wins over the correct, content-driven
+        sizeHint() above whenever real content is smaller than it (probing
+        placeholder, error/no-actions notice, or just a few tracks),
+        reserving genuine dead whitespace in every host (Task 7, spec §4).
+        Mirroring sizeHint() here closes that gap at its source."""
+        return self.sizeHint()
+
     # ── Internals ─────────────────────────────────────────────────────
+
+    def _set_notice(self, text: str) -> None:
+        """Set the inline notice's text and its tooltip to the FULL,
+        un-elided text (spec §4) -- called from every display-state method
+        above so a long probe error or warnings list is always fully
+        readable on hover, even once the on-screen text elides."""
+        self._notice.setText(text)
+        self._notice.setToolTip(text)
 
     def _clear_rows(self) -> None:
         while self._rows.count():

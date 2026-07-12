@@ -431,6 +431,62 @@ class WorkPanelTests(QtSmokeBase):
         )
         panel.close()
 
+    def test_movie_mode_tracks_widget_fills_available_space(self):
+        # Task 7 (spec §4): set_automux_tracks must lift the real
+        # AutoMuxTracksWidget's normal 8-row cap in the movie host (via
+        # set_fill_mode(True)) so a big plan's row viewport can grow into
+        # the panel's freed space, instead of staying pinned at 8 rows with
+        # a dead gap between the widget and the panel bottom.
+        from plex_renamer.gui_qt import _scale
+        from plex_renamer.gui_qt.widgets._automux_tracks import AutoMuxTracksWidget
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        panel = MediaWorkPanel(media_type="movie")
+        state = self._movie_state_actionable()
+        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.resize(760, 900)
+        panel.show()
+
+        plan = {
+            "output_name": "Movie.mkv",
+            "track_decisions": [
+                {"track_id": i, "track_type": "audio", "codec": "aac",
+                 "language": "eng", "name": f"Track {i}", "keep": True,
+                 "make_default": i == 0, "reason": "retained"}
+                for i in range(20)
+            ],
+            "subtitle_merges": [],
+            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
+            "warnings": [], "user_modified": False,
+        }
+        tracks = AutoMuxTracksWidget()
+        tracks.show_plan(plan)
+        panel.set_automux_tracks(tracks)
+
+        self._app.processEvents()
+        panel.layout().activate()
+        self._app.processEvents()
+        self._app.processEvents()
+
+        self.assertGreater(
+            tracks._rows_scroll.height(), _scale.px(8 * 24),
+            "the movie host must lift the 8-row cap so a 20-track plan's "
+            "viewport can grow past it",
+        )
+
+        # The gap between the tracks widget's bottom and the panel's bottom
+        # must only be the panel's own outer margin -- not a dead strip of
+        # unused space below a still-capped widget.
+        panel_bottom = panel.height()
+        tracks_bottom = tracks.mapTo(panel, tracks.rect().bottomLeft()).y()
+        margin = panel.layout().contentsMargins().bottom()
+        self.assertLessEqual(
+            panel_bottom - tracks_bottom, margin + _scale.px(8),
+            f"{panel_bottom - tracks_bottom}px gap below the tracks widget "
+            f"exceeds the panel's own {margin}px margin",
+        )
+        panel.close()
+
     def test_refresh_header_reuses_strip_buttons_when_seasons_unchanged(self):
         state, guide = _guide_state()
         panel = self._panel(state, guide)

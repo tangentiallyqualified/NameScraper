@@ -98,7 +98,12 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget.show_plan(plan)
         widget.adjustSize()
         from plex_renamer.gui_qt import _scale
-        self.assertLessEqual(widget.sizeHint().height(), _scale.px(8 * 24 + 80))
+        # Task 7: the notice moved inline onto the heading row (no separate
+        # bottom row), so the cap-plus-slack tolerance dropped from the
+        # pre-Task-7 formula's +80 (heading row + row cap + a standalone
+        # notice row) to +40 (heading row, now inline with the notice, +
+        # the row cap).
+        self.assertLessEqual(widget.sizeHint().height(), _scale.px(8 * 24 + 40))
         # QScrollArea only recomputes its scrollbar range once its viewport
         # is actually shown/polished -- pump the queue after show() so the
         # offscreen platform delivers the pending layout/resize events.
@@ -108,8 +113,8 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         # With 30 tracks and no warnings the scroll area must get its FULL
         # 8-row viewport, not just "something under the cap": an exact
         # equality catches sizeHint() under-reporting (e.g. forgetting the
-        # always-present notice label's reserved space), which squeezes
-        # the viewport below 8 visible rows.
+        # heading row's reserved space), which squeezes the viewport below
+        # 8 visible rows.
         self.assertEqual(widget._rows_scroll.height(), _scale.px(8 * 24))
         self.assertTrue(widget._rows_scroll.verticalScrollBar().maximum() > 0)
 
@@ -122,3 +127,58 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         self.assertIn("boom", widget._notice.text())
         widget.show_no_actions()
         self.assertIn("No AutoMux actions", widget._notice.text())
+
+    # ── Task 7: inline notice, fill mode, whitespace fix ─────────────────
+
+    def test_notice_sits_on_the_heading_line(self):
+        # spec §4: the notice is no longer its own bottom row -- it renders
+        # inline, right of the "Tracks" heading, in the same header row.
+        widget = self._widget()
+        widget.show_no_actions()
+        widget.show()
+        self._app.processEvents()
+        self._app.processEvents()
+        self.assertIs(widget._notice.parent(), widget._heading_row)
+        self.assertIs(widget._heading.parent(), widget._heading_row)
+        self.assertLess(
+            widget._notice.geometry().y(), widget._rows_scroll.geometry().y())
+
+    def test_fill_mode_lifts_the_row_cap(self):
+        from plex_renamer.gui_qt import _scale
+
+        widget = self._widget()
+        widget.set_fill_mode(True)
+        self.assertEqual(widget._rows_scroll.maximumHeight(), 16777215)
+        widget.set_fill_mode(False)
+        self.assertEqual(
+            widget._rows_scroll.maximumHeight(), _scale.px(8 * 24))
+
+    def test_notice_elides_long_text_and_sets_full_tooltip(self):
+        # Long notice text (e.g. a long mkvmerge error) must not blow out the
+        # heading row's width -- it elides, with the FULL text available as
+        # a tooltip, in every display state that sets notice text.
+        widget = self._widget()
+        # Resize the notice label itself (not just its container) to force
+        # a narrow measuring width -- _ElidedNoticeLabel re-elides from its
+        # own resizeEvent, and without a live layout pass a container resize
+        # alone does not cascade down to an unshown child.
+        widget._notice.resize(60, 20)
+        long_error = (
+            "a very long probe failure message that should not fit on the "
+            "heading line at all, no matter how narrow the card gets"
+        )
+        widget.show_error(long_error)
+        self.assertIn(long_error, widget._notice.toolTip())
+        self.assertLess(len(widget._notice.text()), len(long_error))
+
+        widget.show_probing()
+        self.assertEqual(widget._notice.toolTip(), "Reading tracks…")
+
+        widget.show_no_actions()
+        self.assertEqual(
+            widget._notice.toolTip(), "No AutoMux actions apply to this file.")
+
+        plan = dict(PLAN)
+        plan["warnings"] = [long_error]
+        widget.show_plan(plan)
+        self.assertIn(long_error, widget._notice.toolTip())
