@@ -35,7 +35,7 @@ class MediaWorkspaceViewCoordinator:
 
     def folder_preview_data(self, state: ScanState) -> tuple[str, str] | None:
         workspace = self._workspace
-        source = state.folder.name
+        source = str(state.folder)
         if workspace._media_type == "movie":
             target = build_movie_name(
                 state.media_info.get("title", state.display_name),

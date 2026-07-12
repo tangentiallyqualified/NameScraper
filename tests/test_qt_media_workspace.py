@@ -1983,6 +1983,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIsNone(self._folder_section_target(workspace))
         workspace.close()
 
+    def test_folder_preview_source_is_full_path(self):
+        from plex_renamer.gui_qt.widgets._media_workspace_view import MediaWorkspaceViewCoordinator
+
+        class _FakeWorkspace:
+            _media_type = "tv"
+
+        state = ScanState(
+            folder=Path("C:/library/tv/Example.Show.2024"),
+            media_info={"name": "Example Show", "year": "2024"},
+        )
+        coordinator = MediaWorkspaceViewCoordinator(_FakeWorkspace())
+        result = coordinator.folder_preview_data(state)
+        self.assertIsNotNone(result)
+        source, target = result
+        self.assertEqual(source, str(state.folder))          # absolute path, not .name
+        self.assertEqual(target, "Example Show (2024)")
+
     def test_media_workspace_auto_collapsed_specials_header_expands_without_rebuilding_preview(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 

@@ -638,6 +638,7 @@ class EpisodeTableModel(QAbstractListModel):
             kind="folder",
             title=source_name,
             target=target_name,
+            tooltip=f"{source_name} -> {target_name}",
         )
         if not self._passes_search(row_data):
             return

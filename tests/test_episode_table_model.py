@@ -457,6 +457,19 @@ class EpisodeTableModelTests(QtSmokeBase):
         model = self._model(state, guide)
         self.assertEqual(model.folder_section_key(), "folder-preview")
 
+    def test_folder_row_tooltip_carries_full_source_and_target(self):
+        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
+
+        state, guide = _guide_state()
+        folder_preview = ("C:/lib/Show", "Show (2020)")
+        model = self._model(state, guide, folder_preview=folder_preview)
+        rows = [r for r in range(model.rowCount()) if model.row_kind_at(r) == "folder"]
+        self.assertEqual(len(rows), 1)
+        data = model.index(rows[0], 0).data(ROW_DATA_ROLE)
+        self.assertEqual(data.title, "C:/lib/Show")
+        self.assertEqual(data.target, "Show (2020)")
+        self.assertEqual(data.tooltip, "C:/lib/Show -> Show (2020)")
+
 
 # A plan that carries an actionable decision (mirrors PLAN in
 # test_workspace_automux.py, trimmed to what plan_has_actions() checks).
