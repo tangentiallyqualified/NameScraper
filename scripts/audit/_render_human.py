@@ -67,6 +67,17 @@ def _finding_list(analysis: dict, category: str, empty: str) -> str:
     return "\n".join(lines) if lines else empty
 
 
+def _effects_table(graph: dict) -> str:
+    rows = [
+        f"| `{mod['path']}` | {', '.join(mod['effects'])} |"
+        for _name, mod in sorted(graph["modules"].items(), key=lambda kv: kv[1]["path"])
+        if mod.get("effects")
+    ]
+    if not rows:
+        return "_No external effects detected._"
+    return "| Module | Effects |\n|---|---|\n" + "\n".join(rows)
+
+
 def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict) -> str:
     h = metrics["headline"]
     cov = f"{h['avg_coverage']}%" if h["avg_coverage"] is not None else "n/a"
@@ -85,6 +96,7 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
         + _finding_list(analysis, "dependency", "_None. Declared dependencies match imports._"),
         "## Layer contracts\n\n"
         + _finding_list(analysis, "layer-violation", "_No violations._"),
+        "## External effects\n\n" + _effects_table(graph),
         "## Dead-code review checklist\n\n" + _dead_checklist(analysis),
     ]
     commit = _artifacts.current_commit(repo_root) or "unknown"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 from audit import _artifacts, _graph, _inventory
@@ -105,3 +106,58 @@ def test_malformed_pyproject_schema_does_not_abort(synthetic_repo: Path):
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
     assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False
+
+
+def test_effects_detected_for_mutating_module(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "mover.py").write_text(textwrap.dedent('''\
+        """Mover."""
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+
+        def relocate(src: Path, dst: Path) -> None:
+            """Move a file."""
+            shutil.move(str(src), str(dst))
+
+
+        def cleanup(path: Path) -> None:
+            """Delete a file."""
+            path.unlink()
+
+
+        def probe() -> None:
+            """Spawn a process."""
+            subprocess.run(["git", "status"], check=False)
+    '''), encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.mover"]["effects"] == [
+        "file-delete", "file-move", "subprocess"]
+
+
+def test_effects_write_env_network(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "writer.py").write_text(textwrap.dedent('''\
+        """Writer."""
+        import os
+        import requests
+        from pathlib import Path
+
+
+        def save(path: Path, body: str) -> None:
+            """Write output."""
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(body)
+
+
+        def token() -> str:
+            """Read config from environment."""
+            return os.environ.get("TOKEN", "")
+    '''), encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.writer"]["effects"] == [
+        "env", "file-write", "network"]
+
+
+def test_effects_empty_for_pure_module(synthetic_repo: Path):
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.beta"]["effects"] == []

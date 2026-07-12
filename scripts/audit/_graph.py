@@ -17,6 +17,69 @@ def _module_name(rel_posix: str) -> str:
     return ".".join(parts)
 
 
+_DOTTED_EFFECTS = {
+    "os.rename": "file-move", "os.replace": "file-move", "shutil.move": "file-move",
+    "os.remove": "file-delete", "os.unlink": "file-delete", "os.rmdir": "file-delete",
+    "shutil.rmtree": "file-delete",
+    "shutil.copy": "file-write", "shutil.copy2": "file-write",
+    "shutil.copyfile": "file-write", "shutil.copytree": "file-write",
+    "os.makedirs": "file-write", "os.mkdir": "file-write",
+    "os.system": "subprocess", "subprocess.run": "subprocess",
+    "subprocess.Popen": "subprocess", "subprocess.call": "subprocess",
+    "subprocess.check_call": "subprocess", "subprocess.check_output": "subprocess",
+    "os.getenv": "env",
+}
+_METHOD_EFFECTS = {
+    "write_text": "file-write", "write_bytes": "file-write",
+    "touch": "file-write", "mkdir": "file-write",
+    "rename": "file-move", "replace": "file-move",
+    "unlink": "file-delete", "rmdir": "file-delete",
+}
+_NETWORK_IMPORTS = {"requests", "urllib", "urllib3", "http", "socket"}
+_WRITE_MODE_CHARS = set("wax+")
+
+
+def _dotted_name(node: ast.AST) -> str | None:
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _open_mode(call: ast.Call) -> str:
+    mode = ""
+    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str):
+        mode = call.args[1].value
+    for kw in call.keywords:
+        if kw.arg == "mode" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+            mode = kw.value.value
+    return mode
+
+
+def _effects(tree: ast.Module, external_imports: list[str]) -> list[str]:
+    found: set[str] = set()
+    if set(external_imports) & _NETWORK_IMPORTS:
+        found.add("network")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            dotted = _dotted_name(node.func)
+            if dotted in _DOTTED_EFFECTS:
+                found.add(_DOTTED_EFFECTS[dotted])
+            elif isinstance(node.func, ast.Attribute) and node.func.attr in _METHOD_EFFECTS:
+                found.add(_METHOD_EFFECTS[node.func.attr])
+            elif isinstance(node.func, ast.Name) and node.func.id == "open":
+                if _WRITE_MODE_CHARS & set(_open_mode(node)):
+                    found.add("file-write")
+        elif isinstance(node, ast.Attribute):
+            if node.attr == "environ" and isinstance(node.value, ast.Name) and node.value.id == "os":
+                found.add("env")
+    return sorted(found)
+
+
 def _entrypoint_modules(repo_root: Path, module_names: set[str]) -> set[str]:
     """Modules runnable directly: dunder-main files and [project.scripts] targets."""
     eps = {name for name in module_names
@@ -148,7 +211,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         modules[name] = {
             "path": rec["path"], "doc": _first_doc_line(tree),
             "imports": [], "fan_in": 0, "fan_out": 0, "symbols": _symbols(tree),
-            "external_imports": [],
+            "external_imports": [], "effects": [],
         }
 
     # symbol lookup for imported_by attribution
@@ -186,6 +249,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         modules[name]["imports"] = resolved
         modules[name]["fan_out"] = len(resolved)
         modules[name]["external_imports"] = sorted(external)
+        modules[name]["effects"] = _effects(tree, modules[name]["external_imports"])
 
     for name, mod in modules.items():
         for target in mod["imports"]:

@@ -31,3 +31,13 @@ def test_overview_lists_layer_violations(synthetic_repo: Path):
     text = overview_for(synthetic_repo, contracts_text=contracts)
     assert "## Layer contracts" in text
     assert "forbidden by contract" in text
+
+
+def test_overview_effects_table(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "mut.py").write_text(
+        '"""Mut."""\nimport shutil\n\n\ndef go(a, b):\n    """Move."""\n    shutil.move(a, b)\n',
+        encoding="utf-8",
+    )
+    text = overview_for(synthetic_repo)
+    assert "## External effects" in text
+    assert "| `plex_renamer/mut.py` | file-move |" in text
