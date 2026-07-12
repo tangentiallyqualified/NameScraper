@@ -1,0 +1,10 @@
+# Known-legitimate symbols that dead-code analysis would otherwise flag.
+# Each entry may set `symbol` and/or `path` (fnmatch patterns) and must give a reason.
+ignore = [
+  { symbol = "closeEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "eventFilter", reason = "Qt event handler, called by framework" },
+  { symbol = "paintEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "resizeEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "showEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "main", path = "plex_renamer/__main__.py", reason = "console entry point" },
+]

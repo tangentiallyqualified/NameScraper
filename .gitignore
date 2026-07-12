@@ -7,6 +7,9 @@ __pycache__/
 .ruff_cache/
 .worktrees/
 .scan-dumps/
+.audit/
+.coverage
+.coverage.*
 
 .claude/
 .vscode/
@@ -23,5 +26,6 @@ plex_renamer/test_library.zip
 # untrack existing ones with `git rm --cached <path>` (or `-r` for a folder).
 # (docs/ supersedes the former docs/test_library/ and docs/local/ entries.)
 CLAUDE.md
-docs/
+docs/*
+!docs/audit/
 scripts/scan_real_library.py

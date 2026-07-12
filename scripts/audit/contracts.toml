@@ -1,0 +1,11 @@
+# Layer contracts: forbidden import directions, prefix-matched on module names.
+# Violations are advisory findings (category layer-violation), never blocking.
+[[forbid]]
+from = "plex_renamer.engine"
+to = "plex_renamer.gui_qt"
+reason = "engine must stay headless - GUI depends on engine, never the reverse"
+
+[[forbid]]
+from = "plex_renamer.engine"
+to = "plex_renamer.app"
+reason = "engine is the bottom layer - orchestration imports engine, not the reverse"

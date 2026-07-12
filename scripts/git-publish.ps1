@@ -6,7 +6,9 @@ param(
 
     [string]$Branch,
 
-    [switch]$StageAll
+    [switch]$StageAll,
+
+    [switch]$NoAuditCheck
 )
 
 Set-StrictMode -Version Latest
@@ -44,6 +46,20 @@ try {
     Write-Host "Repository: $repoRoot"
     Write-Host "Current branch: $currentBranch"
     Write-Host "Target branch: $Branch"
+
+    if (-not $NoAuditCheck) {
+        $auditPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
+        if (Test-Path $auditPython) {
+            $env:PYTHONPATH = Join-Path $repoRoot "scripts"
+            $auditLines = & $auditPython -m audit --check
+            if ($LASTEXITCODE -eq 0 -and $auditLines) {
+                $auditLines | Select-Object -First 3 | ForEach-Object { Write-Host "audit: $_" }
+            } else {
+                Write-Host "audit: staleness check unavailable"
+            }
+        }
+    }
+
     Write-Host ""
     Write-Host "Working tree status:"
     git status --short
