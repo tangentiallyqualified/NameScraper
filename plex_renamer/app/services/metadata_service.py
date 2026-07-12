@@ -13,6 +13,7 @@ import re
 from pathlib import Path, PurePosixPath
 
 from ..._mkv_locate import find_mkvpropedit
+from ..._mkv_tags_render import render_episode_tags, render_movie_tags
 from ..._nfo_render import (
     render_episode_nfo,
     render_movie_nfo,
@@ -84,6 +85,7 @@ def build_metadata_plan(job, tmdb_client, svc) -> dict | None:
     plan: dict = {
         "nfo_files": [],
         "artwork": [],
+        "embed_extras": [],
         "embed_title": bool(svc.metadata_embed_title),
         "prefer_local": bool(svc.metadata_prefer_local),
         "plex_naming": bool(svc.metadata_plex_naming),
@@ -135,6 +137,10 @@ def _populate_tv(plan, job, video_ops, client, svc) -> None:
                          season_dir / f"Season{sn:02d}.jpg",
                          "season_poster", slot, plex_extra=True)
 
+    embed_tags = bool(getattr(svc, "metadata_embed_tags", False))
+    embed_cover = bool(getattr(svc, "metadata_embed_cover", False))
+    show_poster = job.poster_path or details.get("poster_path")
+
     for op in video_ops:
         if op.season is None or not op.episodes:
             continue
@@ -142,12 +148,12 @@ def _populate_tv(plan, job, video_ops, client, svc) -> None:
         stem = _posix(op.new_name).stem
         target_dir = _posix(op.target_dir_relative)
 
+        blocks = [
+            {"season": op.season, "episode": ep,
+             "meta": episodes_meta.get(ep) or {}}
+            for ep in op.episodes
+        ]
         if svc.metadata_write_episode_nfo:
-            blocks = [
-                {"season": op.season, "episode": ep,
-                 "meta": episodes_meta.get(ep) or {}}
-                for ep in op.episodes
-            ]
             if any(block["meta"] for block in blocks):
                 _nfo(plan, render_episode_nfo(blocks),
                      target_dir / f"{stem}.nfo",
@@ -161,6 +167,21 @@ def _populate_tv(plan, job, video_ops, client, svc) -> None:
             if plan["plex_naming"]:
                 _art(plan, still, target_dir / f"{stem}.jpg",
                      "episode_thumb", slot, plex_extra=True)
+
+        if ((embed_tags or embed_cover)
+                and _posix(op.new_name).suffix.lower() == ".mkv"):
+            tags_xml = (render_episode_tags(details, blocks)
+                        if embed_tags else None)
+            cover = None
+            if embed_cover:
+                cover = (payloads.get(op.season, {}).get("season_poster_path")
+                         or show_poster)
+            if tags_xml or cover:
+                plan["embed_extras"].append({
+                    "op": op.original_relative,
+                    "tags_xml": tags_xml,
+                    "cover_tmdb_path": cover or None,
+                })
 
 
 def _season_dir(video_ops, season: int) -> PurePosixPath | None:
@@ -181,13 +202,29 @@ def _populate_movie(plan, job, video_ops, client, svc) -> None:
 
     _populate_common_art(plan, details, root, svc, client, job.poster_path)
 
+    embed_tags = bool(getattr(svc, "metadata_embed_tags", False))
+    embed_cover = bool(getattr(svc, "metadata_embed_cover", False))
+    if ((embed_tags or embed_cover)
+            and _posix(op.new_name).suffix.lower() == ".mkv"):
+        tags_xml = (render_movie_tags(details)
+                    if embed_tags and details else None)
+        cover = ((job.poster_path or details.get("poster_path"))
+                 if embed_cover else None)
+        if tags_xml or cover:
+            plan["embed_extras"].append({
+                "op": op.original_relative,
+                "tags_xml": tags_xml,
+                "cover_tmdb_path": cover or None,
+            })
+
 
 def finalize_plan(plan: dict | None) -> dict | None:
     """Drop unfulfilled artwork placeholders; None when nothing remains."""
     if not plan:
         return None
     plan["artwork"] = [a for a in plan["artwork"] if a.get("tmdb_path")]
-    if not plan["nfo_files"] and not plan["artwork"] and not plan["embed_title"]:
+    if (not plan["nfo_files"] and not plan["artwork"]
+            and not plan["embed_title"] and not plan.get("embed_extras")):
         return None
     return plan
 
