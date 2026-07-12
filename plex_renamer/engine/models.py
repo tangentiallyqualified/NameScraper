@@ -311,6 +311,29 @@ class ScanState:
         self.reset_gui_state()
 
 
+def plan_has_actions(plan: dict) -> bool:
+    """Mirror of MuxPlan.has_actions for serialized plans (user edits can
+    reduce a plan to a no-op; such plans must not force a remux).
+
+    Moved from automux_service (round6 §1) so engine-level code can use it
+    without an engine -> app import; automux_service re-exports it."""
+    if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
+        return True
+    return any(
+        m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+
+
+def file_mux_active(state: ScanState, index: int) -> bool:
+    """True when this preview item will actually be muxed: cached plan
+    with actions, not opted out, AutoMux not disabled for the entry.
+
+    Moved from automux_service (round6 §1) — see plan_has_actions."""
+    if state.automux_disabled or index in state.mux_opt_outs:
+        return False
+    plan = state.mux_plans.get(index)
+    return plan is not None and plan_has_actions(plan)
+
+
 @dataclass(frozen=True)
 class DirectEpisodeEvidence:
     """Direct child file evidence for TMDB TV disambiguation."""

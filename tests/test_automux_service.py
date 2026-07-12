@@ -206,3 +206,48 @@ def test_session_reset_clears_opt_outs(tmp_path):
     state.mux_opt_outs.add(3)
     state.reset_gui_state()
     assert state.mux_opt_outs == set()
+
+
+def test_item_mux_probe_eligible_covers_correctly_named_files(tmp_path):
+    # The matched-show case (round6 spec §1): the file's name is already
+    # correct, so is_actionable is False, but the item must still be
+    # probe-eligible so AutoMux warming/labels reach it.
+    item = PreviewItem(
+        original=tmp_path / "lib" / "Show" / "Show - S01E01 - Pilot.mkv",
+        new_name="Show - S01E01 - Pilot.mkv",
+        target_dir=tmp_path / "lib" / "Show",
+        season=1, episodes=[1], status="OK", media_type="tv",
+    )
+    assert item.is_actionable is False
+    assert svc_mod.item_mux_probe_eligible(item) is True
+
+
+def test_item_mux_probe_eligible_excludes_unmatched_and_nameless(tmp_path):
+    base = dict(
+        target_dir=tmp_path / "lib" / "Show", season=1, episodes=[1],
+        media_type="tv",
+    )
+    nameless = PreviewItem(
+        original=tmp_path / "lib" / "Show" / "a.mkv", new_name=None,
+        status="OK", **base,
+    )
+    assert svc_mod.item_mux_probe_eligible(nameless) is False
+
+    unmatched = PreviewItem(
+        original=tmp_path / "lib" / "Show" / "a.mkv", new_name="a.mkv",
+        status="UNMATCHED", **base,
+    )
+    assert svc_mod.item_mux_probe_eligible(unmatched) is False
+
+    skipped = PreviewItem(
+        original=tmp_path / "lib" / "Show" / "a.mkv", new_name="a.mkv",
+        status="SKIP: reason", **base,
+    )
+    assert svc_mod.item_mux_probe_eligible(skipped) is False
+
+
+def test_engine_reexports_are_the_same_objects():
+    from plex_renamer.engine import models as engine_models
+
+    assert svc_mod.plan_has_actions is engine_models.plan_has_actions
+    assert svc_mod.file_mux_active is engine_models.file_mux_active

@@ -14,6 +14,7 @@ from ..._mkv_locate import find_mkvmerge
 from ..._mkv_probe import ProbeResult, probe_file
 from ...engine._mux_planner import MuxSettings, build_mux_plan
 from ...engine.models import PreviewItem, ScanState
+from ...engine.models import file_mux_active, plan_has_actions  # noqa: F401  (round6 §1: engine owns these so _queue_bridge can use them)
 from .settings_service import SettingsService
 
 
@@ -147,13 +148,15 @@ def ensure_state_plans(
             state.mux_plans[index] = plan
 
 
-def plan_has_actions(plan: dict) -> bool:
-    """Mirror of MuxPlan.has_actions for serialized plans (user edits can
-    reduce a plan to a no-op; such plans must not force a remux)."""
-    if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
-        return True
-    return any(
-        m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+def item_mux_probe_eligible(item) -> bool:
+    """Probe-eligible even when the name is already correct (round6 §1):
+    mapped primary video item — has a target name, not unmatched, status
+    OK or a REVIEW variant. Mirrors PreviewItem.is_actionable WITHOUT the
+    name-already-correct exclusion; excludes unmatched because the queue
+    can never process them (labels would lie)."""
+    if item.new_name is None or item.is_unmatched:
+        return False
+    return item.status == "OK" or "REVIEW" in item.status
 
 
 def state_has_mux_actions(state: ScanState) -> bool:
@@ -170,15 +173,6 @@ def state_mux_eligible(state: ScanState) -> bool:
     """True when any cached plan carries actions, regardless of the
     per-show disable flag (the toggle button must stay reachable)."""
     return any(plan_has_actions(plan) for plan in state.mux_plans.values())
-
-
-def file_mux_active(state: ScanState, index: int) -> bool:
-    """True when this preview item will actually be muxed: cached plan
-    with actions, not opted out, AutoMux not disabled for the entry."""
-    if state.automux_disabled or index in state.mux_opt_outs:
-        return False
-    plan = state.mux_plans.get(index)
-    return plan is not None and plan_has_actions(plan)
 
 
 def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:

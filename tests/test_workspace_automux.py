@@ -493,6 +493,38 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             states[1].mux_plans,
             "warming must continue to the next state despite the shrink")
 
+    def test_warm_plans_covers_correctly_named_tv_items(self):
+        # Task 1 (round6 spec §1): a matched show whose file is already
+        # correctly named has is_actionable=False (no rename needed), but
+        # it must still be warmed so AutoMux badges/labels appear without
+        # requiring an on-demand expansion probe.
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
+            MediaWorkspaceAutoMuxCoordinator,
+        )
+
+        state = self._make_state()
+        item = state.preview_items[0]
+        item.new_name = item.original.name
+        item.target_dir = item.original.parent
+        self.assertFalse(item.is_actionable)
+
+        workspace, states = self._workspace_with_states(states=[state])
+
+        requested: list[int] = []
+        request_patch = patch.object(
+            MediaWorkspaceAutoMuxCoordinator, "_request",
+            side_effect=lambda state, index: requested.append(index))
+        request_patch.start()
+        self.addCleanup(request_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+
+        self.assertEqual(
+            requested, [0],
+            "correctly-named TV item must still be probe-warmed")
+
     def test_button_hidden_when_no_plan_has_actions(self):
         workspace, state = self._workspace_with_selected_state(plan_actions=False)
         workspace._automux.update_button(state)
