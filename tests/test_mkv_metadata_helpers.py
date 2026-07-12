@@ -4,7 +4,7 @@ from pathlib import Path
 
 from plex_renamer._mkv_command import (
     build_mkvmerge_args,
-    build_mkvpropedit_title_args,
+    build_mkvpropedit_args,
 )
 from plex_renamer._mkv_locate import find_mkvpropedit
 from plex_renamer.engine._mux_planner import MuxPlan
@@ -30,15 +30,36 @@ def test_find_mkvpropedit_missing_sibling_returns_none(tmp_path, monkeypatch):
     assert find_mkvpropedit(str(tmp_path)) is None
 
 
-def test_build_mkvpropedit_title_args():
-    args = build_mkvpropedit_title_args(
+def test_build_mkvpropedit_args_title_only():
+    args = build_mkvpropedit_args(
         "C:/tools/mkvpropedit.exe",
         Path("C:/out/Show (2019) - S01E01 - Pilot.mkv"),
-        "Show (2019) - S01E01 - Pilot",
+        title="Show (2019) - S01E01 - Pilot",
     )
     assert args[0] == "C:/tools/mkvpropedit.exe"
     assert args[2:] == [
         "--edit", "info", "--set", "title=Show (2019) - S01E01 - Pilot"]
+
+
+def test_build_mkvpropedit_args_tags_and_cover():
+    args = build_mkvpropedit_args(
+        "mkvpropedit", Path("out.mkv"),
+        title="T", tags_path="C:/tmp/tags.xml", cover_path="C:/tmp/c.jpg",
+    )
+    assert args[2:] == [
+        "--edit", "info", "--set", "title=T",
+        "--tags", "global:C:/tmp/tags.xml",
+        "--attachment-name", "cover.jpg",
+        "--attachment-mime-type", "image/jpeg",
+        "--add-attachment", "C:/tmp/c.jpg",
+    ]
+
+
+def test_build_mkvpropedit_args_extras_without_title():
+    args = build_mkvpropedit_args(
+        "mkvpropedit", Path("out.mkv"), tags_path="tags.xml")
+    assert "--edit" not in args
+    assert args[2:] == ["--tags", "global:tags.xml"]
 
 
 def _empty_plan() -> MuxPlan:
@@ -75,3 +96,36 @@ def test_build_mkvmerge_args_no_title_by_default():
         resolve_sub=lambda rel: Path(rel),
     )
     assert "--title" not in args
+
+
+def test_build_mkvmerge_args_global_tags_and_cover():
+    args = build_mkvmerge_args(
+        mkvmerge_path="mkvmerge",
+        source=Path("in.mkv"),
+        output=Path("out.mkv"),
+        plan=_empty_plan(),
+        resolve_sub=lambda rel: Path(rel),
+        title="My Title",
+        global_tags_path="C:/tmp/tags.xml",
+        cover_path="C:/tmp/c.jpg",
+    )
+    tags_idx = args.index("--global-tags")
+    assert args[tags_idx + 1] == "C:/tmp/tags.xml"
+    attach_idx = args.index("--attach-file")
+    assert args[attach_idx + 1] == "C:/tmp/c.jpg"
+    assert args[args.index("--attachment-name") + 1] == "cover.jpg"
+    assert args[args.index("--attachment-mime-type") + 1] == "image/jpeg"
+    # All embed flags come before the source input.
+    assert max(tags_idx, attach_idx) < args.index("in.mkv")
+
+
+def test_build_mkvmerge_args_no_embed_flags_by_default():
+    args = build_mkvmerge_args(
+        mkvmerge_path="mkvmerge",
+        source=Path("in.mkv"),
+        output=Path("out.mkv"),
+        plan=_empty_plan(),
+        resolve_sub=lambda rel: Path(rel),
+    )
+    assert "--global-tags" not in args
+    assert "--attach-file" not in args

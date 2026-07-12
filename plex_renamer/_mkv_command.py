@@ -18,6 +18,12 @@ def _selection_args(flag: str, no_flag: str, decisions) -> list[str]:
     return [flag, ",".join(str(d.track_id) for d in kept)]
 
 
+def _cover_attachment_args(attach_flag: str, cover_path) -> list[str]:
+    return ["--attachment-name", "cover.jpg",
+            "--attachment-mime-type", "image/jpeg",
+            attach_flag, str(cover_path)]
+
+
 def build_mkvmerge_args(
     *,
     mkvmerge_path: str,
@@ -26,10 +32,16 @@ def build_mkvmerge_args(
     plan: MuxPlan,
     resolve_sub: Callable[[str], Path],
     title: str | None = None,
+    global_tags_path: str | Path | None = None,
+    cover_path: str | Path | None = None,
 ) -> list[str]:
     args: list[str] = [mkvmerge_path, "--output", str(output)]
     if title:
         args += ["--title", title]
+    if global_tags_path:
+        args += ["--global-tags", str(global_tags_path)]
+    if cover_path:
+        args += _cover_attachment_args("--attach-file", cover_path)
 
     audio = [d for d in plan.track_decisions if d.track_type == "audio"]
     subs = [d for d in plan.track_decisions if d.track_type == "subtitles"]
@@ -64,11 +76,20 @@ def build_mkvmerge_args(
     return args
 
 
-def build_mkvpropedit_title_args(
+def build_mkvpropedit_args(
     propedit_path: str,
     target: Path,
-    title: str,
+    *,
+    title: str | None = None,
+    tags_path: str | Path | None = None,
+    cover_path: str | Path | None = None,
 ) -> list[str]:
-    """argv to set the container title in place (no remux)."""
-    return [str(propedit_path), str(target),
-            "--edit", "info", "--set", f"title={title}"]
+    """argv for in-place container edits (title/tags/cover, no remux)."""
+    args = [str(propedit_path), str(target)]
+    if title is not None:
+        args += ["--edit", "info", "--set", f"title={title}"]
+    if tags_path:
+        args += ["--tags", f"global:{tags_path}"]
+    if cover_path:
+        args += _cover_attachment_args("--add-attachment", cover_path)
+    return args

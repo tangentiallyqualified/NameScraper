@@ -16,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path, PurePath
 
 from ._job_execution_filesystem import apply_top_dir_remap
-from ._mkv_command import build_mkvpropedit_title_args
+from ._mkv_command import build_mkvpropedit_args
 from ._mkv_locate import find_mkvpropedit
 from .engine.models import RenameResult
 
@@ -189,7 +189,7 @@ def _embed_titles(
         if not target.exists():
             continue    # this op's rename failed/was skipped upstream
         title = PurePath(op.new_name).stem
-        args = build_mkvpropedit_title_args(propedit, target, title)
+        args = build_mkvpropedit_args(propedit, target, title=title)
         try:
             returncode, tail = runner(args)
         except (OSError, subprocess.SubprocessError) as e:
