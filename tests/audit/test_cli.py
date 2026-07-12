@@ -82,3 +82,10 @@ def test_render_all_degrades_per_renderer(synthetic_repo: Path, monkeypatch):
     rc = cli.main(["--fast", "--repo-root", str(synthetic_repo)])
     assert rc == 2
     assert overview.exists()  # human renderer still ran despite llm failure
+
+
+def test_render_stage_missing_artifacts_exits_1(synthetic_repo: Path, capsys):
+    rc = cli.main(["render", "--repo-root", str(synthetic_repo)])
+    assert rc == 1  # MissingArtifactError contract: single message, hard exit
+    out = capsys.readouterr().out
+    assert "Missing artifact" in out

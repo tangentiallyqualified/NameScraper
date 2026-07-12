@@ -21,6 +21,8 @@ def _render_all(repo_root: Path, options) -> int:
     for mod in (_render_llm, _render_human, _docs_ledger):
         try:
             rc = max(rc, mod.run(repo_root, options))
+        except _artifacts.MissingArtifactError:
+            raise
         except Exception as exc:
             print(_ascii(f"render: {mod.__name__} failed - {exc}"))
             rc = max(rc, 2)

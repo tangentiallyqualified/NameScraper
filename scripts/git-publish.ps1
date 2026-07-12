@@ -52,7 +52,9 @@ try {
         if (Test-Path $auditPython) {
             $scriptsDir = Join-Path $repoRoot "scripts"
             if ($env:PYTHONPATH) {
-                $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+                if ($env:PYTHONPATH -notlike "*$scriptsDir*") {
+                    $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+                }
             } else {
                 $env:PYTHONPATH = $scriptsDir
             }
