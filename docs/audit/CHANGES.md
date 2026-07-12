@@ -1,5 +1,10 @@
 # Audit Change Log
 
+## Audit 2026-07-12 (7d129cb) vs baseline (9964529)
+
+- Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
+- No notable changes since baseline.
+
 ## Audit 2026-07-12 (9964529) vs baseline (a491dc2)
 
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
