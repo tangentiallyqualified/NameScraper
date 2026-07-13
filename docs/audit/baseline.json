@@ -1,8 +1,9 @@
 {
- "commit": "7d129cb",
- "generated_at": "2026-07-12T23:20:14+00:00",
+ "commit": "a703ff7",
+ "generated_at": "2026-07-13T01:43:56+00:00",
  "headline": {
   "avg_coverage": 70.6,
+  "coverage_partial": false,
   "coverage_stale": false,
   "cycles": 2,
   "dead_high_confidence": 17,

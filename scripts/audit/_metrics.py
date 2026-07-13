@@ -12,7 +12,7 @@ LOW_COVERAGE_FLAG = 50.0
 def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) -> dict:
     by_path = {m["path"]: (name, m) for name, m in graph["modules"].items()}
     per_file = analysis.get("per_file", {})
-    cov_modules = coverage.get("modules", {}) if coverage.get("available") else {}
+    cov_modules = coverage.get("modules", {}) if coverage.get("available") and not coverage.get("partial") else {}
 
     dead_by_path: dict[str, list[dict]] = {}
     for f in analysis.get("findings", []):
@@ -60,6 +60,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
         "cycles": len(graph.get("cycles", [])),
         "modules_over_complexity": sum(1 for m in modules.values() if "complexity" in m["flags"]),
         "coverage_stale": coverage.get("stale") if coverage.get("available") else None,
+        "coverage_partial": coverage.get("partial") if coverage.get("available") else None,
     }
     return {"modules": modules, "headline": headline}
 

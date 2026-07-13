@@ -62,3 +62,17 @@ def test_replace_generated_appends_when_markers_absent():
     assert merged.startswith("Just prose, no markers.")
     assert "audit:generated:start metrics" in merged
     assert "new table" in merged
+
+
+def test_overview_shows_partial_coverage_reason(synthetic_repo: Path):
+    graph = {"modules": {}}
+    metrics = {
+        "modules": {},
+        "headline": {
+            "files": 0, "total_loc": 0, "avg_coverage": None, "coverage_partial": True,
+            "cycles": 0, "modules_over_complexity": 0, "dead_high_confidence": 0,
+        },
+    }
+    analysis = {"findings": []}
+    overview = _render_human.render_overview(synthetic_repo, graph, metrics, analysis)
+    assert "n/a (partial coverage run ignored)" in overview

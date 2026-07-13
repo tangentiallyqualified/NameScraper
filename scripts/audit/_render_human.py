@@ -78,6 +78,8 @@ def _effects_table(graph: dict) -> str:
 def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict) -> str:
     h = metrics["headline"]
     cov = f"{h['avg_coverage']}%" if h["avg_coverage"] is not None else "n/a"
+    if h.get("coverage_partial"):
+        cov = "n/a (partial coverage run ignored)"
     parts = [
         "## Architecture\n\n" + _mermaid_packages(graph),
         "## Headline metrics\n\n"

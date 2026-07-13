@@ -29,7 +29,7 @@ def _fixtures():
                      "plex_renamer/beta.py": {"max_complexity": 14, "avg_complexity": 14.0, "maintainability": 60.0}},
         "tool_status": {"ruff": {"ok": True}, "vulture": {"ok": True}, "radon": {"ok": True}},
     }
-    coverage = {"available": True, "stale": False,
+    coverage = {"available": True, "stale": False, "partial": False,
                 "modules": {"plex_renamer/alpha.py": {"statements": 10, "covered": 4, "percent": 40.0}}}
     return inventory, graph, analysis, coverage
 
@@ -63,3 +63,20 @@ def test_allowlisted_dead_code_not_counted():
     m = _metrics.build_metrics(inventory, graph, analysis, coverage)
     assert m["modules"]["plex_renamer/alpha.py"]["dead_candidates"] == 0
     assert "dead-code" not in m["modules"]["plex_renamer/alpha.py"]["flags"]
+
+
+def test_partial_coverage_ignored_for_module_and_headline():
+    inventory, graph, analysis, coverage = _fixtures()
+    coverage = {"available": True, "partial": True, "stale": True,
+                "modules": {"plex_renamer/alpha.py": {"statements": 10, "covered": 0, "percent": 0.0}}}
+    m = _metrics.build_metrics(inventory, graph, analysis, coverage)
+    alpha = m["modules"]["plex_renamer/alpha.py"]
+    assert alpha["coverage_percent"] is None
+    assert "low-coverage" not in alpha["flags"]
+    assert m["headline"]["avg_coverage"] is None
+    assert m["headline"]["coverage_partial"] is True
+
+
+def test_coverage_partial_false_when_not_partial():
+    m = _metrics.build_metrics(*_fixtures())
+    assert m["headline"]["coverage_partial"] is False

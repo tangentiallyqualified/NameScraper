@@ -147,7 +147,9 @@ def main() -> int:
                 pass
             meta_path.write_text(
                 _json.dumps({"commit": commit,
-                             "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}),
+                             "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                             "pytest_args": args.pytest_args,
+                             "partial": bool(args.pytest_args)}),
                 encoding="utf-8",
             )
 

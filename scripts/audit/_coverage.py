@@ -48,6 +48,7 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
     unavailable = {
         "available": False, "reason": None, "source": None,
         "collected_at_commit": None, "age_commits": None, "stale": False, "modules": {},
+        "partial": False,
     }
     if fresh:
         try:
@@ -66,19 +67,23 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         return {**unavailable, "reason": f"could not read coverage data: {exc}"[:200]}
 
     commit = None
+    partial = False
     meta_file = repo_root / ".coverage.meta.json"
     if meta_file.exists():
         try:
-            commit = json.loads(meta_file.read_text(encoding="utf-8")).get("commit")
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            commit = meta.get("commit")
+            partial = bool(meta.get("partial"))
         except (json.JSONDecodeError, OSError):
             commit = None
     age = _artifacts.commits_between(repo_root, commit) if commit else None
-    stale = age is None or age > max_age_commits
+    stale = age is None or age > max_age_commits or partial
     return {
         "available": True, "reason": None,
         "source": "fresh" if fresh else "imported",
         "collected_at_commit": commit, "age_commits": age,
         "stale": stale, "modules": modules,
+        "partial": partial,
     }
 
 
@@ -89,7 +94,9 @@ def run(repo_root: Path, options) -> int:
     cov = collect_coverage(repo_root, fresh=fresh, max_age_commits=max_age)
     _artifacts.write_artifact(repo_root, "coverage", cov)
     if cov["available"]:
-        note = " (stale)" if cov["stale"] else ""
+        notes = [n for n in ("partial run" if cov.get("partial") else None,
+                             "stale" if cov["stale"] else None) if n]
+        note = f" ({'; '.join(notes)})" if notes else ""
         print(f"coverage: {len(cov['modules'])} modules from {cov['source']} data{note}")
         return 0
     print(f"coverage: unavailable - {cov['reason']}")

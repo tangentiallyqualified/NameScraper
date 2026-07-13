@@ -88,3 +88,33 @@ def test_corrupt_meta_sidecar_marks_stale(synthetic_repo: Path, repo_git):
     assert cov["available"] is True
     assert cov["collected_at_commit"] is None
     assert cov["stale"] is True
+
+
+def test_partial_sidecar_flags_partial_and_stale(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta = json.loads((synthetic_repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    meta["partial"] = True
+    (synthetic_repo / ".coverage.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["available"] is True
+    assert cov["partial"] is True
+    assert cov["stale"] is True
+
+
+def test_legacy_sidecar_without_partial_key_defaults_false(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["partial"] is False
+    assert cov["stale"] is False
+
+
+def test_run_with_partial_data_still_exits_zero_and_notes_partial(synthetic_repo: Path, repo_git, capsys):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta = json.loads((synthetic_repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    meta["partial"] = True
+    (synthetic_repo / ".coverage.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    assert _coverage.run(synthetic_repo, None) == 0
+    data = _artifacts.read_artifact(synthetic_repo, "coverage")
+    assert data["partial"] is True
+    out = capsys.readouterr().out
+    assert "partial run" in out

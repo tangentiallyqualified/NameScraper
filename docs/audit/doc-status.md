@@ -110,4 +110,4 @@
 | `docs/superpowers/plans/2026-07-12-audit-harness-extensions.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer.alph`, `plex_renamer.app`, `plex_renamer.beta`, `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.move`, `plex_renamer.net`, `plex_renamer.writ`, `plex_renamer/beta.py`, `plex_renamer/mut.py`, `scripts.valu`, `tests/test_alpha.py` |
 | `docs/superpowers/plans/2026-07-12-audit-harness-debt.md` | 2026-07-12 | `plex_renamer.alph`, `plex_renamer.brok`, `plex_renamer.delt`, `plex_renamer.epsi`, `plex_renamer.eta`, `plex_renamer.shap`, `plex_renamer.zeta`, `plex_renamer/alpha.py`, `plex_renamer/engine/_scanner.py`, `plex_renamer/new1.py`, `plex_renamer/new2.py`, `plex_renamer/old.py`, `scripts/tool.ps1` |
 
-_Generated at commit 7d129cb by scripts\audit.cmd._
+_Generated at commit a703ff7 by scripts\audit.cmd._
