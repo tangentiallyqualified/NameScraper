@@ -12,8 +12,7 @@ from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
 HARD_STAGES = {"inventory", "graph"}
 
 
-def _ascii(text: str) -> str:
-    return text.encode("ascii", "replace").decode("ascii")
+_ascii = _artifacts.ascii_safe
 
 
 def _render_all(repo_root: Path, options) -> int:

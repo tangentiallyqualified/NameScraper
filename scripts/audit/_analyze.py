@@ -203,7 +203,7 @@ def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
             findings.append(_dep_finding(
                 "unused-dependency", dep,
                 f"declared dependency '{dep}' is never imported by plex_renamer"))
-    runtime_tops = set().union(*tops_by_runtime_dep.values()) if tops_by_runtime_dep else set()
+    runtime_tops = set().union(*tops_by_runtime_dep.values())
     dev_tops = _tops_for(dev, dist_tops)
     for top in sorted(imported):
         if top in runtime_tops:
@@ -277,5 +277,6 @@ def run(repo_root: Path, options) -> int:
     _artifacts.write_artifact(repo_root, "analysis", analysis)
     bad = [t for t, s in analysis["tool_status"].items() if not s["ok"]]
     n = len([f for f in analysis["findings"] if not f["allowlisted"]])
-    print(f"analyze: {n} findings" + (f"; unavailable: {', '.join(bad)}" if bad else ""))
+    print(_artifacts.ascii_safe(
+        f"analyze: {n} findings" + (f"; unavailable: {', '.join(bad)}" if bad else "")))
     return 2 if bad else 0

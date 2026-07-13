@@ -224,7 +224,7 @@ def _reexport_map(modules: dict[str, dict], trees: dict) -> dict[tuple[str, str]
 
 
 def _resolve_symbol(sym_index: dict, reexports: dict, target: str, name: str):
-    """Follow __init__ re-export chains (bounded) to the defining symbol."""
+    """Resolve (target, name) through __init__ re-export chains: origin plus up to 4 hops."""
     for _ in range(5):
         sym = sym_index.get((target, name))
         if sym is not None:
