@@ -1,3 +1,7 @@
+# Codebase audit overview
+
+The generated findings below were manually triaged in the curated [audit findings review](../findings-review.md). Keep verdicts and remediation notes in the curated review; this generated block is replaced on audit refresh.
+
 <!-- audit:generated:start overview -->
 ## Architecture
 
