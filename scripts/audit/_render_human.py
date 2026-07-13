@@ -11,6 +11,16 @@ _package_of = _artifacts.package_of
 START = "<!-- audit:generated:start {name} -->"
 END = "<!-- audit:generated:end {name} -->"
 
+KNOWN_TOOLS = ("ruff", "vulture", "radon", "deps", "contracts")
+DEAD_SECTIONS = (
+    ("High confidence", {"high-confidence"}),
+    ("Medium confidence", {"medium-confidence"}),
+    ("Protected or ambiguous", {
+        "entrypoint", "dynamic-or-unresolved", "referenced", "low-confidence", "unassessed",
+    }),
+    ("Test referenced", {"test-referenced"}),
+)
+
 
 def replace_generated(existing: str | None, section: str, body: str) -> str:
     start = START.format(name=section)
@@ -46,13 +56,85 @@ def _top10(metrics: dict, key: str, reverse: bool = True) -> list[str]:
     return [f"| `{path}` | {rec[key]} |" for path, rec in items[:10]]
 
 
-def _dead_checklist(analysis: dict) -> str:
-    lines = []
-    for f in analysis.get("findings", []):
-        if f["category"] != "dead-code" or f.get("allowlisted"):
-            continue
-        lines.append(f"- [ ] `{f['path']}:{f['line']}` {f['symbol']} ({f.get('assessment', 'unassessed')})")
-    return "\n".join(lines) if lines else "_No dead-code candidates. Clean._"
+def _tool_status(metrics: dict, tool: str) -> dict:
+    status = metrics.get("tool_status", {}).get(tool)
+    if not isinstance(status, dict):
+        return {"ok": False, "reason": "status missing from analysis artifact"}
+    if status.get("ok") is not True:
+        return {"ok": False, "reason": status.get("reason") or "no reason recorded"}
+    return {"ok": True, "reason": None}
+
+
+def _unavailable(metrics: dict, tool: str) -> str:
+    reason = _tool_status(metrics, tool)["reason"]
+    return f"_Unavailable: {tool} analyzer did not complete ({reason})._"
+
+
+def _analyzer_status(metrics: dict) -> str:
+    statuses = metrics.get("tool_status", {})
+    tools = list(KNOWN_TOOLS) + sorted(set(statuses) - set(KNOWN_TOOLS))
+    rows = []
+    for tool in tools:
+        status = _tool_status(metrics, tool)
+        label = "available" if status["ok"] else "unavailable"
+        detail = status["reason"] or "-"
+        rows.append(f"| {tool} | {label} | {detail} |")
+    return "| Analyzer | Status | Detail |\n|---|---|---|\n" + "\n".join(rows)
+
+
+def _reference_evidence(finding: dict) -> str:
+    production = ", ".join(finding.get("production_references", [])) or "none"
+    tests = ", ".join(finding.get("test_references", [])) or "none"
+    confidence = finding.get("confidence")
+    confidence_text = f"{confidence}%" if confidence is not None else "unknown"
+    return (
+        f"Vulture {confidence_text}; production refs: {production}; test refs: {tests}; "
+        f"assessment: {finding.get('assessment', 'unassessed')}"
+    )
+
+
+def _dead_line(finding: dict, checkable: bool = True) -> str:
+    check = "[x] " if finding.get("allowlisted") else ("[ ] " if checkable else "")
+    suffix = _reference_evidence(finding)
+    if finding.get("allowlisted"):
+        suffix += f"; allowlist: {finding.get('allowlist_reason') or 'no reason recorded'}"
+    return (
+        f"- {check}`{finding['path']}:{finding['line']}` {finding.get('symbol') or '(unknown)'} "
+        f"({suffix})"
+    )
+
+
+def _dead_checklist(analysis: dict, metrics: dict) -> str:
+    findings = [f for f in analysis.get("findings", []) if f["category"] == "dead-code"]
+    parts = []
+    if not _tool_status(metrics, "vulture")["ok"]:
+        parts.append(_unavailable(metrics, "vulture") + " Any findings below are incomplete evidence.")
+
+    for title, assessments in DEAD_SECTIONS:
+        tier = sorted(
+            (
+                f for f in findings
+                if not f.get("allowlisted")
+                and f.get("assessment", "unassessed") in assessments
+            ),
+            key=lambda f: (f["path"], f.get("line", 0), f.get("symbol") or ""),
+        )
+        body = "\n".join(_dead_line(f) for f in tier) if tier else "_None._"
+        parts.append(f"### {title}\n\n{body}")
+
+    allowlisted = sorted(
+        (f for f in findings if f.get("allowlisted")),
+        key=lambda f: (f["path"], f.get("line", 0), f.get("symbol") or ""),
+    )
+    allowlisted_body = (
+        "\n".join(_dead_line(f, checkable=False) for f in allowlisted)
+        if allowlisted else "_None._"
+    )
+    parts.append(f"### Allowlisted\n\n{allowlisted_body}")
+
+    if not findings and _tool_status(metrics, "vulture")["ok"]:
+        parts.insert(0, "_No dead-code candidates found._")
+    return "\n\n".join(parts)
 
 
 def _finding_list(analysis: dict, category: str, empty: str) -> str:
@@ -62,6 +144,64 @@ def _finding_list(analysis: dict, category: str, empty: str) -> str:
         if f["category"] == category and not f.get("allowlisted")
     ]
     return "\n".join(lines) if lines else empty
+
+
+def _tool_scoped_findings(analysis: dict, metrics: dict, category: str,
+                          empty: str, tool: str) -> str:
+    if not _tool_status(metrics, tool)["ok"]:
+        return _unavailable(metrics, tool)
+    return _finding_list(analysis, category, empty)
+
+
+def _coverage_reason(metrics: dict) -> str:
+    coverage = metrics.get("coverage", {})
+    headline = metrics.get("headline", {})
+    reasons = []
+    if coverage and not coverage.get("available"):
+        reasons.append("unavailable")
+    if coverage.get("stale") or (not coverage and headline.get("coverage_stale")):
+        reasons.append("stale")
+    if coverage.get("partial") or (not coverage and headline.get("coverage_partial")):
+        reasons.append("partial")
+    if coverage.get("failed") or (not coverage and headline.get("coverage_failed")):
+        reasons.append("failed")
+    if coverage.get("reason"):
+        reasons.append(str(coverage["reason"]))
+    return "; ".join(reasons) or "freshness could not be established"
+
+
+def _coverage_provenance(metrics: dict) -> str:
+    coverage = metrics.get("coverage", {})
+    status = "usable" if coverage.get("usable") else "ignored"
+    commit = coverage.get("collected_at_commit") or "unknown"
+    age = coverage.get("age_commits")
+    age_text = str(age) if age is not None else "unknown"
+    reason = "-" if coverage.get("usable") else _coverage_reason(metrics)
+    return (
+        "| Status | Source | Collected commit | Age (commits) | Detail |\n"
+        "|---|---|---|---:|---|\n"
+        f"| {status} | {coverage.get('source') or 'unknown'} | {commit} | {age_text} | {reason} |"
+    )
+
+
+def _least_covered(metrics: dict) -> str:
+    if not metrics.get("coverage", {}).get("usable"):
+        return f"_Coverage evidence ignored: {_coverage_reason(metrics)}._"
+    rows = [
+        (path, rec)
+        for path, rec in metrics["modules"].items()
+        if rec.get("coverage_percent") is not None
+        and (rec.get("coverage_statements") or 0) > 0
+    ]
+    rows.sort(key=lambda item: (item[1]["coverage_percent"], item[0]))
+    if not rows:
+        return "_No measured modules._"
+    lines = [
+        f"| `{path}` | {rec.get('coverage_statements', 'n/a')} | "
+        f"{rec.get('coverage_covered', 'n/a')} | {rec['coverage_percent']}% |"
+        for path, rec in rows[:10]
+    ]
+    return "| Module | Statements | Covered | Coverage |\n|---|---:|---:|---:|\n" + "\n".join(lines)
 
 
 def _effects_table(graph: dict) -> str:
@@ -77,28 +217,50 @@ def _effects_table(graph: dict) -> str:
 
 def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict) -> str:
     h = metrics["headline"]
-    cov = f"{h['avg_coverage']}%" if h["avg_coverage"] is not None else "n/a"
-    if h.get("coverage_partial"):
-        cov = "n/a (partial coverage run ignored)"
+    coverage_usable = metrics.get("coverage", {}).get("usable", h.get("coverage_usable", False))
+    cov = f"{h['avg_coverage']}%" if coverage_usable and h.get("avg_coverage") is not None else "n/a"
+    module_cov = (
+        f"{h['module_avg_coverage']}%"
+        if coverage_usable and h.get("module_avg_coverage") is not None else "n/a"
+    )
+    if not coverage_usable:
+        cov += f" ({_coverage_reason(metrics)} coverage run ignored)"
+        module_cov += " (coverage run ignored)"
+    radon_ok = _tool_status(metrics, "radon")["ok"]
+    vulture_ok = _tool_status(metrics, "vulture")["ok"]
+    complexity_count = h.get("modules_over_complexity") if radon_ok else "n/a (radon unavailable)"
+    dead_high = h.get("dead_high_confidence") if vulture_ok else "n/a (vulture unavailable)"
+    complex_table = (
+        "| Module | Max CC |\n|---|---|\n" + "\n".join(_top10(metrics, "max_complexity"))
+        if radon_ok else _unavailable(metrics, "radon")
+    )
     parts = [
         "## Architecture\n\n" + _mermaid_packages(graph),
+        "## Analyzer status\n\n" + _analyzer_status(metrics),
         "## Headline metrics\n\n"
         "| Metric | Value |\n|---|---|\n"
         f"| Modules | {h['files']} |\n| Total LOC | {h['total_loc']} |\n"
-        f"| Avg coverage | {cov} |\n| Import cycles | {h['cycles']} |\n"
-        f"| Modules over complexity threshold | {h['modules_over_complexity']} |\n"
-        f"| Dead symbols (high confidence) | {h['dead_high_confidence']} |",
+        f"| Statement coverage | {cov} |\n| Module-average coverage | {module_cov} |\n"
+        f"| Import cycles | {h['cycles']} |\n"
+        f"| Modules over complexity threshold | {complexity_count} |\n"
+        f"| Dead symbols (high confidence) | {dead_high} |",
+        "## Coverage provenance\n\n" + _coverage_provenance(metrics),
+        "## Least-covered modules\n\n" + _least_covered(metrics),
         "## Largest modules\n\n| Module | LOC |\n|---|---|\n" + "\n".join(_top10(metrics, "loc")),
-        "## Most complex\n\n| Module | Max CC |\n|---|---|\n" + "\n".join(_top10(metrics, "max_complexity")),
+        "## Most complex\n\n" + complex_table,
         "## Most depended upon\n\n| Module | Fan-in |\n|---|---|\n" + "\n".join(_top10(metrics, "fan_in")),
         "## Dependency issues\n\n"
-        + _finding_list(analysis, "dependency", "_None. Declared dependencies match imports._"),
+        + _tool_scoped_findings(
+            analysis, metrics, "dependency", "_None. Declared dependencies match imports._", "deps"
+        ),
         "## Layer contracts\n\n"
-        + _finding_list(analysis, "layer-violation", "_No violations._"),
+        + _tool_scoped_findings(
+            analysis, metrics, "layer-violation", "_No violations._", "contracts"
+        ),
         "## External effects\n\n" + _effects_table(graph),
-        "## Dead-code review checklist\n\n" + _dead_checklist(analysis),
+        "## Dead-code review checklist\n\n" + _dead_checklist(analysis, metrics),
     ]
-    commit = _artifacts.current_commit(repo_root) or "unknown"
+    commit = metrics.get("commit") or _artifacts.current_commit(repo_root) or "unknown"
     return "\n\n".join(parts) + f"\n\n_Generated at commit {commit} by scripts\\audit.cmd._"
 
 

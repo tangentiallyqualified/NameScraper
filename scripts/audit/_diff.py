@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import _artifacts
+from . import _artifacts, _docs_ledger
 
 BASELINE_REL = Path("docs") / "audit" / "baseline.json"
 CHANGES_REL = Path("docs") / "audit" / "CHANGES.md"
@@ -15,6 +15,137 @@ LOC_RATIO = 1.5
 CC_DELTA = 5
 COVERAGE_DELTA = 10.0
 BASELINE_FIELDS = ("sha256", "loc", "max_complexity", "coverage_percent", "dead_candidates")
+DEAD_COUNT_FIELDS = (
+    "dead_high_confidence",
+    "dead_low_confidence",
+    "dead_medium_confidence",
+    "dead_exact_low_confidence",
+    "dead_test_referenced",
+    "dead_protected_ambiguous",
+    "dead_allowlisted",
+)
+
+
+def _coverage_usable(snapshot: dict) -> bool:
+    """Legacy artifacts are comparable unless they explicitly report bad evidence."""
+    coverage = snapshot.get("coverage")
+    if isinstance(coverage, dict):
+        if "usable" in coverage:
+            return coverage["usable"] is True
+        if coverage.get("available") is False:
+            return False
+        if any(coverage.get(key) is True for key in ("stale", "partial", "failed")):
+            return False
+    headline = snapshot.get("headline", {})
+    if headline.get("coverage_usable") is False:
+        return False
+    return not any(
+        headline.get(key) is True
+        for key in ("coverage_stale", "coverage_partial", "coverage_failed")
+    )
+
+
+def _dead_snapshot(record: dict) -> list[dict] | None:
+    symbols = record.get("dead_symbols")
+    if not isinstance(symbols, list):
+        return None
+    snapshot = []
+    for item in symbols:
+        if not isinstance(item, dict) or not isinstance(item.get("symbol"), str):
+            continue
+        snapshot.append({
+            "symbol": item["symbol"],
+            "line": item.get("line"),
+            "assessment": item.get("assessment"),
+            "confidence": item.get("confidence"),
+        })
+    return sorted(snapshot, key=lambda item: (
+        item["symbol"], item["line"] if isinstance(item["line"], int) else -1
+    ))
+
+
+def _dead_label(symbol: dict) -> str:
+    assessment = symbol.get("assessment") or "unclassified"
+    confidence = symbol.get("confidence")
+    suffix = f", {confidence}%" if isinstance(confidence, (int, float)) else ""
+    return f"{assessment}{suffix}"
+
+
+def _dead_movements(path: str, was: dict, now: dict) -> list[str] | None:
+    old_snapshot = _dead_snapshot(was)
+    new_snapshot = _dead_snapshot(now)
+    if old_snapshot is None or new_snapshot is None:
+        return None
+    duplicate_names = {
+        name
+        for name in {item["symbol"] for item in old_snapshot + new_snapshot}
+        if sum(item["symbol"] == name for item in old_snapshot) > 1
+        or sum(item["symbol"] == name for item in new_snapshot) > 1
+    }
+
+    def _key(item: dict) -> tuple[str, int | None]:
+        return item["symbol"], item.get("line") if item["symbol"] in duplicate_names else None
+
+    def _name(key: tuple[str, int | None]) -> str:
+        symbol, line = key
+        return f"{symbol}` at line {line}" if line is not None else f"{symbol}`"
+
+    old = {_key(item): item for item in old_snapshot}
+    new = {_key(item): item for item in new_snapshot}
+    movements = [
+        f"`{path}`: new dead symbol `{_name(key)} ({_dead_label(new[key])})"
+        for key in sorted(set(new) - set(old), key=lambda value: (value[0], value[1] or -1))
+    ]
+    movements += [
+        f"`{path}`: resolved dead symbol `{_name(key)} (was {_dead_label(old[key])})"
+        for key in sorted(set(old) - set(new), key=lambda value: (value[0], value[1] or -1))
+    ]
+    for key in sorted(set(old) & set(new), key=lambda value: (value[0], value[1] or -1)):
+        before, after = old[key], new[key]
+        if ((before.get("assessment"), before.get("confidence"))
+                != (after.get("assessment"), after.get("confidence"))):
+            movements.append(
+                f"`{path}`: dead symbol `{_name(key)} confidence "
+                f"{_dead_label(before)} -> {_dead_label(after)}"
+            )
+    return movements
+
+
+def _doc_snapshot(repo_root: Path) -> dict[str, dict]:
+    report = _docs_ledger.staleness(repo_root, _docs_ledger.load_ledger(repo_root))
+    return {
+        item["path"]: {
+            "stale": bool(item["stale"]),
+            "reviewed_commit": item.get("reviewed_commit"),
+            "error": item.get("error"),
+        }
+        for item in report
+    }
+
+
+def _doc_transitions(old: object, new: dict[str, dict]) -> list[str]:
+    if not isinstance(old, dict):
+        return []
+    transitions = []
+    for path in sorted(set(old) & set(new)):
+        was, now = old[path], new[path]
+        if not isinstance(was, dict) or was.get("stale") == now.get("stale"):
+            continue
+        before = "stale" if was.get("stale") else "current"
+        after = "stale" if now.get("stale") else "current"
+        transitions.append(f"`{path}`: {before} -> {after}")
+    return transitions
+
+
+def _baseline_module(record: dict) -> dict:
+    snapshot = {key: record[key] for key in BASELINE_FIELDS}
+    snapshot.update({key: record[key] for key in DEAD_COUNT_FIELDS if key in record})
+    if isinstance(record.get("dead_tiers"), dict):
+        snapshot["dead_tiers"] = record["dead_tiers"]
+    dead_symbols = _dead_snapshot(record)
+    if dead_symbols is not None:
+        snapshot["dead_symbols"] = dead_symbols
+    return snapshot
 
 
 def compare(baseline: dict | None, metrics: dict) -> dict:
@@ -39,23 +170,29 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
     added = still_added
 
     movements: list[str] = []
+    coverage_comparable = _coverage_usable(baseline) and _coverage_usable(metrics)
     for path in sorted(set(current) & set(old)):
         now, was = current[path], old[path]
         if was["loc"] and now["loc"] / was["loc"] >= LOC_RATIO:
             movements.append(f"`{path}`: loc {was['loc']} -> {now['loc']}")
-        if now["max_complexity"] - was["max_complexity"] >= CC_DELTA:
+        if (now.get("max_complexity") is not None and was.get("max_complexity") is not None
+                and now["max_complexity"] - was["max_complexity"] >= CC_DELTA):
             movements.append(f"`{path}`: max_complexity {was['max_complexity']} -> {now['max_complexity']}")
-        if (was.get("coverage_percent") is not None and now.get("coverage_percent") is not None
+        if (coverage_comparable
+                and was.get("coverage_percent") is not None and now.get("coverage_percent") is not None
                 and abs(now["coverage_percent"] - was["coverage_percent"]) >= COVERAGE_DELTA):
             movements.append(f"`{path}`: coverage {was['coverage_percent']} -> {now['coverage_percent']}")
-        if now["dead_candidates"] > was["dead_candidates"]:
+        dead_movements = _dead_movements(path, was, now)
+        if dead_movements is not None:
+            movements.extend(dead_movements)
+        elif now["dead_candidates"] > was["dead_candidates"]:
             movements.append(f"`{path}`: dead candidates {was['dead_candidates']} -> {now['dead_candidates']}")
     return {"added": added, "removed": removed, "renamed": renamed,
             "movements": movements, "first_run": False}
 
 
 def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict) -> str:
-    commit = _artifacts.current_commit(repo_root) or "unknown"
+    commit = metrics.get("commit") or _artifacts.current_commit(repo_root) or "unknown"
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     base_commit = (baseline.get("commit") or "unknown") if baseline else "none (first run)"
     h = metrics["headline"]
@@ -74,7 +211,11 @@ def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict
         if result["movements"]:
             lines.append("- Notable movements:")
             lines += [f"  - {m}" for m in result["movements"]]
-        if not any((result["added"], result["removed"], result["renamed"], result["movements"])):
+        if result.get("doc_transitions"):
+            lines.append("- Documentation status changes:")
+            lines += [f"  - {transition}" for transition in result["doc_transitions"]]
+        if not any((result["added"], result["removed"], result["renamed"], result["movements"],
+                    result.get("doc_transitions"))):
             lines.append("- No notable changes since baseline.")
     return "\n".join(lines)
 
@@ -84,6 +225,8 @@ def run(repo_root: Path, options) -> int:
     baseline_path = repo_root / BASELINE_REL
     baseline = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else None
     result = compare(baseline, metrics)
+    docs = _doc_snapshot(repo_root)
+    result["doc_transitions"] = _doc_transitions(baseline.get("docs") if baseline else None, docs)
 
     changes_path = repo_root / CHANGES_REL
     header = "# Audit Change Log\n\n"
@@ -101,9 +244,12 @@ def run(repo_root: Path, options) -> int:
     new_baseline = {
         "commit": metrics.get("commit") or _artifacts.current_commit(repo_root),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "modules": {p: {k: r[k] for k in BASELINE_FIELDS} for p, r in metrics["modules"].items()},
+        "modules": {p: _baseline_module(r) for p, r in metrics["modules"].items()},
         "headline": metrics["headline"],
+        "docs": docs,
     }
+    if "coverage" in metrics:
+        new_baseline["coverage"] = metrics["coverage"]
     baseline_path.write_text(json.dumps(new_baseline, indent=1, sort_keys=True), encoding="utf-8")
     n = len(result["movements"])
     print(f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed")

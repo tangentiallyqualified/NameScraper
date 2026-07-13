@@ -230,11 +230,22 @@ def test_class_and_private_symbols(synthetic_repo: Path):
     assert syms["_hidden"]["public"] is False
 
 
-def test_syntax_error_module_included_empty(synthetic_repo: Path):
+def test_syntax_error_aborts_graph_with_path_and_line(synthetic_repo: Path):
+    import pytest
+
     (synthetic_repo / "plex_renamer" / "broken.py").write_text("def broken(:\n", encoding="utf-8")
-    g = _graph_for(synthetic_repo)
-    assert g["modules"]["plex_renamer.broken"]["symbols"] == []
-    assert g["modules"]["plex_renamer.broken"]["imports"] == []
+    with pytest.raises(RuntimeError, match=r"plex_renamer/broken\.py:1"):
+        _graph_for(synthetic_repo)
+
+
+def test_cli_graph_syntax_error_is_hard_failure(synthetic_repo: Path, capsys):
+    from audit import __main__ as cli
+
+    (synthetic_repo / "plex_renamer" / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    assert cli.main(["--repo-root", str(synthetic_repo)]) == 1
+    out = capsys.readouterr().out
+    assert "graph: failed" in out
+    assert "plex_renamer/broken.py:1" in out
 
 
 def test_from_pkg_import_submodule_is_module_edge(synthetic_repo: Path):

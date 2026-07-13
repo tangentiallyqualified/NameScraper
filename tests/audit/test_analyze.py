@@ -18,11 +18,87 @@ def test_ruff_finds_unused_import(synthetic_repo: Path):
     assert hits and hits[0]["category"] == "unused-import"
 
 
-def test_vulture_dead_function_high_confidence(synthetic_repo: Path):
+def test_vulture_dead_function_medium_confidence(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
     dead = [f for f in a["findings"] if f["category"] == "dead-code" and f["symbol"] == "dead_function"]
     assert dead
-    assert dead[0]["assessment"] == "high-confidence"  # zero graph fan-in
+    assert dead[0]["confidence"] == 60
+    assert dead[0]["assessment"] == "medium-confidence"
+    assert dead[0]["production_references"] == []
+    assert dead[0]["test_references"] == []
+
+
+def test_dead_code_confidence_uses_reference_and_numeric_evidence():
+    graph = {
+        "modules": {
+            "plex_renamer.alpha": {
+                "path": "plex_renamer/alpha.py",
+                "entrypoint": False,
+                "symbols": [
+                    {"name": "high", "imported_by": []},
+                    {"name": "medium", "imported_by": []},
+                    {"name": "low", "imported_by": []},
+                    {"name": "production", "imported_by": ["z.consumer", "a.consumer"]},
+                    {"name": "tested", "imported_by": []},
+                ],
+            },
+            "plex_renamer.__main__": {
+                "path": "plex_renamer/__main__.py",
+                "entrypoint": True,
+                "symbols": [{"name": "main", "imported_by": []}],
+            },
+        }
+    }
+    inventory = {
+        "test_files": [
+            {
+                "path": "tests/test_z.py",
+                "imports_symbols": ["plex_renamer.alpha.tested"],
+            },
+            {
+                "path": "tests/test_a.py",
+                "imports_symbols": ["plex_renamer.alpha.tested"],
+            },
+        ]
+    }
+    findings = [
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "high", "confidence": 80},
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "medium", "confidence": 60},
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "low", "confidence": 59},
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "production", "confidence": 100},
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "tested", "confidence": 100},
+        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "unknown", "confidence": 100},
+        {"category": "dead-code", "path": "plex_renamer/__main__.py", "symbol": "main", "confidence": 100},
+    ]
+
+    _analyze._assess_dead_code(findings, graph, inventory)
+    by_symbol = {finding["symbol"]: finding for finding in findings}
+
+    assert by_symbol["high"]["assessment"] == "high-confidence"
+    assert by_symbol["medium"]["assessment"] == "medium-confidence"
+    assert by_symbol["low"]["assessment"] == "low-confidence"
+    assert by_symbol["production"]["assessment"] == "referenced"
+    assert by_symbol["production"]["production_references"] == ["a.consumer", "z.consumer"]
+    assert by_symbol["tested"]["assessment"] == "test-referenced"
+    assert by_symbol["tested"]["test_references"] == ["tests/test_a.py", "tests/test_z.py"]
+    assert by_symbol["unknown"]["assessment"] == "dynamic-or-unresolved"
+    assert by_symbol["main"]["assessment"] == "entrypoint"
+
+
+def test_assess_dead_code_inventory_remains_optional():
+    findings = [{
+        "category": "dead-code", "path": "plex_renamer/alpha.py",
+        "symbol": "orphan", "confidence": 80,
+    }]
+    graph = {"modules": {"plex_renamer.alpha": {
+        "path": "plex_renamer/alpha.py", "entrypoint": False,
+        "symbols": [{"name": "orphan", "imported_by": []}],
+    }}}
+
+    _analyze._assess_dead_code(findings, graph)
+
+    assert findings[0]["assessment"] == "high-confidence"
+    assert findings[0]["test_references"] == []
 
 
 def test_used_function_not_high_confidence_dead(synthetic_repo: Path):
@@ -50,6 +126,10 @@ def test_allowlist_marks_finding(synthetic_repo: Path):
     graph = _graph.build_graph(synthetic_repo, inv)
     a2 = _analyze.run_analysis(synthetic_repo, inv, graph, allowlist_text=allow)
     assert all(f["allowlisted"] for f in a2["findings"] if f["symbol"] == "dead_function")
+    assert all(f["allowlist_reason"] == "test allow"
+               for f in a2["findings"] if f["symbol"] == "dead_function")
+    assert all(f["allowlist_reason"] is None
+               for f in a2["findings"] if f["symbol"] != "dead_function")
 
 
 def test_tool_status_reported(synthetic_repo: Path):

@@ -19,6 +19,29 @@ def test_test_files_map_to_imported_modules(synthetic_repo: Path):
     inv = _inventory.build_inventory(synthetic_repo)
     t = next(f for f in inv["test_files"] if f["path"] == "tests/test_alpha.py")
     assert t["imports_modules"] == ["plex_renamer.alpha"]
+    assert t["imports_symbols"] == ["plex_renamer.alpha.used_function"]
+
+
+def test_test_files_map_direct_aliases_and_module_alias_attributes(synthetic_repo: Path):
+    (synthetic_repo / "tests" / "test_symbol_imports.py").write_text(
+        "from plex_renamer.alpha import dead_function as renamed\n"
+        "from plex_renamer import alpha as alpha_module\n\n"
+        "import plex_renamer.beta as beta_module\n"
+        "renamed()\n"
+        "alpha_module.used_function(2)\n"
+        "beta_module.run()\n",
+        encoding="utf-8",
+    )
+
+    inv = _inventory.build_inventory(synthetic_repo)
+    record = next(
+        f for f in inv["test_files"] if f["path"] == "tests/test_symbol_imports.py"
+    )
+
+    assert record["imports_modules"] == ["plex_renamer", "plex_renamer.alpha", "plex_renamer.beta"]
+    assert "plex_renamer.alpha.dead_function" in record["imports_symbols"]
+    assert "plex_renamer.alpha.used_function" in record["imports_symbols"]
+    assert "plex_renamer.beta.run" in record["imports_symbols"]
 
 
 def test_docs_flag_broken_refs(synthetic_repo: Path):

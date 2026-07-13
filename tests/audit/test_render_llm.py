@@ -5,13 +5,13 @@ from pathlib import Path
 from audit import _graph, _inventory, _metrics, _render_llm
 
 
-def _rendered(repo: Path) -> dict[str, str]:
+def _rendered(repo: Path, *, analysis: dict | None = None, coverage: dict | None = None) -> dict[str, str]:
     inv = _inventory.build_inventory(repo)
     graph = _graph.build_graph(repo, inv)
-    analysis = {"findings": [], "per_file": {}, "tool_status": {}}
-    coverage = {"available": False, "modules": {}}
+    analysis = analysis or {"findings": [], "per_file": {}, "tool_status": {}}
+    coverage = coverage or {"available": False, "modules": {}}
     metrics = _metrics.build_metrics(inv, graph, analysis, coverage)
-    return _render_llm.render(repo, inv, graph, metrics)
+    return _render_llm.render(repo, inv, graph, metrics, analysis)
 
 
 def test_index_lists_every_module_once(synthetic_repo: Path):
@@ -36,6 +36,58 @@ def test_missing_docstring_marked(synthetic_repo: Path):
     assert "(no docstring)" in out["docs/audit/llm/INDEX.md"]
 
 
+def test_artifact_commit_stamps_every_output(synthetic_repo: Path, monkeypatch):
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+    metrics = _metrics.build_metrics(
+        inv, graph, {"findings": [], "per_file": {}, "tool_status": {}},
+        {"available": False, "modules": {}},
+    )
+    metrics["commit"] = "artifact123"
+    monkeypatch.setattr(_render_llm._artifacts, "current_commit", lambda _repo: "current999")
+    out = _render_llm.render(synthetic_repo, inv, graph, metrics)
+    assert all("Generated at commit artifact123" in text for text in out.values())
+    assert all("current999" not in text for text in out.values())
+
+
+def test_degraded_analyzer_warning_is_in_every_output(synthetic_repo: Path):
+    analysis = {
+        "findings": [], "per_file": {},
+        "tool_status": {"radon": {"ok": False, "reason": "timed out"}},
+    }
+    out = _rendered(synthetic_repo, analysis=analysis)
+    assert all("Analyzer `radon` unavailable (timed out)" in text for text in out.values())
+
+
+def test_ignored_coverage_warning_is_in_every_output(synthetic_repo: Path):
+    coverage = {
+        "available": True, "stale": True, "partial": False, "failed": False,
+        "modules": {"plex_renamer/alpha.py": {"statements": 10, "covered": 2, "percent": 20.0}},
+    }
+    out = _rendered(synthetic_repo, coverage=coverage)
+    assert all("Coverage evidence ignored" in text for text in out.values())
+    assert all("coverage percentages are omitted" in text for text in out.values())
+    assert "cov 20%" not in out["docs/audit/llm/INDEX.md"]
+
+
+def test_dead_suffix_separates_confidence_tiers_and_keeps_legacy_fallback():
+    record = {
+        "flags": ["dead-code"], "dead_candidates": 6,
+        "dead_tiers": {
+            "high-confidence": 1, "medium-confidence": 2, "low-confidence": 0,
+            "test-referenced": 1, "protected-or-ambiguous": 1, "allowlisted": 1,
+        },
+    }
+    suffix = _render_llm._flags_suffix(record)
+    assert "high x1" in suffix and "medium x2" in suffix
+    assert "test-referenced x1" in suffix and "protected/ambiguous x1" in suffix
+    assert "allowlisted x1" in suffix
+    legacy = _render_llm._flags_suffix({
+        "flags": ["dead-code"], "dead_candidates": 6, "dead_high_confidence": 2,
+    })
+    assert "dead x6" in legacy and "high" not in legacy
+
+
 def test_run_writes_files(synthetic_repo: Path):
     from audit import _artifacts
     for stage in (_inventory, _graph):
@@ -46,3 +98,25 @@ def test_run_writes_files(synthetic_repo: Path):
     _metrics.run(synthetic_repo, None)
     assert _render_llm.run(synthetic_repo, None) == 0
     assert (synthetic_repo / "docs" / "audit" / "llm" / "INDEX.md").exists()
+
+
+def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):
+    from audit import _artifacts
+    for stage in (_inventory, _graph):
+        stage.run(synthetic_repo, None)
+    _artifacts.write_artifact(synthetic_repo, "analysis", {
+        "findings": [], "per_file": {},
+        "tool_status": {"vulture": {"ok": False, "reason": "not installed"}},
+    })
+    _artifacts.write_artifact(synthetic_repo, "metrics", {
+        "modules": {
+            "plex_renamer/alpha.py": {
+                "module": "plex_renamer.alpha", "public_symbols": 0,
+                "fan_in": 0, "fan_out": 0, "flags": [], "dead_candidates": 0,
+            },
+        },
+        "headline": {},
+    })
+    assert _render_llm.run(synthetic_repo, None) == 0
+    index = (synthetic_repo / "docs" / "audit" / "llm" / "INDEX.md").read_text(encoding="utf-8")
+    assert "Analyzer `vulture` unavailable (not installed)" in index

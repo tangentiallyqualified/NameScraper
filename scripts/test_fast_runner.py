@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import subprocess
 import sys
@@ -9,13 +10,76 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the non-Qt (fast) test suite with concise reporting.")
     parser.add_argument("--verbose-pytest", action="store_true", help="Do not pass -q to pytest.")
     parser.add_argument("--coverage", action="store_true",
                         help="Run under coverage; writes .coverage and .coverage.meta.json at repo root.")
-    parser.add_argument("pytest_args", nargs="*", help="Additional arguments forwarded to pytest.")
-    return parser.parse_args()
+    args, args.pytest_args = parser.parse_known_args(argv)
+    return args
+
+
+def _imports_qt_support(test_path: Path) -> bool:
+    """Return whether a test imports Qt or the repository's Qt fixture module."""
+    tree = ast.parse(test_path.read_text(encoding="utf-8"), filename=str(test_path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(
+                alias.name == "PySide6"
+                or alias.name.startswith("PySide6.")
+                or alias.name == "conftest_qt"
+                or alias.name.endswith(".conftest_qt")
+                for alias in node.names
+            ):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if (
+                module == "PySide6"
+                or module.startswith("PySide6.")
+                or module == "conftest_qt"
+                or module.endswith(".conftest_qt")
+                or any(alias.name == "conftest_qt" for alias in node.names)
+            ):
+                return True
+    return False
+
+
+def _discover_qt_tests(repo_root: Path) -> list[str]:
+    """Discover Qt-dependent test modules in stable repository-relative order."""
+    tests_root = repo_root / "tests"
+    discovered = [
+        path.relative_to(repo_root).as_posix()
+        for path in tests_root.rglob("test_*.py")
+        if _imports_qt_support(path)
+    ]
+    return sorted(discovered)
+
+
+def _build_command(
+    repo_root: Path,
+    args: argparse.Namespace,
+    qt_tests: list[str],
+) -> list[str]:
+    """Build the pytest command without performing filesystem or process I/O."""
+    python = repo_root / ".venv" / "Scripts" / "python.exe"
+    junit_log = repo_root / ".pytest_cache" / "fast" / "latest.junit.xml"
+
+    command = [str(python)]
+    if args.coverage:
+        command += ["-m", "coverage", "run", f"--data-file={repo_root / '.coverage'}",
+                    "--source=plex_renamer"]
+    command += ["-m", "pytest"]
+    command += [f"--ignore={path}" for path in sorted(qt_tests)]
+    command += [
+        "--ignore=tests/conftest_qt.py",
+        "--color=no",
+        f"--junitxml={junit_log}",
+    ]
+    if not args.verbose_pytest:
+        command.append("-q")
+    command.extend(args.pytest_args)
+    return command
 
 
 def _write_logs(log_dir: Path, stdout: str, stderr: str) -> None:
@@ -94,10 +158,10 @@ def _write_coverage_sidecar(repo_root: Path, returncode: int, pytest_args: list[
     )
 
 
-def main() -> int:
-    args = _parse_args()
+def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
+    args = _parse_args(argv)
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[1]
     python = repo_root / ".venv" / "Scripts" / "python.exe"
     if not python.exists():
         print(f"Python environment not found at {python}", file=sys.stderr)
@@ -107,45 +171,7 @@ def main() -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
     junit_log = log_dir / "latest.junit.xml"
 
-    command = [str(python)]
-    if args.coverage:
-        command += ["-m", "coverage", "run", f"--data-file={repo_root / '.coverage'}",
-                    "--source=plex_renamer"]
-    command += [
-        "-m",
-        "pytest",
-        "--ignore=tests/test_qt_main_window.py",
-        "--ignore=tests/test_recent_menus.py",
-        "--ignore=tests/test_tab_badge.py",
-        "--ignore=tests/test_qt_job_detail_panel.py",
-        "--ignore=tests/test_qt_media_detail_panel.py",
-        "--ignore=tests/test_qt_media_workspace.py",
-        "--ignore=tests/test_qt_queue_history.py",
-        "--ignore=tests/test_qt_busy_overlay.py",
-        "--ignore=tests/test_qt_toasts.py",
-        "--ignore=tests/test_qt_async_guide.py",
-        "--ignore=tests/test_qt_perf_guards.py",
-        "--ignore=tests/test_qt_chrome.py",
-        "--ignore=tests/test_roster_model.py",
-        "--ignore=tests/test_roster_delegate.py",
-        "--ignore=tests/test_episode_table_model.py",
-        "--ignore=tests/test_episode_table_delegate.py",
-        "--ignore=tests/test_episode_expansion.py",
-        "--ignore=tests/test_work_panel.py",
-        "--ignore=tests/test_bulk_assign_panel.py",
-        "--ignore=tests/test_scan_progress.py",
-        "--ignore=tests/test_workspace_poster_warmup.py",
-        "--ignore=tests/test_settings_tab_automux.py",
-        "--ignore=tests/test_automux_tracks_widget.py",
-        "--ignore=tests/test_workspace_automux.py",
-        "--ignore=tests/test_queue_tab_remux.py",
-        "--ignore=tests/conftest_qt.py",
-        "--color=no",
-        f"--junitxml={junit_log}",
-    ]
-    if not args.verbose_pytest:
-        command.append("-q")
-    command.extend(args.pytest_args)
+    command = _build_command(repo_root, args, _discover_qt_tests(repo_root))
 
     result = subprocess.run(
         command,
