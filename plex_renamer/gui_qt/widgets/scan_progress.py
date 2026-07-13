@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QElapsedTimer, QTimer, Signal
+from PySide6.QtCore import QRectF, Qt, QElapsedTimer, QTimer, Signal
 from PySide6.QtGui import QLinearGradient, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -542,4 +542,3 @@ def _parse_lifecycle(lifecycle: str | ScanLifecycle) -> ScanLifecycle | None:
         return ScanLifecycle(lifecycle)
     except ValueError:
         return None
-

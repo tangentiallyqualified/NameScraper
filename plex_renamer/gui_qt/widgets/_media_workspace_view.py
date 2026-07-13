@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...engine import PreviewItem, ScanState
+from ...engine import ScanState
 from ...parsing import build_movie_name, build_show_folder_name
 from ._media_helpers import roster_selection_key as _roster_selection_key
 
@@ -12,26 +12,6 @@ from ._media_helpers import roster_selection_key as _roster_selection_key
 class MediaWorkspaceViewCoordinator:
     def __init__(self, workspace: Any) -> None:
         self._workspace = workspace
-
-    def selected_preview(self) -> PreviewItem | None:
-        workspace = self._workspace
-        state = workspace._selected_state()
-        if state is None:
-            return None
-        current = workspace._work_panel.table_view.currentIndex()
-        if not current.isValid():
-            return None
-        index = workspace._work_panel.model.preview_index_at(current.row())
-        if index is None or not (0 <= index < len(state.preview_items)):
-            return None
-        return state.preview_items[index]
-
-    def folder_plan_text(self, state: ScanState) -> str:
-        folder_preview = self.folder_preview_data(state)
-        if folder_preview is None:
-            return ""
-        source, target = folder_preview
-        return f"Folder rename plan: {source} -> {target}"
 
     def folder_preview_data(self, state: ScanState) -> tuple[str, str] | None:
         workspace = self._workspace

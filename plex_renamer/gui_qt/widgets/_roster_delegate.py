@@ -253,7 +253,7 @@ class RosterDelegate(QStyledItemDelegate):
             return super().helpEvent(event, view, option, index)
 
         body_rect = self._body_rect(self._card_rect(option.rect))
-        metrics = painter_metrics = QFontMetrics(self._view.font()) if self._view is not None else None
+        painter_metrics = QFontMetrics(self._view.font()) if self._view is not None else None
         line_height = painter_metrics.lineSpacing() if painter_metrics is not None else _scale.px(16)
         confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
         chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)

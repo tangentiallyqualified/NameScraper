@@ -153,9 +153,6 @@ class _ToastCard(QFrame):
 
     # -- clamp / expand ----------------------------------------------------
 
-    def full_message(self) -> str:
-        return self._full_message
-
     def set_expanded(self, expanded: bool) -> None:
         if self._expanded == expanded:
             return

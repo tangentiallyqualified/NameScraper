@@ -15,11 +15,10 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
-    QSplitter,
     QWidget,
 )
 
-from ...engine import PreviewItem, ScanState
+from ...engine import ScanState
 from ._media_workspace_actions import MediaWorkspaceActionCoordinator
 from ._media_workspace_automux import MediaWorkspaceAutoMuxCoordinator
 from ._media_workspace_lifecycle import MediaWorkspaceLifecycleCoordinator
@@ -122,10 +121,6 @@ class MediaWorkspace(QWidget):
     def scan_progress_widget(self) -> ScanProgressWidget:
         return self._scan_progress
 
-    @property
-    def splitter(self) -> QSplitter:
-        return self._splitter
-
     def apply_settings(self) -> None:
         self._lifecycle_coordinator.apply_settings()
 
@@ -192,9 +187,6 @@ class MediaWorkspace(QWidget):
     def _set_roster_current_state(self, state_index: int, *, auto_selected: bool) -> None:
         self._state_coordinator.set_roster_current_state(state_index, auto_selected=auto_selected)
 
-    def _preferred_batch_focus_index(self, states: list[ScanState]) -> int | None:
-        return self._refresh_coordinator.preferred_batch_focus_index(states)
-
     def _current_states(self) -> list[ScanState]:
         return self._state_coordinator.current_states()
 
@@ -203,9 +195,6 @@ class MediaWorkspace(QWidget):
 
     def _ensure_check_bindings(self, state: ScanState) -> None:
         self._refresh_coordinator.ensure_check_bindings(state)
-
-    def _normalize_queue_selection(self, states: list[ScanState]) -> None:
-        self._refresh_coordinator.normalize_queue_selection(states)
 
     def _on_roster_group_toggled(self, group: str) -> None:
         self._state_coordinator.on_roster_group_toggled(group)
@@ -249,9 +238,6 @@ class MediaWorkspace(QWidget):
 
     def _on_inline_row_action(self, index: QModelIndex, action_id: str) -> None:
         self._state_coordinator.on_inline_row_action(index, action_id)
-
-    def _update_preview_master_state(self, state: ScanState | None) -> None:
-        self._state_coordinator.update_preview_master_state(state)
 
     def _expansion_card_for_index(self, index: QModelIndex):
         return self._state_coordinator.expansion_card_for_index(index)
@@ -341,12 +327,6 @@ class MediaWorkspace(QWidget):
             warning_box=QMessageBox,
         )
 
-    def _selected_preview(self) -> PreviewItem | None:
-        return self._view_coordinator.selected_preview()
-
-    def _folder_plan_text(self, state: ScanState) -> str:
-        return self._view_coordinator.folder_plan_text(state)
-
     def _folder_preview_data(self, state: ScanState) -> tuple[str, str] | None:
         return self._view_coordinator.folder_preview_data(state)
 
@@ -379,6 +359,3 @@ class MediaWorkspace(QWidget):
 
     def _season_ratio_text(self, state: ScanState, season_num: int | None, item_count: int) -> str:
         return self._view_coordinator.season_ratio_text(state, season_num, item_count)
-
-    def _season_expected_count(self, state: ScanState, season_num: int | None) -> int:
-        return self._view_coordinator.season_expected_count(state, season_num)

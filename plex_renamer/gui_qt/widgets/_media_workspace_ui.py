@@ -77,7 +77,6 @@ class MediaWorkspaceUiCoordinator:
             tmdb_provider=workspace._tmdb_provider,
         )
         workspace._roster_master_check = workspace._roster_panel.master_check
-        workspace._roster_selection_summary = workspace._roster_panel.selection_summary
         workspace._roster_queue_btn = workspace._roster_panel.queue_button
         workspace._roster_master_check.stateChanged.connect(workspace._on_roster_master_changed)
         workspace._roster_queue_btn.clicked.connect(workspace._queue_checked)

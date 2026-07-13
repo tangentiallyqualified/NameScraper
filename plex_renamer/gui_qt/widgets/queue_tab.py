@@ -45,7 +45,6 @@ class QueueTab(_JobListTab):
         self,
         queue_controller,
         tmdb_provider: Callable[[], object | None] | None = None,
-        navigate_to_media: Callable[[int], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(
@@ -55,7 +54,6 @@ class QueueTab(_JobListTab):
             parent=parent,
         )
         self._tmdb_provider = tmdb_provider
-        self._navigate_to_media = navigate_to_media
 
         self._start_btn = QPushButton("Start Queue")
         self._start_btn.clicked.connect(self._toggle_queue)
