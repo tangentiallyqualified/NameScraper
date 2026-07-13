@@ -13,7 +13,7 @@ CHANGES_REL = Path("docs") / "audit" / "CHANGES.md"
 HISTORY_CAP = 10
 LOC_RATIO = 1.5
 CC_DELTA = 5
-COVERAGE_DROP = 10.0
+COVERAGE_DELTA = 10.0
 BASELINE_FIELDS = ("sha256", "loc", "max_complexity", "coverage_percent", "dead_candidates")
 
 
@@ -46,7 +46,7 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
         if now["max_complexity"] - was["max_complexity"] >= CC_DELTA:
             movements.append(f"`{path}`: max_complexity {was['max_complexity']} -> {now['max_complexity']}")
         if (was.get("coverage_percent") is not None and now.get("coverage_percent") is not None
-                and was["coverage_percent"] - now["coverage_percent"] >= COVERAGE_DROP):
+                and abs(now["coverage_percent"] - was["coverage_percent"]) >= COVERAGE_DELTA):
             movements.append(f"`{path}`: coverage {was['coverage_percent']} -> {now['coverage_percent']}")
         if now["dead_candidates"] > was["dead_candidates"]:
             movements.append(f"`{path}`: dead candidates {was['dead_candidates']} -> {now['dead_candidates']}")

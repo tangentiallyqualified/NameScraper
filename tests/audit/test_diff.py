@@ -38,6 +38,12 @@ def test_threshold_movements_reported():
     assert "coverage 80.0 -> 60.0" in text
 
 
+def test_coverage_recovery_reported():
+    base = _baseline_from(_metrics(cov=10.0))
+    result = _diff.compare(base, _metrics(cov=75.0))
+    assert "coverage 10.0 -> 75.0" in " ".join(result["movements"])
+
+
 def test_small_changes_ignored():
     base = _baseline_from(_metrics(loc=100, cc=5, cov=80.0))
     result = _diff.compare(base, _metrics(loc=110, cc=7, cov=75.0))

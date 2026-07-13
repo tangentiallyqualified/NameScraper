@@ -65,3 +65,26 @@ def test_run_prints_count_from_inventory(synthetic_repo: Path, capsys):
     assert _inventory.run(synthetic_repo, None) == 0
     out = capsys.readouterr().out
     assert "inventory: 3 package files indexed" in out
+
+
+def test_excluded_name_as_file_is_skipped(synthetic_repo: Path):
+    (synthetic_repo / "scripts").mkdir(exist_ok=True)
+    (synthetic_repo / "scripts" / ".venv").write_text("not a dir\n", encoding="utf-8")
+    inv = _inventory.build_inventory(synthetic_repo)
+    assert {"path": "scripts/.venv"} not in inv["scripts"]
+
+
+def test_unreadable_file_skipped_not_fatal(synthetic_repo: Path, monkeypatch):
+    (synthetic_repo / "plex_renamer" / "gamma.py").write_text('"""Gamma."""\n', encoding="utf-8")
+    real_sha = _inventory._sha
+
+    def _flaky(path: Path) -> str:
+        if path.name == "gamma.py":
+            raise OSError("unreadable entry (simulated broken symlink)")
+        return real_sha(path)
+
+    monkeypatch.setattr(_inventory, "_sha", _flaky)
+    inv = _inventory.build_inventory(synthetic_repo)
+    paths = {r["path"] for r in inv["python_files"]}
+    assert "plex_renamer/gamma.py" not in paths
+    assert "plex_renamer/alpha.py" in paths

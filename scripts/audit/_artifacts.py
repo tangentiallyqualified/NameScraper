@@ -32,6 +32,11 @@ def audit_dir(repo_root: Path) -> Path:
     return d
 
 
+def ascii_safe(text: str) -> str:
+    """Console-safe text for CLI prints (cp1252 consoles); generated files stay UTF-8."""
+    return text.encode("ascii", "replace").decode("ascii")
+
+
 def package_of(path: str) -> str:
     """Top-level package segment of a repo-relative module path ('root' for top-level files)."""
     parts = Path(path).parts

@@ -73,7 +73,8 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         try:
             meta = json.loads(meta_file.read_text(encoding="utf-8"))
             commit = meta.get("commit")
-            partial = bool(meta.get("partial"))
+            raw_partial = meta.get("partial", False)
+            partial = raw_partial if isinstance(raw_partial, bool) else True
         except (json.JSONDecodeError, OSError):
             commit = None
     age = _artifacts.commits_between(repo_root, commit) if commit else None
@@ -99,5 +100,5 @@ def run(repo_root: Path, options) -> int:
         note = f" ({'; '.join(notes)})" if notes else ""
         print(f"coverage: {len(cov['modules'])} modules from {cov['source']} data{note}")
         return 0
-    print(f"coverage: unavailable - {cov['reason']}")
+    print(_artifacts.ascii_safe(f"coverage: unavailable - {cov['reason']}"))
     return 2

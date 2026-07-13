@@ -51,12 +51,14 @@ try {
         $auditPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
         if (Test-Path $auditPython) {
             $scriptsDir = Join-Path $repoRoot "scripts"
-            if ($env:PYTHONPATH) {
-                if ($env:PYTHONPATH -notlike "*$scriptsDir*") {
+            $pythonPathParts = @()
+            if ($env:PYTHONPATH) { $pythonPathParts = $env:PYTHONPATH -split ";" }
+            if ($pythonPathParts -notcontains $scriptsDir) {
+                if ($env:PYTHONPATH) {
                     $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+                } else {
+                    $env:PYTHONPATH = $scriptsDir
                 }
-            } else {
-                $env:PYTHONPATH = $scriptsDir
             }
             $auditLines = & $auditPython -m audit --check
             if ($LASTEXITCODE -eq 0 -and $auditLines) {

@@ -191,3 +191,8 @@ def test_run_returns_2_and_writes_artifact_when_tool_degrades(synthetic_repo: Pa
     data = _artifacts.read_artifact(synthetic_repo, "analysis")
     assert data["tool_status"]["ruff"]["ok"] is False
     assert "unavailable: ruff" in capsys.readouterr().out
+
+
+def test_check_dependencies_empty_runtime():
+    findings = _analyze._check_dependencies({"modules": {}}, '[project]\nname = "x"\n')
+    assert findings == []
