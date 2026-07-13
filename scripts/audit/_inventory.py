@@ -23,6 +23,8 @@ def _iter_files(repo_root: Path):
     for dirpath, dirnames, filenames in os.walk(repo_root):
         dirnames[:] = sorted(d for d in dirnames if d not in EXCLUDED_DIRS)
         for filename in sorted(filenames):
+            if filename in EXCLUDED_DIRS:
+                continue
             path = Path(dirpath) / filename
             yield path, path.relative_to(repo_root)
 
@@ -71,19 +73,22 @@ def build_inventory(repo_root: Path) -> dict:
     for path, rel in _iter_files(repo_root):
         posix = rel.as_posix()
         top = rel.parts[0]
-        if rel.suffix == ".py" and top == "plex_renamer":
-            python_files.append({
-                "path": posix,
-                "package": ".".join(rel.parts[:-1]),
-                "loc": _loc(path),
-                "sha256": _sha(path),
-            })
-        elif rel.suffix == ".py" and top == "tests":
-            test_files.append({"path": posix, "loc": _loc(path), "imports_modules": _test_imports(path)})
-        elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
-            docs.append(_doc_record(repo_root, path, rel))
-        elif top == "scripts":
-            scripts.append({"path": posix})
+        try:
+            if rel.suffix == ".py" and top == "plex_renamer":
+                python_files.append({
+                    "path": posix,
+                    "package": ".".join(rel.parts[:-1]),
+                    "loc": _loc(path),
+                    "sha256": _sha(path),
+                })
+            elif rel.suffix == ".py" and top == "tests":
+                test_files.append({"path": posix, "loc": _loc(path), "imports_modules": _test_imports(path)})
+            elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
+                docs.append(_doc_record(repo_root, path, rel))
+            elif top == "scripts":
+                scripts.append({"path": posix})
+        except OSError:
+            continue  # unreadable entry (broken symlink, permission hole) - skip, don't abort
     return {
         "python_files": python_files,
         "test_files": test_files,
