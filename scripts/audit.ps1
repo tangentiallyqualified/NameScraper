@@ -15,12 +15,14 @@ if (-not (Test-Path $python)) {
 }
 
 $scriptsDir = Join-Path $repoRoot "scripts"
-if ($env:PYTHONPATH) {
-    if ($env:PYTHONPATH -notlike "*$scriptsDir*") {
+$pythonPathParts = @()
+if ($env:PYTHONPATH) { $pythonPathParts = $env:PYTHONPATH -split ";" }
+if ($pythonPathParts -notcontains $scriptsDir) {
+    if ($env:PYTHONPATH) {
         $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+    } else {
+        $env:PYTHONPATH = $scriptsDir
     }
-} else {
-    $env:PYTHONPATH = $scriptsDir
 }
 if ($null -eq $AuditArgs) { $AuditArgs = @() }
 & $python -m audit @AuditArgs
