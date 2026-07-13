@@ -1,5 +1,10 @@
 # Audit Change Log
 
+## Audit 2026-07-13 (0325ca8) vs baseline (85f4d45)
+
+- Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
+- No notable changes since baseline.
+
 ## Audit 2026-07-13 (85f4d45) vs baseline (a703ff7)
 
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
