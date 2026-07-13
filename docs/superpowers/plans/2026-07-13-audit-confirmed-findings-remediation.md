@@ -369,7 +369,7 @@ From `plex_renamer/app/models/state_models.py`, delete:
 
 - `ScanProgress.is_active`.
 - `CacheLookup.is_fresh`.
-- The `ignored` field from `EpisodeGuideRow`.
+- The `ignored` field from `UnmappedFileRow`.
 
 Do not remove `CacheEntry.last_accessed_at`, `CommandGateResult.eligible_job_count`, `EpisodeGuideSummary.mapped_episodes`, `missing_episodes`, `review_required`, `EpisodeGuideRow.episode_key`, or `source_label`.
 

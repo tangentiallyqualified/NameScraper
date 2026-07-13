@@ -115,7 +115,6 @@ class TVDirectoryClassifier:
         child_dirs: list[Path] = []
         specials_dirs: list[Path] = []
         direct_video_files: list[Path] = []
-        has_direct_season_subdirs = False
         has_regular_season_subdirs = False
 
         for child in child_entries:
@@ -123,7 +122,6 @@ class TVDirectoryClassifier:
                 if child.path.name.casefold() in self.ignored_system_names:
                     continue
                 if self.counts_as_season_subdir(child):
-                    has_direct_season_subdirs = True
                     if child.season_num == 0:
                         specials_dirs.append(child.path)
                     else:

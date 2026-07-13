@@ -5,10 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 
-from ...parsing import get_season, is_extras_folder
 from ._tv_library_classification import (
     ClassifiedDirectory as _ClassifiedDirectory,
-    DirChild as _DirChild,
     TVDirectoryClassifier,
 )
 from ..models import TVDirectoryRole, TVDiscoveryCandidate
@@ -170,13 +168,6 @@ class TVLibraryDiscoveryService:
     def _classify_directory(self, directory: Path) -> _ClassifiedDirectory:
         return self._classifier.classify_directory(directory)
 
-    def _counts_as_season_subdir(self, child: _DirChild) -> bool:
-        return self._classifier.counts_as_season_subdir(child)
-
-    @staticmethod
-    def _scan_children(directory: Path) -> list[_DirChild]:
-        return TVDirectoryClassifier.scan_children(directory)
-
     @staticmethod
     def _iter_child_dirs(directory: Path) -> list[Path]:
         children: list[Path] = []
@@ -194,10 +185,6 @@ class TVLibraryDiscoveryService:
 
     def _season_children_are_majority(self, directory: Path) -> bool:
         return self._classifier.season_children_are_majority(directory)
-
-    @staticmethod
-    def _child_title_matches_parent(child_name: str, parent_title_cf: str) -> bool:
-        return TVDirectoryClassifier.child_title_matches_parent(child_name, parent_title_cf)
 
     @staticmethod
     def _canonical_path(directory: Path) -> str | None:

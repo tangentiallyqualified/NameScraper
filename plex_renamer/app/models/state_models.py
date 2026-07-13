@@ -81,19 +81,6 @@ class ScanProgress:
             return 0.0
         return min(100.0, (self.done / self.total) * 100.0)
 
-    @property
-    def is_active(self) -> bool:
-        return self.lifecycle in {
-            ScanLifecycle.DISCOVERING,
-            ScanLifecycle.MATCHING,
-            ScanLifecycle.SCANNING,
-            ScanLifecycle.BUILDING_PREVIEWS,
-            ScanLifecycle.RECONCILING,
-            ScanLifecycle.PREPARING_REVIEW,
-            ScanLifecycle.REFRESHING_CACHE,
-        }
-
-
 @dataclass(slots=True)
 class CacheEntry:
     """A persisted cache entry with freshness and eviction metadata."""
@@ -125,11 +112,6 @@ class CacheLookup:
     @property
     def is_hit(self) -> bool:
         return self.entry is not None
-
-    @property
-    def is_fresh(self) -> bool:
-        return self.state in {RefreshState.FRESH, RefreshState.RECENTLY_REFRESHED}
-
 
 @dataclass(slots=True)
 class QueueEligibility:
@@ -185,7 +167,6 @@ class UnmappedFileRow:
     original: Path
     reason: str
     preview: Any | None = None
-    ignored: bool = False
 
 
 @dataclass(slots=True)
