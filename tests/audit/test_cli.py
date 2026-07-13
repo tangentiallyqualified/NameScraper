@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from audit import __main__ as cli
 
 
@@ -82,7 +84,51 @@ def test_check_reports_dirty_harness_file(synthetic_repo: Path, capsys):
     harness.write_text("VALUE = 1\n", encoding="utf-8")
     assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
     out = capsys.readouterr().out
-    assert "1 audit harness file" in out
+    assert "1 audit input" in out
+
+
+@pytest.mark.parametrize("relative_path", [
+    "tests/test_ordinary_input.py",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
+])
+def test_check_reports_dirty_direct_audit_inputs(
+        synthetic_repo: Path, capsys, relative_path: str):
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    capsys.readouterr()
+    target = synthetic_repo / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    target.write_text(existing + "\n# audit input changed\n", encoding="utf-8")
+
+    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+
+    assert any("0 mapped modules, 1 audit input changed" in line for line in lines)
+    assert len(lines) <= 3
+
+
+@pytest.mark.parametrize("relative_path", [
+    "tests/test_ordinary_input.py",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
+])
+def test_check_reports_committed_direct_audit_inputs(
+        synthetic_repo: Path, capsys, repo_git, relative_path: str):
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    capsys.readouterr()
+    target = synthetic_repo / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    target.write_text(existing + "\n# audit input changed\n", encoding="utf-8")
+    repo_git(synthetic_repo, "add", "-A")
+    repo_git(synthetic_repo, "commit", "-m", "change audit input")
+
+    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+
+    assert any("0 mapped modules, 1 audit input changed" in line for line in lines)
+    assert len(lines) <= 3
 
 
 def test_check_ignores_dirty_unenrolled_doc(synthetic_repo: Path, capsys):

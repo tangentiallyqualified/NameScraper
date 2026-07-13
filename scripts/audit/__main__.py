@@ -47,7 +47,10 @@ CHECK_PATHS = (
     "scripts/test_fast_runner.py",
     "scripts/test-fast.cmd",
     "scripts/test-fast.ps1",
+    "tests",
     "tests/audit",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
 )
 
 
@@ -70,10 +73,10 @@ def check_lines(repo_root: Path) -> list[str]:
     if behind == 0 and not changed:
         return [f"audit baseline current ({commit})"]
     mapped = [c for c in changed if c.startswith("plex_renamer/") and c.endswith(".py")]
-    harness = [c for c in changed if c not in mapped]
+    audit_inputs = [c for c in changed if c not in mapped]
     plural = "s" if behind != 1 else ""
     mplural = "s" if len(mapped) != 1 else ""
-    hplural = "s" if len(harness) != 1 else ""
+    iplural = "s" if len(audit_inputs) != 1 else ""
     if behind == 0:
         status = f"audit baseline current ({commit}); uncommitted relevant changes present"
     else:
@@ -82,7 +85,8 @@ def check_lines(repo_root: Path) -> list[str]:
             status += "; uncommitted relevant changes also present"
     return [
         status,
-        f"{len(mapped)} mapped module{mplural}, {len(harness)} audit harness file{hplural} changed",
+        f"{len(mapped)} mapped module{mplural}, "
+        f"{len(audit_inputs)} audit input{iplural} changed",
         "run scripts\\audit.cmd to refresh",
     ]
 

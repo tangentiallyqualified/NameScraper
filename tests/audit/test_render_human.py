@@ -131,6 +131,23 @@ def test_failed_analyzers_suppress_false_clean_and_zero_claims(synthetic_repo: P
     assert "vulture analyzer did not complete" in overview
 
 
+def test_failed_vulture_marks_every_empty_dead_tier_unavailable(synthetic_repo: Path):
+    metrics = _report_metrics()
+    metrics["tool_status"]["vulture"] = {"ok": False, "reason": "crashed"}
+    metrics["dead_code"] = {
+        "usable": False, "source": "vulture", "reason": "crashed",
+        "observed_findings": 0,
+    }
+
+    overview = _render_human.render_overview(
+        synthetic_repo, {"modules": {}}, metrics, {"findings": []}
+    )
+    dead_section = overview.split("## Dead-code review checklist", 1)[1]
+
+    assert dead_section.count("_Dead-code evidence unavailable") == 5
+    assert "_None._" not in dead_section
+
+
 def test_dead_code_sections_are_confidence_ordered_and_show_evidence(synthetic_repo: Path):
     metrics = _report_metrics()
     findings = []

@@ -19,6 +19,8 @@ _DEAD_TIER_LABELS = (
 
 def _dead_tiers(record: dict, findings: list[dict] | None = None) -> dict[str, int] | None:
     """Return additive tier counts, or None for a legacy aggregate record."""
+    if record.get("dead_evidence_usable") is False:
+        return None
     if isinstance(record.get("dead_tiers"), dict):
         return {key: int(record["dead_tiers"].get(key, 0)) for key, _ in _DEAD_TIER_LABELS}
 
@@ -96,8 +98,12 @@ def _evidence_warnings(metrics: dict, analysis: dict | None) -> list[str]:
             if not isinstance(detail, dict) or not detail.get("ok"):
                 reason = detail.get("reason") if isinstance(detail, dict) else None
                 suffix = f" ({reason})" if reason else ""
+                impact = (
+                    " its dead-code counts and clean claims are unavailable."
+                    if tool == "vulture" else " its findings are incomplete."
+                )
                 lines.append(
-                    f"> WARNING: Analyzer `{tool}` unavailable{suffix}; its findings are incomplete."
+                    f"> WARNING: Analyzer `{tool}` unavailable{suffix};{impact}"
                 )
 
     coverage = metrics.get("coverage")

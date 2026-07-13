@@ -2,12 +2,30 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import subprocess
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+_COVERAGE_SOURCE = ["plex_renamer"]
+_COVERAGE_CONFIG_FILES = (".coveragerc", "setup.cfg", "tox.ini")
+_DIAGNOSTIC_LIMIT = 400
+
+
+class _DiscoveryResult(list[str]):
+    def __init__(self, paths: list[str], errors: list[str]) -> None:
+        super().__init__(paths)
+        self.errors = errors
+
+
+def _diagnostic_context(value: object) -> str:
+    text = " ".join(str(value or "").split())
+    return text.encode("ascii", "replace").decode("ascii")[:_DIAGNOSTIC_LIMIT]
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -48,12 +66,21 @@ def _imports_qt_support(test_path: Path) -> bool:
 def _discover_qt_tests(repo_root: Path) -> list[str]:
     """Discover Qt-dependent test modules in stable repository-relative order."""
     tests_root = repo_root / "tests"
-    discovered = [
-        path.relative_to(repo_root).as_posix()
-        for path in tests_root.rglob("test_*.py")
-        if _imports_qt_support(path)
-    ]
-    return sorted(discovered)
+    discovered: list[str] = []
+    errors: list[str] = []
+    for path in tests_root.rglob("test_*.py"):
+        relative = path.relative_to(repo_root).as_posix()
+        try:
+            imports_qt = _imports_qt_support(path)
+        except (OSError, SyntaxError, UnicodeError) as exc:
+            line = f":{exc.lineno}" if isinstance(exc, SyntaxError) and exc.lineno else ""
+            errors.append(_diagnostic_context(
+                f"{relative}{line}: {type(exc).__name__}: {exc}"
+            ))
+            continue  # Keep the file in pytest collection so pytest can report it.
+        if imports_qt:
+            discovered.append(relative)
+    return _DiscoveryResult(sorted(discovered), errors)
 
 
 def _build_command(
@@ -129,7 +156,58 @@ def _fallback_summary(stdout: str, stderr: str) -> str | None:
     return candidates[-1]
 
 
-def _write_coverage_sidecar(repo_root: Path, returncode: int, pytest_args: list[str]) -> None:
+def _coverage_config(repo_root: Path) -> list[dict]:
+    """Return stable coverage configuration inputs that can affect collection."""
+    config: list[dict] = []
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            parsed = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            settings = parsed.get("tool", {}).get("coverage")
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+            settings = None
+        if isinstance(settings, dict):
+            config.append({"path": "pyproject.toml", "settings": settings})
+    for relative in _COVERAGE_CONFIG_FILES:
+        path = repo_root / relative
+        if path.exists():
+            try:
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError:
+                digest = "unreadable"
+            config.append({"path": relative, "sha256": digest})
+    return config
+
+
+def _coverage_scope(
+    repo_root: Path,
+    pytest_args: list[str],
+    qt_tests: list[str],
+) -> dict:
+    return {
+        "runner": "scripts/test_fast_runner.py",
+        "method": "ast-qt-exclusion-v1",
+        "excluded_tests": sorted(set(qt_tests) | {"tests/conftest_qt.py"}),
+        "coverage_source": list(_COVERAGE_SOURCE),
+        "coverage_config": _coverage_config(repo_root),
+        "pytest_args": list(pytest_args),
+    }
+
+
+def _scope_id(scope: dict) -> str:
+    canonical = json.dumps(
+        scope, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _write_coverage_sidecar(
+    repo_root: Path,
+    returncode: int,
+    pytest_args: list[str],
+    qt_tests: list[str] | None = None,
+    failure_reason: str | None = None,
+) -> None:
     """Always write the .coverage.meta.json sidecar (never unlink it).
 
     A failed run's `.coverage` data is never full evidence, so `partial` is
@@ -147,11 +225,15 @@ def _write_coverage_sidecar(repo_root: Path, returncode: int, pytest_args: list[
 
     failed = returncode != 0
     partial = True if failed else bool(pytest_args)
+    scope = _coverage_scope(repo_root, pytest_args, qt_tests) if qt_tests is not None else None
 
     meta_path.write_text(
         json.dumps({"commit": commit,
                      "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                      "pytest_args": pytest_args,
+                     "scope": scope,
+                     "scope_id": _scope_id(scope) if scope is not None else None,
+                     "reason": _diagnostic_context(failure_reason) if failure_reason else None,
                      "partial": partial,
                      "failed": failed}),
         encoding="utf-8",
@@ -171,33 +253,72 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
     junit_log = log_dir / "latest.junit.xml"
 
-    command = _build_command(repo_root, args, _discover_qt_tests(repo_root))
+    try:
+        qt_tests = _discover_qt_tests(repo_root)
+    except Exception as exc:
+        reason = f"test discovery failed: {_diagnostic_context(exc)}"
+        _write_logs(log_dir, "", reason + "\n")
+        if args.coverage:
+            _write_coverage_sidecar(
+                repo_root, 1, args.pytest_args, None, failure_reason=reason
+            )
+        print(reason, file=sys.stderr)
+        print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
+        return 1
+    command = _build_command(repo_root, args, qt_tests)
 
-    result = subprocess.run(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+    try:
+        result = subprocess.run(
+            command,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        reason = f"could not launch pytest: {_diagnostic_context(exc)}"
+        _write_logs(log_dir, "", reason + "\n")
+        if args.coverage:
+            _write_coverage_sidecar(
+                repo_root, 1, args.pytest_args, list(qt_tests), failure_reason=reason
+            )
+        print(reason, file=sys.stderr)
+        print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
+        return 1
+
+    discovery_errors = list(getattr(qt_tests, "errors", []))
+    discovery_reason = (
+        "test discovery incomplete: " + "; ".join(discovery_errors)
+        if discovery_errors else None
     )
+    stderr = result.stderr
+    if discovery_reason:
+        stderr = stderr.rstrip() + ("\n" if stderr else "") + discovery_reason + "\n"
+    _write_logs(log_dir, result.stdout, stderr)
 
-    _write_logs(log_dir, result.stdout, result.stderr)
+    returncode = result.returncode or (1 if discovery_errors else 0)
 
     if args.coverage:
-        _write_coverage_sidecar(repo_root, result.returncode, args.pytest_args)
+        if discovery_reason:
+            _write_coverage_sidecar(
+                repo_root, returncode, args.pytest_args, list(qt_tests),
+                failure_reason=discovery_reason,
+            )
+        else:
+            _write_coverage_sidecar(repo_root, returncode, args.pytest_args, qt_tests)
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
     combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]
 
-    if result.returncode == 0:
+    if returncode == 0:
         print("Fast test suite passed.")
         if summary:
             print(summary)
         print("Log: .pytest_cache/fast/latest.log")
         return 0
 
-    print(f"Fast test suite failed (exit code {result.returncode}).")
+    print(f"Fast test suite failed (exit code {returncode}).")
     if summary:
         print(summary)
     if combined_nonempty:
@@ -205,7 +326,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         for line in combined_nonempty[-30:]:
             print(line)
     print("Log: .pytest_cache/fast/latest.log")
-    return result.returncode
+    return returncode
 
 
 if __name__ == "__main__":

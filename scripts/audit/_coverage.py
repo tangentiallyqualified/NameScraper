@@ -91,6 +91,7 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         "available": False, "reason": None, "source": None,
         "collected_at_commit": None, "age_commits": None, "stale": False,
         "modules": {}, "partial": False, "failed": False,
+        "scope_id": None, "scope": None,
     }
     if fresh:
         data_file = repo_root / ".coverage"
@@ -140,6 +141,8 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
     commit = None
     partial = False
     failed = False
+    scope_id = None
+    scope = None
     meta_file = repo_root / ".coverage.meta.json"
     if meta_file.exists():
         try:
@@ -156,6 +159,13 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
             partial = raw_partial if isinstance(raw_partial, bool) else True
             raw_failed = meta.get("failed", False)
             failed = raw_failed if isinstance(raw_failed, bool) else True
+            raw_scope_id = meta.get("scope_id")
+            scope_id = (
+                raw_scope_id.strip()
+                if isinstance(raw_scope_id, str) and raw_scope_id.strip() else None
+            )
+            raw_scope = meta.get("scope")
+            scope = raw_scope if isinstance(raw_scope, dict) else None
         except (json.JSONDecodeError, OSError, ValueError):
             commit = None
             partial = True
@@ -167,6 +177,7 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         "collected_at_commit": commit, "age_commits": age,
         "stale": stale, "modules": modules,
         "partial": partial, "failed": failed,
+        "scope_id": scope_id, "scope": scope,
     }
 
 

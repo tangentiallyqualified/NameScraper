@@ -17,17 +17,24 @@ def _metrics(loc=100, cc=5, cov=80.0, dead=0, sha="aa", path="plex_renamer/alpha
                          "modules_over_complexity": 0, "coverage_stale": False}}
     if dead_symbols is not None:
         metrics["modules"][path]["dead_symbols"] = dead_symbols
-    if coverage is not None:
-        metrics["coverage"] = coverage
+    metrics["coverage"] = (
+        {"usable": True, "scope_id": "scope-default"}
+        if coverage is None else coverage
+    )
     return metrics
 
 
 def _baseline_from(metrics: dict) -> dict:
-    return {"commit": "old1234", "generated_at": "2026-07-01T00:00:00+00:00",
-            "modules": {p: {k: r[k] for k in
-                            ("sha256", "loc", "max_complexity", "coverage_percent", "dead_candidates")}
-                        for p, r in metrics["modules"].items()},
-            "headline": metrics["headline"]}
+    baseline = {
+        "commit": "old1234", "generated_at": "2026-07-01T00:00:00+00:00",
+        "modules": {p: {k: r[k] for k in
+                        ("sha256", "loc", "max_complexity", "coverage_percent", "dead_candidates")}
+                    for p, r in metrics["modules"].items()},
+        "headline": metrics["headline"],
+    }
+    if "coverage" in metrics:
+        baseline["coverage"] = metrics["coverage"]
+    return baseline
 
 
 def test_first_run_has_no_movements():
@@ -62,6 +69,33 @@ def test_unusable_coverage_on_either_side_suppresses_movement():
     assert "coverage" not in " ".join(_diff.compare(base, current)["movements"])
 
 
+def test_changed_coverage_scope_suppresses_movements_and_emits_one_note():
+    base = _baseline_from(_metrics(
+        cov=10.0, coverage={"usable": True, "scope_id": "scope-old"}
+    ))
+    current = _metrics(
+        cov=75.0, coverage={"usable": True, "scope_id": "scope-new"}
+    )
+
+    result = _diff.compare(base, current)
+
+    notes = [item for item in result["movements"] if "coverage methodology changed" in item]
+    assert len(notes) == 1
+    assert "per-module coverage movements suppressed" in notes[0]
+    assert not any("coverage 10.0 -> 75.0" in item for item in result["movements"])
+    assert set(result) == {"added", "removed", "renamed", "movements", "first_run"}
+
+
+def test_legacy_unknown_coverage_scope_suppresses_movements_with_note():
+    base = _baseline_from(_metrics(cov=10.0))
+    base.pop("coverage")
+    current = _metrics(cov=75.0)
+
+    result = _diff.compare(base, current)
+
+    assert sum("coverage methodology changed" in item for item in result["movements"]) == 1
+    assert not any("coverage 10.0 -> 75.0" in item for item in result["movements"])
+
 def test_small_changes_ignored():
     base = _baseline_from(_metrics(loc=100, cc=5, cov=80.0))
     result = _diff.compare(base, _metrics(loc=110, cc=7, cov=75.0))
@@ -72,6 +106,34 @@ def test_unavailable_complexity_does_not_break_comparison():
     base = _baseline_from(_metrics(cc=5))
     current = _metrics(cc=None)
     assert _diff.compare(base, current)["movements"] == []
+
+
+def test_unavailable_dead_evidence_does_not_compare_or_render_numeric_zero(
+        synthetic_repo: Path):
+    base = _baseline_from(_metrics(dead=2))
+    current = _metrics(dead=0)
+    record = current["modules"]["plex_renamer/alpha.py"]
+    for key in ("dead_candidates", "dead_high_confidence"):
+        record[key] = None
+    record.update({
+        "dead_symbols": None,
+        "dead_tiers": None,
+        "dead_evidence_usable": False,
+    })
+    current["headline"]["dead_high_confidence"] = None
+    current["headline"]["dead_evidence_usable"] = False
+    current["dead_code"] = {
+        "usable": False, "source": "vulture", "reason": "crashed",
+        "observed_findings": 0,
+    }
+
+    result = _diff.compare(base, current)
+    section = _diff._section(synthetic_repo, result, base, current)
+
+    assert set(result) == {"added", "removed", "renamed", "movements", "first_run"}
+    assert "dead candidates" not in "\n".join(result["movements"])
+    assert "dead-code analysis unavailable" in section
+    assert "None high-confidence" not in section
 
 
 def test_rename_detected_by_hash():

@@ -36,6 +36,8 @@ def _coverage_provenance(coverage: dict) -> dict:
         "stale": coverage.get("stale"),
         "partial": coverage.get("partial", False),
         "failed": coverage.get("failed", False),
+        "scope_id": coverage.get("scope_id"),
+        "scope": coverage.get("scope"),
         "module_count": len(coverage.get("modules", {})),
     }
 
@@ -71,6 +73,20 @@ def _dead_counts(findings: list[dict]) -> dict:
     }
 
 
+def _unavailable_dead_counts() -> dict:
+    return {
+        "dead_candidates": None,
+        "dead_high_confidence": None,
+        "dead_low_confidence": None,
+        "dead_medium_confidence": None,
+        "dead_exact_low_confidence": None,
+        "dead_test_referenced": None,
+        "dead_protected_ambiguous": None,
+        "dead_allowlisted": None,
+        "dead_tiers": None,
+    }
+
+
 def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) -> dict:
     by_path = {m["path"]: (name, m) for name, m in graph["modules"].items()}
     per_file = analysis.get("per_file", {})
@@ -78,6 +94,8 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
     cov_modules = coverage.get("modules", {}) if coverage_info["usable"] else {}
     tool_status = dict(analysis.get("tool_status", {}))
     radon_ok = tool_status.get("radon", {}).get("ok") is True
+    vulture_status = tool_status.get("vulture")
+    vulture_ok = isinstance(vulture_status, dict) and vulture_status.get("ok") is True
 
     dead_by_path: dict[str, list[dict]] = {}
     for f in analysis.get("findings", []):
@@ -94,7 +112,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
             dead_by_path.get(path, []),
             key=lambda f: (f.get("line", 0), f.get("symbol") or "", f.get("assessment") or ""),
         )
-        dead_counts = _dead_counts(dead)
+        dead_counts = _dead_counts(dead) if vulture_ok else _unavailable_dead_counts()
         record = {
             "module": mod_name or path,
             "loc": rec["loc"],
@@ -107,6 +125,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
             "coverage_statements": cov.get("statements") if cov else None,
             "coverage_covered": cov.get("covered") if cov else None,
             **dead_counts,
+            "dead_evidence_usable": vulture_ok,
             "dead_symbols": [
                 {
                     "symbol": f.get("symbol"),
@@ -116,7 +135,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
                 }
                 for f in dead
                 if not f.get("allowlisted")
-            ],
+            ] if vulture_ok else None,
             "public_symbols": sum(1 for s in mod.get("symbols", []) if s["public"]),
         }
         flags = []
@@ -142,7 +161,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
         for findings in dead_by_path.values()
         for finding in findings
     ]
-    dead_headline = _dead_counts(all_dead)
+    dead_headline = _dead_counts(all_dead) if vulture_ok else _unavailable_dead_counts()
     headline = {
         "files": len(modules),
         "total_loc": sum(m["loc"] for m in modules.values()),
@@ -150,6 +169,7 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
         "module_avg_coverage": module_avg_coverage,
         "avg_coverage": statement_coverage,
         **dead_headline,
+        "dead_evidence_usable": vulture_ok,
         "cycles": len(graph.get("cycles", [])),
         "modules_over_complexity": (
             sum(1 for m in modules.values() if "complexity" in m["flags"])
@@ -164,6 +184,18 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
         "modules": modules,
         "headline": headline,
         "coverage": coverage_info,
+        "dead_code": {
+            "usable": vulture_ok,
+            "source": "vulture",
+            "reason": (
+                None if vulture_ok
+                else (
+                    vulture_status.get("reason")
+                    if isinstance(vulture_status, dict) else "status missing"
+                )
+            ),
+            "observed_findings": len(all_dead),
+        },
         "tool_status": tool_status,
     }
 
@@ -177,6 +209,9 @@ def run(repo_root: Path, options) -> int:
     )
     _artifacts.write_artifact(repo_root, "metrics", metrics)
     h = metrics["headline"]
-    print(f"metrics: {h['files']} modules, {h['total_loc']} LOC, "
-          f"{h['dead_high_confidence']} high-confidence dead symbols")
+    dead_summary = (
+        f"{h['dead_high_confidence']} high-confidence dead symbols"
+        if h.get("dead_evidence_usable") else "dead-code analysis unavailable"
+    )
+    print(f"metrics: {h['files']} modules, {h['total_loc']} LOC, {dead_summary}")
     return 0

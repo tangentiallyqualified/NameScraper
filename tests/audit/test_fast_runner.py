@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 from pathlib import Path
 
@@ -147,7 +148,7 @@ def test_main_coverage_invokes_sidecar_with_result_and_passthrough(
     tmp_path: Path, monkeypatch
 ):
     repo = _make_runner_repo(tmp_path)
-    sidecars: list[tuple[Path, int, list[str]]] = []
+    sidecars: list[tuple[Path, int, list[str], list[str]]] = []
 
     def fake_run(command, **kwargs):
         return subprocess.CompletedProcess(command, 1, stdout="1 failed\n", stderr="")
@@ -157,11 +158,45 @@ def test_main_coverage_invokes_sidecar_with_result_and_passthrough(
     monkeypatch.setattr(
         test_fast_runner,
         "_write_coverage_sidecar",
-        lambda root, code, pytest_args: sidecars.append((root, code, pytest_args)),
+        lambda root, code, pytest_args, qt_tests: sidecars.append(
+            (root, code, pytest_args, qt_tests)
+        ),
     )
 
     assert test_fast_runner.main(["--coverage", "-k", "focused"], repo) == 1
-    assert sidecars == [(repo, 1, ["-k", "focused"])]
+    assert sidecars == [(repo, 1, ["-k", "focused"], [])]
+
+
+def test_coverage_scope_id_is_stable_and_methodology_sensitive(tmp_path: Path):
+    repo = _make_runner_repo(tmp_path)
+    qt_tests = ["tests/test_z_qt.py", "tests/test_a_qt.py"]
+
+    test_fast_runner._write_coverage_sidecar(
+        repo, 0, ["-k", "focused"], qt_tests
+    )
+    first = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    test_fast_runner._write_coverage_sidecar(
+        repo, 0, ["-k", "focused"], list(reversed(qt_tests))
+    )
+    reordered = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    test_fast_runner._write_coverage_sidecar(
+        repo, 0, ["-k", "other"], qt_tests
+    )
+    changed_args = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+
+    assert first["scope"] == {
+        "runner": "scripts/test_fast_runner.py",
+        "method": "ast-qt-exclusion-v1",
+        "excluded_tests": [
+            "tests/conftest_qt.py", "tests/test_a_qt.py", "tests/test_z_qt.py",
+        ],
+        "coverage_source": ["plex_renamer"],
+        "coverage_config": [],
+        "pytest_args": ["-k", "focused"],
+    }
+    assert len(first["scope_id"]) == 64
+    assert first["scope_id"] == reordered["scope_id"]
+    assert first["scope_id"] != changed_args["scope_id"]
 
 
 def test_main_without_coverage_does_not_write_sidecar(tmp_path: Path, monkeypatch):
@@ -192,3 +227,81 @@ def test_main_missing_environment_fails_before_discovery(tmp_path: Path, monkeyp
 
     assert test_fast_runner.main(repo_root=tmp_path) == 1
     assert "Python environment not found" in capsys.readouterr().err
+
+
+def test_syntax_error_is_left_for_pytest_and_invalidates_coverage_sidecar(
+        tmp_path: Path, monkeypatch):
+    repo = _make_runner_repo(tmp_path)
+    broken = repo / "tests" / "test_broken.py"
+    broken.write_text("def broken(:\n", encoding="utf-8")
+    pytest_commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["git", "rev-parse"]:
+            return subprocess.CompletedProcess(command, 0, stdout="abc1234\n", stderr="")
+        pytest_commands.append(command)
+        return subprocess.CompletedProcess(
+            command, 2, stdout="", stderr="SyntaxError while collecting test_broken.py"
+        )
+
+    monkeypatch.setattr(test_fast_runner.subprocess, "run", fake_run)
+
+    assert test_fast_runner.main(["--coverage"], repo) == 2
+
+    assert not any(
+        part == "--ignore=tests/test_broken.py"
+        for part in pytest_commands[0]
+    )
+    meta = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    assert meta["failed"] is True
+    assert meta["partial"] is True
+    assert "SyntaxError" in meta["reason"]
+    assert meta["reason"].isascii()
+
+
+def test_discovery_error_overwrites_successful_coverage_sidecar(
+        tmp_path: Path, monkeypatch, capsys):
+    repo = _make_runner_repo(tmp_path)
+    meta_path = repo / ".coverage.meta.json"
+    meta_path.write_text(
+        json.dumps({"failed": False, "partial": False, "scope_id": "stale-success"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        test_fast_runner, "_discover_qt_tests",
+        lambda _root: (_ for _ in ()).throw(OSError("caf\u00e9 discovery failed")),
+    )
+
+    assert test_fast_runner.main(["--coverage"], repo) == 1
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["failed"] is True
+    assert meta["partial"] is True
+    assert meta["scope_id"] is None
+    assert "caf? discovery failed" in meta["reason"]
+    assert capsys.readouterr().err.isascii()
+
+
+def test_launch_error_overwrites_successful_coverage_sidecar(
+        tmp_path: Path, monkeypatch, capsys):
+    repo = _make_runner_repo(tmp_path)
+    meta_path = repo / ".coverage.meta.json"
+    meta_path.write_text(
+        json.dumps({"failed": False, "partial": False, "scope_id": "stale-success"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(test_fast_runner, "_discover_qt_tests", lambda _root: [])
+    monkeypatch.setattr(
+        test_fast_runner.subprocess, "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            OSError("caf\u00e9 executable unavailable")
+        ),
+    )
+
+    assert test_fast_runner.main(["--coverage"], repo) == 1
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["failed"] is True
+    assert meta["partial"] is True
+    assert "could not launch pytest: caf? executable unavailable" == meta["reason"]
+    assert capsys.readouterr().err.isascii()

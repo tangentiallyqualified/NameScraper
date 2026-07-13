@@ -59,6 +59,22 @@ def test_degraded_analyzer_warning_is_in_every_output(synthetic_repo: Path):
     assert all("Analyzer `radon` unavailable (timed out)" in text for text in out.values())
 
 
+def test_failed_vulture_warns_that_dead_counts_and_clean_claims_are_unavailable(
+        synthetic_repo: Path):
+    analysis = {
+        "findings": [], "per_file": {},
+        "tool_status": {"vulture": {"ok": False, "reason": "crashed"}},
+    }
+
+    out = _rendered(synthetic_repo, analysis=analysis)
+
+    assert all(
+        "dead-code counts and clean claims are unavailable" in text
+        for text in out.values()
+    )
+    assert all("\u2020 dead" not in text for text in out.values())
+
+
 def test_ignored_coverage_warning_is_in_every_output(synthetic_repo: Path):
     coverage = {
         "available": True, "stale": True, "partial": False, "failed": False,

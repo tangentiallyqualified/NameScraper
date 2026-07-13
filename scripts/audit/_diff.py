@@ -45,6 +45,14 @@ def _coverage_usable(snapshot: dict) -> bool:
     )
 
 
+def _coverage_scope_id(snapshot: dict) -> str | None:
+    coverage = snapshot.get("coverage")
+    if not isinstance(coverage, dict):
+        return None
+    scope_id = coverage.get("scope_id")
+    return scope_id.strip() if isinstance(scope_id, str) and scope_id.strip() else None
+
+
 def _dead_snapshot(record: dict) -> list[dict] | None:
     symbols = record.get("dead_symbols")
     if not isinstance(symbols, list):
@@ -111,6 +119,15 @@ def _dead_movements(path: str, was: dict, now: dict) -> list[str] | None:
     return movements
 
 
+def _dead_evidence_usable(snapshot: dict, record: dict | None = None) -> bool:
+    provenance = snapshot.get("dead_code")
+    if isinstance(provenance, dict) and provenance.get("usable") is False:
+        return False
+    if record is not None and record.get("dead_evidence_usable") is False:
+        return False
+    return True
+
+
 def _doc_snapshot(repo_root: Path) -> dict[str, dict]:
     report = _docs_ledger.staleness(repo_root, _docs_ledger.load_ledger(repo_root))
     return {
@@ -142,6 +159,8 @@ def _baseline_module(record: dict) -> dict:
     snapshot.update({key: record[key] for key in DEAD_COUNT_FIELDS if key in record})
     if isinstance(record.get("dead_tiers"), dict):
         snapshot["dead_tiers"] = record["dead_tiers"]
+    if "dead_evidence_usable" in record:
+        snapshot["dead_evidence_usable"] = record["dead_evidence_usable"]
     dead_symbols = _dead_snapshot(record)
     if dead_symbols is not None:
         snapshot["dead_symbols"] = dead_symbols
@@ -170,7 +189,19 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
     added = still_added
 
     movements: list[str] = []
-    coverage_comparable = _coverage_usable(baseline) and _coverage_usable(metrics)
+    coverage_evidence_usable = _coverage_usable(baseline) and _coverage_usable(metrics)
+    old_scope_id = _coverage_scope_id(baseline)
+    new_scope_id = _coverage_scope_id(metrics)
+    coverage_comparable = (
+        coverage_evidence_usable
+        and old_scope_id is not None
+        and old_scope_id == new_scope_id
+    )
+    if coverage_evidence_usable and not coverage_comparable:
+        movements.append(
+            "coverage methodology changed or is unknown; "
+            "per-module coverage movements suppressed"
+        )
     for path in sorted(set(current) & set(old)):
         now, was = current[path], old[path]
         if was["loc"] and now["loc"] / was["loc"] >= LOC_RATIO:
@@ -182,11 +213,18 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
                 and was.get("coverage_percent") is not None and now.get("coverage_percent") is not None
                 and abs(now["coverage_percent"] - was["coverage_percent"]) >= COVERAGE_DELTA):
             movements.append(f"`{path}`: coverage {was['coverage_percent']} -> {now['coverage_percent']}")
-        dead_movements = _dead_movements(path, was, now)
-        if dead_movements is not None:
-            movements.extend(dead_movements)
-        elif now["dead_candidates"] > was["dead_candidates"]:
-            movements.append(f"`{path}`: dead candidates {was['dead_candidates']} -> {now['dead_candidates']}")
+        if (_dead_evidence_usable(baseline, was)
+                and _dead_evidence_usable(metrics, now)):
+            dead_movements = _dead_movements(path, was, now)
+            if dead_movements is not None:
+                movements.extend(dead_movements)
+            elif (isinstance(now.get("dead_candidates"), (int, float))
+                  and isinstance(was.get("dead_candidates"), (int, float))
+                  and now["dead_candidates"] > was["dead_candidates"]):
+                movements.append(
+                    f"`{path}`: dead candidates "
+                    f"{was['dead_candidates']} -> {now['dead_candidates']}"
+                )
     return {"added": added, "removed": removed, "renamed": renamed,
             "movements": movements, "first_run": False}
 
@@ -197,8 +235,14 @@ def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict
     base_commit = (baseline.get("commit") or "unknown") if baseline else "none (first run)"
     h = metrics["headline"]
     lines = [f"## Audit {date} ({commit}) vs baseline ({base_commit})", ""]
-    lines.append(f"- Headline: {h['files']} modules, {h['total_loc']} LOC, "
-                 f"{h['dead_high_confidence']} high-confidence dead symbols, {h['cycles']} cycles")
+    dead_summary = (
+        f"{h['dead_high_confidence']} high-confidence dead symbols"
+        if _dead_evidence_usable(metrics, h) else "dead-code analysis unavailable"
+    )
+    lines.append(
+        f"- Headline: {h['files']} modules, {h['total_loc']} LOC, "
+        f"{dead_summary}, {h['cycles']} cycles"
+    )
     if result["first_run"]:
         lines.append("- First audit run: baseline established.")
     else:
@@ -250,6 +294,8 @@ def run(repo_root: Path, options) -> int:
     }
     if "coverage" in metrics:
         new_baseline["coverage"] = metrics["coverage"]
+    if "dead_code" in metrics:
+        new_baseline["dead_code"] = metrics["dead_code"]
     baseline_path.write_text(json.dumps(new_baseline, indent=1, sort_keys=True), encoding="utf-8")
     n = len(result["movements"])
     print(f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed")

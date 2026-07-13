@@ -39,6 +39,24 @@ def test_import_reads_per_module_percent(synthetic_repo: Path, repo_git):
     assert 0 < alpha["percent"] < 100  # dead_function body is uncovered
 
 
+def test_import_propagates_known_coverage_scope(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.update({
+        "scope_id": "scope-123",
+        "scope": {"coverage_source": ["plex_renamer"], "pytest_args": []},
+    })
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    cov = _coverage.collect_coverage(synthetic_repo)
+
+    assert cov["scope_id"] == "scope-123"
+    assert cov["scope"] == {
+        "coverage_source": ["plex_renamer"], "pytest_args": [],
+    }
+
+
 def test_age_and_staleness(synthetic_repo: Path, repo_git):
     _make_coverage_data(synthetic_repo, repo_git)
     (synthetic_repo / "README.md").write_text("# v2\n", encoding="utf-8")

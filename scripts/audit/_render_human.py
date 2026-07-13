@@ -107,7 +107,12 @@ def _dead_line(finding: dict, checkable: bool = True) -> str:
 def _dead_checklist(analysis: dict, metrics: dict) -> str:
     findings = [f for f in analysis.get("findings", []) if f["category"] == "dead-code"]
     parts = []
-    if not _tool_status(metrics, "vulture")["ok"]:
+    dead_usable = (
+        _tool_status(metrics, "vulture")["ok"]
+        and metrics.get("dead_code", {}).get("usable", True) is not False
+    )
+    unavailable = "_Dead-code evidence unavailable; no clean conclusion can be drawn._"
+    if not dead_usable:
         parts.append(_unavailable(metrics, "vulture") + " Any findings below are incomplete evidence.")
 
     for title, assessments in DEAD_SECTIONS:
@@ -119,7 +124,9 @@ def _dead_checklist(analysis: dict, metrics: dict) -> str:
             ),
             key=lambda f: (f["path"], f.get("line", 0), f.get("symbol") or ""),
         )
-        body = "\n".join(_dead_line(f) for f in tier) if tier else "_None._"
+        body = "\n".join(_dead_line(f) for f in tier) if tier else (
+            "_None._" if dead_usable else unavailable
+        )
         parts.append(f"### {title}\n\n{body}")
 
     allowlisted = sorted(
@@ -128,11 +135,11 @@ def _dead_checklist(analysis: dict, metrics: dict) -> str:
     )
     allowlisted_body = (
         "\n".join(_dead_line(f, checkable=False) for f in allowlisted)
-        if allowlisted else "_None._"
+        if allowlisted else ("_None._" if dead_usable else unavailable)
     )
     parts.append(f"### Allowlisted\n\n{allowlisted_body}")
 
-    if not findings and _tool_status(metrics, "vulture")["ok"]:
+    if not findings and dead_usable:
         parts.insert(0, "_No dead-code candidates found._")
     return "\n\n".join(parts)
 

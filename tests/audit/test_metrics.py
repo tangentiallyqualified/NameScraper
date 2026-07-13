@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from audit import _metrics
+from audit import _artifacts, _metrics
 
 
 def _fixtures():
@@ -34,6 +34,7 @@ def _fixtures():
     }
     coverage = {"available": True, "stale": False, "partial": False, "failed": False,
                 "source": "imported", "collected_at_commit": "abc1234", "age_commits": 1,
+                "scope_id": "scope-123", "scope": {"coverage_source": ["plex_renamer"]},
                 "modules": {"plex_renamer/alpha.py": {"statements": 10, "covered": 4, "percent": 40.0}}}
     return inventory, graph, analysis, coverage
 
@@ -65,6 +66,8 @@ def test_headline():
     assert h["module_avg_coverage"] == 40.0
     assert m["coverage"]["usable"] is True
     assert m["coverage"]["collected_at_commit"] == "abc1234"
+    assert m["coverage"]["scope_id"] == "scope-123"
+    assert m["coverage"]["scope"] == {"coverage_source": ["plex_renamer"]}
     assert m["tool_status"]["vulture"]["ok"] is True
 
 
@@ -142,3 +145,53 @@ def test_failed_radon_does_not_publish_zero_complexity():
     m = _metrics.build_metrics(inventory, graph, analysis, coverage)
     assert all(rec["max_complexity"] is None for rec in m["modules"].values())
     assert m["headline"]["modules_over_complexity"] is None
+
+
+def test_failed_vulture_makes_dead_counts_and_clean_flags_unavailable():
+    inventory, graph, analysis, coverage = _fixtures()
+    analysis["findings"] = [
+        finding for finding in analysis["findings"]
+        if finding["source"] != "vulture"
+    ]
+    analysis["tool_status"]["vulture"] = {"ok": False, "reason": "crashed"}
+
+    metrics = _metrics.build_metrics(inventory, graph, analysis, coverage)
+
+    assert metrics["dead_code"] == {
+        "usable": False,
+        "source": "vulture",
+        "reason": "crashed",
+        "observed_findings": 0,
+    }
+    dead_scalar_keys = (
+        "dead_candidates", "dead_high_confidence", "dead_low_confidence",
+        "dead_medium_confidence", "dead_exact_low_confidence",
+        "dead_test_referenced", "dead_protected_ambiguous", "dead_allowlisted",
+    )
+    for record in [*metrics["modules"].values(), metrics["headline"]]:
+        assert record["dead_evidence_usable"] is False
+        assert all(record[key] is None for key in dead_scalar_keys)
+        assert record["dead_tiers"] is None
+    assert all(record["dead_symbols"] is None for record in metrics["modules"].values())
+    assert all("dead-code" not in record["flags"] for record in metrics["modules"].values())
+
+
+def test_metrics_console_does_not_render_failed_vulture_as_zero(
+        synthetic_repo, capsys):
+    inventory, graph, analysis, coverage = _fixtures()
+    analysis["findings"] = [
+        finding for finding in analysis["findings"]
+        if finding["source"] != "vulture"
+    ]
+    analysis["tool_status"]["vulture"] = {"ok": False, "reason": "crashed"}
+    for name, payload in (
+        ("inventory", inventory), ("graph", graph),
+        ("analysis", analysis), ("coverage", coverage),
+    ):
+        _artifacts.write_artifact(synthetic_repo, name, payload)
+
+    assert _metrics.run(synthetic_repo, None) == 0
+
+    output = capsys.readouterr().out
+    assert "dead-code analysis unavailable" in output
+    assert "0 high-confidence dead symbols" not in output
