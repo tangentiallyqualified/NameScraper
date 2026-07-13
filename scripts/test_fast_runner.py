@@ -6,14 +6,22 @@ import hashlib
 import json
 import subprocess
 import sys
-import tomllib
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
 
 _COVERAGE_SOURCE = ["plex_renamer"]
-_COVERAGE_CONFIG_FILES = (".coveragerc", "setup.cfg", "tox.ini")
+_SCOPE_CONFIG_FILES = (
+    "pytest.toml",
+    ".pytest.toml",
+    "pytest.ini",
+    ".pytest.ini",
+    "pyproject.toml",
+    "tox.ini",
+    "setup.cfg",
+    ".coveragerc",
+)
 _DIAGNOSTIC_LIMIT = 400
 
 
@@ -156,26 +164,16 @@ def _fallback_summary(stdout: str, stderr: str) -> str | None:
     return candidates[-1]
 
 
-def _coverage_config(repo_root: Path) -> list[dict]:
-    """Return stable coverage configuration inputs that can affect collection."""
-    config: list[dict] = []
-    pyproject = repo_root / "pyproject.toml"
-    if pyproject.exists():
-        try:
-            parsed = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-            settings = parsed.get("tool", {}).get("coverage")
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
-            settings = None
-        if isinstance(settings, dict):
-            config.append({"path": "pyproject.toml", "settings": settings})
-    for relative in _COVERAGE_CONFIG_FILES:
+def _config_fingerprints(repo_root: Path) -> list[dict[str, str]]:
+    """Fingerprint complete auto-loaded pytest/coverage config files."""
+    config = []
+    for relative in _SCOPE_CONFIG_FILES:
         path = repo_root / relative
         if path.exists():
-            try:
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            except OSError:
-                digest = "unreadable"
-            config.append({"path": relative, "sha256": digest})
+            config.append({
+                "path": relative,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            })
     return config
 
 
@@ -184,13 +182,17 @@ def _coverage_scope(
     pytest_args: list[str],
     qt_tests: list[str],
 ) -> dict:
+    runner = Path(__file__)
     return {
         "runner": "scripts/test_fast_runner.py",
+        "runner_sha256": hashlib.sha256(runner.read_bytes()).hexdigest(),
         "method": "ast-qt-exclusion-v1",
-        "excluded_tests": sorted(set(qt_tests) | {"tests/conftest_qt.py"}),
+        "excluded_tests": sorted(
+            {str(path) for path in qt_tests} | {"tests/conftest_qt.py"}
+        ),
         "coverage_source": list(_COVERAGE_SOURCE),
-        "coverage_config": _coverage_config(repo_root),
-        "pytest_args": list(pytest_args),
+        "config_files": _config_fingerprints(repo_root),
+        "pytest_args": [str(arg) for arg in pytest_args],
     }
 
 
@@ -207,7 +209,7 @@ def _write_coverage_sidecar(
     pytest_args: list[str],
     qt_tests: list[str] | None = None,
     failure_reason: str | None = None,
-) -> None:
+) -> bool:
     """Always write the .coverage.meta.json sidecar (never unlink it).
 
     A failed run's `.coverage` data is never full evidence, so `partial` is
@@ -223,21 +225,45 @@ def _write_coverage_sidecar(
     except (OSError, subprocess.SubprocessError):
         pass
 
+    normalized_args = [str(arg) for arg in pytest_args]
+    collected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     failed = returncode != 0
-    partial = True if failed else bool(pytest_args)
-    scope = _coverage_scope(repo_root, pytest_args, qt_tests) if qt_tests is not None else None
-
-    meta_path.write_text(
-        json.dumps({"commit": commit,
-                     "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                     "pytest_args": pytest_args,
-                     "scope": scope,
-                     "scope_id": _scope_id(scope) if scope is not None else None,
-                     "reason": _diagnostic_context(failure_reason) if failure_reason else None,
-                     "partial": partial,
-                     "failed": failed}),
-        encoding="utf-8",
-    )
+    partial = True if failed else bool(normalized_args)
+    try:
+        scope = (
+            _coverage_scope(repo_root, normalized_args, qt_tests)
+            if qt_tests is not None else None
+        )
+        payload = {
+            "commit": commit,
+            "collected_at": collected_at,
+            "pytest_args": normalized_args,
+            "scope": scope,
+            "scope_id": _scope_id(scope) if scope is not None else None,
+            "reason": _diagnostic_context(failure_reason) if failure_reason else None,
+            "partial": partial,
+            "failed": failed,
+        }
+        encoded = json.dumps(payload)
+        meta_path.write_text(encoded, encoding="utf-8")
+        return True
+    except Exception as exc:
+        reason = _diagnostic_context(f"coverage sidecar scope/write failed: {exc}")
+        fallback = {
+            "commit": commit,
+            "collected_at": collected_at,
+            "pytest_args": normalized_args,
+            "scope": None,
+            "scope_id": None,
+            "reason": reason,
+            "partial": True,
+            "failed": True,
+        }
+        try:
+            meta_path.write_text(json.dumps(fallback), encoding="utf-8")
+        except Exception:
+            return False
+        return False
 
 
 def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
@@ -300,13 +326,22 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
     returncode = result.returncode or (1 if discovery_errors else 0)
 
     if args.coverage:
+        sidecar_ok = True
         if discovery_reason:
-            _write_coverage_sidecar(
+            sidecar_ok = _write_coverage_sidecar(
                 repo_root, returncode, args.pytest_args, list(qt_tests),
                 failure_reason=discovery_reason,
             )
         else:
-            _write_coverage_sidecar(repo_root, returncode, args.pytest_args, qt_tests)
+            sidecar_ok = _write_coverage_sidecar(
+                repo_root, returncode, args.pytest_args, qt_tests
+            )
+        if not sidecar_ok:
+            returncode = 1
+            print(
+                "coverage metadata failed; run evidence marked failed/partial",
+                file=sys.stderr,
+            )
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
     combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]

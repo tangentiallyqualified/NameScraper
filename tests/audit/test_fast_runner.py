@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from audit import _diff
 from scripts import test_fast_runner
 
 # Pytest imports this file under the top-level ``test_fast_runner`` name because
@@ -184,19 +188,103 @@ def test_coverage_scope_id_is_stable_and_methodology_sensitive(tmp_path: Path):
     )
     changed_args = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
 
-    assert first["scope"] == {
-        "runner": "scripts/test_fast_runner.py",
-        "method": "ast-qt-exclusion-v1",
-        "excluded_tests": [
-            "tests/conftest_qt.py", "tests/test_a_qt.py", "tests/test_z_qt.py",
-        ],
-        "coverage_source": ["plex_renamer"],
-        "coverage_config": [],
-        "pytest_args": ["-k", "focused"],
-    }
+    assert first["scope"]["runner"] == "scripts/test_fast_runner.py"
+    assert first["scope"]["runner_sha256"] == hashlib.sha256(
+        Path(test_fast_runner.__file__).read_bytes()
+    ).hexdigest()
+    assert first["scope"]["method"] == "ast-qt-exclusion-v1"
+    assert first["scope"]["excluded_tests"] == [
+        "tests/conftest_qt.py", "tests/test_a_qt.py", "tests/test_z_qt.py",
+    ]
+    assert first["scope"]["coverage_source"] == ["plex_renamer"]
+    assert first["scope"]["config_files"] == []
+    assert first["scope"]["pytest_args"] == ["-k", "focused"]
     assert len(first["scope_id"]) == 64
     assert first["scope_id"] == reordered["scope_id"]
     assert first["scope_id"] != changed_args["scope_id"]
+
+
+@pytest.mark.parametrize(("config_path", "before", "after"), [
+    (
+        "pyproject.toml",
+        '[tool.pytest.ini_options]\ntestpaths = ["tests/unit"]\n',
+        '[tool.pytest.ini_options]\ntestpaths = ["tests/integration"]\n',
+    ),
+    ("pytest.ini", "[pytest]\naddopts = -k unit\n", "[pytest]\naddopts = -k integration\n"),
+    ("setup.cfg", "[tool:pytest]\ntestpaths = tests/unit\n",
+     "[tool:pytest]\ntestpaths = tests/integration\n"),
+    ("tox.ini", "[pytest]\naddopts = -k unit\n", "[pytest]\naddopts = -k integration\n"),
+])
+def test_automatic_pytest_config_changes_scope_and_suppresses_coverage_diff(
+        tmp_path: Path, config_path: str, before: str, after: str):
+    repo = _make_runner_repo(tmp_path)
+    config = repo / config_path
+    config.write_text(before, encoding="utf-8")
+    test_fast_runner._write_coverage_sidecar(repo, 0, [], [])
+    first = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+
+    config.write_text(after, encoding="utf-8")
+    test_fast_runner._write_coverage_sidecar(repo, 0, [], [])
+    second = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+
+    assert first["scope_id"] != second["scope_id"]
+    assert first["scope"]["config_files"][0]["path"] == config_path
+    assert second["scope"]["config_files"][0]["path"] == config_path
+
+    module = {
+        "sha256": "same", "loc": 10, "max_complexity": 1,
+        "coverage_percent": 10.0, "dead_candidates": 0,
+    }
+    baseline = {
+        "modules": {"plex_renamer/alpha.py": module},
+        "headline": {},
+        "coverage": {"usable": True, "scope_id": first["scope_id"]},
+    }
+    current = {
+        "modules": {
+            "plex_renamer/alpha.py": {**module, "coverage_percent": 90.0},
+        },
+        "headline": {},
+        "coverage": {"usable": True, "scope_id": second["scope_id"]},
+    }
+
+    movements = _diff.compare(baseline, current)["movements"]
+    assert sum("coverage methodology changed" in item for item in movements) == 1
+    assert not any("coverage 10.0 -> 90.0" in item for item in movements)
+
+
+def test_scope_serialization_failure_overwrites_success_sidecar_and_fails_main(
+        tmp_path: Path, monkeypatch, capsys):
+    repo = _make_runner_repo(tmp_path)
+    meta_path = repo / ".coverage.meta.json"
+    meta_path.write_text(
+        json.dumps({"failed": False, "partial": False, "scope_id": "stale-success"}),
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["git", "rev-parse"]:
+            return subprocess.CompletedProcess(command, 0, stdout="abc1234\n", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="1 passed\n", stderr="")
+
+    monkeypatch.setattr(test_fast_runner, "_discover_qt_tests", lambda _root: [])
+    monkeypatch.setattr(test_fast_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        test_fast_runner, "_coverage_scope",
+        lambda *args, **kwargs: {"not_json_safe": object()},
+    )
+
+    assert test_fast_runner.main(["--coverage"], repo) == 1
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["failed"] is True
+    assert meta["partial"] is True
+    assert meta["scope"] is None
+    assert meta["scope_id"] is None
+    assert "coverage sidecar scope/write failed" in meta["reason"]
+    assert meta["reason"].isascii()
+    assert "stale-success" not in meta_path.read_text(encoding="utf-8")
+    assert capsys.readouterr().err.isascii()
 
 
 def test_main_without_coverage_does_not_write_sidecar(tmp_path: Path, monkeypatch):
