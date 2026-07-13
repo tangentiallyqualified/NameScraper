@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -61,6 +63,35 @@ def _fallback_summary(stdout: str, stderr: str) -> str | None:
         if any(token in lowered for token in (" passed", " failed", " skipped", " error", " deselected")):
             return line
     return candidates[-1]
+
+
+def _write_coverage_sidecar(repo_root: Path, returncode: int, pytest_args: list[str]) -> None:
+    """Always write the .coverage.meta.json sidecar (never unlink it).
+
+    A failed run's `.coverage` data is never full evidence, so `partial` is
+    forced True regardless of pytest_args on failure. `failed` is additive
+    honesty about the run outcome.
+    """
+    meta_path = repo_root / ".coverage.meta.json"
+    commit = None
+    try:
+        rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
+                              capture_output=True, text=True, timeout=15)
+        commit = rev.stdout.strip() or None if rev.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    failed = returncode != 0
+    partial = True if failed else bool(pytest_args)
+
+    meta_path.write_text(
+        json.dumps({"commit": commit,
+                     "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                     "pytest_args": pytest_args,
+                     "partial": partial,
+                     "failed": failed}),
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
@@ -128,30 +159,7 @@ def main() -> int:
     _write_logs(log_dir, result.stdout, result.stderr)
 
     if args.coverage:
-        meta_path = repo_root / ".coverage.meta.json"
-        if result.returncode != 0:
-            try:
-                meta_path.unlink()
-            except OSError:
-                pass
-        else:
-            import json as _json
-            import subprocess as _sp
-            from datetime import datetime, timezone
-            commit = None
-            try:
-                rev = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
-                              capture_output=True, text=True, timeout=15)
-                commit = rev.stdout.strip() or None if rev.returncode == 0 else None
-            except (OSError, _sp.SubprocessError):
-                pass
-            meta_path.write_text(
-                _json.dumps({"commit": commit,
-                             "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                             "pytest_args": args.pytest_args,
-                             "partial": bool(args.pytest_args)}),
-                encoding="utf-8",
-            )
+        _write_coverage_sidecar(repo_root, result.returncode, args.pytest_args)
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
     combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]

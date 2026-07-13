@@ -12,6 +12,8 @@
 
 ## Audit 2026-07-12 (9964529) vs baseline (a491dc2)
 
+_Artifact of a partial-coverage import (evidence restored at e374638; import path now guarded)._
+
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
 - Notable movements:
   - `plex_renamer/_job_execution_filesystem.py`: coverage 83.6 -> 0.0

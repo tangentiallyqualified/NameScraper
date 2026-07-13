@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import test_fast_runner
 from audit import _artifacts, _coverage
 
 
@@ -118,3 +119,29 @@ def test_run_with_partial_data_still_exits_zero_and_notes_partial(synthetic_repo
     assert data["partial"] is True
     out = capsys.readouterr().out
     assert "partial run" in out
+
+
+def test_write_coverage_sidecar_failed_run_writes_partial_and_failed(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    test_fast_runner._write_coverage_sidecar(synthetic_repo, 1, ["tests/test_x.py"])
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["partial"] is True
+    assert meta["failed"] is True
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["partial"] is True
+    assert cov["stale"] is True
+
+
+def test_write_coverage_sidecar_successful_full_run_not_partial(synthetic_repo: Path):
+    test_fast_runner._write_coverage_sidecar(synthetic_repo, 0, [])
+    meta = json.loads((synthetic_repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    assert meta["partial"] is False
+    assert meta["failed"] is False
+
+
+def test_write_coverage_sidecar_successful_filtered_run_marks_partial(synthetic_repo: Path):
+    test_fast_runner._write_coverage_sidecar(synthetic_repo, 0, ["tests/test_x.py"])
+    meta = json.loads((synthetic_repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    assert meta["partial"] is True
