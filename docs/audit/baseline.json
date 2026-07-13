@@ -1,7 +1,7 @@
 {
- "commit": "1d26997",
+ "commit": "bef7acc",
  "coverage": {
-  "age_commits": 0,
+  "age_commits": 2,
   "available": true,
   "collected_at_commit": "1d26997",
   "failed": false,
@@ -105,7 +105,7 @@
    "stale": true
   }
  },
- "generated_at": "2026-07-13T20:21:50+00:00",
+ "generated_at": "2026-07-13T20:40:47+00:00",
  "headline": {
   "avg_coverage": 44.6,
   "coverage_failed": false,

@@ -1,5 +1,10 @@
 # Audit Change Log
 
+## Audit 2026-07-13 (bef7acc) vs baseline (1d26997)
+
+- Headline: 176 modules, 38404 LOC, 0 high-confidence dead symbols, 2 cycles
+- No notable changes since baseline.
+
 ## Audit 2026-07-13 (1d26997) vs baseline (486aaef)
 
 - Headline: 176 modules, 38404 LOC, 0 high-confidence dead symbols, 2 cycles
@@ -316,11 +321,6 @@ _Artifact of a partial-coverage import (evidence restored at e374638; import pat
 - No notable changes since baseline.
 
 ## Audit 2026-07-12 (0a637a3) vs baseline (b57f426)
-
-- Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
-- No notable changes since baseline.
-
-## Audit 2026-07-12 (b57f426) vs baseline (7b246bb)
 
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
 - No notable changes since baseline.
