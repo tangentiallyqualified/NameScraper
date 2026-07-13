@@ -1,4 +1,4 @@
-<!-- Generated at commit 486aaef; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated at commit 1d26997; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -107,7 +107,7 @@
 
 ### `plex_renamer/gui_qt/widgets/_formatting.py` — Small shared formatting helpers for Qt widgets.
 - `clamped_percent(score) -> int` (used by: plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._roster_model, plex_renamer.gui_qt.widgets._work_panel)
-- `percent_text(score) -> str` (used by: plex_renamer.gui_qt.widgets._match_picker_results, plex_renamer.gui_qt.widgets._media_helpers)
+- `percent_text(score) -> str` (used by: plex_renamer.gui_qt.widgets._match_picker_results)
 
 ### `plex_renamer/gui_qt/widgets/_history_tab_banner.py` — Revert-banner presentation helpers for HistoryTab.
 - `show_revert_banner(banner, revert_button, info_label, *, info_text) -> None` (used by: plex_renamer.gui_qt.widgets.history_tab)
@@ -131,7 +131,6 @@
 - `raw_to_pixmap(raw_data) -> QPixmap` — Convert raw RGBA bytes into a QPixmap on the main Qt thread. (used by: plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._roster_model)
 - `scale_pixmap_for_device(pixmap, size, *, device_pixel_ratio, aspect_mode) -> QPixmap` — Return a pixmap scaled for the target logical size on a HiDPI display. (used by: plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._roster_delegate)
 - `build_placeholder_pixmap(size, *, title, subtitle, accent, device_pixel_ratio) -> QPixmap` — Create a styled placeholder artwork card for empty poster slots. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
-- `ShimmerOverlay` — Translucent animated shimmer drawn over a parent widget while content loads.
 - Tests: tests/test_qt_queue_history.py
 
 ### `plex_renamer/gui_qt/widgets/_job_detail_data.py` — Formatting and path helpers for JobDetailPanel.
@@ -182,7 +181,6 @@
 - `MatchPickerSelectionCoordinator` (used by: plex_renamer.gui_qt.widgets.match_picker_dialog)
 
 ### `plex_renamer/gui_qt/widgets/_media_helpers.py` — Pure helper functions for media workspace presentation logic.
-- `file_count_for_state(state) -> int`
 - `confidence_band(score, *, state, media_type) -> str` (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `confidence_fill_color(score, *, state, media_type) -> str` (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `band_color(band) -> str`
@@ -194,24 +192,14 @@
 - `is_specials_unmapped_only_state(state) -> bool` — All regular (season >= 1) episodes mapped cleanly; the remaining
 - `roster_group(state, *, media_type) -> str` (used by: plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._roster_model)
 - `auto_accept_threshold(settings) -> float`
-- `state_match_summary(state, threshold) -> str`
 - `state_key(state) -> str` (used by: plex_renamer.gui_qt.widgets._media_workspace_state)
 - `roster_item_key(state) -> str` (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `roster_selection_key(state) -> str | None` (used by: plex_renamer.gui_qt.widgets._media_workspace_match_actions, plex_renamer.gui_qt.widgets._media_workspace_queue_actions, plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._media_workspace_view)
-- `roster_signature(state, *, compact, media_type) -> tuple[object, ...]`
-- `match_label(match, *, media_type) -> str`
 - `placeholder_initials(text) -> str` (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `preview_status_label(preview) -> str` (used by: plex_renamer.gui_qt.widgets._episode_table_model)
 - `preview_status_tone(preview) -> str` (used by: plex_renamer.gui_qt.widgets._episode_table_model)
-- `preview_band(preview) -> str`
-- `preview_band_name(preview) -> str`
-- `preview_heading(preview, *, compact) -> str`
-- `preview_target_text(preview) -> str`
-- `tv_preview_sort_key(preview, index) -> tuple[int, int, int, str, int]`
-- `companion_summary(preview) -> str`
 - `season_label(season_num, *, name) -> str` (used by: plex_renamer.gui_qt.widgets._episode_table_model)
 - `repolish(widget) -> None` (used by: plex_renamer.gui_qt.widgets._settings_tab_state)
-- `make_section_header(text, *, selectable) -> QListWidgetItem`
 - `format_batch_result(result) -> str` (used by: plex_renamer.gui_qt.widgets._media_workspace_queue_actions)
 - Tests: tests/test_manual_assign_queueable.py, tests/test_qt_media_workspace.py, tests/test_qt_workspace_widgets.py, tests/test_roster_classification.py
 
@@ -343,14 +331,11 @@
 - Tests: tests/test_qt_async_guide.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — Primitive widgets shared by media workspace roster and preview rows.
-- `paint_check_indicator(painter, rect, state) -> None` — Rounded check indicator shared by MasterCheckBox, ToggleSwitch, and the roster delegate. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
-- `paint_mini_progress(painter, rect, *, value, color) -> None` — 4px track+fill bar shared by MiniProgressBar and the roster delegate. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
+- `paint_check_indicator(painter, rect, state) -> None` — Paint the rounded indicator shared by MasterCheckBox and the roster delegate. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
+- `paint_mini_progress(painter, rect, *, value, color) -> None` — Paint the roster delegate's compact track-and-fill progress bar. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
 - `RosterPosterBridge` (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `MasterCheckBox` — Tri-state display checkbox that toggles like a normal binary control. (used by: plex_renamer.gui_qt.widgets._media_workspace_roster, plex_renamer.gui_qt.widgets._work_panel)
 - `ElidedLabel` (used by: plex_renamer.gui_qt.widgets.scan_progress)
-- `ClickableRow`
-- `ToggleSwitch`
-- `MiniProgressBar`
 - Tests: tests/test_episode_table_model.py, tests/test_qt_workspace_widgets.py
 
 ### `plex_renamer/gui_qt/widgets/busy_overlay.py` — BusyOverlay: translucent scrim + spinner + label over any panel (spec §7).
@@ -379,7 +364,7 @@
 - Tests: tests/test_qt_media_workspace.py
 
 ### `plex_renamer/gui_qt/widgets/media_workspace.py` — Media workspace widget for TV Shows and Movies tabs.
-- `MediaWorkspace` — TV or Movie tab workspace with state-driven content switching. (used by: plex_renamer.gui_qt._main_window_tabs, plex_renamer.gui_qt.main_window)
+- `MediaWorkspace` — TV or Movie tab workspace with state-driven content switching. (used by: plex_renamer.gui_qt._main_window_tabs)
 - Tests: tests/test_qt_media_workspace.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/queue_tab.py` — Queue tab — controller-backed queue view for Phase 4.

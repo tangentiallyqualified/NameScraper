@@ -8,11 +8,11 @@
 - `plex_renamer/_mkv_locate.py` — fan-in 6, fan-out 0, LOC 65
 - `plex_renamer/_parsing_titles.py` — fan-in 6, fan-out 1, LOC 272
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
-- `plex_renamer/job_store.py` — fan-in 16, fan-out 5, LOC 687
+- `plex_renamer/job_store.py` — fan-in 16, fan-out 5, LOC 621
 - `plex_renamer/keys.py` — fan-in 4, fan-out 1, LOC 79
-- `plex_renamer/parsing.py` — fan-in 26, fan-out 6, LOC 60
+- `plex_renamer/parsing.py` — fan-in 24, fan-out 6, LOC 60
 - `plex_renamer/thread_pool.py` — fan-in 12, fan-out 0, LOC 65
-- `plex_renamer/tmdb.py` — fan-in 7, fan-out 6, LOC 584
+- `plex_renamer/tmdb.py` — fan-in 7, fan-out 6, LOC 580
 
 ### Support
 - `plex_renamer/_job_execution_filesystem.py` — fan-in 2, fan-out 3, LOC 219

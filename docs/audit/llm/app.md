@@ -1,4 +1,4 @@
-<!-- Generated at commit 486aaef; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated at commit 1d26997; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -71,7 +71,6 @@
 - `resolve_movie_preview_review(state, preview_items) -> None` (used by: plex_renamer.app.controllers._controller_match_helpers)
 
 ### `plex_renamer/app/controllers/_queue_history_helpers.py` — Helpers for queue history, undo, and poster backfill behavior.
-- `record_completed_queue_job(job_store, job, result) -> None` (used by: plex_renamer.app.controllers.queue_controller)
 - `revert_queue_job(job_store, job_id, *, revert_runner) -> tuple[bool, list[str]]` (used by: plex_renamer.app.controllers.queue_controller)
 - `backfill_missing_queue_job_poster_paths(job_store, tmdb) -> int` (used by: plex_renamer.app.controllers.queue_controller)
 - `close_queue_resources(executor, job_store) -> None` (used by: plex_renamer.app.controllers.queue_controller)
@@ -141,7 +140,7 @@
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_qt_media_workspace.py, tests/test_work_panel.py
 
 ### `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services.
-- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_jojo_matching.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery.
 - `DirChild`
@@ -153,7 +152,7 @@
 - Tests: tests/test_settings_metadata_keys.py
 
 ### `plex_renamer/app/services/_tv_library_classification.py` — Folder-classification helpers for recursive TV library discovery.
-- `DirChild` (used by: plex_renamer.app.services.tv_library_discovery_service)
+- `DirChild`
 - `ClassifiedDirectory` (used by: plex_renamer.app.services.tv_library_discovery_service)
 - `TVDirectoryClassifier` — Encapsulate TV folder classification heuristics. (used by: plex_renamer.app.services.tv_library_discovery_service)
 
@@ -197,7 +196,7 @@
 - Tests: tests/test_metadata_embed_extras.py, tests/test_metadata_local_inventory.py, tests/test_metadata_service.py, tests/test_queue_metadata_wiring.py
 
 ### `plex_renamer/app/services/movie_library_discovery_service.py` — Recursive movie-library discovery for nested batch scan workflows.
-- `MovieLibraryDiscoveryService` — Discover nested movie roots without misclassifying container or TV folders. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.engine._batch_orchestrators)
+- `MovieLibraryDiscoveryService` — Discover nested movie roots without misclassifying container or TV folders. (used by: plex_renamer.app.services)
 
 ### `plex_renamer/app/services/output_destination_service.py` — Validation helpers for user-configured output destinations.
 - `output_path_risks_long_paths(root, *, reserve) -> bool` — True when *root* is long enough that a generated rename path could
@@ -217,5 +216,5 @@
 - Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_media_controller.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/tv_library_discovery_service.py` — Recursive TV-library discovery for nested batch scan workflows.
-- `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
+- `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services)
 - Tests: tests/test_haikyuu_matching.py

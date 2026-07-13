@@ -1,4 +1,4 @@
-<!-- Generated at commit 486aaef; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated at commit 1d26997; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
@@ -31,7 +31,7 @@
 
 ### `plex_renamer/_job_path_propagation.py` — Helpers for rewriting queued job paths after directory renames.
 - `rewrite_job_paths(*, library_root, source_folder, rename_ops, renamed_dirs) -> tuple[str, list[dict[str, Any]], bool]` — Apply renamed directory prefixes to one queued job payload. (used by: plex_renamer.job_store)
-- `rebase_path(path_str, old_prefix, new_prefix) -> str` — If *path_str* starts with *old_prefix*, replace that prefix. (used by: plex_renamer.job_store)
+- `rebase_path(path_str, old_prefix, new_prefix) -> str` — If *path_str* starts with *old_prefix*, replace that prefix.
 
 ### `plex_renamer/_job_store_codec.py` — Row-mapping and JSON serialization helpers for the job store.
 - `serialize_rename_ops(rename_ops) -> str` — Serialize rename ops using their existing to_dict contract. (used by: plex_renamer.job_store)
@@ -44,10 +44,10 @@
 ### `plex_renamer/_job_store_db.py` — SQLite connection and schema helpers for the persistent job queue.
 - `connect_job_store(db_path) -> sqlite3.Connection` — Create one SQLite connection configured for the job queue. (used by: plex_renamer.job_store)
 - `initialize_job_store(conn) -> None` — Create the schema and run any needed migrations. (used by: plex_renamer.job_store)
-- `migrate_job_store(conn, current_version) -> None` — Upgrade an existing job-store schema in place. (used by: plex_renamer.job_store)
+- `migrate_job_store(conn, current_version) -> None` — Upgrade an existing job-store schema in place.
 
 ### `plex_renamer/_job_store_ordering.py` — Queue ordering helpers for the persistent job store.
-- `compact_positions(conn) -> None` — Reassign positions 1..N for pending/running jobs. (used by: plex_renamer.job_store)
+- `compact_positions(conn) -> None` — Reassign positions 1..N for pending/running jobs.
 - `reorder_pending_job(conn, *, job_id, new_position, now) -> None` — Move one pending job to a new queue position. (used by: plex_renamer.job_store)
 - `move_pending_jobs(conn, *, job_ids, direction, now) -> bool` — Move a block of pending jobs up or down while preserving order. (used by: plex_renamer.job_store)
 - `move_pending_jobs_to_top(conn, *, job_ids, now) -> bool` — Move the given pending jobs to the top while preserving order. (used by: plex_renamer.job_store)
@@ -154,7 +154,7 @@
 - `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer.tmdb)
 - `TMDBAPIError` — Non-retryable API error (4xx other than 429). (used by: plex_renamer.tmdb)
 - `TMDBTransport` — Own the HTTP session, token bucket, and retry policy for TMDB requests. (used by: plex_renamer.tmdb)
-- Tests: tests/test_tmdb.py
+- Tests: tests/test_tmdb_transport.py
 
 ### `plex_renamer/constants.py` — Shared constants and configuration for NameScraper.
 - `ensure_log_dir() -> None` — Create the log directory if it doesn't exist. Called lazily on first use. (used by: plex_renamer._job_store_db, plex_renamer.app.services.cache_service, plex_renamer.app.services.settings_service, plex_renamer.keys)
