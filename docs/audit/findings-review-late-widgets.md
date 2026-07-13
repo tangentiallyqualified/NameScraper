@@ -106,4 +106,3 @@ Each candidate was checked in its defining source and with repository-wide searc
 - **Coordinator extraction left stale forwarding APIs.** Six `MediaWorkspace` wrappers plus `SettingsTab._set_key_status` are bypassed by the active coordinator paths; `MediaWorkspace.splitter` is likewise unconsumed.
 - **Repeated field writes can multiply one defect.** The three `_poster_pixmap` records are one write-only field lifecycle, while the two `QPointF` records are a true Ruff/Vulture duplicate and require only one source edit.
 - No assigned record depended on unresolved reflection, generated UI names, package re-export, dataclass/model implicit field consumption, or undocumented external API intent; therefore no `UNCERTAIN` verdict was needed.
-
