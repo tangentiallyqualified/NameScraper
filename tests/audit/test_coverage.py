@@ -145,3 +145,36 @@ def test_write_coverage_sidecar_successful_filtered_run_marks_partial(synthetic_
     test_fast_runner._write_coverage_sidecar(synthetic_repo, 0, ["tests/test_x.py"])
     meta = json.loads((synthetic_repo / ".coverage.meta.json").read_text(encoding="utf-8"))
     assert meta["partial"] is True
+
+
+def test_non_boolean_partial_treated_as_partial(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["partial"] = "false"  # malformed: string, not JSON boolean
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["partial"] is True
+    assert cov["stale"] is True
+
+
+def test_unavailable_reason_print_is_ascii(synthetic_repo: Path, monkeypatch, capsys):
+    (synthetic_repo / ".coverage").write_text("stub", encoding="utf-8")
+
+    def _boom(repo_root, data_file):
+        raise RuntimeError("café exploded")
+
+    monkeypatch.setattr(_coverage, "_read_modules", _boom)
+    assert _coverage.run(synthetic_repo, None) == 2
+    assert "caf? exploded" in capsys.readouterr().out
+
+
+def test_falsy_non_boolean_partial_treated_as_partial(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["partial"] = 0  # malformed: number, not JSON boolean; bool(0) would hide it
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["partial"] is True
+    assert cov["stale"] is True
