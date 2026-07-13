@@ -41,6 +41,7 @@ from ._batch_tv_season_merge import (
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
 )
+from ._discovery_ports import MovieLibraryDiscoverer, TVLibraryDiscoverer
 from ._rename_execution import check_duplicates
 from ._scan_runtime import ScanCancelledError, _raise_if_cancelled
 from ._state import get_auto_accept_threshold
@@ -101,7 +102,7 @@ class BatchTVOrchestrator:
         self,
         tmdb: TMDBClient,
         library_root: Path,
-        discovery_service=None,
+        discovery_service: TVLibraryDiscoverer,
     ):
         self.tmdb = tmdb
         self.root = library_root
@@ -153,13 +154,6 @@ class BatchTVOrchestrator:
         evidence: list[DirectEpisodeEvidence],
     ) -> list[tuple[dict, float]]:
         return boost_tv_scores_with_episode_evidence(self.tmdb, scored, evidence)
-
-    def _get_discovery_service(self):
-        if self.discovery_service is None:
-            from ..app.services import TVLibraryDiscoveryService
-
-            self.discovery_service = TVLibraryDiscoveryService()
-        return self.discovery_service
 
     def _build_show_candidates(
         self,
@@ -422,8 +416,7 @@ class BatchTVOrchestrator:
         cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find show folders and match to TMDB."""
-        discovery_service = self._get_discovery_service()
-        discovered = discovery_service.discover_show_roots(self.root)
+        discovered = self.discovery_service.discover_show_roots(self.root)
         candidates = self._build_show_candidates(discovered, cancel_event=cancel_event)
 
         if not candidates:
@@ -803,7 +796,7 @@ class BatchMovieOrchestrator:
         self,
         tmdb: TMDBClient,
         library_root: Path,
-        discovery_service=None,
+        discovery_service: MovieLibraryDiscoverer,
     ):
         self.tmdb = tmdb
         self.root = library_root
@@ -868,13 +861,6 @@ class BatchMovieOrchestrator:
                 state.duplicate_of_relative_folder = existing.relative_folder or None
                 state.checked = False
 
-    def _get_discovery_service(self):
-        if self.discovery_service is None:
-            from ..app.services import MovieLibraryDiscoveryService
-
-            self.discovery_service = MovieLibraryDiscoveryService()
-        return self.discovery_service
-
     def discover_movies(
         self,
         progress_callback: Callable | None = None,
@@ -882,8 +868,7 @@ class BatchMovieOrchestrator:
         """Phase 1: Find movie folders and match to TMDB."""
         from ._movie_scanner import _prepare_movie_query
 
-        discovery_service = self._get_discovery_service()
-        discovered = discovery_service.discover_movie_roots(self.root)
+        discovered = self.discovery_service.discover_movie_roots(self.root)
 
         entries: list[tuple[object, str, str | None, Path | None]] = []
         for candidate in discovered:

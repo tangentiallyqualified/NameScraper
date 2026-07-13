@@ -18,6 +18,7 @@ from ..parsing import (
     looks_like_tv_episode,
 )
 from ..tmdb import TMDBClient
+from ._discovery_ports import TVLibraryDiscoverer
 from ._scan_runtime import CANCEL_SCAN, _raise_if_cancelled
 from ._state import get_auto_accept_threshold
 from .matching import (
@@ -95,10 +96,13 @@ class MovieScanner:
         tmdb: TMDBClient,
         root_folder: Path,
         files: list[Path] | None = None,
+        *,
+        tv_discovery_service: TVLibraryDiscoverer | None = None,
     ):
         self.tmdb = tmdb
         self.root = root_folder
         self._explicit_files = files
+        self._tv_discovery_service = tv_discovery_service
         self.movie_info: dict[Path, dict] = {}
         self._search_cache: dict[Path, list[dict]] = {}
 
@@ -124,9 +128,12 @@ class MovieScanner:
         if self._explicit_files is not None or not files:
             return files, []
 
-        from ..app.services import TVLibraryDiscoveryService
+        if self._tv_discovery_service is None:
+            raise RuntimeError(
+                "folder-mode MovieScanner requires a TV library discoverer"
+            )
 
-        show_roots = TVLibraryDiscoveryService().discover_show_roots(self.root)
+        show_roots = self._tv_discovery_service.discover_show_roots(self.root)
         if not show_roots:
             return files, []
 
