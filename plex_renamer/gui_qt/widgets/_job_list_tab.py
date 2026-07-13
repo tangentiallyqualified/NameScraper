@@ -399,9 +399,6 @@ class _JobListTab(QWidget):
             toolbar_layout.insertStretch(3, 1)
             self._actions_layout_has_stretch = True
 
-    def _insert_panel_before_detail(self, widget: QWidget) -> None:
-        self._list_layout.insertWidget(self._list_layout.count() - 1, widget)
-
     def _finish_list_pane(self) -> None:
         self._list_layout.addWidget(self._table_stack, stretch=1)
         if not self._actions_layout_has_stretch:

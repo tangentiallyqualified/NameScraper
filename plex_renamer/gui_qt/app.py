@@ -137,7 +137,6 @@ def run() -> None:
     app.setApplicationName("NameScraper")
     popup_filter = _SuppressTransientPopups(app)
     app.installEventFilter(popup_filter)
-    app._popup_filter = popup_filter
 
     # Load the global theme stylesheet (rendered from theme.qss.tmpl)
     from . import theme as _theme
