@@ -12,10 +12,20 @@ from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
 HARD_STAGES = {"inventory", "graph"}
 
 
+def _ascii(text: str) -> str:
+    return text.encode("ascii", "replace").decode("ascii")
+
+
 def _render_all(repo_root: Path, options) -> int:
     rc = 0
     for mod in (_render_llm, _render_human, _docs_ledger):
-        rc = max(rc, mod.run(repo_root, options))
+        try:
+            rc = max(rc, mod.run(repo_root, options))
+        except _artifacts.MissingArtifactError:
+            raise
+        except Exception as exc:
+            print(_ascii(f"render: {mod.__name__} failed - {exc}"))
+            rc = max(rc, 2)
     return rc
 
 
@@ -95,10 +105,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             rc = fn(repo_root, options)
         except _artifacts.MissingArtifactError as exc:
-            print(f"{name}: {exc}")
+            print(_ascii(f"{name}: {exc}"))
             return 1
         except Exception as exc:
-            print(f"{name}: failed - {exc}")
+            print(_ascii(f"{name}: failed - {exc}"))
             if name in HARD_STAGES or options.stage:
                 return 1
             worst = max(worst, 2)

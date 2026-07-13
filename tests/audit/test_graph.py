@@ -188,3 +188,64 @@ def test_path_replace_still_flagged(synthetic_repo: Path):
     '''), encoding="utf-8")
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.swapper"]["effects"] == ["file-move"]
+
+
+def test_reexport_through_init_attributes_origin(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "__init__.py").write_text(
+        '"""Mini package."""\nfrom .alpha import used_function\n', encoding="utf-8")
+    (synthetic_repo / "plex_renamer" / "delta.py").write_text(
+        '"""Delta."""\nfrom plex_renamer import used_function\n\n\n'
+        'def go():\n    """Go."""\n    return used_function(2)\n',
+        encoding="utf-8",
+    )
+    g = _graph_for(synthetic_repo)
+    alpha_syms = {s["name"]: s for s in g["modules"]["plex_renamer.alpha"]["symbols"]}
+    assert "plex_renamer.delta" in alpha_syms["used_function"]["imported_by"]
+
+
+def test_similarly_named_external_package_stays_external(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "epsilon.py").write_text(
+        '"""Epsilon."""\nimport plex_renamerx\n', encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.epsilon"]["imports"] == []
+    assert g["modules"]["plex_renamer.epsilon"]["external_imports"] == ["plex_renamerx"]
+
+
+def test_class_and_private_symbols(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "shapes.py").write_text(textwrap.dedent('''\
+        """Shapes."""
+
+
+        class Circle:
+            """Round."""
+
+
+        def _hidden():
+            """Private."""
+    '''), encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    syms = {s["name"]: s for s in g["modules"]["plex_renamer.shapes"]["symbols"]}
+    assert syms["Circle"]["kind"] == "class"
+    assert syms["Circle"]["public"] is True
+    assert syms["_hidden"]["public"] is False
+
+
+def test_syntax_error_module_included_empty(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.broken"]["symbols"] == []
+    assert g["modules"]["plex_renamer.broken"]["imports"] == []
+
+
+def test_from_pkg_import_submodule_is_module_edge(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "zeta.py").write_text(
+        '"""Zeta."""\nfrom plex_renamer import alpha\n', encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.zeta"]["imports"] == ["plex_renamer.alpha"]
+
+
+def test_absolute_import_module_edge(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "eta.py").write_text(
+        '"""Eta."""\nimport plex_renamer.alpha\n', encoding="utf-8")
+    g = _graph_for(synthetic_repo)
+    assert g["modules"]["plex_renamer.eta"]["imports"] == ["plex_renamer.alpha"]

@@ -7,12 +7,20 @@ import re
 import subprocess
 import sys
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 from . import _artifacts
 
 RUFF_SELECT = "F401,F811,F841"
 COMPLEXITY_THRESHOLD = 10
+
+
+def _rel_to_repo(repo_root: Path, filename: str) -> str:
+    try:
+        return Path(filename).resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return str(filename).replace("\\", "/")
 
 
 def _run_ruff(repo_root: Path) -> list[dict]:
@@ -23,13 +31,11 @@ def _run_ruff(repo_root: Path) -> list[dict]:
     )
     if result.returncode not in (0, 1):  # 1 = findings present
         raise RuntimeError(f"ruff failed: {result.stderr.strip()[:200]}")
+    if result.returncode == 1 and not result.stdout.strip():
+        raise RuntimeError(f"ruff exited 1 with no output: {result.stderr.strip()[:200]}")
     findings = []
     for item in json.loads(result.stdout or "[]"):
-        rel = Path(item["filename"]).resolve()
-        try:
-            path = rel.relative_to(repo_root.resolve()).as_posix()
-        except ValueError:
-            path = item["filename"].replace("\\", "/")
+        path = _rel_to_repo(repo_root, item["filename"])
         findings.append({
             "source": "ruff", "rule": item["code"], "path": path,
             "line": item["location"]["row"], "symbol": None,
@@ -46,11 +52,7 @@ def _run_vulture(repo_root: Path) -> list[dict]:
     v.scavenge([str(repo_root / "plex_renamer")])
     findings = []
     for item in v.get_unused_code():
-        path = Path(str(item.filename)).resolve()
-        try:
-            rel = path.relative_to(repo_root.resolve()).as_posix()
-        except ValueError:
-            rel = str(item.filename).replace("\\", "/")
+        rel = _rel_to_repo(repo_root, str(item.filename))
         findings.append({
             "source": "vulture", "rule": f"unused-{item.typ}", "path": rel,
             "line": item.first_lineno, "symbol": str(item.name),
@@ -131,6 +133,7 @@ def _req_name(requirement: str) -> str:
     return m.group(0) if m else requirement.strip()
 
 
+@lru_cache(maxsize=1)
 def _dist_top_levels() -> dict[str, set[str]]:
     """Normalized installed-distribution name -> top-level import names it provides."""
     from importlib.metadata import packages_distributions
@@ -193,13 +196,14 @@ def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
     imported -= set(sys.stdlib_module_names)
 
     dist_tops = _dist_top_levels()
+    tops_by_runtime_dep = {dep: _tops_for({dep}, dist_tops) for dep in runtime}
     findings = []
     for dep in sorted(runtime):
-        if not (_tops_for({dep}, dist_tops) & imported):
+        if not (tops_by_runtime_dep[dep] & imported):
             findings.append(_dep_finding(
                 "unused-dependency", dep,
                 f"declared dependency '{dep}' is never imported by plex_renamer"))
-    runtime_tops = _tops_for(runtime, dist_tops)
+    runtime_tops = set().union(*tops_by_runtime_dep.values()) if tops_by_runtime_dep else set()
     dev_tops = _tops_for(dev, dist_tops)
     for top in sorted(imported):
         if top in runtime_tops:

@@ -66,3 +66,26 @@ def test_fast_does_not_restamp_baseline(synthetic_repo: Path, capsys, repo_git):
     out = capsys.readouterr().out
     assert rc == 0
     assert "behind" in out  # --fast must NOT have restamped the baseline to current HEAD
+
+
+def test_render_all_degrades_per_renderer(synthetic_repo: Path, monkeypatch):
+    from audit import _render_llm
+
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+
+    def _boom(repo_root, options):
+        raise RuntimeError("llm renderer down")
+
+    monkeypatch.setattr(_render_llm, "run", _boom)
+    overview = synthetic_repo / "docs" / "audit" / "maps" / "overview.md"
+    overview.unlink()
+    rc = cli.main(["--fast", "--repo-root", str(synthetic_repo)])
+    assert rc == 2
+    assert overview.exists()  # human renderer still ran despite llm failure
+
+
+def test_render_stage_missing_artifacts_exits_1(synthetic_repo: Path, capsys):
+    rc = cli.main(["render", "--repo-root", str(synthetic_repo)])
+    assert rc == 1  # MissingArtifactError contract: single message, hard exit
+    out = capsys.readouterr().out
+    assert "Missing artifact" in out

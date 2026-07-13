@@ -4,9 +4,9 @@
 
 | Doc | Reviewed at | Status |
 |---|---|---|
-| `CLAUDE.md` | 7b246bb | current |
+| `CLAUDE.md` | 7b246bb | STALE: `scripts/audit.ps1`, `scripts/git-publish.ps1` |
 | `README.md` | 7b246bb | current |
-| `docs/ai-publish-workflow.md` | 7b246bb | current |
+| `docs/ai-publish-workflow.md` | 7b246bb | STALE: `scripts/git-publish.ps1` |
 
 ## All docs (purge worksheet)
 
@@ -21,6 +21,8 @@
 | `docs/superpowers/plans/2026-07-04-gui-v4-plan6-toasts-loading.md` | 2026-07-04 | `plex_renamer.app`, `plex_renamer.gui_`, `plex_renamer/gui_qt/resources/theme.qss` |
 | `docs/superpowers/plans/2026-07-04-gui-v4-plan7-queue-history.md` | 2026-07-05 | `plex_renamer.app`, `plex_renamer.gui_`, `plex_renamer.job_`, `plex_renamer/gui_qt/resources/theme.qss` |
 | `CLAUDE.md` | 2026-07-05 | `plex_renamer.keys`, `tests/test_gui_qt_smoke.py` |
+| `README.md` | 2026-07-05 | - |
+| `docs/README.md` | 2026-07-05 | - |
 | `docs/ai-assistant-workflows.md` | 2026-07-05 | `tests/test_gui_qt_smoke.py` |
 | `docs/ai-publish-workflow.md` | 2026-07-05 | - |
 | `docs/code-review-plan.md` | 2026-07-05 | `plex_renamer/engine/_tv_scanner_specials.py`, `plex_renamer/gui_qt/widgets/_workspace_widgets.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py` |
@@ -28,7 +30,6 @@
 | `docs/gui3-phase7-parity-audit.md` | 2026-07-05 | - |
 | `docs/gui3-pyside6-migration-plan revised.md` | 2026-07-05 | `plex_renamer.app`, `plex_renamer/__main_gui3__.py`, `plex_renamer/app/services/scan_snapshot_service.py`, `plex_renamer/cache.db`, `plex_renamer/engine.py`, `plex_renamer/gui/app.py`, `plex_renamer/gui/detail_panel.py`, `plex_renamer/gui/dialogs.py`, `plex_renamer/gui/helpers.py`, `plex_renamer/gui/library_panel.py`, `plex_renamer/gui/preview_canvas.py`, `plex_renamer/gui/queue_panel.py`, `plex_renamer/gui/result_views.py`, `plex_renamer/gui_qt/resources/theme.qss`, `plex_renamer/gui_qt/widgets/detail_panel.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/preview_panel.py`, `plex_renamer/gui_qt/widgets/queue_panel.py`, `plex_renamer/gui_qt/widgets/roster_panel.py`, `plex_renamer/job_queue.db`, `plex_renamer/styles.py`, `plex_renamer/undo_log.py`, `tests/test_gui_qt_smoke.py` |
 | `docs/gui3-pyside6-ui-design.md` | 2026-07-05 | `plex_renamer/settings.json` |
-| `docs/README.md` | 2026-07-05 | - |
 | `docs/scan-improvement-plan.md` | 2026-07-05 | `plex_renamer/engine.py`, `plex_renamer/gui/library_panel.py` |
 | `docs/superpowers/plans/2026-05-01-batch-action-cleanup.md` | 2026-07-05 | `plex_renamer/gui_qt/widgets/_media_workspace_preview.py`, `plex_renamer/gui_qt/widgets/_workspace_widgets.py` |
 | `docs/superpowers/plans/2026-05-01-batch-layout-polish.md` | 2026-07-05 | `plex_renamer.gui_`, `plex_renamer/gui_qt/resources/theme.qss`, `plex_renamer/gui_qt/widgets/_media_detail_payloads.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `tests/test_qt_media_detail_panel.py` |
@@ -62,7 +63,6 @@
 | `docs/superpowers/specs/2026-06-14-episode-matching-ux-fixes-design.md` | 2026-07-05 | - |
 | `docs/superpowers/specs/2026-06-29-episode-parsing-edgecase-hardening-design.md` | 2026-07-05 | - |
 | `docs/superpowers/specs/2026-06-29-multi-episode-filename-formatting-design.md` | 2026-07-05 | - |
-| `README.md` | 2026-07-05 | - |
 | `docs/superpowers/plans/2026-07-05-gui-v4-plan8-settings-seams.md` | 2026-07-05 | `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer/gui_qt/resources/theme.qss` |
 | `docs/superpowers/plans/2026-07-05-gui-v4-plan9-final-pass.md` | 2026-07-05 | `plex_renamer.app`, `plex_renamer.gui_` |
 | `docs/superpowers/plans/2026-07-03-gui-v4-implementation.md` | 2026-07-05 | - |
@@ -97,16 +97,17 @@
 | `docs/audit/maps/engine.md` | 2026-07-12 | - |
 | `docs/audit/maps/gui_qt.md` | 2026-07-12 | - |
 | `docs/audit/maps/root.md` | 2026-07-12 | - |
-| `docs/audit/CHANGES.md` | 2026-07-12 | - |
-| `docs/audit/doc-status.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer._job`, `plex_renamer._lan`, `plex_renamer._mkv`, `plex_renamer._nfo`, `plex_renamer._par`, `plex_renamer._tmd`, `plex_renamer.alph`, `plex_renamer.app`, `plex_renamer.beta`, `plex_renamer.c1`, `plex_renamer.c2`, `plex_renamer.cons`, `plex_renamer.egg`, `plex_renamer.engi`, `plex_renamer.gamm`, `plex_renamer.gui_`, `plex_renamer.job_`, `plex_renamer.keys`, `plex_renamer.move`, `plex_renamer.net`, `plex_renamer.pars`, `plex_renamer.thre`, `plex_renamer.tmdb`, `plex_renamer.writ`, `plex_renamer/__main_gui3__.py`, `plex_renamer/alpha.py`, `plex_renamer/app/controllers/_tv_scan_helpers.py`, `plex_renamer/app/services/scan_snapshot_service.py`, `plex_renamer/beta.py`, `plex_renamer/cache.db`, `plex_renamer/engine.py`, `plex_renamer/engine/_tv_scanner_specials.py`, `plex_renamer/gone.py`, `plex_renamer/gui/app.py`, `plex_renamer/gui/detail_panel.py`, `plex_renamer/gui/dialogs.py`, `plex_renamer/gui/helpers.py`, `plex_renamer/gui/library_panel.py`, `plex_renamer/gui/preview_canvas.py`, `plex_renamer/gui/queue_panel.py`, `plex_renamer/gui/result_views.py`, `plex_renamer/gui_qt/resources/theme.qss`, `plex_renamer/gui_qt/widgets/_media_detail_payloads.py`, `plex_renamer/gui_qt/widgets/_media_workspace_preview.py`, `plex_renamer/gui_qt/widgets/_workspace_widgets.py`, `plex_renamer/gui_qt/widgets/detail_panel.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/preview_panel.py`, `plex_renamer/gui_qt/widgets/queue_panel.py`, `plex_renamer/gui_qt/widgets/roster_panel.py`, `plex_renamer/job_queue.db`, `plex_renamer/mut.py`, `plex_renamer/new.py`, `plex_renamer/old.py`, `plex_renamer/settings.json`, `plex_renamer/styles.py`, `plex_renamer/twisty.py`, `plex_renamer/undo_log.py`, `scripts.appe`, `scripts.valu`, `scripts/repro_batch_bugs.py`, `tests.audi`, `tests.pars`, `tests.test`, `tests/audit/__init__.py`, `tests/test_alpha.py`, `tests/test_episode_mapping_service.py`, `tests/test_fast_runner.py`, `tests/test_gui_qt_smoke.py`, `tests/test_movie_scanner.py`, `tests/test_qt_bulk_assign.py`, `tests/test_qt_empty_state.py`, `tests/test_qt_episode_table.py`, `tests/test_qt_media_detail_panel.py`, `tests/test_qt_scan_progress.py`, `tests/test_smoke_runner.py`, `tests/test_toast_manager.py`, `tests_dir.mkdi`, `tests_map.get` |
-| `docs/audit/llm/app.md` | 2026-07-12 | `plex_renamer.app`, `plex_renamer.gui_` |
-| `docs/audit/llm/engine.md` | 2026-07-12 | `plex_renamer._job`, `plex_renamer._mkv`, `plex_renamer.app`, `plex_renamer.engi`, `plex_renamer.gui_` |
-| `docs/audit/llm/gui_qt.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer.gui_` |
-| `docs/audit/llm/INDEX.md` | 2026-07-12 | - |
-| `docs/audit/llm/root.md` | 2026-07-12 | `plex_renamer._job`, `plex_renamer._mkv`, `plex_renamer._par`, `plex_renamer.app`, `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.job_`, `plex_renamer.keys`, `plex_renamer.pars`, `plex_renamer.tmdb` |
-| `docs/audit/maps/overview.md` | 2026-07-12 | `plex_renamer.app`, `plex_renamer.engi` |
 | `docs/superpowers/specs/2026-07-12-audit-harness-design.md` | 2026-07-12 | - |
 | `docs/superpowers/plans/2026-07-12-audit-harness.md` | 2026-07-12 | `plex_renamer.alph`, `plex_renamer.beta`, `plex_renamer.c1`, `plex_renamer.c2`, `plex_renamer.egg`, `plex_renamer.gamm`, `plex_renamer/alpha.py`, `plex_renamer/beta.py`, `plex_renamer/gone.py`, `plex_renamer/new.py`, `plex_renamer/old.py`, `plex_renamer/twisty.py`, `scripts.appe`, `tests.audi`, `tests/audit/__init__.py`, `tests/test_alpha.py`, `tests_dir.mkdi`, `tests_map.get` |
+| `docs/audit/CHANGES.md` | 2026-07-12 | - |
+| `docs/audit/doc-status.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer._job`, `plex_renamer._lan`, `plex_renamer._mkv`, `plex_renamer._nfo`, `plex_renamer._par`, `plex_renamer._tmd`, `plex_renamer.alph`, `plex_renamer.app`, `plex_renamer.beta`, `plex_renamer.brok`, `plex_renamer.c1`, `plex_renamer.c2`, `plex_renamer.cons`, `plex_renamer.delt`, `plex_renamer.egg`, `plex_renamer.engi`, `plex_renamer.epsi`, `plex_renamer.eta`, `plex_renamer.gamm`, `plex_renamer.gui_`, `plex_renamer.job_`, `plex_renamer.keys`, `plex_renamer.move`, `plex_renamer.net`, `plex_renamer.pars`, `plex_renamer.shap`, `plex_renamer.thre`, `plex_renamer.tmdb`, `plex_renamer.writ`, `plex_renamer.zeta`, `plex_renamer/__main_gui3__.py`, `plex_renamer/alpha.py`, `plex_renamer/app/controllers/_tv_scan_helpers.py`, `plex_renamer/app/services/scan_snapshot_service.py`, `plex_renamer/beta.py`, `plex_renamer/cache.db`, `plex_renamer/engine.py`, `plex_renamer/engine/_scanner.py`, `plex_renamer/engine/_tv_scanner_specials.py`, `plex_renamer/gone.py`, `plex_renamer/gui/app.py`, `plex_renamer/gui/detail_panel.py`, `plex_renamer/gui/dialogs.py`, `plex_renamer/gui/helpers.py`, `plex_renamer/gui/library_panel.py`, `plex_renamer/gui/preview_canvas.py`, `plex_renamer/gui/queue_panel.py`, `plex_renamer/gui/result_views.py`, `plex_renamer/gui_qt/resources/theme.qss`, `plex_renamer/gui_qt/widgets/_media_detail_payloads.py`, `plex_renamer/gui_qt/widgets/_media_workspace_preview.py`, `plex_renamer/gui_qt/widgets/_workspace_widgets.py`, `plex_renamer/gui_qt/widgets/detail_panel.py`, `plex_renamer/gui_qt/widgets/media_detail_panel.py`, `plex_renamer/gui_qt/widgets/preview_panel.py`, `plex_renamer/gui_qt/widgets/queue_panel.py`, `plex_renamer/gui_qt/widgets/roster_panel.py`, `plex_renamer/job_queue.db`, `plex_renamer/mut.py`, `plex_renamer/new.py`, `plex_renamer/new1.py`, `plex_renamer/new2.py`, `plex_renamer/old.py`, `plex_renamer/settings.json`, `plex_renamer/styles.py`, `plex_renamer/twisty.py`, `plex_renamer/undo_log.py`, `scripts.appe`, `scripts.valu`, `scripts/repro_batch_bugs.py`, `scripts/tool.ps1`, `tests.audi`, `tests.pars`, `tests.test`, `tests/audit/__init__.py`, `tests/test_alpha.py`, `tests/test_episode_mapping_service.py`, `tests/test_fast_runner.py`, `tests/test_gui_qt_smoke.py`, `tests/test_movie_scanner.py`, `tests/test_qt_bulk_assign.py`, `tests/test_qt_empty_state.py`, `tests/test_qt_episode_table.py`, `tests/test_qt_media_detail_panel.py`, `tests/test_qt_scan_progress.py`, `tests/test_smoke_runner.py`, `tests/test_toast_manager.py`, `tests_dir.mkdi`, `tests_map.get` |
+| `docs/audit/llm/INDEX.md` | 2026-07-12 | - |
+| `docs/audit/llm/app.md` | 2026-07-12 | `plex_renamer.app`, `plex_renamer.engi`, `plex_renamer.gui_` |
+| `docs/audit/llm/engine.md` | 2026-07-12 | `plex_renamer._job`, `plex_renamer._mkv`, `plex_renamer.app`, `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.job_` |
+| `docs/audit/llm/gui_qt.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer.gui_` |
+| `docs/audit/llm/root.md` | 2026-07-12 | `plex_renamer._job`, `plex_renamer._mkv`, `plex_renamer._par`, `plex_renamer.app`, `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.job_`, `plex_renamer.keys`, `plex_renamer.pars`, `plex_renamer.tmdb` |
+| `docs/audit/maps/overview.md` | 2026-07-12 | `plex_renamer.app`, `plex_renamer.engi` |
 | `docs/superpowers/plans/2026-07-12-audit-harness-extensions.md` | 2026-07-12 | `plex_renamer.__ma`, `plex_renamer.alph`, `plex_renamer.app`, `plex_renamer.beta`, `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.move`, `plex_renamer.net`, `plex_renamer.writ`, `plex_renamer/beta.py`, `plex_renamer/mut.py`, `scripts.valu`, `tests/test_alpha.py` |
+| `docs/superpowers/plans/2026-07-12-audit-harness-debt.md` | 2026-07-12 | `plex_renamer.alph`, `plex_renamer.brok`, `plex_renamer.delt`, `plex_renamer.epsi`, `plex_renamer.eta`, `plex_renamer.shap`, `plex_renamer.zeta`, `plex_renamer/alpha.py`, `plex_renamer/engine/_scanner.py`, `plex_renamer/new1.py`, `plex_renamer/new2.py`, `plex_renamer/old.py`, `scripts/tool.ps1` |
 
-_Generated at commit a491dc2 by scripts\audit.cmd._
+_Generated at commit 85f4d45 by scripts\audit.cmd._

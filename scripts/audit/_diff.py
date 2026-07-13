@@ -30,7 +30,7 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
     removed_by_sha = {old[p]["sha256"]: p for p in removed}
     still_added = []
     for p in added:
-        match = removed_by_sha.get(current[p]["sha256"])
+        match = removed_by_sha.pop(current[p]["sha256"], None)
         if match:
             renamed.append({"from": match, "to": p})
             removed.remove(match)
@@ -57,7 +57,7 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
 def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict) -> str:
     commit = _artifacts.current_commit(repo_root) or "unknown"
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    base_commit = baseline["commit"] if baseline else "none (first run)"
+    base_commit = (baseline.get("commit") or "unknown") if baseline else "none (first run)"
     h = metrics["headline"]
     lines = [f"## Audit {date} ({commit}) vs baseline ({base_commit})", ""]
     lines.append(f"- Headline: {h['files']} modules, {h['total_loc']} LOC, "

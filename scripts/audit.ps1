@@ -14,7 +14,14 @@ if (-not (Test-Path $python)) {
     exit 1
 }
 
-$env:PYTHONPATH = Join-Path $repoRoot "scripts"
+$scriptsDir = Join-Path $repoRoot "scripts"
+if ($env:PYTHONPATH) {
+    if ($env:PYTHONPATH -notlike "*$scriptsDir*") {
+        $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+    }
+} else {
+    $env:PYTHONPATH = $scriptsDir
+}
 if ($null -eq $AuditArgs) { $AuditArgs = @() }
 & $python -m audit @AuditArgs
 exit $LASTEXITCODE

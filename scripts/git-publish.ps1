@@ -50,7 +50,14 @@ try {
     if (-not $NoAuditCheck) {
         $auditPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
         if (Test-Path $auditPython) {
-            $env:PYTHONPATH = Join-Path $repoRoot "scripts"
+            $scriptsDir = Join-Path $repoRoot "scripts"
+            if ($env:PYTHONPATH) {
+                if ($env:PYTHONPATH -notlike "*$scriptsDir*") {
+                    $env:PYTHONPATH = $scriptsDir + ";" + $env:PYTHONPATH
+                }
+            } else {
+                $env:PYTHONPATH = $scriptsDir
+            }
             $auditLines = & $auditPython -m audit --check
             if ($LASTEXITCODE -eq 0 -and $auditLines) {
                 $auditLines | Select-Object -First 3 | ForEach-Object { Write-Host "audit: $_" }

@@ -52,3 +52,16 @@ def test_git_timeout_falls_back_to_mtime(synthetic_repo: Path, monkeypatch):
     inv = _inventory.build_inventory(synthetic_repo)
     guide = next(d for d in inv["docs"] if d["path"] == "docs/guide.md")
     assert guide["last_touched"]  # mtime fallback, no crash
+
+
+def test_scripts_inventoried(synthetic_repo: Path):
+    (synthetic_repo / "scripts").mkdir()
+    (synthetic_repo / "scripts" / "tool.ps1").write_text("Write-Host hi\n", encoding="utf-8")
+    inv = _inventory.build_inventory(synthetic_repo)
+    assert {"path": "scripts/tool.ps1"} in inv["scripts"]
+
+
+def test_run_prints_count_from_inventory(synthetic_repo: Path, capsys):
+    assert _inventory.run(synthetic_repo, None) == 0
+    out = capsys.readouterr().out
+    assert "inventory: 3 package files indexed" in out

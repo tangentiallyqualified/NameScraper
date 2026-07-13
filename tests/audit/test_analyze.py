@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from audit import _analyze, _graph, _inventory
+from audit import _analyze, _artifacts, _graph, _inventory
 
 
 def _analysis_for(repo: Path) -> dict:
@@ -160,3 +160,34 @@ def test_dead_code_in_entrypoint_module_protected(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
     hits = [f for f in a["findings"] if f["category"] == "dead-code" and f["symbol"] == "orphan"]
     assert hits and hits[0]["assessment"] == "entrypoint"
+
+
+def test_ruff_exit1_empty_stdout_degrades(synthetic_repo: Path, monkeypatch):
+    import subprocess as sp
+
+    inv = _inventory.build_inventory(synthetic_repo)
+    graph = _graph.build_graph(synthetic_repo, inv)
+
+    class _FakeResult:
+        returncode = 1
+        stdout = ""
+        stderr = "ruff crashed before emitting JSON"
+
+    monkeypatch.setattr(sp, "run", lambda *a, **k: _FakeResult())
+    a = _analyze.run_analysis(synthetic_repo, inv, graph)
+    assert a["tool_status"]["ruff"]["ok"] is False
+    assert not [f for f in a["findings"] if f["source"] == "ruff"]
+
+
+def test_run_returns_2_and_writes_artifact_when_tool_degrades(synthetic_repo: Path, monkeypatch, capsys):
+    _inventory.run(synthetic_repo, None)
+    _graph.run(synthetic_repo, None)
+
+    def _boom(repo_root):
+        raise RuntimeError("ruff unavailable")
+
+    monkeypatch.setattr(_analyze, "_run_ruff", _boom)
+    assert _analyze.run(synthetic_repo, None) == 2
+    data = _artifacts.read_artifact(synthetic_repo, "analysis")
+    assert data["tool_status"]["ruff"]["ok"] is False
+    assert "unavailable: ruff" in capsys.readouterr().out

@@ -60,3 +60,21 @@ def test_run_writes_changes_and_baseline_capped(synthetic_repo: Path):
     assert "\n\n\n" not in changes  # no blank-line growth between sections
     baseline = (synthetic_repo / "docs" / "audit" / "baseline.json")
     assert baseline.exists()
+
+
+def test_duplicate_sha_rename_consumed_once():
+    base = _baseline_from(_metrics(path="plex_renamer/old.py", sha="samehash"))
+    m = _metrics(path="plex_renamer/new1.py", sha="samehash")
+    m["modules"]["plex_renamer/new2.py"] = dict(m["modules"]["plex_renamer/new1.py"])
+    result = _diff.compare(base, m)
+    assert result["renamed"] == [{"from": "plex_renamer/old.py", "to": "plex_renamer/new1.py"}]
+    assert result["added"] == ["plex_renamer/new2.py"]
+    assert result["removed"] == []
+
+
+def test_null_baseline_commit_renders_unknown(synthetic_repo: Path):
+    base = _baseline_from(_metrics())
+    base["commit"] = None
+    section = _diff._section(synthetic_repo, _diff.compare(base, _metrics()), base, _metrics())
+    assert "vs baseline (unknown)" in section
+    assert "(None)" not in section

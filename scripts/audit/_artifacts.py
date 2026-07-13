@@ -32,11 +32,17 @@ def audit_dir(repo_root: Path) -> Path:
     return d
 
 
+def package_of(path: str) -> str:
+    """Top-level package segment of a repo-relative module path ('root' for top-level files)."""
+    parts = Path(path).parts
+    return parts[1] if len(parts) > 2 else "root"
+
+
 def write_artifact(repo_root: Path, name: str, payload: dict) -> Path:
     stamped = {
+        **payload,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "commit": current_commit(repo_root),
-        **payload,
     }
     path = audit_dir(repo_root) / f"{name}.json"
     path.write_text(json.dumps(stamped, indent=1, sort_keys=True), encoding="utf-8")

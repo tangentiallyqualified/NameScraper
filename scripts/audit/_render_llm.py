@@ -5,10 +5,7 @@ from pathlib import Path
 
 from . import _artifacts
 
-
-def _package_of(path: str) -> str:
-    parts = Path(path).parts
-    return parts[1] if len(parts) > 2 else "root"
+_package_of = _artifacts.package_of
 
 
 def _flags_suffix(record: dict) -> str:
