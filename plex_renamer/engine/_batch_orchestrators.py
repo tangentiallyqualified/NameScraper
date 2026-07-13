@@ -738,7 +738,7 @@ class BatchMovieOrchestrator:
     and creates ScanState instances for the GUI.
 
     Two-phase workflow:
-      Phase 1 (discover): Scan filesystem via MovieLibraryDiscoveryService,
+      Phase 1 (discover): Scan filesystem via the injected MovieLibraryDiscoverer,
           identify movie_root and multi_movie_folder candidates, parallel
           TMDB search.
       Phase 2 (scan): For each matched movie, build PreviewItems with

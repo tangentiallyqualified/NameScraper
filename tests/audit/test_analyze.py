@@ -132,6 +132,30 @@ def test_allowlist_marks_finding(synthetic_repo: Path):
                for f in a2["findings"] if f["symbol"] != "dead_function")
 
 
+def test_default_allowlist_qualifies_refreshing_cache_by_path():
+    allowlist_text = (
+        Path(__file__).parents[2] / "scripts" / "audit" / "allowlist.toml"
+    ).read_text(encoding="utf-8")
+    findings = [
+        {
+            "symbol": "REFRESHING_CACHE",
+            "path": "plex_renamer/app/models/state_models.py",
+        },
+        {
+            "symbol": "REFRESHING_CACHE",
+            "path": "plex_renamer/elsewhere.py",
+        },
+    ]
+
+    _analyze._apply_allowlist(findings, allowlist_text)
+
+    assert [finding["allowlisted"] for finding in findings] == [True, False]
+    assert findings[0]["allowlist_reason"] == (
+        "Exported ScanLifecycle compatibility value reserved for cache-refresh progress"
+    )
+    assert findings[1]["allowlist_reason"] is None
+
+
 def test_tool_status_reported(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
     assert set(a["tool_status"]) == {"ruff", "vulture", "radon", "deps", "contracts"}

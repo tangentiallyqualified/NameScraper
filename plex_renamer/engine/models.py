@@ -259,13 +259,6 @@ class ScanState:
             return self.completeness.total_matched
         return 0
 
-    @property
-    def actionable_indices(self) -> set[int]:
-        return {
-            index for index, item in enumerate(self.preview_items)
-            if item.is_actionable
-        }
-
     def reset_gui_state(self) -> None:
         self.check_vars.clear()
         self.selected_index = None

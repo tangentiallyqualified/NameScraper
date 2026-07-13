@@ -6,5 +6,6 @@ ignore = [
   { symbol = "paintEvent", reason = "Qt event handler, called by framework" },
   { symbol = "resizeEvent", reason = "Qt event handler, called by framework" },
   { symbol = "showEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "REFRESHING_CACHE", path = "plex_renamer/app/models/state_models.py", reason = "Exported ScanLifecycle compatibility value reserved for cache-refresh progress" },
   { symbol = "main", path = "plex_renamer/__main__.py", reason = "console entry point" },
 ]

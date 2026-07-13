@@ -18,7 +18,7 @@ def _check_palette(state: Qt.CheckState) -> tuple[QColor, QColor]:
 
 
 def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState) -> None:
-    """Rounded check indicator shared by MasterCheckBox, ToggleSwitch, and the roster delegate."""
+    """Paint the rounded indicator shared by MasterCheckBox and the roster delegate."""
     bg, border = _check_palette(state)
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -41,7 +41,7 @@ def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState)
 
 
 def paint_mini_progress(painter: QPainter, rect: QRect, *, value: int, color: QColor) -> None:
-    """4px track+fill bar shared by MiniProgressBar and the roster delegate."""
+    """Paint the roster delegate's compact track-and-fill progress bar."""
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     painter.setPen(Qt.PenStyle.NoPen)

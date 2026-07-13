@@ -6,24 +6,8 @@ from collections.abc import Callable
 from typing import Any
 
 from ...constants import JobStatus
-from ...engine import RenameResult
 from ...job_executor import QueueExecutor
 from ...job_store import JobStore, RenameJob
-
-
-def record_completed_queue_job(
-    job_store: JobStore,
-    job: RenameJob,
-    result: RenameResult,
-) -> None:
-    if result.renamed_count == 0:
-        return
-
-    job.status = JobStatus.COMPLETED
-    job.undo_data = result.log_entry
-    if result.errors:
-        job.error_message = "; ".join(result.errors[:5])
-    job_store.add_job(job)
 
 
 def revert_queue_job(

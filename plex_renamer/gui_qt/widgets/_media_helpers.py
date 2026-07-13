@@ -234,14 +234,6 @@ def preview_status_tone(preview: PreviewItem) -> str:
     return "success"
 
 
-def preview_band_name(preview: PreviewItem) -> str:
-    if preview.is_conflict or preview.is_unmatched:
-        return "error"
-    if preview.is_skipped:
-        return "muted"
-    return confidence_band(preview.episode_confidence)
-
-
 def season_label(season_num: int | None, *, name: str = "") -> str:
     if season_num is None:
         return "Other Files"

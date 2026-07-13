@@ -108,7 +108,7 @@ class TMDBClient:
     # ─── Helpers ──────────────────────────────────────────────────────
 
     def _get_safe(self, path: str, params: dict | None = None) -> dict | None:
-        """Like _get() but catches TMDBError and returns None."""
+        """Fetch JSON through the safe transport, returning None on TMDBError."""
         return self._transport.get_json_safe(path, params)
 
     def _details_params(self) -> dict[str, str]:
