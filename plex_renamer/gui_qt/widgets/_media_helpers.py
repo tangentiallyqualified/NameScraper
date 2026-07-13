@@ -6,26 +6,16 @@ module's line count and isolate presentation logic from widget code.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import QListWidgetItem, QWidget
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QWidget
 
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
 from ...app.services.command_gating_service import CommandGatingService
 from .. import theme
-from ._formatting import percent_text
 
 
 # ── State classification ────────────────────────────────────────────
-
-
-def file_count_for_state(state: ScanState) -> int:
-    if state.preview_items:
-        return len(state.preview_items)
-    if state.file_count:
-        return state.file_count
-    return 0
 
 
 def confidence_band(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
@@ -189,21 +179,6 @@ def auto_accept_threshold(settings) -> float:
     return settings.auto_accept_threshold
 
 
-def state_match_summary(state: ScanState, threshold: float) -> str:
-    pct = percent_text(state.confidence)
-    source = (state.active_episode_source or "tmdb").upper()
-    badge = f"{source} - {pct}"
-    if state.duplicate_of is not None:
-        return f"{source} - Duplicate"
-    if state.match_origin == "manual" and not state.needs_review:
-        return f"{source} - Approved"
-    if state.tie_detected and state.needs_review:
-        return f"{badge} - tied match"
-    if state.needs_review:
-        return f"{badge} - needs review"
-    return badge
-
-
 # ── Roster helpers ──────────────────────────────────────────────────
 
 
@@ -225,39 +200,6 @@ def roster_selection_key(state: ScanState | None) -> str | None:
     if state is None:
         return None
     return roster_item_key(state)
-
-
-def roster_signature(state: ScanState, *, compact: bool, media_type: str) -> tuple[object, ...]:
-    alt_signature = tuple(
-        (match.get("id"), match.get("name") or match.get("title"), match.get("year"))
-        for match in state.alternate_matches[:2]
-    )
-    return (
-        id(state),
-        state.display_name,
-        state.checked,
-        state.show_id,
-        state.queued,
-        state.scanning,
-        state.duplicate_of,
-        state.needs_review,
-        state.confidence,
-        state.file_count,
-        state.season_assignment,
-        tuple(item.status for item in state.preview_items),
-        compact,
-        media_type,
-        alt_signature,
-    )
-
-
-def match_label(match: dict, *, media_type: str) -> str:
-    if media_type == "movie":
-        title = match.get("title") or match.get("name") or "Unknown"
-    else:
-        title = match.get("name") or match.get("title") or "Unknown"
-    year = match.get("year") or ""
-    return f"{title} ({year})" if year else title
 
 
 def placeholder_initials(text: str) -> str:
@@ -292,59 +234,12 @@ def preview_status_tone(preview: PreviewItem) -> str:
     return "success"
 
 
-def preview_band(preview: PreviewItem) -> str:
-    return band_color(preview_band_name(preview))
-
-
 def preview_band_name(preview: PreviewItem) -> str:
     if preview.is_conflict or preview.is_unmatched:
         return "error"
     if preview.is_skipped:
         return "muted"
     return confidence_band(preview.episode_confidence)
-
-
-def preview_heading(preview: PreviewItem, *, compact: bool) -> str:
-    if compact:
-        if preview.season is not None and preview.episodes:
-            episode_text = ", ".join(f"E{ep:02d}" for ep in preview.episodes)
-            return f"S{preview.season:02d} {episode_text} · {preview.original.name}"
-        return preview.original.name
-    return preview.original.name
-
-
-def preview_target_text(preview: PreviewItem) -> str:
-    rename = preview.new_name or "No rename target"
-    return f"-> {rename}"
-
-
-def tv_preview_sort_key(preview: PreviewItem, index: int) -> tuple[int, int, int, str, int]:
-    status = preview.status or ""
-    if status == "OK":
-        status_priority = 0
-    elif "UNMATCHED" in status or "REVIEW" in status:
-        status_priority = 1
-    else:
-        status_priority = 2
-
-    first_episode = preview.episodes[0] if preview.episodes else 9999
-    return (
-        status_priority,
-        first_episode,
-        preview.season if preview.season is not None else 9999,
-        preview.original.name.casefold(),
-        index,
-    )
-
-
-def companion_summary(preview: PreviewItem) -> str:
-    if not preview.companions:
-        return ""
-    names = ", ".join(companion.original.name for companion in preview.companions[:2])
-    extra = ""
-    if len(preview.companions) > 2:
-        extra = f" +{len(preview.companions) - 2} more"
-    return f"Companions: {names}{extra}"
 
 
 def season_label(season_num: int | None, *, name: str = "") -> str:
@@ -369,23 +264,6 @@ def repolish(widget: QWidget) -> None:
     style.unpolish(widget)
     style.polish(widget)
     widget.update()
-
-
-def make_section_header(text: str, *, selectable: bool = False) -> QListWidgetItem:
-    header = QListWidgetItem(text.upper())
-    header.setData(Qt.ItemDataRole.UserRole, None)
-    flags = Qt.ItemFlag.ItemIsEnabled
-    if selectable:
-        flags |= Qt.ItemFlag.ItemIsSelectable
-    header.setFlags(flags)
-    header.setForeground(theme.qcolor("accent"))
-    header.setBackground(theme.qcolor("section_header_bg"))
-    font = QFont()
-    font.setBold(True)
-    font.setPointSize(10)
-    header.setFont(font)
-    header.setSizeHint(QSize(0, 34))
-    return header
 
 
 def format_batch_result(result) -> str:
