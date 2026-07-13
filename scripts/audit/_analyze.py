@@ -92,33 +92,64 @@ def _run_radon(repo_root: Path, inventory: dict) -> tuple[list[dict], dict]:
     return findings, per_file
 
 
-def _assess_dead_code(findings: list[dict], graph: dict) -> None:
-    fan_in_by_symbol: dict[tuple[str, str], int] = {}
+def _assess_dead_code(findings: list[dict], graph: dict,
+                      inventory: dict | None = None) -> None:
+    production_refs_by_symbol: dict[tuple[str, str], list[str]] = {}
+    module_by_path: dict[str, str] = {}
     entrypoint_paths: set[str] = set()
-    for mod in graph["modules"].values():
+    for module_name, mod in graph["modules"].items():
+        module_by_path[mod["path"]] = module_name
         if mod.get("entrypoint"):
             entrypoint_paths.add(mod["path"])
         for sym in mod["symbols"]:
-            fan_in_by_symbol[(mod["path"], sym["name"])] = len(sym["imported_by"])
+            production_refs_by_symbol[(mod["path"], sym["name"])] = sorted(
+                sym.get("imported_by", [])
+            )
+
+    test_refs_by_symbol: dict[str, set[str]] = {}
+    for test in (inventory or {}).get("test_files", []):
+        for qualified_symbol in test.get("imports_symbols", []):
+            test_refs_by_symbol.setdefault(qualified_symbol, set()).add(test["path"])
+
     for f in findings:
         if f["category"] != "dead-code":
             continue
+        key = (f["path"], f["symbol"] or "")
+        production_refs = production_refs_by_symbol.get(key)
+        module_name = module_by_path.get(f["path"])
+        qualified_symbol = f"{module_name}.{f['symbol']}" if module_name and f.get("symbol") else None
+        test_refs = sorted(test_refs_by_symbol.get(qualified_symbol or "", set()))
+        f["production_references"] = production_refs or []
+        f["test_references"] = test_refs
+        f["allowlist_reason"] = None
+
         if f["path"] in entrypoint_paths:
             f["assessment"] = "entrypoint"
-            continue
-        refs = fan_in_by_symbol.get((f["path"], f["symbol"] or ""))
-        f["assessment"] = "high-confidence" if refs == 0 else "low-confidence"
+        elif test_refs:
+            f["assessment"] = "test-referenced"
+        elif production_refs is None:
+            f["assessment"] = "dynamic-or-unresolved"
+        elif production_refs:
+            f["assessment"] = "referenced"
+        elif f.get("confidence", 0) >= 80:
+            f["assessment"] = "high-confidence"
+        elif f.get("confidence", 0) >= 60:
+            f["assessment"] = "medium-confidence"
+        else:
+            f["assessment"] = "low-confidence"
 
 
 def _apply_allowlist(findings: list[dict], allowlist_text: str) -> None:
     entries = tomllib.loads(allowlist_text).get("ignore", [])
     for f in findings:
-        f["allowlisted"] = any(
-            (("symbol" not in e) or fnmatch.fnmatch(f["symbol"] or "", e["symbol"]))
+        matched = next((
+            e for e in entries
+            if (("symbol" not in e) or fnmatch.fnmatch(f["symbol"] or "", e["symbol"]))
             and (("path" not in e) or fnmatch.fnmatch(f["path"], e["path"]))
             and ("symbol" in e or "path" in e)
-            for e in entries
-        )
+        ), None)
+        f["allowlisted"] = matched is not None
+        f["allowlist_reason"] = matched.get("reason") if matched is not None else None
 
 
 _REQ_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -264,7 +295,7 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
     except Exception as exc:
         tool_status["contracts"] = {"ok": False, "reason": str(exc)[:200]}
 
-    _assess_dead_code(findings, graph)
+    _assess_dead_code(findings, graph, inventory)
     _apply_allowlist(findings, allowlist_text)
     findings.sort(key=lambda f: (f["path"], f["line"], f["source"]))
     return {"findings": findings, "per_file": per_file, "tool_status": tool_status}

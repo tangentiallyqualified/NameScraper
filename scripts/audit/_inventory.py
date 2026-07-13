@@ -37,18 +37,42 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
-def _test_imports(path: Path) -> list[str]:
+def _test_import_evidence(path: Path) -> tuple[list[str], list[str]]:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
     except SyntaxError:
-        return []
+        return [], []
     mods: set[str] = set()
+    symbols: set[str] = set()
+    imported_names: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            mods.update(a.name for a in node.names if a.name.startswith("plex_renamer"))
+            for alias in node.names:
+                if not alias.name.startswith("plex_renamer"):
+                    continue
+                mods.add(alias.name)
+                if alias.asname:
+                    imported_names[alias.asname] = alias.name
         elif isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("plex_renamer"):
             mods.add(node.module)
-    return sorted(mods)
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                target = f"{node.module}.{alias.name}"
+                symbols.add(target)
+                imported_names[alias.asname or alias.name] = target
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute) or not isinstance(node.value, ast.Name):
+            continue
+        target = imported_names.get(node.value.id)
+        if target is not None:
+            symbols.add(f"{target}.{node.attr}")
+    return sorted(mods), sorted(symbols)
+
+
+def _test_imports(path: Path) -> list[str]:
+    """Return imported product modules (legacy helper kept for callers)."""
+    return _test_import_evidence(path)[0]
 
 
 def _git_last_touched(repo_root: Path, rel: Path) -> str | None:
@@ -82,7 +106,13 @@ def build_inventory(repo_root: Path) -> dict:
                     "sha256": _sha(path),
                 })
             elif rel.suffix == ".py" and top == "tests":
-                test_files.append({"path": posix, "loc": _loc(path), "imports_modules": _test_imports(path)})
+                imports_modules, imports_symbols = _test_import_evidence(path)
+                test_files.append({
+                    "path": posix,
+                    "loc": _loc(path),
+                    "imports_modules": imports_modules,
+                    "imports_symbols": imports_symbols,
+                })
             elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
                 docs.append(_doc_record(repo_root, path, rel))
             elif top == "scripts":

@@ -87,3 +87,23 @@ def changed_files_since(repo_root: Path, old_commit: str, *pathspecs: str) -> li
     if out is None:
         return None
     return [line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()]
+
+
+def working_tree_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
+    """Relevant staged, unstaged, and untracked files, normalized repo-relative."""
+    files: set[str] = set()
+    commands = (
+        ("diff", "--name-only", "--", *pathspecs),
+        ("diff", "--cached", "--name-only", "--", *pathspecs),
+        ("ls-files", "--others", "--exclude-standard", "--", *pathspecs),
+    )
+    for args in commands:
+        out = _git(repo_root, *args)
+        if out is None:
+            return None
+        files.update(
+            line.strip().replace("\\", "/")
+            for line in out.splitlines()
+            if line.strip()
+        )
+    return sorted(files)

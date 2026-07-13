@@ -1,5 +1,11 @@
 # Audit Change Log
 
+## Audit 2026-07-13 (486aaef) vs baseline (5a19847)
+
+- Headline: 175 modules, 39056 LOC, 0 high-confidence dead symbols, 2 cycles
+- Notable movements:
+  - coverage methodology changed or is unknown; per-module coverage movements suppressed
+
 ## Audit 2026-07-13 (0325ca8) vs baseline (85f4d45)
 
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
@@ -207,8 +213,3 @@ _Artifact of a partial-coverage import (evidence restored at e374638; import pat
 
 - Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
 - No notable changes since baseline.
-
-## Audit 2026-07-12 (7b246bb) vs baseline (none (first run))
-
-- Headline: 175 modules, 39056 LOC, 17 high-confidence dead symbols, 2 cycles
-- First audit run: baseline established.

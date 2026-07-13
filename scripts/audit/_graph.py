@@ -243,8 +243,9 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         name = _module_name(rec["path"])
         try:
             tree = ast.parse((repo_root / rec["path"]).read_text(encoding="utf-8", errors="replace"))
-        except SyntaxError:
-            tree = ast.Module(body=[], type_ignores=[])
+        except SyntaxError as exc:
+            line = exc.lineno or "?"
+            raise RuntimeError(f"cannot parse {rec['path']}:{line}: {exc.msg}") from exc
         trees[name] = tree
         modules[name] = {
             "path": rec["path"], "doc": _first_doc_line(tree),

@@ -5,7 +5,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 import test_fast_runner
 from audit import _artifacts, _coverage
 
@@ -35,6 +37,24 @@ def test_import_reads_per_module_percent(synthetic_repo: Path, repo_git):
     alpha = cov["modules"]["plex_renamer/alpha.py"]
     assert alpha["statements"] > 0
     assert 0 < alpha["percent"] < 100  # dead_function body is uncovered
+
+
+def test_import_propagates_known_coverage_scope(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.update({
+        "scope_id": "scope-123",
+        "scope": {"coverage_source": ["plex_renamer"], "pytest_args": []},
+    })
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    cov = _coverage.collect_coverage(synthetic_repo)
+
+    assert cov["scope_id"] == "scope-123"
+    assert cov["scope"] == {
+        "coverage_source": ["plex_renamer"], "pytest_args": [],
+    }
 
 
 def test_age_and_staleness(synthetic_repo: Path, repo_git):
@@ -88,6 +108,7 @@ def test_corrupt_meta_sidecar_marks_stale(synthetic_repo: Path, repo_git):
     cov = _coverage.collect_coverage(synthetic_repo)
     assert cov["available"] is True
     assert cov["collected_at_commit"] is None
+    assert cov["partial"] is True
     assert cov["stale"] is True
 
 
@@ -131,6 +152,7 @@ def test_write_coverage_sidecar_failed_run_writes_partial_and_failed(synthetic_r
     assert meta["failed"] is True
     cov = _coverage.collect_coverage(synthetic_repo)
     assert cov["partial"] is True
+    assert cov["failed"] is True
     assert cov["stale"] is True
 
 
@@ -177,4 +199,167 @@ def test_falsy_non_boolean_partial_treated_as_partial(synthetic_repo: Path, repo
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
     cov = _coverage.collect_coverage(synthetic_repo)
     assert cov["partial"] is True
+    assert cov["stale"] is True
+
+
+def test_run_fresh_uses_expected_command_cwd_and_timeout(
+        synthetic_repo: Path, monkeypatch):
+    seen = {}
+
+    def _run(command, **kwargs):
+        seen["command"] = command
+        seen.update(kwargs)
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(_coverage.subprocess, "run", _run)
+    _coverage._run_fresh(synthetic_repo)
+
+    assert seen["command"] == [
+        sys.executable,
+        str(synthetic_repo / "scripts" / "test_fast_runner.py"),
+        "--coverage",
+    ]
+    assert seen["cwd"] == synthetic_repo
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 1800
+
+
+def test_run_fresh_reports_launch_error_ascii_safe(synthetic_repo: Path, monkeypatch):
+    def _raise(*args, **kwargs):
+        raise OSError("caf\u00e9 executable unavailable")
+
+    monkeypatch.setattr(_coverage.subprocess, "run", _raise)
+    with pytest.raises(RuntimeError) as exc_info:
+        _coverage._run_fresh(synthetic_repo)
+
+    message = str(exc_info.value)
+    assert message == "could not launch fresh coverage run: caf? executable unavailable"
+    assert message.isascii()
+
+
+def test_run_fresh_reports_timeout_with_bounded_stderr(synthetic_repo: Path, monkeypatch):
+    def _raise(*args, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd=args[0], timeout=1800, stderr=("last caf\u00e9 line " * 100)
+        )
+
+    monkeypatch.setattr(_coverage.subprocess, "run", _raise)
+    with pytest.raises(RuntimeError) as exc_info:
+        _coverage._run_fresh(synthetic_repo)
+
+    message = str(exc_info.value)
+    assert "timed out after 1800 seconds" in message
+    assert "last caf? line" in message
+    assert message.isascii()
+    assert len(message) < 500
+
+
+def test_run_fresh_reports_nonzero_with_bounded_stderr(synthetic_repo: Path, monkeypatch):
+    monkeypatch.setattr(
+        _coverage.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=7, stderr=("pytest caf\u00e9 failure " * 100)
+        ),
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        _coverage._run_fresh(synthetic_repo)
+
+    message = str(exc_info.value)
+    assert "failed (exit 7): pytest caf? failure" in message
+    assert message.isascii()
+    assert len(message) < 500
+
+
+def test_collect_fresh_success_marks_source_and_preserves_evidence(
+        synthetic_repo: Path, repo_git, monkeypatch):
+    _make_coverage_data(synthetic_repo, repo_git)
+    data_path = synthetic_repo / ".coverage"
+    meta_path = synthetic_repo / ".coverage.meta.json"
+
+    def _refresh(repo_root):
+        data_path.write_bytes(data_path.read_bytes())
+        meta_path.write_text(
+            meta_path.read_text(encoding="utf-8") + " ", encoding="utf-8"
+        )
+
+    monkeypatch.setattr(_coverage, "_run_fresh", _refresh)
+
+    cov = _coverage.collect_coverage(synthetic_repo, fresh=True)
+
+    assert cov["available"] is True
+    assert cov["source"] == "fresh"
+    assert cov["failed"] is False
+    assert cov["partial"] is False
+    assert cov["stale"] is False
+
+
+def test_collect_fresh_success_without_new_data_is_unavailable(
+        synthetic_repo: Path, repo_git, monkeypatch):
+    _make_coverage_data(synthetic_repo, repo_git)
+    monkeypatch.setattr(_coverage, "_run_fresh", lambda repo_root: None)
+
+    cov = _coverage.collect_coverage(synthetic_repo, fresh=True)
+
+    assert cov["available"] is False
+    assert cov["source"] == "fresh"
+    assert cov["failed"] is True
+    assert cov["stale"] is True
+    assert "did not replace .coverage data" in cov["reason"]
+
+
+def test_collect_fresh_failure_does_not_reuse_older_coverage(
+        synthetic_repo: Path, repo_git, monkeypatch):
+    _make_coverage_data(synthetic_repo, repo_git)
+
+    def _fail(repo_root):
+        raise RuntimeError("fresh coverage run failed (exit 3): caf\u00e9")
+
+    monkeypatch.setattr(_coverage, "_run_fresh", _fail)
+    cov = _coverage.collect_coverage(synthetic_repo, fresh=True)
+
+    assert cov["available"] is False
+    assert cov["source"] == "fresh"
+    assert cov["modules"] == {}
+    assert cov["failed"] is True
+    assert cov["partial"] is True
+    assert cov["stale"] is True
+    assert "exit 3" in cov["reason"]
+    assert cov["reason"].isascii()
+
+
+@pytest.mark.parametrize("raw_failed", ["false", 0, None, [], {}])
+def test_non_boolean_failed_treated_as_failed_and_stale(
+        synthetic_repo: Path, repo_git, raw_failed):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["failed"] = raw_failed
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    cov = _coverage.collect_coverage(synthetic_repo)
+
+    assert cov["available"] is True
+    assert cov["failed"] is True
+    assert cov["stale"] is True
+
+
+def test_legacy_sidecar_without_failed_key_defaults_false(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    cov = _coverage.collect_coverage(synthetic_repo)
+    assert cov["failed"] is False
+
+
+def test_failed_sidecar_is_stale_even_when_not_partial(synthetic_repo: Path, repo_git):
+    _make_coverage_data(synthetic_repo, repo_git)
+    meta_path = synthetic_repo / ".coverage.meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.update({"partial": False, "failed": True})
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    cov = _coverage.collect_coverage(synthetic_repo)
+
+    assert cov["partial"] is False
+    assert cov["failed"] is True
     assert cov["stale"] is True

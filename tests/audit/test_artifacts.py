@@ -54,3 +54,21 @@ def test_git_helpers_return_none_on_subprocess_failure(synthetic_repo: Path, mon
 def test_package_of():
     assert _artifacts.package_of("plex_renamer/engine/_scanner.py") == "engine"
     assert _artifacts.package_of("plex_renamer/alpha.py") == "root"
+
+
+def test_working_tree_files_include_staged_unstaged_and_untracked(synthetic_repo: Path, repo_git):
+    alpha = synthetic_repo / "plex_renamer" / "alpha.py"
+    alpha.write_text(alpha.read_text(encoding="utf-8") + "\nDIRTY = 1\n", encoding="utf-8")
+    (synthetic_repo / "plex_renamer" / "new.py").write_text("NEW = 1\n", encoding="utf-8")
+    (synthetic_repo / "scripts").mkdir()
+    harness = synthetic_repo / "scripts" / "audit.py"
+    harness.write_text("AUDIT = 1\n", encoding="utf-8")
+    repo_git(synthetic_repo, "add", "scripts/audit.py")
+
+    files = _artifacts.working_tree_files(synthetic_repo, "plex_renamer", "scripts")
+    assert files == ["plex_renamer/alpha.py", "plex_renamer/new.py", "scripts/audit.py"]
+
+
+def test_working_tree_files_respects_pathspecs(synthetic_repo: Path):
+    (synthetic_repo / "README.md").write_text("# dirty\n", encoding="utf-8")
+    assert _artifacts.working_tree_files(synthetic_repo, "plex_renamer") == []

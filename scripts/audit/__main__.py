@@ -38,7 +38,20 @@ STAGES: list[tuple[str, object]] = [
     ("diff", _diff.run),
 ]
 STAGE_NAMES = [name for name, _fn in STAGES]
-FAST_STAGES = {"render", "diff"}
+FAST_STAGES = {"render"}
+CHECK_PATHS = (
+    "plex_renamer",
+    "scripts/audit",
+    "scripts/audit.cmd",
+    "scripts/audit.ps1",
+    "scripts/test_fast_runner.py",
+    "scripts/test-fast.cmd",
+    "scripts/test-fast.ps1",
+    "tests",
+    "tests/audit",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
+)
 
 
 def check_lines(repo_root: Path) -> list[str]:
@@ -52,15 +65,28 @@ def check_lines(repo_root: Path) -> list[str]:
     behind = _artifacts.commits_between(repo_root, commit)
     if behind is None:
         return ["audit staleness check unavailable (git error)"]
-    if behind == 0:
+    committed = _artifacts.changed_files_since(repo_root, commit, *CHECK_PATHS)
+    dirty = _artifacts.working_tree_files(repo_root, *CHECK_PATHS)
+    if committed is None or dirty is None:
+        return ["audit staleness check unavailable (git error)"]
+    changed = sorted(set(committed) | set(dirty))
+    if behind == 0 and not changed:
         return [f"audit baseline current ({commit})"]
-    changed = _artifacts.changed_files_since(repo_root, commit, "plex_renamer") or []
-    mapped = [c for c in changed if c in baseline.get("modules", {})]
+    mapped = [c for c in changed if c.startswith("plex_renamer/") and c.endswith(".py")]
+    audit_inputs = [c for c in changed if c not in mapped]
     plural = "s" if behind != 1 else ""
     mplural = "s" if len(mapped) != 1 else ""
+    iplural = "s" if len(audit_inputs) != 1 else ""
+    if behind == 0:
+        status = f"audit baseline current ({commit}); uncommitted relevant changes present"
+    else:
+        status = f"audit baseline {commit} is {behind} commit{plural} behind HEAD"
+        if dirty:
+            status += "; uncommitted relevant changes also present"
     return [
-        f"audit baseline {commit} is {behind} commit{plural} behind HEAD",
-        f"{len(mapped)} mapped module{mplural} changed since baseline",
+        status,
+        f"{len(mapped)} mapped module{mplural}, "
+        f"{len(audit_inputs)} audit input{iplural} changed",
         "run scripts\\audit.cmd to refresh",
     ]
 
