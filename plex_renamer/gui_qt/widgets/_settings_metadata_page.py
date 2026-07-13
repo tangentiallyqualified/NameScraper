@@ -82,22 +82,22 @@ class MetadataSettingsPage(SettingsSectionCard):
         body.addLayout(source_row)
 
         body.addWidget(self._group_label("Files to write"))
-        self._nfo_cb = self._toggle(
+        self._toggle(
             body, "Show/movie NFO", "metadata_write_nfo")
-        self._episode_nfo_cb = self._toggle(
+        self._toggle(
             body, "Episode NFOs", "metadata_write_episode_nfo")
-        self._poster_cb = self._toggle(
+        self._toggle(
             body, "Poster", "metadata_write_poster")
-        self._fanart_cb = self._toggle(
+        self._toggle(
             body, "Fanart (backdrop)", "metadata_write_fanart")
-        self._season_posters_cb = self._toggle(
+        self._toggle(
             body, "Season posters", "metadata_write_season_posters")
-        self._episode_thumbs_cb = self._toggle(
+        self._toggle(
             body, "Episode thumbnails (TMDB stills)",
             "metadata_write_episode_thumbs")
-        self._clearlogo_cb = self._toggle(
+        self._toggle(
             body, "Logo (clearlogo)", "metadata_write_clearlogo")
-        self._plex_naming_cb = self._toggle(
+        self._toggle(
             body, "Also write Plex-style artwork names",
             "metadata_plex_naming")
         plex_note = QLabel(
@@ -108,10 +108,10 @@ class MetadataSettingsPage(SettingsSectionCard):
         body.addWidget(plex_note)
 
         body.addWidget(self._group_label("Embedded metadata"))
-        self._embed_title_cb = self._toggle(
+        self._toggle(
             body, "Set the MKV title to the final name",
             "metadata_embed_title")
-        self._embed_cover_cb = self._toggle(
+        self._toggle(
             body, "Embed cover art", "metadata_embed_cover")
         cover_note = QLabel(
             "Attaches the poster inside each MKV (cover.jpg) so players "
@@ -120,7 +120,7 @@ class MetadataSettingsPage(SettingsSectionCard):
         cover_note.setWordWrap(True)
         body.addWidget(cover_note)
 
-        self._embed_tags_cb = self._toggle(
+        self._toggle(
             body, "Embed tags", "metadata_embed_tags")
         tags_note = QLabel(
             "Writes title, episode numbers, date, synopsis, and genres "

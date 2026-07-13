@@ -102,30 +102,30 @@ class AutoMuxSettingsPage(SettingsSectionCard):
         self._merge_langs_edit = self._lang_list_row(
             body, "Merge languages (priority order, comma-separated)",
             "automux_merge_sub_languages")
-        self._default_sub_edit = self._lang_row(
+        self._lang_row(
             body, "Default subtitle language", "automux_default_sub_language")
-        self._untagged_sub_edit = self._lang_row(
+        self._lang_row(
             body, "Language for untagged external subs (empty = und)",
             "automux_untagged_sub_language")
 
         body.addWidget(self._group_label("Subtitle Stripping"))
-        self._strip_subs_cb = self._toggle(
+        self._toggle(
             body, "Strip embedded subtitles not in the retain list",
             "automux_strip_subs")
-        self._retain_subs_edit = self._lang_list_row(
+        self._lang_list_row(
             body, "Retained subtitle languages", "automux_retain_sub_languages")
 
         body.addWidget(self._group_label("Audio Stripping"))
-        self._strip_audio_cb = self._toggle(
+        self._toggle(
             body, "Strip embedded audio not in the retain list",
             "automux_strip_audio")
-        self._retain_audio_edit = self._lang_list_row(
+        self._lang_list_row(
             body, "Retained audio languages", "automux_retain_audio_languages")
         self._default_audio_edit = self._lang_row(
             body, "Default audio language", "automux_default_audio_language")
 
         body.addWidget(self._group_label("General"))
-        self._strip_names_cb = self._toggle(
+        self._toggle(
             body, "Strip track names from remuxed files",
             "automux_strip_track_names")
         self._no_fear_cb = self._toggle(

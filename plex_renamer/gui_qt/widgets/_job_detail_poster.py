@@ -29,7 +29,6 @@ class _JobDetailPosterPanel(Protocol):
     _tmdb_provider: Callable[[], object | None] | None
     _persist_poster_path: Callable[[str, str | None], None] | None
     _current_job_id: str | None
-    _poster_pixmap: QPixmap | None
     _bridge: Any
     _poster: Any
 
@@ -87,7 +86,6 @@ class JobDetailPosterWorkflow:
             self._show_no_poster()
             return
 
-        panel._poster_pixmap = pixmap
         panel._poster.setText("")
         target = panel._poster.contentsRect().size()
         if not target.isValid() or target.width() <= 0 or target.height() <= 0:
@@ -107,6 +105,5 @@ class JobDetailPosterWorkflow:
 
     def _show_no_poster(self) -> None:
         panel = self._panel
-        panel._poster_pixmap = None
         panel._poster.setPixmap(QPixmap())
         panel._poster.setText("No Poster")

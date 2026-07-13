@@ -228,7 +228,6 @@ class JobDetailPanel(QFrame):
         self._history_mode: bool = False
         self._current_job_id: str | None = None
         self._current_job: RenameJob | None = None
-        self._poster_pixmap: QPixmap | None = None
         self._bridge = _PosterBridge(self)
         self._poster_workflow = JobDetailPosterWorkflow(self)
         self._bridge.poster_ready.connect(self._apply_poster)
@@ -429,7 +428,6 @@ class JobDetailPanel(QFrame):
     def clear(self, text: str = _EMPTY_TITLE) -> None:
         self._current_job_id = None
         self._current_job = None
-        self._poster_pixmap = None
         self._poster.setPixmap(QPixmap())
         self._poster.setText("No Poster")
         self._title.setText(text)
@@ -458,7 +456,6 @@ class JobDetailPanel(QFrame):
         self._stack.setCurrentWidget(self._detail_page)
         self._current_job_id = job.job_id
         self._current_job = job
-        self._poster_pixmap = None
         self._poster.setPixmap(QPixmap())
         self._poster.setText("Loading...")
         self._title.setText(job.media_name or "Unnamed Job")
