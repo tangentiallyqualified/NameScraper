@@ -1,0 +1,15 @@
+schema_version = 1
+
+[format]
+line_length = 100
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "C4", "SIM", "PIE", "RUF"]
+
+[lint.per_file_ignores]
+"plex_renamer/gui_qt/**/*.py" = ["B008", "RUF012"]
+"tests/**/*.py" = ["RUF012"]
+
+[lint.per_file_ignore_reasons]
+"plex_renamer/gui_qt/**/*.py" = "Qt override signatures legitimately use QModelIndex() defaults, and Qt model/signal class attributes trigger RUF012."
+"tests/**/*.py" = "Test fakes intentionally use concise mutable class attributes."

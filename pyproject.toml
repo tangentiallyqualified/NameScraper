@@ -35,6 +35,11 @@ testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py311"
+line-length = 100
 
 [tool.ruff.lint]
-select = ["F401", "F811", "F841"]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "C4", "SIM", "PIE", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"plex_renamer/gui_qt/**/*.py" = ["B008", "RUF012"]
+"tests/**/*.py" = ["RUF012"]
