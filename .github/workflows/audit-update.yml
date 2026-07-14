@@ -1,0 +1,42 @@
+name: Update audit artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-update:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate audit docs
+        shell: pwsh
+        run: scripts/audit.cmd
+
+      - name: Create binary patch
+        if: always()
+        shell: pwsh
+        run: git diff --binary --output=audit-generated.patch
+
+      - name: Upload generated audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-generated
+          path: |
+            audit-generated.patch
+            docs/audit/**
+            .audit/*.json
+          if-no-files-found: warn
