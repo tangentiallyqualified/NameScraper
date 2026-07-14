@@ -83,10 +83,22 @@ def test_initial_type_baseline_seeds_frozen_legacy_inventory() -> None:
         "python_files": ["tests/test_z.py", r"plex_renamer\a.py"],
     }
 
-    baseline = _ratchets.build_baseline(current)
+    assert hasattr(_ratchets, "_bootstrap_quality_baseline_once")
+    baseline = _ratchets._bootstrap_quality_baseline_once(current)
 
     assert baseline["schema_version"] == 2
     assert baseline["typing"] == {"legacy_python_files": ["plex_renamer/a.py", "tests/test_z.py"]}
+
+
+def test_routine_baseline_build_requires_existing_baseline() -> None:
+    current = {
+        "findings": [],
+        "modules": {},
+        "python_files": ["plex_renamer/new.py"],
+    }
+
+    with pytest.raises(TypeError):
+        _ratchets.build_baseline(current)
 
 
 def test_type_baseline_regeneration_prunes_legacy_files_without_enrolling_new_ones() -> None:
@@ -276,3 +288,52 @@ def test_duplicate_pyright_diagnostics_keep_stable_multiplicity(
         'scripts.sample::reportUndefinedVariable::"missing" is not defined#1',
         'scripts.sample::reportUndefinedVariable::"missing" is not defined#2',
     ]
+
+
+def test_pyright_json_is_decoded_as_strict_utf8_independent_of_host_locale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "scripts" / "unicode_sample.py"
+    source.parent.mkdir()
+    source.write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "pyrightconfig.json").write_text(
+        json.dumps({"include": ["scripts"], "strict": [], "typeCheckingMode": "basic"}),
+        encoding="utf-8",
+    )
+    raw_output = json.dumps(
+        {
+            "generalDiagnostics": [
+                {
+                    "file": str(source),
+                    "severity": "error",
+                    "message": "Type\u00a0\u00d7 caf\u00e9",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 5},
+                    },
+                    "rule": "reportUnicodeIdentity",
+                }
+            ]
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    def completed(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "strict"
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout=raw_output.decode(kwargs["encoding"], errors=kwargs["errors"]),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_ratchets.subprocess, "run", completed)
+
+    findings = _ratchets._run_policy_pyright(tmp_path, ["scripts/unicode_sample.py"], [])
+
+    assert findings[0]["message"] == "Type \u00d7 caf\u00e9"
+    assert findings[0]["symbol"] == (
+        "scripts.unicode_sample::reportUnicodeIdentity::Type \u00d7 caf\u00e9#1"
+    )
+    assert "\u00c2" not in findings[0]["symbol"]

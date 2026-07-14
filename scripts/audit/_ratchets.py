@@ -48,8 +48,7 @@ def _normalized_python_files(records: object) -> list[str]:
     )
 
 
-def build_baseline(current: dict, previous_baseline: dict | None = None) -> dict:
-    """Normalize current evidence into the compact committed baseline schema."""
+def _build_baseline(current: dict, legacy_python_files: list[str]) -> dict:
     identities = {_identity(finding) for finding in current.get("findings", [])}
     findings = [
         {
@@ -70,20 +69,29 @@ def build_baseline(current: dict, previous_baseline: dict | None = None) -> dict
         if saved:
             ceilings[path.replace("\\", "/")] = saved
     current_python_files = set(_normalized_python_files(current.get("python_files")))
-    if previous_baseline is None:
-        legacy_python_files = sorted(current_python_files)
-    else:
-        previous_typing = previous_baseline.get("typing", {})
-        legacy_python_files = sorted(
-            current_python_files
-            & set(_normalized_python_files(previous_typing.get("legacy_python_files")))
-        )
+    preserved_legacy_python_files = sorted(
+        current_python_files & set(_normalized_python_files(legacy_python_files))
+    )
     return {
         "schema_version": 2,
         "findings": findings,
         "ceilings": ceilings,
-        "typing": {"legacy_python_files": legacy_python_files},
+        "typing": {"legacy_python_files": preserved_legacy_python_files},
     }
+
+
+def _bootstrap_quality_baseline_once(current: dict) -> dict:
+    """Seed the one-time legacy inventory; routine refreshes must not call this."""
+    return _build_baseline(current, _normalized_python_files(current.get("python_files")))
+
+
+def build_baseline(current: dict, previous_baseline: dict) -> dict:
+    """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
+    previous_typing = previous_baseline.get("typing", {})
+    return _build_baseline(
+        current,
+        _normalized_python_files(previous_typing.get("legacy_python_files")),
+    )
 
 
 def _finding_violation(identity: tuple[str, str, str, str | None], kind: str) -> Finding:
@@ -324,6 +332,8 @@ def _run_policy_pyright(
         cwd=repo_root,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="strict",
         timeout=300,
     )
     if result.returncode not in (0, 1):
@@ -474,7 +484,8 @@ def _load_baseline(repo_root: Path) -> dict:
         )
     baseline = json.loads(path.read_text(encoding="utf-8"))
     if (
-        baseline.get("schema_version") != 2
+        not isinstance(baseline, dict)
+        or baseline.get("schema_version") != 2
         or not isinstance(baseline.get("findings"), list)
         or not isinstance(baseline.get("ceilings"), dict)
         or not isinstance(baseline.get("typing"), dict)
@@ -482,6 +493,32 @@ def _load_baseline(repo_root: Path) -> dict:
     ):
         raise QualityEvidenceError("quality baseline has an unsupported schema")
     return baseline
+
+
+def run_quality_baseline_update(repo_root: Path) -> int:
+    """Refresh a supported baseline without ever seeding newly discovered Python files."""
+    try:
+        previous = _load_baseline(repo_root)
+        baseline = build_baseline(collect_current(repo_root, previous), previous)
+        path = repo_root / "scripts" / "audit" / "quality-baseline.json"
+        path.write_text(
+            json.dumps(baseline, indent=1, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+    except (OSError, ValueError, QualityEvidenceError) as exc:
+        print(f"quality baseline: failed - {exc}")
+        return 1
+
+    findings = len(baseline["findings"])
+    ceilings = len(baseline["ceilings"])
+    legacy_files = len(baseline["typing"]["legacy_python_files"])
+    legacy_label = "file" if legacy_files == 1 else "files"
+    print(
+        f"quality baseline: updated - {findings} findings; {ceilings} ceilings; "
+        f"{legacy_files} legacy Python {legacy_label}"
+    )
+    return 0
 
 
 def run_quality_check(repo_root: Path) -> int:

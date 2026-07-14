@@ -105,6 +105,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Fail on new/enlarged quality debt or stale baseline entries.",
     )
     parser.add_argument(
+        "--update-quality-baseline",
+        action="store_true",
+        help="Refresh an existing quality baseline without enrolling new Python files.",
+    )
+    parser.add_argument(
         "--coverage-max-age",
         type=int,
         default=15,
@@ -119,8 +124,25 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     options = parser.parse_args(argv)
     if options.verify and (options.fast or options.check or options.stage):
         parser.error("--verify cannot be combined with --fast, --check, or a stage")
+    if options.update_quality_baseline and (
+        options.fast
+        or options.with_coverage
+        or options.check
+        or options.verify
+        or options.quality_check
+        or options.stage
+    ):
+        parser.error(
+            "--update-quality-baseline cannot be combined with --fast, --with-coverage, "
+            "--check, --verify, --quality-check, or a stage"
+        )
     if options.quality_check and (
-        options.fast or options.with_coverage or options.check or options.verify or options.stage
+        options.fast
+        or options.with_coverage
+        or options.check
+        or options.verify
+        or options.update_quality_baseline
+        or options.stage
     ):
         parser.error(
             "--quality-check cannot be combined with --fast, --with-coverage, "
@@ -170,6 +192,9 @@ def _run_pipeline(repo_root: Path, options: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     options = _parse_args(argv)
     repo_root = options.repo_root.resolve()
+
+    if options.update_quality_baseline:
+        return _ratchets.run_quality_baseline_update(repo_root)
 
     if options.quality_check:
         return _ratchets.run_quality_check(repo_root)

@@ -37,7 +37,7 @@ def test_quality_check_cli_passes_unchanged_evidence(
         "findings": [_finding(symbol="legacy")],
         "modules": {"legacy.py": {"max_complexity": 12, "loc": 510}},
     }
-    _write_quality_baseline(tmp_path, _ratchets.build_baseline(evidence))
+    _write_quality_baseline(tmp_path, _ratchets._bootstrap_quality_baseline_once(evidence))
     monkeypatch.setattr(
         _ratchets,
         "collect_current",
@@ -224,7 +224,7 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         "max_complexity": 11,
     }
 
-    baseline = _ratchets.build_baseline(current)
+    baseline = _ratchets._bootstrap_quality_baseline_once(current)
     assert baseline["ceilings"] == {
         "scripts/legacy_complex.py": {"max_complexity": 11},
         "tests/test_legacy_large.py": {"loc": 501},
@@ -286,7 +286,16 @@ def test_policy_ruff_scans_explicit_repository_python_roots(
     ]
 
 
-@pytest.mark.parametrize("other", ["--fast", "--check", "--verify", "--with-coverage", "inventory"])
+@pytest.mark.parametrize(
+    "other",
+    [
+        "--fast",
+        "--check",
+        "--verify",
+        "--with-coverage",
+        "inventory",
+    ],
+)
 def test_quality_check_is_mutually_exclusive_with_other_run_modes(
     other: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -295,3 +304,93 @@ def test_quality_check_is_mutually_exclusive_with_other_run_modes(
 
     assert exc_info.value.code == 2
     assert "--quality-check cannot be combined" in capsys.readouterr().err
+
+
+def test_quality_baseline_update_preserves_new_clean_file_as_nonlegacy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    previous = {
+        "schema_version": 2,
+        "findings": [],
+        "ceilings": {},
+        "typing": {"legacy_python_files": ["plex_renamer/legacy.py"]},
+    }
+    current = {
+        "findings": [],
+        "modules": {},
+        "python_files": ["plex_renamer/legacy.py", "plex_renamer/new_clean.py"],
+    }
+    _write_quality_baseline(tmp_path, previous)
+
+    def collect(_repo_root: Path, baseline: dict) -> dict:
+        assert baseline == previous
+        return current
+
+    monkeypatch.setattr(_ratchets, "collect_current", collect)
+
+    args = ["--update-quality-baseline", "--repo-root", str(tmp_path)]
+    assert cli.main(args) == 0
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    first = path.read_bytes()
+    updated = json.loads(first)
+    assert updated["typing"] == {"legacy_python_files": ["plex_renamer/legacy.py"]}
+    assert "plex_renamer/new_clean.py" not in updated["typing"]["legacy_python_files"]
+    assert capsys.readouterr().out == (
+        "quality baseline: updated - 0 findings; 0 ceilings; 1 legacy Python file\n"
+    )
+
+    assert cli.main(args) == 0
+    assert path.read_bytes() == first
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        {"schema_version": 1, "findings": [], "ceilings": {}},
+        "{not-json",
+        "valid JSON, but not a baseline object",
+    ],
+)
+def test_quality_baseline_update_fails_closed_without_supported_previous_baseline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    payload: dict | str | None,
+) -> None:
+    if payload is not None:
+        path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+        if isinstance(payload, str):
+            path.parent.mkdir(parents=True)
+            serialized = json.dumps(payload) if payload.startswith("valid") else payload
+            path.write_text(serialized, encoding="utf-8")
+        else:
+            _write_quality_baseline(tmp_path, payload)
+        before = path.read_bytes()
+    monkeypatch.setattr(
+        _ratchets,
+        "collect_current",
+        lambda _repo_root, _baseline: pytest.fail("collection must not run without a baseline"),
+    )
+
+    assert cli.main(["--update-quality-baseline", "--repo-root", str(tmp_path)]) == 1
+    assert "quality baseline: failed -" in capsys.readouterr().out
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    if payload is None:
+        assert not path.exists()
+    else:
+        assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "other",
+    ["--fast", "--check", "--verify", "--with-coverage", "--quality-check", "inventory"],
+)
+def test_quality_baseline_update_is_mutually_exclusive_with_other_run_modes(
+    other: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--update-quality-baseline", other])
+
+    assert exc_info.value.code == 2
+    assert "--update-quality-baseline cannot be combined" in capsys.readouterr().err

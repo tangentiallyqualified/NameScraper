@@ -141,14 +141,16 @@ def test_duplicate_ruff_diagnostics_preserve_multiplicity(
     assert symbols[0].endswith("#1")
     assert symbols[1].endswith("#2")
 
-    baseline_one = _ratchets.build_baseline({"findings": findings[:1], "modules": {}})
+    baseline_one = _ratchets._bootstrap_quality_baseline_once(
+        {"findings": findings[:1], "modules": {}}
+    )
     added = evaluate_ratchets(
         {"findings": findings, "modules": {}},
         baseline_one,
     )
     assert [(finding["kind"], finding["symbol"]) for finding in added] == [("new-debt", symbols[1])]
 
-    baseline_two = _ratchets.build_baseline({"findings": findings, "modules": {}})
+    baseline_two = _ratchets._bootstrap_quality_baseline_once({"findings": findings, "modules": {}})
     removed = evaluate_ratchets(
         {"findings": findings[:1], "modules": {}},
         baseline_two,
@@ -187,7 +189,7 @@ def test_ruff_identity_ignores_line_only_shifts(
     assert (
         evaluate_ratchets(
             {"findings": after, "modules": {}},
-            _ratchets.build_baseline({"findings": before, "modules": {}}),
+            _ratchets._bootstrap_quality_baseline_once({"findings": before, "modules": {}}),
         )
         == []
     )
@@ -325,7 +327,7 @@ def test_numeric_ceiling_at_active_threshold_is_stale(
 
 def test_baseline_normalization_and_order_are_deterministic() -> None:
     assert hasattr(_ratchets, "build_baseline")
-    build_baseline = _ratchets.build_baseline
+    build_baseline = _ratchets._bootstrap_quality_baseline_once
     current = {
         "findings": [
             _finding(rule="F841", path=r"plex_renamer\zeta.py", symbol="value"),
