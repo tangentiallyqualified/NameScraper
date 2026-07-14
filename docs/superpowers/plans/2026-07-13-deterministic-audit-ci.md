@@ -27,7 +27,7 @@
 - Modify: `scripts/audit/_artifacts.py`
 - Modify: `scripts/audit/__main__.py`
 - Modify: `tests/audit/test_artifacts.py`
-- Modify: `tests/audit/test_main.py`
+- Modify: `tests/audit/test_cli.py`
 
 **Interfaces:**
 - Produces: `input_files(repo_root: Path) -> list[Path]`
@@ -56,7 +56,7 @@ def test_input_digest_changes_when_source_or_policy_changes(tmp_path):
 
 - [ ] **Step 2: Run the focused tests and confirm RED**
 
-Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_artifacts.py tests\audit\test_main.py -q`
+Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_artifacts.py tests\audit\test_cli.py -q`
 
 Expected: failures report missing `input_digest` and commit-based staleness behavior.
 
@@ -86,14 +86,14 @@ with the instruction to regenerate.
 
 - [ ] **Step 4: Run focused tests and confirm GREEN**
 
-Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_artifacts.py tests\audit\test_main.py -q`
+Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_artifacts.py tests\audit\test_cli.py -q`
 
 Expected: all focused tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add scripts/audit/_artifacts.py scripts/audit/__main__.py tests/audit/test_artifacts.py tests/audit/test_main.py
+git add scripts/audit/_artifacts.py scripts/audit/__main__.py tests/audit/test_artifacts.py tests/audit/test_cli.py
 git commit -m "feat(audit): fingerprint deterministic inputs"
 ```
 
@@ -187,7 +187,7 @@ git commit -m "feat(audit): make generated provenance deterministic"
 - Create: `scripts/audit/_verify.py`
 - Modify: `scripts/audit/__main__.py`
 - Create: `tests/audit/test_verify.py`
-- Modify: `tests/audit/test_main.py`
+- Modify: `tests/audit/test_cli.py`
 
 **Interfaces:**
 - Produces: `_verify.snapshot_generated(repo_root: Path) -> dict[str, bytes]`
@@ -203,7 +203,7 @@ are restored after `verify()` returns or raises.
 
 - [ ] **Step 2: Run focused tests and confirm RED**
 
-Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_verify.py tests\audit\test_main.py -q`
+Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_verify.py tests\audit\test_cli.py -q`
 
 Expected: import or missing-CLI failures for `_verify`/`--verify`.
 
@@ -223,14 +223,14 @@ returns 1 for drift or the pipeline's nonzero result for execution failure.
 
 - [ ] **Step 5: Run focused tests and confirm GREEN**
 
-Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_verify.py tests\audit\test_main.py -q`
+Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_verify.py tests\audit\test_cli.py -q`
 
 Expected: all focused tests pass.
 
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add scripts/audit/_verify.py scripts/audit/__main__.py tests/audit/test_verify.py tests/audit/test_main.py
+git add scripts/audit/_verify.py scripts/audit/__main__.py tests/audit/test_verify.py tests/audit/test_cli.py
 git commit -m "feat(audit): verify generated output without mutation"
 ```
 
