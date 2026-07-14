@@ -96,4 +96,3 @@ reason codes `framework-callback`, `serialized-field`, `public-api`,
 - [ ] Run `.venv\Scripts\python.exe -m pytest -q` and expect no failures.
 - [ ] Run `scripts\audit.cmd --verify` and expect current deterministic output.
 - [ ] Commit generated baselines/artifacts with `chore(quality): establish ratchet baselines`.
-

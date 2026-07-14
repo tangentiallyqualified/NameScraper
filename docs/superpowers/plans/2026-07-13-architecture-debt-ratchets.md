@@ -109,4 +109,3 @@ and no import back to their former coordinator.
 - [ ] Run `scripts\audit.cmd`, then `scripts\audit.cmd --verify`.
 - [ ] Confirm zero settings SCC and a strictly smaller engine SCC.
 - [ ] Commit deterministic graph/baseline updates with `chore(architecture): refresh cycle baseline`.
-
