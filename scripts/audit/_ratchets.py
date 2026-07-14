@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -19,6 +20,87 @@ Finding = dict[str, object]
 
 class QualityEvidenceError(RuntimeError):
     """Raised when complete quality evidence cannot be collected."""
+
+
+_SCOPE_NODES = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _module_qualifier(path: str) -> str:
+    parts = list(Path(path).with_suffix("").parts)
+    if parts and parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts) or Path(path).stem
+
+
+def _scope_entries(repo_root: Path, path: str) -> list[tuple[int, int, int, str]]:
+    module = _module_qualifier(path)
+    try:
+        tree = ast.parse((repo_root / path).read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError):
+        return []
+
+    entries: list[tuple[int, int, int, str]] = []
+
+    def visit(node: ast.AST, qualifier: str, depth: int) -> None:
+        for child in ast.iter_child_nodes(node):
+            child_qualifier = qualifier
+            child_depth = depth
+            if isinstance(child, _SCOPE_NODES):
+                child_qualifier = f"{qualifier}.{child.name}"
+                child_depth = depth + 1
+                entries.append(
+                    (
+                        child.lineno,
+                        getattr(child, "end_lineno", child.lineno),
+                        child_depth,
+                        child_qualifier,
+                    )
+                )
+            visit(child, child_qualifier, child_depth)
+
+    visit(tree, module, 0)
+    return entries
+
+
+def _qualified_scope(
+    repo_root: Path,
+    path: str,
+    line: int,
+    cache: dict[str, list[tuple[int, int, int, str]]],
+) -> str:
+    if path not in cache:
+        cache[path] = _scope_entries(repo_root, path)
+    candidates = [entry for entry in cache[path] if entry[0] <= line <= entry[1]]
+    if not candidates:
+        return _module_qualifier(path)
+    return max(candidates, key=lambda entry: (entry[2], entry[0], -entry[1]))[3]
+
+
+def _suffix_occurrences(findings: list[dict]) -> list[dict]:
+    groups: dict[tuple[str, str, str, str], list[dict]] = {}
+    for finding in findings:
+        key = (
+            str(finding.get("source") or finding.get("analyzer") or "unknown"),
+            str(finding.get("rule") or "unknown"),
+            str(finding.get("path") or "").replace("\\", "/"),
+            str(finding.get("symbol") or "unknown"),
+        )
+        groups.setdefault(key, []).append(finding)
+
+    qualified: list[dict] = []
+    for key in sorted(groups):
+        _analyzer, _rule, _path, base_symbol = key
+        ordered = sorted(
+            groups[key],
+            key=lambda finding: (
+                int(finding.get("line") or 0),
+                int(finding.get("column") or 0),
+                str(finding.get("message") or ""),
+            ),
+        )
+        for occurrence, finding in enumerate(ordered, 1):
+            qualified.append({**finding, "symbol": f"{base_symbol}#{occurrence}"})
+    return qualified
 
 
 def _identity(finding: dict) -> tuple[str, str, str, str | None]:
@@ -163,10 +245,13 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
         metrics = current_modules.get(path, {})
         for metric, baseline_value in ceilings.items():
             current_value = metrics.get(metric)
-            if (
-                isinstance(baseline_value, int)
-                and current_value != baseline_value
-                and (not isinstance(current_value, int) or current_value < baseline_value)
+            threshold = thresholds.get(metric)
+            if isinstance(baseline_value, int) and (
+                (isinstance(threshold, int) and baseline_value <= threshold)
+                or (
+                    current_value != baseline_value
+                    and (not isinstance(current_value, int) or current_value < baseline_value)
+                )
             ):
                 violations.append(
                     _metric_violation(path, metric, "stale-baseline", current_value, baseline_value)
@@ -197,14 +282,21 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
     if result.returncode == 1 and not result.stdout.strip():
         raise QualityEvidenceError(f"ruff exited 1 with no output: {result.stderr.strip()[:200]}")
     findings = []
+    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
     for item in json.loads(result.stdout or "[]"):
+        path = _analyze._rel_to_repo(repo_root, item["filename"])
+        line = item["location"]["row"]
+        scope = _qualified_scope(repo_root, path, line, scope_cache)
+        rule_anchor = str(item.get("name") or item["code"])
+        message_anchor = " ".join(str(item.get("message") or rule_anchor).split())
         findings.append(
             {
                 "source": "ruff",
                 "rule": item["code"],
-                "path": _analyze._rel_to_repo(repo_root, item["filename"]),
-                "line": item["location"]["row"],
-                "symbol": None,
+                "path": path,
+                "line": line,
+                "column": item["location"].get("column", 0),
+                "symbol": f"{scope}::{rule_anchor}::{message_anchor}",
                 "message": item["message"],
                 "confidence": 100,
                 "category": "lint",
@@ -212,7 +304,19 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
                 "allowlist_reason": None,
             }
         )
-    return findings
+    return _suffix_occurrences(findings)
+
+
+def _qualify_vulture_findings(repo_root: Path, findings: list[dict]) -> list[dict]:
+    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
+    qualified = []
+    for finding in findings:
+        path = str(finding.get("path") or "").replace("\\", "/")
+        raw_symbol = str(finding.get("symbol") or finding.get("rule") or "unknown")
+        scope = _qualified_scope(repo_root, path, int(finding.get("line") or 0), scope_cache)
+        symbol = scope if scope.rsplit(".", 1)[-1] == raw_symbol else f"{scope}.{raw_symbol}"
+        qualified.append({**finding, "path": path, "symbol": symbol})
+    return _suffix_occurrences(qualified)
 
 
 def collect_current(repo_root: Path) -> dict:
@@ -229,9 +333,17 @@ def collect_current(repo_root: Path) -> dict:
     if failed:
         raise QualityEvidenceError("quality evidence unavailable from: " + ", ".join(failed))
 
-    raw_findings = [
+    analysis_findings = [
         finding for finding in analysis.get("findings", []) if finding.get("source") != "ruff"
-    ] + policy_ruff
+    ]
+    raw_findings = (
+        [finding for finding in analysis_findings if finding.get("source") != "vulture"]
+        + _qualify_vulture_findings(
+            repo_root,
+            [finding for finding in analysis_findings if finding.get("source") == "vulture"],
+        )
+        + policy_ruff
+    )
     findings = [
         {
             "analyzer": finding.get("source"),

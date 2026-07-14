@@ -27,6 +27,24 @@ def _finding(
     }
 
 
+def _ruff_item(
+    filename: Path,
+    *,
+    row: int,
+    rule: str = "F841",
+    name: str = "unused-variable",
+    message: str = "Local variable `value` is assigned to but never used",
+) -> dict:
+    return {
+        "code": rule,
+        "filename": str(filename),
+        "location": {"row": row, "column": 5},
+        "end_location": {"row": row, "column": 10},
+        "message": message,
+        "name": name,
+    }
+
+
 def test_unchanged_legacy_debt_passes_and_thresholds_are_explicit_policy() -> None:
     current = {
         "findings": [_finding(symbol="legacy_import")],
@@ -89,6 +107,90 @@ def test_new_lint_finding_is_new_debt() -> None:
             "symbol": "item",
         }
     ]
+
+
+def test_duplicate_ruff_diagnostics_preserve_multiplicity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "plex_renamer" / "sample.py"
+    source.parent.mkdir()
+    source.write_text(
+        "def work():\n    value = 1\n    value = 2\n",
+        encoding="utf-8",
+    )
+    items = [
+        _ruff_item(source, row=2),
+        _ruff_item(source, row=3),
+    ]
+    monkeypatch.setattr(
+        _ratchets.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(
+            command, 1, stdout=json.dumps(items), stderr=""
+        ),
+    )
+
+    findings = _ratchets._run_policy_ruff(tmp_path)
+    symbols = [finding["symbol"] for finding in findings]
+
+    assert len(set(symbols)) == 2
+    assert all(
+        isinstance(symbol, str) and symbol.startswith("plex_renamer.sample.work::unused-variable::")
+        for symbol in symbols
+    )
+    assert symbols[0].endswith("#1")
+    assert symbols[1].endswith("#2")
+
+    baseline_one = _ratchets.build_baseline({"findings": findings[:1], "modules": {}})
+    added = evaluate_ratchets(
+        {"findings": findings, "modules": {}},
+        baseline_one,
+    )
+    assert [(finding["kind"], finding["symbol"]) for finding in added] == [("new-debt", symbols[1])]
+
+    baseline_two = _ratchets.build_baseline({"findings": findings, "modules": {}})
+    removed = evaluate_ratchets(
+        {"findings": findings[:1], "modules": {}},
+        baseline_two,
+    )
+    assert [(finding["kind"], finding["symbol"]) for finding in removed] == [
+        ("stale-baseline", symbols[1])
+    ]
+
+
+def test_ruff_identity_ignores_line_only_shifts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "plex_renamer" / "sample.py"
+    source.parent.mkdir()
+    calls = 0
+
+    def shifted(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        leading = "\n" * (calls - 1)
+        source.write_text(f"{leading}def work():\n    value = 1\n", encoding="utf-8")
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout=json.dumps([_ruff_item(source, row=calls + 1)]),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_ratchets.subprocess, "run", shifted)
+
+    before = _ratchets._run_policy_ruff(tmp_path)
+    after = _ratchets._run_policy_ruff(tmp_path)
+
+    assert before[0]["symbol"] is not None
+    assert before[0]["symbol"] == after[0]["symbol"]
+    assert (
+        evaluate_ratchets(
+            {"findings": after, "modules": {}},
+            _ratchets.build_baseline({"findings": before, "modules": {}}),
+        )
+        == []
+    )
 
 
 def test_increased_cyclomatic_complexity_is_enlarged_debt() -> None:
@@ -188,6 +290,39 @@ def test_stale_numeric_ceiling_requires_baseline_cleanup() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("metric", "threshold", "analyzer", "rule"),
+    [
+        ("loc", 500, "inventory", "LOC"),
+        ("max_complexity", 10, "radon", "CC"),
+    ],
+)
+def test_numeric_ceiling_at_active_threshold_is_stale(
+    metric: str, threshold: int, analyzer: str, rule: str
+) -> None:
+    path = "plex_renamer/resolved.py"
+    current = {"findings": [], "modules": {path: {metric: threshold}}}
+    baseline = {
+        "schema_version": 1,
+        "findings": [],
+        "ceilings": {path: {metric: threshold}},
+    }
+
+    assert evaluate_ratchets(current, baseline) == [
+        {
+            "analyzer": analyzer,
+            "baseline": threshold,
+            "current": threshold,
+            "kind": "stale-baseline",
+            "message": (f"baseline {metric} ceiling {threshold} is stale; current is {threshold}"),
+            "metric": metric,
+            "path": path,
+            "rule": rule,
+            "symbol": None,
+        }
+    ]
+
+
 def test_baseline_normalization_and_order_are_deterministic() -> None:
     assert hasattr(_ratchets, "build_baseline")
     build_baseline = _ratchets.build_baseline
@@ -280,6 +415,7 @@ def test_quality_check_cli_separates_debt_and_stale_baseline(
 def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    (tmp_path / "z.py").write_text("def unused():\n    pass\n", encoding="utf-8")
     inventory = {
         "python_files": [
             {"path": "z.py", "loc": 20},
@@ -289,10 +425,16 @@ def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
     analysis = {
         "findings": [
             {
-                **_finding(analyzer="vulture", rule="unused-function", path="z.py"),
+                **_finding(
+                    analyzer="vulture",
+                    rule="unused-function",
+                    path="z.py",
+                    symbol="unused",
+                ),
                 "source": "vulture",
                 "category": "dead-code",
                 "allowlisted": False,
+                "line": 1,
             },
             {
                 **_finding(rule="F401", path="old-policy.py"),
@@ -311,7 +453,7 @@ def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
     }
     expanded_ruff = [
         {
-            **_finding(rule="B007", path="a.py"),
+            **_finding(rule="B007", path="a.py", symbol="a::unused-loop-control-variable::#1"),
             "source": "ruff",
             "category": "lint",
             "allowlisted": False,
@@ -328,12 +470,17 @@ def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
 
     assert _ratchets.collect_current(tmp_path) == {
         "findings": [
-            {"analyzer": "ruff", "path": "a.py", "rule": "B007", "symbol": None},
+            {
+                "analyzer": "ruff",
+                "path": "a.py",
+                "rule": "B007",
+                "symbol": "a::unused-loop-control-variable::#1",
+            },
             {
                 "analyzer": "vulture",
                 "path": "z.py",
                 "rule": "unused-function",
-                "symbol": None,
+                "symbol": "z.unused#1",
             },
         ],
         "modules": {

@@ -221,2317 +221,3727 @@
    "analyzer": "vulture",
    "path": "plex_renamer/_job_store_db.py",
    "rule": "unused-attribute",
-   "symbol": "row_factory"
+   "symbol": "plex_renamer._job_store_db.connect_job_store.row_factory#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_mkv_probe.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer._mkv_probe::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/_mkv_probe.py",
    "rule": "unused-function",
-   "symbol": "clear_probe_cache"
+   "symbol": "plex_renamer._mkv_probe.clear_probe_cache#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/_mkv_probe.py",
    "rule": "unused-variable",
-   "symbol": "container_type"
+   "symbol": "plex_renamer._mkv_probe.MediaTrack.is_forced#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/_mkv_probe.py",
    "rule": "unused-variable",
-   "symbol": "is_forced"
+   "symbol": "plex_renamer._mkv_probe.ProbeResult.container_type#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_episodes.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_episodes::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_episodes.py",
    "rule": "RUF003",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00c3\u2014` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_names._common_title_base::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_names.py",
+   "rule": "RUF001",
+   "symbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_names.py",
+   "rule": "RUF001",
+   "symbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_seasons.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_subtitles.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_subtitles::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_titles.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_titles.clean_title_evidence::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_titles.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_titles.py",
+   "rule": "RUF001",
+   "symbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_titles.py",
    "rule": "RUF007",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_titles.clean_title_evidence::zip-instead-of-pairwise::Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_tv.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_tv::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_tv.py",
    "rule": "SIM103",
-   "symbol": null
+   "symbol": "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/_controller_event_helpers.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers._controller_event_helpers::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/_controller_lifecycle_workflow.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers._controller_lifecycle_workflow::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/_controller_state_helpers.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers._controller_state_helpers::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/_movie_state_helpers.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers._movie_state_helpers.build_movie_library_states::if-else-block-instead-of-if-exp::Use ternary operator `confidence = item.episode_confidence if media_id else 0.0` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/media_controller.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers.media_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/controllers/media_controller.py",
    "rule": "unused-method",
-   "symbol": "accept_tv_show"
+   "symbol": "plex_renamer.app.controllers.media_controller.MediaController.accept_tv_show#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/controllers/queue_controller.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.controllers.queue_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/controllers/queue_controller.py",
    "rule": "unused-method",
-   "symbol": "add_single_job"
+   "symbol": "plex_renamer.app.controllers.queue_controller.QueueController.add_single_job#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/controllers/queue_controller.py",
    "rule": "unused-property",
-   "symbol": "pending_count"
+   "symbol": "plex_renamer.app.controllers.queue_controller.QueueController.pending_count#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "plex_renamer.app.models.state_models.utc_now_iso::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-property",
-   "symbol": "episode_key"
+   "symbol": "plex_renamer.app.models.state_models.EpisodeGuideRow.episode_key#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "actionable_indices"
+   "symbol": "plex_renamer.app.models.state_models.CacheEntry.last_accessed_at#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "eligible_job_count"
+   "symbol": "plex_renamer.app.models.state_models.EpisodeGuide.source_label#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "last_accessed_at"
+   "symbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.mapped_episodes#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "mapped_episodes"
+   "symbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.missing_episodes#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "missing_episodes"
+   "symbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.review_required#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "review_required"
+   "symbol": "plex_renamer.app.models.state_models.QueueEligibility.actionable_indices#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/models/state_models.py",
    "rule": "unused-variable",
-   "symbol": "source_label"
+   "symbol": "plex_renamer.app.models.state_models.QueueEligibility.eligible_job_count#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/_tv_library_classification.py",
    "rule": "SIM114",
-   "symbol": null
+   "symbol": "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier.season_children_are_majority::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/automux_service.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.automux_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.cache_service._utc_now::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.cache_service::deprecated-import::Import from `collections.abc` instead: `Iterator`#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "unused-attribute",
-   "symbol": "row_factory"
+   "symbol": "plex_renamer.app.services.cache_service.PersistentCacheService._connect.row_factory#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "unused-method",
-   "symbol": "invalidate_by_prefix"
+   "symbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "unused-method",
-   "symbol": "invalidate_namespace"
+   "symbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "unused-method",
-   "symbol": "make_key"
+   "symbol": "plex_renamer.app.services.cache_service.PersistentCacheService.make_key#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/cache_service.py",
    "rule": "unused-method",
-   "symbol": "mark_refreshing"
+   "symbol": "plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/episode_mapping_service.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService._require_table::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/episode_mapping_service.py",
    "rule": "unused-method",
-   "symbol": "apply_assignments"
+   "symbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/episode_projection_cache.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.episode_projection_cache::deprecated-import::Import from `collections.abc` instead: `Iterable`#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/episode_projection_cache.py",
    "rule": "unused-property",
-   "symbol": "cache_size"
+   "symbol": "plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/metadata_service.py",
    "rule": "SIM102",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.metadata_service._populate_tv::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/metadata_service.py",
    "rule": "SIM114",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.metadata_service.inventory_local_metadata::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.build_expiry::if-else-block-instead-of-if-exp::Use ternary operator `base = _parse_dt(refreshed_at) if isinstance(refreshed_at, str) else refreshed_at` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.refresh_policy_service._utc_now::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "unused-method",
-   "symbol": "can_manual_refresh"
+   "symbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.can_manual_refresh#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "unused-method",
-   "symbol": "get_rescan_scope"
+   "symbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.get_rescan_scope#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "unused-method",
-   "symbol": "should_background_refresh"
+   "symbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/refresh_policy_service.py",
    "rule": "unused-variable",
-   "symbol": "retry_after_seconds"
+   "symbol": "plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/settings_service.py",
    "rule": "UP015",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.settings_service.SettingsService._load::redundant-open-modes::Unnecessary mode argument#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/settings_service.py",
    "rule": "unused-property",
-   "symbol": "match_country"
+   "symbol": "plex_renamer.app.services.settings_service.SettingsService.match_country#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/app/services/tv_library_discovery_service.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.app.services.tv_library_discovery_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/constants.py",
    "rule": "unused-variable",
-   "symbol": "SUBTITLE_DOWNLOAD"
+   "symbol": "plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/__init__.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/__init__.py",
    "rule": "RUF022",
-   "symbol": null
+   "symbol": "plex_renamer.engine::unsorted-dunder-all::`__all__` is not sorted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "B905",
+   "symbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.scan_movie::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "I001",
+   "symbol": "plex_renamer.engine._batch_orchestrators::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._select_best_show_match::unused-unpacked-variable::Unpacked variable `runner_up` is never used#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "unused-method",
-   "symbol": "discover_movies"
+   "symbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_batch_tv_episode_claims.py",
    "rule": "RUF005",
-   "symbol": null
+   "symbol": "plex_renamer.engine._batch_tv_episode_claims.reconcile_scanned_episode_claims::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_core.py",
    "rule": "RUF022",
-   "symbol": null
+   "symbol": "plex_renamer.engine._core::unsorted-dunder-all::`__all__` is not sorted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_discovery_ports.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.engine._discovery_ports::deprecated-import::Import from `collections.abc` instead: `Sequence`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_episode_resolution.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.engine._episode_resolution._match_segmented_title_run_scored::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_episode_resolution.py",
+   "rule": "B905",
+   "symbol": "plex_renamer.engine._episode_resolution._tokens_prefix_equal::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_episode_resolution.py",
+   "rule": "B905",
+   "symbol": "plex_renamer.engine._episode_resolution.unassign_same_season_scattered_titles::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_episode_resolution.py",
    "rule": "RUF007",
-   "symbol": null
+   "symbol": "plex_renamer.engine._episode_resolution._match_segmented_title_run_scored::zip-instead-of-pairwise::Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_episode_resolution.py",
+   "rule": "RUF007",
+   "symbol": "plex_renamer.engine._episode_resolution.unassign_same_season_scattered_titles::zip-instead-of-pairwise::Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_movie_scanner.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.engine._movie_scanner.MovieScanner.scan::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_movie_scanner.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._movie_scanner::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_movie_scanner.py",
    "rule": "unused-property",
-   "symbol": "explicit_files"
+   "symbol": "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_mux_planner.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.engine._mux_planner.MuxPlan.from_dict::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_mux_planner.py",
    "rule": "unused-variable",
-   "symbol": "output_name"
+   "symbol": "plex_renamer.engine._mux_planner.MuxPlan.output_name#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_mux_planner.py",
    "rule": "unused-variable",
-   "symbol": "user_modified"
+   "symbol": "plex_renamer.engine._mux_planner.MuxPlan.user_modified#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "F821",
-   "symbol": null
+   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::undefined-name::Undefined name `RenameJob`#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_queue_bridge.py",
+   "rule": "F821",
+   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::undefined-name::Undefined name `RenameJob`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::quoted-annotation::Remove quotes from type annotation#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_queue_bridge.py",
+   "rule": "UP037",
+   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_rename_execution.py",
    "rule": "B007",
-   "symbol": null
+   "symbol": "plex_renamer.engine._rename_execution.execute_rename::unused-loop-control-variable::Loop control variable `dst` not used within loop body#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_rename_execution.py",
    "rule": "SIM102",
-   "symbol": null
+   "symbol": "plex_renamer.engine._rename_execution.execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_rename_execution.py",
+   "rule": "SIM102",
+   "symbol": "plex_renamer.engine._rename_execution.execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#2"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_scan_runtime.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._scan_runtime::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_state.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._state::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
    "rule": "SIM102",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner_consolidated.match_file_title_to_tmdb::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner_consolidated.build_consolidated_table::if-else-block-instead-of-if-exp::Use ternary operator `s0_data = tmdb_seasons[0] if 0 in tmdb_seasons else tmdb.get_season(show_info[\"id\"], 0)` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_normal.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner_normal::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_normal.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.engine._tv_scanner_normal.build_normal_table.ensure_s0_titles::if-else-block-instead-of-if-exp::Use ternary operator `data = tmdb_seasons[0] if 0 in tmdb_seasons else tmdb.get_season(show_info[\"id\"], 0)` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/episode_assignments.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.assign::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/episode_assignments.py",
    "rule": "RUF007",
-   "symbol": null
+   "symbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.assign::zip-instead-of-pairwise::Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/episode_assignments.py",
    "rule": "unused-method",
-   "symbol": "unclaimed_slots"
+   "symbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/episode_assignments.py",
    "rule": "unused-variable",
-   "symbol": "ROLE_VERSION"
+   "symbol": "plex_renamer.engine.episode_assignments.ROLE_VERSION#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/matching.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.engine.matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/matching.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.engine.matching.score_results::if-else-block-instead-of-if-exp::Use ternary operator `score = t_score * 0.7 + year_score * 0.3 if year_hint else t_score` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/models.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.engine.models::unused-noqa::Unused `noqa` directive (unused: `F401`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/models.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.engine.models::unused-noqa::Unused `noqa` directive (unused: `F401`)#2"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/engine/models.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.engine.models.ScanState::quoted-annotation::Remove quotes from type annotation#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/models.py",
+   "rule": "UP037",
+   "symbol": "plex_renamer.engine.models.ScanState::quoted-annotation::Remove quotes from type annotation#2"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/show_details.py",
    "rule": "unused-variable",
-   "symbol": "first_air_date"
+   "symbol": "plex_renamer.engine.show_details.ShowDetails.first_air_date#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_bootstrap.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_bootstrap::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_bridges.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_bridges::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_bridges.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_bridges.QueueBridge.on_poster_backfill_finished::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_feedback.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_feedback::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_tabs.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_tabs::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_main_window_tmdb.py",
    "rule": "UP035",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._main_window_tmdb::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/_scale.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt._scale.px::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/_scale.py",
    "rule": "unused-function",
-   "symbol": "row_height"
+   "symbol": "plex_renamer.gui_qt._scale.row_height#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/app.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.app._SuppressTransientPopups.eventFilter::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/main_window.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.main_window::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/models/__init__.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.models::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/models/__init__.py",
    "rule": "RUF022",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.models::unsorted-dunder-all::`__all__` is not sorted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
    "rule": "unused-method",
-   "symbol": "filterAcceptsRow"
+   "symbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
    "rule": "unused-variable",
-   "symbol": "source_parent"
+   "symbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow.source_parent#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/models/job_table_model.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.models.job_table_model::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/models/job_table_model.py",
    "rule": "unused-method",
-   "symbol": "headerData"
+   "symbol": "plex_renamer.gui_qt.models.job_table_model.JobTableModel.headerData#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.sizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._automux_tracks._ElidedNoticeLabel.resizeEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._automux_tracks._ElidedNoticeLabel.setText::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
    "rule": "unused-method",
-   "symbol": "minimumSizeHint"
+   "symbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeData::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeTypes::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.rowCount::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.rowCount::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragEnterEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragMoveEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "SIM103",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel._stageable::needless-bool::Return the negated condition directly#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-attribute",
-   "symbol": "_claimed_file_by_key"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel.show_state._claimed_file_by_key#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "_select_file"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._select_file#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "dragEnterEvent"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeTypes#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "dragMoveEvent"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "dropEvent"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.is_claimed#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "is_claimed"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragEnterEvent#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "mimeTypes"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragMoveEvent#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-method",
-   "symbol": "startDrag"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
    "rule": "unused-variable",
-   "symbol": "supportedActions"
+   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag.supportedActions#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion._percent_from_label::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._CollapseHeader.mousePressEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.sizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._CollapseHeader.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-attribute",
-   "symbol": "_copy_buttons"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-attribute",
-   "symbol": "_header_row"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-method",
-   "symbol": "action_buttons"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-method",
-   "symbol": "header_action_buttons"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-method",
-   "symbol": "mux_optout_button"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
    "rule": "unused-method",
-   "symbol": "status_pill_text"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.helpEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.sizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableView.keyPressEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableView.mousePressEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableView.mouseReleaseEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate._connect_to_view_model::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
    "rule": "unused-method",
-   "symbol": "createEditor"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
    "rule": "unused-method",
-   "symbol": "updateEditorGeometry"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model._percent_from_label::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.rowCount::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._resolve_guide_or_schedule._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "SIM105",
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._resolve_guide_or_schedule._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#2"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "unused-method",
-   "symbol": "filter_mode"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.filter_mode#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
    "rule": "unused-method",
-   "symbol": "row_for_preview_index"
+   "symbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.row_for_preview_index#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_formatting.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._formatting.clamped_percent::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_image_utils.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._image_utils.build_placeholder_pixmap::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_image_utils.py",
+   "rule": "RUF046",
+   "symbol": "plex_renamer.gui_qt.widgets._image_utils.build_placeholder_pixmap::unnecessary-cast-to-int::Value being cast to `int` is already an integer#2"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_image_utils.py",
+   "rule": "RUF046",
+   "symbol": "plex_renamer.gui_qt.widgets._image_utils.scale_pixmap_for_device::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_image_utils.py",
+   "rule": "RUF046",
+   "symbol": "plex_renamer.gui_qt.widgets._image_utils.scale_pixmap_for_device::unnecessary-cast-to-int::Value being cast to `int` is already an integer#2"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_job_detail_poster.py",
    "rule": "RUF046",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._job_detail_poster._poster_fetch_width::unnecessary-cast-to-int::Value being cast to `int` is already an integer#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_job_detail_preview.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._job_detail_preview.JobPreviewRow::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._job_list_tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.sizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
    "rule": "SIM114",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
    "rule": "unused-attribute",
-   "symbol": "backgroundBrush"
+   "symbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint.backgroundBrush#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_match_picker_search.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._match_picker_search.MatchPickerSearchCoordinator.run_search._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_helpers.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_helpers::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_action_bar.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_action_bar::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_actions.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_automux.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_automux.MediaWorkspaceAutoMuxCoordinator._warm_rest::unused-noqa::Unused `noqa` directive (non-enabled: `BLE001`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_lifecycle.MediaWorkspaceLifecycleCoordinator._stop_scan_poster_feed::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py",
+   "rule": "SIM105",
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_lifecycle.MediaWorkspaceLifecycleCoordinator.show_ready_when_posters_warm._finalize::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py",
    "rule": "E731",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_match_actions.fix_match::lambda-assignment::Do not assign a `lambda` expression, use a `def`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_queue_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
    "rule": "B007",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.ensure_check_bindings::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
+   "rule": "B007",
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.normalize_queue_selection::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
    "rule": "SIM114",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.refresh_from_controller::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_roster.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_roster::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_roster.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_roster.MediaWorkspaceRosterPanel.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_ui.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_ui::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.helpEvent::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.helpEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.sizeHint::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterListView.mousePressEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterListView.mouseReleaseEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_model::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "RUF005",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel._build_row_data::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.rowCount::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "unused-method",
-   "symbol": "entry_kind_at"
+   "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.entry_kind_at#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "unused-method",
-   "symbol": "group_at"
+   "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.group_at#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
    "rule": "unused-attribute",
-   "symbol": "_default_audio_edit"
+   "symbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._default_audio_edit#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
    "rule": "unused-attribute",
-   "symbol": "_merge_langs_edit"
+   "symbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_langs_edit#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
    "rule": "unused-attribute",
-   "symbol": "_merge_subs_cb"
+   "symbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_subs_cb#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
    "rule": "unused-attribute",
-   "symbol": "_no_fear_cb"
+   "symbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._no_fear_cb#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_settings_tab_actions.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._settings_tab_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_settings_tab_actions.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._settings_tab_actions.SettingsTabActionsCoordinator.test_key._test_worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._settings_tab_sections::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsSectionCard.page::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
    "rule": "unused-attribute",
-   "symbol": "_destinations_page"
+   "symbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsTabSectionsBuilder.build_destinations_section._destinations_page#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "RUF005",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel._refresh_strip::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel._request_overview._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "approve_all_button"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.approve_all_button#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "check_summary"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.check_summary#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "episode_search_box"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.episode_search_box#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "overflow_button"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.overflow_button#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "search_box"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.search_box#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "segmented_filter"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.segmented_filter#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "unused-property",
-   "symbol": "summary_label"
+   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.summary_label#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.ElidedLabel.resizeEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.ElidedLabel.setText::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.ElidedLabel.showEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.ElidedLabel.text::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox._INDICATOR_SIZE::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
    "rule": "unused-method",
-   "symbol": "nextCheckState"
+   "symbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.nextCheckState#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/empty_state.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.empty_state.EmptyStateWidget.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/empty_state.py",
    "rule": "unused-method",
-   "symbol": "dragEnterEvent"
+   "symbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragEnterEvent#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/empty_state.py",
    "rule": "unused-method",
-   "symbol": "dragLeaveEvent"
+   "symbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragLeaveEvent#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/empty_state.py",
    "rule": "unused-method",
-   "symbol": "dropEvent"
+   "symbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dropEvent#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog._validate::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "RUF007",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog._validate::zip-instead-of-pairwise::Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "unused-method",
-   "symbol": "is_season_expanded"
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_season_expanded#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "unused-method",
-   "symbol": "is_selection_valid"
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_selection_valid#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "unused-method",
-   "symbol": "set_checked"
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.set_checked#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "unused-method",
-   "symbol": "slot_row_text"
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
    "rule": "unused-method",
-   "symbol": "validation_text"
+   "symbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.validation_text#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/history_tab.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.history_tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.job_detail_panel::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.job_detail_panel._WrappedFitLabel.resizeEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets.job_detail_panel._WrappedFitLabel.setText::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets.job_detail_panel._WrappedFitLabel.showEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/media_workspace.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.media_workspace::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/media_workspace.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.media_workspace.MediaWorkspace.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/queue_tab.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.queue_tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/scan_progress.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.scan_progress::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/settings_tab.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.settings_tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/settings_tab.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.settings_tab.SettingsTab.__init__::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/status_chip.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
+   "rule": "B905",
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row_wrapped::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/status_chip.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
+   "rule": "RUF001",
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/tab_badge.py",
    "rule": "unused-method",
-   "symbol": "count_text"
+   "symbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/tab_badge.py",
    "rule": "unused-method",
-   "symbol": "failure_visible"
+   "symbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.toast_manager::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
    "rule": "RUF100",
-   "symbol": null
+   "symbol": "plex_renamer.gui_qt.widgets.toast_manager._ToastCard.enterEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets.toast_manager._ToastCard.leaveEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets.toast_manager._ToastCard.resizeEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
+   "rule": "RUF100",
+   "symbol": "plex_renamer.gui_qt.widgets.toast_manager._ToastCard.showEvent::unused-noqa::Unused `noqa` directive (non-enabled: `N802`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_executor.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.job_executor::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_executor.py",
    "rule": "SIM102",
-   "symbol": null
+   "symbol": "plex_renamer.job_executor._execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_executor.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "plex_renamer.job_executor._execute_rename::if-else-block-instead-of-if-exp::Use ternary operator `candidate_parent = library_root if job.media_type == MediaType.TV else root_folder.parent` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_store.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.job_store::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_store.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "plex_renamer.job_store.JobStore.close::suppressible-exception::Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/job_store.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "plex_renamer.job_store.JobStore.add_job::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.move_jobs::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.move_jobs_to_top::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.propagate_path_changes::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.recover_interrupted::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.reorder_job::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.set_poster_path::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.set_undo_data::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.JobStore.update_status::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.RenameJob::datetime-timezone-utc::Use `datetime.UTC` alias#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": "plex_renamer.job_store.RenameJob::datetime-timezone-utc::Use `datetime.UTC` alias#2"
   },
   {
    "analyzer": "vulture",
    "path": "plex_renamer/job_store.py",
    "rule": "unused-method",
-   "symbol": "reorder_job"
+   "symbol": "plex_renamer.job_store.JobStore.reorder_job#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/keys.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.keys::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/parsing.py",
    "rule": "RUF022",
-   "symbol": null
+   "symbol": "plex_renamer.parsing::unsorted-dunder-all::`__all__` is not sorted#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/thread_pool.py",
    "rule": "UP037",
-   "symbol": null
+   "symbol": "plex_renamer.thread_pool::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/tmdb.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "plex_renamer.tmdb::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_artifacts.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "scripts.audit._artifacts.write_artifact::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_coverage.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "scripts.audit._coverage::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_coverage.py",
    "rule": "SIM108",
-   "symbol": null
+   "symbol": "scripts.audit._coverage._diagnostic_context::if-else-block-instead-of-if-exp::Use ternary operator `text = value.decode(\"utf-8\", errors=\"replace\") if isinstance(value, bytes) else str(value or \"\")` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_diff.py",
    "rule": "SIM103",
-   "symbol": null
+   "symbol": "scripts.audit._diff._dead_evidence_usable::needless-bool::Return the negated condition directly#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_graph.py",
    "rule": "B007",
-   "symbol": null
+   "symbol": "scripts.audit._graph.build_graph::unused-loop-control-variable::Loop control variable `name` not used within loop body#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_graph.py",
    "rule": "SIM102",
-   "symbol": null
+   "symbol": "scripts.audit._graph._effects::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_inventory.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "scripts.audit._inventory._doc_record::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_metrics.py",
    "rule": "C420",
-   "symbol": null
+   "symbol": "scripts.audit._metrics._dead_counts::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_toolchain.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "scripts.audit._toolchain::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_verify.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "scripts.audit._verify::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_verify.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "scripts.audit._verify.restore_generated::suppressible-exception::Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/test_fast_runner.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "scripts.test_fast_runner::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "scripts/test_fast_runner.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "scripts.test_fast_runner._write_coverage_sidecar::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_artifacts.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_artifacts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_cli.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_cli::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_fast_runner.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_fast_runner::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_fast_runner.py",
    "rule": "SIM300",
-   "symbol": null
+   "symbol": "tests.audit.test_fast_runner.test_launch_error_overwrites_successful_coverage_sidecar::yoda-conditions::Yoda condition detected#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_metrics.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_metrics::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_render_code_index.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_render_code_index::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_repository_contracts.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_repository_contracts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_toolchain.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_toolchain::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_verify.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_verify::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_verify.py",
    "rule": "RUF043",
-   "symbol": null
+   "symbol": "tests.audit.test_verify.test_verify_rejects_preexisting_symlink_before_pipeline_without_mutation::pytest-raises-ambiguous-pattern::Pattern passed to `match=` contains metacharacters but is neither escaped nor raw#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/audit/test_workflows.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.audit.test_workflows::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/conftest_qt.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.conftest_qt::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_air_date_clusters.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_air_date_clusters::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_alt_title_matching.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_alt_title_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_automux_service.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_bare_episode_prefix_titles.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_bare_episode_prefix_titles.test_sxe_still_wins::unused-unpacked-variable::Unpacked variable `title` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_batch_autoaccept_guards.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_batch_autoaccept_guards::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_bulk_assign_panel.py",
    "rule": "C416",
-   "symbol": null
+   "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_auto_map_uses_evidence_not_position::unnecessary-comprehension::Unnecessary dict comprehension (rewrite using `dict()`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_bulk_assign_panel.py",
    "rule": "F841",
-   "symbol": null
+   "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_toggling_unassign_off_drops_dependent_stage::unused-variable::Local variable `claimed_fid` is assigned to but never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_bulk_assign_panel.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_bulk_assign_panel._bulk_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bulk_assign_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_bulk_assign_panel._bulk_state_assigned_with_evidence::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bulk_assign_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_bulk_assign_panel._bulk_state_with_conflict::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_cache_service.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_cache_service::unused-import::`plex_renamer.app.services.refresh_policy_service.RefreshPolicyService` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_cache_service.py",
    "rule": "F841",
-   "symbol": null
+   "symbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::unused-variable::Local variable `entry` is assigned to but never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_cache_service.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "tests.test_cache_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_command_gating_service.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_command_gating_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_completeness_review_counts.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_completeness_review_counts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_conflict_resolution.py",
    "rule": "B007",
-   "symbol": null
+   "symbol": "tests.test_conflict_resolution.TestShowNameTitleGuard.test_valid_explicit_episode_is_never_cross_season_rescued::unused-loop-control-variable::Loop control variable `episodes` not used within loop body#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_consolidated_assignments.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_consolidated_assignments::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_consolidated_two_phase.py",
    "rule": "E402",
-   "symbol": null
+   "symbol": "tests.test_consolidated_two_phase::module-import-not-at-top-of-file::Module level import not at top of file#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_duplicate_copies.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_duplicate_copies::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_duplicate_copies.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_duplicate_copies.test_duplicate_projects_with_duplicate_status::unused-unpacked-variable::Unpacked variable `mislabeled` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_assignments.py",
    "rule": "E402",
-   "symbol": null
+   "symbol": "tests.test_episode_assignments::module-import-not-at-top-of-file::Module level import not at top of file#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_assignments.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_assignments::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_expansion.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_path_rows_bold_their_labels::unused-import::`PySide6.QtWidgets.QLabel` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_expansion.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_companion_subtitle_rows_labeled_instead_of_badged::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_episode_content_and_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_episode_row_actions_vocabulary_is_frozen::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_header_actions_stack_under_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_status_pill_is_a_capsule::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "C416",
-   "symbol": null
+   "symbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_does_not_double_claim_one_slot::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "C416",
+   "symbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_follows_parse_evidence::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "E402",
-   "symbol": null
+   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#2"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#3"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "F811",
-   "symbol": null
+   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeAssignmentTable` from line 165: `EpisodeAssignmentTable` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "F811",
+   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 166: `EpisodeSlot` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_mapping_projection::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_episode_mapping_projection.BulkMutationTests.test_apply_bulk_single_reproject_for_mixed_batch::unused-unpacked-variable::Unpacked variable `skipped` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_projection.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_projection::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "E402",
-   "symbol": null
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#2"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#3"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#4"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#5"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#6"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#7"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#8"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_episode_resolution::unused-import::`plex_renamer.engine._episode_resolution.COMPATIBLE_PREFIX_FLOOR` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "F811",
-   "symbol": null
+   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 235: `CONF_TITLE_ONLY` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "F811",
+   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 237: `CONF_TITLE_WINS_INEXACT` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_resolution.TestSingleNumberSegmentedRun.test_multi_segment_number_claim_not_floored_to_auto_accept::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_resolution::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_resolution::unsorted-imports::Import block is un-sorted or un-formatted#2"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_title_agree_also_wins::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_three_episode_e_run::unused-unpacked-variable::Unpacked variable `title` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_two_episode_format_unchanged::unused-unpacked-variable::Unpacked variable `title` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "C408",
+   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "C408",
+   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests._view_with_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_buttons_stack_vertically_under_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_no_overlap_between_buttons_and_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_pill_and_inline_actions_top_aligned_share_baseline::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_text_right_edge_clears_the_column::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests._view::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.HelpEventTests._view::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.HelpEventTests.test_tooltip_only_when_elided::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineActionTextWidthTest.test_text_right_edge_stops_before_inline_action::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_duplicate_row_has_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_mapped_row_has_no_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_unmapped_row_has_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_unmapped_row_inline_action_click_emits_assign_unmapped::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineMissingActionTests.test_missing_row_reports_inline_action_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.InlineMissingActionTests.test_non_missing_row_has_no_inline_action::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.MovieRowFlatTests._movie_view::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.MovieRowFlatTests.test_movie_file_rows_are_double_line_with_target::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.MuxChipTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u00ba` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_buttons_stack_vertically_under_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_no_overlap_between_buttons_and_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_pill_and_inline_actions_top_aligned_share_baseline::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_text_right_edge_clears_the_column::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_bulk_hint_click_emits_signal::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_enter_emits_expand_on_current_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_header_click_emits_section_key::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `model` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_table_model.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests._model_with_guide::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_model.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests.test_movie_entry_is_not_checkable::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_model.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests.test_movie_rows_are_flat_not_checkable::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_model.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_model._episode_filter_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_model.py",
+   "rule": "I001",
+   "symbol": "tests.test_episode_table_model._guide_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_executor_metadata_integration.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_executor_metadata_integration::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_explicit_special_numbers.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_explicit_special_numbers::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_extras_and_prefix_fixes::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::unused-unpacked-variable::Unpacked variable `items` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_fuzzy_title_matching.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_fuzzy_title_matching::unused-import::`plex_renamer.engine._episode_resolution.CONF_AGREE` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_gui_theme.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_gui_theme.test_settings_sections_have_no_header_icons::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_haikyuu_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_job_store_metadata_plan.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_job_store_metadata_plan._job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_jojo_matching.py",
    "rule": "C420",
-   "symbol": null
+   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_jojo_matching.py",
+   "rule": "C420",
+   "symbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_jojo_matching.py",
+   "rule": "C420",
+   "symbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#2"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_jojo_matching.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_jojo_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_media_controller.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_media_controller.RematchStateTests.test_apply_runtime_settings_table_backed_respects_approved_and_unapproved::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_media_controller.py",
+   "rule": "I001",
+   "symbol": "tests.test_media_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_metadata_embed_extras.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_metadata_embed_extras.make_settings::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_embed_extras.py",
+   "rule": "C408",
+   "symbol": "tests.test_metadata_embed_extras.tv_job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_metadata_local_inventory.py",
    "rule": "C416",
-   "symbol": null
+   "symbol": "tests.test_metadata_local_inventory.test_inventory_maps_slots::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_metadata_local_inventory.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_metadata_local_inventory::unused-import::`plex_renamer.job_store.RenameJob` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_local_inventory.py",
+   "rule": "F401",
+   "symbol": "tests.test_metadata_local_inventory::unused-import::`plex_renamer.job_store.RenameOp` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_metadata_local_inventory.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_metadata_local_inventory::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_metadata_service.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_metadata_service.make_settings::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_service.py",
+   "rule": "C408",
+   "symbol": "tests.test_metadata_service.tv_job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_mkv_locate.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_mkv_locate::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_mkvmerge_integration.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_mkvmerge_integration::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_multisegment_zero_match.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_multisegment_zero_match::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_offset_inference.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_when_offsets_disagree::unused-unpacked-variable::Unpacked variable `entries` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_output_destination_service.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_output_destination_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_parsing_corpus.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_parsing_corpus::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_parsing_edgecases.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_parsing_edgecases::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_parsing_edgecases.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_parsing_edgecases.test_extract_episode_recognizes_bracketed_episode_number::unused-unpacked-variable::Unpacked variable `title` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_busy_overlay.py",
    "rule": "SIM117",
-   "symbol": null
+   "symbol": "tests.test_qt_busy_overlay.BusyOverlayTests.test_exception_inside_scope_still_removes_overlay::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_chrome.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_chrome::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`PySide6.QtCore.QPoint` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`PySide6.QtCore.Qt` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.settings_service.SettingsService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.PreviewItem` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.ScanState` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F811",
-   "symbol": null
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_from_library_root_files::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_without_show_folder_rename::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_recovers_movie_folder_source_name_when_source_folder_is_dot::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened::redefined-while-unused::Redefinition of unused `Qt` from line 7: `Qt` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_hides_target_button_in_queue_mode::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_job_detail_panel::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "B905",
-   "symbol": null
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_queue_bridge_batches_bursty_queue_changed_refreshes::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F811",
-   "symbol": null
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `RenameResult` from line 15: `RenameResult` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F811",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `RenameResult` from line 15: `RenameResult` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_persists_tmdb_snapshot_on_invalidate::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_settings_section_cards_use_title_header_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_settings_tab_category_page_controls_stay_top_aligned::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_allows_tooltip_events_and_windows::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_hides_tool_windows::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_keeps_real_menus_visible::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_main_window::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "SIM117",
-   "symbol": null
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_media_workspace.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unused-import::`plex_renamer.engine.episode_assignments.EpisodeSlot` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_media_workspace.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests._bulk_table_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_approve_all_recategorizes_and_auto_checks_show::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_approve_all_with_remaining_conflict_stays_in_review_no_checkbox::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unsorted-imports::Import block is un-sorted or un-formatted#2"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_assign_file_calls_dialog_and_assigns_slot::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_keep_this_resolves_conflict::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_media_workspace::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_media_workspace.py",
    "rule": "RUF005",
-   "symbol": null
+   "symbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests.test_apply_with_skipped_pair_reports_error_tone_and_reason::collection-literal-concatenation::Consider `[*staged[:-1], (staged[-1][0], 1, 99)]` instead of concatenation#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_media_workspace.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `file_id` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `table` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_matched_state_has_neutral_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_review_state_has_caution_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_tie_state_shows_single_caution_choose_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_queue_history.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.settings_service.SettingsService` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "F401",
+   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_queue_history.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_build_placeholder_pixmap_scales_for_hidpi::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_and_history_tabs_refresh::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_tab_context_menu_exposes_queue_and_folder_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_tab_remove_updates_badge_and_tv_requeue_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_status_pill_paints_without_error::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_status_size_hint_reserves_uppercase_pill_width::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_queue_history::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_scale.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_dpi_scale_falls_back_when_no_screen::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_scale.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_icon_tokens_return_qsize::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_scale.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_margins_scales_each_value::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_scale.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_row_height_uses_font_metrics::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_scale.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_scaling_at_simulated_hidpi::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_toasts.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_qt_toasts._make_card::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_toasts.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_toasts.ToastCardBehaviorTests.test_hover_pauses_and_resumes_countdown::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_toasts.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_toasts.ToastManagerDefaultTests.test_second_toast_reposition_settles_to_current_sizehints::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_toasts.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_toasts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_workspace_widgets.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_qt_workspace_widgets.WorkspaceWidgetPrimitiveTests.test_paint_statics_render_without_error::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_workspace_widgets.py",
+   "rule": "I001",
+   "symbol": "tests.test_qt_workspace_widgets::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_queue_controller.py",
    "rule": "C408",
-   "symbol": null
+   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_queue_controller.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_queue_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_queue_metadata_wiring.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_queue_metadata_wiring::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_queue_output_targets.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_queue_output_targets::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_queue_output_targets.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::unused-unpacked-variable::Unpacked variable `library_root` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_refresh_policy_service.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_refresh_policy_service::unused-import::`plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_refresh_policy_service.py",
    "rule": "UP017",
-   "symbol": null
+   "symbol": "tests.test_refresh_policy_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_release_junk_titles.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_release_junk_titles::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_release_junk_titles.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_release_junk_titles.test_clean_title_untouched::unused-unpacked-variable::Unpacked variable `rel` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_remux_execution.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_remux_execution.test_run_mkvmerge_parses_progress::unused-unpacked-variable::Unpacked variable `tail` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_remux_revert.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_remux_revert.test_missing_output_is_not_fatal::unused-unpacked-variable::Unpacked variable `errors` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_roster_delegate.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_roster_delegate.RosterCardGapTests.test_card_rect_inset_from_option_rect::unused-import::`plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "F401",
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_toggle_click_emits_without_moving_selection::unused-import::`PySide6.QtCore.QPoint` imported but unused#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "F401",
+   "symbol": "tests.test_roster_delegate.RosterPillRemovalTests.test_pill_not_painted_top_right_corner_matches_background::unused-import::`PySide6.QtWidgets.QStyleOptionViewItem` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_roster_delegate.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_chips_wrap_to_multiple_rows_when_narrow::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_single_row_when_wide::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_wrapped_height_grows_with_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterCardGapTests.test_card_rect_inset_from_option_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_chip_tooltip_hit_rects_match_painted_chips::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_toggle_click_emits_without_moving_selection::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterPillRemovalTests.test_title_uses_full_body_width_no_pill_reservation::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterSizeHintTests._card_height::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterSizeHintTests._state_with_seasons::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": "tests.test_roster_delegate.RosterSizeHintTests.test_compact_size_hint_uses_same_dynamic_formula_as_normal::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_roster_delegate.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_header_click_emits_group::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `model` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_roster_model.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_roster_model.RosterModelTests.test_header_and_state_rows_in_group_order::unused-import::`plex_renamer.gui_qt.widgets._roster_model` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_improvements.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_scan_improvements::unused-import::`plex_renamer.engine.PreviewItem` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_improvements.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_episode_tiebreak_uses_per_season_count_for_single_season_evidence::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_movie_at_library_root_ignores_folder_rename_and_stays_inside_root::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_season_count_tiebreaker_overrides_wrong_year::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_improvements::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_improvements.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_show_named_specials_child_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_top_level_specials_folder_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_score_results_prefers_exact_year_over_adjacent_year::unused-unpacked-variable::Unpacked variable `runner` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_scan_improvements.TestTableDrivenScan.test_same_named_specials_in_two_seasons_resolve_as_duplicate_copies::unused-unpacked-variable::Unpacked variable `items` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_progress.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_scan_progress.ConveyorDprPaintTests._painted_animation::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_add_poster_ignores_null_pixmap::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_set_and_add_posters::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_set_posters_filters_null_pixmaps::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_start_clears_posters::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": "tests.test_scan_progress::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_settings_longpath.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_settings_longpath.LongPathWarningTests._tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_settings_tab_automux.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_settings_tab_automux.AutoMuxSettingsPageTests.test_nav_shows_automux_and_no_tools::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_settings_tab_cache.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests._tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_settings_tab_cache.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests.test_combo_lists_sizes_and_selects_current::unused-unpacked-variable::Unpacked variable `settings` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_show_details.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_show_details::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_specials_guards.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_specials_guards::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_status_chip.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_symbol_folding.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_symbol_folding::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_tiebreak_discrimination.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_tiebreak_discrimination.test_unique_episode_count_discriminates::unused-unpacked-variable::Unpacked variable `score` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_tmdb.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_tmdb::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
-   "symbol": null
+   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_token_aligned_substring.py",
+   "rule": "RUF001",
+   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_token_aligned_substring.py",
+   "rule": "RUF001",
+   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_token_aligned_substring.py",
+   "rule": "RUF001",
+   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_tv_scanner_normal.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_tv_scanner_normal::unused-import::`pytest` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_umbrella_season_merge.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_umbrella_season_merge::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_underscore_segments.py",
    "rule": "F401",
-   "symbol": null
+   "symbol": "tests.test_underscore_segments::unused-import::`plex_renamer.engine._episode_resolution.CONF_TITLE_WINS_INEXACT` imported but unused#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_underscore_segments.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_underscore_segments::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_work_panel.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_work_panel.WorkPanelTests._movie_state_actionable::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_freed_space_goes_to_tracks_not_gap::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_hides_overflow::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_hides_tv_toolbar::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_tracks_below_table_and_table_compact::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": "tests.test_work_panel.WorkPanelTests.test_series_chip_hidden_in_movie_mode::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_automux.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_workspace_automux.AutoMuxButtonAndChipTests.test_plan_ready_skips_work_panel_refresh_when_not_selected::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_automux.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_workspace_automux.WorkspaceAutoMuxTests.test_plan_edited_stores_on_state::unused-unpacked-variable::Unpacked variable `roster` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_automux.py",
    "rule": "SIM105",
-   "symbol": null
+   "symbol": "tests.test_workspace_automux._dispose_coordinator::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_expansion.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_workspace_expansion::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_expansion.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_workspace_expansion.HeaderFollowsEpisodeTests.test_no_tmdb_overview_uses_single_display_path::unused-unpacked-variable::Unpacked variable `guide` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_expansion.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_workspace_expansion.MissingFileRowExpansionTests.test_missing_file_row_never_expands::unused-unpacked-variable::Unpacked variable `view` is never used#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_poster_warmup.py",
    "rule": "I001",
-   "symbol": null
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests._coordinator_with_fake::unsorted-imports::Import block is un-sorted or un-formatted#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "I001",
+   "symbol": "tests.test_workspace_poster_warmup::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_poster_warmup.py",
    "rule": "RUF059",
-   "symbol": null
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_disconnects_after_show_ready::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_pushes_loaded_posters_on_signal::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_start_scan_poster_feed_reentrant_no_double_delivery::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `model` is never used#1"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "RUF059",
+   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
   }
  ],
  "schema_version": 1
