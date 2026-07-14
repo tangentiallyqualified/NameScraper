@@ -3,6 +3,7 @@ schema_version = 1
 [quality]
 max_cyclomatic_complexity = 10
 max_python_file_loc = 500
+changed_line_min_percent = 80.0
 
 [format]
 line_length = 100

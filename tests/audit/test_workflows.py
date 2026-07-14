@@ -88,6 +88,18 @@ def test_pull_request_audit_job_runs_coverage_verification() -> None:
     assert "run: scripts/audit.cmd --verify --with-coverage\n" in verify
 
 
+def test_pull_request_quality_gate_collects_full_suite_coverage_first() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-verify")
+    coverage = _step(job, "- name: Collect full-suite coverage evidence")
+
+    assert "run: scripts/test-fast.cmd -Coverage\n" in coverage
+    assert job.index("scripts/test-fast.cmd -Coverage") < job.index(
+        "scripts/audit.cmd --quality-check"
+    )
+    assert "run: scripts/audit.cmd --verify --with-coverage\n" in job
+
+
 def test_manual_audit_update_uploads_generated_outputs() -> None:
     workflow = UPDATE_WORKFLOW.read_text(encoding="utf-8")
     job = _job(workflow, "audit-update")

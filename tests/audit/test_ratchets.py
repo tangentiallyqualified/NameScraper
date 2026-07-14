@@ -67,6 +67,7 @@ def test_unchanged_legacy_debt_passes_and_thresholds_are_explicit_policy() -> No
     assert policy["quality"] == {
         "max_cyclomatic_complexity": 10,
         "max_python_file_loc": 500,
+        "changed_line_min_percent": 80.0,
     }
 
 

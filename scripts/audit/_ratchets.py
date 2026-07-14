@@ -8,11 +8,12 @@ import sys
 import tomllib
 from pathlib import Path
 
-from . import _analyze, _graph, _inventory, _ratchet_identity
+from . import _analyze, _coverage, _graph, _inventory, _ratchet_identity
 
 _POLICY = tomllib.loads((Path(__file__).parent / "policy.toml").read_text(encoding="utf-8"))
 MAX_CYCLOMATIC_COMPLEXITY = _POLICY["quality"]["max_cyclomatic_complexity"]
 MAX_PYTHON_FILE_LOC = _POLICY["quality"]["max_python_file_loc"]
+CHANGED_LINE_MIN_PERCENT = _POLICY["quality"]["changed_line_min_percent"]
 _QUALITY_PYTHON_ROOTS = {"plex_renamer", "scripts", "tests"}
 _METRIC_THRESHOLDS = {
     "max_complexity": MAX_CYCLOMATIC_COMPLEXITY,
@@ -72,12 +73,17 @@ def _build_baseline(current: dict, legacy_python_files: list[str]) -> dict:
     preserved_legacy_python_files = sorted(
         current_python_files & set(_normalized_python_files(legacy_python_files))
     )
-    return {
+    baseline = {
         "schema_version": 2,
         "findings": findings,
         "ceilings": ceilings,
         "typing": {"legacy_python_files": preserved_legacy_python_files},
     }
+    if isinstance(current.get("coverage"), dict):
+        baseline["coverage"] = _coverage.build_quality_baseline(
+            current["coverage"], CHANGED_LINE_MIN_PERCENT
+        )
+    return baseline
 
 
 def _bootstrap_quality_baseline_once(current: dict) -> dict:
@@ -87,6 +93,20 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
 
 def build_baseline(current: dict, previous_baseline: dict) -> dict:
     """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
+    if isinstance(previous_baseline.get("coverage"), dict):
+        if not isinstance(current.get("coverage"), dict):
+            raise QualityEvidenceError("current coverage evidence missing")
+        result = _coverage.evaluate_quality_coverage(
+            current["coverage"],
+            previous_baseline["coverage"],
+            CHANGED_LINE_MIN_PERCENT,
+        )
+        if result["violations"]:
+            descriptions = ", ".join(
+                f"{item['kind']} ({item['path']}: {item['baseline']} -> {item['current']})"
+                for item in result["violations"]
+            )
+            raise QualityEvidenceError(f"coverage gate failed: {descriptions}")
     previous_typing = previous_baseline.get("typing", {})
     return _build_baseline(
         current,
@@ -248,6 +268,31 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
         }
         for path in sorted(legacy_python_files - current_python_files)
     )
+    current_coverage = current.get("coverage")
+    baseline_coverage = baseline.get("coverage")
+    if isinstance(current_coverage, dict) and isinstance(baseline_coverage, dict):
+        coverage_result = _coverage.evaluate_quality_coverage(
+            current_coverage, baseline_coverage, CHANGED_LINE_MIN_PERCENT
+        )
+        for item in coverage_result["violations"]:
+            changed_lines = item["kind"] == "changed-line-coverage"
+            violations.append(
+                {
+                    "analyzer": "coverage",
+                    "baseline": item["baseline"],
+                    "current": item["current"],
+                    "kind": "new-debt" if changed_lines else "enlarged-debt",
+                    "message": (
+                        "changed executable line coverage is below policy"
+                        if changed_lines
+                        else "package statement coverage decreased"
+                    ),
+                    "metric": "coverage_percent",
+                    "path": item["path"],
+                    "rule": "changed-lines" if changed_lines else "package-floor",
+                    "symbol": None,
+                }
+            )
     return sorted(violations, key=_sort_key)
 
 
@@ -492,6 +537,15 @@ def _load_baseline(repo_root: Path) -> dict:
         or not isinstance(baseline["typing"].get("legacy_python_files"), list)
     ):
         raise QualityEvidenceError("quality baseline has an unsupported schema")
+    coverage = baseline.get("coverage")
+    if coverage is not None and (
+        not isinstance(coverage, dict)
+        or coverage.get("changed_line_min_percent") != CHANGED_LINE_MIN_PERCENT
+        or coverage.get("full_suite") is not True
+        or not isinstance(coverage.get("executable_lines"), dict)
+        or not isinstance(coverage.get("package_floors"), dict)
+    ):
+        raise QualityEvidenceError("quality baseline has unsupported coverage policy")
     return baseline
 
 
@@ -499,14 +553,16 @@ def run_quality_baseline_update(repo_root: Path) -> int:
     """Refresh a supported baseline without ever seeding newly discovered Python files."""
     try:
         previous = _load_baseline(repo_root)
-        baseline = build_baseline(collect_current(repo_root, previous), previous)
+        current = collect_current(repo_root, previous)
+        current["coverage"] = _coverage.collect_quality_coverage(repo_root)
+        baseline = build_baseline(current, previous)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
         path.write_text(
             json.dumps(baseline, indent=1, sort_keys=True) + "\n",
             encoding="utf-8",
             newline="\n",
         )
-    except (OSError, ValueError, QualityEvidenceError) as exc:
+    except (OSError, ValueError, QualityEvidenceError, _coverage.CoverageEvidenceError) as exc:
         print(f"quality baseline: failed - {exc}")
         return 1
 
@@ -525,8 +581,14 @@ def run_quality_check(repo_root: Path) -> int:
     """Collect evidence, print sorted ratchet results, and return a CLI status."""
     try:
         baseline = _load_baseline(repo_root)
-        violations = evaluate_ratchets(collect_current(repo_root, baseline), baseline)
-    except (OSError, ValueError, QualityEvidenceError) as exc:
+        if not isinstance(baseline.get("coverage"), dict):
+            raise QualityEvidenceError(
+                "quality baseline coverage missing; run --update-quality-baseline"
+            )
+        current = collect_current(repo_root, baseline)
+        current["coverage"] = _coverage.collect_quality_coverage(repo_root)
+        violations = evaluate_ratchets(current, baseline)
+    except (OSError, ValueError, QualityEvidenceError, _coverage.CoverageEvidenceError) as exc:
         print(f"quality: failed - {exc}")
         return 1
     if not violations:
