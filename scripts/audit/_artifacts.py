@@ -139,7 +139,15 @@ def changed_files_since(repo_root: Path, old_commit: str, *pathspecs: str) -> li
     out = _git(repo_root, "diff", "--name-only", f"{old_commit}..HEAD", "--", *pathspecs)
     if out is None:
         return None
-    return [line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()]
+    committed = {
+        line.strip().replace("\\", "/")
+        for line in out.splitlines()
+        if line.strip()
+    }
+    working = working_tree_files(repo_root, *pathspecs)
+    if working is None:
+        return None
+    return sorted(committed | set(working))
 
 
 def working_tree_files(repo_root: Path, *pathspecs: str) -> list[str] | None:

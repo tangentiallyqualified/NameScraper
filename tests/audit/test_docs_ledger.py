@@ -36,6 +36,37 @@ def test_source_change_marks_stale(synthetic_repo: Path, repo_git):
     assert report[0]["changed_sources"] == ["plex_renamer/alpha.py"]
 
 
+def test_dirty_and_committed_sources_produce_identical_ledger_status(
+        synthetic_repo: Path, repo_git):
+    reviewed = repo_git(synthetic_repo, "rev-parse", "--short", "HEAD")
+    alpha = synthetic_repo / "plex_renamer" / "alpha.py"
+    alpha.write_text(alpha.read_text(encoding="utf-8") + "\nDIRTY = 1\n", encoding="utf-8")
+    scripts = synthetic_repo / "scripts"
+    scripts.mkdir()
+    staged = scripts / "staged.py"
+    staged.write_text("STAGED = 1\n", encoding="utf-8")
+    repo_git(synthetic_repo, "add", "scripts/staged.py")
+    untracked = synthetic_repo / "tests" / "test_untracked.py"
+    untracked.write_text("UNTRACKED = 1\n", encoding="utf-8")
+    entries = [{
+        "path": "docs/guide.md",
+        "reviewed_commit": reviewed,
+        "sources": ["plex_renamer", "scripts", "tests"],
+    }]
+
+    before = _docs_ledger.staleness(synthetic_repo, entries)
+    repo_git(synthetic_repo, "add", "-A")
+    repo_git(synthetic_repo, "commit", "-m", "commit ledger sources")
+    after = _docs_ledger.staleness(synthetic_repo, entries)
+
+    assert before == after
+    assert before[0]["changed_sources"] == [
+        "plex_renamer/alpha.py",
+        "scripts/staged.py",
+        "tests/test_untracked.py",
+    ]
+
+
 def test_run_writes_doc_status_with_purge_worksheet(synthetic_repo: Path, repo_git):
     head = repo_git(synthetic_repo, "rev-parse", "--short", "HEAD")
     _enroll(synthetic_repo, head)
