@@ -22,6 +22,8 @@ def _audit_repo(tmp_path: Path) -> Path:
         "pyproject.toml": "[tool.audit]\n",
         "docs/audit/doc-ledger.toml": "documents = []\n",
         "docs/audit/maps/overview.md": "generated overview\n",
+        "docs/guide.md": "ordinary documentation\n",
+        "scripts/audit/constraints.txt": "ruff==0.15.21\n",
     }
     for relative_path, content in files.items():
         path = tmp_path / relative_path
@@ -64,6 +66,8 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
         "tests/audit/test_stage.py",
         "pyproject.toml",
         "docs/audit/doc-ledger.toml",
+        "docs/guide.md",
+        "scripts/audit/constraints.txt",
     }.issubset(relative_paths)
 
 
@@ -84,12 +88,23 @@ def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
     "tests/audit/test_stage.py",
     "pyproject.toml",
     "docs/audit/doc-ledger.toml",
+    "docs/guide.md",
+    "scripts/audit/constraints.txt",
 ])
 def test_input_digest_changes_when_source_or_policy_changes(
         tmp_path: Path, relative_path: str):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)
     (repo / relative_path).write_text("changed bytes\n", encoding="utf-8")
+    assert _artifacts.input_digest(repo) != first
+
+
+def test_input_digest_changes_when_ordinary_documentation_changes(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+
+    (repo / "docs/guide.md").write_text("changed documentation\n", encoding="utf-8")
+
     assert _artifacts.input_digest(repo) != first
 
 

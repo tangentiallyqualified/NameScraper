@@ -1,0 +1,5 @@
+# Exact analyzer versions used by deterministic audit CI and manual updates.
+coverage==7.15.0
+radon==6.0.1
+ruff==0.15.21
+vulture==2.16

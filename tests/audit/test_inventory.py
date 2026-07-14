@@ -52,7 +52,7 @@ def test_docs_flag_broken_refs(synthetic_repo: Path):
     assert guide["last_touched"]  # git commit date
 
 
-def test_generated_audit_docs_do_not_depend_on_git_tracking_state(
+def test_generated_audit_docs_are_excluded_from_content_inventory(
         synthetic_repo: Path, repo_git):
     generated_paths = (
         "docs/audit/CHANGES.md",
@@ -66,21 +66,13 @@ def test_generated_audit_docs_do_not_depend_on_git_tracking_state(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("generated audit output\n", encoding="utf-8")
 
-    before = {
-        record["path"]: record
-        for record in _inventory.build_inventory(synthetic_repo)["docs"]
-        if record["path"] in generated_paths
-    }
+    before = {record["path"] for record in _inventory.build_inventory(synthetic_repo)["docs"]}
     repo_git(synthetic_repo, "add", "docs/audit")
     repo_git(synthetic_repo, "commit", "-m", "track generated audit docs")
-    after = {
-        record["path"]: record
-        for record in _inventory.build_inventory(synthetic_repo)["docs"]
-        if record["path"] in generated_paths
-    }
+    after = {record["path"] for record in _inventory.build_inventory(synthetic_repo)["docs"]}
 
     assert before == after
-    assert {record["last_touched"] for record in after.values()} == {"generated"}
+    assert not set(generated_paths).intersection(after)
 
 
 def test_excluded_dirs_skipped(synthetic_repo: Path):

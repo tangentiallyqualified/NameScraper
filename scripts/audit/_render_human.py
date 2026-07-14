@@ -305,18 +305,18 @@ def run(repo_root: Path, options) -> int:
 
     overview_path = maps_dir / "overview.md"
     existing = overview_path.read_text(encoding="utf-8") if overview_path.exists() else None
-    overview_path.write_text(
+    _artifacts.write_text_lf(
+        overview_path,
         replace_generated(existing, "overview", render_overview(repo_root, graph, metrics, analysis)),
-        encoding="utf-8",
     )
 
     packages = sorted({_package_of(p) for p in metrics["modules"]})
     for package in packages:
         path = maps_dir / f"{package}.md"
         existing = path.read_text(encoding="utf-8") if path.exists() else None
-        path.write_text(
+        _artifacts.write_text_lf(
+            path,
             replace_generated(existing, f"map-{package}", _render_package_map(package, graph, metrics)),
-            encoding="utf-8",
         )
     print(f"render-human: overview + {len(packages)} package maps under docs/audit/maps/")
     return 0

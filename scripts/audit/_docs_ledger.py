@@ -70,7 +70,7 @@ def run(repo_root: Path, options) -> int:
     report = staleness(repo_root, load_ledger(repo_root))
     out = repo_root / "docs" / "audit" / "doc-status.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(_render(repo_root, report, inventory), encoding="utf-8")
+    _artifacts.write_text_lf(out, _render(repo_root, report, inventory))
     stale = sum(1 for r in report if r["stale"])
     print(f"doc-ledger: {len(report)} enrolled, {stale} stale")
     return 0

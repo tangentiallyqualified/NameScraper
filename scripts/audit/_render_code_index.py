@@ -1,7 +1,8 @@
 """Stage 6a: tiered code index."""
 from __future__ import annotations
 
-import shutil
+import os
+import stat
 from pathlib import Path
 
 from . import _artifacts
@@ -182,9 +183,10 @@ def render(
             for sym in mod.get("symbols", []):
                 if not sym["public"]:
                     continue
-                line = f"- `{sym['signature']}`"
-                if sym["doc"]:
-                    line += f" \u2014 {sym['doc']}"
+                line = (
+                    f"- `{sym['signature']}` \u2014 "
+                    f"{sym['doc'] or '(no docstring)'}"
+                )
                 if sym["imported_by"]:
                     line += f" (used by: {', '.join(sym['imported_by'])})"
                 detail.append(line)
@@ -196,17 +198,77 @@ def render(
     return outputs
 
 
+def _entry_is_reparse(entry: os.DirEntry) -> bool:
+    is_junction = getattr(entry, "is_junction", None)
+    if is_junction is not None and is_junction():
+        return True
+    try:
+        attributes = getattr(entry.stat(follow_symlinks=False), "st_file_attributes", 0)
+    except OSError:
+        return True
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def _path_is_reparse(path: Path) -> bool:
+    is_junction = getattr(path, "is_junction", None)
+    if is_junction is not None and is_junction():
+        return True
+    try:
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def _remove_link_like(path: Path) -> None:
+    try:
+        path.unlink()
+    except (IsADirectoryError, PermissionError):
+        path.rmdir()
+
+
+def _remove_tree_without_following_links(root: Path) -> None:
+    with os.scandir(root) as entries:
+        for entry in entries:
+            path = Path(entry.path)
+            if entry.is_symlink() or _entry_is_reparse(entry):
+                _remove_link_like(path)
+            elif entry.is_dir(follow_symlinks=False):
+                _remove_tree_without_following_links(path)
+            else:
+                path.unlink()
+    root.rmdir()
+
+
+def _markdown_pages_without_following_links(root: Path):
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_symlink() or _entry_is_reparse(entry):
+                    continue
+                path = Path(entry.path)
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(path)
+                elif entry.is_file(follow_symlinks=False) and path.suffix == ".md":
+                    yield path
+
+
 def _remove_stale_outputs(repo_root: Path, outputs: dict[str, str]) -> None:
     """Remove only Markdown trees owned by this renderer."""
     audit_dir = repo_root / "docs" / "audit"
     legacy_dir = audit_dir / "llm"
-    if legacy_dir.exists():
-        shutil.rmtree(legacy_dir)
+    if legacy_dir.exists() or legacy_dir.is_symlink() or _path_is_reparse(legacy_dir):
+        if legacy_dir.is_symlink() or _path_is_reparse(legacy_dir):
+            _remove_link_like(legacy_dir)
+        else:
+            _remove_tree_without_following_links(legacy_dir)
 
     expected = {repo_root / rel for rel in outputs}
     code_index_dir = audit_dir / "code-index"
     if code_index_dir.exists():
-        for page in code_index_dir.rglob("*.md"):
+        for page in _markdown_pages_without_following_links(code_index_dir):
             if page not in expected:
                 page.unlink()
 
@@ -223,6 +285,6 @@ def run(repo_root: Path, options) -> int:
     for rel, content in outputs.items():
         target = repo_root / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        _artifacts.write_text_lf(target, content)
     print(f"render-code-index: {len(outputs)} files under docs/audit/code-index/")
     return 0

@@ -17,6 +17,9 @@ AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
     "scripts/test-fast.cmd",
     "scripts/test-fast.ps1",
     "tests/**/*.py",
+    "*.md",
+    "*.rst",
+    "*.txt",
     "pyproject.toml",
     "docs/audit/doc-ledger.toml",
 )
@@ -32,6 +35,15 @@ _EXCLUDED_INPUT_PARTS = {
     ".ruff_cache",
 }
 _DOC_LEDGER = "docs/audit/doc-ledger.toml"
+_GENERATED_AUDIT_FILES = {
+    "docs/audit/CHANGES.md",
+    "docs/audit/doc-status.md",
+}
+_GENERATED_AUDIT_PREFIXES = (
+    "docs/audit/code-index/",
+    "docs/audit/llm/",
+    "docs/audit/maps/",
+)
 
 # artifact name -> CLI stage that produces it
 PRODUCERS = {
@@ -62,7 +74,10 @@ def input_files(repo_root: Path) -> list[Path]:
             if any(part in _EXCLUDED_INPUT_PARTS for part in relative.parts):
                 continue
             relative_posix = relative.as_posix()
-            if relative.parts[:2] == ("docs", "audit") and relative_posix != _DOC_LEDGER:
+            if (
+                relative_posix in _GENERATED_AUDIT_FILES
+                or relative_posix.startswith(_GENERATED_AUDIT_PREFIXES)
+            ):
                 continue
             files[relative_posix] = path
     return [files[relative] for relative in sorted(files)]
@@ -77,6 +92,11 @@ def input_digest(repo_root: Path) -> str:
         digest.update(path.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def write_text_lf(path: Path, content: str) -> int:
+    """Write generated text as UTF-8 with platform-independent LF endings."""
+    return path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def audit_dir(repo_root: Path) -> Path:
@@ -103,7 +123,7 @@ def write_artifact(repo_root: Path, name: str, payload: dict) -> Path:
         "commit": current_commit(repo_root),
     }
     path = audit_dir(repo_root) / f"{name}.json"
-    path.write_text(json.dumps(stamped, indent=1, sort_keys=True), encoding="utf-8")
+    write_text_lf(path, json.dumps(stamped, indent=1, sort_keys=True))
     return path
 
 

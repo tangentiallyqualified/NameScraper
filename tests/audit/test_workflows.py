@@ -6,6 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 UPDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "audit-update.yml"
+AUDIT_CONSTRAINTS = REPO_ROOT / "scripts" / "audit" / "constraints.txt"
 
 
 def _job(workflow: str, name: str) -> str:
@@ -71,6 +72,7 @@ def test_pull_request_audit_job_creates_and_provisions_venv() -> None:
     assert "run: python -m venv .venv" in create_venv
     assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
     assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
+    assert r'-c scripts\audit\constraints.txt' in install
     assert (
         job.index("uses: actions/setup-python@v5")
         < job.index("python -m venv .venv")
@@ -129,6 +131,7 @@ def test_manual_audit_job_creates_and_provisions_venv() -> None:
     assert "run: python -m venv .venv" in create_venv
     assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
     assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
+    assert r'-c scripts\audit\constraints.txt' in install
     assert (
         job.index("uses: actions/setup-python@v5")
         < job.index("python -m venv .venv")
@@ -157,3 +160,18 @@ def test_audit_workflows_never_commit_or_push() -> None:
 
     assert "git commit" not in workflows
     assert "git push" not in workflows
+
+
+def test_audit_analyzer_constraints_are_exact() -> None:
+    constraints = {
+        line.strip()
+        for line in AUDIT_CONSTRAINTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+
+    assert constraints == {
+        "coverage==7.15.0",
+        "radon==6.0.1",
+        "ruff==0.15.21",
+        "vulture==2.16",
+    }

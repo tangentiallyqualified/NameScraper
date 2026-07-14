@@ -9,6 +9,36 @@ from pathlib import Path, PurePosixPath
 
 GENERATED_ROOT = Path("docs") / "audit"
 POLICY_INPUTS = {GENERATED_ROOT / "doc-ledger.toml"}
+_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+
+
+def _path_is_reparse(path: Path) -> bool:
+    is_junction = getattr(path, "is_junction", None)
+    if is_junction is not None and is_junction():
+        return True
+    try:
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & _REPARSE_POINT)
+
+
+def _entry_is_reparse(entry: os.DirEntry) -> bool:
+    is_junction = getattr(entry, "is_junction", None)
+    if is_junction is not None and is_junction():
+        return True
+    try:
+        attributes = getattr(entry.stat(follow_symlinks=False), "st_file_attributes", 0)
+    except OSError:
+        return True
+    return bool(attributes & _REPARSE_POINT)
+
+
+def _remove_link_like(path: Path) -> None:
+    try:
+        path.unlink()
+    except (IsADirectoryError, PermissionError):
+        path.rmdir()
 
 
 def _path_kind(path: Path) -> str:
@@ -18,6 +48,8 @@ def _path_kind(path: Path) -> str:
         return "missing"
     if stat.S_ISLNK(mode):
         return "symlink"
+    if _path_is_reparse(path):
+        return "reparse"
     if stat.S_ISDIR(mode):
         return "directory"
     if stat.S_ISREG(mode):
@@ -44,6 +76,8 @@ def _tree_entries(repo_root: Path) -> tuple[list[tuple[Path, str]], list[Path]]:
                     continue
                 if entry.is_symlink():
                     objects.append((path, "symlink"))
+                elif _entry_is_reparse(entry):
+                    objects.append((path, "reparse"))
                 elif entry.is_dir(follow_symlinks=False):
                     directories.append(path)
                     pending.append(path)
@@ -113,14 +147,17 @@ def restore_generated(repo_root: Path, snapshot: dict[str, bytes]) -> None:
     validated = _validated_snapshot(repo_root, snapshot)
     generated_root = repo_root / GENERATED_ROOT
     root_kind = _path_kind(generated_root)
-    if root_kind in {"file", "symlink", "other"}:
-        generated_root.unlink()
+    if root_kind in {"file", "symlink", "reparse", "other"}:
+        _remove_link_like(generated_root)
 
     objects, directories = _tree_entries(repo_root)
     for path, kind in objects:
         relative = path.relative_to(repo_root).as_posix()
         if kind != "file" or relative not in validated:
-            path.unlink()
+            if kind in {"symlink", "reparse"}:
+                _remove_link_like(path)
+            else:
+                path.unlink()
 
     for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
         try:

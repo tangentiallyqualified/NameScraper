@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import os
+import subprocess
 
 from audit import _verify
 
@@ -34,6 +36,18 @@ def _require_symlinks(tmp_path: Path) -> None:
         pytest.skip(f"symlink creation is unavailable on this platform: {exc}")
     else:
         probe.unlink()
+
+
+def _make_junction(link: Path, target: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("Windows junction regression")
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        pytest.skip(f"junction creation unavailable: {result.stderr or result.stdout}")
 
 
 def test_snapshot_excludes_policy_input(tmp_path: Path):
@@ -193,6 +207,21 @@ def test_verify_removes_new_broken_symlink_without_following_it(tmp_path: Path):
 
     assert not generated_link.is_symlink()
     assert not generated_link.exists()
+
+
+def test_verify_never_traverses_windows_junctions(tmp_path: Path):
+    _seed_generated_tree(tmp_path)
+    outside = tmp_path / "outside-junction-target"
+    outside.mkdir()
+    sentinel = outside / "sentinel.md"
+    sentinel.write_bytes(b"outside stays unchanged\n")
+    junction = tmp_path / "docs" / "audit" / "junction"
+    _make_junction(junction, outside)
+
+    result = _verify.verify(tmp_path, lambda: 0)
+
+    assert result == (0, [])
+    assert sentinel.read_bytes() == b"outside stays unchanged\n"
 
 
 @pytest.mark.parametrize(

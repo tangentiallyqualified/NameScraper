@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
-               _inventory, _metrics, _render_code_index, _render_human, _verify)
+               _inventory, _metrics, _render_code_index, _render_human,
+               _toolchain, _verify)
 
 HARD_STAGES = {"inventory", "graph"}
 
@@ -74,7 +75,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--verify", action="store_true",
                         help="Run the full pipeline and report generated drift without mutation.")
     parser.add_argument("--coverage-max-age", type=int, default=15,
-                        help="Commits before imported coverage counts as stale (default 15).")
+                        help=("Legacy compatibility option; digest-based coverage freshness "
+                              "ignores this value."))
     parser.add_argument("--repo-root", type=Path,
                         default=Path(__file__).resolve().parents[2],
                         help="Repo root override (used by tests).")
@@ -85,6 +87,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _run_pipeline(repo_root: Path, options: argparse.Namespace) -> int:
+    if not options.fast:
+        incompatibilities = _toolchain.validate(repo_root)
+        if incompatibilities:
+            for issue in incompatibilities:
+                print(_ascii(f"audit toolchain incompatible: {issue}"))
+            return 1
     if options.stage:
         selected = [(n, fn) for n, fn in STAGES if n == options.stage]
     elif options.fast:

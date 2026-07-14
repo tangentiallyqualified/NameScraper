@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import subprocess
+
+import pytest
 
 from audit import _graph, _inventory, _metrics, _render_code_index
 
@@ -37,6 +41,30 @@ def test_missing_docstring_marked(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "bare.py").write_text("X = 1\n", encoding="utf-8")
     out = _rendered(synthetic_repo)
     assert "(no docstring)" in out["docs/audit/code-index/INDEX.md"]
+
+
+def test_public_symbol_missing_docstring_is_marked(synthetic_repo: Path):
+    (synthetic_repo / "plex_renamer" / "bare.py").write_text(
+        "def public_api() -> None:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    out = _rendered(synthetic_repo)
+
+    detail = out["docs/audit/code-index/root.md"]
+    assert "`public_api() -> None` — (no docstring)" in detail
+
+
+def _make_junction(link: Path, target: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("Windows junction regression")
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        pytest.skip(f"junction creation unavailable: {result.stderr or result.stdout}")
 
 
 def test_input_digest_stamps_every_output(synthetic_repo: Path, monkeypatch):
@@ -152,6 +180,31 @@ def test_run_removes_stale_owned_outputs_and_preserves_unrelated_audit_files(
     assert not stale_page.exists()
     assert renderer_unowned.read_bytes() == b"{\"preserve\": true}\n"
     assert unrelated.read_bytes() == b"keep these bytes: \\x00\\xff\n"
+
+
+def test_stale_cleanup_never_descends_into_windows_junctions(synthetic_repo: Path):
+    from audit import _artifacts
+
+    for stage in (_inventory, _graph):
+        stage.run(synthetic_repo, None)
+    _artifacts.write_artifact(
+        synthetic_repo, "analysis", {"findings": [], "per_file": {}, "tool_status": {}}
+    )
+    _artifacts.write_artifact(synthetic_repo, "coverage", {"available": False, "modules": {}})
+    _metrics.run(synthetic_repo, None)
+    outside = synthetic_repo / "outside-code-index"
+    outside.mkdir()
+    sentinel = outside / "obsolete.md"
+    sentinel.write_bytes(b"outside sentinel\n")
+    code_index = synthetic_repo / "docs" / "audit" / "code-index"
+    code_index.mkdir(parents=True)
+    junction = code_index / "outside"
+    _make_junction(junction, outside)
+
+    assert _render_code_index.run(synthetic_repo, None) == 0
+
+    assert sentinel.read_bytes() == b"outside sentinel\n"
+    assert junction.exists()
 
 
 def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):

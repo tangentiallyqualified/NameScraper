@@ -345,11 +345,13 @@ def run(repo_root: Path, options) -> int:
         "",
     ])
     changes_path.parent.mkdir(parents=True, exist_ok=True)
-    changes_path.write_text(body, encoding="utf-8")
+    _artifacts.write_text_lf(changes_path, body)
 
     new_baseline = _baseline_snapshot(metrics, docs)
     new_baseline["previous_baseline"] = previous
-    baseline_path.write_text(json.dumps(new_baseline, indent=1, sort_keys=True), encoding="utf-8")
+    _artifacts.write_text_lf(
+        baseline_path, json.dumps(new_baseline, indent=1, sort_keys=True)
+    )
     n = len(result["movements"])
     print(f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed")
     return 0

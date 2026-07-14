@@ -1,4 +1,4 @@
-<!-- Generated from audit input 4f5e893fb7eb; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 4d60130303d6; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -10,103 +10,103 @@
 - Tests: tests/test_queue_output_targets.py
 
 ### `plex_renamer/app/controllers/_controller_event_helpers.py` — Helpers for controller listeners, progress, and runtime settings.
-- `add_controller_listener(listeners, on_library_changed, on_progress, on_scan_complete, on_mode_changed) -> int` (used by: plex_renamer.app.controllers.media_controller)
-- `notify_controller_listeners(listeners, event, *args) -> None` (used by: plex_renamer.app.controllers.media_controller)
-- `build_scan_progress(lifecycle, *, phase, done, total, current_item, message) -> ScanProgress` (used by: plex_renamer.app.controllers._scan_operation_helpers)
-- `apply_runtime_settings_to_states(auto_accept_threshold, episode_auto_accept_threshold, states) -> None` (used by: plex_renamer.app.controllers.media_controller)
+- `add_controller_listener(listeners, on_library_changed, on_progress, on_scan_complete, on_mode_changed) -> int` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `notify_controller_listeners(listeners, event, *args) -> None` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `build_scan_progress(lifecycle, *, phase, done, total, current_item, message) -> ScanProgress` — (no docstring) (used by: plex_renamer.app.controllers._scan_operation_helpers)
+- `apply_runtime_settings_to_states(auto_accept_threshold, episode_auto_accept_threshold, states) -> None` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_lifecycle_workflow.py` — Scan lifecycle coordination for MediaController.
-- `MediaControllerLifecycleWorkflow` (used by: plex_renamer.app.controllers.media_controller)
+- `MediaControllerLifecycleWorkflow` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_match_helpers.py` — Helpers for controller-owned match mutation workflows.
-- `approve_controller_match(controller, state) -> None` (used by: plex_renamer.app.controllers.media_controller)
-- `assign_controller_season(controller, state, season_num) -> ScanState` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `rematch_controller_tv_state(controller, state, new_match, *, tmdb, best_tv_match_title, extract_year, score_tv_results, score_results, pick_alternate_matches) -> ScanState` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `rematch_controller_movie_state(controller, state, new_match, *, clean_folder_name, extract_year, score_results) -> None` (used by: plex_renamer.app.controllers._controller_movie_workflows)
-- `routed_library_states(controller) -> list[ScanState]`
+- `approve_controller_match(controller, state) -> None` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `assign_controller_season(controller, state, season_num) -> ScanState` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `rematch_controller_tv_state(controller, state, new_match, *, tmdb, best_tv_match_title, extract_year, score_tv_results, score_results, pick_alternate_matches) -> ScanState` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `rematch_controller_movie_state(controller, state, new_match, *, clean_folder_name, extract_year, score_results) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
+- `routed_library_states(controller) -> list[ScanState]` — (no docstring)
 
 ### `plex_renamer/app/controllers/_controller_movie_workflows.py` — Movie-specific workflow routing for MediaController.
-- `MediaControllerMovieWorkflow` (used by: plex_renamer.app.controllers.media_controller)
+- `MediaControllerMovieWorkflow` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_projection_workflow.py` — Completed-job projection and queued-state sync for MediaController.
-- `MediaControllerProjectionWorkflow` (used by: plex_renamer.app.controllers.media_controller)
+- `MediaControllerProjectionWorkflow` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_session_models.py` — Private state containers for MediaController session ownership.
-- `ControllerModeState` (used by: plex_renamer.app.controllers.media_controller)
-- `TVControllerSession` (used by: plex_renamer.app.controllers.media_controller)
-- `MovieControllerSession` (used by: plex_renamer.app.controllers.media_controller)
+- `ControllerModeState` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `TVControllerSession` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `MovieControllerSession` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_state_helpers.py` — Helpers for controller-owned session routing and selection state.
-- `routed_library_states(controller) -> list[ScanState]` (used by: plex_renamer.app.controllers.media_controller)
-- `accept_tv_show_session(controller, folder, tmdb, show_info, *, scanner_factory) -> ScanState` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `select_library_show(controller, index) -> ScanState | None` (used by: plex_renamer.app.controllers.media_controller)
+- `routed_library_states(controller) -> list[ScanState]` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
+- `accept_tv_show_session(controller, folder, tmdb, show_info, *, scanner_factory) -> ScanState` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `select_library_show(controller, index) -> ScanState | None` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_controller_tv_workflows.py` — TV-specific workflow routing for MediaController.
-- `MediaControllerTVWorkflow` (used by: plex_renamer.app.controllers.media_controller)
+- `MediaControllerTVWorkflow` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 
 ### `plex_renamer/app/controllers/_job_projection_helpers.py` — Helpers for completed-job projection and queued-state syncing.
-- `CompletedJobProjection`
-- `apply_completed_job_projection(job, states, movie_preview_items) -> CompletedJobProjection` (used by: plex_renamer.app.controllers._controller_projection_workflow)
-- `sync_queued_state_flags(queue_jobs, tv_states, movie_states) -> None` (used by: plex_renamer.app.controllers._controller_projection_workflow)
+- `CompletedJobProjection` — (no docstring)
+- `apply_completed_job_projection(job, states, movie_preview_items) -> CompletedJobProjection` — (no docstring) (used by: plex_renamer.app.controllers._controller_projection_workflow)
+- `sync_queued_state_flags(queue_jobs, tv_states, movie_states) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_projection_workflow)
 
 ### `plex_renamer/app/controllers/_match_state_helpers.py` — Helpers for approve, season assignment, and rematch state transitions.
-- `SeasonAssignmentResult`
-- `TVRematchResult`
-- `MovieRematchResult`
-- `approve_scan_match(state, *, resolve_movie_preview_review, set_actionable_preview_checks) -> bool` (used by: plex_renamer.app.controllers._controller_match_helpers)
-- `assign_state_season(state, season_num, *, batch_states, batch_orchestrator, movie_library_states, apply_movie_duplicate_labels) -> SeasonAssignmentResult` (used by: plex_renamer.app.controllers._controller_match_helpers)
-- `rematch_tv_scan_state(state, new_match, *, batch_states, batch_orchestrator, tmdb, best_tv_match_title, extract_year, score_tv_results, score_results, pick_alternate_matches) -> TVRematchResult` (used by: plex_renamer.app.controllers._controller_match_helpers)
-- `rematch_movie_scan_state(state, new_match, *, movie_preview_items, movie_scanner, clean_folder_name, extract_year, score_results) -> MovieRematchResult` (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `SeasonAssignmentResult` — (no docstring)
+- `TVRematchResult` — (no docstring)
+- `MovieRematchResult` — (no docstring)
+- `approve_scan_match(state, *, resolve_movie_preview_review, set_actionable_preview_checks) -> bool` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `assign_state_season(state, season_num, *, batch_states, batch_orchestrator, movie_library_states, apply_movie_duplicate_labels) -> SeasonAssignmentResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `rematch_tv_scan_state(state, new_match, *, batch_states, batch_orchestrator, tmdb, best_tv_match_title, extract_year, score_tv_results, score_results, pick_alternate_matches) -> TVRematchResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `rematch_movie_scan_state(state, new_match, *, movie_preview_items, movie_scanner, clean_folder_name, extract_year, score_results) -> MovieRematchResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
 
 ### `plex_renamer/app/controllers/_movie_batch_helpers.py` — Helpers for movie batch scanning workflows.
-- `start_movie_batch_session(controller, folder, tmdb, scanner_factory) -> None` (used by: plex_renamer.app.controllers._controller_movie_workflows)
+- `start_movie_batch_session(controller, folder, tmdb, scanner_factory) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
 - `retarget_movie_items_to_output(items, output_root) -> None` — Retarget actionable movie preview items into the configured output root. (used by: plex_renamer.app.controllers._controller_match_helpers)
 - Tests: tests/test_media_controller.py
 
 ### `plex_renamer/app/controllers/_movie_state_helpers.py` — Helpers for building and updating movie scan-state rows.
-- `build_movie_library_states(items, scanner, movie_folder) -> list[ScanState]` (used by: plex_renamer.app.controllers._controller_movie_workflows)
-- `apply_movie_duplicate_labels(states, movie_folder) -> None` (used by: plex_renamer.app.controllers._controller_match_helpers)
-- `movie_state_relative_folder(state, movie_folder) -> str`
-- `set_actionable_preview_checks(state, checked) -> None` (used by: plex_renamer.app.controllers._controller_match_helpers)
-- `resolve_movie_preview_review(state, preview_items) -> None` (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `build_movie_library_states(items, scanner, movie_folder) -> list[ScanState]` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
+- `apply_movie_duplicate_labels(states, movie_folder) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `movie_state_relative_folder(state, movie_folder) -> str` — (no docstring)
+- `set_actionable_preview_checks(state, checked) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- `resolve_movie_preview_review(state, preview_items) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
 
 ### `plex_renamer/app/controllers/_queue_history_helpers.py` — Helpers for queue history, undo, and poster backfill behavior.
-- `revert_queue_job(job_store, job_id, *, revert_runner) -> tuple[bool, list[str]]` (used by: plex_renamer.app.controllers.queue_controller)
-- `backfill_missing_queue_job_poster_paths(job_store, tmdb) -> int` (used by: plex_renamer.app.controllers.queue_controller)
-- `close_queue_resources(executor, job_store) -> None` (used by: plex_renamer.app.controllers.queue_controller)
+- `revert_queue_job(job_store, job_id, *, revert_runner) -> tuple[bool, list[str]]` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `backfill_missing_queue_job_poster_paths(job_store, tmdb) -> int` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `close_queue_resources(executor, job_store) -> None` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
 
 ### `plex_renamer/app/controllers/_queue_submission_helpers.py` — Helpers for queue job creation and batch submission.
 - `BatchQueueResult` — Summary of a batch queue submission. (used by: plex_renamer.app.controllers.queue_controller)
-- `add_single_queue_job(job_store, *, items, checked_indices, media_type, tmdb_id, media_name, library_root, output_root, source_folder, show_folder_rename, poster_path, settings_service, tmdb_client) -> RenameJob` (used by: plex_renamer.app.controllers.queue_controller)
-- `add_tv_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` (used by: plex_renamer.app.controllers.queue_controller)
-- `add_movie_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` (used by: plex_renamer.app.controllers.queue_controller)
+- `add_single_queue_job(job_store, *, items, checked_indices, media_type, tmdb_id, media_name, library_root, output_root, source_folder, show_folder_rename, poster_path, settings_service, tmdb_client) -> RenameJob` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `add_tv_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `add_movie_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
 - Tests: tests/test_queue_metadata_wiring.py, tests/test_queue_submission_automux.py
 
 ### `plex_renamer/app/controllers/_scan_operation_helpers.py` — Helpers for controller scan progress and cancellation state.
 - `ScanOperationTracker` — Own the active scan cancellation token and its synchronization. (used by: plex_renamer.app.controllers._controller_lifecycle_workflow)
-- `update_scan_progress(notify, lifecycle, *, phase, done, total, current_item, message) -> ScanProgress` (used by: plex_renamer.app.controllers._controller_lifecycle_workflow)
+- `update_scan_progress(notify, lifecycle, *, phase, done, total, current_item, message) -> ScanProgress` — (no docstring) (used by: plex_renamer.app.controllers._controller_lifecycle_workflow)
 
 ### `plex_renamer/app/controllers/_single_show_scan_helpers.py` — Helpers for single-show TV scan workflows.
-- `start_single_show_scan(controller, state, tmdb, *, scanner_factory, duplicate_checker) -> None` (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `start_single_show_scan(controller, state, tmdb, *, scanner_factory, duplicate_checker) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
 
 ### `plex_renamer/app/controllers/_tab_session_helpers.py` — Helpers for in-memory TV and movie tab session snapshots.
-- `TVTabSnapshot`
-- `MovieTabSnapshot`
-- `snapshot_tv_session(batch_mode, batch_states, active_scan, batch_orchestrator, tv_root_folder, library_selected_index) -> TVTabSnapshot` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `restore_tv_session(controller, snapshot) -> None` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `snapshot_movie_session(movie_library_states, movie_preview_items, movie_scanner, movie_folder, movie_media_info, library_selected_index) -> MovieTabSnapshot` (used by: plex_renamer.app.controllers._controller_movie_workflows)
-- `restore_movie_session(controller, snapshot) -> None` (used by: plex_renamer.app.controllers._controller_movie_workflows)
+- `TVTabSnapshot` — (no docstring)
+- `MovieTabSnapshot` — (no docstring)
+- `snapshot_tv_session(batch_mode, batch_states, active_scan, batch_orchestrator, tv_root_folder, library_selected_index) -> TVTabSnapshot` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `restore_tv_session(controller, snapshot) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `snapshot_movie_session(movie_library_states, movie_preview_items, movie_scanner, movie_folder, movie_media_info, library_selected_index) -> MovieTabSnapshot` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
+- `restore_movie_session(controller, snapshot) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
 
 ### `plex_renamer/app/controllers/_tv_batch_helpers.py` — Helpers for TV batch discovery and bulk episode scans.
-- `start_tv_batch_session(controller, folder, tmdb, discovery_service) -> None` (used by: plex_renamer.app.controllers._controller_tv_workflows)
-- `scan_all_tv_batch_shows(controller) -> None` (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `start_tv_batch_session(controller, folder, tmdb, discovery_service) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `scan_all_tv_batch_shows(controller) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
 - `retarget_tv_state_to_output(state, output_root) -> None` — Retarget actionable TV preview items into the configured output root. (used by: plex_renamer.app.controllers._controller_match_helpers, plex_renamer.app.controllers._single_show_scan_helpers)
 - Tests: tests/test_media_controller.py
 
 ### `plex_renamer/app/controllers/_tv_state_helpers.py` — Helpers for TV scan-state setup and execution.
-- `build_accepted_tv_state(folder, tmdb, show_info, scanner_factory) -> ScanState` (used by: plex_renamer.app.controllers._controller_state_helpers)
-- `ensure_tv_scanner(state, tmdb, scanner_factory)` (used by: plex_renamer.app.controllers._single_show_scan_helpers)
-- `run_tv_scan(state, tmdb, scanner_factory, duplicate_checker) -> None` (used by: plex_renamer.app.controllers._single_show_scan_helpers)
+- `build_accepted_tv_state(folder, tmdb, show_info, scanner_factory) -> ScanState` — (no docstring) (used by: plex_renamer.app.controllers._controller_state_helpers)
+- `ensure_tv_scanner(state, tmdb, scanner_factory)` — (no docstring) (used by: plex_renamer.app.controllers._single_show_scan_helpers)
+- `run_tv_scan(state, tmdb, scanner_factory, duplicate_checker) -> None` — (no docstring) (used by: plex_renamer.app.controllers._single_show_scan_helpers)
 
 ### `plex_renamer/app/controllers/media_controller.py` — UI-neutral orchestration of TV and movie scanning sessions.
 - `MediaController` — UI-neutral orchestration of TV and movie scanning sessions. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
@@ -129,11 +129,11 @@
 - `CacheEntry` — A persisted cache entry with freshness and eviction metadata. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.cache_service)
 - `CacheLookup` — Result of a cache lookup with the resolved freshness state. (used by: plex_renamer.app, plex_renamer.app.models, plex_renamer.app.services.cache_service)
 - `QueueEligibility` — Queue gating result for a single item set or scan state. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.app.models, plex_renamer.app.services.command_gating_service)
-- `EpisodeGuideSummary` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
-- `EpisodeGuideRow` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.gui_qt.widgets._episode_expansion, plex_renamer.gui_qt.widgets._episode_table_model)
-- `UnmappedFileRow` (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
+- `EpisodeGuideSummary` — (no docstring) (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
+- `EpisodeGuideRow` — (no docstring) (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.gui_qt.widgets._episode_expansion, plex_renamer.gui_qt.widgets._episode_table_model)
+- `UnmappedFileRow` — (no docstring) (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service)
 - `EpisodeSlotChoice` — One pickable episode slot for the assignment dialog. (used by: plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.gui_qt.widgets.episode_assign_dialog)
-- `EpisodeGuide` (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model)
+- `EpisodeGuide` — (no docstring) (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.models, plex_renamer.app.services.episode_mapping_service, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model)
 - `TVDiscoveryCandidate` — A discovered TV show root found during recursive library traversal. (used by: plex_renamer.app.models, plex_renamer.app.services.tv_library_discovery_service)
 - `MovieDirectoryRole` — Directory classification used during nested batch-movie discovery. (used by: plex_renamer.app.models, plex_renamer.app.services._movie_library_classification, plex_renamer.app.services.movie_library_discovery_service)
 - `MovieDiscoveryCandidate` — A discovered movie root or multi-movie folder found during recursive library traversal. (used by: plex_renamer.app.models, plex_renamer.app.services.movie_library_discovery_service)
@@ -143,28 +143,28 @@
 - Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery.
-- `DirChild`
-- `ClassifiedDirectory` (used by: plex_renamer.app.services.movie_library_discovery_service)
+- `DirChild` — (no docstring)
+- `ClassifiedDirectory` — (no docstring) (used by: plex_renamer.app.services.movie_library_discovery_service)
 - `MovieDirectoryClassifier` — Encapsulate movie folder classification heuristics. (used by: plex_renamer.app.services.movie_library_discovery_service)
 
 ### `plex_renamer/app/services/_settings_schema.py` — Schema, defaults, and validation helpers for SettingsService.
-- `build_valid_settings_data(stored, *, logger) -> dict[str, object]` (used by: plex_renamer.app.services.settings_service)
+- `build_valid_settings_data(stored, *, logger) -> dict[str, object]` — (no docstring) (used by: plex_renamer.app.services.settings_service)
 - Tests: tests/test_settings_metadata_keys.py
 
 ### `plex_renamer/app/services/_tv_library_classification.py` — Folder-classification helpers for recursive TV library discovery.
-- `DirChild`
-- `ClassifiedDirectory` (used by: plex_renamer.app.services.tv_library_discovery_service)
+- `DirChild` — (no docstring)
+- `ClassifiedDirectory` — (no docstring) (used by: plex_renamer.app.services.tv_library_discovery_service)
 - `TVDirectoryClassifier` — Encapsulate TV folder classification heuristics. (used by: plex_renamer.app.services.tv_library_discovery_service)
 
 ### `plex_renamer/app/services/automux_service.py` — Session-scoped AutoMux planning: probe files and attach mux plans.
-- `mux_settings_from_service(svc) -> MuxSettings`
-- `resolve_mkvmerge(svc) -> Path | None`
+- `mux_settings_from_service(svc) -> MuxSettings` — (no docstring)
+- `resolve_mkvmerge(svc) -> Path | None` — (no docstring)
 - `automux_active(svc) -> bool` — AutoMux UI exists only when a toggle is on AND mkvmerge resolves (used by: plex_renamer.app.controllers._queue_submission_helpers)
 - `companion_subs_for_item(item, source_root) -> list[tuple[str, str]]` — (source_relative, raw_lang_tag) pairs for the item's subtitle
 - `plan_for_item(state, index, *, probe, settings, mkvmerge_path, source_root) -> dict | None` — Serialized MuxPlan for one preview item, or None when no remux.
 - `ensure_state_plans(state, svc, source_root, *, prober, only_index) -> None` — Probe + plan actionable preview items, storing results on *state*. (used by: plex_renamer.app.controllers._queue_submission_helpers)
 - `item_mux_probe_eligible(item) -> bool` — Probe-eligible even when the name is already correct (round6 §1):
-- `state_has_mux_actions(state) -> bool` (used by: plex_renamer.gui_qt.widgets._roster_model)
+- `state_has_mux_actions(state) -> bool` — (no docstring) (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `state_mux_eligible(state) -> bool` — True when any cached plan carries actions, regardless of the
 - `effective_mux_plans(state) -> dict[int, dict] | None` — Plans to bake into a queue job — None when AutoMux contributes (used by: plex_renamer.app.controllers._queue_submission_helpers)
 - Tests: tests/test_automux_service.py
@@ -182,7 +182,7 @@
 - Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py
 
 ### `plex_renamer/app/services/episode_projection_cache.py` — Cache scan-time TV episode-guide projections for batch UI rendering.
-- `EpisodeProjectionCacheService` (used by: plex_renamer.app.controllers.media_controller)
+- `EpisodeProjectionCacheService` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
 - Tests: tests/test_episode_projection_cache.py, tests/test_qt_async_guide.py, tests/test_qt_perf_guards.py
 
 ### `plex_renamer/app/services/metadata_service.py` — Metadata/artwork export planning (spec: local-metadata-artwork).
@@ -201,13 +201,13 @@
 ### `plex_renamer/app/services/output_destination_service.py` — Validation helpers for user-configured output destinations.
 - `output_path_risks_long_paths(root, *, reserve) -> bool` — True when *root* is long enough that a generated rename path could
 - `long_path_warning_text(root) -> str` — User-facing, non-blocking warning for *root*, or "" if not at risk. (used by: plex_renamer.gui_qt.widgets._settings_tab_state)
-- `OutputDestinationStatus` (used by: plex_renamer.app.services.settings_service)
+- `OutputDestinationStatus` — (no docstring) (used by: plex_renamer.app.services.settings_service)
 - `validate_output_folder(path_value) -> OutputDestinationStatus` — Validate that *path_value* names an existing directory. (used by: plex_renamer.app.services.settings_service)
 - `validate_scan_output_relationship(source_folder, output_folder) -> OutputDestinationStatus` — Validate that output is not the selected scan source or nested under it. (used by: plex_renamer.app.services.settings_service)
 - Tests: tests/test_output_destination_service.py
 
 ### `plex_renamer/app/services/refresh_policy_service.py` — Refresh policy rules for metadata TTLs, cooldowns, and rescan scope.
-- `ManualRefreshDecision`
+- `ManualRefreshDecision` — (no docstring)
 - `RefreshPolicyService` — Central refresh policy rules, independent of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.cache_service, plex_renamer.gui_qt.main_window)
 - Tests: tests/test_cache_service.py, tests/test_media_controller.py, tests/test_refresh_policy_service.py, tests/test_tmdb.py
 

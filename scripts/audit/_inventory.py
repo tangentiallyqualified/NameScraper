@@ -129,7 +129,8 @@ def build_inventory(repo_root: Path) -> dict:
                     "imports_symbols": imports_symbols,
                 })
             elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
-                docs.append(_doc_record(repo_root, path, rel))
+                if not _is_generated_audit_doc(rel):
+                    docs.append(_doc_record(repo_root, path, rel))
             elif top == "scripts":
                 scripts.append({"path": posix})
         except OSError:

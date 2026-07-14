@@ -67,14 +67,14 @@ def test_check_current_baseline(synthetic_repo: Path, capsys):
     assert "current" in capsys.readouterr().out
 
 
-def test_check_ignores_dirty_unenrolled_doc(synthetic_repo: Path, capsys):
+def test_check_reports_stale_when_inventoried_doc_changes(synthetic_repo: Path, capsys):
     _write_baseline(synthetic_repo, {
         "input_digest": _artifacts.input_digest(synthetic_repo),
     })
     (synthetic_repo / "README.md").write_text("# dirty only\n", encoding="utf-8")
 
     assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    assert "baseline current" in capsys.readouterr().out
+    assert "baseline stale" in capsys.readouterr().out
 
 
 def test_check_legacy_baseline_requests_regeneration(synthetic_repo: Path, capsys):
@@ -170,6 +170,70 @@ def test_verify_returns_pipeline_failure_after_restoration(synthetic_repo: Path,
 
     assert cli.main(["--verify", "--repo-root", str(synthetic_repo)]) == 2
     assert baseline.read_bytes() == b"original\n"
+
+
+def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
+    synthetic_repo: Path, monkeypatch, capsys
+):
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    generated = synthetic_repo / "docs" / "audit"
+    seeded = {
+        path.relative_to(synthetic_repo).as_posix(): path.read_bytes()
+        for path in generated.rglob("*")
+        if path.is_file() and path.name != "doc-ledger.toml"
+    }
+    assert seeded
+    for relative, content in seeded.items():
+        normalized = content.replace(b"\r\n", b"\n")
+        (synthetic_repo / relative).write_bytes(normalized)
+        seeded[relative] = normalized
+    assert all(b"\r\n" not in content for content in seeded.values())
+    original_write_text = Path.write_text
+
+    def windows_default_write_text(
+        path: Path,
+        data: str,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> int:
+        if newline is None:
+            data = data.replace("\r\n", "\n").replace("\n", "\r\n")
+        return original_write_text(
+            path, data, encoding=encoding, errors=errors, newline=""
+        )
+
+    monkeypatch.setattr(Path, "write_text", windows_default_write_text)
+
+    assert cli.main(["--verify", "--repo-root", str(synthetic_repo)]) in (0, 2)
+    assert "audit generated output is current" in capsys.readouterr().out
+    assert {
+        path.relative_to(synthetic_repo).as_posix(): path.read_bytes()
+        for path in generated.rglob("*")
+        if path.is_file() and path.name != "doc-ledger.toml"
+    } == seeded
+
+
+def test_one_generation_after_module_rename_is_immediately_verifiable(
+    synthetic_repo: Path, capsys
+):
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    (synthetic_repo / "plex_renamer" / "alpha.py").rename(
+        synthetic_repo / "plex_renamer" / "renamed.py"
+    )
+
+    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
+    assert cli.main(["--verify", "--repo-root", str(synthetic_repo)]) in (0, 2)
+
+    assert "audit generated output is current" in capsys.readouterr().out
+
+
+def test_coverage_max_age_help_marks_option_as_legacy(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--help"])
+
+    assert exc_info.value.code == 0
+    assert "legacy compatibility" in capsys.readouterr().out.lower()
 
 
 @pytest.mark.parametrize("other", ["--fast", "--check", "inventory"])

@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           .venv\Scripts\python.exe -m pip install --upgrade pip
-          .venv\Scripts\python.exe -m pip install -e ".[dev]"
+          .venv\Scripts\python.exe -m pip install -e ".[dev]" -c scripts\audit\constraints.txt
 
       - name: Verify generated audit docs
         shell: pwsh
