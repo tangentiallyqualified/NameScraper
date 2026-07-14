@@ -242,11 +242,8 @@ git commit -m "feat(audit): verify generated output without mutation"
 - Rename: `scripts/audit/_render_llm.py` to `scripts/audit/_render_code_index.py`
 - Rename: `tests/audit/test_render_llm.py` to `tests/audit/test_render_code_index.py`
 - Modify: `scripts/audit/__main__.py`
+- Modify: `tests/audit/test_cli.py`
 - Modify: `tests/audit/test_render_extensions.py`
-- Modify: `CLAUDE.md`
-- Modify: `docs/audit/maps/overview.md` only through audit regeneration
-- Remove generated: `docs/audit/llm/*.md`
-- Create generated: `docs/audit/code-index/*.md`
 
 **Interfaces:**
 - Generated root: `docs/audit/code-index/`.
@@ -268,6 +265,8 @@ Expected: old `llm` paths/titles fail.
 
 Keep the rendering algorithm unchanged. Do not introduce summary generation;
 continue reading `mod["doc"]` and symbol docstrings only.
+Do not regenerate committed audit output in this task; Task 6 owns removing
+`docs/audit/llm/` and creating `docs/audit/code-index/`.
 
 - [ ] **Step 4: Run focused tests and confirm GREEN**
 
@@ -278,7 +277,7 @@ Expected: all focused tests pass.
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add scripts/audit tests/audit CLAUDE.md
+git add scripts/audit tests/audit
 git commit -m "refactor(audit): rename LLM index as code index"
 ```
 
