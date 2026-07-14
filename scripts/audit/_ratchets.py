@@ -2,105 +2,28 @@
 
 from __future__ import annotations
 
-import ast
 import json
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
-from . import _analyze, _graph, _inventory
+from . import _analyze, _graph, _inventory, _ratchet_identity
 
 _POLICY = tomllib.loads((Path(__file__).parent / "policy.toml").read_text(encoding="utf-8"))
 MAX_CYCLOMATIC_COMPLEXITY = _POLICY["quality"]["max_cyclomatic_complexity"]
 MAX_PYTHON_FILE_LOC = _POLICY["quality"]["max_python_file_loc"]
+_QUALITY_PYTHON_ROOTS = {"plex_renamer", "scripts", "tests"}
+_METRIC_THRESHOLDS = {
+    "max_complexity": MAX_CYCLOMATIC_COMPLEXITY,
+    "loc": MAX_PYTHON_FILE_LOC,
+}
 
 Finding = dict[str, object]
 
 
 class QualityEvidenceError(RuntimeError):
     """Raised when complete quality evidence cannot be collected."""
-
-
-_SCOPE_NODES = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-
-
-def _module_qualifier(path: str) -> str:
-    parts = list(Path(path).with_suffix("").parts)
-    if parts and parts[-1] == "__init__":
-        parts.pop()
-    return ".".join(parts) or Path(path).stem
-
-
-def _scope_entries(repo_root: Path, path: str) -> list[tuple[int, int, int, str]]:
-    module = _module_qualifier(path)
-    try:
-        tree = ast.parse((repo_root / path).read_text(encoding="utf-8", errors="replace"))
-    except (OSError, SyntaxError):
-        return []
-
-    entries: list[tuple[int, int, int, str]] = []
-
-    def visit(node: ast.AST, qualifier: str, depth: int) -> None:
-        for child in ast.iter_child_nodes(node):
-            child_qualifier = qualifier
-            child_depth = depth
-            if isinstance(child, _SCOPE_NODES):
-                child_qualifier = f"{qualifier}.{child.name}"
-                child_depth = depth + 1
-                entries.append(
-                    (
-                        child.lineno,
-                        getattr(child, "end_lineno", child.lineno),
-                        child_depth,
-                        child_qualifier,
-                    )
-                )
-            visit(child, child_qualifier, child_depth)
-
-    visit(tree, module, 0)
-    return entries
-
-
-def _qualified_scope(
-    repo_root: Path,
-    path: str,
-    line: int,
-    cache: dict[str, list[tuple[int, int, int, str]]],
-) -> str:
-    if path not in cache:
-        cache[path] = _scope_entries(repo_root, path)
-    candidates = [entry for entry in cache[path] if entry[0] <= line <= entry[1]]
-    if not candidates:
-        return _module_qualifier(path)
-    return max(candidates, key=lambda entry: (entry[2], entry[0], -entry[1]))[3]
-
-
-def _suffix_occurrences(findings: list[dict]) -> list[dict]:
-    groups: dict[tuple[str, str, str, str], list[dict]] = {}
-    for finding in findings:
-        key = (
-            str(finding.get("source") or finding.get("analyzer") or "unknown"),
-            str(finding.get("rule") or "unknown"),
-            str(finding.get("path") or "").replace("\\", "/"),
-            str(finding.get("symbol") or "unknown"),
-        )
-        groups.setdefault(key, []).append(finding)
-
-    qualified: list[dict] = []
-    for key in sorted(groups):
-        _analyzer, _rule, _path, base_symbol = key
-        ordered = sorted(
-            groups[key],
-            key=lambda finding: (
-                int(finding.get("line") or 0),
-                int(finding.get("column") or 0),
-                str(finding.get("message") or ""),
-            ),
-        )
-        for occurrence, finding in enumerate(ordered, 1):
-            qualified.append({**finding, "symbol": f"{base_symbol}#{occurrence}"})
-    return qualified
 
 
 def _identity(finding: dict) -> tuple[str, str, str, str | None]:
@@ -129,15 +52,11 @@ def build_baseline(current: dict) -> dict:
         }
         for analyzer, rule, path, symbol in sorted(identities, key=_identity_sort_key)
     ]
-    thresholds = {
-        "max_complexity": MAX_CYCLOMATIC_COMPLEXITY,
-        "loc": MAX_PYTHON_FILE_LOC,
-    }
     ceilings: dict[str, dict[str, int]] = {}
     for path, metrics in sorted(current.get("modules", {}).items()):
         saved = {
             metric: value
-            for metric, threshold in thresholds.items()
+            for metric, threshold in _METRIC_THRESHOLDS.items()
             if isinstance((value := metrics.get(metric)), int) and value > threshold
         }
         if saved:
@@ -210,8 +129,7 @@ def _normalized_metric_map(records: dict) -> dict[str, dict]:
     return normalized
 
 
-def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
-    """Return deterministic ratchet violations between current and baseline evidence."""
+def _finding_ratchet_violations(current: dict, baseline: dict) -> list[Finding]:
     current_findings = {_identity(finding) for finding in current.get("findings", [])}
     baseline_findings = {_identity(finding) for finding in baseline.get("findings", [])}
     violations = [
@@ -222,15 +140,16 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
         _finding_violation(identity, "stale-baseline")
         for identity in sorted(baseline_findings - current_findings, key=_identity_sort_key)
     )
-    current_modules = _normalized_metric_map(current.get("modules", {}))
-    baseline_ceilings = _normalized_metric_map(baseline.get("ceilings", {}))
-    thresholds = {
-        "max_complexity": MAX_CYCLOMATIC_COMPLEXITY,
-        "loc": MAX_PYTHON_FILE_LOC,
-    }
+    return violations
+
+
+def _new_metric_violations(
+    current_modules: dict[str, dict], baseline_ceilings: dict[str, dict]
+) -> list[Finding]:
+    violations = []
     for path, metrics in current_modules.items():
         ceilings = baseline_ceilings.get(path, {})
-        for metric, threshold in thresholds.items():
+        for metric, threshold in _METRIC_THRESHOLDS.items():
             current_value = metrics.get(metric)
             if not isinstance(current_value, int) or current_value <= threshold:
                 continue
@@ -241,21 +160,46 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
                 violations.append(
                     _metric_violation(path, metric, "enlarged-debt", current_value, baseline_value)
                 )
+    return violations
+
+
+def _baseline_metric_is_stale(
+    metric: str,
+    baseline_value: object,
+    current_value: object,
+) -> bool:
+    if not isinstance(baseline_value, int):
+        return False
+    threshold = _METRIC_THRESHOLDS.get(metric)
+    if isinstance(threshold, int) and baseline_value <= threshold:
+        return True
+    return current_value != baseline_value and (
+        not isinstance(current_value, int) or current_value < baseline_value
+    )
+
+
+def _stale_metric_violations(
+    current_modules: dict[str, dict], baseline_ceilings: dict[str, dict]
+) -> list[Finding]:
+    violations = []
     for path, ceilings in baseline_ceilings.items():
         metrics = current_modules.get(path, {})
         for metric, baseline_value in ceilings.items():
             current_value = metrics.get(metric)
-            threshold = thresholds.get(metric)
-            if isinstance(baseline_value, int) and (
-                (isinstance(threshold, int) and baseline_value <= threshold)
-                or (
-                    current_value != baseline_value
-                    and (not isinstance(current_value, int) or current_value < baseline_value)
-                )
-            ):
+            if _baseline_metric_is_stale(metric, baseline_value, current_value):
                 violations.append(
                     _metric_violation(path, metric, "stale-baseline", current_value, baseline_value)
                 )
+    return violations
+
+
+def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
+    """Return deterministic ratchet violations between current and baseline evidence."""
+    current_modules = _normalized_metric_map(current.get("modules", {}))
+    baseline_ceilings = _normalized_metric_map(baseline.get("ceilings", {}))
+    violations = _finding_ratchet_violations(current, baseline)
+    violations.extend(_new_metric_violations(current_modules, baseline_ceilings))
+    violations.extend(_stale_metric_violations(current_modules, baseline_ceilings))
     return sorted(violations, key=_sort_key)
 
 
@@ -286,7 +230,7 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
     for item in json.loads(result.stdout or "[]"):
         path = _analyze._rel_to_repo(repo_root, item["filename"])
         line = item["location"]["row"]
-        scope = _qualified_scope(repo_root, path, line, scope_cache)
+        scope = _ratchet_identity.qualified_scope(repo_root, path, line, scope_cache)
         rule_anchor = str(item.get("name") or item["code"])
         message_anchor = " ".join(str(item.get("message") or rule_anchor).split())
         findings.append(
@@ -304,41 +248,42 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
                 "allowlist_reason": None,
             }
         )
-    return _suffix_occurrences(findings)
+    return _ratchet_identity.suffix_occurrences(findings)
 
 
-def _qualify_vulture_findings(repo_root: Path, findings: list[dict]) -> list[dict]:
-    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
-    qualified = []
-    for finding in findings:
-        path = str(finding.get("path") or "").replace("\\", "/")
-        raw_symbol = str(finding.get("symbol") or finding.get("rule") or "unknown")
-        scope = _qualified_scope(repo_root, path, int(finding.get("line") or 0), scope_cache)
-        symbol = scope if scope.rsplit(".", 1)[-1] == raw_symbol else f"{scope}.{raw_symbol}"
-        qualified.append({**finding, "path": path, "symbol": symbol})
-    return _suffix_occurrences(qualified)
+def _repository_python_records(repo_root: Path) -> list[dict]:
+    records = []
+    for root_name in sorted(_QUALITY_PYTHON_ROOTS):
+        quality_root = repo_root / root_name
+        if not quality_root.is_dir():
+            continue
+        for path, relative_to_root in _inventory._iter_files(quality_root):
+            if relative_to_root.suffix != ".py":
+                continue
+            try:
+                loc = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+            except OSError:
+                continue
+            relative = Path(root_name) / relative_to_root
+            records.append({"path": relative.as_posix(), "loc": loc})
+    return records
 
 
-def collect_current(repo_root: Path) -> dict:
-    """Collect fresh expanded-policy finding, complexity, and LOC evidence."""
-    inventory = _inventory.build_inventory(repo_root)
-    graph = _graph.build_graph(repo_root, inventory)
-    analysis = _analyze.run_analysis(repo_root, inventory, graph)
-    policy_ruff = _run_policy_ruff(repo_root)
-    failed = sorted(
+def _failed_analyzers(analysis: dict) -> list[str]:
+    return sorted(
         analyzer
         for analyzer, status in analysis.get("tool_status", {}).items()
         if analyzer != "ruff" and status.get("ok") is not True
     )
-    if failed:
-        raise QualityEvidenceError("quality evidence unavailable from: " + ", ".join(failed))
 
+
+def _quality_findings(repo_root: Path, analysis: dict, policy_ruff: list[dict]) -> list[dict]:
     analysis_findings = [
         finding for finding in analysis.get("findings", []) if finding.get("source") != "ruff"
     ]
     raw_findings = (
         [finding for finding in analysis_findings if finding.get("source") != "vulture"]
-        + _qualify_vulture_findings(
+        + _ratchet_identity.qualify_vulture_findings(
             repo_root,
             [finding for finding in analysis_findings if finding.get("source") == "vulture"],
         )
@@ -355,15 +300,43 @@ def collect_current(repo_root: Path) -> dict:
         if not finding.get("allowlisted") and finding.get("category") != "complexity"
     ]
     findings.sort(key=lambda finding: _identity_sort_key(_identity(finding)))
-    per_file = analysis.get("per_file", {})
-    modules = {
+    return findings
+
+
+def _quality_modules(repo_root: Path, inventory: dict, analysis: dict) -> dict[str, dict]:
+    numeric_records = _repository_python_records(repo_root)
+    product_paths = {record["path"] for record in inventory["python_files"]}
+    extra_records = [record for record in numeric_records if record["path"] not in product_paths]
+    per_file = dict(analysis.get("per_file", {}))
+    try:
+        _extra_findings, extra_per_file = _analyze._run_radon(
+            repo_root, {"python_files": extra_records}
+        )
+    except Exception as exc:
+        raise QualityEvidenceError(f"quality Radon evidence unavailable: {exc}") from exc
+    per_file.update(extra_per_file)
+    return {
         record["path"]: {
             "max_complexity": per_file.get(record["path"], {}).get("max_complexity"),
             "loc": record["loc"],
         }
-        for record in inventory["python_files"]
+        for record in numeric_records
     }
-    return {"findings": findings, "modules": modules}
+
+
+def collect_current(repo_root: Path) -> dict:
+    """Collect fresh expanded-policy finding, complexity, and LOC evidence."""
+    inventory = _inventory.build_inventory(repo_root)
+    graph = _graph.build_graph(repo_root, inventory)
+    analysis = _analyze.run_analysis(repo_root, inventory, graph)
+    policy_ruff = _run_policy_ruff(repo_root)
+    failed = _failed_analyzers(analysis)
+    if failed:
+        raise QualityEvidenceError("quality evidence unavailable from: " + ", ".join(failed))
+    return {
+        "findings": _quality_findings(repo_root, analysis, policy_ruff),
+        "modules": _quality_modules(repo_root, inventory, analysis),
+    }
 
 
 def _load_baseline(repo_root: Path) -> dict:

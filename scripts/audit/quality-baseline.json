@@ -214,6 +214,139 @@
   "plex_renamer/tmdb.py": {
    "loc": 580,
    "max_complexity": 17
+  },
+  "scripts/audit/__main__.py": {
+   "max_complexity": 19
+  },
+  "scripts/audit/_analyze.py": {
+   "max_complexity": 20
+  },
+  "scripts/audit/_artifacts.py": {
+   "max_complexity": 12
+  },
+  "scripts/audit/_coverage.py": {
+   "max_complexity": 23
+  },
+  "scripts/audit/_diff.py": {
+   "max_complexity": 26
+  },
+  "scripts/audit/_graph.py": {
+   "max_complexity": 31
+  },
+  "scripts/audit/_inventory.py": {
+   "max_complexity": 17
+  },
+  "scripts/audit/_metrics.py": {
+   "max_complexity": 47
+  },
+  "scripts/audit/_render_code_index.py": {
+   "max_complexity": 18
+  },
+  "scripts/audit/_render_human.py": {
+   "max_complexity": 21
+  },
+  "scripts/audit/_verify.py": {
+   "max_complexity": 20
+  },
+  "scripts/test_fast_runner.py": {
+   "max_complexity": 23
+  },
+  "scripts/test_smoke_runner.py": {
+   "max_complexity": 11
+  },
+  "tests/audit/test_analyze.py": {
+   "max_complexity": 11
+  },
+  "tests/audit/test_cli.py": {
+   "max_complexity": 11
+  },
+  "tests/audit/test_diff.py": {
+   "max_complexity": 12
+  },
+  "tests/audit/test_fast_runner.py": {
+   "max_complexity": 11
+  },
+  "tests/audit/test_metrics.py": {
+   "max_complexity": 12
+  },
+  "tests/audit/test_render_human.py": {
+   "max_complexity": 12
+  },
+  "tests/audit/test_workflows.py": {
+   "max_complexity": 17
+  },
+  "tests/test_alt_title_matching.py": {
+   "loc": 859
+  },
+  "tests/test_automux_settings.py": {
+   "max_complexity": 14
+  },
+  "tests/test_bulk_assign_panel.py": {
+   "loc": 675
+  },
+  "tests/test_episode_expansion.py": {
+   "loc": 604
+  },
+  "tests/test_episode_mapping_projection.py": {
+   "loc": 551
+  },
+  "tests/test_episode_projection.py": {
+   "max_complexity": 11
+  },
+  "tests/test_episode_resolution.py": {
+   "loc": 1035
+  },
+  "tests/test_episode_table_delegate.py": {
+   "loc": 800
+  },
+  "tests/test_episode_table_model.py": {
+   "loc": 518
+  },
+  "tests/test_executor_metadata_integration.py": {
+   "max_complexity": 14
+  },
+  "tests/test_jojo_matching.py": {
+   "loc": 719
+  },
+  "tests/test_media_controller.py": {
+   "loc": 1961
+  },
+  "tests/test_metadata_local_inventory.py": {
+   "max_complexity": 11
+  },
+  "tests/test_metadata_service.py": {
+   "max_complexity": 14
+  },
+  "tests/test_nfo_render.py": {
+   "max_complexity": 17
+  },
+  "tests/test_qt_job_detail_panel.py": {
+   "loc": 881
+  },
+  "tests/test_qt_main_window.py": {
+   "loc": 1043
+  },
+  "tests/test_qt_media_workspace.py": {
+   "loc": 5698
+  },
+  "tests/test_qt_queue_history.py": {
+   "loc": 842
+  },
+  "tests/test_queue_controller.py": {
+   "loc": 1085
+  },
+  "tests/test_scan_improvements.py": {
+   "loc": 2763,
+   "max_complexity": 13
+  },
+  "tests/test_work_panel.py": {
+   "loc": 864
+  },
+  "tests/test_workspace_automux.py": {
+   "loc": 614
+  },
+  "tests/test_workspace_expansion.py": {
+   "loc": 1034
   }
  },
  "findings": [
