@@ -71,6 +71,17 @@ def test_headline():
     assert m["tool_status"]["vulture"]["ok"] is True
 
 
+def test_committed_coverage_provenance_ignores_collection_path():
+    inventory, graph, analysis, coverage = _fixtures()
+    imported = _metrics.build_metrics(inventory, graph, analysis, coverage)
+    coverage["source"] = "fresh"
+
+    fresh = _metrics.build_metrics(inventory, graph, analysis, coverage)
+
+    assert fresh["coverage"] == imported["coverage"]
+    assert fresh["coverage"]["source"] == "coverage.py"
+
+
 def test_allowlisted_dead_code_not_counted():
     inventory, graph, analysis, coverage = _fixtures()
     analysis["findings"][0]["allowlisted"] = True

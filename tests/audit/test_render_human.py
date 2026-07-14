@@ -85,7 +85,7 @@ def test_coverage_digest_flows_through_metrics_to_rendered_provenance(
     overview = (
         synthetic_repo / "docs" / "audit" / "maps" / "overview.md"
     ).read_text(encoding="utf-8")
-    assert f"| matched | imported | {digest[:12]} | - |" in overview
+    assert f"| matched | coverage.py | {digest[:12]} | - |" in overview
 
 
 def test_run_stamps_every_generated_human_view_with_input_digest(

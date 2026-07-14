@@ -30,7 +30,10 @@ def _coverage_provenance(coverage: dict) -> dict:
         "available": coverage.get("available", False),
         "usable": usable,
         "reason": coverage.get("reason"),
-        "source": coverage.get("source"),
+        # How evidence reached this stage (fresh subprocess versus import) is
+        # operational state.  Keep that detail in .audit/coverage.json, but
+        # expose a stable tool identity to committed renderers.
+        "source": "coverage.py" if coverage.get("available") else None,
         "input_digest": coverage.get("input_digest"),
         "collected_at_commit": coverage.get("collected_at_commit"),
         "age_commits": coverage.get("age_commits"),

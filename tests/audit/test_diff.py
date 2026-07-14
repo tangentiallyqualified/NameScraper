@@ -195,7 +195,15 @@ def test_same_digest_sanitizes_preserved_previous_baseline(synthetic_repo: Path)
 
 
 def test_new_digest_rotates_current_snapshot_exactly_once(synthetic_repo: Path):
-    first = _metrics(loc=100, input_digest="a" * 64)
+    first = _metrics(
+        loc=100,
+        input_digest="a" * 64,
+        coverage={
+            "usable": True,
+            "scope_id": "scope-default",
+            "source": "fresh",
+        },
+    )
     _artifacts.write_artifact(synthetic_repo, "metrics", first)
     assert _diff.run(synthetic_repo, None) == 0
 
@@ -207,6 +215,7 @@ def test_new_digest_rotates_current_snapshot_exactly_once(synthetic_repo: Path):
 
     assert rotated["input_digest"] == "b" * 64
     assert rotated["previous_baseline"]["input_digest"] == "a" * 64
+    assert rotated["previous_baseline"]["coverage"]["source"] == "coverage.py"
     assert "previous_baseline" not in rotated["previous_baseline"]
     changes = (synthetic_repo / "docs" / "audit" / "CHANGES.md").read_text(
         encoding="utf-8"

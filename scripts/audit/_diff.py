@@ -184,6 +184,17 @@ def _without_transient(value):
     return value
 
 
+def _committed_snapshot(value):
+    """Strip operational provenance, including legacy coverage load paths."""
+    snapshot = _without_transient(value)
+    if not isinstance(snapshot, dict):
+        return snapshot
+    coverage = snapshot.get("coverage")
+    if isinstance(coverage, dict) and coverage.get("source") in {"fresh", "imported"}:
+        coverage["source"] = "coverage.py"
+    return snapshot
+
+
 def _baseline_snapshot(metrics: dict, docs: dict[str, dict]) -> dict:
     snapshot = {
         "input_digest": metrics["input_digest"],
@@ -194,7 +205,7 @@ def _baseline_snapshot(metrics: dict, docs: dict[str, dict]) -> dict:
     for key in ("coverage", "dead_code", "tool_status"):
         if key in metrics:
             snapshot[key] = metrics[key]
-    return _without_transient(snapshot)
+    return _committed_snapshot(snapshot)
 
 
 def compare(baseline: dict | None, metrics: dict) -> dict:
@@ -308,9 +319,9 @@ def run(repo_root: Path, options) -> int:
         and existing.get("input_digest") == metrics.get("input_digest")
     )
     if same_input:
-        previous = _without_transient(existing.get("previous_baseline"))
+        previous = _committed_snapshot(existing.get("previous_baseline"))
     else:
-        previous = _without_transient(existing) if isinstance(existing, dict) else None
+        previous = _committed_snapshot(existing) if isinstance(existing, dict) else None
 
     result = compare(previous, metrics)
     docs = _doc_snapshot(repo_root)
