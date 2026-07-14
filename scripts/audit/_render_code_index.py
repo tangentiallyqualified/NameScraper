@@ -216,15 +216,36 @@ def _path_is_reparse(path: Path) -> bool:
     try:
         attributes = getattr(path.lstat(), "st_file_attributes", 0)
     except OSError:
-        return False
+        return True
     return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
 
 
-def _remove_link_like(path: Path) -> None:
-    try:
-        path.unlink()
-    except (IsADirectoryError, PermissionError):
-        path.rmdir()
+class UnsafeGeneratedOutputError(RuntimeError):
+    def __init__(self, paths: list[Path]) -> None:
+        self.paths = sorted(path.as_posix() for path in paths)
+        super().__init__(
+            "unsafe generated output contains link-like paths: "
+            + ", ".join(self.paths)
+        )
+
+
+def _unsafe_link_paths(root: Path) -> list[Path]:
+    if not os.path.lexists(root):
+        return []
+    if root.is_symlink() or _path_is_reparse(root):
+        return [root]
+    unsafe: list[Path] = []
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if entry.is_symlink() or _entry_is_reparse(entry):
+                    unsafe.append(path)
+                elif entry.is_dir(follow_symlinks=False):
+                    pending.append(path)
+    return sorted(unsafe)
 
 
 def _remove_tree_without_following_links(root: Path) -> None:
@@ -232,7 +253,7 @@ def _remove_tree_without_following_links(root: Path) -> None:
         for entry in entries:
             path = Path(entry.path)
             if entry.is_symlink() or _entry_is_reparse(entry):
-                _remove_link_like(path)
+                raise UnsafeGeneratedOutputError([path])
             elif entry.is_dir(follow_symlinks=False):
                 _remove_tree_without_following_links(path)
             else:
@@ -247,7 +268,7 @@ def _markdown_pages_without_following_links(root: Path):
         with os.scandir(directory) as entries:
             for entry in entries:
                 if entry.is_symlink() or _entry_is_reparse(entry):
-                    continue
+                    raise UnsafeGeneratedOutputError([Path(entry.path)])
                 path = Path(entry.path)
                 if entry.is_dir(follow_symlinks=False):
                     pending.append(path)
@@ -259,14 +280,15 @@ def _remove_stale_outputs(repo_root: Path, outputs: dict[str, str]) -> None:
     """Remove only Markdown trees owned by this renderer."""
     audit_dir = repo_root / "docs" / "audit"
     legacy_dir = audit_dir / "llm"
-    if legacy_dir.exists() or legacy_dir.is_symlink() or _path_is_reparse(legacy_dir):
-        if legacy_dir.is_symlink() or _path_is_reparse(legacy_dir):
-            _remove_link_like(legacy_dir)
-        else:
-            _remove_tree_without_following_links(legacy_dir)
+    code_index_dir = audit_dir / "code-index"
+    unsafe = _unsafe_link_paths(legacy_dir) + _unsafe_link_paths(code_index_dir)
+    if unsafe:
+        raise UnsafeGeneratedOutputError(unsafe)
+
+    if legacy_dir.exists():
+        _remove_tree_without_following_links(legacy_dir)
 
     expected = {repo_root / rel for rel in outputs}
-    code_index_dir = audit_dir / "code-index"
     if code_index_dir.exists():
         for page in _markdown_pages_without_following_links(code_index_dir):
             if page not in expected:

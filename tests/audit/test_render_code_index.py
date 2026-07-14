@@ -201,10 +201,24 @@ def test_stale_cleanup_never_descends_into_windows_junctions(synthetic_repo: Pat
     junction = code_index / "outside"
     _make_junction(junction, outside)
 
-    assert _render_code_index.run(synthetic_repo, None) == 0
+    with pytest.raises(
+        _render_code_index.UnsafeGeneratedOutputError, match="outside"
+    ):
+        _render_code_index.run(synthetic_repo, None)
 
     assert sentinel.read_bytes() == b"outside sentinel\n"
     assert junction.exists()
+
+
+def test_renderer_path_reparse_inspection_error_fails_closed(
+    tmp_path: Path, monkeypatch
+):
+    def denied(_path: Path):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "lstat", denied)
+
+    assert _render_code_index._path_is_reparse(tmp_path / "opaque") is True
 
 
 def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):

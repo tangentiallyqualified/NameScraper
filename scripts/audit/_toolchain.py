@@ -32,8 +32,7 @@ def validate(repo_root: Path) -> list[str]:
     """Return stable incompatibility messages for the enrolled analyzer toolchain."""
     path = repo_root / CONSTRAINTS_REL
     if not path.exists():
-        # Synthetic/embedded consumers may not ship the repository harness.
-        return []
+        return [f"missing audit constraints: {CONSTRAINTS_REL.as_posix()}"]
     pins, errors = _exact_constraints(path)
     for name in REQUIRED_ANALYZERS:
         required = pins.get(name)

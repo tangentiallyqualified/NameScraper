@@ -12,6 +12,15 @@ POLICY_INPUTS = {GENERATED_ROOT / "doc-ledger.toml"}
 _REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
 
+class UnsafeGeneratedTreeError(RuntimeError):
+    def __init__(self, paths: list[str]) -> None:
+        self.paths = sorted(paths)
+        super().__init__(
+            "unsafe generated output tree contains link-like objects: "
+            + ", ".join(self.paths)
+        )
+
+
 def _path_is_reparse(path: Path) -> bool:
     is_junction = getattr(path, "is_junction", None)
     if is_junction is not None and is_junction():
@@ -19,7 +28,7 @@ def _path_is_reparse(path: Path) -> bool:
     try:
         attributes = getattr(path.lstat(), "st_file_attributes", 0)
     except OSError:
-        return False
+        return True
     return bool(attributes & _REPARSE_POINT)
 
 
@@ -72,12 +81,12 @@ def _tree_entries(repo_root: Path) -> tuple[list[tuple[Path, str]], list[Path]]:
             for entry in entries:
                 path = Path(entry.path)
                 relative = path.relative_to(repo_root)
-                if relative in POLICY_INPUTS:
-                    continue
                 if entry.is_symlink():
                     objects.append((path, "symlink"))
                 elif _entry_is_reparse(entry):
                     objects.append((path, "reparse"))
+                elif relative in POLICY_INPUTS:
+                    continue
                 elif entry.is_dir(follow_symlinks=False):
                     directories.append(path)
                     pending.append(path)
@@ -96,6 +105,21 @@ def snapshot_generated(repo_root: Path) -> dict[str, bytes]:
         for path, kind in sorted(objects, key=lambda item: item[0].as_posix())
         if kind == "file"
     }
+
+
+def _unsafe_preexisting_links(repo_root: Path) -> list[str]:
+    generated_root = repo_root / GENERATED_ROOT
+    root_kind = _path_kind(generated_root)
+    if root_kind in {"symlink", "reparse"}:
+        return [GENERATED_ROOT.as_posix()]
+    if root_kind != "directory":
+        return []
+    objects, _directories = _tree_entries(repo_root)
+    return sorted(
+        path.relative_to(repo_root).as_posix()
+        for path, kind in objects
+        if kind in {"symlink", "reparse"}
+    )
 
 
 def _validated_snapshot(
@@ -172,6 +196,9 @@ def restore_generated(repo_root: Path, snapshot: dict[str, bytes]) -> None:
 
 def verify(repo_root: Path, run_pipeline: Callable[[], int]) -> tuple[int, list[str]]:
     """Run a pipeline, report generated drift, and always restore original files."""
+    unsafe = _unsafe_preexisting_links(repo_root)
+    if unsafe:
+        raise UnsafeGeneratedTreeError(unsafe)
     generated_root = repo_root / GENERATED_ROOT
     root_was_directory = _path_kind(generated_root) == "directory"
     before = snapshot_generated(repo_root)

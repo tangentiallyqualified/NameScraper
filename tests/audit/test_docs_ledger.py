@@ -42,7 +42,7 @@ def test_dirty_and_committed_sources_produce_identical_ledger_status(
     alpha = synthetic_repo / "plex_renamer" / "alpha.py"
     alpha.write_text(alpha.read_text(encoding="utf-8") + "\nDIRTY = 1\n", encoding="utf-8")
     scripts = synthetic_repo / "scripts"
-    scripts.mkdir()
+    scripts.mkdir(exist_ok=True)
     staged = scripts / "staged.py"
     staged.write_text("STAGED = 1\n", encoding="utf-8")
     repo_git(synthetic_repo, "add", "scripts/staged.py")

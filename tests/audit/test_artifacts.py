@@ -23,6 +23,7 @@ def _audit_repo(tmp_path: Path) -> Path:
         "docs/audit/doc-ledger.toml": "documents = []\n",
         "docs/audit/maps/overview.md": "generated overview\n",
         "docs/guide.md": "ordinary documentation\n",
+        "README.md": "root documentation\n",
         "scripts/audit/constraints.txt": "ruff==0.15.21\n",
     }
     for relative_path, content in files.items():
@@ -67,6 +68,7 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
         "pyproject.toml",
         "docs/audit/doc-ledger.toml",
         "docs/guide.md",
+        "README.md",
         "scripts/audit/constraints.txt",
     }.issubset(relative_paths)
 
@@ -89,6 +91,7 @@ def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
     "pyproject.toml",
     "docs/audit/doc-ledger.toml",
     "docs/guide.md",
+    "README.md",
     "scripts/audit/constraints.txt",
 ])
 def test_input_digest_changes_when_source_or_policy_changes(
@@ -106,6 +109,22 @@ def test_input_digest_changes_when_ordinary_documentation_changes(tmp_path: Path
     (repo / "docs/guide.md").write_text("changed documentation\n", encoding="utf-8")
 
     assert _artifacts.input_digest(repo) != first
+
+
+@pytest.mark.parametrize(
+    "ignored_root",
+    [".superpowers", ".agents", ".codex", ".claude", ".vscode"],
+)
+def test_input_digest_ignores_agent_and_scratch_documentation(
+    tmp_path: Path, ignored_root: str
+):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+    report = repo / ignored_root / "sdd" / "report.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("ignored scratch report\n", encoding="utf-8")
+
+    assert _artifacts.input_digest(repo) == first
 
 
 def test_input_digest_changes_when_input_path_changes(tmp_path: Path):
@@ -168,7 +187,7 @@ def test_working_tree_files_include_staged_unstaged_and_untracked(synthetic_repo
     alpha = synthetic_repo / "plex_renamer" / "alpha.py"
     alpha.write_text(alpha.read_text(encoding="utf-8") + "\nDIRTY = 1\n", encoding="utf-8")
     (synthetic_repo / "plex_renamer" / "new.py").write_text("NEW = 1\n", encoding="utf-8")
-    (synthetic_repo / "scripts").mkdir()
+    (synthetic_repo / "scripts").mkdir(exist_ok=True)
     harness = synthetic_repo / "scripts" / "audit.py"
     harness.write_text("AUDIT = 1\n", encoding="utf-8")
     repo_git(synthetic_repo, "add", "scripts/audit.py")

@@ -218,10 +218,78 @@ def test_verify_never_traverses_windows_junctions(tmp_path: Path):
     junction = tmp_path / "docs" / "audit" / "junction"
     _make_junction(junction, outside)
 
-    result = _verify.verify(tmp_path, lambda: 0)
+    invoked = False
 
-    assert result == (0, [])
+    def pipeline() -> int:
+        nonlocal invoked
+        invoked = True
+        return 0
+
+    with pytest.raises(_verify.UnsafeGeneratedTreeError, match="junction"):
+        _verify.verify(tmp_path, pipeline)
+
+    assert invoked is False
     assert sentinel.read_bytes() == b"outside stays unchanged\n"
+    assert junction.exists()
+
+
+def test_verify_rejects_preexisting_symlink_before_pipeline_without_mutation(tmp_path: Path):
+    _require_symlinks(tmp_path)
+    _seed_generated_tree(tmp_path)
+    outside = tmp_path / "outside-preexisting.txt"
+    outside.write_bytes(b"outside stays unchanged\n")
+    link = tmp_path / "docs" / "audit" / "preexisting.md"
+    link.symlink_to(outside)
+    invoked = False
+
+    def pipeline() -> int:
+        nonlocal invoked
+        invoked = True
+        return 0
+
+    with pytest.raises(_verify.UnsafeGeneratedTreeError, match="preexisting.md"):
+        _verify.verify(tmp_path, pipeline)
+
+    assert invoked is False
+    assert link.is_symlink()
+    assert link.resolve() == outside.resolve()
+    assert outside.read_bytes() == b"outside stays unchanged\n"
+
+
+def test_verify_rejects_generated_root_symlink_before_pipeline(tmp_path: Path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    outside = tmp_path / "outside-audit-root"
+    outside.mkdir()
+    sentinel = outside / "sentinel.md"
+    sentinel.write_bytes(b"root target stays unchanged\n")
+    generated_root = docs / "audit"
+    try:
+        generated_root.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlink creation unavailable: {exc}")
+    invoked = False
+
+    def pipeline() -> int:
+        nonlocal invoked
+        invoked = True
+        return 0
+
+    with pytest.raises(_verify.UnsafeGeneratedTreeError, match="docs/audit"):
+        _verify.verify(tmp_path, pipeline)
+
+    assert invoked is False
+    assert generated_root.is_symlink()
+    assert sentinel.read_bytes() == b"root target stays unchanged\n"
+
+
+def test_verify_path_reparse_inspection_error_fails_closed(tmp_path: Path, monkeypatch):
+    def denied(_path: Path):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "lstat", denied)
+
+    assert _verify._path_is_reparse(tmp_path / "opaque") is True
 
 
 @pytest.mark.parametrize(

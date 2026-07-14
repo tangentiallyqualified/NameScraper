@@ -28,6 +28,12 @@ def test_validate_accepts_exact_installed_analyzer_versions(tmp_path: Path, monk
     assert _toolchain.validate(tmp_path) == []
 
 
+def test_validate_reports_missing_constraints_file(tmp_path: Path):
+    assert _toolchain.validate(tmp_path) == [
+        "missing audit constraints: scripts/audit/constraints.txt"
+    ]
+
+
 def test_validate_reports_missing_pins_and_version_mismatches(tmp_path: Path, monkeypatch):
     _constraints(tmp_path, "coverage==7.15.0\nradon==6.0.1\nruff==0.15.21\n")
     installed = {"coverage": "7.14.0", "radon": "6.0.1", "ruff": "0.15.21"}

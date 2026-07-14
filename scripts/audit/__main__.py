@@ -134,9 +134,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if options.verify:
-        pipeline_rc, drift = _verify.verify(
-            repo_root, lambda: _run_pipeline(repo_root, options)
-        )
+        try:
+            pipeline_rc, drift = _verify.verify(
+                repo_root, lambda: _run_pipeline(repo_root, options)
+            )
+        except _verify.UnsafeGeneratedTreeError as exc:
+            print(_ascii(str(exc)))
+            return 1
         if drift:
             print("generated drift:")
             for relative in drift:

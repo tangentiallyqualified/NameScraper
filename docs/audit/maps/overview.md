@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 4d60130303d6 | - |
+| matched | coverage.py | 2b27ac69a538 | - |
 
 ## Least-covered modules
 
@@ -248,5 +248,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:89` paintEvent (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt event handler, called by framework)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:165` paintEvent (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt event handler, called by framework)
 
-_Generated from audit input 4d60130303d6 by scripts\audit.cmd._
+_Generated from audit input 2b27ac69a538 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

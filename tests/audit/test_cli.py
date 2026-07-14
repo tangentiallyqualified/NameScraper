@@ -172,6 +172,24 @@ def test_verify_returns_pipeline_failure_after_restoration(synthetic_repo: Path,
     assert baseline.read_bytes() == b"original\n"
 
 
+def test_verify_reports_unsafe_preexisting_generated_link(
+    synthetic_repo: Path, monkeypatch, capsys
+):
+    monkeypatch.setattr(
+        cli._verify,
+        "verify",
+        lambda _repo, _pipeline: (_ for _ in ()).throw(
+            cli._verify.UnsafeGeneratedTreeError(["docs/audit/unsafe-link"])
+        ),
+    )
+
+    assert cli.main(["--verify", "--repo-root", str(synthetic_repo)]) == 1
+
+    output = capsys.readouterr().out
+    assert "unsafe generated output tree" in output
+    assert "docs/audit/unsafe-link" in output
+
+
 def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
     synthetic_repo: Path, monkeypatch, capsys
 ):

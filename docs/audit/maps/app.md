@@ -45,5 +45,5 @@
 - `plex_renamer/app/services/movie_library_discovery_service.py` — fan-in 1, fan-out 2, LOC 124
 - `plex_renamer/app/services/output_destination_service.py` — fan-in 2, fan-out 0, LOC 108
 
-_Generated from audit input 4d60130303d6 by scripts\audit.cmd._
+_Generated from audit input 2b27ac69a538 by scripts\audit.cmd._
 <!-- audit:generated:end map-app -->

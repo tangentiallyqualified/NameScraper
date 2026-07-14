@@ -17,9 +17,9 @@ AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
     "scripts/test-fast.cmd",
     "scripts/test-fast.ps1",
     "tests/**/*.py",
-    "*.md",
-    "*.rst",
-    "*.txt",
+    "docs/**/*.md",
+    "docs/**/*.rst",
+    "docs/**/*.txt",
     "pyproject.toml",
     "docs/audit/doc-ledger.toml",
 )
@@ -33,7 +33,16 @@ _EXCLUDED_INPUT_PARTS = {
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
+    ".superpowers",
+    ".agents",
+    ".codex",
+    ".claude",
+    ".vscode",
+    ".scan-dumps",
+    ".github",
+    "plex_renamer.egg-info",
 }
+_ROOT_DOC_SUFFIXES = {".md", ".rst", ".txt"}
 _DOC_LEDGER = "docs/audit/doc-ledger.toml"
 _GENERATED_AUDIT_FILES = {
     "docs/audit/CHANGES.md",
@@ -66,20 +75,26 @@ class MissingArtifactError(RuntimeError):
 def input_files(repo_root: Path) -> list[Path]:
     """Return enrolled audit inputs in stable repository-relative order."""
     files: dict[str, Path] = {}
+    candidates = [
+        path
+        for path in repo_root.iterdir()
+        if path.is_file() and path.suffix.lower() in _ROOT_DOC_SUFFIXES
+    ]
     for pattern in AUDIT_INPUT_PATTERNS:
-        for path in repo_root.rglob(pattern):
-            if not path.is_file():
-                continue
-            relative = path.relative_to(repo_root)
-            if any(part in _EXCLUDED_INPUT_PARTS for part in relative.parts):
-                continue
-            relative_posix = relative.as_posix()
-            if (
-                relative_posix in _GENERATED_AUDIT_FILES
-                or relative_posix.startswith(_GENERATED_AUDIT_PREFIXES)
-            ):
-                continue
-            files[relative_posix] = path
+        candidates.extend(repo_root.rglob(pattern))
+    for path in candidates:
+        if not path.is_file():
+            continue
+        relative = path.relative_to(repo_root)
+        if any(part in _EXCLUDED_INPUT_PARTS for part in relative.parts):
+            continue
+        relative_posix = relative.as_posix()
+        if (
+            relative_posix in _GENERATED_AUDIT_FILES
+            or relative_posix.startswith(_GENERATED_AUDIT_PREFIXES)
+        ):
+            continue
+        files[relative_posix] = path
     return [files[relative] for relative in sorted(files)]
 
 
