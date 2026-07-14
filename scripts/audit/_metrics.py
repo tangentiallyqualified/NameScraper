@@ -31,6 +31,7 @@ def _coverage_provenance(coverage: dict) -> dict:
         "usable": usable,
         "reason": coverage.get("reason"),
         "source": coverage.get("source"),
+        "input_digest": coverage.get("input_digest"),
         "collected_at_commit": coverage.get("collected_at_commit"),
         "age_commits": coverage.get("age_commits"),
         "stale": coverage.get("stale"),

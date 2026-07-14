@@ -59,6 +59,53 @@ def test_rerun_preserves_curated_prose(synthetic_repo: Path):
     assert overview_path.read_text(encoding="utf-8").startswith("CURATED NOTE")
 
 
+def test_coverage_digest_flows_through_metrics_to_rendered_provenance(
+        synthetic_repo: Path):
+    from audit import _artifacts, _graph, _inventory, _metrics
+
+    _inventory.run(synthetic_repo, None)
+    _graph.run(synthetic_repo, None)
+    _artifacts.write_artifact(synthetic_repo, "analysis", {
+        "findings": [], "per_file": {}, "tool_status": {},
+    })
+    digest = _artifacts.input_digest(synthetic_repo)
+    _artifacts.write_artifact(synthetic_repo, "coverage", {
+        "available": True,
+        "input_digest": digest,
+        "source": "imported",
+        "stale": False,
+        "partial": False,
+        "failed": False,
+        "modules": {},
+    })
+
+    assert _metrics.run(synthetic_repo, None) == 0
+    assert _render_human.run(synthetic_repo, None) == 0
+
+    overview = (
+        synthetic_repo / "docs" / "audit" / "maps" / "overview.md"
+    ).read_text(encoding="utf-8")
+    assert f"| matched | imported | {digest[:12]} | - |" in overview
+
+
+def test_run_stamps_every_generated_human_view_with_input_digest(
+        synthetic_repo: Path):
+    from audit import _artifacts
+
+    _run_all_stages(synthetic_repo)
+    assert _render_human.run(synthetic_repo, None) == 0
+    digest = _artifacts.read_artifact(synthetic_repo, "metrics")["input_digest"]
+    outputs = sorted(
+        (synthetic_repo / "docs" / "audit" / "maps").glob("*.md")
+    )
+
+    assert outputs
+    assert all(
+        f"Generated from audit input {digest[:12]}" in path.read_text(encoding="utf-8")
+        for path in outputs
+    )
+
+
 def test_replace_generated_appends_when_markers_absent():
     merged = _render_human.replace_generated("Just prose, no markers.", "metrics", "new table")
     assert merged.startswith("Just prose, no markers.")

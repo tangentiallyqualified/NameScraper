@@ -308,7 +308,7 @@ def run(repo_root: Path, options) -> int:
         and existing.get("input_digest") == metrics.get("input_digest")
     )
     if same_input:
-        previous = existing.get("previous_baseline")
+        previous = _without_transient(existing.get("previous_baseline"))
     else:
         previous = _without_transient(existing) if isinstance(existing, dict) else None
 

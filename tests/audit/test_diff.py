@@ -158,6 +158,42 @@ def test_run_is_byte_identical_for_the_same_input_digest(synthetic_repo: Path):
     assert changes_path.read_bytes() == first_changes
 
 
+def test_same_digest_sanitizes_preserved_previous_baseline(synthetic_repo: Path):
+    metrics = _metrics()
+    _artifacts.write_artifact(synthetic_repo, "metrics", metrics)
+    previous = _baseline_from(metrics)
+    previous.update({
+        "input_digest": "0" * 64,
+        "commit": "previous123",
+        "generated_at": "yesterday",
+        "age_commits": 7,
+        "previous_baseline": {
+            "input_digest": "f" * 64,
+            "commit": "nested123",
+        },
+    })
+    existing = _baseline_from(metrics)
+    existing.update({
+        "input_digest": metrics["input_digest"],
+        "previous_baseline": previous,
+    })
+    baseline_path = synthetic_repo / "docs" / "audit" / "baseline.json"
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_path.write_text(json.dumps(existing), encoding="utf-8")
+
+    assert _diff.run(synthetic_repo, None) == 0
+
+    saved_previous = json.loads(
+        baseline_path.read_text(encoding="utf-8")
+    )["previous_baseline"]
+    encoded = json.dumps(saved_previous)
+    assert saved_previous["input_digest"] == "0" * 64
+    assert "previous_baseline" not in saved_previous
+    assert '"commit"' not in encoded
+    assert "generated_at" not in encoded
+    assert "age_commits" not in encoded
+
+
 def test_new_digest_rotates_current_snapshot_exactly_once(synthetic_repo: Path):
     first = _metrics(loc=100, input_digest="a" * 64)
     _artifacts.write_artifact(synthetic_repo, "metrics", first)

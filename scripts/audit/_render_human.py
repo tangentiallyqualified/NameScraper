@@ -291,7 +291,9 @@ def _render_package_map(package: str, graph: dict, metrics: dict) -> str:
         sections.append("### Core (widely depended upon)\n" + "\n".join(core))
     if support:
         sections.append("### Support\n" + "\n".join(support))
-    return "\n\n".join(sections) if sections else "_No modules._"
+    body = "\n\n".join(sections) if sections else "_No modules._"
+    digest = metrics.get("input_digest") or "unknown"
+    return body + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
 
 
 def run(repo_root: Path, options) -> int:
