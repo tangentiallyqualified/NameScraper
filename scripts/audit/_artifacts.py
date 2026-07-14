@@ -1,12 +1,37 @@
 """Shared read/write of .audit/*.json stage artifacts and git helpers."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 AUDIT_DIR_NAME = ".audit"
+AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
+    "plex_renamer/**/*.py",
+    "scripts/audit/**/*",
+    "scripts/audit.cmd",
+    "scripts/audit.ps1",
+    "scripts/test_fast_runner.py",
+    "scripts/test-fast.cmd",
+    "scripts/test-fast.ps1",
+    "tests/**/*.py",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
+)
+
+_EXCLUDED_INPUT_PARTS = {
+    ".git",
+    ".venv",
+    ".worktrees",
+    AUDIT_DIR_NAME,
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+}
+_DOC_LEDGER = "docs/audit/doc-ledger.toml"
 
 # artifact name -> CLI stage that produces it
 PRODUCERS = {
@@ -24,6 +49,34 @@ class MissingArtifactError(RuntimeError):
         super().__init__(
             f"Missing artifact '{name}.json'. Produce it first with: scripts\\audit.cmd {stage}"
         )
+
+
+def input_files(repo_root: Path) -> list[Path]:
+    """Return enrolled audit inputs in stable repository-relative order."""
+    files: dict[str, Path] = {}
+    for pattern in AUDIT_INPUT_PATTERNS:
+        for path in repo_root.rglob(pattern):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(repo_root)
+            if any(part in _EXCLUDED_INPUT_PARTS for part in relative.parts):
+                continue
+            relative_posix = relative.as_posix()
+            if relative.parts[:2] == ("docs", "audit") and relative_posix != _DOC_LEDGER:
+                continue
+            files[relative_posix] = path
+    return [files[relative] for relative in sorted(files)]
+
+
+def input_digest(repo_root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in input_files(repo_root):
+        rel = path.relative_to(repo_root).as_posix().encode("utf-8")
+        digest.update(rel)
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def audit_dir(repo_root: Path) -> Path:

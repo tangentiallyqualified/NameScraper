@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-import pytest
-
+from audit import _artifacts
 from audit import __main__ as cli
 
 
@@ -32,127 +32,58 @@ def test_fast_rerenders_without_analyzers(synthetic_repo: Path):
     assert index.exists()
 
 
-def test_check_reports_staleness(synthetic_repo: Path, capsys, repo_git):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
+def _write_baseline(repo_root: Path, payload: dict) -> None:
+    path = repo_root / "docs" / "audit" / "baseline.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_check_reports_stale_when_input_digest_changes(synthetic_repo: Path, capsys):
+    _write_baseline(synthetic_repo, {
+        "input_digest": _artifacts.input_digest(synthetic_repo),
+    })
     alpha = synthetic_repo / "plex_renamer" / "alpha.py"
     alpha.write_text(alpha.read_text(encoding="utf-8") + "\nZ = 1\n", encoding="utf-8")
-    repo_git(synthetic_repo, "add", "-A")
-    repo_git(synthetic_repo, "commit", "-m", "touch alpha")
+
     rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
     out = capsys.readouterr().out
+
     assert rc == 0
-    assert "1 commit" in out and "1 mapped module" in out
+    assert "stale" in out
+    assert "refresh" in out
 
 
 def test_check_current_baseline(synthetic_repo: Path, capsys):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    # regenerated docs/audit outputs are uncommitted, but baseline commit == HEAD
+    _write_baseline(synthetic_repo, {
+        "commit": "deliberately-not-head",
+        "input_digest": _artifacts.input_digest(synthetic_repo),
+    })
+
     rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
+
     assert rc == 0
     assert "current" in capsys.readouterr().out
 
 
-def test_check_reports_dirty_product_file_at_current_head(synthetic_repo: Path, capsys):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    alpha = synthetic_repo / "plex_renamer" / "alpha.py"
-    alpha.write_text(alpha.read_text(encoding="utf-8") + "\nDIRTY = 1\n", encoding="utf-8")
-    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    out = capsys.readouterr().out
-    assert "current" in out
-    assert "1 mapped module" in out
-    assert "uncommitted" in out
-
-
-def test_check_counts_new_product_module(synthetic_repo: Path, capsys, repo_git):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    (synthetic_repo / "plex_renamer" / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
-    repo_git(synthetic_repo, "add", "-A")
-    repo_git(synthetic_repo, "commit", "-m", "add module")
-    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    assert "1 mapped module" in capsys.readouterr().out
-
-
-def test_check_reports_dirty_harness_file(synthetic_repo: Path, capsys):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    harness = synthetic_repo / "scripts" / "audit" / "_new.py"
-    harness.parent.mkdir(parents=True)
-    harness.write_text("VALUE = 1\n", encoding="utf-8")
-    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    out = capsys.readouterr().out
-    assert "1 audit input" in out
-
-
-@pytest.mark.parametrize("relative_path", [
-    "tests/test_ordinary_input.py",
-    "pyproject.toml",
-    "docs/audit/doc-ledger.toml",
-])
-def test_check_reports_dirty_direct_audit_inputs(
-        synthetic_repo: Path, capsys, relative_path: str):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    target = synthetic_repo / relative_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    target.write_text(existing + "\n# audit input changed\n", encoding="utf-8")
-
-    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    lines = capsys.readouterr().out.splitlines()
-
-    assert any("0 mapped modules, 1 audit input changed" in line for line in lines)
-    assert len(lines) <= 3
-
-
-@pytest.mark.parametrize("relative_path", [
-    "tests/test_ordinary_input.py",
-    "pyproject.toml",
-    "docs/audit/doc-ledger.toml",
-])
-def test_check_reports_committed_direct_audit_inputs(
-        synthetic_repo: Path, capsys, repo_git, relative_path: str):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
-    target = synthetic_repo / relative_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    target.write_text(existing + "\n# audit input changed\n", encoding="utf-8")
-    repo_git(synthetic_repo, "add", "-A")
-    repo_git(synthetic_repo, "commit", "-m", "change audit input")
-
-    assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
-    lines = capsys.readouterr().out.splitlines()
-
-    assert any("0 mapped modules, 1 audit input changed" in line for line in lines)
-    assert len(lines) <= 3
-
-
 def test_check_ignores_dirty_unenrolled_doc(synthetic_repo: Path, capsys):
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    capsys.readouterr()
+    _write_baseline(synthetic_repo, {
+        "input_digest": _artifacts.input_digest(synthetic_repo),
+    })
     (synthetic_repo / "README.md").write_text("# dirty only\n", encoding="utf-8")
+
     assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
     assert "baseline current" in capsys.readouterr().out
 
 
-def test_fast_does_not_restamp_baseline(synthetic_repo: Path, capsys, repo_git):
-    import json
-    assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    (synthetic_repo / "plex_renamer" / "alpha.py").write_text(
-        (synthetic_repo / "plex_renamer" / "alpha.py").read_text(encoding="utf-8") + "\nZ = 1\n",
-        encoding="utf-8")
-    repo_git(synthetic_repo, "add", "-A")
-    repo_git(synthetic_repo, "commit", "-m", "touch alpha")
-    assert cli.main(["--fast", "--repo-root", str(synthetic_repo)]) == 0
-    capsys.readouterr()
+def test_check_legacy_baseline_requests_regeneration(synthetic_repo: Path, capsys):
+    _write_baseline(synthetic_repo, {"commit": "abc1234"})
+
     rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
     out = capsys.readouterr().out
+
     assert rc == 0
-    assert "behind" in out  # --fast must NOT have restamped the baseline to current HEAD
+    assert "stale" in out
+    assert "regenerate" in out
 
 
 def test_fast_leaves_diff_outputs_byte_for_byte_unchanged(synthetic_repo: Path, repo_git):

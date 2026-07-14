@@ -39,19 +39,6 @@ STAGES: list[tuple[str, object]] = [
 ]
 STAGE_NAMES = [name for name, _fn in STAGES]
 FAST_STAGES = {"render"}
-CHECK_PATHS = (
-    "plex_renamer",
-    "scripts/audit",
-    "scripts/audit.cmd",
-    "scripts/audit.ps1",
-    "scripts/test_fast_runner.py",
-    "scripts/test-fast.cmd",
-    "scripts/test-fast.ps1",
-    "tests",
-    "tests/audit",
-    "pyproject.toml",
-    "docs/audit/doc-ledger.toml",
-)
 
 
 def check_lines(repo_root: Path) -> list[str]:
@@ -59,34 +46,17 @@ def check_lines(repo_root: Path) -> list[str]:
     if not baseline_path.exists():
         return ["no audit baseline; run scripts\\audit.cmd to create one"]
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-    commit = baseline.get("commit")
-    if not commit:
-        return ["audit baseline has no commit stamp; rerun scripts\\audit.cmd"]
-    behind = _artifacts.commits_between(repo_root, commit)
-    if behind is None:
-        return ["audit staleness check unavailable (git error)"]
-    committed = _artifacts.changed_files_since(repo_root, commit, *CHECK_PATHS)
-    dirty = _artifacts.working_tree_files(repo_root, *CHECK_PATHS)
-    if committed is None or dirty is None:
-        return ["audit staleness check unavailable (git error)"]
-    changed = sorted(set(committed) | set(dirty))
-    if behind == 0 and not changed:
-        return [f"audit baseline current ({commit})"]
-    mapped = [c for c in changed if c.startswith("plex_renamer/") and c.endswith(".py")]
-    audit_inputs = [c for c in changed if c not in mapped]
-    plural = "s" if behind != 1 else ""
-    mplural = "s" if len(mapped) != 1 else ""
-    iplural = "s" if len(audit_inputs) != 1 else ""
-    if behind == 0:
-        status = f"audit baseline current ({commit}); uncommitted relevant changes present"
-    else:
-        status = f"audit baseline {commit} is {behind} commit{plural} behind HEAD"
-        if dirty:
-            status += "; uncommitted relevant changes also present"
+    baseline_digest = baseline.get("input_digest")
+    if not baseline_digest:
+        return [
+            "audit baseline stale (legacy baseline has no input digest); "
+            "run scripts\\audit.cmd to regenerate"
+        ]
+    current_digest = _artifacts.input_digest(repo_root)
+    if current_digest == baseline_digest:
+        return [f"audit baseline current ({current_digest})"]
     return [
-        status,
-        f"{len(mapped)} mapped module{mplural}, "
-        f"{len(audit_inputs)} audit input{iplural} changed",
+        "audit baseline stale (audit inputs changed)",
         "run scripts\\audit.cmd to refresh",
     ]
 

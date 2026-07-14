@@ -7,6 +7,99 @@ import pytest
 from audit import _artifacts
 
 
+def _audit_repo(tmp_path: Path) -> Path:
+    files = {
+        "plex_renamer/example.py": "VALUE = 1\n",
+        "scripts/audit/_stage.py": "STAGE = 1\n",
+        "scripts/audit/allowlist.toml": "ignore = []\n",
+        "scripts/audit/contracts.toml": "forbid = []\n",
+        "scripts/audit.cmd": "@echo off\n",
+        "scripts/audit.ps1": "Write-Output audit\n",
+        "scripts/test_fast_runner.py": "RUNNER = 1\n",
+        "scripts/test-fast.cmd": "@echo off\n",
+        "scripts/test-fast.ps1": "Write-Output test\n",
+        "tests/audit/test_stage.py": "def test_stage(): pass\n",
+        "pyproject.toml": "[tool.audit]\n",
+        "docs/audit/doc-ledger.toml": "documents = []\n",
+        "docs/audit/maps/overview.md": "generated overview\n",
+    }
+    for relative_path, content in files.items():
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    return tmp_path
+
+
+def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    excluded = {
+        ".git/hidden.py",
+        ".venv/hidden.py",
+        ".worktrees/hidden.py",
+        ".audit/hidden.py",
+        ".pytest_cache/hidden.py",
+        "plex_renamer/__pycache__/hidden.py",
+        "docs/audit/generated.py",
+    }
+    for relative_path in excluded:
+        path = repo / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("HIDDEN = 1\n", encoding="utf-8")
+
+    relative_paths = [path.relative_to(repo).as_posix()
+                      for path in _artifacts.input_files(repo)]
+
+    assert relative_paths == sorted(relative_paths)
+    assert not excluded.intersection(relative_paths)
+    assert {
+        "plex_renamer/example.py",
+        "scripts/audit/_stage.py",
+        "scripts/audit/allowlist.toml",
+        "scripts/audit/contracts.toml",
+        "scripts/audit.cmd",
+        "scripts/audit.ps1",
+        "scripts/test_fast_runner.py",
+        "scripts/test-fast.cmd",
+        "scripts/test-fast.ps1",
+        "tests/audit/test_stage.py",
+        "pyproject.toml",
+        "docs/audit/doc-ledger.toml",
+    }.issubset(relative_paths)
+
+
+def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+    (repo / "docs/audit/maps/overview.md").write_text(
+        "generated change", encoding="utf-8")
+    assert _artifacts.input_digest(repo) == first
+
+
+@pytest.mark.parametrize("relative_path", [
+    "plex_renamer/example.py",
+    "scripts/audit/_stage.py",
+    "scripts/audit/allowlist.toml",
+    "scripts/audit.cmd",
+    "scripts/test-fast.ps1",
+    "tests/audit/test_stage.py",
+    "pyproject.toml",
+    "docs/audit/doc-ledger.toml",
+])
+def test_input_digest_changes_when_source_or_policy_changes(
+        tmp_path: Path, relative_path: str):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+    (repo / relative_path).write_text("changed bytes\n", encoding="utf-8")
+    assert _artifacts.input_digest(repo) != first
+
+
+def test_input_digest_changes_when_input_path_changes(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+    (repo / "plex_renamer/example.py").rename(repo / "plex_renamer/renamed.py")
+    assert _artifacts.input_digest(repo) != first
+
+
 def test_write_then_read_roundtrip(synthetic_repo: Path):
     _artifacts.write_artifact(synthetic_repo, "inventory", {"python_files": []})
     data = _artifacts.read_artifact(synthetic_repo, "inventory")
