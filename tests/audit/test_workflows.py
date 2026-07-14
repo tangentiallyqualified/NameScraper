@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 UPDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "audit-update.yml"
@@ -72,7 +71,7 @@ def test_pull_request_audit_job_creates_and_provisions_venv() -> None:
     assert "run: python -m venv .venv" in create_venv
     assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
     assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
-    assert r'-c scripts\audit\constraints.txt' in install
+    assert r"-c scripts\audit\constraints.txt" in install
     assert (
         job.index("uses: actions/setup-python@v5")
         < job.index("python -m venv .venv")
@@ -107,8 +106,7 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     assert "run: git add -A -- docs/audit" in stage
     assert "if: always()" in patch
     assert (
-        "run: git diff --cached --binary --output=audit-generated.patch HEAD -- docs/audit"
-        in patch
+        "run: git diff --cached --binary --output=audit-generated.patch HEAD -- docs/audit" in patch
     )
     assert job.index("git add -A -- docs/audit") < job.index("git diff --cached --binary")
     assert "if: always()" in upload
@@ -131,7 +129,7 @@ def test_manual_audit_job_creates_and_provisions_venv() -> None:
     assert "run: python -m venv .venv" in create_venv
     assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
     assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
-    assert r'-c scripts\audit\constraints.txt' in install
+    assert r"-c scripts\audit\constraints.txt" in install
     assert (
         job.index("uses: actions/setup-python@v5")
         < job.index("python -m venv .venv")
@@ -146,16 +144,12 @@ def test_manual_audit_job_runs_with_coverage_before_staging() -> None:
     generate = _step(job, "- name: Generate audit docs")
 
     assert "run: scripts/audit.cmd --with-coverage\n" in generate
-    assert job.index("scripts/audit.cmd --with-coverage") < job.index(
-        "git add -A -- docs/audit"
-    )
+    assert job.index("scripts/audit.cmd --with-coverage") < job.index("git add -A -- docs/audit")
 
 
 def test_audit_workflows_never_commit_or_push() -> None:
     workflows = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (CI_WORKFLOW, UPDATE_WORKFLOW)
-        if path.exists()
+        path.read_text(encoding="utf-8") for path in (CI_WORKFLOW, UPDATE_WORKFLOW) if path.exists()
     )
 
     assert "git commit" not in workflows
@@ -171,6 +165,7 @@ def test_audit_analyzer_constraints_are_exact() -> None:
 
     assert constraints == {
         "coverage==7.15.0",
+        "pyright==1.1.411",
         "radon==6.0.1",
         "ruff==0.15.21",
         "vulture==2.16",

@@ -40,7 +40,15 @@ def _identity_sort_key(identity: tuple[str, str, str, str | None]) -> tuple[str,
     return path, analyzer, rule, symbol or ""
 
 
-def build_baseline(current: dict) -> dict:
+def _normalized_python_files(records: object) -> list[str]:
+    if not isinstance(records, list):
+        return []
+    return sorted(
+        {str(record).replace("\\", "/") for record in records if isinstance(record, str) and record}
+    )
+
+
+def build_baseline(current: dict, previous_baseline: dict | None = None) -> dict:
     """Normalize current evidence into the compact committed baseline schema."""
     identities = {_identity(finding) for finding in current.get("findings", [])}
     findings = [
@@ -61,7 +69,21 @@ def build_baseline(current: dict) -> dict:
         }
         if saved:
             ceilings[path.replace("\\", "/")] = saved
-    return {"schema_version": 1, "findings": findings, "ceilings": ceilings}
+    current_python_files = set(_normalized_python_files(current.get("python_files")))
+    if previous_baseline is None:
+        legacy_python_files = sorted(current_python_files)
+    else:
+        previous_typing = previous_baseline.get("typing", {})
+        legacy_python_files = sorted(
+            current_python_files
+            & set(_normalized_python_files(previous_typing.get("legacy_python_files")))
+        )
+    return {
+        "schema_version": 2,
+        "findings": findings,
+        "ceilings": ceilings,
+        "typing": {"legacy_python_files": legacy_python_files},
+    }
 
 
 def _finding_violation(identity: tuple[str, str, str, str | None], kind: str) -> Finding:
@@ -200,6 +222,24 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
     violations = _finding_ratchet_violations(current, baseline)
     violations.extend(_new_metric_violations(current_modules, baseline_ceilings))
     violations.extend(_stale_metric_violations(current_modules, baseline_ceilings))
+    current_python_files = set(_normalized_python_files(current.get("python_files")))
+    legacy_python_files = set(
+        _normalized_python_files(baseline.get("typing", {}).get("legacy_python_files"))
+    )
+    violations.extend(
+        {
+            "analyzer": "pyright",
+            "baseline": None,
+            "current": None,
+            "kind": "stale-baseline",
+            "message": "legacy Python file is no longer present",
+            "metric": None,
+            "path": path,
+            "rule": "legacy-file",
+            "symbol": None,
+        }
+        for path in sorted(legacy_python_files - current_python_files)
+    )
     return sorted(violations, key=_sort_key)
 
 
@@ -251,6 +291,79 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
     return _ratchet_identity.suffix_occurrences(findings)
 
 
+def _effective_pyright_config(
+    repo_root: Path,
+    python_files: list[str],
+    legacy_python_files: list[str],
+) -> Path:
+    config = json.loads((repo_root / "pyrightconfig.json").read_text(encoding="utf-8"))
+    configured_strict = _normalized_python_files(config.get("strict"))
+    strict = sorted(
+        set(configured_strict)
+        | (set(_normalized_python_files(python_files)) - set(legacy_python_files))
+    )
+    config["strict"] = strict
+    path = repo_root / ".pyrightconfig.effective.json"
+    path.write_text(
+        json.dumps(config, indent=1, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
+
+
+def _run_policy_pyright(
+    repo_root: Path,
+    python_files: list[str],
+    legacy_python_files: list[str],
+) -> list[dict]:
+    effective_config = _effective_pyright_config(repo_root, python_files, legacy_python_files)
+    project = effective_config.relative_to(repo_root).as_posix()
+    result = subprocess.run(
+        [sys.executable, "-m", "pyright", "--outputjson", "--project", project],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode not in (0, 1):
+        raise QualityEvidenceError(f"pyright failed: {result.stderr.strip()[:200]}")
+    if result.returncode == 1 and not result.stdout.strip():
+        raise QualityEvidenceError(
+            f"pyright exited 1 with no output: {result.stderr.strip()[:200]}"
+        )
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise QualityEvidenceError("pyright emitted invalid JSON evidence") from exc
+    findings = []
+    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
+    for item in payload.get("generalDiagnostics", []):
+        path = _analyze._rel_to_repo(repo_root, item["file"])
+        start = item.get("range", {}).get("start", {})
+        line = int(start.get("line", 0)) + 1
+        column = int(start.get("character", 0)) + 1
+        rule = str(item.get("rule") or "diagnostic")
+        message = " ".join(str(item.get("message") or rule).split())
+        scope = _ratchet_identity.qualified_scope(repo_root, path, line, scope_cache)
+        findings.append(
+            {
+                "source": "pyright",
+                "rule": rule,
+                "path": path,
+                "line": line,
+                "column": column,
+                "symbol": f"{scope}::{rule}::{message}",
+                "message": message,
+                "confidence": 100,
+                "category": "typing",
+                "allowlisted": False,
+                "allowlist_reason": None,
+            }
+        )
+    return _ratchet_identity.suffix_occurrences(findings)
+
+
 def _repository_python_records(repo_root: Path) -> list[dict]:
     records = []
     for root_name in sorted(_QUALITY_PYTHON_ROOTS):
@@ -277,7 +390,12 @@ def _failed_analyzers(analysis: dict) -> list[str]:
     )
 
 
-def _quality_findings(repo_root: Path, analysis: dict, policy_ruff: list[dict]) -> list[dict]:
+def _quality_findings(
+    repo_root: Path,
+    analysis: dict,
+    policy_ruff: list[dict],
+    policy_pyright: list[dict],
+) -> list[dict]:
     analysis_findings = [
         finding for finding in analysis.get("findings", []) if finding.get("source") != "ruff"
     ]
@@ -288,6 +406,7 @@ def _quality_findings(repo_root: Path, analysis: dict, policy_ruff: list[dict]) 
             [finding for finding in analysis_findings if finding.get("source") == "vulture"],
         )
         + policy_ruff
+        + policy_pyright
     )
     findings = [
         {
@@ -303,8 +422,9 @@ def _quality_findings(repo_root: Path, analysis: dict, policy_ruff: list[dict]) 
     return findings
 
 
-def _quality_modules(repo_root: Path, inventory: dict, analysis: dict) -> dict[str, dict]:
-    numeric_records = _repository_python_records(repo_root)
+def _quality_modules(
+    repo_root: Path, inventory: dict, analysis: dict, numeric_records: list[dict]
+) -> dict[str, dict]:
     product_paths = {record["path"] for record in inventory["python_files"]}
     extra_records = [record for record in numeric_records if record["path"] not in product_paths]
     per_file = dict(analysis.get("per_file", {}))
@@ -324,18 +444,25 @@ def _quality_modules(repo_root: Path, inventory: dict, analysis: dict) -> dict[s
     }
 
 
-def collect_current(repo_root: Path) -> dict:
+def collect_current(repo_root: Path, baseline: dict | None = None) -> dict:
     """Collect fresh expanded-policy finding, complexity, and LOC evidence."""
     inventory = _inventory.build_inventory(repo_root)
     graph = _graph.build_graph(repo_root, inventory)
     analysis = _analyze.run_analysis(repo_root, inventory, graph)
     policy_ruff = _run_policy_ruff(repo_root)
+    python_records = _repository_python_records(repo_root)
+    python_files = sorted(record["path"] for record in python_records)
+    legacy_python_files = _normalized_python_files(
+        (baseline or {}).get("typing", {}).get("legacy_python_files")
+    )
+    policy_pyright = _run_policy_pyright(repo_root, python_files, legacy_python_files)
     failed = _failed_analyzers(analysis)
     if failed:
         raise QualityEvidenceError("quality evidence unavailable from: " + ", ".join(failed))
     return {
-        "findings": _quality_findings(repo_root, analysis, policy_ruff),
-        "modules": _quality_modules(repo_root, inventory, analysis),
+        "findings": _quality_findings(repo_root, analysis, policy_ruff, policy_pyright),
+        "modules": _quality_modules(repo_root, inventory, analysis, python_records),
+        "python_files": python_files,
     }
 
 
@@ -347,9 +474,11 @@ def _load_baseline(repo_root: Path) -> dict:
         )
     baseline = json.loads(path.read_text(encoding="utf-8"))
     if (
-        baseline.get("schema_version") != 1
+        baseline.get("schema_version") != 2
         or not isinstance(baseline.get("findings"), list)
         or not isinstance(baseline.get("ceilings"), dict)
+        or not isinstance(baseline.get("typing"), dict)
+        or not isinstance(baseline["typing"].get("legacy_python_files"), list)
     ):
         raise QualityEvidenceError("quality baseline has an unsupported schema")
     return baseline
@@ -358,7 +487,8 @@ def _load_baseline(repo_root: Path) -> dict:
 def run_quality_check(repo_root: Path) -> int:
     """Collect evidence, print sorted ratchet results, and return a CLI status."""
     try:
-        violations = evaluate_ratchets(collect_current(repo_root), _load_baseline(repo_root))
+        baseline = _load_baseline(repo_root)
+        violations = evaluate_ratchets(collect_current(repo_root, baseline), baseline)
     except (OSError, ValueError, QualityEvidenceError) as exc:
         print(f"quality: failed - {exc}")
         return 1

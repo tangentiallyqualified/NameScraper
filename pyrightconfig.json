@@ -1,0 +1,24 @@
+{
+ "exclude": [
+  "**/__pycache__",
+  ".venv",
+  ".worktrees",
+  ".audit"
+ ],
+ "extraPaths": [
+  "."
+ ],
+ "include": [
+  "plex_renamer",
+  "tests",
+  "scripts"
+ ],
+ "pythonVersion": "3.11",
+ "strict": [
+  "plex_renamer/app/models",
+  "plex_renamer/engine/_discovery_ports.py"
+ ],
+ "typeCheckingMode": "basic",
+ "venv": ".venv",
+ "venvPath": "."
+}

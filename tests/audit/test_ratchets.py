@@ -52,11 +52,12 @@ def test_unchanged_legacy_debt_passes_and_thresholds_are_explicit_policy() -> No
         },
     }
     baseline = {
-        "schema_version": 1,
+        "schema_version": 2,
         "findings": [_finding(symbol="legacy_import")],
         "ceilings": {
             "plex_renamer/legacy.py": {"max_complexity": 12, "loc": 550},
         },
+        "typing": {"legacy_python_files": []},
     }
 
     assert evaluate_ratchets(current, baseline) == []
@@ -339,7 +340,7 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
     }
 
     expected = {
-        "schema_version": 1,
+        "schema_version": 2,
         "findings": [
             {
                 "analyzer": "contracts",
@@ -358,6 +359,7 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
             "plex_renamer/alpha.py": {"max_complexity": 11},
             "plex_renamer/zeta.py": {"loc": 700},
         },
+        "typing": {"legacy_python_files": []},
     }
 
     assert build_baseline(current) == expected

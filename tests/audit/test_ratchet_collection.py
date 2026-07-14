@@ -38,7 +38,12 @@ def test_quality_check_cli_passes_unchanged_evidence(
         "modules": {"legacy.py": {"max_complexity": 12, "loc": 510}},
     }
     _write_quality_baseline(tmp_path, _ratchets.build_baseline(evidence))
-    monkeypatch.setattr(_ratchets, "collect_current", lambda _repo_root: evidence, raising=False)
+    monkeypatch.setattr(
+        _ratchets,
+        "collect_current",
+        lambda _repo_root, _baseline: evidence,
+        raising=False,
+    )
 
     assert cli.main(["--quality-check", "--repo-root", str(tmp_path)]) == 0
     assert capsys.readouterr().out == "quality: baseline current; no new or enlarged debt\n"
@@ -52,9 +57,19 @@ def test_quality_check_cli_separates_debt_and_stale_baseline(
         "findings": [_finding(rule="B007", path="new.py", symbol="item")],
         "modules": {},
     }
-    baseline = {"schema_version": 1, "findings": [stale], "ceilings": {}}
+    baseline = {
+        "schema_version": 2,
+        "findings": [stale],
+        "ceilings": {},
+        "typing": {"legacy_python_files": []},
+    }
     _write_quality_baseline(tmp_path, baseline)
-    monkeypatch.setattr(_ratchets, "collect_current", lambda _repo_root: current, raising=False)
+    monkeypatch.setattr(
+        _ratchets,
+        "collect_current",
+        lambda _repo_root, _baseline: current,
+        raising=False,
+    )
 
     assert cli.main(["--quality-check", "--repo-root", str(tmp_path)]) == 1
     output = capsys.readouterr().out
@@ -120,6 +135,11 @@ def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
     monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: expanded_ruff)
     monkeypatch.setattr(
         _ratchets,
+        "_run_policy_pyright",
+        lambda _root, _python_files, _legacy_python_files: [],
+    )
+    monkeypatch.setattr(
+        _ratchets,
         "_repository_python_records",
         lambda _root: inventory["python_files"],
     )
@@ -143,6 +163,7 @@ def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
             "a.py": {"max_complexity": 2, "loc": 10},
             "z.py": {"max_complexity": 3, "loc": 20},
         },
+        "python_files": ["a.py", "z.py"],
     }
 
 
@@ -182,6 +203,11 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         lambda _root, _inventory, _graph: analysis,
     )
     monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: [])
+    monkeypatch.setattr(
+        _ratchets,
+        "_run_policy_pyright",
+        lambda _root, _python_files, _legacy_python_files: [],
+    )
 
     current = _ratchets.collect_current(tmp_path)
 
@@ -219,6 +245,10 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
             "scripts/legacy_complex.py": {"loc": 22, "max_complexity": 12},
             "tests/test_legacy_large.py": {"loc": 502, "max_complexity": 0},
         },
+        "python_files": [
+            "scripts/legacy_complex.py",
+            "tests/test_legacy_large.py",
+        ],
     }
     assert {
         (finding["path"], finding["kind"])

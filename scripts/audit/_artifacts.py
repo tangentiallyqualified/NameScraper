@@ -1,10 +1,11 @@
 """Shared read/write of .audit/*.json stage artifacts and git helpers."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 AUDIT_DIR_NAME = ".audit"
@@ -21,6 +22,7 @@ AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
     "docs/**/*.rst",
     "docs/**/*.txt",
     "pyproject.toml",
+    "pyrightconfig.json",
     "docs/audit/doc-ledger.toml",
 )
 
@@ -89,9 +91,8 @@ def input_files(repo_root: Path) -> list[Path]:
         if any(part in _EXCLUDED_INPUT_PARTS for part in relative.parts):
             continue
         relative_posix = relative.as_posix()
-        if (
-            relative_posix in _GENERATED_AUDIT_FILES
-            or relative_posix.startswith(_GENERATED_AUDIT_PREFIXES)
+        if relative_posix in _GENERATED_AUDIT_FILES or relative_posix.startswith(
+            _GENERATED_AUDIT_PREFIXES
         ):
             continue
         files[relative_posix] = path
@@ -134,7 +135,7 @@ def package_of(path: str) -> str:
 def write_artifact(repo_root: Path, name: str, payload: dict) -> Path:
     stamped = {
         **payload,
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "commit": current_commit(repo_root),
     }
     path = audit_dir(repo_root) / f"{name}.json"
@@ -182,11 +183,7 @@ def changed_files_since(repo_root: Path, old_commit: str, *pathspecs: str) -> li
     )
     if out is None:
         return None
-    committed = {
-        line.strip().replace("\\", "/")
-        for line in out.splitlines()
-        if line.strip()
-    }
+    committed = {line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()}
     working = working_tree_files(repo_root, *pathspecs)
     if working is None:
         return None
@@ -205,9 +202,5 @@ def working_tree_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
         out = _git(repo_root, *args)
         if out is None:
             return None
-        files.update(
-            line.strip().replace("\\", "/")
-            for line in out.splitlines()
-            if line.strip()
-        )
+        files.update(line.strip().replace("\\", "/") for line in out.splitlines() if line.strip())
     return sorted(files)

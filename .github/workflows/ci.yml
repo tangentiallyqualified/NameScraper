@@ -65,6 +65,10 @@ jobs:
           .venv\Scripts\python.exe -m pip install --upgrade pip
           .venv\Scripts\python.exe -m pip install -e ".[dev]" -c scripts\audit\constraints.txt
 
+      - name: Enforce quality ratchets
+        shell: pwsh
+        run: scripts/audit.cmd --quality-check
+
       - name: Verify generated audit docs
         shell: pwsh
         run: scripts/audit.cmd --verify --with-coverage
