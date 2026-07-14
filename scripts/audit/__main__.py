@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
-               _inventory, _metrics, _render_human, _render_llm)
+               _inventory, _metrics, _render_human, _render_llm, _verify)
 
 HARD_STAGES = {"inventory", "graph"}
 
@@ -71,23 +71,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="Run the fast test suite fresh under coverage.")
     parser.add_argument("--check", action="store_true",
                         help="Read-only staleness probe against docs/audit/baseline.json.")
+    parser.add_argument("--verify", action="store_true",
+                        help="Run the full pipeline and report generated drift without mutation.")
     parser.add_argument("--coverage-max-age", type=int, default=15,
                         help="Commits before imported coverage counts as stale (default 15).")
     parser.add_argument("--repo-root", type=Path,
                         default=Path(__file__).resolve().parents[2],
                         help="Repo root override (used by tests).")
-    return parser.parse_args(argv)
+    options = parser.parse_args(argv)
+    if options.verify and (options.fast or options.check or options.stage):
+        parser.error("--verify cannot be combined with --fast, --check, or a stage")
+    return options
 
 
-def main(argv: list[str] | None = None) -> int:
-    options = _parse_args(argv)
-    repo_root = options.repo_root.resolve()
-
-    if options.check:
-        for line in check_lines(repo_root):
-            print(line)
-        return 0
-
+def _run_pipeline(repo_root: Path, options: argparse.Namespace) -> int:
     if options.stage:
         selected = [(n, fn) for n, fn in STAGES if n == options.stage]
     elif options.fast:
@@ -117,6 +114,32 @@ def main(argv: list[str] | None = None) -> int:
             for line in changes.read_text(encoding="utf-8").splitlines()[2:10]:
                 print(line)
     return worst
+
+
+def main(argv: list[str] | None = None) -> int:
+    options = _parse_args(argv)
+    repo_root = options.repo_root.resolve()
+
+    if options.check:
+        for line in check_lines(repo_root):
+            print(line)
+        return 0
+
+    if options.verify:
+        pipeline_rc, drift = _verify.verify(
+            repo_root, lambda: _run_pipeline(repo_root, options)
+        )
+        if drift:
+            print("generated drift:")
+            for relative in drift:
+                print(f"  {relative}")
+        else:
+            print("audit generated output is current")
+        if pipeline_rc:
+            return pipeline_rc
+        return 1 if drift else 0
+
+    return _run_pipeline(repo_root, options)
 
 
 if __name__ == "__main__":

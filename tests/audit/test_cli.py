@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from audit import _artifacts
 from audit import __main__ as cli
 
@@ -119,3 +121,62 @@ def test_render_stage_missing_artifacts_exits_1(synthetic_repo: Path, capsys):
     assert rc == 1  # MissingArtifactError contract: single message, hard exit
     out = capsys.readouterr().out
     assert "Missing artifact" in out
+
+
+def test_verify_reports_current_generated_output(synthetic_repo: Path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "STAGES", [("inventory", lambda _root, _options: 0)])
+
+    rc = cli.main(["--verify", "--repo-root", str(synthetic_repo)])
+
+    assert rc == 0
+    assert "audit generated output is current" in capsys.readouterr().out
+
+
+def test_verify_reports_sorted_drift_and_restores_tree(synthetic_repo: Path, monkeypatch, capsys):
+    audit_dir = synthetic_repo / "docs" / "audit"
+    audit_dir.mkdir(parents=True)
+    original = b"curated bytes\r\n"
+    curated = audit_dir / "findings-review.md"
+    curated.write_bytes(original)
+
+    def generate(repo_root: Path, _options) -> int:
+        (repo_root / "docs" / "audit" / "z.md").write_bytes(b"z\n")
+        (repo_root / "docs" / "audit" / "a.md").write_bytes(b"a\n")
+        return 0
+
+    monkeypatch.setattr(cli, "STAGES", [("inventory", generate)])
+
+    rc = cli.main(["--verify", "--repo-root", str(synthetic_repo)])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "generated drift:\n  docs/audit/a.md\n  docs/audit/z.md" in out
+    assert curated.read_bytes() == original
+    assert not (audit_dir / "a.md").exists()
+    assert not (audit_dir / "z.md").exists()
+
+
+def test_verify_returns_pipeline_failure_after_restoration(synthetic_repo: Path, monkeypatch):
+    audit_dir = synthetic_repo / "docs" / "audit"
+    audit_dir.mkdir(parents=True)
+    baseline = audit_dir / "baseline.json"
+    baseline.write_bytes(b"original\n")
+
+    def fail_after_writing(repo_root: Path, _options) -> int:
+        (repo_root / "docs" / "audit" / "baseline.json").write_bytes(b"partial\n")
+        return 2
+
+    monkeypatch.setattr(cli, "STAGES", [("inventory", fail_after_writing)])
+
+    assert cli.main(["--verify", "--repo-root", str(synthetic_repo)]) == 2
+    assert baseline.read_bytes() == b"original\n"
+
+
+@pytest.mark.parametrize("other", ["--fast", "--check", "inventory"])
+def test_verify_is_mutually_exclusive_with_other_run_modes(
+    synthetic_repo: Path, other: str
+):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--verify", other, "--repo-root", str(synthetic_repo)])
+
+    assert exc_info.value.code == 2
