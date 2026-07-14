@@ -10,13 +10,32 @@ EXPECTED_PER_FILE_IGNORES = {
     "plex_renamer/gui_qt/**/*.py": ["B008", "RUF012"],
     "tests/**/*.py": ["RUF012"],
 }
-EXPECTED_PER_FILE_IGNORE_REASONS = {
-    "plex_renamer/gui_qt/**/*.py": (
-        "Qt override signatures legitimately use QModelIndex() defaults, and Qt model/signal "
-        "class attributes trigger RUF012."
-    ),
-    "tests/**/*.py": "Test fakes intentionally use concise mutable class attributes.",
-}
+EXPECTED_EXCEPTIONS = [
+    {
+        "target": "plex_renamer/gui_qt/**/*.py",
+        "rule": "B008",
+        "reason_code": "framework-callback",
+        "reason": (
+            "Qt override signatures legitimately use QModelIndex() default arguments required "
+            "by the framework."
+        ),
+    },
+    {
+        "target": "plex_renamer/gui_qt/**/*.py",
+        "rule": "RUF012",
+        "reason_code": "framework-callback",
+        "reason": (
+            "Qt signal and model class attributes are framework-managed descriptors, not "
+            "mutable instance state."
+        ),
+    },
+    {
+        "target": "tests/**/*.py",
+        "rule": "RUF012",
+        "reason_code": "test-seam",
+        "reason": "Test fakes intentionally use concise mutable class attributes as a test seam.",
+    },
+]
 
 
 def _load_toml(path: Path) -> dict:
@@ -32,11 +51,10 @@ def test_pyproject_declares_exact_ruff_policy() -> None:
     assert ruff["lint"]["per-file-ignores"] == EXPECTED_PER_FILE_IGNORES
 
 
-def test_audit_policy_mirrors_ruff_policy_and_documents_exceptions() -> None:
+def test_audit_policy_mirrors_ruff_policy_with_structured_exceptions() -> None:
     policy = _load_toml(REPO_ROOT / "scripts" / "audit" / "policy.toml")
 
     assert policy["schema_version"] == 1
     assert policy["format"]["line_length"] == EXPECTED_LINE_LENGTH
     assert policy["lint"]["select"] == EXPECTED_LINT_SELECT
-    assert policy["lint"]["per_file_ignores"] == EXPECTED_PER_FILE_IGNORES
-    assert policy["lint"]["per_file_ignore_reasons"] == EXPECTED_PER_FILE_IGNORE_REASONS
+    assert policy["lint"]["exceptions"] == EXPECTED_EXCEPTIONS
