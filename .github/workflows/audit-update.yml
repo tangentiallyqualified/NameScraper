@@ -3,14 +3,15 @@ name: Update audit artifacts
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   audit-update:
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -25,10 +26,15 @@ jobs:
         shell: pwsh
         run: scripts/audit.cmd
 
+      - name: Stage generated audit docs
+        if: always()
+        shell: pwsh
+        run: git add -A -- docs/audit
+
       - name: Create binary patch
         if: always()
         shell: pwsh
-        run: git diff --binary --output=audit-generated.patch
+        run: git diff --cached --binary --output=audit-generated.patch HEAD -- docs/audit
 
       - name: Upload generated audit artifacts
         if: always()
