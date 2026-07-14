@@ -175,7 +175,7 @@ Expected: all focused tests pass.
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add scripts/audit tests/audit
+git add scripts/audit scripts/test_fast_runner.py tests/audit
 git commit -m "feat(audit): make generated provenance deterministic"
 ```
 
