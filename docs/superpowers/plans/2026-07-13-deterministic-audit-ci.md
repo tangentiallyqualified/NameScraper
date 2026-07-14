@@ -333,33 +333,50 @@ git commit -m "ci(audit): verify generated docs on pull requests"
 ### Task 6: Regenerate and verify the complete branch
 
 **Files:**
+- Modify: `scripts/audit/_render_code_index.py`
+- Modify: `tests/audit/test_render_code_index.py`
 - Modify: generated files under `docs/audit/`
 - Modify: `docs/audit/baseline.json`
 - Modify: `docs/audit/CHANGES.md`
 
 **Interfaces:**
 - The committed generated tree is the output accepted by `audit --verify`.
+- The code-index renderer removes files it previously owned that are absent
+  from the current output set, including the one-time legacy `docs/audit/llm`
+  tree; it never removes non-renderer files elsewhere in `docs/audit`.
 
-- [ ] **Step 1: Run audit tests**
+- [ ] **Step 1: Add stale-output cleanup with TDD**
+
+Create legacy `docs/audit/llm/*.md` files and an obsolete
+`docs/audit/code-index/obsolete.md` page in the renderer test repository. Run
+the focused test first and confirm RED because stale pages remain. Implement
+renderer-owned cleanup, then rerun and confirm the stale files/directories are
+removed while unrelated `docs/audit` files remain byte-identical.
+
+Run: `.venv\Scripts\python.exe -m pytest tests\audit\test_render_code_index.py -q`
+
+Expected after implementation: all focused tests pass.
+
+- [ ] **Step 2: Run audit tests**
 
 Run: `.venv\Scripts\python.exe -m pytest tests\audit -q`
 
 Expected: all audit tests pass.
 
-- [ ] **Step 2: Generate the deterministic output**
+- [ ] **Step 3: Generate the deterministic output**
 
 Run: `scripts\audit.cmd`
 
 Expected: exit 0 and generated output under `docs/audit/code-index` with no
 `docs/audit/llm` files.
 
-- [ ] **Step 3: Prove a second run is non-mutating**
+- [ ] **Step 4: Prove a second run is non-mutating**
 
 Run: `scripts\audit.cmd --verify`
 
 Expected: exit 0 and `audit generated output is current`.
 
-- [ ] **Step 4: Run repository verification**
+- [ ] **Step 5: Run repository verification**
 
 Run:
 
@@ -372,9 +389,9 @@ git status --short
 Expected: Ruff exits 0; `2026` or more tests pass with no failures; status lists
 only intended plan-1 files.
 
-- [ ] **Step 5: Commit generated artifacts**
+- [ ] **Step 6: Commit implementation and generated artifacts**
 
 ```powershell
-git add docs/audit
+git add scripts/audit/_render_code_index.py tests/audit/test_render_code_index.py docs/audit
 git commit -m "chore(audit): regenerate deterministic artifacts"
 ```
