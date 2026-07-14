@@ -51,15 +51,40 @@ def test_pull_requests_verify_generated_audit_docs() -> None:
     job = _job(workflow, "audit-verify")
     checkout = _step(job, "- uses: actions/checkout@v4")
     setup_python = _step(job, "- uses: actions/setup-python@v5")
-    install = _step(job, "- name: Install dependencies")
 
     assert "pull_request:" in workflow
     assert "runs-on: windows-latest" in job
     assert "permissions:\n      contents: read" in job
     assert "fetch-depth: 0" in checkout
     assert 'python-version: "3.12"' in setup_python
-    assert 'pip install -e ".[dev]"' in install
-    assert "run: scripts/audit.cmd --verify" in job
+
+
+def test_pull_request_audit_job_creates_and_provisions_venv() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-verify")
+    create_marker = "- name: Create audit virtual environment"
+
+    assert create_marker in job
+    create_venv = _step(job, create_marker)
+    install = _step(job, "- name: Install dependencies")
+
+    assert "run: python -m venv .venv" in create_venv
+    assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
+    assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
+    assert (
+        job.index("uses: actions/setup-python@v5")
+        < job.index("python -m venv .venv")
+        < job.index(r".venv\Scripts\python.exe -m pip install --upgrade pip")
+        < job.index("scripts/audit.cmd")
+    )
+
+
+def test_pull_request_audit_job_runs_coverage_verification() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-verify")
+    verify = _step(job, "- name: Verify generated audit docs")
+
+    assert "run: scripts/audit.cmd --verify --with-coverage\n" in verify
 
 
 def test_manual_audit_update_uploads_generated_outputs() -> None:
@@ -67,7 +92,6 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     job = _job(workflow, "audit-update")
     checkout = _step(job, "- uses: actions/checkout@v4")
     setup_python = _step(job, "- uses: actions/setup-python@v5")
-    install = _step(job, "- name: Install dependencies")
     stage = _step(job, "- name: Stage generated audit docs")
     patch = _step(job, "- name: Create binary patch")
     upload = _step(job, "- name: Upload generated audit artifacts")
@@ -77,8 +101,6 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     assert "permissions:\n      contents: read" in job
     assert "fetch-depth: 0" in checkout
     assert 'python-version: "3.12"' in setup_python
-    assert 'pip install -e ".[dev]"' in install
-    assert "run: scripts/audit.cmd\n" in job
     assert "if: always()" in stage
     assert "run: git add -A -- docs/audit" in stage
     assert "if: always()" in patch
@@ -93,6 +115,37 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     assert "docs/audit/**" in upload
     assert ".audit/*.json" in upload
     assert "include-hidden-files: true" in upload
+
+
+def test_manual_audit_job_creates_and_provisions_venv() -> None:
+    workflow = UPDATE_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-update")
+    create_marker = "- name: Create audit virtual environment"
+
+    assert create_marker in job
+    create_venv = _step(job, create_marker)
+    install = _step(job, "- name: Install dependencies")
+
+    assert "run: python -m venv .venv" in create_venv
+    assert r".venv\Scripts\python.exe -m pip install --upgrade pip" in install
+    assert r'.venv\Scripts\python.exe -m pip install -e ".[dev]"' in install
+    assert (
+        job.index("uses: actions/setup-python@v5")
+        < job.index("python -m venv .venv")
+        < job.index(r".venv\Scripts\python.exe -m pip install --upgrade pip")
+        < job.index("scripts/audit.cmd")
+    )
+
+
+def test_manual_audit_job_runs_with_coverage_before_staging() -> None:
+    workflow = UPDATE_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-update")
+    generate = _step(job, "- name: Generate audit docs")
+
+    assert "run: scripts/audit.cmd --with-coverage\n" in generate
+    assert job.index("scripts/audit.cmd --with-coverage") < job.index(
+        "git add -A -- docs/audit"
+    )
 
 
 def test_audit_workflows_never_commit_or_push() -> None:

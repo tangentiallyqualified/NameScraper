@@ -17,14 +17,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Create audit virtual environment
+        run: python -m venv .venv
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\python.exe -m pip install -e ".[dev]"
 
       - name: Generate audit docs
         shell: pwsh
-        run: scripts/audit.cmd
+        run: scripts/audit.cmd --with-coverage
 
       - name: Stage generated audit docs
         if: always()
