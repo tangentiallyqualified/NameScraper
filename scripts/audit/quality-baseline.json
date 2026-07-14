@@ -1,0 +1,2538 @@
+{
+ "ceilings": {
+  "plex_renamer/_job_execution_filesystem.py": {
+   "max_complexity": 18
+  },
+  "plex_renamer/_job_execution_metadata.py": {
+   "max_complexity": 27
+  },
+  "plex_renamer/_job_execution_remux.py": {
+   "max_complexity": 18
+  },
+  "plex_renamer/_job_store_db.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/_job_store_ordering.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/_mkv_command.py": {
+   "max_complexity": 19
+  },
+  "plex_renamer/_parsing_episodes.py": {
+   "max_complexity": 59
+  },
+  "plex_renamer/_parsing_names.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/_parsing_seasons.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/_parsing_subtitles.py": {
+   "max_complexity": 14
+  },
+  "plex_renamer/_parsing_titles.py": {
+   "max_complexity": 12
+  },
+  "plex_renamer/_parsing_tv.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/_tmdb_metadata_builder.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/_tmdb_transport.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/app/controllers/_job_projection_helpers.py": {
+   "max_complexity": 27
+  },
+  "plex_renamer/app/controllers/_match_state_helpers.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/app/controllers/_movie_state_helpers.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/app/controllers/media_controller.py": {
+   "loc": 545
+  },
+  "plex_renamer/app/services/_movie_library_classification.py": {
+   "max_complexity": 22
+  },
+  "plex_renamer/app/services/_tv_library_classification.py": {
+   "max_complexity": 42
+  },
+  "plex_renamer/app/services/automux_service.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/app/services/command_gating_service.py": {
+   "max_complexity": 21
+  },
+  "plex_renamer/app/services/episode_mapping_service.py": {
+   "max_complexity": 27
+  },
+  "plex_renamer/app/services/episode_projection_cache.py": {
+   "max_complexity": 14
+  },
+  "plex_renamer/app/services/metadata_service.py": {
+   "max_complexity": 35
+  },
+  "plex_renamer/app/services/settings_service.py": {
+   "loc": 521
+  },
+  "plex_renamer/engine/_batch_orchestrators.py": {
+   "loc": 1037,
+   "max_complexity": 25
+  },
+  "plex_renamer/engine/_batch_tv_duplicates.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/engine/_batch_tv_episode_claims.py": {
+   "max_complexity": 33
+  },
+  "plex_renamer/engine/_batch_tv_match_policy.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/engine/_batch_tv_season_merge.py": {
+   "max_complexity": 31
+  },
+  "plex_renamer/engine/_episode_projection.py": {
+   "max_complexity": 16
+  },
+  "plex_renamer/engine/_episode_resolution.py": {
+   "loc": 1938,
+   "max_complexity": 49
+  },
+  "plex_renamer/engine/_movie_scanner.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/engine/_mux_planner.py": {
+   "max_complexity": 28
+  },
+  "plex_renamer/engine/_queue_bridge.py": {
+   "max_complexity": 16
+  },
+  "plex_renamer/engine/_rename_execution.py": {
+   "max_complexity": 35
+  },
+  "plex_renamer/engine/_tv_scanner.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/engine/_tv_scanner_consolidated.py": {
+   "loc": 685,
+   "max_complexity": 40
+  },
+  "plex_renamer/engine/_tv_scanner_normal.py": {
+   "max_complexity": 44
+  },
+  "plex_renamer/engine/_tv_scanner_postprocess.py": {
+   "max_complexity": 22
+  },
+  "plex_renamer/engine/_tv_scanner_seasons.py": {
+   "max_complexity": 25
+  },
+  "plex_renamer/engine/episode_assignments.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/engine/matching.py": {
+   "loc": 614,
+   "max_complexity": 20
+  },
+  "plex_renamer/engine/models.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/gui_qt/_main_window_state.py": {
+   "max_complexity": 11
+  },
+  "plex_renamer/gui_qt/app.py": {
+   "max_complexity": 12
+  },
+  "plex_renamer/gui_qt/models/job_table_model.py": {
+   "max_complexity": 35
+  },
+  "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py": {
+   "loc": 760,
+   "max_complexity": 26
+  },
+  "plex_renamer/gui_qt/widgets/_episode_table_delegate.py": {
+   "loc": 665,
+   "max_complexity": 13
+  },
+  "plex_renamer/gui_qt/widgets/_episode_table_model.py": {
+   "loc": 911,
+   "max_complexity": 18
+  },
+  "plex_renamer/gui_qt/widgets/_job_detail_data.py": {
+   "max_complexity": 12
+  },
+  "plex_renamer/gui_qt/widgets/_job_detail_preview.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/gui_qt/widgets/_job_list_tab.py": {
+   "loc": 590
+  },
+  "plex_renamer/gui_qt/widgets/_media_helpers.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_actions.py": {
+   "loc": 537,
+   "max_complexity": 42
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": {
+   "max_complexity": 15
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py": {
+   "max_complexity": 17
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py": {
+   "max_complexity": 17
+  },
+  "plex_renamer/gui_qt/widgets/_queue_tab_state.py": {
+   "max_complexity": 12
+  },
+  "plex_renamer/gui_qt/widgets/_work_panel.py": {
+   "loc": 852
+  },
+  "plex_renamer/gui_qt/widgets/episode_assign_dialog.py": {
+   "max_complexity": 12
+  },
+  "plex_renamer/gui_qt/widgets/job_detail_panel.py": {
+   "loc": 618
+  },
+  "plex_renamer/gui_qt/widgets/scan_progress.py": {
+   "loc": 544,
+   "max_complexity": 17
+  },
+  "plex_renamer/gui_qt/widgets/status_chip.py": {
+   "max_complexity": 13
+  },
+  "plex_renamer/job_executor.py": {
+   "loc": 907,
+   "max_complexity": 43
+  },
+  "plex_renamer/job_store.py": {
+   "loc": 621
+  },
+  "plex_renamer/tmdb.py": {
+   "loc": 580,
+   "max_complexity": 17
+  }
+ },
+ "findings": [
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/_job_store_db.py",
+   "rule": "unused-attribute",
+   "symbol": "row_factory"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_mkv_probe.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/_mkv_probe.py",
+   "rule": "unused-function",
+   "symbol": "clear_probe_cache"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/_mkv_probe.py",
+   "rule": "unused-variable",
+   "symbol": "container_type"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/_mkv_probe.py",
+   "rule": "unused-variable",
+   "symbol": "is_forced"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_episodes.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_episodes.py",
+   "rule": "RUF003",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_names.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_names.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_seasons.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_subtitles.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_titles.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_titles.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_titles.py",
+   "rule": "RUF007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_tv.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/_parsing_tv.py",
+   "rule": "SIM103",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/_controller_event_helpers.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/_controller_lifecycle_workflow.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/_controller_state_helpers.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/_movie_state_helpers.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/media_controller.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/controllers/media_controller.py",
+   "rule": "unused-method",
+   "symbol": "accept_tv_show"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/controllers/queue_controller.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/controllers/queue_controller.py",
+   "rule": "unused-method",
+   "symbol": "add_single_job"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/controllers/queue_controller.py",
+   "rule": "unused-property",
+   "symbol": "pending_count"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-property",
+   "symbol": "episode_key"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "actionable_indices"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "eligible_job_count"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "last_accessed_at"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "mapped_episodes"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "missing_episodes"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "review_required"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/models/state_models.py",
+   "rule": "unused-variable",
+   "symbol": "source_label"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/_tv_library_classification.py",
+   "rule": "SIM114",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/automux_service.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "unused-attribute",
+   "symbol": "row_factory"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "unused-method",
+   "symbol": "invalidate_by_prefix"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "unused-method",
+   "symbol": "invalidate_namespace"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "unused-method",
+   "symbol": "make_key"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/cache_service.py",
+   "rule": "unused-method",
+   "symbol": "mark_refreshing"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/episode_mapping_service.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/episode_mapping_service.py",
+   "rule": "unused-method",
+   "symbol": "apply_assignments"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/episode_projection_cache.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/episode_projection_cache.py",
+   "rule": "unused-property",
+   "symbol": "cache_size"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/metadata_service.py",
+   "rule": "SIM102",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/metadata_service.py",
+   "rule": "SIM114",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "unused-method",
+   "symbol": "can_manual_refresh"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "unused-method",
+   "symbol": "get_rescan_scope"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "unused-method",
+   "symbol": "should_background_refresh"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/refresh_policy_service.py",
+   "rule": "unused-variable",
+   "symbol": "retry_after_seconds"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/settings_service.py",
+   "rule": "UP015",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/app/services/settings_service.py",
+   "rule": "unused-property",
+   "symbol": "match_country"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/app/services/tv_library_discovery_service.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/constants.py",
+   "rule": "unused-variable",
+   "symbol": "SUBTITLE_DOWNLOAD"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/__init__.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/__init__.py",
+   "rule": "RUF022",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/_batch_orchestrators.py",
+   "rule": "unused-method",
+   "symbol": "discover_movies"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_batch_tv_episode_claims.py",
+   "rule": "RUF005",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_core.py",
+   "rule": "RUF022",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_discovery_ports.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_episode_resolution.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_episode_resolution.py",
+   "rule": "RUF007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_movie_scanner.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_movie_scanner.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/_movie_scanner.py",
+   "rule": "unused-property",
+   "symbol": "explicit_files"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_mux_planner.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/_mux_planner.py",
+   "rule": "unused-variable",
+   "symbol": "output_name"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/_mux_planner.py",
+   "rule": "unused-variable",
+   "symbol": "user_modified"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_queue_bridge.py",
+   "rule": "F821",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_queue_bridge.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_queue_bridge.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_rename_execution.py",
+   "rule": "B007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_rename_execution.py",
+   "rule": "SIM102",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_scan_runtime.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_state.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
+   "rule": "SIM102",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner_normal.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/_tv_scanner_normal.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/episode_assignments.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/episode_assignments.py",
+   "rule": "RUF007",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/episode_assignments.py",
+   "rule": "unused-method",
+   "symbol": "unclaimed_slots"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/episode_assignments.py",
+   "rule": "unused-variable",
+   "symbol": "ROLE_VERSION"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/matching.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/matching.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/models.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/engine/models.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/engine/show_details.py",
+   "rule": "unused-variable",
+   "symbol": "first_air_date"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_bootstrap.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_bridges.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_bridges.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_feedback.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_tabs.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_main_window_tmdb.py",
+   "rule": "UP035",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/_scale.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/_scale.py",
+   "rule": "unused-function",
+   "symbol": "row_height"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/app.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/main_window.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/models/__init__.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/models/__init__.py",
+   "rule": "RUF022",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
+   "rule": "unused-method",
+   "symbol": "filterAcceptsRow"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py",
+   "rule": "unused-variable",
+   "symbol": "source_parent"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/models/job_table_model.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/models/job_table_model.py",
+   "rule": "unused-method",
+   "symbol": "headerData"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
+   "rule": "unused-method",
+   "symbol": "minimumSizeHint"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "SIM103",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-attribute",
+   "symbol": "_claimed_file_by_key"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "_select_file"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "dragEnterEvent"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "dragMoveEvent"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "dropEvent"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "is_claimed"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "mimeTypes"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-method",
+   "symbol": "startDrag"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
+   "rule": "unused-variable",
+   "symbol": "supportedActions"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-attribute",
+   "symbol": "_copy_buttons"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-attribute",
+   "symbol": "_header_row"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-method",
+   "symbol": "action_buttons"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-method",
+   "symbol": "header_action_buttons"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-method",
+   "symbol": "mux_optout_button"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_expansion.py",
+   "rule": "unused-method",
+   "symbol": "status_pill_text"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "unused-method",
+   "symbol": "createEditor"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_delegate.py",
+   "rule": "unused-method",
+   "symbol": "updateEditorGeometry"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "unused-method",
+   "symbol": "filter_mode"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_episode_table_model.py",
+   "rule": "unused-method",
+   "symbol": "row_for_preview_index"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_formatting.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_image_utils.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_job_detail_poster.py",
+   "rule": "RUF046",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_job_detail_preview.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
+   "rule": "SIM114",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_job_list_tab.py",
+   "rule": "unused-attribute",
+   "symbol": "backgroundBrush"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_match_picker_search.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_helpers.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_action_bar.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_actions.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_automux.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py",
+   "rule": "E731",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
+   "rule": "B007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
+   "rule": "SIM114",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_roster.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_roster.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_media_workspace_ui.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
+   "rule": "RUF005",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
+   "rule": "unused-method",
+   "symbol": "entry_kind_at"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
+   "rule": "unused-method",
+   "symbol": "group_at"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
+   "rule": "unused-attribute",
+   "symbol": "_default_audio_edit"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
+   "rule": "unused-attribute",
+   "symbol": "_merge_langs_edit"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
+   "rule": "unused-attribute",
+   "symbol": "_merge_subs_cb"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_settings_automux_page.py",
+   "rule": "unused-attribute",
+   "symbol": "_no_fear_cb"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_settings_tab_actions.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_settings_tab_actions.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
+   "rule": "unused-attribute",
+   "symbol": "_destinations_page"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "RUF005",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "approve_all_button"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "check_summary"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "episode_search_box"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "overflow_button"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "search_box"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "segmented_filter"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
+   "rule": "unused-property",
+   "symbol": "summary_label"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py",
+   "rule": "unused-method",
+   "symbol": "nextCheckState"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/empty_state.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/empty_state.py",
+   "rule": "unused-method",
+   "symbol": "dragEnterEvent"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/empty_state.py",
+   "rule": "unused-method",
+   "symbol": "dragLeaveEvent"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/empty_state.py",
+   "rule": "unused-method",
+   "symbol": "dropEvent"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "RUF007",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "unused-method",
+   "symbol": "is_season_expanded"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "unused-method",
+   "symbol": "is_selection_valid"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "unused-method",
+   "symbol": "set_checked"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "unused-method",
+   "symbol": "slot_row_text"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/episode_assign_dialog.py",
+   "rule": "unused-method",
+   "symbol": "validation_text"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/history_tab.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/job_detail_panel.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/media_workspace.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/media_workspace.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/queue_tab.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/scan_progress.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/settings_tab.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/settings_tab.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/tab_badge.py",
+   "rule": "unused-method",
+   "symbol": "count_text"
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/gui_qt/widgets/tab_badge.py",
+   "rule": "unused-method",
+   "symbol": "failure_visible"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/gui_qt/widgets/toast_manager.py",
+   "rule": "RUF100",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_executor.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_executor.py",
+   "rule": "SIM102",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_executor.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/job_store.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "vulture",
+   "path": "plex_renamer/job_store.py",
+   "rule": "unused-method",
+   "symbol": "reorder_job"
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/keys.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/parsing.py",
+   "rule": "RUF022",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/thread_pool.py",
+   "rule": "UP037",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "plex_renamer/tmdb.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_artifacts.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_coverage.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_coverage.py",
+   "rule": "SIM108",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_diff.py",
+   "rule": "SIM103",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_graph.py",
+   "rule": "B007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_graph.py",
+   "rule": "SIM102",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_inventory.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_metrics.py",
+   "rule": "C420",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_toolchain.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_verify.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/audit/_verify.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/test_fast_runner.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "scripts/test_fast_runner.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_artifacts.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_cli.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_fast_runner.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_fast_runner.py",
+   "rule": "SIM300",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_metrics.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_render_code_index.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_repository_contracts.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_toolchain.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_verify.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_verify.py",
+   "rule": "RUF043",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/audit/test_workflows.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/conftest_qt.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_air_date_clusters.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_alt_title_matching.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_automux_service.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bare_episode_prefix_titles.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_batch_autoaccept_guards.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bulk_assign_panel.py",
+   "rule": "C416",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bulk_assign_panel.py",
+   "rule": "F841",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_bulk_assign_panel.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_cache_service.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_cache_service.py",
+   "rule": "F841",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_cache_service.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_command_gating_service.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_completeness_review_counts.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_conflict_resolution.py",
+   "rule": "B007",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_consolidated_assignments.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_consolidated_two_phase.py",
+   "rule": "E402",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_duplicate_copies.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_duplicate_copies.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_assignments.py",
+   "rule": "E402",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_assignments.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_expansion.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "C416",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "E402",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "F811",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_mapping_projection.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_projection.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "E402",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "F811",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_resolution.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_delegate.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_episode_table_model.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_executor_metadata_integration.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_explicit_special_numbers.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_extras_and_prefix_fixes.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_extras_and_prefix_fixes.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_fuzzy_title_matching.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_gui_theme.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_haikyuu_matching.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_job_store_metadata_plan.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_jojo_matching.py",
+   "rule": "C420",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_jojo_matching.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_media_controller.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_embed_extras.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_local_inventory.py",
+   "rule": "C416",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_local_inventory.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_local_inventory.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_metadata_service.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_mkv_locate.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_mkvmerge_integration.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_multisegment_zero_match.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_offset_inference.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_output_destination_service.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_parsing_corpus.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_parsing_edgecases.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_parsing_edgecases.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_busy_overlay.py",
+   "rule": "SIM117",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_chrome.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "F811",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_job_detail_panel.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "B905",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "F811",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_main_window.py",
+   "rule": "SIM117",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF005",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_media_workspace.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_queue_history.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_scale.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_toasts.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_toasts.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_qt_workspace_widgets.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_queue_controller.py",
+   "rule": "C408",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_queue_controller.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_queue_metadata_wiring.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_queue_output_targets.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_queue_output_targets.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_refresh_policy_service.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_refresh_policy_service.py",
+   "rule": "UP017",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_release_junk_titles.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_release_junk_titles.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_remux_execution.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_remux_revert.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_delegate.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_roster_model.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_improvements.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_scan_progress.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_settings_longpath.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_settings_tab_automux.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_settings_tab_cache.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_settings_tab_cache.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_show_details.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_specials_guards.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_status_chip.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_symbol_folding.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_tiebreak_discrimination.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_tmdb.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_token_aligned_substring.py",
+   "rule": "RUF001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_tv_scanner_normal.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_umbrella_season_merge.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_underscore_segments.py",
+   "rule": "F401",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_underscore_segments.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_work_panel.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_automux.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_automux.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_automux.py",
+   "rule": "SIM105",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_expansion.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_expansion.py",
+   "rule": "RUF059",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "I001",
+   "symbol": null
+  },
+  {
+   "analyzer": "ruff",
+   "path": "tests/test_workspace_poster_warmup.py",
+   "rule": "RUF059",
+   "symbol": null
+  }
+ ],
+ "schema_version": 1
+}

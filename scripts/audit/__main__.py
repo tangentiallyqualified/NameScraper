@@ -1,4 +1,5 @@
 """Audit harness CLI. Run via scripts/audit.cmd or `python -m audit`."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,9 +7,21 @@ import json
 import sys
 from pathlib import Path
 
-from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
-               _inventory, _metrics, _render_code_index, _render_human,
-               _toolchain, _verify)
+from . import (
+    _analyze,
+    _artifacts,
+    _coverage,
+    _diff,
+    _docs_ledger,
+    _graph,
+    _inventory,
+    _metrics,
+    _ratchets,
+    _render_code_index,
+    _render_human,
+    _toolchain,
+    _verify,
+)
 
 HARD_STAGES = {"inventory", "graph"}
 
@@ -64,25 +77,55 @@ def check_lines(repo_root: Path) -> list[str]:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="audit", description="Codebase mapping/audit pipeline.")
-    parser.add_argument("stage", nargs="?", choices=STAGE_NAMES,
-                        help="Run a single stage instead of the full pipeline.")
-    parser.add_argument("--fast", action="store_true",
-                        help="Only re-render outputs from existing .audit artifacts.")
-    parser.add_argument("--with-coverage", action="store_true",
-                        help="Run the fast test suite fresh under coverage.")
-    parser.add_argument("--check", action="store_true",
-                        help="Read-only staleness probe against docs/audit/baseline.json.")
-    parser.add_argument("--verify", action="store_true",
-                        help="Run the full pipeline and report generated drift without mutation.")
-    parser.add_argument("--coverage-max-age", type=int, default=15,
-                        help=("Legacy compatibility option; digest-based coverage freshness "
-                              "ignores this value."))
-    parser.add_argument("--repo-root", type=Path,
-                        default=Path(__file__).resolve().parents[2],
-                        help="Repo root override (used by tests).")
+    parser.add_argument(
+        "stage",
+        nargs="?",
+        choices=STAGE_NAMES,
+        help="Run a single stage instead of the full pipeline.",
+    )
+    parser.add_argument(
+        "--fast", action="store_true", help="Only re-render outputs from existing .audit artifacts."
+    )
+    parser.add_argument(
+        "--with-coverage", action="store_true", help="Run the fast test suite fresh under coverage."
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Read-only staleness probe against docs/audit/baseline.json.",
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Run the full pipeline and report generated drift without mutation.",
+    )
+    parser.add_argument(
+        "--quality-check",
+        action="store_true",
+        help="Fail on new/enlarged quality debt or stale baseline entries.",
+    )
+    parser.add_argument(
+        "--coverage-max-age",
+        type=int,
+        default=15,
+        help=("Legacy compatibility option; digest-based coverage freshness ignores this value."),
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[2],
+        help="Repo root override (used by tests).",
+    )
     options = parser.parse_args(argv)
     if options.verify and (options.fast or options.check or options.stage):
         parser.error("--verify cannot be combined with --fast, --check, or a stage")
+    if options.quality_check and (
+        options.fast or options.with_coverage or options.check or options.verify or options.stage
+    ):
+        parser.error(
+            "--quality-check cannot be combined with --fast, --with-coverage, "
+            "--check, --verify, or a stage"
+        )
     return options
 
 
@@ -127,6 +170,9 @@ def _run_pipeline(repo_root: Path, options: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     options = _parse_args(argv)
     repo_root = options.repo_root.resolve()
+
+    if options.quality_check:
+        return _ratchets.run_quality_check(repo_root)
 
     if options.check:
         for line in check_lines(repo_root):
