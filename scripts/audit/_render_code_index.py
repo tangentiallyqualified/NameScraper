@@ -1,6 +1,7 @@
 """Stage 6a: tiered code index."""
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from . import _artifacts
@@ -195,6 +196,21 @@ def render(
     return outputs
 
 
+def _remove_stale_outputs(repo_root: Path, outputs: dict[str, str]) -> None:
+    """Remove only Markdown trees owned by this renderer."""
+    audit_dir = repo_root / "docs" / "audit"
+    legacy_dir = audit_dir / "llm"
+    if legacy_dir.exists():
+        shutil.rmtree(legacy_dir)
+
+    expected = {repo_root / rel for rel in outputs}
+    code_index_dir = audit_dir / "code-index"
+    if code_index_dir.exists():
+        for page in code_index_dir.rglob("*.md"):
+            if page not in expected:
+                page.unlink()
+
+
 def run(repo_root: Path, options) -> int:
     outputs = render(
         repo_root,
@@ -203,6 +219,7 @@ def run(repo_root: Path, options) -> int:
         _artifacts.read_artifact(repo_root, "metrics"),
         _artifacts.read_artifact(repo_root, "analysis"),
     )
+    _remove_stale_outputs(repo_root, outputs)
     for rel, content in outputs.items():
         target = repo_root / rel
         target.parent.mkdir(parents=True, exist_ok=True)

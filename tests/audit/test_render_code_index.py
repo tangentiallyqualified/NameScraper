@@ -121,6 +121,39 @@ def test_run_writes_files(synthetic_repo: Path):
     assert (synthetic_repo / "docs" / "audit" / "code-index" / "INDEX.md").exists()
 
 
+def test_run_removes_stale_owned_outputs_and_preserves_unrelated_audit_files(
+        synthetic_repo: Path):
+    from audit import _artifacts
+
+    for stage in (_inventory, _graph):
+        stage.run(synthetic_repo, None)
+    _artifacts.write_artifact(synthetic_repo, "analysis",
+                              {"findings": [], "per_file": {}, "tool_status": {}})
+    _artifacts.write_artifact(synthetic_repo, "coverage", {"available": False, "modules": {}})
+    _metrics.run(synthetic_repo, None)
+
+    audit_dir = synthetic_repo / "docs" / "audit"
+    legacy_dir = audit_dir / "llm"
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "INDEX.md").write_text("legacy index\n", encoding="utf-8")
+    (legacy_dir / "root.md").write_text("legacy package\n", encoding="utf-8")
+    code_index_dir = audit_dir / "code-index"
+    code_index_dir.mkdir(parents=True)
+    stale_page = code_index_dir / "obsolete.md"
+    stale_page.write_text("obsolete package\n", encoding="utf-8")
+    renderer_unowned = code_index_dir / "metadata.json"
+    renderer_unowned.write_bytes(b"{\"preserve\": true}\n")
+    unrelated = audit_dir / "operator-notes.txt"
+    unrelated.write_bytes(b"keep these bytes: \\x00\\xff\n")
+
+    assert _render_code_index.run(synthetic_repo, None) == 0
+
+    assert not legacy_dir.exists()
+    assert not stale_page.exists()
+    assert renderer_unowned.read_bytes() == b"{\"preserve\": true}\n"
+    assert unrelated.read_bytes() == b"keep these bytes: \\x00\\xff\n"
+
+
 def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):
     from audit import _artifacts
     for stage in (_inventory, _graph):

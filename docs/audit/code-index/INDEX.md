@@ -1,9 +1,9 @@
-<!-- Generated at commit bef7acc; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 71631f57942b; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
-# LLM Code Index
+# Code Index
 
-One line per module. Detail tiers: llm/app.md, llm/engine.md, llm/gui_qt.md, llm/root.md
+One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code-index/gui_qt.md, code-index/root.md
 
 
 ## app
