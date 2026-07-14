@@ -52,6 +52,37 @@ def test_docs_flag_broken_refs(synthetic_repo: Path):
     assert guide["last_touched"]  # git commit date
 
 
+def test_generated_audit_docs_do_not_depend_on_git_tracking_state(
+        synthetic_repo: Path, repo_git):
+    generated_paths = (
+        "docs/audit/CHANGES.md",
+        "docs/audit/code-index/INDEX.md",
+        "docs/audit/doc-status.md",
+        "docs/audit/llm/INDEX.md",
+        "docs/audit/maps/overview.md",
+    )
+    for relative in generated_paths:
+        path = synthetic_repo / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("generated audit output\n", encoding="utf-8")
+
+    before = {
+        record["path"]: record
+        for record in _inventory.build_inventory(synthetic_repo)["docs"]
+        if record["path"] in generated_paths
+    }
+    repo_git(synthetic_repo, "add", "docs/audit")
+    repo_git(synthetic_repo, "commit", "-m", "track generated audit docs")
+    after = {
+        record["path"]: record
+        for record in _inventory.build_inventory(synthetic_repo)["docs"]
+        if record["path"] in generated_paths
+    }
+
+    assert before == after
+    assert {record["last_touched"] for record in after.values()} == {"generated"}
+
+
 def test_excluded_dirs_skipped(synthetic_repo: Path):
     (synthetic_repo / ".venv").mkdir()
     (synthetic_repo / ".venv" / "junk.py").write_text("x = 1\n", encoding="utf-8")

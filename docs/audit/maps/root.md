@@ -39,5 +39,5 @@
 - `plex_renamer/_tmdb_transport.py` — fan-in 1, fan-out 0, LOC 166
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 907
 
-_Generated from audit input 71631f57942b by scripts\audit.cmd._
+_Generated from audit input 29b290713086 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->
