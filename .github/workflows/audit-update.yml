@@ -45,4 +45,5 @@ jobs:
             audit-generated.patch
             docs/audit/**
             .audit/*.json
+          include-hidden-files: true
           if-no-files-found: warn

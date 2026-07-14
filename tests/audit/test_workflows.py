@@ -92,6 +92,7 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     assert "audit-generated.patch" in upload
     assert "docs/audit/**" in upload
     assert ".audit/*.json" in upload
+    assert "include-hidden-files: true" in upload
 
 
 def test_audit_workflows_never_commit_or_push() -> None:
