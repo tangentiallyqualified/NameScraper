@@ -200,6 +200,8 @@ def test_verify_removes_new_broken_symlink_without_following_it(tmp_path: Path):
     [
         "docs/audit/../../outside.bin",
         "docs/audit/maps/../baseline.json",
+        r"docs/audit/..\..\outside.bin",
+        r"docs/audit/nested\..\..\outside.bin",
         "docs\\audit\\baseline.json",
         "docs/not-audit/file.md",
         "docs/audit",

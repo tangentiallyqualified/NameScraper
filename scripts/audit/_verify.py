@@ -71,9 +71,14 @@ def _validated_snapshot(
     pure_paths: set[PurePosixPath] = set()
     generated_parts = tuple(GENERATED_ROOT.parts)
     policy_parts = {tuple(path.parts) for path in POLICY_INPUTS}
+    native_generated_root = Path(os.path.abspath(repo_root / GENERATED_ROOT))
 
     for relative, content in snapshot.items():
-        if not isinstance(relative, str) or "\x00" in relative:
+        if (
+            not isinstance(relative, str)
+            or "\x00" in relative
+            or "\\" in relative
+        ):
             raise ValueError(f"invalid snapshot path: {relative!r}")
         pure = PurePosixPath(relative)
         parts = pure.parts
@@ -88,8 +93,13 @@ def _validated_snapshot(
             raise ValueError(f"invalid snapshot path: {relative!r}")
         if not isinstance(content, bytes):
             raise ValueError(f"invalid snapshot content for path: {relative!r}")
+        native_target = Path(os.path.abspath(repo_root.joinpath(*parts)))
+        try:
+            native_target.relative_to(native_generated_root)
+        except ValueError as exc:
+            raise ValueError(f"invalid snapshot path: {relative!r}") from exc
         pure_paths.add(pure)
-        validated[relative] = (repo_root.joinpath(*parts), content)
+        validated[relative] = (native_target, content)
 
     for pure in pure_paths:
         for length in range(len(generated_parts) + 1, len(pure.parts)):
