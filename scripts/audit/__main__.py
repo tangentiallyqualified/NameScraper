@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import (_analyze, _artifacts, _coverage, _diff, _docs_ledger, _graph,
-               _inventory, _metrics, _render_human, _render_llm, _verify)
+               _inventory, _metrics, _render_code_index, _render_human, _verify)
 
 HARD_STAGES = {"inventory", "graph"}
 
@@ -17,7 +17,7 @@ _ascii = _artifacts.ascii_safe
 
 def _render_all(repo_root: Path, options) -> int:
     rc = 0
-    for mod in (_render_llm, _render_human, _docs_ledger):
+    for mod in (_render_code_index, _render_human, _docs_ledger):
         try:
             rc = max(rc, mod.run(repo_root, options))
         except _artifacts.MissingArtifactError:

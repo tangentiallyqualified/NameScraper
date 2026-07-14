@@ -44,15 +44,15 @@ def test_overview_effects_table(synthetic_repo: Path):
 
 
 def test_flags_suffix_markers():
-    from audit import _render_llm
+    from audit import _render_code_index
 
     record = {"flags": ["complexity", "low-coverage", "dead-code"],
               "coverage_percent": 42.0, "dead_candidates": 3}
-    suffix = _render_llm._flags_suffix(record)
+    suffix = _render_code_index._flags_suffix(record)
     assert "⚠ complexity" in suffix
     assert "◌ cov 42%" in suffix
     assert "† dead x3" in suffix
-    assert _render_llm._flags_suffix({"flags": []}) == ""
+    assert _render_code_index._flags_suffix({"flags": []}) == ""
 
 
 def test_malformed_ledger_entry_reported_not_crashing(synthetic_repo: Path):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from audit import _graph, _inventory, _metrics, _render_llm
+from audit import _graph, _inventory, _metrics, _render_code_index
 
 
 def _rendered(repo: Path, *, analysis: dict | None = None, coverage: dict | None = None) -> dict[str, str]:
@@ -11,12 +11,15 @@ def _rendered(repo: Path, *, analysis: dict | None = None, coverage: dict | None
     analysis = analysis or {"findings": [], "per_file": {}, "tool_status": {}}
     coverage = coverage or {"available": False, "modules": {}}
     metrics = _metrics.build_metrics(inv, graph, analysis, coverage)
-    return _render_llm.render(repo, inv, graph, metrics, analysis)
+    return _render_code_index.render(repo, inv, graph, metrics, analysis)
 
 
 def test_index_lists_every_module_once(synthetic_repo: Path):
     out = _rendered(synthetic_repo)
-    index = out["docs/audit/llm/INDEX.md"]
+    assert all(path.startswith("docs/audit/code-index/") for path in out)
+    assert all("/llm/" not in path for path in out)
+    index = out["docs/audit/code-index/INDEX.md"]
+    assert "# Code Index" in index
     assert index.count("alpha.py") == 1
     assert "Alpha module: scoring helpers." in index
     assert "regenerate: scripts\\audit.cmd" in index
@@ -24,7 +27,7 @@ def test_index_lists_every_module_once(synthetic_repo: Path):
 
 def test_package_file_has_symbols_and_users(synthetic_repo: Path):
     out = _rendered(synthetic_repo)
-    root = out["docs/audit/llm/root.md"]
+    root = out["docs/audit/code-index/root.md"]
     assert "used_function(value) -> int" in root
     assert "used by: plex_renamer.beta" in root
     assert "tests/test_alpha.py" in root  # test mapping
@@ -33,7 +36,7 @@ def test_package_file_has_symbols_and_users(synthetic_repo: Path):
 def test_missing_docstring_marked(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "bare.py").write_text("X = 1\n", encoding="utf-8")
     out = _rendered(synthetic_repo)
-    assert "(no docstring)" in out["docs/audit/llm/INDEX.md"]
+    assert "(no docstring)" in out["docs/audit/code-index/INDEX.md"]
 
 
 def test_input_digest_stamps_every_output(synthetic_repo: Path, monkeypatch):
@@ -44,8 +47,10 @@ def test_input_digest_stamps_every_output(synthetic_repo: Path, monkeypatch):
         {"available": False, "modules": {}},
     )
     metrics["input_digest"] = "abcdef123456" + "0" * 52
-    monkeypatch.setattr(_render_llm._artifacts, "current_commit", lambda _repo: "current999")
-    out = _render_llm.render(synthetic_repo, inv, graph, metrics)
+    monkeypatch.setattr(
+        _render_code_index._artifacts, "current_commit", lambda _repo: "current999"
+    )
+    out = _render_code_index.render(synthetic_repo, inv, graph, metrics)
     assert all("Generated from audit input abcdef123456" in text for text in out.values())
     assert all("current999" not in text for text in out.values())
 
@@ -83,7 +88,7 @@ def test_ignored_coverage_warning_is_in_every_output(synthetic_repo: Path):
     out = _rendered(synthetic_repo, coverage=coverage)
     assert all("Coverage evidence ignored" in text for text in out.values())
     assert all("coverage percentages are omitted" in text for text in out.values())
-    assert "cov 20%" not in out["docs/audit/llm/INDEX.md"]
+    assert "cov 20%" not in out["docs/audit/code-index/INDEX.md"]
 
 
 def test_dead_suffix_separates_confidence_tiers_and_keeps_legacy_fallback():
@@ -94,11 +99,11 @@ def test_dead_suffix_separates_confidence_tiers_and_keeps_legacy_fallback():
             "test-referenced": 1, "protected-or-ambiguous": 1, "allowlisted": 1,
         },
     }
-    suffix = _render_llm._flags_suffix(record)
+    suffix = _render_code_index._flags_suffix(record)
     assert "high x1" in suffix and "medium x2" in suffix
     assert "test-referenced x1" in suffix and "protected/ambiguous x1" in suffix
     assert "allowlisted x1" in suffix
-    legacy = _render_llm._flags_suffix({
+    legacy = _render_code_index._flags_suffix({
         "flags": ["dead-code"], "dead_candidates": 6, "dead_high_confidence": 2,
     })
     assert "dead x6" in legacy and "high" not in legacy
@@ -112,8 +117,8 @@ def test_run_writes_files(synthetic_repo: Path):
                               {"findings": [], "per_file": {}, "tool_status": {}})
     _artifacts.write_artifact(synthetic_repo, "coverage", {"available": False, "modules": {}})
     _metrics.run(synthetic_repo, None)
-    assert _render_llm.run(synthetic_repo, None) == 0
-    assert (synthetic_repo / "docs" / "audit" / "llm" / "INDEX.md").exists()
+    assert _render_code_index.run(synthetic_repo, None) == 0
+    assert (synthetic_repo / "docs" / "audit" / "code-index" / "INDEX.md").exists()
 
 
 def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):
@@ -133,6 +138,8 @@ def test_run_reads_analysis_for_legacy_metrics_warning(synthetic_repo: Path):
         },
         "headline": {},
     })
-    assert _render_llm.run(synthetic_repo, None) == 0
-    index = (synthetic_repo / "docs" / "audit" / "llm" / "INDEX.md").read_text(encoding="utf-8")
+    assert _render_code_index.run(synthetic_repo, None) == 0
+    index = (
+        synthetic_repo / "docs" / "audit" / "code-index" / "INDEX.md"
+    ).read_text(encoding="utf-8")
     assert "Analyzer `vulture` unavailable (not installed)" in index

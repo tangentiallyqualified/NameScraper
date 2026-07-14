@@ -1,4 +1,4 @@
-"""Stage 6a: tiered LLM-consumable markdown index."""
+"""Stage 6a: tiered code index."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -79,7 +79,7 @@ def _header(repo_root: Path, metrics: dict | None = None) -> str:
 
 
 def _evidence_warnings(metrics: dict, analysis: dict | None) -> list[str]:
-    """Warnings are repeated because every LLM detail file is standalone."""
+    """Warnings are repeated because every code-index detail file is standalone."""
     lines: list[str] = []
     status = metrics.get("tool_status")
     if not isinstance(status, dict) and analysis is not None:
@@ -156,12 +156,12 @@ def render(
     warning_block = "\n".join(warnings)
 
     outputs: dict[str, str] = {}
-    index_lines = [_header(repo_root, metrics), "# LLM Code Index\n"]
+    index_lines = [_header(repo_root, metrics), "# Code Index\n"]
     if warning_block:
         index_lines.append(warning_block + "\n")
     index_lines.append(
         "One line per module. Detail tiers: "
-        + ", ".join(f"llm/{p}.md" for p in sorted(packages)) + "\n"
+        + ", ".join(f"code-index/{p}.md" for p in sorted(packages)) + "\n"
     )
     for package in sorted(packages):
         index_lines.append(f"\n## {package}\n")
@@ -190,8 +190,8 @@ def render(
             tests = tests_map.get(mod_name, [])
             if tests:
                 detail.append(f"- Tests: {', '.join(sorted(tests))}")
-        outputs[f"docs/audit/llm/{package}.md"] = "\n".join(detail) + "\n"
-    outputs["docs/audit/llm/INDEX.md"] = "\n".join(index_lines) + "\n"
+        outputs[f"docs/audit/code-index/{package}.md"] = "\n".join(detail) + "\n"
+    outputs["docs/audit/code-index/INDEX.md"] = "\n".join(index_lines) + "\n"
     return outputs
 
 
@@ -207,5 +207,5 @@ def run(repo_root: Path, options) -> int:
         target = repo_root / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-    print(f"render-llm: {len(outputs)} files under docs/audit/llm/")
+    print(f"render-code-index: {len(outputs)} files under docs/audit/code-index/")
     return 0

@@ -13,7 +13,7 @@ def test_full_run_produces_outputs(synthetic_repo: Path):
     rc = cli.main(["--repo-root", str(synthetic_repo)])
     assert rc in (0, 2)  # 2 allowed: synthetic repo has no coverage data
     audit_docs = synthetic_repo / "docs" / "audit"
-    assert (audit_docs / "llm" / "INDEX.md").exists()
+    assert (audit_docs / "code-index" / "INDEX.md").exists()
     assert (audit_docs / "maps" / "overview.md").exists()
     assert (audit_docs / "doc-status.md").exists()
     assert (audit_docs / "baseline.json").exists()
@@ -27,7 +27,7 @@ def test_single_stage_requires_inputs(synthetic_repo: Path):
 
 def test_fast_rerenders_without_analyzers(synthetic_repo: Path):
     assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
-    index = synthetic_repo / "docs" / "audit" / "llm" / "INDEX.md"
+    index = synthetic_repo / "docs" / "audit" / "code-index" / "INDEX.md"
     index.unlink()
     rc = cli.main(["--fast", "--repo-root", str(synthetic_repo)])
     assert rc == 0
@@ -101,19 +101,19 @@ def test_fast_leaves_diff_outputs_byte_for_byte_unchanged(synthetic_repo: Path, 
 
 
 def test_render_all_degrades_per_renderer(synthetic_repo: Path, monkeypatch):
-    from audit import _render_llm
+    from audit import _render_code_index
 
     assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
 
     def _boom(repo_root, options):
-        raise RuntimeError("llm renderer down")
+        raise RuntimeError("code-index renderer down")
 
-    monkeypatch.setattr(_render_llm, "run", _boom)
+    monkeypatch.setattr(_render_code_index, "run", _boom)
     overview = synthetic_repo / "docs" / "audit" / "maps" / "overview.md"
     overview.unlink()
     rc = cli.main(["--fast", "--repo-root", str(synthetic_repo)])
     assert rc == 2
-    assert overview.exists()  # human renderer still ran despite llm failure
+    assert overview.exists()  # human renderer still ran despite code-index failure
 
 
 def test_render_stage_missing_artifacts_exits_1(synthetic_repo: Path, capsys):
