@@ -13,6 +13,8 @@ def _audit_repo(tmp_path: Path) -> Path:
         "scripts/audit/_stage.py": "STAGE = 1\n",
         "scripts/audit/allowlist.toml": "ignore = []\n",
         "scripts/audit/contracts.toml": "forbid = []\n",
+        "scripts/audit/policy.toml": "[quality]\nthreshold = 1\n",
+        "scripts/audit/quality-baseline.json": '{"schema_version": 2}\n',
         "scripts/audit.cmd": "@echo off\n",
         "scripts/audit.ps1": "Write-Output audit\n",
         "scripts/test_fast_runner.py": "RUNNER = 1\n",
@@ -49,8 +51,7 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("HIDDEN = 1\n", encoding="utf-8")
 
-    relative_paths = [path.relative_to(repo).as_posix()
-                      for path in _artifacts.input_files(repo)]
+    relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
 
     assert relative_paths == sorted(relative_paths)
     assert not excluded.intersection(relative_paths)
@@ -76,26 +77,43 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
 def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)
-    (repo / "docs/audit/maps/overview.md").write_text(
-        "generated change", encoding="utf-8")
+    (repo / "docs/audit/maps/overview.md").write_text("generated change", encoding="utf-8")
     assert _artifacts.input_digest(repo) == first
 
 
-@pytest.mark.parametrize("relative_path", [
-    "plex_renamer/example.py",
-    "scripts/audit/_stage.py",
-    "scripts/audit/allowlist.toml",
-    "scripts/audit.cmd",
-    "scripts/test-fast.ps1",
-    "tests/audit/test_stage.py",
-    "pyproject.toml",
-    "docs/audit/doc-ledger.toml",
-    "docs/guide.md",
-    "README.md",
-    "scripts/audit/constraints.txt",
-])
-def test_input_digest_changes_when_source_or_policy_changes(
-        tmp_path: Path, relative_path: str):
+def test_input_digest_excludes_quality_baseline_ratchet_state(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+
+    (repo / "scripts/audit/quality-baseline.json").write_text(
+        '{"schema_version": 2, "coverage": {"changed": true}}\n',
+        encoding="utf-8",
+    )
+
+    assert _artifacts.input_digest(repo) == first
+    assert "scripts/audit/quality-baseline.json" not in {
+        path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)
+    }
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "plex_renamer/example.py",
+        "scripts/audit/_stage.py",
+        "scripts/audit/allowlist.toml",
+        "scripts/audit/policy.toml",
+        "scripts/audit.cmd",
+        "scripts/test-fast.ps1",
+        "tests/audit/test_stage.py",
+        "pyproject.toml",
+        "docs/audit/doc-ledger.toml",
+        "docs/guide.md",
+        "README.md",
+        "scripts/audit/constraints.txt",
+    ],
+)
+def test_input_digest_changes_when_source_or_policy_changes(tmp_path: Path, relative_path: str):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)
     (repo / relative_path).write_text("changed bytes\n", encoding="utf-8")
@@ -115,9 +133,7 @@ def test_input_digest_changes_when_ordinary_documentation_changes(tmp_path: Path
     "ignored_root",
     [".superpowers", ".agents", ".codex", ".claude", ".vscode"],
 )
-def test_input_digest_ignores_agent_and_scratch_documentation(
-    tmp_path: Path, ignored_root: str
-):
+def test_input_digest_ignores_agent_and_scratch_documentation(tmp_path: Path, ignored_root: str):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)
     report = repo / ignored_root / "sdd" / "report.md"
@@ -159,8 +175,9 @@ def test_commits_between(synthetic_repo: Path, repo_git):
 
 
 def test_payload_cannot_override_stamps(synthetic_repo: Path):
-    _artifacts.write_artifact(synthetic_repo, "inventory",
-                              {"commit": "spoofed", "generated_at": "1999"})
+    _artifacts.write_artifact(
+        synthetic_repo, "inventory", {"commit": "spoofed", "generated_at": "1999"}
+    )
     data = _artifacts.read_artifact(synthetic_repo, "inventory")
     assert data["commit"] != "spoofed"
     assert data["generated_at"] != "1999"
@@ -201,9 +218,7 @@ def test_working_tree_files_respects_pathspecs(synthetic_repo: Path):
     assert _artifacts.working_tree_files(synthetic_repo, "plex_renamer") == []
 
 
-def test_changed_files_are_stable_when_a_rename_loses_similarity(
-    synthetic_repo: Path, repo_git
-):
+def test_changed_files_are_stable_when_a_rename_loses_similarity(synthetic_repo: Path, repo_git):
     old = synthetic_repo / "tests" / "test_legacy_name.py"
     old.write_text("\n".join(f"LINE_{i} = {i}" for i in range(40)) + "\n", encoding="utf-8")
     repo_git(synthetic_repo, "add", "tests/test_legacy_name.py")

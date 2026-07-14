@@ -49,6 +49,7 @@ _DOC_LEDGER = "docs/audit/doc-ledger.toml"
 _GENERATED_AUDIT_FILES = {
     "docs/audit/CHANGES.md",
     "docs/audit/doc-status.md",
+    "scripts/audit/quality-baseline.json",
 }
 _GENERATED_AUDIT_PREFIXES = (
     "docs/audit/code-index/",

@@ -8,7 +8,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from . import _analyze, _coverage, _graph, _inventory, _ratchet_identity
+from . import _analyze, _coverage, _graph, _inventory, _quality_refresh, _ratchet_identity
 
 _POLICY = tomllib.loads((Path(__file__).parent / "policy.toml").read_text(encoding="utf-8"))
 MAX_CYCLOMATIC_COMPLEXITY = _POLICY["quality"]["max_cyclomatic_complexity"]
@@ -275,21 +275,17 @@ def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
             current_coverage, baseline_coverage, CHANGED_LINE_MIN_PERCENT
         )
         for item in coverage_result["violations"]:
-            changed_lines = item["kind"] == "changed-line-coverage"
+            debt_kind, message, rule = _quality_refresh.coverage_ratchet_fields(item["kind"])
             violations.append(
                 {
                     "analyzer": "coverage",
                     "baseline": item["baseline"],
                     "current": item["current"],
-                    "kind": "new-debt" if changed_lines else "enlarged-debt",
-                    "message": (
-                        "changed executable line coverage is below policy"
-                        if changed_lines
-                        else "package statement coverage decreased"
-                    ),
+                    "kind": debt_kind,
+                    "message": message,
                     "metric": "coverage_percent",
                     "path": item["path"],
-                    "rule": "changed-lines" if changed_lines else "package-floor",
+                    "rule": rule,
                     "symbol": None,
                 }
             )
@@ -555,6 +551,7 @@ def run_quality_baseline_update(repo_root: Path) -> int:
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
+        _quality_refresh.reject_new_debt(evaluate_ratchets(current, previous))
         baseline = build_baseline(current, previous)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
         path.write_text(
@@ -562,6 +559,9 @@ def run_quality_baseline_update(repo_root: Path) -> int:
             encoding="utf-8",
             newline="\n",
         )
+    except _quality_refresh.QualityBaselineRefused as exc:
+        print(f"quality baseline: refused - {exc}")
+        return 1
     except (OSError, ValueError, QualityEvidenceError, _coverage.CoverageEvidenceError) as exc:
         print(f"quality baseline: failed - {exc}")
         return 1

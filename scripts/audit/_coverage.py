@@ -66,6 +66,82 @@ def _read_modules(repo_root: Path, data_file: Path) -> dict[str, dict]:
     return modules
 
 
+def _source_paths(repo_root: Path) -> list[Path]:
+    source_root = repo_root / "plex_renamer"
+    if not source_root.is_dir():
+        return []
+    return sorted(path for path in source_root.rglob("*.py") if path.is_file())
+
+
+def _complete_source_modules(
+    repo_root: Path, data_file: Path, modules: dict[str, dict]
+) -> tuple[dict[str, dict], list[str], list[str]]:
+    """Require measured data for executable source; synthesize only 0-line files."""
+    import coverage
+
+    completed = dict(modules)
+    incomplete = []
+    source_packages = set()
+    cov = coverage.Coverage(data_file=str(data_file))
+    cov.load()
+    for path in _source_paths(repo_root):
+        relative = path.relative_to(repo_root).as_posix()
+        source_packages.add(_package_name(relative))
+        if relative in completed:
+            continue
+        _, statements, _, _, _ = cov.analysis2(str(path))
+        if statements:
+            incomplete.append(relative)
+            continue
+        completed[relative] = {
+            "statements": 0,
+            "covered": 0,
+            "percent": 100.0,
+            "executable_lines": [],
+            "covered_lines": [],
+        }
+    return (
+        {path: completed[path] for path in sorted(completed)},
+        sorted(incomplete),
+        sorted(source_packages),
+    )
+
+
+def _canonical_scope_id(scope: dict) -> str:
+    canonical = json.dumps(scope, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+        "ascii"
+    )
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _expected_fast_scope(repo_root: Path) -> dict:
+    from scripts import test_fast_runner
+
+    qt_tests = test_fast_runner._discover_qt_tests(repo_root)
+    errors = list(getattr(qt_tests, "errors", []))
+    if errors:
+        raise CoverageEvidenceError(
+            "coverage-scope-incomplete: test discovery errors: " + "; ".join(errors)
+        )
+    return test_fast_runner._coverage_scope(repo_root, [], list(qt_tests))
+
+
+def _validate_full_suite_scope(repo_root: Path, evidence: dict) -> None:
+    scope = evidence.get("scope")
+    scope_id = evidence.get("scope_id")
+    if evidence.get("suite") != "fast":
+        raise CoverageEvidenceError("coverage-scope-incomplete: expected suite 'fast'")
+    if not isinstance(scope, dict):
+        raise CoverageEvidenceError("coverage-scope-incomplete: scope object missing")
+    if not isinstance(scope_id, str) or scope_id != _canonical_scope_id(scope):
+        raise CoverageEvidenceError("coverage-scope-incomplete: scope_id mismatch")
+    expected = _expected_fast_scope(repo_root)
+    if scope != expected:
+        raise CoverageEvidenceError(
+            "coverage-scope-incomplete: scope does not match the unfiltered fast suite"
+        )
+
+
 def _fingerprinted_executable_lines(
     repo_root: Path, path: str, module: dict
 ) -> list[dict[str, object]]:
@@ -123,8 +199,12 @@ def collect_quality_coverage(repo_root: Path) -> dict:
         raise CoverageEvidenceError("coverage evidence input digest mismatch")
     if evidence.get("full_suite") is not True:
         raise CoverageEvidenceError("coverage evidence is not a full-suite run")
-    if not evidence.get("suite") or not evidence.get("scope_id"):
-        raise CoverageEvidenceError("coverage evidence full-suite provenance missing")
+    _validate_full_suite_scope(repo_root, evidence)
+    incomplete = evidence.get("scope_incomplete")
+    if not isinstance(incomplete, list) or incomplete:
+        paths = ", ".join(str(path) for path in incomplete or [])
+        detail = f": executable source not measured: {paths}" if paths else ""
+        raise CoverageEvidenceError(f"coverage-scope-incomplete{detail}")
     modules = evidence["modules"]
     return {
         "input_digest": evidence["input_digest"],
@@ -133,6 +213,7 @@ def collect_quality_coverage(repo_root: Path) -> dict:
         "scope_id": evidence.get("scope_id"),
         "scope": evidence.get("scope"),
         "modules": modules,
+        "source_packages": evidence["source_packages"],
         "files": {
             path: {"executable_lines": _fingerprinted_executable_lines(repo_root, path, module)}
             for path, module in sorted(modules.items())
@@ -173,9 +254,23 @@ def evaluate_quality_coverage(
         )
 
     current_floors = current.get("package_floors", {})
+    raw_source_packages = current.get("source_packages")
+    source_packages = set(raw_source_packages) if isinstance(raw_source_packages, list) else None
     for package, baseline_floor in sorted(baseline.get("package_floors", {}).items()):
         current_floor = current_floors.get(package)
         if not isinstance(current_floor, dict):
+            if source_packages is None or package in source_packages:
+                violations.append(
+                    {
+                        "baseline": _percent(
+                            int(baseline_floor.get("covered", 0)),
+                            int(baseline_floor.get("statements", 0)),
+                        ),
+                        "current": None,
+                        "kind": "coverage-scope-incomplete",
+                        "path": package,
+                    }
+                )
             continue
         baseline_covered = int(baseline_floor.get("covered", 0))
         baseline_statements = int(baseline_floor.get("statements", 0))
@@ -262,6 +357,8 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         "scope": None,
         "suite": None,
         "full_suite": False,
+        "scope_incomplete": [],
+        "source_packages": [],
     }
     if fresh:
         data_file = repo_root / ".coverage"
@@ -307,6 +404,9 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
 
     try:
         modules = _read_modules(repo_root, data_file)
+        modules, scope_incomplete, source_packages = _complete_source_modules(
+            repo_root, data_file, modules
+        )
     except Exception as exc:
         return {**unavailable, "reason": f"could not read coverage data: {exc}"[:200]}
 
@@ -372,6 +472,8 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         "scope": scope,
         "suite": suite,
         "full_suite": full_suite,
+        "scope_incomplete": scope_incomplete,
+        "source_packages": source_packages,
     }
 
 

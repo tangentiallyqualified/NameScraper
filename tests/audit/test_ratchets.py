@@ -26,6 +26,17 @@ def _finding(
     }
 
 
+def _coverage_evidence() -> dict:
+    return {
+        "input_digest": "a" * 64,
+        "suite": "fast",
+        "full_suite": True,
+        "scope_id": "b" * 64,
+        "files": {"plex_renamer/a.py": {"executable_lines": []}},
+        "package_floors": {"plex_renamer": {"covered": 1, "statements": 1, "percent": 100.0}},
+    }
+
+
 def _ruff_item(
     filename: Path,
     *,
@@ -375,3 +386,99 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "current",
+    [
+        {"findings": [_finding(rule="B007")], "modules": {}, "python_files": []},
+        {
+            "findings": [_finding(analyzer="pyright", rule="reportUnknownVariableType")],
+            "modules": {},
+            "python_files": [],
+        },
+        {
+            "findings": [],
+            "modules": {"new.py": {"max_complexity": 11, "loc": 20}},
+            "python_files": [],
+        },
+        {
+            "findings": [],
+            "modules": {"new.py": {"max_complexity": 1, "loc": 501}},
+            "python_files": [],
+        },
+    ],
+    ids=["lint", "typing", "complexity", "loc"],
+)
+def test_baseline_update_refuses_new_static_debt_without_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    current: dict,
+) -> None:
+    coverage = _coverage_evidence()
+    previous = {
+        "schema_version": 2,
+        "findings": [],
+        "ceilings": {},
+        "typing": {"legacy_python_files": []},
+        "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
+    }
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(previous), encoding="utf-8")
+    before = path.read_bytes()
+    monkeypatch.setattr(_ratchets, "collect_current", lambda _root, _baseline: current)
+    monkeypatch.setattr(_ratchets._coverage, "collect_quality_coverage", lambda _root: coverage)
+
+    assert _ratchets.run_quality_baseline_update(tmp_path) == 1
+    assert path.read_bytes() == before
+    assert "quality baseline: refused -" in capsys.readouterr().out
+
+
+def test_baseline_update_allows_stale_only_pruning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    coverage = _coverage_evidence()
+    previous = {
+        "schema_version": 2,
+        "findings": [_finding(path="resolved.py")],
+        "ceilings": {},
+        "typing": {"legacy_python_files": []},
+        "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
+    }
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(previous), encoding="utf-8")
+    current = {"findings": [], "modules": {}, "python_files": []}
+    monkeypatch.setattr(_ratchets, "collect_current", lambda _root, _baseline: current)
+    monkeypatch.setattr(_ratchets._coverage, "collect_quality_coverage", lambda _root: coverage)
+
+    assert _ratchets.run_quality_baseline_update(tmp_path) == 0
+    assert json.loads(path.read_text(encoding="utf-8"))["findings"] == []
+
+
+def test_baseline_update_refuses_missing_existing_package_floor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    coverage = _coverage_evidence()
+    previous = {
+        "schema_version": 2,
+        "findings": [],
+        "ceilings": {},
+        "typing": {"legacy_python_files": []},
+        "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
+    }
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(previous), encoding="utf-8")
+    before = path.read_bytes()
+    coverage["package_floors"] = {}
+    coverage["source_packages"] = ["plex_renamer"]
+    current = {"findings": [], "modules": {}, "python_files": []}
+    monkeypatch.setattr(_ratchets, "collect_current", lambda _root, _baseline: current)
+    monkeypatch.setattr(_ratchets._coverage, "collect_quality_coverage", lambda _root: coverage)
+
+    assert _ratchets.run_quality_baseline_update(tmp_path) == 1
+    assert path.read_bytes() == before
+    assert "coverage/scope-incomplete" in capsys.readouterr().out

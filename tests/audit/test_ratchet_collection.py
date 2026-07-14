@@ -157,10 +157,11 @@ def test_quality_baseline_update_refuses_coverage_decrease_without_mutation(
             fingerprints=[("new", False)],
         ),
     )
-
     assert cli.main(["--update-quality-baseline", "--repo-root", str(tmp_path)]) == 1
     assert path.read_bytes() == before
-    assert "coverage gate failed" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "quality baseline: refused -" in output
+    assert "coverage/changed-lines" in output
 
 
 def test_baseline_builder_cannot_drop_existing_coverage_policy() -> None:
@@ -195,7 +196,6 @@ def test_quality_check_cli_passes_unchanged_evidence(
         "collect_quality_coverage",
         lambda _repo_root: evidence["coverage"],
     )
-
     assert cli.main(["--quality-check", "--repo-root", str(tmp_path)]) == 0
     assert capsys.readouterr().out == "quality: baseline current; no new or enlarged debt\n"
 

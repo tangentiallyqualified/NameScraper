@@ -7,16 +7,18 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import test_fast_runner
 from audit import _artifacts, _coverage
 
+from scripts import test_fast_runner
 
-def _make_coverage_data(repo: Path, repo_git) -> None:
+
+def _make_coverage_data(repo: Path, repo_git, *, include_source: bool = True) -> None:
     """Execute alpha.used_function under coverage inside the synthetic repo."""
     script = repo / "_cov_driver.py"
     script.write_text(
         "from plex_renamer.alpha import used_function\nused_function(3)\n", encoding="utf-8"
     )
+    source = ["--source=plex_renamer"] if include_source else []
     subprocess.run(
         [
             sys.executable,
@@ -24,13 +26,15 @@ def _make_coverage_data(repo: Path, repo_git) -> None:
             "coverage",
             "run",
             f"--data-file={repo / '.coverage'}",
-            "--source=plex_renamer",
+            *source,
             str(script),
         ],
         cwd=repo,
         check=True,
         capture_output=True,
     )
+    qt_tests = test_fast_runner._discover_qt_tests(repo)
+    scope = test_fast_runner._coverage_scope(repo, [], list(qt_tests))
     (repo / ".coverage.meta.json").write_text(
         json.dumps(
             {
@@ -38,8 +42,8 @@ def _make_coverage_data(repo: Path, repo_git) -> None:
                 "collected_at": "2026-07-12T00:00:00+00:00",
                 "full_suite": True,
                 "suite": "fast",
-                "scope_id": "scope-123",
-                "scope": {"coverage_source": ["plex_renamer"], "pytest_args": []},
+                "scope_id": test_fast_runner._scope_id(scope),
+                "scope": scope,
             }
         ),
         encoding="utf-8",
@@ -60,9 +64,7 @@ def test_quality_coverage_accepts_digest_matched_full_suite_evidence(
     synthetic_repo: Path, repo_git
 ) -> None:
     _make_coverage_data(synthetic_repo, repo_git)
-
     evidence = _coverage.collect_quality_coverage(synthetic_repo)
-
     alpha = evidence["files"]["plex_renamer/alpha.py"]
     assert evidence["input_digest"] == _artifacts.input_digest(synthetic_repo)
     assert evidence["full_suite"] is True
@@ -99,7 +101,7 @@ def _update_meta(repo: Path, **updates: object) -> None:
         ),
         (
             lambda repo: _update_meta(repo, scope_id=None),
-            "coverage evidence full-suite provenance missing",
+            "coverage-scope-incomplete",
         ),
     ],
 )
@@ -108,7 +110,6 @@ def test_quality_coverage_rejects_unusable_evidence_distinctly(
 ) -> None:
     _make_coverage_data(synthetic_repo, repo_git)
     mutate(synthetic_repo)
-
     with pytest.raises(_coverage.CoverageEvidenceError, match=message):
         _coverage.collect_quality_coverage(synthetic_repo)
 
@@ -145,7 +146,6 @@ def test_changed_lines_are_path_local_and_ignore_moves_but_detect_duplicates() -
     }
 
     result = _coverage.evaluate_quality_coverage(current, baseline, 80.0)
-
     assert result["changed_lines"] == {
         "covered": 2,
         "statements": 3,
