@@ -73,8 +73,8 @@ def _flags_suffix(record: dict, findings: list[dict] | None = None) -> str:
 
 
 def _header(repo_root: Path, metrics: dict | None = None) -> str:
-    commit = (metrics or {}).get("commit") or _artifacts.current_commit(repo_root) or "unknown"
-    return (f"<!-- Generated at commit {commit}; do not edit. "
+    digest = (metrics or {}).get("input_digest") or "unknown"
+    return (f"<!-- Generated from audit input {digest[:12]}; do not edit. "
             f"regenerate: scripts\\audit.cmd --fast -->\n\n")
 
 

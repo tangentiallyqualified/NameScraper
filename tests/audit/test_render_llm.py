@@ -36,17 +36,17 @@ def test_missing_docstring_marked(synthetic_repo: Path):
     assert "(no docstring)" in out["docs/audit/llm/INDEX.md"]
 
 
-def test_artifact_commit_stamps_every_output(synthetic_repo: Path, monkeypatch):
+def test_input_digest_stamps_every_output(synthetic_repo: Path, monkeypatch):
     inv = _inventory.build_inventory(synthetic_repo)
     graph = _graph.build_graph(synthetic_repo, inv)
     metrics = _metrics.build_metrics(
         inv, graph, {"findings": [], "per_file": {}, "tool_status": {}},
         {"available": False, "modules": {}},
     )
-    metrics["commit"] = "artifact123"
+    metrics["input_digest"] = "abcdef123456" + "0" * 52
     monkeypatch.setattr(_render_llm._artifacts, "current_commit", lambda _repo: "current999")
     out = _render_llm.render(synthetic_repo, inv, graph, metrics)
-    assert all("Generated at commit artifact123" in text for text in out.values())
+    assert all("Generated from audit input abcdef123456" in text for text in out.values())
     assert all("current999" not in text for text in out.values())
 
 

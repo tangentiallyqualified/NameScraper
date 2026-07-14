@@ -44,6 +44,9 @@ def test_run_writes_doc_status_with_purge_worksheet(synthetic_repo: Path, repo_g
     status = (synthetic_repo / "docs" / "audit" / "doc-status.md").read_text(encoding="utf-8")
     assert "docs/guide.md" in status
     assert "plex_renamer/gone.py" in status  # broken ref surfaced for purge review
+    digest = _inventory._artifacts.input_digest(synthetic_repo)
+    assert f"Generated from audit input {digest[:12]}" in status
+    assert "Generated at commit" not in status
 
 
 def test_missing_ledger_is_empty(synthetic_repo: Path):

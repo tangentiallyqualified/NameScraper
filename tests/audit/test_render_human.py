@@ -82,7 +82,7 @@ def test_overview_shows_partial_coverage_reason(synthetic_repo: Path):
 
 def _report_metrics(**overrides) -> dict:
     metrics = {
-        "commit": "artifact123",
+        "input_digest": "abcdef123456" + "0" * 52,
         "modules": {},
         "headline": {
             "files": 0, "total_loc": 0, "avg_coverage": None,
@@ -92,7 +92,7 @@ def _report_metrics(**overrides) -> dict:
         },
         "coverage": {
             "available": False, "usable": False, "source": None,
-            "collected_at_commit": None, "age_commits": None,
+            "input_digest": None,
             "stale": False, "partial": False, "failed": False,
             "reason": "no data",
         },
@@ -105,13 +105,13 @@ def _report_metrics(**overrides) -> dict:
     return metrics
 
 
-def test_overview_uses_artifact_commit_and_shows_analyzer_status(synthetic_repo: Path):
+def test_overview_uses_input_digest_and_shows_analyzer_status(synthetic_repo: Path):
     overview = _render_human.render_overview(
         synthetic_repo, {"modules": {}}, _report_metrics(), {"findings": []}
     )
     assert "## Analyzer status" in overview
     assert "| vulture | available |" in overview
-    assert "Generated at commit artifact123" in overview
+    assert "Generated from audit input abcdef123456" in overview
 
 
 def test_failed_analyzers_suppress_false_clean_and_zero_claims(synthetic_repo: Path):
@@ -197,7 +197,7 @@ def test_least_covered_table_is_ordered_and_capped_at_ten(synthetic_repo: Path):
     metrics = _report_metrics(modules=modules)
     metrics["coverage"].update({
         "available": True, "usable": True, "source": "imported",
-        "collected_at_commit": "cov1234", "age_commits": 2, "reason": None,
+        "input_digest": metrics["input_digest"], "reason": None,
     })
     metrics["headline"].update({"avg_coverage": 5.5, "module_avg_coverage": 5.5})
     overview = _render_human.render_overview(
@@ -208,7 +208,7 @@ def test_least_covered_table_is_ordered_and_capped_at_ten(synthetic_repo: Path):
     assert "m09.py" in least
     assert "m10.py" not in least and "m11.py" not in least
     assert "no_statements.py" not in least
-    assert "| usable | imported | cov1234 | 2 |" in overview
+    assert "| matched | imported | abcdef123456 | - |" in overview
 
 
 def test_stale_coverage_is_explicitly_ignored(synthetic_repo: Path):
@@ -219,10 +219,10 @@ def test_stale_coverage_is_explicitly_ignored(synthetic_repo: Path):
     })
     metrics["coverage"].update({
         "available": True, "stale": True, "source": "imported",
-        "collected_at_commit": "old1234", "age_commits": 99,
+        "input_digest": "deadbeef0000" + "0" * 52,
     })
     overview = _render_human.render_overview(
         synthetic_repo, {"modules": {}}, metrics, {"findings": []}
     )
-    assert "| ignored | imported | old1234 | 99 | stale" in overview
+    assert "| mismatched | imported | deadbeef0000 | stale" in overview
     assert "Coverage evidence ignored: stale" in overview

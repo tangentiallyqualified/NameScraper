@@ -179,15 +179,14 @@ def _coverage_reason(metrics: dict) -> str:
 
 def _coverage_provenance(metrics: dict) -> str:
     coverage = metrics.get("coverage", {})
-    status = "usable" if coverage.get("usable") else "ignored"
-    commit = coverage.get("collected_at_commit") or "unknown"
-    age = coverage.get("age_commits")
-    age_text = str(age) if age is not None else "unknown"
+    digest = coverage.get("input_digest")
+    status = "matched" if digest and digest == metrics.get("input_digest") else "mismatched"
+    digest_text = digest[:12] if isinstance(digest, str) else "unknown"
     reason = "-" if coverage.get("usable") else _coverage_reason(metrics)
     return (
-        "| Status | Source | Collected commit | Age (commits) | Detail |\n"
-        "|---|---|---|---:|---|\n"
-        f"| {status} | {coverage.get('source') or 'unknown'} | {commit} | {age_text} | {reason} |"
+        "| Status | Source | Input digest | Detail |\n"
+        "|---|---|---|---|\n"
+        f"| {status} | {coverage.get('source') or 'unknown'} | {digest_text} | {reason} |"
     )
 
 
@@ -267,8 +266,11 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
         "## External effects\n\n" + _effects_table(graph),
         "## Dead-code review checklist\n\n" + _dead_checklist(analysis, metrics),
     ]
-    commit = metrics.get("commit") or _artifacts.current_commit(repo_root) or "unknown"
-    return "\n\n".join(parts) + f"\n\n_Generated at commit {commit} by scripts\\audit.cmd._"
+    digest = metrics.get("input_digest") or "unknown"
+    return (
+        "\n\n".join(parts)
+        + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
+    )
 
 
 def _render_package_map(package: str, graph: dict, metrics: dict) -> str:

@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
+from audit import _artifacts
+
 
 _COVERAGE_SOURCE = ["plex_renamer"]
 _SCOPE_CONFIG_FILES = (
@@ -237,6 +239,7 @@ def _write_coverage_sidecar(
         payload = {
             "commit": commit,
             "collected_at": collected_at,
+            "input_digest": _artifacts.input_digest(repo_root),
             "pytest_args": normalized_args,
             "scope": scope,
             "scope_id": _scope_id(scope) if scope is not None else None,
@@ -252,6 +255,7 @@ def _write_coverage_sidecar(
         fallback = {
             "commit": commit,
             "collected_at": collected_at,
+            "input_digest": _artifacts.input_digest(repo_root),
             "pytest_args": normalized_args,
             "scope": None,
             "scope_id": None,

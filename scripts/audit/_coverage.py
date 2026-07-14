@@ -89,6 +89,7 @@ def _run_fresh(repo_root: Path) -> None:
 def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int = 15) -> dict:
     unavailable = {
         "available": False, "reason": None, "source": None,
+        "input_digest": None,
         "collected_at_commit": None, "age_commits": None, "stale": False,
         "modules": {}, "partial": False, "failed": False,
         "scope_id": None, "scope": None,
@@ -139,6 +140,7 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
         return {**unavailable, "reason": f"could not read coverage data: {exc}"[:200]}
 
     commit = None
+    collected_input_digest = None
     partial = False
     failed = False
     scope_id = None
@@ -155,6 +157,12 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
                 if isinstance(raw_commit, str) and raw_commit.strip()
                 else None
             )
+            raw_input_digest = meta.get("input_digest")
+            collected_input_digest = (
+                raw_input_digest.strip()
+                if isinstance(raw_input_digest, str) and raw_input_digest.strip()
+                else None
+            )
             raw_partial = meta.get("partial", False)
             partial = raw_partial if isinstance(raw_partial, bool) else True
             raw_failed = meta.get("failed", False)
@@ -168,12 +176,15 @@ def collect_coverage(repo_root: Path, fresh: bool = False, max_age_commits: int 
             scope = raw_scope if isinstance(raw_scope, dict) else None
         except (json.JSONDecodeError, OSError, ValueError):
             commit = None
+            collected_input_digest = None
             partial = True
     age = _artifacts.commits_between(repo_root, commit) if commit else None
-    stale = age is None or age > max_age_commits or partial or failed
+    current_input_digest = _artifacts.input_digest(repo_root)
+    stale = collected_input_digest != current_input_digest or partial or failed
     return {
         "available": True, "reason": None,
         "source": "fresh" if fresh else "imported",
+        "input_digest": collected_input_digest,
         "collected_at_commit": commit, "age_commits": age,
         "stale": stale, "modules": modules,
         "partial": partial, "failed": failed,
