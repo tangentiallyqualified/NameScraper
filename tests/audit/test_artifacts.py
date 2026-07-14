@@ -199,3 +199,25 @@ def test_working_tree_files_include_staged_unstaged_and_untracked(synthetic_repo
 def test_working_tree_files_respects_pathspecs(synthetic_repo: Path):
     (synthetic_repo / "README.md").write_text("# dirty\n", encoding="utf-8")
     assert _artifacts.working_tree_files(synthetic_repo, "plex_renamer") == []
+
+
+def test_changed_files_are_stable_when_a_rename_loses_similarity(
+    synthetic_repo: Path, repo_git
+):
+    old = synthetic_repo / "tests" / "test_legacy_name.py"
+    old.write_text("\n".join(f"LINE_{i} = {i}" for i in range(40)) + "\n", encoding="utf-8")
+    repo_git(synthetic_repo, "add", "tests/test_legacy_name.py")
+    repo_git(synthetic_repo, "commit", "-m", "add legacy test")
+    reviewed = repo_git(synthetic_repo, "rev-parse", "--short", "HEAD")
+    new = synthetic_repo / "tests" / "test_new_name.py"
+    old.rename(new)
+    repo_git(synthetic_repo, "add", "-A")
+    repo_git(synthetic_repo, "commit", "-m", "rename test")
+    new.write_text("NEW_CONTENT = True\n", encoding="utf-8")
+
+    before = _artifacts.changed_files_since(synthetic_repo, reviewed, "tests")
+    repo_git(synthetic_repo, "add", "-A")
+    repo_git(synthetic_repo, "commit", "-m", "replace renamed test")
+    after = _artifacts.changed_files_since(synthetic_repo, reviewed, "tests")
+
+    assert before == after == ["tests/test_legacy_name.py", "tests/test_new_name.py"]

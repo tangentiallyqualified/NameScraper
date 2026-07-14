@@ -171,7 +171,15 @@ def commits_between(repo_root: Path, old_commit: str) -> int | None:
 
 
 def changed_files_since(repo_root: Path, old_commit: str, *pathspecs: str) -> list[str] | None:
-    out = _git(repo_root, "diff", "--name-only", f"{old_commit}..HEAD", "--", *pathspecs)
+    out = _git(
+        repo_root,
+        "diff",
+        "--no-renames",
+        "--name-only",
+        f"{old_commit}..HEAD",
+        "--",
+        *pathspecs,
+    )
     if out is None:
         return None
     committed = {
@@ -189,8 +197,8 @@ def working_tree_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
     """Relevant staged, unstaged, and untracked files, normalized repo-relative."""
     files: set[str] = set()
     commands = (
-        ("diff", "--name-only", "--", *pathspecs),
-        ("diff", "--cached", "--name-only", "--", *pathspecs),
+        ("diff", "--no-renames", "--name-only", "--", *pathspecs),
+        ("diff", "--cached", "--no-renames", "--name-only", "--", *pathspecs),
         ("ls-files", "--others", "--exclude-standard", "--", *pathspecs),
     )
     for args in commands:
