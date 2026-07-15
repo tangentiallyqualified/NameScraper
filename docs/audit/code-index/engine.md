@@ -1,11 +1,11 @@
-<!-- Generated from audit input 42f25f81c877; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input de8457a6a4a1; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
 
 
 ### `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module.
-- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_bulk_assign_panel.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion.py, tests/test_episode_mapping_projection.py, tests/test_episode_projection_cache.py, tests/test_extras_and_prefix_fixes.py, tests/test_haikyuu_matching.py, tests/test_jojo_matching.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_movie_confidence_adjustments.py, tests/test_qt_async_guide.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_qt_queue_history.py, tests/test_qt_workspace_widgets.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_roster_classification.py, tests/test_scan_improvements.py, tests/test_workspace_expansion.py
+- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_bulk_assign_panel.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion.py, tests/test_episode_mapping_projection.py, tests/test_episode_projection_cache.py, tests/test_extras_and_prefix_fixes.py, tests/test_haikyuu_matching.py, tests/test_jojo_matching.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_confidence_adjustments.py, tests/test_qt_async_guide.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_qt_queue_history.py, tests/test_qt_workspace_widgets.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_roster_classification.py, tests/test_scan_improvements.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/engine/_batch_orchestrators.py` — Batch orchestration for TV and movie library discovery/scanning.
 - `BatchTVOrchestrator` — Discovers TV show folders in a library root, matches each to TMDB, (used by: plex_renamer.app.controllers._controller_session_models, plex_renamer.app.controllers._tab_session_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._core)

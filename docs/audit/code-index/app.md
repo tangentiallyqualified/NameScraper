@@ -1,4 +1,4 @@
-<!-- Generated from audit input 42f25f81c877; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input de8457a6a4a1; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -117,7 +117,7 @@
 - Tests: tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py
 
 ### `plex_renamer/app/models/__init__.py` — Typed application-layer models shared across controllers and services.
-- Tests: tests/test_cache_service.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_movie_discovery.py, tests/test_qt_main_window.py, tests/test_qt_workspace_widgets.py, tests/test_refresh_policy_service.py, tests/test_scan_improvements.py
+- Tests: tests/test_cache_service.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_discovery.py, tests/test_qt_main_window.py, tests/test_qt_workspace_widgets.py, tests/test_refresh_policy_service.py, tests/test_scan_improvements.py
 
 ### `plex_renamer/app/models/state_models.py` — Structured application-layer state models used by Phase 1 services.
 - `utc_now_iso() -> str` — Return the current UTC time as an ISO-8601 string.

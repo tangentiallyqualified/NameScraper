@@ -30,5 +30,5 @@
 - `plex_renamer/engine/_tv_scanner_seasons.py` — fan-in 1, fan-out 3, LOC 253
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 59
 
-_Generated from audit input 42f25f81c877 by scripts\audit.cmd._
+_Generated from audit input de8457a6a4a1 by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->
