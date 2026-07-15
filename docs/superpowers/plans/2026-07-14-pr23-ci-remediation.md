@@ -276,3 +276,33 @@ Commit the tests and resulting artifacts with intentional messages. After commit
 - [ ] **Step 6: Push and monitor**
 
 Fast-forward `dev/audit-debt3` to the reviewed head, push it, and monitor PR #23 until both `fast-tests` and `audit-verify` complete successfully.
+
+### Task 6: Expose CI-Only Generated Baseline Drift
+
+**Files:**
+- Modify: `.github/workflows/ci.yml`
+- Test: `tests/audit/test_workflows.py`
+
+**Interfaces:**
+- Consumes: the audit verifier's generated-drift exit status and the ephemeral Actions checkout.
+- Produces: a unified `docs/audit/baseline.json` diff in the failed job log without changing artifact generation or application behavior.
+
+- [ ] **Step 1: Add a failing workflow contract test**
+
+Require the `Verify generated audit docs` step to capture the verifier exit code, regenerate audit output only on failure, print `git diff -- docs/audit/baseline.json`, and return the original failure. Keep the existing assertion that normal verification invokes `scripts/audit.cmd --verify` exactly once.
+
+- [ ] **Step 2: Verify RED**
+
+Run the focused workflow test and confirm it fails because the current single-line step discards the generated file after reporting only its path.
+
+- [ ] **Step 3: Add the diagnostic-only failure path**
+
+Convert the verify step to a PowerShell block. On failure, run `scripts/audit.cmd`, print the baseline diff with the pager disabled, and exit nonzero. On success, do not regenerate anything. Do not change production code, audit algorithms, baselines, or workflow inputs.
+
+- [ ] **Step 4: Verify and commit**
+
+Run the focused workflow tests, `git diff --check`, and the quality ratchet. Commit with message `ci: expose generated baseline drift`.
+
+- [ ] **Step 5: Push and inspect the decisive CI diff**
+
+Fast-forward `dev/audit-debt3`, push, and monitor the replacement run. If verification still fails, use the printed unified diff to design the architecture-level fix; do not make another symptom-level coverage edit.
