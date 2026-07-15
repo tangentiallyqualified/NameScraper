@@ -5,7 +5,7 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import cast
 
@@ -22,6 +22,7 @@ ALLOWED_REASON_CODES = frozenset(
 
 DecisionKey = tuple[str, str, str, str]
 Finding = dict[str, object]
+Expiry = date | datetime
 
 
 class DecisionPolicyError(ValueError):
@@ -36,7 +37,7 @@ class Decision:
     symbol: str
     reason_code: str
     reason: str
-    expiry: date | None = None
+    expiry: Expiry | None = None
 
     @property
     def key(self) -> DecisionKey:
@@ -63,15 +64,35 @@ def _required_text(record: Mapping[str, object], field: str, index: int) -> str:
     return value.strip()
 
 
-def _parse_expiry(value: object, index: int) -> date | None:
+def _parse_expiry(value: object, index: int) -> Expiry | None:
     if value is None:
         return None
-    if type(value) is not date:
-        raise DecisionPolicyError(f"decision {index} expiry must be a TOML date")
-    return value
+    if isinstance(value, datetime):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise DecisionPolicyError(f"decision {index} datetime expiry must be timezone-aware")
+        return value.astimezone(UTC)
+    if type(value) is date:
+        return value
+    raise DecisionPolicyError(
+        f"decision {index} expiry must be a TOML date or timezone-aware datetime"
+    )
 
 
-def _decision(record: Mapping[str, object], index: int, today: date) -> Decision:
+def _reference_now(today: date | None, now: datetime | None) -> datetime:
+    if now is None:
+        return datetime.combine(today, time.min, UTC) if today else datetime.now(UTC)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise DecisionPolicyError("current time must be timezone-aware")
+    return now.astimezone(UTC)
+
+
+def _is_expired(expiry: Expiry, today: date, now: datetime) -> bool:
+    if isinstance(expiry, datetime):
+        return expiry < now
+    return expiry < today
+
+
+def _decision(record: Mapping[str, object], index: int, today: date, now: datetime) -> Decision:
     reason_code = _required_text(record, "reason_code", index)
     if reason_code not in ALLOWED_REASON_CODES:
         raise DecisionPolicyError(f"decision {index} has unknown reason_code: {reason_code}")
@@ -85,8 +106,10 @@ def _decision(record: Mapping[str, object], index: int, today: date) -> Decision
         reason=_required_text(record, "reason", index),
         expiry=expiry,
     )
-    if expiry is not None and expiry < today:
-        raise DecisionPolicyError(f"expired decision: {_format_key(decision.key)} ({expiry})")
+    if expiry is not None and _is_expired(expiry, today, now):
+        raise DecisionPolicyError(
+            f"expired decision: {_format_key(decision.key)} ({_format_expiry(expiry)})"
+        )
     return decision
 
 
@@ -95,7 +118,7 @@ def _format_key(key: DecisionKey) -> str:
     return f"{analyzer}/{rule} {path} [{symbol}]"
 
 
-def loads(text: str, *, today: date | None = None) -> list[Decision]:
+def loads(text: str, *, today: date | None = None, now: datetime | None = None) -> list[Decision]:
     try:
         payload = cast(dict[str, object], tomllib.loads(text))
     except tomllib.TOMLDecodeError as exc:
@@ -106,10 +129,14 @@ def loads(text: str, *, today: date | None = None) -> list[Decision]:
     typed_records = cast(list[object], records)
     decisions: list[Decision] = []
     seen: set[DecisionKey] = set()
+    reference_now = _reference_now(today, now)
+    reference_today = today or reference_now.date()
     for index, raw_record in enumerate(typed_records, 1):
         if not isinstance(raw_record, dict):
             raise DecisionPolicyError(f"decision {index} must be a table")
-        decision = _decision(cast(dict[str, object], raw_record), index, today or date.today())
+        decision = _decision(
+            cast(dict[str, object], raw_record), index, reference_today, reference_now
+        )
         if decision.key in seen:
             raise DecisionPolicyError(f"duplicate decision: {_format_key(decision.key)}")
         seen.add(decision.key)
@@ -117,10 +144,16 @@ def loads(text: str, *, today: date | None = None) -> list[Decision]:
     return decisions
 
 
-def load(path: Path, *, today: date | None = None) -> list[Decision]:
+def load(path: Path, *, today: date | None = None, now: datetime | None = None) -> list[Decision]:
     if not path.exists():
         return []
-    return loads(path.read_text(encoding="utf-8"), today=today)
+    return loads(path.read_text(encoding="utf-8"), today=today, now=now)
+
+
+def _format_expiry(expiry: Expiry) -> str:
+    if isinstance(expiry, datetime):
+        return expiry.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return expiry.isoformat()
 
 
 def filter_open(repo_root: Path, findings: list[Finding]) -> list[Finding]:
@@ -148,7 +181,7 @@ def apply(findings: list[Finding], decisions: list[Decision]) -> list[Finding]:
             decision_data = {
                 "reason_code": decision.reason_code,
                 "reason": decision.reason,
-                "expiry": decision.expiry.isoformat() if decision.expiry else None,
+                "expiry": _format_expiry(decision.expiry) if decision.expiry else None,
             }
             finding.update(
                 decision=decision_data,

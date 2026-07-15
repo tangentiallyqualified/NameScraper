@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -126,8 +126,40 @@ def test_expiry_today_is_still_valid() -> None:
     assert decision.expiry == date(2026, 7, 14)
 
 
-def test_expiry_must_be_a_date_not_a_datetime() -> None:
-    text = _policy() + "expiry = 2026-07-14T00:00:00Z\n"
+def test_future_aware_datetime_expiry_is_normalized_and_serialized_in_utc() -> None:
+    text = _policy() + "expiry = 2026-07-14T08:00:00-07:00\n"
 
-    with pytest.raises(_decisions.DecisionPolicyError, match="expiry must be a TOML date"):
-        _decisions.loads(text, today=date(2026, 7, 14))
+    decision = _decisions.loads(text, now=datetime(2026, 7, 14, 14, tzinfo=UTC))[0]
+    annotated = _decisions.apply([_finding()], [decision])
+
+    assert decision.expiry == datetime(2026, 7, 14, 15, tzinfo=UTC)
+    assert annotated[0]["decision"] == {
+        "reason_code": "framework-callback",
+        "reason": "Qt invokes this QWidget override.",
+        "expiry": "2026-07-14T15:00:00Z",
+    }
+
+
+def test_expired_aware_datetime_is_rejected() -> None:
+    text = _policy() + "expiry = 2026-07-14T13:59:59Z\n"
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="expired decision"):
+        _decisions.loads(text, now=datetime(2026, 7, 14, 14, tzinfo=UTC))
+
+
+def test_datetime_offsets_for_the_same_instant_normalize_equally() -> None:
+    utc_text = _policy() + "expiry = 2026-07-14T15:00:00Z\n"
+    offset_text = _policy() + "expiry = 2026-07-14T08:00:00-07:00\n"
+    now = datetime(2026, 7, 14, 14, tzinfo=UTC)
+
+    utc_expiry = _decisions.loads(utc_text, now=now)[0].expiry
+    offset_expiry = _decisions.loads(offset_text, now=now)[0].expiry
+
+    assert utc_expiry == offset_expiry == datetime(2026, 7, 14, 15, tzinfo=UTC)
+
+
+def test_naive_datetime_expiry_is_rejected_as_ambiguous() -> None:
+    text = _policy() + "expiry = 2026-07-14T15:00:00\n"
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="timezone-aware"):
+        _decisions.loads(text, now=datetime(2026, 7, 14, 14, tzinfo=UTC))
