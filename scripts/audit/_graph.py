@@ -160,14 +160,14 @@ def _symbols(tree: ast.Module) -> list[dict]:
     return out
 
 
-def _strongly_connected(adj: dict[str, list[str]]) -> list[list[str]]:
-    """Tarjan SCC; returns components of size > 1 (cycles)."""
+def _strongly_connected(adj: dict[str, list[str]]) -> list[dict]:
+    """Return deterministic module and internal-edge records for cyclic SCCs."""
     index: dict[str, int] = {}
     lowlink: dict[str, int] = {}
     on_stack: set[str] = set()
     stack: list[str] = []
     counter = [0]
-    cycles: list[list[str]] = []
+    components: list[list[str]] = []
 
     def strongconnect(v: str) -> None:
         index[v] = lowlink[v] = counter[0]
@@ -191,7 +191,7 @@ def _strongly_connected(adj: dict[str, list[str]]) -> list[list[str]]:
                 if w == v:
                     break
             if len(comp) > 1:
-                cycles.append(sorted(comp))
+                components.append(sorted(comp))
 
     import sys
     old_limit = sys.getrecursionlimit()
@@ -202,7 +202,17 @@ def _strongly_connected(adj: dict[str, list[str]]) -> list[list[str]]:
                 strongconnect(v)
     finally:
         sys.setrecursionlimit(old_limit)
-    return sorted(cycles)
+    cycles = []
+    for modules in sorted(components):
+        members = set(modules)
+        edges = sorted(
+            [source, target]
+            for source in modules
+            for target in adj.get(source, [])
+            if target in members
+        )
+        cycles.append({"modules": modules, "edges": edges})
+    return cycles
 
 
 def _reexport_map(modules: dict[str, dict], trees: dict) -> dict[tuple[str, str], tuple[str, str]]:

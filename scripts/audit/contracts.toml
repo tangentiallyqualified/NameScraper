@@ -1,5 +1,7 @@
-# Layer contracts: forbidden import directions, prefix-matched on module names.
-# Violations are advisory findings (category layer-violation), never blocking.
+# Dependency contracts: exact cycle baseline plus forbidden import directions.
+[cycles]
+baseline = "cycle-baseline.json"
+
 [[forbid]]
 from = "plex_renamer.engine"
 to = "plex_renamer.gui_qt"

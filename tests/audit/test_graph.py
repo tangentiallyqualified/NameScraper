@@ -1,13 +1,31 @@
 from __future__ import annotations
 
+import json
 import textwrap
 from pathlib import Path
 
-from audit import _artifacts, _graph, _inventory
+from audit import _analyze, _artifacts, _graph, _inventory
 
 
 def _graph_for(repo: Path) -> dict:
     return _graph.build_graph(repo, _inventory.build_inventory(repo))
+
+
+def _write_module(repo: Path, name: str, *imports: str) -> None:
+    body = [f'"""{name}."""', *(f"import {target}" for target in imports)]
+    (repo / Path(*name.split("."))).with_suffix(".py").write_text(
+        "\n".join(body) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _cycle_findings(graph: dict, baseline_cycles: list[dict]) -> list[dict]:
+    baseline = json.dumps({"version": 1, "cycles": baseline_cycles})
+    return [
+        finding
+        for finding in _analyze._check_contracts(graph, "", baseline)
+        if finding["rule"] in {"new-cycle", "enlarged-cycle"}
+    ]
 
 
 def test_import_edges_and_fan(synthetic_repo: Path):
@@ -44,7 +62,100 @@ def test_cycle_detection(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "c2.py").write_text(
         '"""C2."""\nfrom plex_renamer import c1\n', encoding="utf-8")
     g = _graph_for(synthetic_repo)
-    assert any(set(c) == {"plex_renamer.c1", "plex_renamer.c2"} for c in g["cycles"])
+    assert g["cycles"] == [{
+        "modules": ["plex_renamer.c1", "plex_renamer.c2"],
+        "edges": [
+            ["plex_renamer.c1", "plex_renamer.c2"],
+            ["plex_renamer.c2", "plex_renamer.c1"],
+        ],
+    }]
+
+
+def test_cycle_ordering_is_stable_for_modules_edges_and_components(synthetic_repo: Path):
+    _write_module(
+        synthetic_repo,
+        "plex_renamer.zed",
+        "plex_renamer.middle",
+        "plex_renamer.alpha_cycle",
+    )
+    _write_module(synthetic_repo, "plex_renamer.middle", "plex_renamer.zed")
+    _write_module(synthetic_repo, "plex_renamer.alpha_cycle", "plex_renamer.zed")
+    _write_module(synthetic_repo, "plex_renamer.yankee", "plex_renamer.xray")
+    _write_module(synthetic_repo, "plex_renamer.xray", "plex_renamer.yankee")
+
+    assert _graph_for(synthetic_repo)["cycles"] == [
+        {
+            "modules": [
+                "plex_renamer.alpha_cycle",
+                "plex_renamer.middle",
+                "plex_renamer.zed",
+            ],
+            "edges": [
+                ["plex_renamer.alpha_cycle", "plex_renamer.zed"],
+                ["plex_renamer.middle", "plex_renamer.zed"],
+                ["plex_renamer.zed", "plex_renamer.alpha_cycle"],
+                ["plex_renamer.zed", "plex_renamer.middle"],
+            ],
+        },
+        {
+            "modules": ["plex_renamer.xray", "plex_renamer.yankee"],
+            "edges": [
+                ["plex_renamer.xray", "plex_renamer.yankee"],
+                ["plex_renamer.yankee", "plex_renamer.xray"],
+            ],
+        },
+    ]
+
+
+def test_unchanged_legacy_cycle_matches_exact_baseline(synthetic_repo: Path):
+    _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")
+    graph = _graph_for(synthetic_repo)
+
+    assert _cycle_findings(graph, graph["cycles"]) == []
+
+
+def test_new_cycle_is_reported_when_no_baseline_component_contains_it(synthetic_repo: Path):
+    _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")
+
+    findings = _cycle_findings(_graph_for(synthetic_repo), [])
+
+    assert [finding["rule"] for finding in findings] == ["new-cycle"]
+    assert findings[0]["symbol"] == "plex_renamer.c1, plex_renamer.c2"
+
+
+def test_cycle_that_adds_a_module_is_reported_as_enlarged(synthetic_repo: Path):
+    _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c3")
+    _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c1")
+    baseline = [{
+        "modules": ["plex_renamer.c1", "plex_renamer.c2"],
+        "edges": [
+            ["plex_renamer.c1", "plex_renamer.c2"],
+            ["plex_renamer.c2", "plex_renamer.c1"],
+        ],
+    }]
+
+    findings = _cycle_findings(_graph_for(synthetic_repo), baseline)
+
+    assert [finding["rule"] for finding in findings] == ["enlarged-cycle"]
+
+
+def test_cycle_that_shrinks_by_one_module_is_allowed(synthetic_repo: Path):
+    _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")
+    _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c1")
+    baseline = [{
+        "modules": ["plex_renamer.c1", "plex_renamer.c2", "plex_renamer.c3"],
+        "edges": [
+            ["plex_renamer.c1", "plex_renamer.c2"],
+            ["plex_renamer.c2", "plex_renamer.c3"],
+            ["plex_renamer.c3", "plex_renamer.c1"],
+        ],
+    }]
+
+    assert _cycle_findings(_graph_for(synthetic_repo), baseline) == []
 
 
 def test_run_requires_inventory(synthetic_repo: Path):

@@ -211,8 +211,31 @@ def _module_prefixed(module: str, prefix: str) -> bool:
     return module == prefix or module.startswith(prefix + ".")
 
 
-def _check_contracts(graph: dict, contracts_text: str) -> list[dict]:
-    rules = tomllib.loads(contracts_text).get("forbid", [])
+def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
+    baseline = json.loads(baseline_text)
+    baseline_modules = [set(cycle["modules"]) for cycle in baseline["cycles"]]
+    findings = []
+    for cycle in graph.get("cycles", []):
+        modules = set(cycle["modules"])
+        if any(modules <= legacy for legacy in baseline_modules):
+            continue
+        rule = ("enlarged-cycle"
+                if any(modules & legacy for legacy in baseline_modules)
+                else "new-cycle")
+        symbol = ", ".join(cycle["modules"])
+        findings.append({
+            "source": "contracts", "rule": rule,
+            "path": "scripts/audit/cycle-baseline.json", "line": 1,
+            "symbol": symbol,
+            "message": f"{rule.replace('-', ' ')}: {symbol}",
+            "confidence": 100, "category": "layer-violation",
+        })
+    return findings
+
+
+def _check_contracts(graph: dict, contracts_text: str,
+                     cycle_baseline_text: str | None = None) -> list[dict]:
+    rules = tomllib.loads(contracts_text).get("forbid", []) if contracts_text else []
     findings = []
     for name, mod in sorted(graph["modules"].items()):
         for target in mod["imports"]:
@@ -226,6 +249,8 @@ def _check_contracts(graph: dict, contracts_text: str) -> list[dict]:
                                    f"{rule['from']} -> {rule['to']} ({reason})",
                         "confidence": 100, "category": "layer-violation",
                     })
+    if cycle_baseline_text is not None:
+        findings.extend(_cycle_contract_findings(graph, cycle_baseline_text))
     return findings
 
 
@@ -268,7 +293,8 @@ def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
 def run_analysis(repo_root: Path, inventory: dict, graph: dict,
                  allowlist_text: str | None = None,
                  pyproject_text: str | None = None,
-                 contracts_text: str | None = None) -> dict:
+                 contracts_text: str | None = None,
+                 cycle_baseline_text: str | None = None) -> dict:
     if allowlist_text is None:
         default = Path(__file__).parent / "allowlist.toml"
         allowlist_text = default.read_text(encoding="utf-8") if default.exists() else "ignore = []\n"
@@ -304,8 +330,13 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
             default_contracts = Path(__file__).parent / "contracts.toml"
             contracts_text = (default_contracts.read_text(encoding="utf-8")
                               if default_contracts.exists() else "")
+        contract_config = tomllib.loads(contracts_text) if contracts_text else {}
+        baseline_name = contract_config.get("cycles", {}).get("baseline")
+        if cycle_baseline_text is None and baseline_name:
+            baseline_path = Path(__file__).parent / baseline_name
+            cycle_baseline_text = baseline_path.read_text(encoding="utf-8")
         if contracts_text:
-            findings.extend(_check_contracts(graph, contracts_text))
+            findings.extend(_check_contracts(graph, contracts_text, cycle_baseline_text))
         tool_status["contracts"] = {"ok": True, "reason": None}
     except Exception as exc:
         tool_status["contracts"] = {"ok": False, "reason": str(exc)[:200]}
