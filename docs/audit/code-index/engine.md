@@ -1,4 +1,4 @@
-<!-- Generated from audit input 24febbe056ef; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 6d57e67cd7d3; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
@@ -110,7 +110,7 @@
 - `build_consolidated_preview(*, season_dirs, tmdb_seasons, root, show_info, media_fields, store_tmdb_data) -> list[PreviewItem]` — Build preview mapping files in absolute order to TMDB structure.
 - `apply_air_date_cluster_mapping(table, tmdb_seasons) -> None` — Map folder-season-N files onto the Nth airing cluster of a single
 - `build_consolidated_table(*, season_dirs, tmdb_seasons, tmdb, show_info, root, store_tmdb_data) -> EpisodeAssignmentTable` — Build the assignment table for flat/mixed multi-season folders. (used by: plex_renamer.engine._tv_scanner)
-- Tests: tests/test_air_date_clusters.py, tests/test_consolidated_assignments.py, tests/test_consolidated_two_phase.py, tests/test_show_name_title_and_hint_rescue.py
+- Tests: tests/test_air_date_clusters.py, tests/test_consolidated_assignments.py, tests/test_consolidated_two_phase.py, tests/test_matching_helpers.py, tests/test_show_name_title_and_hint_rescue.py
 
 ### `plex_renamer/engine/_tv_scanner_normal.py` — Normal per-season table building for TVScanner.
 - `build_normal_table(*, season_dirs, tmdb_seasons, tmdb, show_info, root, season_folders, store_tmdb_data) -> EpisodeAssignmentTable` — (no docstring) (used by: plex_renamer.engine._tv_scanner)
@@ -145,7 +145,7 @@
 - `boost_tv_scores_with_episode_evidence(tmdb, scored, evidence) -> list[tuple[dict, float]]` — (no docstring) (used by: plex_renamer.engine, plex_renamer.engine._core)
 - `apply_movie_confidence_adjustments(*, raw_confidence, file_path, tmdb_title, tmdb_year) -> float` — Return *raw_confidence* adjusted by evidence floors and caps. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
 - `score_tv_results(results, raw_name, year_hint, tmdb, *, folder, folder_score_name, episode_evidence) -> list[tuple[dict, float]]` — Score TV search results using the same logic as batch discovery. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.gui_qt.widgets._media_workspace_match_actions)
-- Tests: tests/test_batch_autoaccept_guards.py, tests/test_movie_confidence_adjustments.py, tests/test_show_scoring_no_year.py, tests/test_show_scoring_token_subset.py
+- Tests: tests/test_batch_autoaccept_guards.py, tests/test_matching_helpers.py, tests/test_movie_confidence_adjustments.py, tests/test_show_scoring_no_year.py, tests/test_show_scoring_token_subset.py
 
 ### `plex_renamer/engine/models.py` — Engine data structures — pure data classes with no scanning logic.
 - `iter_season_folder_paths(entry) -> tuple[Path, ...]` — (no docstring) (used by: plex_renamer.engine._batch_tv_season_merge, plex_renamer.engine._tv_scanner_normal, plex_renamer.engine._tv_scanner_seasons)
