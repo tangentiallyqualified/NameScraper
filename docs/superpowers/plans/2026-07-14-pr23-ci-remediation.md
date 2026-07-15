@@ -242,19 +242,19 @@ Fast-forward `dev/audit-debt3` to the reviewed head, push it, and monitor PR #23
 
 **Interfaces:**
 - Consumes: `plex_renamer.engine._tv_scanner_consolidated._contiguous_run`, `plex_renamer.engine.matching.pick_alternate_matches`, and full-suite coverage evidence.
-- Produces: explicit coverage of both helpers' natural loop-completion paths so Python 3.12 and Python 3.14 generate the same baseline percentages.
+- Produces: explicit coverage of both helpers' natural-completion and early-termination paths so Python 3.12 and Python 3.14 generate the same baseline percentages.
 
 - [ ] **Step 1: Preserve the cross-runtime RED evidence**
 
-Record that the same passing suite reports `_tv_scanner_consolidated.py:47` and `matching.py:169` covered on Python 3.12 but missing on Python 3.14. Confirm those are the only fields that differ in `docs/audit/baseline.json`.
+Record that the same passing suite reports `_tv_scanner_consolidated.py:47` and `matching.py:169` covered on Python 3.12 but missing on Python 3.14. Confirm those are the only fields that differ in `docs/audit/baseline.json`. Preserve the follow-up trace evidence that Python 3.14 emits those shared return-line events only when the existing `break` paths execute.
 
 - [ ] **Step 2: Add the smallest behavior tests for natural loop completion**
 
-Add one test that exhausts `_contiguous_run` without taking its `break`, and one test that exhausts `pick_alternate_matches` before reaching its limit. Assert the returned values, not coverage internals. Do not change production code or coverage normalization.
+Add one focused test per helper. Each test must assert both natural completion and the existing early-termination behavior: `_contiguous_run` stops at the first nonconsecutive or unavailable episode, and `pick_alternate_matches` stops at its limit. Assert the returned values, not coverage internals. Do not change production code or coverage normalization.
 
 - [ ] **Step 3: Verify focused behavior and GREEN line evidence**
 
-Run the new test module. Collect full coverage under the repository Python 3.14 environment and confirm lines 47 and 169 are no longer missing. Run the disposable constrained Python 3.12 reproduction and confirm its generated `docs/audit/baseline.json` is byte-identical to the Python 3.14 result.
+Run the new test module. Collect full coverage under the repository Python 3.14 environment and confirm lines 46-47 and 168-169 are no longer missing. Run the disposable constrained Python 3.12 reproduction and confirm its generated `docs/audit/baseline.json` is byte-identical to the Python 3.14 result.
 
 - [ ] **Step 4: Enforce ratchets and regenerate artifacts**
 
