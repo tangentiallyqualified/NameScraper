@@ -1,0 +1,129 @@
+# Machine-readable classifications for every edge in the live engine SCC.
+# The importing subsystem owns an edge; the audit graph remains the edge inventory source of truth.
+version = 1
+
+[[edges]]
+source = "plex_renamer.engine._episode_projection"
+target = "plex_renamer.engine._movie_scanner"
+owner = "episode-projection"
+purpose = "Build subtitle companion plans with the movie scanner's shared helper."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._episode_projection"
+target = "plex_renamer.engine.models"
+owner = "episode-projection"
+purpose = "Construct PreviewItem rows and use the shared episode review status prefix."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._movie_scanner"
+target = "plex_renamer.engine.matching"
+owner = "movie-scanning"
+purpose = "Score movie candidates and apply alternate-title and confidence algorithms."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._movie_scanner"
+target = "plex_renamer.engine.models"
+owner = "movie-scanning"
+purpose = "Construct shared CompanionFile and PreviewItem result models."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine._episode_projection"
+owner = "tv-scanning"
+purpose = "Project assignment tables into episode preview rows."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine._tv_scanner_consolidated"
+owner = "tv-scanning"
+purpose = "Delegate flat and mixed-season collection, matching, and table construction."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine._tv_scanner_normal"
+owner = "tv-scanning"
+purpose = "Build assignment tables for normal per-season scans."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine._tv_scanner_postprocess"
+owner = "tv-scanning"
+purpose = "Build the completeness report after preview generation."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine._tv_scanner_seasons"
+owner = "tv-scanning"
+purpose = "Resolve source season directories and match them to TMDB seasons."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner"
+target = "plex_renamer.engine.models"
+owner = "tv-scanning"
+purpose = "Use shared preview, completeness, and season-folder data shapes."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_consolidated"
+target = "plex_renamer.engine._movie_scanner"
+owner = "consolidated-tv-scanning"
+purpose = "Build subtitle companion plans with the movie scanner's shared helper."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_consolidated"
+target = "plex_renamer.engine._tv_scanner_normal"
+owner = "consolidated-tv-scanning"
+purpose = "Reuse normal-scan season slot registration and special-stem parsing."
+disposition = "algorithm-call"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_consolidated"
+target = "plex_renamer.engine.models"
+owner = "consolidated-tv-scanning"
+purpose = "Construct shared PreviewItem results."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_normal"
+target = "plex_renamer.engine.models"
+owner = "normal-tv-scanning"
+purpose = "Expand shared season-folder entries while building normal assignment tables."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_postprocess"
+target = "plex_renamer.engine.models"
+owner = "tv-postprocessing"
+purpose = "Read PreviewItem rows and construct completeness result models."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine._tv_scanner_seasons"
+target = "plex_renamer.engine.models"
+owner = "season-discovery"
+purpose = "Expand the shared season-folder entry shape during directory resolution."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine.matching"
+target = "plex_renamer.engine.models"
+owner = "media-matching"
+purpose = "Collect and score shared direct-episode evidence models."
+disposition = "shared-model"
+
+[[edges]]
+source = "plex_renamer.engine.models"
+target = "plex_renamer.engine._tv_scanner"
+owner = "engine-models"
+purpose = "Resolve the concrete TVScanner type used by ScanState under TYPE_CHECKING."
+disposition = "facade-backedge"

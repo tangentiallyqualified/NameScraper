@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from audit import _analyze, _graph, _inventory
+from audit import _analyze, _graph, _inventory, _render_human
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -67,6 +67,19 @@ def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles() -> None
         findings,
         indent=2,
     )
+
+
+def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
+    inventory = _inventory.build_inventory(REPO_ROOT)
+    graph = _graph.build_graph(REPO_ROOT, inventory)
+
+    classifications = _render_human.load_cycle_edge_classifications(REPO_ROOT, graph)
+    engine_edges = [list(edge) for edge in _render_human._engine_cycle_edges(graph)]
+
+    assert [
+        [record["source"], record["target"]]
+        for record in classifications
+    ] == engine_edges
 
 
 def test_settings_page_composer_has_one_way_dependencies() -> None:
