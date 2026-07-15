@@ -47,6 +47,15 @@ def _line_offsets(text: str):
         offset += len(line)
 
 
+def test_fast_tests_install_dev_dependencies_through_audit_constraints() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "fast-tests")
+    install = _step(job, "- name: Install dependencies")
+
+    assert 'pip install -e ".[dev]"' in install
+    assert "-c scripts/audit/constraints.txt" in install
+
+
 def test_pull_requests_verify_generated_audit_docs() -> None:
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
     job = _job(workflow, "audit-verify")
