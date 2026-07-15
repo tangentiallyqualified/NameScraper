@@ -308,15 +308,15 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
         ],
         cwd=repo_root,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="strict",
         timeout=300,
     )
     if result.returncode not in (0, 1):
         raise QualityEvidenceError(f"ruff failed: {result.stderr.strip()[:200]}")
     if result.returncode == 1 and not result.stdout.strip():
         raise QualityEvidenceError(f"ruff exited 1 with no output: {result.stderr.strip()[:200]}")
-    findings = []
-    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
+    findings, scope_cache = [], {}
     for item in json.loads(result.stdout or "[]"):
         path = _analyze._rel_to_repo(repo_root, item["filename"])
         line = item["location"]["row"]

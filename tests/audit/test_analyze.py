@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 
 from audit import _analyze, _artifacts, _graph, _inventory
@@ -19,6 +21,37 @@ def test_ruff_finds_unused_import(synthetic_repo: Path):
         if f["source"] == "ruff" and f["rule"] == "F401" and f["path"] == "plex_renamer/alpha.py"
     ]
     assert hits and hits[0]["category"] == "unused-import"
+
+
+def test_ruff_decodes_json_as_strict_utf8(synthetic_repo: Path, monkeypatch) -> None:
+    message = "Comment contains ambiguous \N{MULTIPLICATION SIGN} (MULTIPLICATION SIGN)."
+    payload = [
+        {
+            "code": "RUF003",
+            "filename": str(synthetic_repo / "plex_renamer" / "alpha.py"),
+            "location": {"row": 1, "column": 1},
+            "end_location": {"row": 1, "column": 2},
+            "message": message,
+        }
+    ]
+    captured: dict = {}
+
+    def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout=json.dumps(payload, ensure_ascii=False),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_analyze.subprocess, "run", fake_run)
+
+    findings = _analyze._run_ruff(synthetic_repo)
+
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "strict"
+    assert findings[0]["message"] == message
 
 
 def test_vulture_dead_function_medium_confidence(synthetic_repo: Path):

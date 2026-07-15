@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -64,6 +65,48 @@ def test_audit_policy_mirrors_ruff_policy_with_structured_exceptions() -> None:
     assert policy["format"]["line_length"] == EXPECTED_LINE_LENGTH
     assert policy["lint"]["select"] == EXPECTED_LINT_SELECT
     assert policy["lint"]["exceptions"] == EXPECTED_EXCEPTIONS
+
+
+def test_policy_ruff_decodes_json_as_strict_utf8(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "plex_renamer" / "sample.py"
+    source.parent.mkdir()
+    multiplication_sign = "\N{MULTIPLICATION SIGN}"
+    source.write_text(f"# {multiplication_sign}\n", encoding="utf-8")
+    message = f"Comment contains ambiguous {multiplication_sign} (MULTIPLICATION SIGN)."
+    payload = [
+        {
+            "code": "RUF003",
+            "filename": str(source),
+            "location": {"row": 1, "column": 5},
+            "end_location": {"row": 1, "column": 10},
+            "message": message,
+            "name": "ambiguous-unicode-character-comment",
+        }
+    ]
+    captured: dict = {}
+
+    def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout=json.dumps(payload, ensure_ascii=False),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_ratchets.subprocess, "run", fake_run)
+
+    findings = _ratchets._run_policy_ruff(tmp_path)
+
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "strict"
+    assert findings[0]["message"] == message
+    assert findings[0]["symbol"] == (
+        "plex_renamer.sample::ambiguous-unicode-character-comment::"
+        f"Comment contains ambiguous {multiplication_sign} (MULTIPLICATION SIGN).#1"
+    )
 
 
 def _decision_policy(**overrides: str) -> str:

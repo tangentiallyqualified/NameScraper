@@ -178,12 +178,12 @@
             }
           ],
           "message": {
-            "text": "Comment contains ambiguous `\u00c3\u2014` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?"
+            "text": "Comment contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00c3\u2014` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
           },
           "ruleId": "ruff/RUF003",
           "ruleIndex": 25
@@ -205,12 +205,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -259,12 +259,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?"
+            "text": "String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -286,12 +286,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?"
+            "text": "String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -313,12 +313,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -421,12 +421,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -448,12 +448,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -4556,12 +4556,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -10929,12 +10929,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -10956,12 +10956,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
+            "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -12378,7 +12378,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5
+                  "startLine": 7
                 }
               }
             }
@@ -12405,7 +12405,7 @@
                 },
                 "region": {
                   "startColumn": 29,
-                  "startLine": 5
+                  "startLine": 7
                 }
               }
             }
@@ -12432,7 +12432,7 @@
                 },
                 "region": {
                   "startColumn": 41,
-                  "startLine": 5
+                  "startLine": 7
                 }
               }
             }
@@ -12459,7 +12459,7 @@
                 },
                 "region": {
                   "startColumn": 49,
-                  "startLine": 5
+                  "startLine": 7
                 }
               }
             }
@@ -22023,12 +22023,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u00ba` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?"
+            "text": "String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u00ba` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
+            "qualifiedSymbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -48537,12 +48537,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
+            "text": "String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+            "qualifiedSymbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -48969,12 +48969,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
+            "text": "String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+            "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -48996,12 +48996,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
+            "text": "String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+            "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -49023,12 +49023,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
+            "text": "String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+            "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24
@@ -49050,12 +49050,12 @@
             }
           ],
           "message": {
-            "text": "String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
+            "text": "String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?"
           },
           "properties": {
             "analyzer": "ruff",
             "category": "lint",
-            "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+            "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
           "ruleIndex": 24

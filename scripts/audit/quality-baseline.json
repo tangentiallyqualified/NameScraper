@@ -21744,7 +21744,7 @@
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_episodes.py",
    "rule": "RUF003",
-   "symbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00c3\u2014` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
+   "symbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
   },
   {
    "analyzer": "ruff",
@@ -21756,25 +21756,25 @@
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+   "symbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u2122` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+   "symbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_seasons.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
@@ -21792,13 +21792,13 @@
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_titles.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_titles.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
@@ -22716,7 +22716,7 @@
    "analyzer": "ruff",
    "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
@@ -24120,13 +24120,13 @@
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/status_chip.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/status_chip.py",
    "rule": "RUF001",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
+   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
   },
   {
    "analyzer": "vulture",
@@ -26766,7 +26766,7 @@
    "analyzer": "ruff",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "RUF001",
-   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u00ba` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
+   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
   },
   {
    "analyzer": "ruff",
@@ -32466,7 +32466,7 @@
    "analyzer": "ruff",
    "path": "tests/test_status_chip.py",
    "rule": "RUF001",
-   "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u00e2\u20ac\u201c` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+   "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "ruff",
@@ -32562,25 +32562,25 @@
    "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\u00ef\u00bd\u0153` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
   },
   {
    "analyzer": "pyright",

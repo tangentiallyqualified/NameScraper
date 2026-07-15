@@ -1,4 +1,5 @@
 """Stage 3: run ruff, vulture, radon; normalize findings; cross-check dead code."""
+
 from __future__ import annotations
 
 import fnmatch
@@ -25,9 +26,23 @@ def _rel_to_repo(repo_root: Path, filename: str) -> str:
 
 def _run_ruff(repo_root: Path) -> list[dict]:
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "--output-format=json",
-         "--select", RUFF_SELECT, "--no-cache", "plex_renamer"],
-        cwd=repo_root, capture_output=True, text=True, timeout=300,
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--output-format=json",
+            "--select",
+            RUFF_SELECT,
+            "--no-cache",
+            "plex_renamer",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+        timeout=300,
     )
     if result.returncode not in (0, 1):  # 1 = findings present
         raise RuntimeError(f"ruff failed: {result.stderr.strip()[:200]}")
