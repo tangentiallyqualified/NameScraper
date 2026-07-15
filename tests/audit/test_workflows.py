@@ -85,7 +85,8 @@ def test_pull_request_audit_job_runs_coverage_verification() -> None:
     job = _job(workflow, "audit-verify")
     verify = _step(job, "- name: Verify generated audit docs")
 
-    assert "run: scripts/audit.cmd --verify --with-coverage\n" in verify
+    assert "run: scripts/audit.cmd --verify\n" in verify
+    assert "--with-coverage" not in verify
 
 
 def test_pull_request_audit_job_uploads_sarif() -> None:
@@ -96,7 +97,7 @@ def test_pull_request_audit_job_uploads_sarif() -> None:
     assert "security-events: write" in job
     assert "uses: github/codeql-action/upload-sarif@v3" in upload
     assert "sarif_file: audit.sarif" in upload
-    assert job.index("scripts/audit.cmd --verify --with-coverage") < job.index(
+    assert job.index("scripts/audit.cmd --verify") < job.index(
         "github/codeql-action/upload-sarif@v3"
     )
 
@@ -110,7 +111,8 @@ def test_pull_request_quality_gate_collects_full_suite_coverage_first() -> None:
     assert job.index("scripts/test-fast.cmd -Coverage") < job.index(
         "scripts/audit.cmd --quality-check"
     )
-    assert "run: scripts/audit.cmd --verify --with-coverage\n" in job
+    assert "run: scripts/audit.cmd --verify\n" in job
+    assert job.count("scripts/test-fast.cmd -Coverage") == 1
 
 
 def test_manual_audit_update_uploads_generated_outputs() -> None:

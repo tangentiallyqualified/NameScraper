@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import _artifacts
+from . import _artifacts, _coverage_order
 
 
 _FRESH_TIMEOUT_SECONDS = 1800
@@ -233,12 +233,9 @@ def evaluate_quality_coverage(
     baseline_lines = baseline.get("executable_lines", {})
     changed = []
     for path, file_evidence in sorted(current.get("files", {}).items()):
-        known = set(baseline_lines.get(path, []))
-        changed.extend(
-            line
-            for line in file_evidence.get("executable_lines", [])
-            if line.get("fingerprint") not in known
-        )
+        baseline_order = [str(item) for item in baseline_lines.get(path, [])]
+        current_lines = list(file_evidence.get("executable_lines", []))
+        changed.extend(_coverage_order.changed_lines(baseline_order, current_lines))
     changed_statements = len(changed)
     changed_covered = sum(line.get("covered") is True for line in changed)
     changed_percent = _percent(changed_covered, changed_statements)

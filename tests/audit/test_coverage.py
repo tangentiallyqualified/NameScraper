@@ -118,7 +118,7 @@ def _line(fingerprint: str, covered: bool) -> dict[str, object]:
     return {"fingerprint": fingerprint, "covered": covered}
 
 
-def test_changed_lines_are_path_local_and_ignore_moves_but_detect_duplicates() -> None:
+def test_changed_lines_are_path_local_and_detect_insertions_and_duplicates() -> None:
     baseline = {
         "executable_lines": {
             "plex_renamer/alpha.py": ["a#1", "b#1", "dup#1"],
@@ -129,8 +129,8 @@ def test_changed_lines_are_path_local_and_ignore_moves_but_detect_duplicates() -
         "files": {
             "plex_renamer/alpha.py": {
                 "executable_lines": [
-                    _line("b#1", False),
                     _line("a#1", False),
+                    _line("b#1", False),
                     _line("dup#1", False),
                     _line("dup#2", True),
                     _line("new#1", False),

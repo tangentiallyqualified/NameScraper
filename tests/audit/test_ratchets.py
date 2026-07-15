@@ -207,33 +207,6 @@ def test_ruff_identity_ignores_line_only_shifts(
     )
 
 
-def test_increased_cyclomatic_complexity_is_enlarged_debt() -> None:
-    path = "plex_renamer/complex.py"
-    current = {
-        "findings": [],
-        "modules": {path: {"max_complexity": 13, "loc": 100}},
-    }
-    baseline = {
-        "schema_version": 1,
-        "findings": [],
-        "ceilings": {path: {"max_complexity": 12}},
-    }
-
-    assert evaluate_ratchets(current, baseline) == [
-        {
-            "analyzer": "radon",
-            "baseline": 12,
-            "current": 13,
-            "kind": "enlarged-debt",
-            "message": "max_complexity increased from 12 to 13",
-            "metric": "max_complexity",
-            "path": path,
-            "rule": "CC",
-            "symbol": None,
-        }
-    ]
-
-
 def test_new_oversized_file_is_new_debt() -> None:
     path = "plex_renamer/new_large_module.py"
     current = {
@@ -308,7 +281,6 @@ def test_stale_numeric_ceiling_requires_baseline_cleanup() -> None:
     ("metric", "threshold", "analyzer", "rule"),
     [
         ("loc", 500, "inventory", "LOC"),
-        ("max_complexity", 10, "radon", "CC"),
     ],
 )
 def test_numeric_ceiling_at_active_threshold_is_stale(
@@ -351,6 +323,10 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
             "plex_renamer/alpha.py": {"max_complexity": 11, "loc": 500},
             "plex_renamer/small.py": {"max_complexity": 2, "loc": 20},
         },
+        "complexity": {
+            "plex_renamer/alpha.py": {"plex_renamer.alpha.work": 11},
+        },
+        "formatting": {},
     }
 
     expected = {
@@ -370,9 +346,12 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
             },
         ],
         "ceilings": {
-            "plex_renamer/alpha.py": {"max_complexity": 11},
             "plex_renamer/zeta.py": {"loc": 700},
         },
+        "complexity": {
+            "plex_renamer/alpha.py": {"plex_renamer.alpha.work": 11},
+        },
+        "formatting": {},
         "typing": {"legacy_python_files": []},
     }
 
@@ -382,6 +361,8 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
             {
                 "findings": list(reversed(current["findings"])),
                 "modules": dict(reversed(current["modules"].items())),
+                "complexity": dict(reversed(current["complexity"].items())),
+                "formatting": {},
             }
         )
         == expected
@@ -399,7 +380,8 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
         },
         {
             "findings": [],
-            "modules": {"new.py": {"max_complexity": 11, "loc": 20}},
+            "modules": {"new.py": {"loc": 20}},
+            "complexity": {"new.py": {"new.work": 11}},
             "python_files": [],
         },
         {
@@ -407,8 +389,14 @@ def test_baseline_normalization_and_order_are_deterministic() -> None:
             "modules": {"new.py": {"max_complexity": 1, "loc": 501}},
             "python_files": [],
         },
+        {
+            "findings": [],
+            "modules": {},
+            "formatting": {"new.py": "sha256:new"},
+            "python_files": [],
+        },
     ],
-    ids=["lint", "typing", "complexity", "loc"],
+    ids=["lint", "typing", "complexity", "loc", "formatting"],
 )
 def test_baseline_update_refuses_new_static_debt_without_mutation(
     tmp_path: Path,
@@ -421,6 +409,8 @@ def test_baseline_update_refuses_new_static_debt_without_mutation(
         "schema_version": 2,
         "findings": [],
         "ceilings": {},
+        "complexity": {},
+        "formatting": {},
         "typing": {"legacy_python_files": []},
         "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
     }
@@ -444,6 +434,8 @@ def test_baseline_update_allows_stale_only_pruning(
         "schema_version": 2,
         "findings": [_finding(path="resolved.py")],
         "ceilings": {},
+        "complexity": {},
+        "formatting": {},
         "typing": {"legacy_python_files": []},
         "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
     }
@@ -466,6 +458,8 @@ def test_baseline_update_refuses_missing_existing_package_floor(
         "schema_version": 2,
         "findings": [],
         "ceilings": {},
+        "complexity": {},
+        "formatting": {},
         "typing": {"legacy_python_files": []},
         "coverage": _ratchets._coverage.build_quality_baseline(coverage, 80.0),
     }

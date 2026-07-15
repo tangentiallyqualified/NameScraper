@@ -8,7 +8,15 @@ import sys
 import tomllib
 from pathlib import Path
 
-from . import _analyze, _coverage, _graph, _inventory, _quality_refresh, _ratchet_identity
+from . import (
+    _analyze,
+    _coverage,
+    _graph,
+    _inventory,
+    _quality_refresh,
+    _quality_static,
+    _ratchet_identity,
+)
 from ._decisions import filter_open
 
 _POLICY = tomllib.loads((Path(__file__).parent / "policy.toml").read_text(encoding="utf-8"))
@@ -16,10 +24,6 @@ MAX_CYCLOMATIC_COMPLEXITY = _POLICY["quality"]["max_cyclomatic_complexity"]
 MAX_PYTHON_FILE_LOC = _POLICY["quality"]["max_python_file_loc"]
 CHANGED_LINE_MIN_PERCENT = _POLICY["quality"]["changed_line_min_percent"]
 _QUALITY_PYTHON_ROOTS = {"plex_renamer", "scripts", "tests"}
-_METRIC_THRESHOLDS = {
-    "max_complexity": MAX_CYCLOMATIC_COMPLEXITY,
-    "loc": MAX_PYTHON_FILE_LOC,
-}
 
 Finding = dict[str, object]
 
@@ -63,11 +67,8 @@ def _build_baseline(current: dict, legacy_python_files: list[str]) -> dict:
     ]
     ceilings: dict[str, dict[str, int]] = {}
     for path, metrics in sorted(current.get("modules", {}).items()):
-        saved = {
-            metric: value
-            for metric, threshold in _METRIC_THRESHOLDS.items()
-            if isinstance((value := metrics.get(metric)), int) and value > threshold
-        }
+        value = metrics.get("loc")
+        saved = {"loc": value} if isinstance(value, int) and value > MAX_PYTHON_FILE_LOC else {}
         if saved:
             ceilings[path.replace("\\", "/")] = saved
     current_python_files = set(_normalized_python_files(current.get("python_files")))
@@ -78,6 +79,22 @@ def _build_baseline(current: dict, legacy_python_files: list[str]) -> dict:
         "schema_version": 2,
         "findings": findings,
         "ceilings": ceilings,
+        "complexity": {
+            path.replace("\\", "/"): {
+                str(symbol): value
+                for symbol, value in sorted(blocks.items())
+                if isinstance(value, int) and value > MAX_CYCLOMATIC_COMPLEXITY
+            }
+            for path, blocks in sorted(current.get("complexity", {}).items())
+            if any(
+                isinstance(value, int) and value > MAX_CYCLOMATIC_COMPLEXITY
+                for value in blocks.values()
+            )
+        },
+        "formatting": {
+            path.replace("\\", "/"): str(digest)
+            for path, digest in sorted(current.get("formatting", {}).items())
+        },
         "typing": {"legacy_python_files": preserved_legacy_python_files},
     }
     if isinstance(current.get("coverage"), dict):
@@ -135,33 +152,6 @@ def _finding_violation(identity: tuple[str, str, str, str | None], kind: str) ->
     }
 
 
-def _metric_violation(
-    path: str,
-    metric: str,
-    kind: str,
-    current: int | None,
-    baseline: int | None,
-) -> Finding:
-    analyzer, rule = ("radon", "CC") if metric == "max_complexity" else ("inventory", "LOC")
-    if kind == "enlarged-debt":
-        message = f"{metric} increased from {baseline} to {current}"
-    elif kind == "stale-baseline":
-        message = f"baseline {metric} ceiling {baseline} is stale; current is {current}"
-    else:
-        message = f"new {metric} debt at {current}"
-    return {
-        "analyzer": analyzer,
-        "baseline": baseline,
-        "current": current,
-        "kind": kind,
-        "message": message,
-        "metric": metric,
-        "path": path.replace("\\", "/"),
-        "rule": rule,
-        "symbol": None,
-    }
-
-
 def _sort_key(finding: Finding) -> tuple[str, str, str, str, str, str]:
     return (
         str(finding["path"]),
@@ -171,13 +161,6 @@ def _sort_key(finding: Finding) -> tuple[str, str, str, str, str, str]:
         str(finding["kind"]),
         str(finding["metric"] or ""),
     )
-
-
-def _normalized_metric_map(records: dict) -> dict[str, dict]:
-    normalized: dict[str, dict] = {}
-    for path, metrics in sorted(records.items()):
-        normalized.setdefault(path.replace("\\", "/"), {}).update(metrics)
-    return normalized
 
 
 def _finding_ratchet_violations(current: dict, baseline: dict) -> list[Finding]:
@@ -194,63 +177,18 @@ def _finding_ratchet_violations(current: dict, baseline: dict) -> list[Finding]:
     return violations
 
 
-def _new_metric_violations(
-    current_modules: dict[str, dict], baseline_ceilings: dict[str, dict]
-) -> list[Finding]:
-    violations = []
-    for path, metrics in current_modules.items():
-        ceilings = baseline_ceilings.get(path, {})
-        for metric, threshold in _METRIC_THRESHOLDS.items():
-            current_value = metrics.get(metric)
-            if not isinstance(current_value, int) or current_value <= threshold:
-                continue
-            baseline_value = ceilings.get(metric)
-            if not isinstance(baseline_value, int):
-                violations.append(_metric_violation(path, metric, "new-debt", current_value, None))
-            elif current_value > baseline_value:
-                violations.append(
-                    _metric_violation(path, metric, "enlarged-debt", current_value, baseline_value)
-                )
-    return violations
-
-
-def _baseline_metric_is_stale(
-    metric: str,
-    baseline_value: object,
-    current_value: object,
-) -> bool:
-    if not isinstance(baseline_value, int):
-        return False
-    threshold = _METRIC_THRESHOLDS.get(metric)
-    if isinstance(threshold, int) and baseline_value <= threshold:
-        return True
-    return current_value != baseline_value and (
-        not isinstance(current_value, int) or current_value < baseline_value
-    )
-
-
-def _stale_metric_violations(
-    current_modules: dict[str, dict], baseline_ceilings: dict[str, dict]
-) -> list[Finding]:
-    violations = []
-    for path, ceilings in baseline_ceilings.items():
-        metrics = current_modules.get(path, {})
-        for metric, baseline_value in ceilings.items():
-            current_value = metrics.get(metric)
-            if _baseline_metric_is_stale(metric, baseline_value, current_value):
-                violations.append(
-                    _metric_violation(path, metric, "stale-baseline", current_value, baseline_value)
-                )
-    return violations
-
-
 def evaluate_ratchets(current: dict, baseline: dict) -> list[Finding]:
     """Return deterministic ratchet violations between current and baseline evidence."""
-    current_modules = _normalized_metric_map(current.get("modules", {}))
-    baseline_ceilings = _normalized_metric_map(baseline.get("ceilings", {}))
     violations = _finding_ratchet_violations(current, baseline)
-    violations.extend(_new_metric_violations(current_modules, baseline_ceilings))
-    violations.extend(_stale_metric_violations(current_modules, baseline_ceilings))
+    violations.extend(
+        _quality_static.loc_violations(
+            current.get("modules"), baseline.get("ceilings"), MAX_PYTHON_FILE_LOC
+        )
+    )
+    violations.extend(
+        _quality_static.complexity_violations(current, baseline, MAX_CYCLOMATIC_COMPLEXITY)
+    )
+    violations.extend(_quality_static.formatting_violations(current, baseline))
     current_python_files = set(_normalized_python_files(current.get("python_files")))
     legacy_python_files = set(
         _normalized_python_files(baseline.get("typing", {}).get("legacy_python_files"))
@@ -339,6 +277,10 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
             }
         )
     return _ratchet_identity.suffix_occurrences(findings)
+
+
+_run_policy_format = _quality_static.run_policy_format
+_quality_complexity = _quality_static.quality_complexity
 
 
 def _effective_pyright_config(
@@ -503,6 +445,7 @@ def collect_current(repo_root: Path, baseline: dict | None = None) -> dict:
     policy_ruff = _run_policy_ruff(repo_root)
     python_records = _repository_python_records(repo_root)
     python_files = sorted(record["path"] for record in python_records)
+    formatting = _run_policy_format(repo_root, python_files)
     legacy_python_files = _normalized_python_files(
         (baseline or {}).get("typing", {}).get("legacy_python_files")
     )
@@ -513,6 +456,8 @@ def collect_current(repo_root: Path, baseline: dict | None = None) -> dict:
     return {
         "findings": _quality_findings(repo_root, analysis, policy_ruff, policy_pyright),
         "modules": _quality_modules(repo_root, inventory, analysis, python_records),
+        "complexity": _quality_complexity(repo_root, python_records),
+        "formatting": formatting,
         "python_files": python_files,
     }
 
@@ -529,6 +474,8 @@ def _load_baseline(repo_root: Path) -> dict:
         or baseline.get("schema_version") != 2
         or not isinstance(baseline.get("findings"), list)
         or not isinstance(baseline.get("ceilings"), dict)
+        or not isinstance(baseline.get("complexity"), dict)
+        or not isinstance(baseline.get("formatting"), dict)
         or not isinstance(baseline.get("typing"), dict)
         or not isinstance(baseline["typing"].get("legacy_python_files"), list)
     ):
@@ -605,4 +552,4 @@ def run_quality_check(repo_root: Path) -> int:
     stale = len(violations) - debt
     stale_label = "entry" if stale == 1 else "entries"
     print(f"quality: {debt} new/enlarged debt; {stale} stale baseline {stale_label}")
-    return 1
+    return 1 if debt else 0

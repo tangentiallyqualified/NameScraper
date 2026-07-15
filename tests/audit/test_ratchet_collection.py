@@ -27,7 +27,10 @@ def _finding(
 def _write_quality_baseline(repo_root: Path, baseline: dict) -> None:
     path = repo_root / "scripts" / "audit" / "quality-baseline.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(baseline), encoding="utf-8")
+    path.write_text(
+        json.dumps({"complexity": {}, "formatting": {}, **baseline}),
+        encoding="utf-8",
+    )
 
 
 def _coverage_evidence(
@@ -235,95 +238,6 @@ def test_quality_check_cli_separates_debt_and_stale_baseline(
     assert "quality: 1 new/enlarged debt; 1 stale baseline entry" in output
 
 
-def test_current_collection_replaces_narrow_ruff_and_sorts_evidence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    (tmp_path / "z.py").write_text("def unused():\n    pass\n", encoding="utf-8")
-    inventory = {
-        "python_files": [
-            {"path": "z.py", "loc": 20},
-            {"path": "a.py", "loc": 10},
-        ],
-    }
-    analysis = {
-        "findings": [
-            {
-                **_finding(
-                    analyzer="vulture",
-                    rule="unused-function",
-                    path="z.py",
-                    symbol="unused",
-                ),
-                "source": "vulture",
-                "category": "dead-code",
-                "allowlisted": False,
-                "line": 1,
-            },
-            {
-                **_finding(rule="F401", path="old-policy.py"),
-                "source": "ruff",
-                "category": "lint",
-                "allowlisted": False,
-            },
-        ],
-        "per_file": {
-            "z.py": {"max_complexity": 3},
-            "a.py": {"max_complexity": 2},
-        },
-        "tool_status": {
-            analyzer: {"ok": True} for analyzer in ("ruff", "vulture", "radon", "deps", "contracts")
-        },
-    }
-    expanded_ruff = [
-        {
-            **_finding(rule="B007", path="a.py", symbol="a::unused-loop-control-variable::#1"),
-            "source": "ruff",
-            "category": "lint",
-            "allowlisted": False,
-        }
-    ]
-    monkeypatch.setattr(_ratchets._inventory, "build_inventory", lambda _root: inventory)
-    monkeypatch.setattr(_ratchets._graph, "build_graph", lambda _root, _inv: {})
-    monkeypatch.setattr(
-        _ratchets._analyze,
-        "run_analysis",
-        lambda _root, _inventory, _graph: analysis,
-    )
-    monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: expanded_ruff)
-    monkeypatch.setattr(
-        _ratchets,
-        "_run_policy_pyright",
-        lambda _root, _python_files, _legacy_python_files: [],
-    )
-    monkeypatch.setattr(
-        _ratchets,
-        "_repository_python_records",
-        lambda _root: inventory["python_files"],
-    )
-
-    assert _ratchets.collect_current(tmp_path) == {
-        "findings": [
-            {
-                "analyzer": "ruff",
-                "path": "a.py",
-                "rule": "B007",
-                "symbol": "a::unused-loop-control-variable::#1",
-            },
-            {
-                "analyzer": "vulture",
-                "path": "z.py",
-                "rule": "unused-function",
-                "symbol": "z.unused#1",
-            },
-        ],
-        "modules": {
-            "a.py": {"max_complexity": 2, "loc": 10},
-            "z.py": {"max_complexity": 3, "loc": 20},
-        },
-        "python_files": ["a.py", "z.py"],
-    }
-
-
 def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -360,6 +274,7 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         lambda _root, _inventory, _graph: analysis,
     )
     monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: [])
+    monkeypatch.setattr(_ratchets, "_run_policy_format", lambda _root, _files: {})
     monkeypatch.setattr(
         _ratchets,
         "_run_policy_pyright",
@@ -383,13 +298,21 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
 
     baseline = _ratchets._bootstrap_quality_baseline_once(current)
     assert baseline["ceilings"] == {
-        "scripts/legacy_complex.py": {"max_complexity": 11},
         "tests/test_legacy_large.py": {"loc": 501},
+    }
+    assert baseline["complexity"] == {
+        "scripts/legacy_complex.py": {"scripts.legacy_complex.legacy": 11}
     }
 
     new_debt = _ratchets.evaluate_ratchets(
         current,
-        {"schema_version": 1, "findings": [], "ceilings": {}},
+        {
+            "schema_version": 2,
+            "findings": [],
+            "ceilings": {},
+            "complexity": {},
+            "formatting": {},
+        },
     )
     assert {(finding["path"], finding["rule"]) for finding in new_debt} == {
         ("scripts/legacy_complex.py", "CC"),
@@ -406,6 +329,11 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
             "scripts/legacy_complex.py",
             "tests/test_legacy_large.py",
         ],
+        "complexity": {
+            "scripts/legacy_complex.py": {"scripts.legacy_complex.legacy": 12},
+            "tests/test_legacy_large.py": {},
+        },
+        "formatting": {},
     }
     assert {
         (finding["path"], finding["kind"])

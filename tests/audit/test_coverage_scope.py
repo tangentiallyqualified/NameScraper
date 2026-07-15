@@ -29,6 +29,29 @@ _build_baseline = cast(
 )
 
 
+def test_reordered_unique_executable_statements_are_both_changed() -> None:
+    baseline: Evidence = {
+        "executable_lines": {"plex_renamer/alpha.py": ["a#1", "b#1"]},
+        "package_floors": {},
+    }
+    current: Evidence = {
+        "files": {
+            "plex_renamer/alpha.py": {
+                "executable_lines": [
+                    {"fingerprint": "b#1", "covered": False},
+                    {"fingerprint": "a#1", "covered": False},
+                ]
+            }
+        },
+        "package_floors": {},
+    }
+
+    result = _evaluate(current, baseline, 80.0)
+
+    assert result["changed_lines"] == {"covered": 0, "statements": 2, "percent": 0.0}
+    assert cast(list[Evidence], result["violations"])[0]["kind"] == "changed-line-coverage"
+
+
 def _scope(repo: Path) -> Evidence:
     qt_tests = test_fast_runner._discover_qt_tests(repo)
     return cast(

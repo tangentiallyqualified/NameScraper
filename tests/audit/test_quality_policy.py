@@ -45,6 +45,71 @@ EXPECTED_EXCEPTIONS = [
 ]
 
 
+def test_formatter_ratchet_distinguishes_new_changed_and_resolved_debt() -> None:
+    baseline = {
+        "findings": [],
+        "ceilings": {},
+        "complexity": {},
+        "formatting": {"legacy.py": "sha256:original"},
+    }
+    unchanged = {"findings": [], "modules": {}, "formatting": {"legacy.py": "sha256:original"}}
+    changed = {"findings": [], "modules": {}, "formatting": {"legacy.py": "sha256:changed"}}
+    added = {
+        "findings": [],
+        "modules": {},
+        "formatting": {"legacy.py": "sha256:original", "new.py": "sha256:new"},
+    }
+    resolved = {"findings": [], "modules": {}, "formatting": {}}
+
+    assert _ratchets.evaluate_ratchets(unchanged, baseline) == []
+    assert [
+        (item["kind"], item["path"]) for item in _ratchets.evaluate_ratchets(changed, baseline)
+    ] == [("enlarged-debt", "legacy.py")]
+    assert [
+        (item["kind"], item["path"]) for item in _ratchets.evaluate_ratchets(added, baseline)
+    ] == [("new-debt", "new.py")]
+    assert [item["kind"] for item in _ratchets.evaluate_ratchets(resolved, baseline)] == [
+        "stale-baseline"
+    ]
+
+
+def test_formatter_evidence_uses_exit_status_and_raw_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    formatted = tmp_path / "formatted.py"
+    unformatted = tmp_path / "unformatted.py"
+    formatted.write_text("value = 1\n", encoding="utf-8")
+    unformatted.write_text("value=1\n", encoding="utf-8")
+
+    def run(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command, 1 if command[-1] == "unformatted.py" else 0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(_ratchets._quality_static.subprocess, "run", run)
+    evidence = _ratchets._run_policy_format(tmp_path, ["formatted.py", "unformatted.py"])
+
+    digest = _ratchets._quality_static.hashlib.sha256(unformatted.read_bytes()).hexdigest()
+    assert evidence == {"unformatted.py": f"sha256:{digest}"}
+
+
+def test_complexity_collection_qualifies_scopes_and_accepts_utf8_bom(tmp_path: Path) -> None:
+    source = tmp_path / "scopes.py"
+    branches = "\n".join(f"    if value == {number}:\n        value += 1" for number in range(10))
+    source.write_text(f"def work(value):\n{branches}\n    return value\n", encoding="utf-8")
+    bom = tmp_path / "bom_source.py"
+    bom.write_bytes(b"\xef\xbb\xbfdef work():\n    return 1\n")
+
+    complexity = _ratchets._quality_complexity(
+        tmp_path, [{"path": "scopes.py", "loc": 22}, {"path": "bom_source.py", "loc": 2}]
+    )
+
+    assert complexity == {
+        "scopes.py": {"scopes.work": 11},
+        "bom_source.py": {"bom_source.work": 1},
+    }
+
+
 def _load_toml(path: Path) -> dict:
     with path.open("rb") as handle:
         return tomllib.load(handle)

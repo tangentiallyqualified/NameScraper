@@ -18,6 +18,54 @@ STRICT_BOUNDARIES = [
 ]
 
 
+def test_complexity_ratchets_each_qualified_block_independently() -> None:
+    path = "plex_renamer/complex.py"
+    peak = "plex_renamer.complex.peak"
+    subordinate = "plex_renamer.complex.subordinate"
+    baseline = {
+        "findings": [],
+        "ceilings": {},
+        "complexity": {path: {peak: 20, subordinate: 12}},
+        "formatting": {},
+    }
+    added = {
+        "findings": [],
+        "modules": {},
+        "complexity": {path: {peak: 20, subordinate: 12, "plex_renamer.complex.new": 11}},
+    }
+    increased = {
+        "findings": [],
+        "modules": {},
+        "complexity": {path: {peak: 20, subordinate: 13}},
+    }
+
+    assert [
+        (item["kind"], item["symbol"]) for item in _ratchets.evaluate_ratchets(added, baseline)
+    ] == [("new-debt", "plex_renamer.complex.new")]
+    assert [
+        (item["kind"], item["symbol"], item["baseline"], item["current"])
+        for item in _ratchets.evaluate_ratchets(increased, baseline)
+    ] == [("enlarged-debt", subordinate, 12, 13)]
+
+
+def test_resolved_qualified_complexity_block_is_stale_only() -> None:
+    path = "plex_renamer/complex.py"
+    removed = "plex_renamer.complex.C.work"
+    retained = "plex_renamer.complex.work"
+    baseline = {
+        "findings": [],
+        "ceilings": {},
+        "complexity": {path: {removed: 11, retained: 12}},
+        "formatting": {},
+    }
+    current = {"findings": [], "modules": {}, "complexity": {path: {retained: 12}}}
+
+    assert [
+        (item["kind"], item["symbol"], item["current"])
+        for item in _ratchets.evaluate_ratchets(current, baseline)
+    ] == [("stale-baseline", removed, None)]
+
+
 def _project() -> dict:
     with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
         return tomllib.load(handle)
@@ -65,7 +113,7 @@ def test_ci_runs_baseline_aware_quality_gate_not_raw_pyright() -> None:
     assert "- name: Enforce quality ratchets" in audit_job
     assert "run: scripts/audit.cmd --quality-check\n" in audit_job
     assert audit_job.index("scripts/audit.cmd --quality-check") < audit_job.index(
-        "scripts/audit.cmd --verify --with-coverage"
+        "scripts/audit.cmd --verify"
     )
     assert " -m pyright" not in workflow
 

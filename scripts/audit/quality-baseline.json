@@ -1,295 +1,64 @@
 {
  "ceilings": {
-  "plex_renamer/_job_execution_filesystem.py": {
-   "max_complexity": 18
-  },
-  "plex_renamer/_job_execution_metadata.py": {
-   "max_complexity": 27
-  },
-  "plex_renamer/_job_execution_remux.py": {
-   "max_complexity": 18
-  },
-  "plex_renamer/_job_store_db.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/_job_store_ordering.py": {
-   "max_complexity": 11
-  },
-  "plex_renamer/_mkv_command.py": {
-   "max_complexity": 19
-  },
-  "plex_renamer/_parsing_episodes.py": {
-   "max_complexity": 59
-  },
-  "plex_renamer/_parsing_names.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/_parsing_seasons.py": {
-   "max_complexity": 11
-  },
-  "plex_renamer/_parsing_subtitles.py": {
-   "max_complexity": 14
-  },
-  "plex_renamer/_parsing_titles.py": {
-   "max_complexity": 12
-  },
-  "plex_renamer/_parsing_tv.py": {
-   "max_complexity": 11
-  },
-  "plex_renamer/_tmdb_metadata_builder.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/_tmdb_transport.py": {
-   "max_complexity": 11
-  },
-  "plex_renamer/app/controllers/_job_projection_helpers.py": {
-   "max_complexity": 27
-  },
-  "plex_renamer/app/controllers/_match_state_helpers.py": {
-   "max_complexity": 15
-  },
-  "plex_renamer/app/controllers/_movie_state_helpers.py": {
-   "max_complexity": 11
-  },
   "plex_renamer/app/controllers/media_controller.py": {
    "loc": 545
-  },
-  "plex_renamer/app/services/_movie_library_classification.py": {
-   "max_complexity": 22
-  },
-  "plex_renamer/app/services/_tv_library_classification.py": {
-   "max_complexity": 42
-  },
-  "plex_renamer/app/services/automux_service.py": {
-   "max_complexity": 15
-  },
-  "plex_renamer/app/services/command_gating_service.py": {
-   "max_complexity": 21
-  },
-  "plex_renamer/app/services/episode_mapping_service.py": {
-   "max_complexity": 27
-  },
-  "plex_renamer/app/services/episode_projection_cache.py": {
-   "max_complexity": 14
-  },
-  "plex_renamer/app/services/metadata_service.py": {
-   "max_complexity": 35
   },
   "plex_renamer/app/services/settings_service.py": {
    "loc": 521
   },
   "plex_renamer/engine/_batch_orchestrators.py": {
-   "loc": 1037,
-   "max_complexity": 25
-  },
-  "plex_renamer/engine/_batch_tv_duplicates.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/engine/_batch_tv_episode_claims.py": {
-   "max_complexity": 33
-  },
-  "plex_renamer/engine/_batch_tv_match_policy.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/engine/_batch_tv_season_merge.py": {
-   "max_complexity": 31
-  },
-  "plex_renamer/engine/_episode_projection.py": {
-   "max_complexity": 16
+   "loc": 1037
   },
   "plex_renamer/engine/_episode_resolution.py": {
-   "loc": 1938,
-   "max_complexity": 49
-  },
-  "plex_renamer/engine/_movie_scanner.py": {
-   "max_complexity": 15
-  },
-  "plex_renamer/engine/_mux_planner.py": {
-   "max_complexity": 28
-  },
-  "plex_renamer/engine/_queue_bridge.py": {
-   "max_complexity": 16
-  },
-  "plex_renamer/engine/_rename_execution.py": {
-   "max_complexity": 35
-  },
-  "plex_renamer/engine/_tv_scanner.py": {
-   "max_complexity": 11
+   "loc": 1938
   },
   "plex_renamer/engine/_tv_scanner_consolidated.py": {
-   "loc": 685,
-   "max_complexity": 40
-  },
-  "plex_renamer/engine/_tv_scanner_normal.py": {
-   "max_complexity": 44
-  },
-  "plex_renamer/engine/_tv_scanner_postprocess.py": {
-   "max_complexity": 22
-  },
-  "plex_renamer/engine/_tv_scanner_seasons.py": {
-   "max_complexity": 25
-  },
-  "plex_renamer/engine/episode_assignments.py": {
-   "max_complexity": 15
+   "loc": 685
   },
   "plex_renamer/engine/matching.py": {
-   "loc": 614,
-   "max_complexity": 20
-  },
-  "plex_renamer/engine/models.py": {
-   "max_complexity": 13
-  },
-  "plex_renamer/gui_qt/_main_window_state.py": {
-   "max_complexity": 11
-  },
-  "plex_renamer/gui_qt/app.py": {
-   "max_complexity": 12
-  },
-  "plex_renamer/gui_qt/models/job_table_model.py": {
-   "max_complexity": 35
+   "loc": 614
   },
   "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py": {
-   "loc": 760,
-   "max_complexity": 26
+   "loc": 760
   },
   "plex_renamer/gui_qt/widgets/_episode_table_delegate.py": {
-   "loc": 665,
-   "max_complexity": 13
+   "loc": 665
   },
   "plex_renamer/gui_qt/widgets/_episode_table_model.py": {
-   "loc": 911,
-   "max_complexity": 18
-  },
-  "plex_renamer/gui_qt/widgets/_job_detail_data.py": {
-   "max_complexity": 12
-  },
-  "plex_renamer/gui_qt/widgets/_job_detail_preview.py": {
-   "max_complexity": 13
+   "loc": 911
   },
   "plex_renamer/gui_qt/widgets/_job_list_tab.py": {
    "loc": 590
   },
-  "plex_renamer/gui_qt/widgets/_media_helpers.py": {
-   "max_complexity": 15
-  },
   "plex_renamer/gui_qt/widgets/_media_workspace_actions.py": {
-   "loc": 537,
-   "max_complexity": 42
-  },
-  "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": {
-   "max_complexity": 15
-  },
-  "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py": {
-   "max_complexity": 17
-  },
-  "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py": {
-   "max_complexity": 17
-  },
-  "plex_renamer/gui_qt/widgets/_queue_tab_state.py": {
-   "max_complexity": 12
+   "loc": 537
   },
   "plex_renamer/gui_qt/widgets/_work_panel.py": {
    "loc": 852
-  },
-  "plex_renamer/gui_qt/widgets/episode_assign_dialog.py": {
-   "max_complexity": 12
   },
   "plex_renamer/gui_qt/widgets/job_detail_panel.py": {
    "loc": 618
   },
   "plex_renamer/gui_qt/widgets/scan_progress.py": {
-   "loc": 544,
-   "max_complexity": 17
-  },
-  "plex_renamer/gui_qt/widgets/status_chip.py": {
-   "max_complexity": 13
+   "loc": 544
   },
   "plex_renamer/job_executor.py": {
-   "loc": 907,
-   "max_complexity": 43
+   "loc": 907
   },
   "plex_renamer/job_store.py": {
    "loc": 621
   },
   "plex_renamer/tmdb.py": {
-   "loc": 580,
-   "max_complexity": 17
-  },
-  "scripts/audit/__main__.py": {
-   "max_complexity": 19
-  },
-  "scripts/audit/_analyze.py": {
-   "max_complexity": 20
-  },
-  "scripts/audit/_artifacts.py": {
-   "max_complexity": 12
-  },
-  "scripts/audit/_coverage.py": {
-   "max_complexity": 25
-  },
-  "scripts/audit/_diff.py": {
-   "max_complexity": 26
-  },
-  "scripts/audit/_graph.py": {
-   "max_complexity": 31
-  },
-  "scripts/audit/_inventory.py": {
-   "max_complexity": 17
-  },
-  "scripts/audit/_metrics.py": {
-   "max_complexity": 47
+   "loc": 580
   },
   "scripts/audit/_ratchets.py": {
-   "loc": 608,
-   "max_complexity": 14
-  },
-  "scripts/audit/_render_code_index.py": {
-   "max_complexity": 18
-  },
-  "scripts/audit/_render_human.py": {
-   "max_complexity": 21
-  },
-  "scripts/audit/_verify.py": {
-   "max_complexity": 19
-  },
-  "scripts/test_fast_runner.py": {
-   "max_complexity": 23
-  },
-  "scripts/test_smoke_runner.py": {
-   "max_complexity": 11
-  },
-  "tests/audit/test_analyze.py": {
-   "max_complexity": 11
-  },
-  "tests/audit/test_cli.py": {
-   "max_complexity": 11
+   "loc": 555
   },
   "tests/audit/test_coverage.py": {
    "loc": 545
   },
-  "tests/audit/test_diff.py": {
-   "max_complexity": 12
-  },
-  "tests/audit/test_fast_runner.py": {
-   "max_complexity": 11
-  },
-  "tests/audit/test_metrics.py": {
-   "max_complexity": 12
-  },
-  "tests/audit/test_ratchet_collection.py": {
-   "loc": 559
-  },
-  "tests/audit/test_render_human.py": {
-   "max_complexity": 12
-  },
-  "tests/audit/test_workflows.py": {
-   "max_complexity": 17
-  },
   "tests/test_alt_title_matching.py": {
    "loc": 859
-  },
-  "tests/test_automux_settings.py": {
-   "max_complexity": 14
   },
   "tests/test_bulk_assign_panel.py": {
    "loc": 675
@@ -300,9 +69,6 @@
   "tests/test_episode_mapping_projection.py": {
    "loc": 551
   },
-  "tests/test_episode_projection.py": {
-   "max_complexity": 11
-  },
   "tests/test_episode_resolution.py": {
    "loc": 1035
   },
@@ -312,23 +78,11 @@
   "tests/test_episode_table_model.py": {
    "loc": 518
   },
-  "tests/test_executor_metadata_integration.py": {
-   "max_complexity": 14
-  },
   "tests/test_jojo_matching.py": {
    "loc": 719
   },
   "tests/test_media_controller.py": {
    "loc": 1961
-  },
-  "tests/test_metadata_local_inventory.py": {
-   "max_complexity": 11
-  },
-  "tests/test_metadata_service.py": {
-   "max_complexity": 14
-  },
-  "tests/test_nfo_render.py": {
-   "max_complexity": 17
   },
   "tests/test_qt_job_detail_panel.py": {
    "loc": 881
@@ -346,8 +100,7 @@
    "loc": 1085
   },
   "tests/test_scan_improvements.py": {
-   "loc": 2763,
-   "max_complexity": 13
+   "loc": 2763
   },
   "tests/test_work_panel.py": {
    "loc": 864
@@ -357,6 +110,384 @@
   },
   "tests/test_workspace_expansion.py": {
    "loc": 1034
+  }
+ },
+ "complexity": {
+  "plex_renamer/_job_execution_filesystem.py": {
+   "plex_renamer._job_execution_filesystem.cleanup_source_directories": 18,
+   "plex_renamer._job_execution_filesystem.normalize_season_directories": 11
+  },
+  "plex_renamer/_job_execution_metadata.py": {
+   "plex_renamer._job_execution_metadata._embed_metadata": 27,
+   "plex_renamer._job_execution_metadata.execute_metadata_plan": 22,
+   "plex_renamer._job_execution_metadata.materialized_extras": 13
+  },
+  "plex_renamer/_job_execution_remux.py": {
+   "plex_renamer._job_execution_remux.execute_remux_op": 18
+  },
+  "plex_renamer/_job_store_db.py": {
+   "plex_renamer._job_store_db.migrate_job_store": 13
+  },
+  "plex_renamer/_job_store_ordering.py": {
+   "plex_renamer._job_store_ordering.move_pending_jobs": 11
+  },
+  "plex_renamer/_mkv_command.py": {
+   "plex_renamer._mkv_command.build_mkvmerge_args": 19
+  },
+  "plex_renamer/_parsing_episodes.py": {
+   "plex_renamer._parsing_episodes.extract_episode": 59
+  },
+  "plex_renamer/_parsing_names.py": {
+   "plex_renamer._parsing_names._common_title_base": 13,
+   "plex_renamer._parsing_names.build_tv_name": 13
+  },
+  "plex_renamer/_parsing_seasons.py": {
+   "plex_renamer._parsing_seasons.get_season": 11
+  },
+  "plex_renamer/_parsing_subtitles.py": {
+   "plex_renamer._parsing_subtitles.find_companion_subtitles": 14
+  },
+  "plex_renamer/_parsing_titles.py": {
+   "plex_renamer._parsing_titles.clean_folder_name": 11,
+   "plex_renamer._parsing_titles.extract_year": 12
+  },
+  "plex_renamer/_parsing_tv.py": {
+   "plex_renamer._parsing_tv._infer_tv_title_from_direct_episode_files": 11
+  },
+  "plex_renamer/_tmdb_metadata_builder.py": {
+   "plex_renamer._tmdb_metadata_builder.select_logo_path": 13
+  },
+  "plex_renamer/_tmdb_transport.py": {
+   "plex_renamer._tmdb_transport.TMDBTransport.get_json": 11
+  },
+  "plex_renamer/app/controllers/_job_projection_helpers.py": {
+   "plex_renamer.app.controllers._job_projection_helpers._job_completed_root_relative": 13,
+   "plex_renamer.app.controllers._job_projection_helpers.apply_completed_job_projection": 27
+  },
+  "plex_renamer/app/controllers/_match_state_helpers.py": {
+   "plex_renamer.app.controllers._match_state_helpers.rematch_movie_scan_state": 15
+  },
+  "plex_renamer/app/controllers/_movie_state_helpers.py": {
+   "plex_renamer.app.controllers._movie_state_helpers.apply_movie_duplicate_labels": 11
+  },
+  "plex_renamer/app/services/_movie_library_classification.py": {
+   "plex_renamer.app.services._movie_library_classification.MovieDirectoryClassifier.classify_directory": 22
+  },
+  "plex_renamer/app/services/_tv_library_classification.py": {
+   "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier": 13,
+   "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier.classify_directory": 42,
+   "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier.counts_as_season_subdir": 14,
+   "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier.season_children_are_majority": 12
+  },
+  "plex_renamer/app/services/automux_service.py": {
+   "plex_renamer.app.services.automux_service.ensure_state_plans": 15
+  },
+  "plex_renamer/app/services/command_gating_service.py": {
+   "plex_renamer.app.services.command_gating_service.CommandGatingService.evaluate_preview_items": 21,
+   "plex_renamer.app.services.command_gating_service.CommandGatingService.evaluate_scan_state": 17,
+   "plex_renamer.app.services.command_gating_service.CommandGatingService.is_fully_ready_state": 12
+  },
+  "plex_renamer/app/services/episode_mapping_service.py": {
+   "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService._episode_title": 11,
+   "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.build_episode_guide": 27,
+   "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.suggest_assignments": 11
+  },
+  "plex_renamer/app/services/episode_projection_cache.py": {
+   "plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.signature_for_state": 14
+  },
+  "plex_renamer/app/services/metadata_service.py": {
+   "plex_renamer.app.services.metadata_service._populate_movie": 14,
+   "plex_renamer.app.services.metadata_service._populate_tv": 35,
+   "plex_renamer.app.services.metadata_service.inventory_local_metadata": 22
+  },
+  "plex_renamer/engine/_batch_orchestrators.py": {
+   "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator._apply_duplicate_labels": 12,
+   "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies": 24,
+   "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.scan_movie": 16,
+   "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._select_best_show_match": 25,
+   "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.merge_rematched_state": 18,
+   "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.reconcile_scanned_state": 11,
+   "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.scan_show": 14
+  },
+  "plex_renamer/engine/_batch_tv_duplicates.py": {
+   "plex_renamer.engine._batch_tv_duplicates.apply_duplicate_labels": 13
+  },
+  "plex_renamer/engine/_batch_tv_episode_claims.py": {
+   "plex_renamer.engine._batch_tv_episode_claims.reconcile_scanned_episode_claims": 33
+  },
+  "plex_renamer/engine/_batch_tv_match_policy.py": {
+   "plex_renamer.engine._batch_tv_match_policy.episode_count_tiebreak": 13
+  },
+  "plex_renamer/engine/_batch_tv_season_merge.py": {
+   "plex_renamer.engine._batch_tv_season_merge.merge_season_siblings": 13,
+   "plex_renamer.engine._batch_tv_season_merge.merge_umbrella_siblings": 31
+  },
+  "plex_renamer/engine/_episode_projection.py": {
+   "plex_renamer.engine._episode_projection.project_preview_items": 16
+  },
+  "plex_renamer/engine/_episode_resolution.py": {
+   "plex_renamer.engine._episode_resolution._acronym_folded_equal._walk": 12,
+   "plex_renamer.engine._episode_resolution._acronym_prefix_compatible": 11,
+   "plex_renamer.engine._episode_resolution._auto_resolve_strong_title_conflicts": 18,
+   "plex_renamer.engine._episode_resolution._extend_partial_title_run": 14,
+   "plex_renamer.engine._episode_resolution._match_segmented_title_run_scored": 38,
+   "plex_renamer.engine._episode_resolution._rescue_group": 33,
+   "plex_renamer.engine._episode_resolution._resolve_combined_title": 21,
+   "plex_renamer.engine._episode_resolution._resolve_number_and_title": 22,
+   "plex_renamer.engine._episode_resolution._resolve_number_only": 15,
+   "plex_renamer.engine._episode_resolution._scattered_atom_seasons": 11,
+   "plex_renamer.engine._episode_resolution._scattered_same_season_episodes": 14,
+   "plex_renamer.engine._episode_resolution._shift_run_off_segmented_conflict": 27,
+   "plex_renamer.engine._episode_resolution._source_prefix_compatible": 15,
+   "plex_renamer.engine._episode_resolution._trim_run_edge_conflicts": 19,
+   "plex_renamer.engine._episode_resolution.apply_confidence_adjustments": 49,
+   "plex_renamer.engine._episode_resolution.match_title_in_titles": 27,
+   "plex_renamer.engine._episode_resolution.rescue_cross_season_segmented": 29,
+   "plex_renamer.engine._episode_resolution.rescue_cross_season_titles": 32,
+   "plex_renamer.engine._episode_resolution.rescue_explicit_hint_slots": 11,
+   "plex_renamer.engine._episode_resolution.rescue_same_season_fuzzy_titles": 15,
+   "plex_renamer.engine._episode_resolution.resolve_file": 12,
+   "plex_renamer.engine._episode_resolution.unassign_same_season_scattered_titles": 19
+  },
+  "plex_renamer/engine/_movie_scanner.py": {
+   "plex_renamer.engine._movie_scanner.MovieScanner._filter_sequential_batches": 13,
+   "plex_renamer.engine._movie_scanner.MovieScanner._filter_tv_show_root_files": 12,
+   "plex_renamer.engine._movie_scanner.MovieScanner.scan": 15
+  },
+  "plex_renamer/engine/_mux_planner.py": {
+   "plex_renamer.engine._mux_planner.build_mux_plan": 28
+  },
+  "plex_renamer/engine/_queue_bridge.py": {
+   "plex_renamer.engine._queue_bridge._build_rename_ops": 16
+  },
+  "plex_renamer/engine/_rename_execution.py": {
+   "plex_renamer.engine._rename_execution.execute_rename": 35
+  },
+  "plex_renamer/engine/_tv_scanner.py": {
+   "plex_renamer.engine._tv_scanner.TVScanner.scan": 11
+  },
+  "plex_renamer/engine/_tv_scanner_consolidated.py": {
+   "plex_renamer.engine._tv_scanner_consolidated.apply_air_date_cluster_mapping": 19,
+   "plex_renamer.engine._tv_scanner_consolidated.build_consolidated_preview": 26,
+   "plex_renamer.engine._tv_scanner_consolidated.build_consolidated_table": 40,
+   "plex_renamer.engine._tv_scanner_consolidated.match_file_title_to_tmdb": 21,
+   "plex_renamer.engine._tv_scanner_consolidated.try_title_based_matching": 32
+  },
+  "plex_renamer/engine/_tv_scanner_normal.py": {
+   "plex_renamer.engine._tv_scanner_normal._resolve_into_table": 44,
+   "plex_renamer.engine._tv_scanner_normal.build_normal_table": 43
+  },
+  "plex_renamer/engine/_tv_scanner_postprocess.py": {
+   "plex_renamer.engine._tv_scanner_postprocess.build_completeness_report": 22
+  },
+  "plex_renamer/engine/_tv_scanner_seasons.py": {
+   "plex_renamer.engine._tv_scanner_seasons._map_year_folders_to_seasons": 25,
+   "plex_renamer.engine._tv_scanner_seasons._season_name_similarity_score": 14,
+   "plex_renamer.engine._tv_scanner_seasons.match_tv_dirs_to_tmdb_seasons": 15,
+   "plex_renamer.engine._tv_scanner_seasons.resolve_tv_season_dirs": 20
+  },
+  "plex_renamer/engine/episode_assignments.py": {
+   "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.assign": 15
+  },
+  "plex_renamer/engine/matching.py": {
+   "plex_renamer.engine.matching._collect_movie_evidence": 11,
+   "plex_renamer.engine.matching._extract_sequel_number": 11,
+   "plex_renamer.engine.matching._tv_episode_evidence_adjustment": 17,
+   "plex_renamer.engine.matching.boost_scores_with_alt_titles": 20,
+   "plex_renamer.engine.matching.score_results": 11,
+   "plex_renamer.engine.matching.title_similarity": 12
+  },
+  "plex_renamer/engine/models.py": {
+   "plex_renamer.engine.models.infer_explicit_season_assignment": 13
+  },
+  "plex_renamer/gui_qt/_main_window_state.py": {
+   "plex_renamer.gui_qt._main_window_state.MainWindowStateCoordinator.on_tab_changed": 11
+  },
+  "plex_renamer/gui_qt/app.py": {
+   "plex_renamer.gui_qt.app._SuppressTransientPopups": 12,
+   "plex_renamer.gui_qt.app._SuppressTransientPopups.eventFilter": 11
+  },
+  "plex_renamer/gui_qt/models/job_table_model.py": {
+   "plex_renamer.gui_qt.models.job_table_model.JobTableModel.data": 35,
+   "plex_renamer.gui_qt.models.job_table_model.JobTableModel.set_jobs": 13
+  },
+  "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py": {
+   "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._on_slot_clicked": 13,
+   "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.data": 25,
+   "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.set_slots": 26
+  },
+  "plex_renamer/gui_qt/widgets/_episode_table_delegate.py": {
+   "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.sizeHint": 13,
+   "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableView.mousePressEvent": 13
+  },
+  "plex_renamer/gui_qt/widgets/_episode_table_model.py": {
+   "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._build_tv_entries": 18,
+   "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._season_section_entries": 17,
+   "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.summary_text": 14
+  },
+  "plex_renamer/gui_qt/widgets/_job_detail_data.py": {
+   "plex_renamer.gui_qt.widgets._job_detail_data.folder_preview_source_name": 12
+  },
+  "plex_renamer/gui_qt/widgets/_job_detail_preview.py": {
+   "plex_renamer.gui_qt.widgets._job_detail_preview._build_video_preview_entries": 12,
+   "plex_renamer.gui_qt.widgets._job_detail_preview.build_job_preview_entries": 13
+  },
+  "plex_renamer/gui_qt/widgets/_media_helpers.py": {
+   "plex_renamer.gui_qt.widgets._media_helpers.is_specials_unmapped_only_state": 15,
+   "plex_renamer.gui_qt.widgets._media_helpers.is_state_queue_approvable": 13,
+   "plex_renamer.gui_qt.widgets._media_helpers.roster_group": 11,
+   "plex_renamer.gui_qt.widgets._media_helpers.state_status": 12,
+   "plex_renamer.gui_qt.widgets._media_helpers.state_status_tone": 11
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_actions.py": {
+   "plex_renamer.gui_qt.widgets._media_workspace_actions.MediaWorkspaceActionCoordinator.apply_bulk_assignments": 11,
+   "plex_renamer.gui_qt.widgets._media_workspace_actions.MediaWorkspaceActionCoordinator.handle_episode_row_action": 42
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": {
+   "plex_renamer.gui_qt.widgets._media_workspace_match_actions.fix_match": 11,
+   "plex_renamer.gui_qt.widgets._media_workspace_match_actions.prompt_assign_season": 15
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py": {
+   "plex_renamer.gui_qt.widgets._media_workspace_queue_actions.queue_states": 17
+  },
+  "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py": {
+   "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.refresh_from_controller": 17
+  },
+  "plex_renamer/gui_qt/widgets/_queue_tab_state.py": {
+   "plex_renamer.gui_qt.widgets._queue_tab_state.build_queue_toolbar_state": 12
+  },
+  "plex_renamer/gui_qt/widgets/episode_assign_dialog.py": {
+   "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.__init__": 12
+  },
+  "plex_renamer/gui_qt/widgets/scan_progress.py": {
+   "plex_renamer.gui_qt.widgets.scan_progress.ScanProgressWidget.update_progress": 11,
+   "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent": 17
+  },
+  "plex_renamer/gui_qt/widgets/status_chip.py": {
+   "plex_renamer.gui_qt.widgets.status_chip.season_chip_specs": 13
+  },
+  "plex_renamer/job_executor.py": {
+   "plex_renamer.job_executor.QueueExecutor._execute_one": 22,
+   "plex_renamer.job_executor._cleanup_empty_output_dirs": 11,
+   "plex_renamer.job_executor._execute_output_rename": 23,
+   "plex_renamer.job_executor._execute_remux": 14,
+   "plex_renamer.job_executor._execute_rename": 26,
+   "plex_renamer.job_executor.revert_job": 43
+  },
+  "plex_renamer/tmdb.py": {
+   "plex_renamer.tmdb.TMDBClient.fetch_image_bytes": 11,
+   "plex_renamer.tmdb.TMDBClient.fetch_poster": 17
+  },
+  "scripts/audit/__main__.py": {
+   "scripts.audit.__main__._collect_review_findings": 14,
+   "scripts.audit.__main__._parse_args": 19,
+   "scripts.audit.__main__._run_pipeline": 19,
+   "scripts.audit.__main__.main": 11
+  },
+  "scripts/audit/_analyze.py": {
+   "scripts.audit._analyze._apply_allowlist": 11,
+   "scripts.audit._analyze._assess_dead_code": 20,
+   "scripts.audit._analyze._check_dependencies": 11,
+   "scripts.audit._analyze.run_analysis": 14
+  },
+  "scripts/audit/_artifacts.py": {
+   "scripts.audit._artifacts.input_files": 12
+  },
+  "scripts/audit/_coverage.py": {
+   "scripts.audit._coverage.collect_coverage": 25,
+   "scripts.audit._coverage.collect_quality_coverage": 12,
+   "scripts.audit._coverage.evaluate_quality_coverage": 12
+  },
+  "scripts/audit/_diff.py": {
+   "scripts.audit._diff._dead_movements": 18,
+   "scripts.audit._diff._section": 16,
+   "scripts.audit._diff.compare": 26
+  },
+  "scripts/audit/_graph.py": {
+   "scripts.audit._graph._effects": 17,
+   "scripts.audit._graph.build_graph": 31
+  },
+  "scripts/audit/_inventory.py": {
+   "scripts.audit._inventory._test_import_evidence": 17,
+   "scripts.audit._inventory.build_inventory": 12
+  },
+  "scripts/audit/_metrics.py": {
+   "scripts.audit._metrics.build_metrics": 47
+  },
+  "scripts/audit/_ratchets.py": {
+   "scripts.audit._ratchets._build_baseline": 16,
+   "scripts.audit._ratchets._load_baseline": 16
+  },
+  "scripts/audit/_render_code_index.py": {
+   "scripts.audit._render_code_index._dead_tiers": 14,
+   "scripts.audit._render_code_index._evidence_warnings": 18,
+   "scripts.audit._render_code_index.render": 17
+  },
+  "scripts/audit/_render_human.py": {
+   "scripts.audit._render_human._coverage_reason": 14,
+   "scripts.audit._render_human._dead_checklist": 21,
+   "scripts.audit._render_human._render_package_map": 11,
+   "scripts.audit._render_human.render_findings_review": 14
+  },
+  "scripts/audit/_verify.py": {
+   "scripts.audit._verify._validated_snapshot_entry": 19,
+   "scripts.audit._verify.restore_generated": 12
+  },
+  "scripts/test_fast_runner.py": {
+   "scripts.test_fast_runner._imports_qt_support": 16,
+   "scripts.test_fast_runner._write_coverage_sidecar": 12,
+   "scripts.test_fast_runner.main": 23
+  },
+  "scripts/test_smoke_runner.py": {
+   "scripts.test_smoke_runner.main": 11
+  },
+  "tests/audit/test_analyze.py": {
+   "tests.audit.test_analyze.test_dead_code_confidence_uses_reference_and_numeric_evidence": 11
+  },
+  "tests/audit/test_cli.py": {
+   "tests.audit.test_cli.test_verify_is_byte_stable_when_default_text_newlines_are_windows_style": 11
+  },
+  "tests/audit/test_diff.py": {
+   "tests.audit.test_diff.test_new_digest_rotates_current_snapshot_exactly_once": 12
+  },
+  "tests/audit/test_fast_runner.py": {
+   "tests.audit.test_fast_runner.test_coverage_scope_id_is_stable_and_methodology_sensitive": 11
+  },
+  "tests/audit/test_metrics.py": {
+   "tests.audit.test_metrics.test_dead_tier_counts_are_additive_and_legacy_low_is_preserved": 12,
+   "tests.audit.test_metrics.test_headline": 12
+  },
+  "tests/audit/test_ratchet_collection.py": {
+   "tests.audit.test_ratchet_collection.test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions": 11
+  },
+  "tests/audit/test_render_human.py": {
+   "tests.audit.test_render_human.test_dead_code_sections_are_confidence_ordered_and_show_evidence": 12
+  },
+  "tests/audit/test_workflows.py": {
+   "tests.audit.test_workflows.test_manual_audit_update_uploads_generated_outputs": 17
+  },
+  "tests/test_automux_settings.py": {
+   "tests.test_automux_settings.test_automux_defaults": 14
+  },
+  "tests/test_episode_projection.py": {
+   "tests.test_episode_projection.TestQueueBoundaryParity": 11
+  },
+  "tests/test_executor_metadata_integration.py": {
+   "tests.test_executor_metadata_integration.test_decorate_respects_output_collision_remap": 14
+  },
+  "tests/test_metadata_local_inventory.py": {
+   "tests.test_metadata_local_inventory.test_prefer_local_carries_and_removes_plan_entries": 11
+  },
+  "tests/test_metadata_service.py": {
+   "tests.test_metadata_service.test_tv_plan_slots_and_targets": 14
+  },
+  "tests/test_nfo_render.py": {
+   "tests.test_nfo_render.test_episode_nfo_single_block": 11,
+   "tests.test_nfo_render.test_tvshow_nfo_structure_and_escaping": 17
+  },
+  "tests/test_scan_improvements.py": {
+   "tests.test_scan_improvements.ScanImprovementTests.test_disjoint_same_season_sibling_is_consolidated_into_multi_season_card": 13,
+   "tests.test_scan_improvements.ScanImprovementTests.test_partial_overlap_same_season_sibling_merges_unique_claims_and_marks_conflicts": 12
   }
  },
  "coverage": {
@@ -33021,6 +33152,292 @@
    "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
   }
  ],
+ "formatting": {
+  "plex_renamer/__main__.py": "sha256:5b0d5ad4b930772f09f12a8e301d466b4e22e1ac28258a91a7aa7b810423c1de",
+  "plex_renamer/_job_execution_filesystem.py": "sha256:9b61770209abb32658f774fae3346b95b4ce62826de3a262a985eb755306afe0",
+  "plex_renamer/_job_execution_metadata.py": "sha256:68a8bb433e4239b3aad1c023bdd110e4048fe445fb13395c7cdc760215fc3808",
+  "plex_renamer/_job_execution_remux.py": "sha256:627d26d49f4ef853d115531f7ea33aad8b90d06a2c8ce030ee6768df1e750758",
+  "plex_renamer/_job_path_propagation.py": "sha256:e6bc4c412687e0d827221c7c6be8164651fdd8f8dcff95378c1c5c01209d3f28",
+  "plex_renamer/_job_store_codec.py": "sha256:e6f5db6eb7611877855c6d6ae81e971ed2627d1d332cc0267f4f5ef68ea04bf3",
+  "plex_renamer/_job_store_db.py": "sha256:a8066257890aaca6403aa6d7566ceff231ea96591fa17e92bd5ab824d84a4847",
+  "plex_renamer/_job_store_ordering.py": "sha256:d6a7af27885ce8fd3c9d494a5accfdfe0bad1181ec558d52993195cb12bf9a11",
+  "plex_renamer/_lang_normalize.py": "sha256:40ae1c1bac9bf5d45525a9d7c1de2ddacf3d1cf6ea68830b8934705c50b8aec1",
+  "plex_renamer/_mkv_command.py": "sha256:a5594b6c912ec705757ed1216869b1bec7e3bff7cbcecf10ebe6c85d00b04475",
+  "plex_renamer/_mkv_probe.py": "sha256:186f346b2b599a0d46197e8f3ffa87b049bfc71cd5838c2696b47de656123bda",
+  "plex_renamer/_nfo_render.py": "sha256:1037c2aa7c5f6013d8aa3fb277ddfb537aae08ce5108f767e81fe5026517264a",
+  "plex_renamer/_parsing_episodes.py": "sha256:a50348fd38db8e5a76d048116f40b00a5cab9aed2883031e04ee6773af7248d2",
+  "plex_renamer/_parsing_names.py": "sha256:1789722d5d8fa153ac5477c92e2741e6cf12dadaa120ac6fa5c425b792c90b9c",
+  "plex_renamer/_parsing_seasons.py": "sha256:1929f9fd6a7b24d018465b9819a960c8988ee78ab6804bef33182a43f6ebafb4",
+  "plex_renamer/_parsing_subtitles.py": "sha256:04f3f4a3178274cb5684c37b066d709271b9d9f135c49a82495fbd8c16b27d97",
+  "plex_renamer/_parsing_titles.py": "sha256:2e2cf6380f5a87505a55b90da6e2e800708d17a2b06ce47dee704c5cc8ffa23f",
+  "plex_renamer/_tmdb_image_cache.py": "sha256:135f79298d1b0242591a8ac85bc26dcbe05145c3f317f5af5e0b47b9e22e769e",
+  "plex_renamer/_tmdb_metadata_builder.py": "sha256:5951220620b871d56219bb8eabc5dc247253593d46f39495bbee9ebbfa598490",
+  "plex_renamer/_tmdb_search_helpers.py": "sha256:19e3b60d380789647c22fe9265a19e525ecdd1e52e19185e0b59ccea8213906f",
+  "plex_renamer/_tmdb_transport.py": "sha256:fbc7b759eb09f112ffe5ad9da11266fb64b28b56f7247d220bfe416dc2ff5fd1",
+  "plex_renamer/app/__init__.py": "sha256:525d3e05b0dfed31b93253f5a46edccdddd3c9870d78c20d898ad7563fa34018",
+  "plex_renamer/app/controllers/_controller_event_helpers.py": "sha256:cbd0109dc6ab46a758b3717baf1b08689b0a9438902d3146d8b025f6f31d75d9",
+  "plex_renamer/app/controllers/_controller_lifecycle_workflow.py": "sha256:ee02205084d3db5f48c4d6af297d8eb70bed367ce2586822019d1cb250ff879a",
+  "plex_renamer/app/controllers/_controller_projection_workflow.py": "sha256:17d168d254deae855ce25ff66ce5caecc8fc7ed7e58eb46abd766eb25c9cbba3",
+  "plex_renamer/app/controllers/_controller_session_models.py": "sha256:c1810540cc998456a2a331102ac0235cd1fb146b5dd3807436374e76e0aab353",
+  "plex_renamer/app/controllers/_controller_state_helpers.py": "sha256:4c48a8ca8a43f202d4b6d6ee70ad946cdb4b6ef9bc2fedb749a8a51038c51e96",
+  "plex_renamer/app/controllers/_job_projection_helpers.py": "sha256:b154ee852f90d4247b07462c7d27e0124d1ed337986a7f211dfe3cbbb2fd3347",
+  "plex_renamer/app/controllers/_match_state_helpers.py": "sha256:685ad2920a7c78290203160ba68d5af8ac4d9fc97efc52c913bf386af53f831e",
+  "plex_renamer/app/controllers/_movie_batch_helpers.py": "sha256:65cf91c9e7b0876144a8367d1a1b322997291d6d4bca64593eac1cd3b3ae3e63",
+  "plex_renamer/app/controllers/_movie_state_helpers.py": "sha256:21170386a5973f948d76d3d48e2df05b2a1d34f41da82e7da9bbda7cb664c319",
+  "plex_renamer/app/controllers/_queue_submission_helpers.py": "sha256:6fac30713940c2cf6721c335bbde0b71ab41b27fa1b701c76cc1d77c1fc21097",
+  "plex_renamer/app/controllers/_scan_operation_helpers.py": "sha256:99f9ce83f74711572dba1034d1ce36fe030cc925fef98e3bad34d795c539ba5e",
+  "plex_renamer/app/controllers/_tab_session_helpers.py": "sha256:bdb892b44181f8363f0ff8b35d7838979b3420d32ffa9abe1fd3cc95bc783312",
+  "plex_renamer/app/controllers/_tv_batch_helpers.py": "sha256:0c54ae98810898bdf1c26e8f43ca3b500fce5d9edc0be1a72146f3724009debd",
+  "plex_renamer/app/controllers/_tv_state_helpers.py": "sha256:a460eaf672baf8c9dcc219cab998a36966a9c50c53ed531be2fb29b9287af3d2",
+  "plex_renamer/app/controllers/media_controller.py": "sha256:e7adcac64c7038342146ffb77cbb5d665c00044d87fe9d314efbdb34e065ddce",
+  "plex_renamer/app/models/state_models.py": "sha256:cb09458bb1ff9cc60462b9779fee5d811117183964f9e6028a474a196330c343",
+  "plex_renamer/app/services/_movie_library_classification.py": "sha256:52b65299b09d0264fc5f48a8833b279666cb2c3953864ee8d6e2e31143c9c14c",
+  "plex_renamer/app/services/_settings_schema.py": "sha256:e98b38e67b8dfa0a9543ea34b3ee56fd5d03f0f996a50de0b4a6a7d74353fe15",
+  "plex_renamer/app/services/_tv_library_classification.py": "sha256:97c1b2254b8edd2948fcf4d8b648cec7a81093fef47650b858be39fa3c2b9526",
+  "plex_renamer/app/services/automux_service.py": "sha256:133c8c5082c1c4668a4e9baa7cfe307e075e6a5033644abe2f77dd02e9322f70",
+  "plex_renamer/app/services/cache_service.py": "sha256:22e7cb098b97a9e99b0af32244f4ae35521bc7d5d0ac2a3864aa57daf1d76c6c",
+  "plex_renamer/app/services/command_gating_service.py": "sha256:91eab3afb95d631caf0bdbe96142d767c46e6cd553099723793a6d8ba2a5e2c3",
+  "plex_renamer/app/services/episode_mapping_service.py": "sha256:58fbc7e158ef0a51984f042166e9be0dbed0cd09d746eada18d93ce8f32d29bb",
+  "plex_renamer/app/services/episode_projection_cache.py": "sha256:820e872f331ade3dfed4fb624988dc9573d7620ad82e281608c2c60e3d68fec7",
+  "plex_renamer/app/services/metadata_service.py": "sha256:e42afbb976ce284f5a5a15ec48fbf30207d7791c6d225d162b0ca36fb7204058",
+  "plex_renamer/app/services/movie_library_discovery_service.py": "sha256:ca806fe7e9c53015765bd32cb2796498ddf08e8f79418a343ee9cbc04ad9eada",
+  "plex_renamer/app/services/output_destination_service.py": "sha256:dfba590c6b6276590b138e28ccdb8aa826b7dd46579ea9da8f85818b42c57e56",
+  "plex_renamer/app/services/refresh_policy_service.py": "sha256:b5008aa7124c0fb26dcfffef4f7e75a8aa6b53ce05134172c68f2540bc37e6dd",
+  "plex_renamer/app/services/settings_service.py": "sha256:aa2f5035ffc40e0b5e0dd2ce7f98fe1e2e260693ffadbc6ce5ee153083c21800",
+  "plex_renamer/app/services/tv_library_discovery_service.py": "sha256:8a556256b23e7a15dda4e69a11341f4d58169500e50634b7c24ca283ce2636ea",
+  "plex_renamer/constants.py": "sha256:90334ff4a08538e2b957c0cc0ee476c6e443a6395ca036095c896010af5eeeca",
+  "plex_renamer/engine/_batch_orchestrators.py": "sha256:f6b82917949c37843c862f097ef426b01e9a8ed64add78d4aa1dd5b02c139283",
+  "plex_renamer/engine/_batch_tv_duplicates.py": "sha256:7c33b82bca0fa22fabd6475d7b849abd0dabe659515a81dc8441753e3e5a1843",
+  "plex_renamer/engine/_batch_tv_episode_claims.py": "sha256:a9534e8f458800683356239f41cae8c318079161a71506f204a06ea2809a7d64",
+  "plex_renamer/engine/_batch_tv_match_policy.py": "sha256:09959015b68b6babb9ad78f9855e276c177258b70221f52d2ce37df4c0bf1a48",
+  "plex_renamer/engine/_batch_tv_season_merge.py": "sha256:4b2a0a6cdcd721ce70d286aaaabf6c247e008bf802fa380b6b316649a88783c7",
+  "plex_renamer/engine/_episode_projection.py": "sha256:6779059c7a1cad3056ca8ccb0a4585a2828c6ac621938a6d3c253e2827439b49",
+  "plex_renamer/engine/_episode_resolution.py": "sha256:8b41a1953dd9c18e334d62a6633e75e7bea823b9540303e94bf078b35d6bbd1d",
+  "plex_renamer/engine/_movie_scanner.py": "sha256:063c907e3378b2c1d7ab7177af09cd7417b96bb15bbbfdd10d78f32c352a786f",
+  "plex_renamer/engine/_mux_planner.py": "sha256:ef99962db8bf109dfe73395d90bf3356096d524f5c8bd85fdf605164d7f2aa2d",
+  "plex_renamer/engine/_queue_bridge.py": "sha256:b45417cf8d33bad0eb9e499ab109f301fe7cd282e910bbe9736f62ee44ddd723",
+  "plex_renamer/engine/_rename_execution.py": "sha256:15e6655a16ef6777965cc6eca89aa3e8b954361e61ad715124c61cbf57bc336e",
+  "plex_renamer/engine/_scan_runtime.py": "sha256:b9441ff8c2fdb6304d4944575f3fa5c62923b013df6d32b4b53166f6046d0b23",
+  "plex_renamer/engine/_tv_scanner.py": "sha256:65e960c489e2438a7c2c82fa9c851a427dc09e357f1e41caf2d2285b55788ebc",
+  "plex_renamer/engine/_tv_scanner_consolidated.py": "sha256:184265e744af973e446bdc2889f2f269e49ecaa51c5b4628b07e229a987e559e",
+  "plex_renamer/engine/_tv_scanner_normal.py": "sha256:3084b94369e2923eb71437d55b36ac59f0d3b4b05592ecacdfc241d22586e3e4",
+  "plex_renamer/engine/_tv_scanner_postprocess.py": "sha256:5c030ba580c4cfd7a51352eb3feac6d25d80896d47d55b1c2779c9b0a4315f81",
+  "plex_renamer/engine/_tv_scanner_seasons.py": "sha256:caaf96193150d6172bfc7c205be533db525f8420ecbea00b4051f358e9aaac56",
+  "plex_renamer/engine/episode_assignments.py": "sha256:33e2d395044ee0ba2614a0bb1653aa1e7a0cca85e199ef1f9b88b624f710f87b",
+  "plex_renamer/engine/matching.py": "sha256:82063aa6af879f5f090b1c112fdf308567bdde882b1013555ec059ce78413041",
+  "plex_renamer/engine/models.py": "sha256:f2e5eea9ada8ded21d681813c12d624171c53c413567b5dad7dd3211b55e0f04",
+  "plex_renamer/engine/show_details.py": "sha256:ab1d9e1c491b84664a71e658c3cd3ab0cb97e8aae0523551ab42f487b056f95c",
+  "plex_renamer/gui_qt/_main_window_bootstrap.py": "sha256:c2f89bde9c8b554d756e8842348ffd15ec732c8b2d69d2993c8e8563183d4ec4",
+  "plex_renamer/gui_qt/_main_window_chrome.py": "sha256:f7ad5edcccaacab4052e16fcb720ef67c5a531724730330412706a53def2c7c8",
+  "plex_renamer/gui_qt/_main_window_scan.py": "sha256:4de6d0db1c9872aa347af8ff24414810bae8d8003c7ed31754e58025f2f527d2",
+  "plex_renamer/gui_qt/_main_window_tabs.py": "sha256:a9c9e42dac166b065e988455b015a635ef5c31a8d07128304feba02ea50777b9",
+  "plex_renamer/gui_qt/_scale.py": "sha256:266ae2120ae208a1637fc383235476650044ba47543221dc01e1d057eaeab31a",
+  "plex_renamer/gui_qt/app.py": "sha256:2abb2b8bd2316832c72b0a57047e16b58836b9601fec4791fa6b0fc3b9c8b64f",
+  "plex_renamer/gui_qt/main_window.py": "sha256:ef18a61b7e97bf2154c7f407d2b4b41df4c8b4da9393c8b434cc16351ceaffc2",
+  "plex_renamer/gui_qt/models/__init__.py": "sha256:6ff125d722771d75db445a79578d80a1d99bd17405c8a13404ec625fd4a12805",
+  "plex_renamer/gui_qt/models/job_status_filter_proxy_model.py": "sha256:201b3612413fa742b3b67de53ee85a683f2b913a13501455eceb9e4a51c18fc6",
+  "plex_renamer/gui_qt/models/job_table_model.py": "sha256:5a834225ef6a12bcabccdde3b3b20ef8b37b5bc46500574ad24b8fe7d6e853e3",
+  "plex_renamer/gui_qt/theme.py": "sha256:c84db398340efb56ff2ffc5806b57ed7583f614539248efefcc301587ade0a8a",
+  "plex_renamer/gui_qt/widgets/_automux_tracks.py": "sha256:3eef5b182585fe04b50a79ebb9b8e6c9f70322df8a11ecb70220458df6f92ba1",
+  "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py": "sha256:3292543c8f0db2ceabc34b93a118ab54ec8f5c3100fe6e4ca6c3a824f141edd2",
+  "plex_renamer/gui_qt/widgets/_episode_expansion.py": "sha256:3d864ae8b0f0f967846e9e186ba7c4c824665feabd81182ec14f9e7465e3a8e4",
+  "plex_renamer/gui_qt/widgets/_episode_table_delegate.py": "sha256:7a464d5267b176ef0284b9df123f716dfc4d037b553ece1e0936164993570c13",
+  "plex_renamer/gui_qt/widgets/_episode_table_model.py": "sha256:0709af2a1b4367a26a34f4097cd2e1718ce8b07b853384ce3a5483d5d3a0c1e0",
+  "plex_renamer/gui_qt/widgets/_formatting.py": "sha256:0fe711d381a8cd472227a86fff76540f38c7949f58a94e3de5bf76a6d2220de8",
+  "plex_renamer/gui_qt/widgets/_history_tab_state.py": "sha256:673b78c61fea2e5ab2744db60504738c6808ddb438d52ce6eb6cdfcc49ca5e5b",
+  "plex_renamer/gui_qt/widgets/_image_utils.py": "sha256:3c8f8a560dfc6ef1ad2bf28cb52cd14fe194bf4b140e4b27892e8c3714c5605d",
+  "plex_renamer/gui_qt/widgets/_job_detail_data.py": "sha256:fc4f12698f853625f68952be4ba21c0da7f3857075fa127649afe7d4ebe824a4",
+  "plex_renamer/gui_qt/widgets/_job_detail_poster.py": "sha256:aebd1c9dc5d90975a27292d4e1a97a6497a463636c91d80922ffd4c0149672ce",
+  "plex_renamer/gui_qt/widgets/_job_list_tab.py": "sha256:6ba4a37c0321cc0d32e721f8cde72999aab60d6a21dc413fe6db7827af931b2c",
+  "plex_renamer/gui_qt/widgets/_media_helpers.py": "sha256:49c1060ddd2d0b5c8b15400da5e6ef632cd1e552f6ba026e2ff901899d9fafa2",
+  "plex_renamer/gui_qt/widgets/_media_workspace_action_bar.py": "sha256:eef2825044addf37ff49e5dca207b1976f4674ba1bb5f3595203fc2ae15613bc",
+  "plex_renamer/gui_qt/widgets/_media_workspace_action_state.py": "sha256:42b5fe55692584ec5199e0731257bf2045a0bd02c1662c88441e60054011427b",
+  "plex_renamer/gui_qt/widgets/_media_workspace_actions.py": "sha256:0d9ef45f5f5aa13c0ba04979f846438b29747b9a5d0da10f1ed9457961948613",
+  "plex_renamer/gui_qt/widgets/_media_workspace_automux.py": "sha256:e32b8cb9b8df448a43e49e7d0b16b34b3319600a14abea209465fb0984b5a82b",
+  "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py": "sha256:4057e4444ebb2dd4becef4e1594416b6ebb4768b38090ad8d7882debb1f0b8c6",
+  "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": "sha256:4be888757a1072dd01576ebefb6b6223332e1645a20d73abb1b9f187e5f8968e",
+  "plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py": "sha256:c740907bf34c936d2310dd4b85f837415942f89db7b02df75e59f40eba019fac",
+  "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py": "sha256:21964dce0c080a68bef9893269e6ebab403f0d966cfe267c60051133ea12da33",
+  "plex_renamer/gui_qt/widgets/_media_workspace_roster.py": "sha256:daa91dfe48b3183e26a9e7445f60bba0ee66bed0cb14eb65a88765299c5ae67b",
+  "plex_renamer/gui_qt/widgets/_media_workspace_state.py": "sha256:719e43a495405378523ef909aa812506caca44c6341ad60d93e99cf251340e11",
+  "plex_renamer/gui_qt/widgets/_media_workspace_sync.py": "sha256:396cda3e807b5ee39daa9045d7519a51c9ba5171c054b6b3556389f089c9f25e",
+  "plex_renamer/gui_qt/widgets/_media_workspace_ui.py": "sha256:01c9d76e8a94d83721262729a04be035fdb546c521ca38a2cd148601744860e8",
+  "plex_renamer/gui_qt/widgets/_media_workspace_view.py": "sha256:0c169a7c3ea422e33fe21311b1ba30e23c64b7cc4c7f0eb34b665eb6801f6529",
+  "plex_renamer/gui_qt/widgets/_queue_tab_actions.py": "sha256:c96a3fb116c6a38b25690e32b7d7945bccd61e849015e8e068b0c33b799cc9b4",
+  "plex_renamer/gui_qt/widgets/_queue_tab_state.py": "sha256:5721461385b625e294442d68bcff3145d3237f9754b8a35fad28dc152a5abb53",
+  "plex_renamer/gui_qt/widgets/_roster_delegate.py": "sha256:43784ca9acec48e1c361793019360644c4a080b8aa79940bee8531a14c6cb4b8",
+  "plex_renamer/gui_qt/widgets/_roster_model.py": "sha256:a9191836eb6c697081dfd1cb820386f68880abe7b200cdfd786c306c43ec089d",
+  "plex_renamer/gui_qt/widgets/_settings_automux_page.py": "sha256:0231400548499bc4e0e0228aeccd468a1d63ddd3b1a96a26bee1fe57fa07525b",
+  "plex_renamer/gui_qt/widgets/_settings_metadata_page.py": "sha256:1632328a5b075a9e433d0f852ce538cae7b30005bc492645039c8bc4e214c00f",
+  "plex_renamer/gui_qt/widgets/_settings_tab_actions.py": "sha256:e0dcb79bd950a38566336acb1fb2d0ea1df05aca4e310b74292ae7fefa74ac5e",
+  "plex_renamer/gui_qt/widgets/_settings_tab_sections.py": "sha256:47ee74847228eddb2a63407d19fa9c5e318444ef05537a7e2707cd961bc956fb",
+  "plex_renamer/gui_qt/widgets/_work_panel.py": "sha256:feebf9929a29c7eea061ea8a0cce4d1c17b3d370aab75194d6b7f021a6dac78f",
+  "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py": "sha256:1d1e7d3cc7376a28f2729d839fc6c6db9e2b6c69b4d9aa871740f4a57127e0b6",
+  "plex_renamer/gui_qt/widgets/busy_overlay.py": "sha256:cfb569529987597bf55028f6720ba2732886e99f6ef3c3c9ff80a52c34431a8c",
+  "plex_renamer/gui_qt/widgets/empty_state.py": "sha256:abfb0dd2ead77a65605d47677201f04547eb219d64129a9c3918665e701f1183",
+  "plex_renamer/gui_qt/widgets/episode_assign_dialog.py": "sha256:87076d248e28ebb7a7d4accd904e5dbb997bd7aed104e420fbcbfd5d34b53f68",
+  "plex_renamer/gui_qt/widgets/history_tab.py": "sha256:e1fbc97b6637db529cb3706269fa1afc15dd8c6d74f47a59f3375873edd7018a",
+  "plex_renamer/gui_qt/widgets/job_detail_panel.py": "sha256:8dca424475e198b88b7b65e8375f545c6f76d5bd3e19db35d10144ebeee77e16",
+  "plex_renamer/gui_qt/widgets/match_picker_dialog.py": "sha256:8e2a8f46e277d9f96995ad7f0270da292f87841131efc1941066dacf987f879d",
+  "plex_renamer/gui_qt/widgets/media_workspace.py": "sha256:c238e1b5daefa4c4975952cbd91cf8527ca5fe5eca7efbae17f9bd00ea5947ea",
+  "plex_renamer/gui_qt/widgets/queue_tab.py": "sha256:a4e14f6b1a9e0ebe1910032e9e65bd1e81a8e7e885edf2107bf66eec59007cf7",
+  "plex_renamer/gui_qt/widgets/scan_progress.py": "sha256:b2adf788fe256856c0360d6b8f99bfb7fdd70cb472f0f9c57125e7e1d54e687b",
+  "plex_renamer/gui_qt/widgets/segmented_control.py": "sha256:4ab6c1bd7ea5759f943216c8d5d1bab523c8731d38d1a68fc8d5bf5ce37ec635",
+  "plex_renamer/gui_qt/widgets/status_chip.py": "sha256:69f3c6e2b75edb231e319cb12ff3a77adf0420591b633ae4a3f5f64d789f3f7e",
+  "plex_renamer/job_executor.py": "sha256:dfbd3aa936abd07e85a57d7874c9a25d7019565a50d673d098f2a6b9b3225d49",
+  "plex_renamer/job_store.py": "sha256:5a4fccba801753b8d6b8ee3719c6a2e4db2305f84453184a2898364e174055a9",
+  "plex_renamer/thread_pool.py": "sha256:a7ffe4efadea2fe03a2e01217348c3f5bd053fcec0cfd5b9ca505089a1aa0ccc",
+  "plex_renamer/tmdb.py": "sha256:6fe2927c48f207a1121232d44def8d764c0af56476cd66ba506f8cfc12c5a8c7",
+  "scripts/audit/_analyze.py": "sha256:1fa7c5ca471acda400c6cf84b41f9c5cbfc0c0137fb32d4a758b47eb649cfb5c",
+  "scripts/audit/_diff.py": "sha256:8e9bc3cb77c47be5dfc82ebee625a2d9a63a9f47092a2e9b709a76c1c5d1a8b5",
+  "scripts/audit/_docs_ledger.py": "sha256:b2809587abbef0cbe929a80d383e0204042098cc32524d4c3932a683a30c573f",
+  "scripts/audit/_graph.py": "sha256:5c4767373acf3861fd5756f424e4e52aa025565dd84605fa98e4854bc15ea73b",
+  "scripts/audit/_metrics.py": "sha256:7d5f92780b57114aa85c77eeb4c599e7ce5b59fff3a4f30699cb5621c51bb028",
+  "scripts/audit/_toolchain.py": "sha256:b46b9f8522cd55f4e5b0e31bcf4d2f1455c79d1a69d534dcda98b88dfe597fb2",
+  "scripts/test_smoke_runner.py": "sha256:0b8fd6dd0238b46222e0c6de8146120d26cd5cf0ea1c2b879540f0b9fbb08af5",
+  "tests/audit/conftest.py": "sha256:8da6cb10bfd36b89ee915f141b90f9e9b870b4a7cc75682995fea37ea551c2d6",
+  "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
+  "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
+  "tests/audit/test_graph.py": "sha256:71dc76a863c74f4a059c71a38f2bfbbdb40e3fb188da651999a57c252a265b36",
+  "tests/audit/test_inventory.py": "sha256:e4c7745f72d92185a54cd67dc9cad6883d5ddde8b1e1b412db94be24ce6d69c1",
+  "tests/audit/test_metrics.py": "sha256:9ef1c1407654fa2cb78c3b998ab63f03cb79efc176d146a7553885b81880e514",
+  "tests/audit/test_render_code_index.py": "sha256:0324c6427a000808f4bfb024de9f2fa5df0a5f807327ac31b19bedaf6265c4c3",
+  "tests/audit/test_render_extensions.py": "sha256:d45e07382c1738774dadc29efacfffe13b17c26fea12267f8cfbd12f8764d1f0",
+  "tests/audit/test_toolchain.py": "sha256:f5d19fc96a028f21cfa91ca9eae8b357649c3fee34087233709a0bc3a46b3058",
+  "tests/conftest_qt.py": "sha256:d7df8d684a54fd4901f98a3bdc2ee5ac61253b5a92dbfa4da24d05ae90595a00",
+  "tests/parsing_corpus.py": "sha256:ac0c226957b477c2b07c72b1870f238956b8cb2a37fb7b08706a127008a3da6d",
+  "tests/test_acronym_titles.py": "sha256:4c089fe664313b596883c0bb8c8f6df05aacae149a6833d55651cd58d1fcaf66",
+  "tests/test_air_date_clusters.py": "sha256:e8a5252d4855c2c4ba76ac4dcd3ac8f56d202c6521bd2517fad7d7b7c8e0a491",
+  "tests/test_alt_title_matching.py": "sha256:09dee7de3dbacb64d2ea424329329a9801be43ca7d13bbd2427348d0d8b88a7e",
+  "tests/test_automux_service.py": "sha256:395fe8ba0dca5d67e19c365a077540e974bdb34833f6260719a2df967c19fd72",
+  "tests/test_automux_settings.py": "sha256:82fb69321be15e3a8a085947bf2c55738a53c49732f9559c51b6b362b4819b9f",
+  "tests/test_automux_tracks_widget.py": "sha256:6c56be86307a4e86dcb13d358960937e6b064f865da933f495ca269164e91c77",
+  "tests/test_bare_episode_prefix_titles.py": "sha256:1466bdd9ef4053fc1c8bc093a6e12ab491a5f7799e2750928c85f8fa21e539e3",
+  "tests/test_batch_autoaccept_guards.py": "sha256:eb9c8f88ac14f32479393fdbd71084f77c1dd8668acd36733ab9372d6009fe25",
+  "tests/test_bulk_assign_panel.py": "sha256:da8cf3349a27c264526a3e2924404e80626191046fe5ad16f2b640dd80e5ddd5",
+  "tests/test_cache_service.py": "sha256:35a0e908d54a04f71a5b270275bce8d81bce9a799ac7fa6a2d82fec3c5902966",
+  "tests/test_command_gating_service.py": "sha256:fd564cd61d1b6a6f04a2c4873a2678121530376429d5f2fc63e1b0ed148e9844",
+  "tests/test_companion_subtitles.py": "sha256:619b80e594844e8f7b6f7f915591b1ac7d1573cd921c926ef8fd38f62a3e5a25",
+  "tests/test_completeness_review_counts.py": "sha256:2407cf8a7a4d10899494e45baba31ba2bf1ecabc8daf5e29f88707beccb4ac11",
+  "tests/test_confidence_adjustment_guards.py": "sha256:2058d45f5b8d2989ae4bacf29ac8b30c5073396e90ead498d48d7703965d12a9",
+  "tests/test_conflict_queue_protection.py": "sha256:b793c6d2f1bee73a6d77bb46671cd5970cc66150f671b55044e0ad726be71d09",
+  "tests/test_conflict_resolution.py": "sha256:4b6ae1618c0eb3b4662a0be68970fe1fed79162282c67e74c7ab941444dc645f",
+  "tests/test_conflict_snapshot_staleness.py": "sha256:375ba75463ac11f743f5380863a83fe886ea4f4765946b8d92aff94b70e6a2c8",
+  "tests/test_consolidated_assignments.py": "sha256:c5902d82ae1d87046af45cedee1c2251a36b25d26e32751124b725b949480f34",
+  "tests/test_consolidated_two_phase.py": "sha256:9c9cfb8e88cad3034e5e1524230fc9cc63e9af221df64986721a2fa50afea8c3",
+  "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
+  "tests/test_disc_grouped_run_ambiguity.py": "sha256:72c1aa3f23f20e7fe06862bb406c1d569c5b79bf40c7db706e3ed0ba6ba288b5",
+  "tests/test_duplicate_copies.py": "sha256:8c448f62049eb27e6b6b6f178622ff2c0e98d6e7a324f490fe8b0a20446c8880",
+  "tests/test_episode_assignments.py": "sha256:b4451ae73c1567e2315e969d1ab7a30a3fc631c9013b5f862c719a7651bc1efe",
+  "tests/test_episode_expansion.py": "sha256:2ec6388ff9ce06bb43749c8514c30f953d6640a15b1b61f46bcd9c488ad31968",
+  "tests/test_episode_mapping_projection.py": "sha256:d737090f126faf60fde6ac5f9fd3787906ec8268da4b4baed405df79b7b03640",
+  "tests/test_episode_projection.py": "sha256:bc40e83cf35d6c85cac0cadf7b008ab7a0992bcdcf2f753def837d98e6b335ac",
+  "tests/test_episode_projection_cache.py": "sha256:47a443a918c6a04929f5fa7747fd0ada704cd19ca8664e1cdf7e1059a21c20d2",
+  "tests/test_episode_resolution.py": "sha256:12ef8400159645cfc2fda3a73c6823a0848db9f97329604265ba6febc36e43f6",
+  "tests/test_episode_table_delegate.py": "sha256:9bb910352f1ad915b71af63d29593d3f5e0827067203c97d874d0861e1370b1b",
+  "tests/test_episode_table_model.py": "sha256:c5e8185aa641fd4d2b837e906e9bf098af9a0320eab4ab4c32de27cfb6153c81",
+  "tests/test_executor_metadata_integration.py": "sha256:938caa7937106bc862728e8bf1d88ce31671e287f926fa212c01205cb005c217",
+  "tests/test_explicit_special_numbers.py": "sha256:6c3bf7811edc92091ab7b982b716a5686e7c90a5be1046911703d22a608d94f1",
+  "tests/test_extras_and_prefix_fixes.py": "sha256:87adc9d84c461bf6cc0a2729bbea7682bffed460344125aebc45c2fc2cd5fa35",
+  "tests/test_filename_formatting.py": "sha256:3227f2720c996563d34dcd322bc4771624f976d84a610eeb3d63fe5a0725713c",
+  "tests/test_fragment_anchor_guard.py": "sha256:25f5c2d7592313f45593a577fd2e8c165a045b3f87d5654f3737e6fc552e2c2d",
+  "tests/test_fuzzy_title_matching.py": "sha256:40cf2ba71d2cd57e6d9e1cdae6ea4becb366a93ff45a60925aa83b1b4a678066",
+  "tests/test_gui_perf_guards.py": "sha256:6ce046618b71b4f43c8096947d189fa56e1486f237f07bf504a5c8174429482a",
+  "tests/test_gui_theme.py": "sha256:4e8625a30261cb9a80b6a619f0601ea9092304abe2046c111e13a33556bc97d6",
+  "tests/test_haikyuu_matching.py": "sha256:69b54637b6cf2eb128b684278a667af0d4caa4e64cfeea51d75f42ef6d57b844",
+  "tests/test_job_execution_metadata.py": "sha256:6357968fb6d9e926ab3032087cb4488bc9a7e60445aecc8c180f7b59eb530d4a",
+  "tests/test_job_preview_grouping.py": "sha256:7fd86a330bb4aa3da85854aa1fb9ce90566636fcb7c23316568daacbfdea6c19",
+  "tests/test_job_store_metadata_plan.py": "sha256:8cbac07b159c52956fdbd56667deb4f25c7ff9b1c6d43b420470ccd3faa185fc",
+  "tests/test_jojo_matching.py": "sha256:8d410c0aa6f654a8d49149d474b4d057727b1f5d1ae883e66dff215f2d480a0e",
+  "tests/test_lang_normalize.py": "sha256:465978bd6266894198addad5d36d69ac272be61184b9e6dff98c0dd0e2962480",
+  "tests/test_lost_conflict_rescue.py": "sha256:638b6bc74d688efdf01119b6b785e9ee49d2ae569b10a3eebf17e9561cad14c8",
+  "tests/test_manual_assign_queueable.py": "sha256:ffa9fded866c1746cb80348874977b20c7854677b93b529994b1090a841c53ab",
+  "tests/test_media_controller.py": "sha256:6d6e1881316322cd3d9e45a75496889cd494c5bc37a1a1612659198fd9b01464",
+  "tests/test_merged_show_checked_gating.py": "sha256:8bf8cb8b7252c52a02ea6c9578e69da79d4b9625871ff3141591cf1e9745eef1",
+  "tests/test_metadata_embed_extras.py": "sha256:ac951a165308bde5129d58e59b56775e9ad108f1fde5b97e51d5e6bac8fb80bd",
+  "tests/test_metadata_local_inventory.py": "sha256:db1cb468b0c8a5a58d1364badf1685149cf3eb9dcd0ce9d850b07f67d405a054",
+  "tests/test_metadata_service.py": "sha256:27e29ad86ce5fefe2c4cf6871aad3193849bb91d2fbad5bb3d3c5a17c3644737",
+  "tests/test_mkv_command.py": "sha256:9e6b74f5cf8512a58c63a2b9caa43333666c7ec5dcdb7c771e78efee84276fcc",
+  "tests/test_mkv_locate.py": "sha256:f0e6c0ab2b9cd14e08c0a2625f362a91b8ede24a8dd3c422f5414e269c262141",
+  "tests/test_mkv_metadata_helpers.py": "sha256:05a0373028e29e1b3a4a11c5b5450631d5ff93b102c041d4d871671f1d45c42d",
+  "tests/test_mkv_probe.py": "sha256:a23f6e523b4bd335b080d1e5f56998731880659f0f813f07e64243376992f618",
+  "tests/test_mkv_tags_render.py": "sha256:692633d860aba1e86cb778e48dfd11aa56b0765dfb938f8df5a325b15d917138",
+  "tests/test_mkvmerge_integration.py": "sha256:f11ef4a905f8f9a810669fe2c5ac747884da73bbf5a77445ce798a4f131af66d",
+  "tests/test_movie_confidence_adjustments.py": "sha256:6ef4406d919c90124e564174d5b36ed5fbeb4092d0f965ee9aca6c407791b79b",
+  "tests/test_multisegment_zero_match.py": "sha256:980a0c2d9223d004b0fc860d8e86a8b3b6067dd14c532f83ec69d5a3d1f7f8ca",
+  "tests/test_mux_planner.py": "sha256:aa20ea6b5295a739cc28be73fde7874418b155111d875b1a487a799969840edd",
+  "tests/test_near_exact_titles.py": "sha256:97fd46c31f29327f202a7d07a4e2b6f9bd853187fc1bb057db1a9a58bbf127a7",
+  "tests/test_nfo_render.py": "sha256:44b69336cfaafa7e2e2f3d3d6df160d9ca2228f946d188f09248f303c522e7fc",
+  "tests/test_no_raw_hex.py": "sha256:50b29a03fb9fb916abe4b7485c5bbc8325813c534a5fb5f63db218bc52e55283",
+  "tests/test_offset_inference.py": "sha256:8fc5a3a9bffa621ec6951eeea1508aa6e5bec3c3d3df74443f9a1fcea3602ff8",
+  "tests/test_output_destination_service.py": "sha256:99d7d2ffb345b11a0be5f345e50e306d7c2976bb8b94a11ae35836430070e5d1",
+  "tests/test_parsing_edgecases.py": "sha256:45d9c1f3e542ca057e31c456b1a0b8348f53e264b3a3f13d34e37b145526c097",
+  "tests/test_positional_fill_overlap.py": "sha256:70d484419b07093cd085f6f888b487ca45202d501e47028b066969fe79221b59",
+  "tests/test_qt_app_popup_filter.py": "sha256:e8e7c0fcee9ae0f0969b3f0684c0d6cbeb220080901b58ac0ee92910032def42",
+  "tests/test_qt_async_guide.py": "sha256:6c402bad3d4083f2d0d0cbbdd62a1847cb7641f9ab82f72dcd3657459ffaf33a",
+  "tests/test_qt_busy_overlay.py": "sha256:2b982601e9c277a9d01f37dad1f898f461ec2fe9cdb499201a974d9a60df37b4",
+  "tests/test_qt_chrome.py": "sha256:15cb188977a63a6484172e2f3f8105fc404d464dbab09accbb5018ae07d93b65",
+  "tests/test_qt_job_detail_panel.py": "sha256:59cabba71d568ddbc707b427a8142330bf07669d101bd81e5428c3bd9773b6ec",
+  "tests/test_qt_main_window.py": "sha256:b0f0503ab42c795538e2a2af0992ec6d2bea6b222fd8c2964ba9e7b6fb341a41",
+  "tests/test_qt_media_workspace.py": "sha256:fe6d08ef434fa698741d55a56f18bcdcffe7f3197264c7bc4495b7eaf9a7098f",
+  "tests/test_qt_perf_guards.py": "sha256:000fd6f38aad4dc80808b762ce5716dfd8e1cf2768b4c8ff1da0ce13088cc663",
+  "tests/test_qt_queue_history.py": "sha256:a6d568fd041c779439d39cc03777dcb840cad8b491a5ae4d1b2c3ed71e7dbac1",
+  "tests/test_qt_scale.py": "sha256:e57f71151aa378edefe64be628fba832ef9c520244d551a8fc49b7caf9e5b2e6",
+  "tests/test_qt_toasts.py": "sha256:3c9df5b84513b6b29d9faf460a43144b30c78231f9ff2d975f31c80a496564d1",
+  "tests/test_qt_workspace_widgets.py": "sha256:d7b8f04c4f87cfd027e93e3e7134f9ec338b67fd32c108b9d7148ce6bf62d57e",
+  "tests/test_queue_bridge_mux.py": "sha256:a7fa1c3446ab98d12ffc3057cb8a4b4aa81e8a375ebadc25337405c9e59c8afb",
+  "tests/test_queue_controller.py": "sha256:e1165ee3bc01565f616b33bd620c015eb76bcf874e41f856d42e67e467023675",
+  "tests/test_queue_executor_progress.py": "sha256:7e7ed95f85bbf109712f7c2aa53b88e50bbeca45b28b8a15e8724c9bc3b9098b",
+  "tests/test_queue_metadata_wiring.py": "sha256:55a24da82019a8871884514ca19515a71e19db608c6017b704b422cf00aa0832",
+  "tests/test_queue_output_targets.py": "sha256:fd9dd2a4e53b3d218faeb6f04b19a43ee4181fa65af9c85e1ae1c7d95c6cf1d9",
+  "tests/test_queue_submission_automux.py": "sha256:7d920665bb096b890e30fa2b278eb79abdad59f793739fe81fa4848a0e510804",
+  "tests/test_queue_tab_remux.py": "sha256:6b7f52acb8d6a48f223811f91be8bd2065811d0a2465527f8a7040da149b86ae",
+  "tests/test_recent_menus.py": "sha256:fcf96f6e61494f100c2be835a83ef522e35449a08e082060e2ccec72ca0709d3",
+  "tests/test_refresh_policy_service.py": "sha256:0fcf2a1afb92abf4882e71307b364f81458856f2809041e31b3ec1747d76d1df",
+  "tests/test_release_junk_titles.py": "sha256:79740000f42bb425fb830320b2c501f2a19bb553423de349a47d73e0f3e21d2c",
+  "tests/test_remux_confirmation.py": "sha256:155deb658ad5591613761f29021532807db135fc3cf8ddf6fe9d33998ec2cf2b",
+  "tests/test_remux_embed_extras.py": "sha256:934a452872817f02b7c828bca8a8ed605059adb30a649eadc9c78049d6ea7a18",
+  "tests/test_remux_execution.py": "sha256:58464e02cd3b126ea0b3a7875a6582c34dcd00ed3fb9d3b3332cbb6f64699532",
+  "tests/test_remux_job_model.py": "sha256:65b2e2072e2e98dbb41e9c189e9495c37ae4132f8b9b851fcef159b4b1037e27",
+  "tests/test_remux_revert.py": "sha256:0e27cc71557cf5b19d58a67f2288458966a9cf53011f3853b76f551f486bf8f4",
+  "tests/test_roster_autoselect.py": "sha256:b1268e21147535ae2bb331bba7d2d089588408391480a0ceb554ae0ac54f35f0",
+  "tests/test_roster_classification.py": "sha256:d9bc9bbdd44a6f0f94c76b85d308773529255edda10818600bf09324384d625e",
+  "tests/test_roster_delegate.py": "sha256:61a307769761304224630fd97736ef5dc8b3cc423622f15fba088248b453c6d2",
+  "tests/test_roster_model.py": "sha256:a8bfd5e887f3bdf6dcedad200a61ee67bd21fc7dd243e0131c136ad9816cae48",
+  "tests/test_run_extension.py": "sha256:50f12cee195b85945b802b4a7c4ff9cfd4068e92ed9531d1b3aeda837a9320e3",
+  "tests/test_run_extension_guards.py": "sha256:b7473272f0e4f4d0676170e36843e30c89ed2ec48b83e450791a8ae15598b505",
+  "tests/test_same_season_rescue.py": "sha256:9f9d60e44cb319abb1d606c415b617aa02cab777e79acd6fde7ce68ed2076095",
+  "tests/test_same_season_scattered.py": "sha256:82a8ab95906f9947b1952cc642080faf2738d2fcd0e98fc537b4ba8e5a7a1a6f",
+  "tests/test_scan_improvements.py": "sha256:42daac35ec5665cf7c591af3bdf4a23cc4637d1b6c722b629d0b93f8b79b79e2",
+  "tests/test_scan_progress.py": "sha256:6a3a89d25456d81f9914fe3d237892dc3dac7f42b87315a8901d0834676d9599",
+  "tests/test_segmented_group_separators.py": "sha256:b95c64b431299db4098889ae8ca6d71c124596379485db8768032dcd2b77e43b",
+  "tests/test_segmented_positional_fill.py": "sha256:8e492466804982d650b1289ffa0239368b9d6db6491a38939b36cbed3cc0872e",
+  "tests/test_settings_longpath.py": "sha256:da2498898af7e57eae2198d8d9a06b69bbf9c3f9fb4eb27fda002f3fb9cd2504",
+  "tests/test_settings_metadata_keys.py": "sha256:ef742655fb6c71df92e7240eb0a9e1a224f860421eb5eed7121cf58f349001a6",
+  "tests/test_settings_service.py": "sha256:b0749136bffa9c49e22b590973904ae4d375fa220089ec29b2121d8c299d587a",
+  "tests/test_settings_tab_automux.py": "sha256:e5e7ac8978d018b66bfdb52c2ee9df86f2383b2e4afe1c3a1994770a2e4e5c92",
+  "tests/test_settings_tab_cache.py": "sha256:693d806b8bbdcbf86af3d3dd86e68dc182f480a0e45a1dc3e9eeadc1da7316d8",
+  "tests/test_show_details.py": "sha256:854e48a9c75d9fdf95c652fc81da1e6d2908ffb8932da6116e06a8db8c4cac0d",
+  "tests/test_show_name_title_and_hint_rescue.py": "sha256:5a5606bee37f24f7b0090d5a70a4f47b5173a40d65a74d329d19463fae29169f",
+  "tests/test_show_scoring_no_year.py": "sha256:47c40514986cac88625224767a34e40f0d28e1221cc2708bfba219caff57449f",
+  "tests/test_show_scoring_token_subset.py": "sha256:e562d92746f25dfe22d65cb8679d8408b287136278322ebae725467580a8f1f6",
+  "tests/test_specials_guards.py": "sha256:f81bfde9aa592e3891ba7c7e94bac2d07fc239fdbaa69afc8ae61e6d5e421969",
+  "tests/test_squatter_chain_rescue.py": "sha256:c53dcad064b5cacecfa76be4437d40629a8393c990ae8891819e248735794c6a",
+  "tests/test_status_chip.py": "sha256:da9e458f78e3151c1f816873a7d6f8286591f7131208a73fa473fdf6ebc4523f",
+  "tests/test_symbol_folding.py": "sha256:8919ced1056dd2826231288be5013afa1c172ee5856554c2c534eac7a8b228ec",
+  "tests/test_thread_pool.py": "sha256:1faf070848285de4f9d063fc50e0c4c4f952b5ef9cc9bff54f8a54e4e8278c79",
+  "tests/test_tiebreak_discrimination.py": "sha256:aefd2fe038debcf978d68118cdbc9f151d28af0aa4dc4e65df7573b3743ee9ab",
+  "tests/test_tmdb.py": "sha256:4da6b6d2e361f4f07c25e4960074fe3137275cd77d6f068324d306b2fad33f22",
+  "tests/test_tmdb_export_assets.py": "sha256:5a20bd46a0fb1fa540b76bad2155b16bacc037dde9e7a9d4db8dd80d552039fc",
+  "tests/test_token_aligned_substring.py": "sha256:095c43cbdbf788a4d72e4453c84ed329e3b8efb85870aefd8f6f8193c9a8e5a7",
+  "tests/test_tv_scanner_normal.py": "sha256:16c9036f3203d206b9a1b28398fd141e2fb8db6cc251ad50ef8d300650a5382b",
+  "tests/test_umbrella_season_merge.py": "sha256:57f50e4f732559509e2f12909bbe8ba5dace5c855207cc3b7b052818f497d621",
+  "tests/test_underscore_segments.py": "sha256:51940c6196ea7b5b554e21e12ab1695431157d9b4bd7d8576b1c666c0ac63ec7",
+  "tests/test_work_panel.py": "sha256:6575737e443f8acf163317b619185965260541b1b442b2dd71694d02355da8db",
+  "tests/test_workspace_automux.py": "sha256:6c0258f5735bb04e3a73676ea172d338c567fed44426c3e115d2db3d94b3fcfb",
+  "tests/test_workspace_expansion.py": "sha256:50f0f744692163f7a48a1a466b357f2d32a2c0fe28612e9ee079ef524656992e",
+  "tests/test_workspace_poster_warmup.py": "sha256:e086baafe623bce938c5f3ab05e9b68f8a727b74b9278fbae72d5bc5c37dcdb4"
+ },
  "schema_version": 2,
  "typing": {
   "legacy_python_files": [

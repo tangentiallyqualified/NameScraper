@@ -8,6 +8,53 @@ from audit import __main__ as cli
 from audit import _artifacts
 
 
+def test_quality_check_returns_zero_for_stale_baseline_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    coverage = {
+        "input_digest": "a" * 64,
+        "suite": "fast",
+        "full_suite": True,
+        "scope_id": "b" * 64,
+        "files": {"plex_renamer/a.py": {"executable_lines": []}},
+        "package_floors": {},
+    }
+    baseline = {
+        "schema_version": 2,
+        "findings": [{"analyzer": "ruff", "rule": "F401", "path": "old.py", "symbol": "gone"}],
+        "ceilings": {},
+        "complexity": {},
+        "formatting": {},
+        "typing": {"legacy_python_files": []},
+        "coverage": {
+            "changed_line_min_percent": 80.0,
+            "executable_lines": {"plex_renamer/a.py": []},
+            "full_suite": True,
+            "package_floors": {},
+            "scope_id": "b" * 64,
+            "suite": "fast",
+        },
+    }
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(baseline), encoding="utf-8")
+    monkeypatch.setattr(
+        "audit._ratchets.collect_current",
+        lambda _root, _baseline: {
+            "findings": [],
+            "modules": {},
+            "complexity": {},
+            "formatting": {},
+        },
+    )
+    monkeypatch.setattr("audit._coverage.collect_quality_coverage", lambda _root: coverage)
+
+    assert cli.main(["--quality-check", "--repo-root", str(tmp_path)]) == 0
+    output = capsys.readouterr().out
+    assert "quality: stale-baseline: old.py: ruff/F401 [gone]" in output
+    assert "quality: 0 new/enlarged debt; 1 stale baseline entry" in output
+
+
 def test_full_run_produces_outputs(synthetic_repo: Path):
     rc = cli.main(["--repo-root", str(synthetic_repo)])
     assert rc in (0, 2)  # 2 allowed: synthetic repo has no coverage data

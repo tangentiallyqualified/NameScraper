@@ -18,7 +18,7 @@ def _module_qualifier(path: str) -> str:
 def _scope_entries(repo_root: Path, path: str) -> list[tuple[int, int, int, str]]:
     module = _module_qualifier(path)
     try:
-        tree = ast.parse((repo_root / path).read_text(encoding="utf-8", errors="replace"))
+        tree = ast.parse((repo_root / path).read_text(encoding="utf-8-sig", errors="replace"))
     except (OSError, SyntaxError):
         return []
 
