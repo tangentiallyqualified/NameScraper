@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+import json
+from datetime import date
+
+import pytest
+
+from scripts.audit import _decisions
+
+
+def _finding(**overrides: object) -> dict[str, object]:
+    finding: dict[str, object] = {
+        "analyzer": "vulture",
+        "rule": "unused-method",
+        "path": "plex_renamer/gui.py",
+        "symbol": "plex_renamer.gui.Window.paintEvent#1",
+        "line": 12,
+        "column": 5,
+        "message": "unused method 'paintEvent'",
+    }
+    finding.update(overrides)
+    return finding
+
+
+def _policy(**overrides: str) -> str:
+    values = {
+        "analyzer": "vulture",
+        "rule": "unused-method",
+        "path": "plex_renamer/gui.py",
+        "symbol": "plex_renamer.gui.Window.paintEvent#1",
+        "reason_code": "framework-callback",
+        "reason": "Qt invokes this QWidget override.",
+    }
+    values.update(overrides)
+    return "[[decision]]\n" + "".join(
+        f"{key} = {json.dumps(value)}\n" for key, value in values.items()
+    )
+
+
+def test_decision_matches_only_the_exact_normalized_qualified_identity() -> None:
+    decisions = _decisions.loads(_policy(path=r"plex_renamer\gui.py"))
+    findings = [
+        _finding(),
+        _finding(rule="unused-function", symbol="plex_renamer.gui.Window.paintEvent#2"),
+    ]
+
+    annotated = _decisions.apply(findings, decisions)
+
+    assert annotated[0]["decision"] == {
+        "reason_code": "framework-callback",
+        "reason": "Qt invokes this QWidget override.",
+        "expiry": None,
+    }
+    assert annotated[0]["allowlisted"] is True
+    assert annotated[1]["decision"] is None
+    assert annotated[1]["allowlisted"] is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("analyzer", "ruff"),
+        ("rule", "unused-variable"),
+        ("path", "plex_renamer/other.py"),
+        ("symbol", "plex_renamer.gui.Other.paintEvent#1"),
+    ],
+)
+def test_decision_does_not_match_a_partial_identity(field: str, value: str) -> None:
+    decision = _decisions.loads(_policy())
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="stale decision"):
+        _decisions.apply([_finding(**{field: value})], decision)
+
+
+@pytest.mark.parametrize(
+    "reason_code",
+    [
+        "framework-callback",
+        "serialized-field",
+        "public-api",
+        "test-seam",
+        "intentional-reservation",
+        "accepted-debt",
+    ],
+)
+def test_all_documented_reason_codes_are_accepted(reason_code: str) -> None:
+    assert _decisions.loads(_policy(reason_code=reason_code))[0].reason_code == reason_code
+
+
+def test_unknown_reason_code_is_rejected() -> None:
+    with pytest.raises(_decisions.DecisionPolicyError, match="unknown reason_code"):
+        _decisions.loads(_policy(reason_code="misc"))
+
+
+def test_blank_prose_reason_is_rejected() -> None:
+    with pytest.raises(_decisions.DecisionPolicyError, match="non-empty reason"):
+        _decisions.loads(_policy(reason="   "))
+
+
+def test_duplicate_decision_identity_is_rejected() -> None:
+    duplicate = _policy() + "\n" + _policy(reason="Duplicate prose.")
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="duplicate decision"):
+        _decisions.loads(duplicate)
+
+
+def test_stale_decision_is_rejected() -> None:
+    decisions = _decisions.loads(_policy())
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="stale decision"):
+        _decisions.apply([], decisions)
+
+
+def test_expired_decision_is_rejected() -> None:
+    text = _policy() + "expiry = 2026-07-13\n"
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="expired decision"):
+        _decisions.loads(text, today=date(2026, 7, 14))
+
+
+def test_expiry_today_is_still_valid() -> None:
+    text = _policy() + "expiry = 2026-07-14\n"
+
+    decision = _decisions.loads(text, today=date(2026, 7, 14))[0]
+
+    assert decision.expiry == date(2026, 7, 14)
+
+
+def test_expiry_must_be_a_date_not_a_datetime() -> None:
+    text = _policy() + "expiry = 2026-07-14T00:00:00Z\n"
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="expiry must be a TOML date"):
+        _decisions.loads(text, today=date(2026, 7, 14))

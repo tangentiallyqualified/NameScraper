@@ -1,4 +1,5 @@
 """Run the full audit pipeline without leaving generated-output changes behind."""
+
 from __future__ import annotations
 
 import os
@@ -6,8 +7,8 @@ import stat
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
-
 GENERATED_ROOT = Path("docs") / "audit"
+GENERATED_FILES = {Path("audit.sarif")}
 POLICY_INPUTS = {GENERATED_ROOT / "doc-ledger.toml"}
 _REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
@@ -16,8 +17,7 @@ class UnsafeGeneratedTreeError(RuntimeError):
     def __init__(self, paths: list[str]) -> None:
         self.paths = sorted(paths)
         super().__init__(
-            "unsafe generated output tree contains link-like objects: "
-            + ", ".join(self.paths)
+            "unsafe generated output tree contains link-like objects: " + ", ".join(self.paths)
         )
 
 
@@ -100,26 +100,72 @@ def _tree_entries(repo_root: Path) -> tuple[list[tuple[Path, str]], list[Path]]:
 def snapshot_generated(repo_root: Path) -> dict[str, bytes]:
     """Capture generated-root files, excluding policy inputs."""
     objects, _directories = _tree_entries(repo_root)
-    return {
+    snapshot = {
         path.relative_to(repo_root).as_posix(): path.read_bytes()
         for path, kind in sorted(objects, key=lambda item: item[0].as_posix())
         if kind == "file"
     }
+    for relative in GENERATED_FILES:
+        path = repo_root / relative
+        if _path_kind(path) == "file":
+            snapshot[relative.as_posix()] = path.read_bytes()
+    return snapshot
 
 
 def _unsafe_preexisting_links(repo_root: Path) -> list[str]:
+    unsafe_files = [
+        relative.as_posix()
+        for relative in GENERATED_FILES
+        if _path_kind(repo_root / relative) in {"symlink", "reparse"}
+    ]
     generated_root = repo_root / GENERATED_ROOT
     root_kind = _path_kind(generated_root)
     if root_kind in {"symlink", "reparse"}:
-        return [GENERATED_ROOT.as_posix()]
+        return sorted([GENERATED_ROOT.as_posix(), *unsafe_files])
     if root_kind != "directory":
-        return []
+        return sorted(unsafe_files)
     objects, _directories = _tree_entries(repo_root)
     return sorted(
-        path.relative_to(repo_root).as_posix()
-        for path, kind in objects
-        if kind in {"symlink", "reparse"}
+        unsafe_files
+        + [
+            path.relative_to(repo_root).as_posix()
+            for path, kind in objects
+            if kind in {"symlink", "reparse"}
+        ]
     )
+
+
+def _validated_snapshot_entry(
+    repo_root: Path, relative: str, content: bytes
+) -> tuple[PurePosixPath, Path, bytes]:
+    generated_parts = tuple(GENERATED_ROOT.parts)
+    policy_parts = {tuple(path.parts) for path in POLICY_INPUTS}
+    generated_files = {PurePosixPath(path.as_posix()) for path in GENERATED_FILES}
+    if not isinstance(relative, str) or "\x00" in relative or "\\" in relative:
+        raise ValueError(f"invalid snapshot path: {relative!r}")
+    pure = PurePosixPath(relative)
+    parts = pure.parts
+    is_generated_file = pure in generated_files
+    if not is_generated_file and (
+        len(parts) <= len(generated_parts) or parts[: len(generated_parts)] != generated_parts
+    ):
+        raise ValueError(f"invalid snapshot path: {relative!r}")
+    if (
+        pure.as_posix() != relative
+        or any(part in {".", ".."} for part in parts)
+        or any(":" in part for part in parts)
+        or any(parts[: len(policy)] == policy for policy in policy_parts)
+    ):
+        raise ValueError(f"invalid snapshot path: {relative!r}")
+    if not isinstance(content, bytes):
+        raise ValueError(f"invalid snapshot content for path: {relative!r}")
+    native_target = Path(os.path.abspath(repo_root.joinpath(*parts)))
+    native_root = repo_root if is_generated_file else repo_root / GENERATED_ROOT
+    try:
+        native_target.relative_to(Path(os.path.abspath(native_root)))
+    except ValueError as exc:
+        raise ValueError(f"invalid snapshot path: {relative!r}") from exc
+    return pure, native_target, content
 
 
 def _validated_snapshot(
@@ -128,38 +174,17 @@ def _validated_snapshot(
     validated: dict[str, tuple[Path, bytes]] = {}
     pure_paths: set[PurePosixPath] = set()
     generated_parts = tuple(GENERATED_ROOT.parts)
-    policy_parts = {tuple(path.parts) for path in POLICY_INPUTS}
-    native_generated_root = Path(os.path.abspath(repo_root / GENERATED_ROOT))
-
+    generated_files = {PurePosixPath(path.as_posix()) for path in GENERATED_FILES}
     for relative, content in snapshot.items():
-        if (
-            not isinstance(relative, str)
-            or "\x00" in relative
-            or "\\" in relative
-        ):
-            raise ValueError(f"invalid snapshot path: {relative!r}")
-        pure = PurePosixPath(relative)
-        parts = pure.parts
-        if (
-            pure.as_posix() != relative
-            or len(parts) <= len(generated_parts)
-            or parts[:len(generated_parts)] != generated_parts
-            or any(part in {".", ".."} for part in parts)
-            or any(":" in part for part in parts)
-            or any(parts[:len(policy)] == policy for policy in policy_parts)
-        ):
-            raise ValueError(f"invalid snapshot path: {relative!r}")
-        if not isinstance(content, bytes):
-            raise ValueError(f"invalid snapshot content for path: {relative!r}")
-        native_target = Path(os.path.abspath(repo_root.joinpath(*parts)))
-        try:
-            native_target.relative_to(native_generated_root)
-        except ValueError as exc:
-            raise ValueError(f"invalid snapshot path: {relative!r}") from exc
+        pure, native_target, validated_content = _validated_snapshot_entry(
+            repo_root, relative, content
+        )
         pure_paths.add(pure)
-        validated[relative] = (native_target, content)
+        validated[relative] = (native_target, validated_content)
 
     for pure in pure_paths:
+        if pure in generated_files:
+            continue
         for length in range(len(generated_parts) + 1, len(pure.parts)):
             if PurePosixPath(*pure.parts[:length]) in pure_paths:
                 raise ValueError(f"invalid snapshot path hierarchy: {pure.as_posix()!r}")
@@ -182,6 +207,12 @@ def restore_generated(repo_root: Path, snapshot: dict[str, bytes]) -> None:
                 _remove_link_like(path)
             else:
                 path.unlink()
+
+    for relative in GENERATED_FILES:
+        path = repo_root / relative
+        kind = _path_kind(path)
+        if kind != "missing" and relative.as_posix() not in validated:
+            _remove_link_like(path)
 
     for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
         try:

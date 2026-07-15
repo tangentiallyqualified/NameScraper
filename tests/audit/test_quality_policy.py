@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
+
+import pytest
+
+from scripts.audit import __main__ as cli
+from scripts.audit import _artifacts, _decisions, _ratchets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_LINE_LENGTH = 100
@@ -58,3 +64,92 @@ def test_audit_policy_mirrors_ruff_policy_with_structured_exceptions() -> None:
     assert policy["format"]["line_length"] == EXPECTED_LINE_LENGTH
     assert policy["lint"]["select"] == EXPECTED_LINT_SELECT
     assert policy["lint"]["exceptions"] == EXPECTED_EXCEPTIONS
+
+
+def _decision_policy(**overrides: str) -> str:
+    values = {
+        "analyzer": "vulture",
+        "rule": "unused-method",
+        "path": "plex_renamer/gui.py",
+        "symbol": "plex_renamer.gui.Window.paintEvent#1",
+        "reason_code": "framework-callback",
+        "reason": "Qt invokes this QWidget override.",
+    }
+    values.update(overrides)
+    return "[[decision]]\n" + "".join(
+        f"{key} = {json.dumps(value)}\n" for key, value in values.items()
+    )
+
+
+def _write_decisions(repo: Path, text: str) -> None:
+    path = repo / "scripts" / "audit" / "decisions.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def test_quality_collection_excludes_an_exact_decision(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_decisions(
+        synthetic_repo,
+        _decision_policy(
+            rule="unused-function",
+            path="plex_renamer/alpha.py",
+            symbol="plex_renamer.alpha.dead_function#1",
+            reason_code="accepted-debt",
+            reason="Synthetic fixture debt.",
+        ),
+    )
+    monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: [])
+    monkeypatch.setattr(
+        _ratchets,
+        "_run_policy_pyright",
+        lambda _root, _python_files, _legacy_python_files: [],
+    )
+
+    current = _ratchets.collect_current(synthetic_repo)
+
+    assert not any(
+        finding["symbol"] == "plex_renamer.alpha.dead_function#1" for finding in current["findings"]
+    )
+
+
+def test_quality_collection_rejects_a_stale_repo_decision(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_decisions(
+        synthetic_repo,
+        _decision_policy(symbol="plex_renamer.gui.Missing.paintEvent#1"),
+    )
+    monkeypatch.setattr(_ratchets, "_run_policy_ruff", lambda _root: [])
+    monkeypatch.setattr(
+        _ratchets,
+        "_run_policy_pyright",
+        lambda _root, _python_files, _legacy_python_files: [],
+    )
+
+    with pytest.raises(_decisions.DecisionPolicyError, match="stale decision"):
+        _ratchets.collect_current(synthetic_repo)
+
+
+def test_findings_stage_writes_rich_review_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    review = [
+        {
+            "analyzer": "vulture",
+            "rule": "unused-method",
+            "path": "plex_renamer/gui.py",
+            "symbol": "plex_renamer.gui.Window.paintEvent#1",
+            "decision": None,
+            "allowlisted": False,
+        }
+    ]
+    monkeypatch.setattr(
+        cli,
+        "_collect_review_findings",
+        lambda _root: review,
+    )
+
+    assert cli._run_findings(tmp_path, None) == 0
+    assert _artifacts.read_artifact(tmp_path, "findings")["findings"] == review

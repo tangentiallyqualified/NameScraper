@@ -11,14 +11,17 @@ from . import (
     _analyze,
     _artifacts,
     _coverage,
+    _decisions,
     _diff,
     _docs_ledger,
     _graph,
     _inventory,
     _metrics,
+    _ratchet_identity,
     _ratchets,
     _render_code_index,
     _render_human,
+    _render_sarif,
     _toolchain,
     _verify,
 )
@@ -29,9 +32,69 @@ HARD_STAGES = {"inventory", "graph"}
 _ascii = _artifacts.ascii_safe
 
 
+def _collect_review_findings(repo_root: Path) -> list[dict]:
+    baseline_path = repo_root / "scripts" / "audit" / "quality-baseline.json"
+    baseline = _ratchets._load_baseline(repo_root) if baseline_path.exists() else {}
+    inventory = _inventory.build_inventory(repo_root)
+    graph = _graph.build_graph(repo_root, inventory)
+    analysis = _analyze.run_analysis(repo_root, inventory, graph)
+    policy_ruff = _ratchets._run_policy_ruff(repo_root)
+    records = _ratchets._repository_python_records(repo_root)
+    python_files = sorted(record["path"] for record in records)
+    legacy = _ratchets._normalized_python_files(
+        baseline.get("typing", {}).get("legacy_python_files")
+    )
+    policy_pyright = (
+        _ratchets._run_policy_pyright(repo_root, python_files, legacy)
+        if (repo_root / "pyrightconfig.json").exists()
+        else []
+    )
+    failed = _ratchets._failed_analyzers(analysis)
+    if failed:
+        raise _ratchets.QualityEvidenceError(
+            "quality evidence unavailable from: " + ", ".join(failed)
+        )
+    analysis_findings = [
+        finding for finding in analysis.get("findings", []) if finding.get("source") != "ruff"
+    ]
+    raw_findings = (
+        [finding for finding in analysis_findings if finding.get("source") != "vulture"]
+        + _ratchet_identity.qualify_vulture_findings(
+            repo_root,
+            [finding for finding in analysis_findings if finding.get("source") == "vulture"],
+        )
+        + policy_ruff
+        + policy_pyright
+    )
+    findings = [
+        {
+            **finding,
+            "analyzer": finding.get("source"),
+            "path": str(finding.get("path") or "").replace("\\", "/"),
+        }
+        for finding in raw_findings
+        if finding.get("category") != "complexity"
+    ]
+    findings.sort(key=lambda finding: _ratchets._identity_sort_key(_ratchets._identity(finding)))
+    return _decisions.apply(
+        findings, _decisions.load(repo_root / "scripts" / "audit" / "decisions.toml")
+    )
+
+
+def _run_findings(repo_root: Path, options: object) -> int:
+    try:
+        findings = _collect_review_findings(repo_root)
+        _artifacts.write_artifact(repo_root, "findings", {"findings": findings})
+    except (OSError, ValueError, _ratchets.QualityEvidenceError) as exc:
+        print(_ascii(f"findings: failed - {exc}"))
+        return 1
+    print(f"findings: {len(findings)} normalized findings")
+    return 0
+
+
 def _render_all(repo_root: Path, options) -> int:
     rc = 0
-    for mod in (_render_code_index, _render_human, _docs_ledger):
+    for mod in (_render_code_index, _render_human, _render_sarif, _docs_ledger):
         try:
             rc = max(rc, mod.run(repo_root, options))
         except _artifacts.MissingArtifactError:
@@ -46,6 +109,7 @@ STAGES: list[tuple[str, object]] = [
     ("inventory", _inventory.run),
     ("graph", _graph.run),
     ("analyze", _analyze.run),
+    ("findings", _run_findings),
     ("coverage", _coverage.run),
     ("metrics", _metrics.run),
     ("render", _render_all),

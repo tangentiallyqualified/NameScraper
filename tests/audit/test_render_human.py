@@ -26,15 +26,31 @@ def test_replace_generated_creates_section_when_missing():
 
 def _run_all_stages(repo: Path) -> None:
     from audit import _artifacts, _graph, _inventory, _metrics
+
     _inventory.run(repo, None)
     _graph.run(repo, None)
-    _artifacts.write_artifact(repo, "analysis", {
-        "findings": [{"source": "vulture", "path": "plex_renamer/alpha.py", "line": 9,
-                      "symbol": "dead_function", "category": "dead-code",
-                      "assessment": "high-confidence", "allowlisted": False,
-                      "rule": "unused-function", "message": "unused function 'dead_function'",
-                      "confidence": 60}],
-        "per_file": {}, "tool_status": {}})
+    _artifacts.write_artifact(
+        repo,
+        "analysis",
+        {
+            "findings": [
+                {
+                    "source": "vulture",
+                    "path": "plex_renamer/alpha.py",
+                    "line": 9,
+                    "symbol": "dead_function",
+                    "category": "dead-code",
+                    "assessment": "high-confidence",
+                    "allowlisted": False,
+                    "rule": "unused-function",
+                    "message": "unused function 'dead_function'",
+                    "confidence": 60,
+                }
+            ],
+            "per_file": {},
+            "tool_status": {},
+        },
+    )
     _artifacts.write_artifact(repo, "coverage", {"available": False, "modules": {}})
     _metrics.run(repo, None)
 
@@ -42,7 +58,9 @@ def _run_all_stages(repo: Path) -> None:
 def test_overview_contains_mermaid_and_dead_checklist(synthetic_repo: Path):
     _run_all_stages(synthetic_repo)
     assert _render_human.run(synthetic_repo, None) == 0
-    overview = (synthetic_repo / "docs" / "audit" / "maps" / "overview.md").read_text(encoding="utf-8")
+    overview = (synthetic_repo / "docs" / "audit" / "maps" / "overview.md").read_text(
+        encoding="utf-8"
+    )
     assert "```mermaid" in overview
     assert "- [ ] `plex_renamer/alpha.py:9` dead_function" in overview
     assert "Vulture 60%" in overview
@@ -59,45 +77,51 @@ def test_rerun_preserves_curated_prose(synthetic_repo: Path):
     assert overview_path.read_text(encoding="utf-8").startswith("CURATED NOTE")
 
 
-def test_coverage_digest_flows_through_metrics_to_rendered_provenance(
-        synthetic_repo: Path):
+def test_coverage_digest_flows_through_metrics_to_rendered_provenance(synthetic_repo: Path):
     from audit import _artifacts, _graph, _inventory, _metrics
 
     _inventory.run(synthetic_repo, None)
     _graph.run(synthetic_repo, None)
-    _artifacts.write_artifact(synthetic_repo, "analysis", {
-        "findings": [], "per_file": {}, "tool_status": {},
-    })
+    _artifacts.write_artifact(
+        synthetic_repo,
+        "analysis",
+        {
+            "findings": [],
+            "per_file": {},
+            "tool_status": {},
+        },
+    )
     digest = _artifacts.input_digest(synthetic_repo)
-    _artifacts.write_artifact(synthetic_repo, "coverage", {
-        "available": True,
-        "input_digest": digest,
-        "source": "imported",
-        "stale": False,
-        "partial": False,
-        "failed": False,
-        "modules": {},
-    })
+    _artifacts.write_artifact(
+        synthetic_repo,
+        "coverage",
+        {
+            "available": True,
+            "input_digest": digest,
+            "source": "imported",
+            "stale": False,
+            "partial": False,
+            "failed": False,
+            "modules": {},
+        },
+    )
 
     assert _metrics.run(synthetic_repo, None) == 0
     assert _render_human.run(synthetic_repo, None) == 0
 
-    overview = (
-        synthetic_repo / "docs" / "audit" / "maps" / "overview.md"
-    ).read_text(encoding="utf-8")
+    overview = (synthetic_repo / "docs" / "audit" / "maps" / "overview.md").read_text(
+        encoding="utf-8"
+    )
     assert f"| matched | coverage.py | {digest[:12]} | - |" in overview
 
 
-def test_run_stamps_every_generated_human_view_with_input_digest(
-        synthetic_repo: Path):
+def test_run_stamps_every_generated_human_view_with_input_digest(synthetic_repo: Path):
     from audit import _artifacts
 
     _run_all_stages(synthetic_repo)
     assert _render_human.run(synthetic_repo, None) == 0
     digest = _artifacts.read_artifact(synthetic_repo, "metrics")["input_digest"]
-    outputs = sorted(
-        (synthetic_repo / "docs" / "audit" / "maps").glob("*.md")
-    )
+    outputs = sorted((synthetic_repo / "docs" / "audit" / "maps").glob("*.md"))
 
     assert outputs
     assert all(
@@ -118,8 +142,13 @@ def test_overview_shows_partial_coverage_reason(synthetic_repo: Path):
     metrics = {
         "modules": {},
         "headline": {
-            "files": 0, "total_loc": 0, "avg_coverage": None, "coverage_partial": True,
-            "cycles": 0, "modules_over_complexity": 0, "dead_high_confidence": 0,
+            "files": 0,
+            "total_loc": 0,
+            "avg_coverage": None,
+            "coverage_partial": True,
+            "cycles": 0,
+            "modules_over_complexity": 0,
+            "dead_high_confidence": 0,
         },
     }
     analysis = {"findings": []}
@@ -132,15 +161,23 @@ def _report_metrics(**overrides) -> dict:
         "input_digest": "abcdef123456" + "0" * 52,
         "modules": {},
         "headline": {
-            "files": 0, "total_loc": 0, "avg_coverage": None,
-            "module_avg_coverage": None, "cycles": 0,
-            "modules_over_complexity": 0, "dead_high_confidence": 0,
+            "files": 0,
+            "total_loc": 0,
+            "avg_coverage": None,
+            "module_avg_coverage": None,
+            "cycles": 0,
+            "modules_over_complexity": 0,
+            "dead_high_confidence": 0,
             "coverage_usable": False,
         },
         "coverage": {
-            "available": False, "usable": False, "source": None,
+            "available": False,
+            "usable": False,
+            "source": None,
             "input_digest": None,
-            "stale": False, "partial": False, "failed": False,
+            "stale": False,
+            "partial": False,
+            "failed": False,
             "reason": "no data",
         },
         "tool_status": {
@@ -182,7 +219,9 @@ def test_failed_vulture_marks_every_empty_dead_tier_unavailable(synthetic_repo: 
     metrics = _report_metrics()
     metrics["tool_status"]["vulture"] = {"ok": False, "reason": "crashed"}
     metrics["dead_code"] = {
-        "usable": False, "source": "vulture", "reason": "crashed",
+        "usable": False,
+        "source": "vulture",
+        "reason": "crashed",
         "observed_findings": 0,
     }
 
@@ -206,20 +245,31 @@ def test_dead_code_sections_are_confidence_ordered_and_show_evidence(synthetic_r
         ("d.py", "ignored", "low-confidence", True),
     ]
     for line, (path, symbol, assessment, allowlisted) in enumerate(examples, 1):
-        findings.append({
-            "category": "dead-code", "path": path, "line": line, "symbol": symbol,
-            "assessment": assessment, "allowlisted": allowlisted,
-            "allowlist_reason": "framework hook" if allowlisted else None,
-            "confidence": 85 if assessment == "high-confidence" else 60,
-            "production_references": ["plex_renamer.user"] if assessment == "entrypoint" else [],
-            "test_references": ["tests/test_use.py"] if assessment == "test-referenced" else [],
-        })
+        findings.append(
+            {
+                "category": "dead-code",
+                "path": path,
+                "line": line,
+                "symbol": symbol,
+                "assessment": assessment,
+                "allowlisted": allowlisted,
+                "allowlist_reason": "framework hook" if allowlisted else None,
+                "confidence": 85 if assessment == "high-confidence" else 60,
+                "production_references": ["plex_renamer.user"]
+                if assessment == "entrypoint"
+                else [],
+                "test_references": ["tests/test_use.py"] if assessment == "test-referenced" else [],
+            }
+        )
     overview = _render_human.render_overview(
         synthetic_repo, {"modules": {}}, metrics, {"findings": findings}
     )
     headings = [
-        "### High confidence", "### Medium confidence", "### Protected or ambiguous",
-        "### Test referenced", "### Allowlisted",
+        "### High confidence",
+        "### Medium confidence",
+        "### Protected or ambiguous",
+        "### Test referenced",
+        "### Allowlisted",
     ]
     positions = [overview.index(heading) for heading in headings]
     assert positions == sorted(positions)
@@ -232,20 +282,33 @@ def test_dead_code_sections_are_confidence_ordered_and_show_evidence(synthetic_r
 def test_least_covered_table_is_ordered_and_capped_at_ten(synthetic_repo: Path):
     modules = {
         f"plex_renamer/m{i:02}.py": {
-            "coverage_percent": float(i), "coverage_statements": 10,
-            "coverage_covered": i, "loc": 1, "max_complexity": 1, "fan_in": 0,
+            "coverage_percent": float(i),
+            "coverage_statements": 10,
+            "coverage_covered": i,
+            "loc": 1,
+            "max_complexity": 1,
+            "fan_in": 0,
         }
         for i in range(12)
     }
     modules["plex_renamer/no_statements.py"] = {
-        "coverage_percent": 0.0, "coverage_statements": 0,
-        "coverage_covered": 0, "loc": 1, "max_complexity": 0, "fan_in": 0,
+        "coverage_percent": 0.0,
+        "coverage_statements": 0,
+        "coverage_covered": 0,
+        "loc": 1,
+        "max_complexity": 0,
+        "fan_in": 0,
     }
     metrics = _report_metrics(modules=modules)
-    metrics["coverage"].update({
-        "available": True, "usable": True, "source": "imported",
-        "input_digest": metrics["input_digest"], "reason": None,
-    })
+    metrics["coverage"].update(
+        {
+            "available": True,
+            "usable": True,
+            "source": "imported",
+            "input_digest": metrics["input_digest"],
+            "reason": None,
+        }
+    )
     metrics["headline"].update({"avg_coverage": 5.5, "module_avg_coverage": 5.5})
     overview = _render_human.render_overview(
         synthetic_repo, {"modules": {}}, metrics, {"findings": []}
@@ -259,17 +322,67 @@ def test_least_covered_table_is_ordered_and_capped_at_ten(synthetic_repo: Path):
 
 
 def test_stale_coverage_is_explicitly_ignored(synthetic_repo: Path):
-    metrics = _report_metrics(modules={
-        "plex_renamer/alpha.py": {
-            "coverage_percent": None, "loc": 1, "max_complexity": 1, "fan_in": 0,
-        },
-    })
-    metrics["coverage"].update({
-        "available": True, "stale": True, "source": "imported",
-        "input_digest": "deadbeef0000" + "0" * 52,
-    })
+    metrics = _report_metrics(
+        modules={
+            "plex_renamer/alpha.py": {
+                "coverage_percent": None,
+                "loc": 1,
+                "max_complexity": 1,
+                "fan_in": 0,
+            },
+        }
+    )
+    metrics["coverage"].update(
+        {
+            "available": True,
+            "stale": True,
+            "source": "imported",
+            "input_digest": "deadbeef0000" + "0" * 52,
+        }
+    )
     overview = _render_human.render_overview(
         synthetic_repo, {"modules": {}}, metrics, {"findings": []}
     )
     assert "| mismatched | imported | deadbeef0000 | stale" in overview
     assert "Coverage evidence ignored: stale" in overview
+
+
+def test_live_findings_review_is_generated_from_findings_and_decisions() -> None:
+    findings = [
+        {
+            "analyzer": "vulture",
+            "rule": "unused-method",
+            "path": "plex_renamer/gui.py",
+            "line": 12,
+            "column": 5,
+            "symbol": "plex_renamer.gui.Window.paintEvent#1",
+            "message": "unused method 'paintEvent'",
+            "decision": {
+                "reason_code": "framework-callback",
+                "reason": "Qt invokes this override.",
+                "expiry": None,
+            },
+        },
+        {
+            "analyzer": "ruff",
+            "rule": "F401",
+            "path": "plex_renamer/alpha.py",
+            "line": 3,
+            "column": 1,
+            "symbol": "plex_renamer.alpha::unused-import::json#1",
+            "message": "json imported but unused",
+            "decision": None,
+        },
+    ]
+
+    markdown = _render_human.render_findings_review(list(reversed(findings)))
+
+    assert "JSON and SARIF are the source of truth" in markdown
+    active = markdown.split("## Active decisions", 1)[1].split("## Open findings", 1)[0]
+    assert "framework-callback" in active
+    assert "Qt invokes this override." in active
+    assert "plex_renamer.gui.Window.paintEvent#1" in active
+    open_findings = markdown.split("## Open findings", 1)[1]
+    assert "`plex_renamer/alpha.py:3:1`" in open_findings
+    assert "json imported but unused" in open_findings
+    assert "paintEvent" not in open_findings

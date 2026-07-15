@@ -49,6 +49,7 @@ _DOC_LEDGER = "docs/audit/doc-ledger.toml"
 _GENERATED_AUDIT_FILES = {
     "docs/audit/CHANGES.md",
     "docs/audit/doc-status.md",
+    "docs/audit/findings-live.md",
     "scripts/audit/quality-baseline.json",
 }
 _GENERATED_AUDIT_PREFIXES = (
@@ -62,6 +63,7 @@ PRODUCERS = {
     "inventory": "inventory",
     "graph": "graph",
     "analysis": "analyze",
+    "findings": "findings",
     "coverage": "coverage",
     "metrics": "metrics",
 }
@@ -133,7 +135,7 @@ def package_of(path: str) -> str:
     return parts[1] if len(parts) > 2 else "root"
 
 
-def write_artifact(repo_root: Path, name: str, payload: dict) -> Path:
+def write_artifact(repo_root: Path, name: str, payload: dict[str, object]) -> Path:
     stamped = {
         **payload,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -144,11 +146,14 @@ def write_artifact(repo_root: Path, name: str, payload: dict) -> Path:
     return path
 
 
-def read_artifact(repo_root: Path, name: str) -> dict:
+def read_artifact(repo_root: Path, name: str) -> dict[str, object]:
     path = repo_root / AUDIT_DIR_NAME / f"{name}.json"
     if not path.exists():
         raise MissingArtifactError(name)
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Artifact '{name}.json' has unsupported schema")
+    return payload
 
 
 def _git(repo_root: Path, *args: str) -> str | None:

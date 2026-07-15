@@ -4,9 +4,8 @@ import json
 from pathlib import Path
 
 import pytest
-
-from audit import _artifacts
 from audit import __main__ as cli
+from audit import _artifacts
 
 
 def test_full_run_produces_outputs(synthetic_repo: Path):
@@ -41,9 +40,12 @@ def _write_baseline(repo_root: Path, payload: dict) -> None:
 
 
 def test_check_reports_stale_when_input_digest_changes(synthetic_repo: Path, capsys):
-    _write_baseline(synthetic_repo, {
-        "input_digest": _artifacts.input_digest(synthetic_repo),
-    })
+    _write_baseline(
+        synthetic_repo,
+        {
+            "input_digest": _artifacts.input_digest(synthetic_repo),
+        },
+    )
     alpha = synthetic_repo / "plex_renamer" / "alpha.py"
     alpha.write_text(alpha.read_text(encoding="utf-8") + "\nZ = 1\n", encoding="utf-8")
 
@@ -56,10 +58,13 @@ def test_check_reports_stale_when_input_digest_changes(synthetic_repo: Path, cap
 
 
 def test_check_current_baseline(synthetic_repo: Path, capsys):
-    _write_baseline(synthetic_repo, {
-        "commit": "deliberately-not-head",
-        "input_digest": _artifacts.input_digest(synthetic_repo),
-    })
+    _write_baseline(
+        synthetic_repo,
+        {
+            "commit": "deliberately-not-head",
+            "input_digest": _artifacts.input_digest(synthetic_repo),
+        },
+    )
 
     rc = cli.main(["--check", "--repo-root", str(synthetic_repo)])
 
@@ -68,9 +73,12 @@ def test_check_current_baseline(synthetic_repo: Path, capsys):
 
 
 def test_check_reports_stale_when_inventoried_doc_changes(synthetic_repo: Path, capsys):
-    _write_baseline(synthetic_repo, {
-        "input_digest": _artifacts.input_digest(synthetic_repo),
-    })
+    _write_baseline(
+        synthetic_repo,
+        {
+            "input_digest": _artifacts.input_digest(synthetic_repo),
+        },
+    )
     (synthetic_repo / "README.md").write_text("# dirty only\n", encoding="utf-8")
 
     assert cli.main(["--check", "--repo-root", str(synthetic_repo)]) == 0
@@ -217,9 +225,7 @@ def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
     ) -> int:
         if newline is None:
             data = data.replace("\r\n", "\n").replace("\n", "\r\n")
-        return original_write_text(
-            path, data, encoding=encoding, errors=errors, newline=""
-        )
+        return original_write_text(path, data, encoding=encoding, errors=errors, newline="")
 
     monkeypatch.setattr(Path, "write_text", windows_default_write_text)
 
@@ -232,9 +238,7 @@ def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
     } == seeded
 
 
-def test_one_generation_after_module_rename_is_immediately_verifiable(
-    synthetic_repo: Path, capsys
-):
+def test_one_generation_after_module_rename_is_immediately_verifiable(synthetic_repo: Path, capsys):
     assert cli.main(["--repo-root", str(synthetic_repo)]) in (0, 2)
     (synthetic_repo / "plex_renamer" / "alpha.py").rename(
         synthetic_repo / "plex_renamer" / "renamed.py"
@@ -255,10 +259,12 @@ def test_coverage_max_age_help_marks_option_as_legacy(capsys):
 
 
 @pytest.mark.parametrize("other", ["--fast", "--check", "inventory"])
-def test_verify_is_mutually_exclusive_with_other_run_modes(
-    synthetic_repo: Path, other: str
-):
+def test_verify_is_mutually_exclusive_with_other_run_modes(synthetic_repo: Path, other: str):
     with pytest.raises(SystemExit) as exc_info:
         cli.main(["--verify", other, "--repo-root", str(synthetic_repo)])
 
     assert exc_info.value.code == 2
+
+
+def test_findings_stage_precedes_rendering() -> None:
+    assert cli.STAGE_NAMES.index("findings") < cli.STAGE_NAMES.index("render")

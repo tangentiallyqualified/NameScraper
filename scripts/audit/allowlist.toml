@@ -1,6 +1,6 @@
-# Known-legitimate symbols that dead-code analysis would otherwise flag.
-# Each entry may set `symbol` and/or `path` (fnmatch patterns) and must give a reason.
-ignore = [
+# Archive only. Live matching moved to exact records in decisions.toml.
+# These wildcard records preserve historical prose and must never be applied by the audit.
+historical_ignore = [
   { symbol = "closeEvent", reason = "Qt event handler, called by framework" },
   { symbol = "eventFilter", reason = "Qt event handler, called by framework" },
   { symbol = "paintEvent", reason = "Qt event handler, called by framework" },

@@ -9,6 +9,7 @@ import tomllib
 from pathlib import Path
 
 from . import _analyze, _coverage, _graph, _inventory, _quality_refresh, _ratchet_identity
+from ._decisions import filter_open
 
 _POLICY = tomllib.loads((Path(__file__).parent / "policy.toml").read_text(encoding="utf-8"))
 MAX_CYCLOMATIC_COMPLEXITY = _POLICY["quality"]["max_cyclomatic_complexity"]
@@ -447,9 +448,7 @@ def _quality_findings(
     policy_ruff: list[dict],
     policy_pyright: list[dict],
 ) -> list[dict]:
-    analysis_findings = [
-        finding for finding in analysis.get("findings", []) if finding.get("source") != "ruff"
-    ]
+    analysis_findings = [f for f in analysis.get("findings", []) if f.get("source") != "ruff"]
     raw_findings = (
         [finding for finding in analysis_findings if finding.get("source") != "vulture"]
         + _ratchet_identity.qualify_vulture_findings(
@@ -467,8 +466,9 @@ def _quality_findings(
             "symbol": finding.get("symbol"),
         }
         for finding in raw_findings
-        if not finding.get("allowlisted") and finding.get("category") != "complexity"
+        if finding.get("category") != "complexity"
     ]
+    findings = filter_open(repo_root, findings)
     findings.sort(key=lambda finding: _identity_sort_key(_identity(finding)))
     return findings
 

@@ -250,7 +250,7 @@
    "max_complexity": 21
   },
   "scripts/audit/_verify.py": {
-   "max_complexity": 20
+   "max_complexity": 19
   },
   "scripts/test_fast_runner.py": {
    "max_complexity": 23
@@ -24413,12 +24413,6 @@
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_verify.py",
-   "rule": "I001",
-   "symbol": "scripts.audit._verify::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "scripts/audit/_verify.py",
    "rule": "SIM105",
    "symbol": "scripts.audit._verify.restore_generated::suppressible-exception::Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`#1"
   },
@@ -24487,12 +24481,6 @@
    "path": "tests/audit/test_cli.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.audit.test_cli::reportAttributeAccessIssue::\"_artifacts\" is unknown import symbol#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_cli.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_cli::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24859,12 +24847,6 @@
    "path": "tests/audit/test_verify.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.audit.test_verify::reportAttributeAccessIssue::\"_verify\" is unknown import symbol#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_verify.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_verify::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",

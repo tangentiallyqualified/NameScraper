@@ -1,8 +1,10 @@
 """Stage 6b: human-readable maps with generated/curated marker sections."""
+
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import cast
 
 from . import _artifacts
 
@@ -15,9 +17,16 @@ KNOWN_TOOLS = ("ruff", "vulture", "radon", "deps", "contracts")
 DEAD_SECTIONS = (
     ("High confidence", {"high-confidence"}),
     ("Medium confidence", {"medium-confidence"}),
-    ("Protected or ambiguous", {
-        "entrypoint", "dynamic-or-unresolved", "referenced", "low-confidence", "unassessed",
-    }),
+    (
+        "Protected or ambiguous",
+        {
+            "entrypoint",
+            "dynamic-or-unresolved",
+            "referenced",
+            "low-confidence",
+            "unassessed",
+        },
+    ),
     ("Test referenced", {"test-referenced"}),
 )
 
@@ -113,19 +122,23 @@ def _dead_checklist(analysis: dict, metrics: dict) -> str:
     )
     unavailable = "_Dead-code evidence unavailable; no clean conclusion can be drawn._"
     if not dead_usable:
-        parts.append(_unavailable(metrics, "vulture") + " Any findings below are incomplete evidence.")
+        parts.append(
+            _unavailable(metrics, "vulture") + " Any findings below are incomplete evidence."
+        )
 
     for title, assessments in DEAD_SECTIONS:
         tier = sorted(
             (
-                f for f in findings
-                if not f.get("allowlisted")
-                and f.get("assessment", "unassessed") in assessments
+                f
+                for f in findings
+                if not f.get("allowlisted") and f.get("assessment", "unassessed") in assessments
             ),
             key=lambda f: (f["path"], f.get("line", 0), f.get("symbol") or ""),
         )
-        body = "\n".join(_dead_line(f) for f in tier) if tier else (
-            "_None._" if dead_usable else unavailable
+        body = (
+            "\n".join(_dead_line(f) for f in tier)
+            if tier
+            else ("_None._" if dead_usable else unavailable)
         )
         parts.append(f"### {title}\n\n{body}")
 
@@ -135,7 +148,8 @@ def _dead_checklist(analysis: dict, metrics: dict) -> str:
     )
     allowlisted_body = (
         "\n".join(_dead_line(f, checkable=False) for f in allowlisted)
-        if allowlisted else ("_None._" if dead_usable else unavailable)
+        if allowlisted
+        else ("_None._" if dead_usable else unavailable)
     )
     parts.append(f"### Allowlisted\n\n{allowlisted_body}")
 
@@ -153,8 +167,9 @@ def _finding_list(analysis: dict, category: str, empty: str) -> str:
     return "\n".join(lines) if lines else empty
 
 
-def _tool_scoped_findings(analysis: dict, metrics: dict, category: str,
-                          empty: str, tool: str) -> str:
+def _tool_scoped_findings(
+    analysis: dict, metrics: dict, category: str, empty: str, tool: str
+) -> str:
     if not _tool_status(metrics, tool)["ok"]:
         return _unavailable(metrics, tool)
     return _finding_list(analysis, category, empty)
@@ -196,8 +211,7 @@ def _least_covered(metrics: dict) -> str:
     rows = [
         (path, rec)
         for path, rec in metrics["modules"].items()
-        if rec.get("coverage_percent") is not None
-        and (rec.get("coverage_statements") or 0) > 0
+        if rec.get("coverage_percent") is not None and (rec.get("coverage_statements") or 0) > 0
     ]
     rows.sort(key=lambda item: (item[1]["coverage_percent"], item[0]))
     if not rows:
@@ -221,13 +235,92 @@ def _effects_table(graph: dict) -> str:
     return "| Module | Effects |\n|---|---|\n" + "\n".join(rows)
 
 
+def _markdown_cell(value: object) -> str:
+    return str(value if value is not None else "-").replace("|", "\\|").replace("\n", " ")
+
+
+def _finding_sort_key(finding: dict) -> tuple[str, int, int, str, str]:
+    return (
+        str(finding.get("path") or ""),
+        int(finding.get("line") or 0),
+        int(finding.get("column") or 0),
+        str(finding.get("analyzer") or finding.get("source") or ""),
+        str(finding.get("symbol") or ""),
+    )
+
+
+def render_findings_review(findings: list[dict]) -> str:
+    """Render the disposable live review; normalized JSON/SARIF remain authoritative."""
+    decided = sorted((item for item in findings if item.get("decision")), key=_finding_sort_key)
+    open_findings = sorted(
+        (item for item in findings if not item.get("decision")), key=_finding_sort_key
+    )
+    decision_rows = []
+    for finding in decided:
+        decision = finding["decision"]
+        location = f"{finding.get('path')}:{finding.get('line', 1)}"
+        decision_rows.append(
+            "| "
+            + " | ".join(
+                _markdown_cell(value)
+                for value in (
+                    finding.get("analyzer") or finding.get("source"),
+                    finding.get("rule"),
+                    f"`{location}`",
+                    finding.get("symbol"),
+                    decision.get("reason_code"),
+                    decision.get("reason"),
+                    decision.get("expiry"),
+                )
+            )
+            + " |"
+        )
+    open_rows = []
+    for finding in open_findings:
+        location = f"{finding.get('path')}:{finding.get('line', 1)}:{finding.get('column') or 1}"
+        open_rows.append(
+            "| "
+            + " | ".join(
+                _markdown_cell(value)
+                for value in (
+                    finding.get("analyzer") or finding.get("source"),
+                    finding.get("rule"),
+                    f"`{location}`",
+                    finding.get("symbol"),
+                    finding.get("message"),
+                )
+            )
+            + " |"
+        )
+    decisions_table = (
+        "| Analyzer | Rule | Location | Qualified symbol | Reason code | Reason | Expiry |\n"
+        "|---|---|---|---|---|---|---|\n"
+        + ("\n".join(decision_rows) if decision_rows else "| - | - | - | - | - | None | - |")
+    )
+    open_table = (
+        "| Analyzer | Rule | Location | Qualified symbol | Message |\n"
+        "|---|---|---|---|---|\n"
+        + ("\n".join(open_rows) if open_rows else "| - | - | - | - | None |")
+    )
+    return (
+        "# Live audit findings\n\n"
+        "JSON and SARIF are the source of truth. This review is generated from normalized "
+        "findings and `scripts/audit/decisions.toml`; historical review prose is archive only.\n\n"
+        f"## Active decisions\n\n{decisions_table}\n\n"
+        f"## Open findings\n\n{open_table}\n"
+    )
+
+
 def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict) -> str:
     h = metrics["headline"]
     coverage_usable = metrics.get("coverage", {}).get("usable", h.get("coverage_usable", False))
-    cov = f"{h['avg_coverage']}%" if coverage_usable and h.get("avg_coverage") is not None else "n/a"
+    cov = (
+        f"{h['avg_coverage']}%" if coverage_usable and h.get("avg_coverage") is not None else "n/a"
+    )
     module_cov = (
         f"{h['module_avg_coverage']}%"
-        if coverage_usable and h.get("module_avg_coverage") is not None else "n/a"
+        if coverage_usable and h.get("module_avg_coverage") is not None
+        else "n/a"
     )
     if not coverage_usable:
         cov += f" ({_coverage_reason(metrics)} coverage run ignored)"
@@ -238,7 +331,8 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
     dead_high = h.get("dead_high_confidence") if vulture_ok else "n/a (vulture unavailable)"
     complex_table = (
         "| Module | Max CC |\n|---|---|\n" + "\n".join(_top10(metrics, "max_complexity"))
-        if radon_ok else _unavailable(metrics, "radon")
+        if radon_ok
+        else _unavailable(metrics, "radon")
     )
     parts = [
         "## Architecture\n\n" + _mermaid_packages(graph),
@@ -254,7 +348,8 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
         "## Least-covered modules\n\n" + _least_covered(metrics),
         "## Largest modules\n\n| Module | LOC |\n|---|---|\n" + "\n".join(_top10(metrics, "loc")),
         "## Most complex\n\n" + complex_table,
-        "## Most depended upon\n\n| Module | Fan-in |\n|---|---|\n" + "\n".join(_top10(metrics, "fan_in")),
+        "## Most depended upon\n\n| Module | Fan-in |\n|---|---|\n"
+        + "\n".join(_top10(metrics, "fan_in")),
         "## Dependency issues\n\n"
         + _tool_scoped_findings(
             analysis, metrics, "dependency", "_None. Declared dependencies match imports._", "deps"
@@ -300,6 +395,15 @@ def run(repo_root: Path, options) -> int:
     graph = _artifacts.read_artifact(repo_root, "graph")
     metrics = _artifacts.read_artifact(repo_root, "metrics")
     analysis = _artifacts.read_artifact(repo_root, "analysis")
+    try:
+        review = _artifacts.read_artifact(repo_root, "findings")
+    except _artifacts.MissingArtifactError:
+        review = analysis
+    raw_review_findings = review.get("findings", [])
+    modules = metrics.get("modules", {})
+    if not isinstance(raw_review_findings, list) or not isinstance(modules, dict):
+        raise ValueError("audit render artifacts have unsupported schemas")
+    review_findings = cast(list[dict], raw_review_findings)
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 
@@ -307,16 +411,23 @@ def run(repo_root: Path, options) -> int:
     existing = overview_path.read_text(encoding="utf-8") if overview_path.exists() else None
     _artifacts.write_text_lf(
         overview_path,
-        replace_generated(existing, "overview", render_overview(repo_root, graph, metrics, analysis)),
+        replace_generated(existing, "overview", render_overview(repo_root, graph, metrics, review)),
     )
 
-    packages = sorted({_package_of(p) for p in metrics["modules"]})
+    _artifacts.write_text_lf(
+        repo_root / "docs" / "audit" / "findings-live.md",
+        render_findings_review(review_findings),
+    )
+
+    packages = sorted({_package_of(str(path)) for path in modules})
     for package in packages:
         path = maps_dir / f"{package}.md"
         existing = path.read_text(encoding="utf-8") if path.exists() else None
         _artifacts.write_text_lf(
             path,
-            replace_generated(existing, f"map-{package}", _render_package_map(package, graph, metrics)),
+            replace_generated(
+                existing, f"map-{package}", _render_package_map(package, graph, metrics)
+            ),
         )
     print(f"render-human: overview + {len(packages)} package maps under docs/audit/maps/")
     return 0

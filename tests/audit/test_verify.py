@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
-import os
-import subprocess
-
 from audit import _verify
 
 
@@ -348,3 +347,17 @@ def test_verify_preserves_generated_root_that_was_initially_empty(tmp_path: Path
     assert result == (0, ["docs/audit/partial.md"])
     assert generated_root.is_dir()
     assert not any(generated_root.iterdir())
+
+
+def test_generated_sarif_drift_is_reported_and_restored(tmp_path: Path) -> None:
+    sarif = tmp_path / "audit.sarif"
+    sarif.write_text("before\n", encoding="utf-8")
+
+    def generate() -> int:
+        sarif.write_text("after\n", encoding="utf-8")
+        return 0
+
+    result = _verify.verify(tmp_path, generate)
+
+    assert result == (0, ["audit.sarif"])
+    assert sarif.read_text(encoding="utf-8") == "before\n"

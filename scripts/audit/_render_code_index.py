@@ -1,4 +1,5 @@
 """Stage 6a: tiered code index."""
+
 from __future__ import annotations
 
 import os
@@ -49,9 +50,12 @@ def _dead_tiers(record: dict, findings: list[dict] | None = None) -> dict[str, i
             tier = "allowlisted"
         else:
             assessment = finding.get("assessment", "low-confidence")
-            tier = assessment if assessment in {
-                "high-confidence", "medium-confidence", "low-confidence", "test-referenced"
-            } else "protected-or-ambiguous"
+            tier = (
+                assessment
+                if assessment
+                in {"high-confidence", "medium-confidence", "low-confidence", "test-referenced"}
+                else "protected-or-ambiguous"
+            )
         tiers[tier] += 1
     return tiers
 
@@ -76,8 +80,10 @@ def _flags_suffix(record: dict, findings: list[dict] | None = None) -> str:
 
 def _header(repo_root: Path, metrics: dict | None = None) -> str:
     digest = (metrics or {}).get("input_digest") or "unknown"
-    return (f"<!-- Generated from audit input {digest[:12]}; do not edit. "
-            f"regenerate: scripts\\audit.cmd --fast -->\n\n")
+    return (
+        f"<!-- Generated from audit input {digest[:12]}; do not edit. "
+        f"regenerate: scripts\\audit.cmd --fast -->\n\n"
+    )
 
 
 def _evidence_warnings(metrics: dict, analysis: dict | None) -> list[str]:
@@ -102,11 +108,10 @@ def _evidence_warnings(metrics: dict, analysis: dict | None) -> list[str]:
                 suffix = f" ({reason})" if reason else ""
                 impact = (
                     " its dead-code counts and clean claims are unavailable."
-                    if tool == "vulture" else " its findings are incomplete."
+                    if tool == "vulture"
+                    else " its findings are incomplete."
                 )
-                lines.append(
-                    f"> WARNING: Analyzer `{tool}` unavailable{suffix};{impact}"
-                )
+                lines.append(f"> WARNING: Analyzer `{tool}` unavailable{suffix};{impact}")
 
     coverage = metrics.get("coverage")
     if isinstance(coverage, dict):
@@ -118,8 +123,7 @@ def _evidence_warnings(metrics: dict, analysis: dict | None) -> list[str]:
     else:
         headline = metrics.get("headline", {})
         legacy_reasons = [
-            name for name in ("stale", "partial", "failed")
-            if headline.get(f"coverage_{name}")
+            name for name in ("stale", "partial", "failed") if headline.get(f"coverage_{name}")
         ]
         if legacy_reasons:
             lines.append(
@@ -163,7 +167,8 @@ def render(
         index_lines.append(warning_block + "\n")
     index_lines.append(
         "One line per module. Detail tiers: "
-        + ", ".join(f"code-index/{p}.md" for p in sorted(packages)) + "\n"
+        + ", ".join(f"code-index/{p}.md" for p in sorted(packages))
+        + "\n"
     )
     for package in sorted(packages):
         index_lines.append(f"\n## {package}\n")
@@ -177,16 +182,15 @@ def render(
             index_lines.append(
                 f"- `{path}` \u2014 {purpose} "
                 f"[pub {record['public_symbols']} | in {record['fan_in']} | out {record['fan_out']}]"
-                + _flags_suffix(record, findings_by_path.get(path) if analysis is not None else None)
+                + _flags_suffix(
+                    record, findings_by_path.get(path) if analysis is not None else None
+                )
             )
             detail.append(f"\n### `{path}` \u2014 {purpose}")
             for sym in mod.get("symbols", []):
                 if not sym["public"]:
                     continue
-                line = (
-                    f"- `{sym['signature']}` \u2014 "
-                    f"{sym['doc'] or '(no docstring)'}"
-                )
+                line = f"- `{sym['signature']}` \u2014 {sym['doc'] or '(no docstring)'}"
                 if sym["imported_by"]:
                     line += f" (used by: {', '.join(sym['imported_by'])})"
                 detail.append(line)
@@ -224,8 +228,7 @@ class UnsafeGeneratedOutputError(RuntimeError):
     def __init__(self, paths: list[Path]) -> None:
         self.paths = sorted(path.as_posix() for path in paths)
         super().__init__(
-            "unsafe generated output contains link-like paths: "
-            + ", ".join(self.paths)
+            "unsafe generated output contains link-like paths: " + ", ".join(self.paths)
         )
 
 
@@ -296,12 +299,16 @@ def _remove_stale_outputs(repo_root: Path, outputs: dict[str, str]) -> None:
 
 
 def run(repo_root: Path, options) -> int:
+    try:
+        findings = _artifacts.read_artifact(repo_root, "findings")
+    except _artifacts.MissingArtifactError:
+        findings = _artifacts.read_artifact(repo_root, "analysis")
     outputs = render(
         repo_root,
         _artifacts.read_artifact(repo_root, "inventory"),
         _artifacts.read_artifact(repo_root, "graph"),
         _artifacts.read_artifact(repo_root, "metrics"),
-        _artifacts.read_artifact(repo_root, "analysis"),
+        findings,
     )
     _remove_stale_outputs(repo_root, outputs)
     for rel, content in outputs.items():

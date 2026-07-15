@@ -13,14 +13,19 @@ def _analysis_for(repo: Path) -> dict:
 
 def test_ruff_finds_unused_import(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
-    hits = [f for f in a["findings"]
-            if f["source"] == "ruff" and f["rule"] == "F401" and f["path"] == "plex_renamer/alpha.py"]
+    hits = [
+        f
+        for f in a["findings"]
+        if f["source"] == "ruff" and f["rule"] == "F401" and f["path"] == "plex_renamer/alpha.py"
+    ]
     assert hits and hits[0]["category"] == "unused-import"
 
 
 def test_vulture_dead_function_medium_confidence(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
-    dead = [f for f in a["findings"] if f["category"] == "dead-code" and f["symbol"] == "dead_function"]
+    dead = [
+        f for f in a["findings"] if f["category"] == "dead-code" and f["symbol"] == "dead_function"
+    ]
     assert dead
     assert dead[0]["confidence"] == 60
     assert dead[0]["assessment"] == "medium-confidence"
@@ -62,13 +67,48 @@ def test_dead_code_confidence_uses_reference_and_numeric_evidence():
         ]
     }
     findings = [
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "high", "confidence": 80},
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "medium", "confidence": 60},
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "low", "confidence": 59},
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "production", "confidence": 100},
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "tested", "confidence": 100},
-        {"category": "dead-code", "path": "plex_renamer/alpha.py", "symbol": "unknown", "confidence": 100},
-        {"category": "dead-code", "path": "plex_renamer/__main__.py", "symbol": "main", "confidence": 100},
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "high",
+            "confidence": 80,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "medium",
+            "confidence": 60,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "low",
+            "confidence": 59,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "production",
+            "confidence": 100,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "tested",
+            "confidence": 100,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "unknown",
+            "confidence": 100,
+        },
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/__main__.py",
+            "symbol": "main",
+            "confidence": 100,
+        },
     ]
 
     _analyze._assess_dead_code(findings, graph, inventory)
@@ -86,14 +126,23 @@ def test_dead_code_confidence_uses_reference_and_numeric_evidence():
 
 
 def test_assess_dead_code_inventory_remains_optional():
-    findings = [{
-        "category": "dead-code", "path": "plex_renamer/alpha.py",
-        "symbol": "orphan", "confidence": 80,
-    }]
-    graph = {"modules": {"plex_renamer.alpha": {
-        "path": "plex_renamer/alpha.py", "entrypoint": False,
-        "symbols": [{"name": "orphan", "imported_by": []}],
-    }}}
+    findings = [
+        {
+            "category": "dead-code",
+            "path": "plex_renamer/alpha.py",
+            "symbol": "orphan",
+            "confidence": 80,
+        }
+    ]
+    graph = {
+        "modules": {
+            "plex_renamer.alpha": {
+                "path": "plex_renamer/alpha.py",
+                "entrypoint": False,
+                "symbols": [{"name": "orphan", "imported_by": []}],
+            }
+        }
+    }
 
     _analyze._assess_dead_code(findings, graph)
 
@@ -103,15 +152,20 @@ def test_assess_dead_code_inventory_remains_optional():
 
 def test_used_function_not_high_confidence_dead(synthetic_repo: Path):
     a = _analysis_for(synthetic_repo)
-    assert not [f for f in a["findings"]
-                if f["category"] == "dead-code" and f["symbol"] == "used_function"
-                and f["assessment"] == "high-confidence"]
+    assert not [
+        f
+        for f in a["findings"]
+        if f["category"] == "dead-code"
+        and f["symbol"] == "used_function"
+        and f["assessment"] == "high-confidence"
+    ]
 
 
 def test_radon_flags_complex_function(synthetic_repo: Path):
     branches = "\n".join(f"    if value == {i}:\n        return {i}" for i in range(12))
     (synthetic_repo / "plex_renamer" / "twisty.py").write_text(
-        f'"""Twisty."""\n\n\ndef twisty(value):\n{branches}\n    return -1\n', encoding="utf-8")
+        f'"""Twisty."""\n\n\ndef twisty(value):\n{branches}\n    return -1\n', encoding="utf-8"
+    )
     a = _analysis_for(synthetic_repo)
     hits = [f for f in a["findings"] if f["category"] == "complexity" and f["symbol"] == "twisty"]
     assert hits
@@ -126,16 +180,20 @@ def test_allowlist_marks_finding(synthetic_repo: Path):
     graph = _graph.build_graph(synthetic_repo, inv)
     a2 = _analyze.run_analysis(synthetic_repo, inv, graph, allowlist_text=allow)
     assert all(f["allowlisted"] for f in a2["findings"] if f["symbol"] == "dead_function")
-    assert all(f["allowlist_reason"] == "test allow"
-               for f in a2["findings"] if f["symbol"] == "dead_function")
-    assert all(f["allowlist_reason"] is None
-               for f in a2["findings"] if f["symbol"] != "dead_function")
+    assert all(
+        f["allowlist_reason"] == "test allow"
+        for f in a2["findings"]
+        if f["symbol"] == "dead_function"
+    )
+    assert all(
+        f["allowlist_reason"] is None for f in a2["findings"] if f["symbol"] != "dead_function"
+    )
 
 
-def test_default_allowlist_qualifies_refreshing_cache_by_path():
-    allowlist_text = (
-        Path(__file__).parents[2] / "scripts" / "audit" / "allowlist.toml"
-    ).read_text(encoding="utf-8")
+def test_historical_allowlist_is_archive_only():
+    allowlist_text = (Path(__file__).parents[2] / "scripts" / "audit" / "allowlist.toml").read_text(
+        encoding="utf-8"
+    )
     findings = [
         {
             "symbol": "REFRESHING_CACHE",
@@ -149,11 +207,8 @@ def test_default_allowlist_qualifies_refreshing_cache_by_path():
 
     _analyze._apply_allowlist(findings, allowlist_text)
 
-    assert [finding["allowlisted"] for finding in findings] == [True, False]
-    assert findings[0]["allowlist_reason"] == (
-        "Exported ScanLifecycle compatibility value reserved for cache-refresh progress"
-    )
-    assert findings[1]["allowlist_reason"] is None
+    assert [finding["allowlisted"] for finding in findings] == [False, False]
+    assert all(finding["allowlist_reason"] is None for finding in findings)
 
 
 def test_tool_status_reported(synthetic_repo: Path):
@@ -162,7 +217,7 @@ def test_tool_status_reported(synthetic_repo: Path):
     assert all(v["ok"] for v in a["tool_status"].values())
 
 
-PYPROJECT_FAKE = '''\
+PYPROJECT_FAKE = """\
 [project]
 name = "mini"
 dependencies = [
@@ -173,7 +228,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
-'''
+"""
 
 
 def _dep_rules(repo: Path) -> set[tuple[str, str]]:
@@ -185,7 +240,8 @@ def _dep_rules(repo: Path) -> set[tuple[str, str]]:
 
 def test_unused_and_undeclared_dependencies(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "uses_tomlkit.py").write_text(
-        '"""Uses an undeclared package."""\nimport tomlkit\n', encoding="utf-8")
+        '"""Uses an undeclared package."""\nimport tomlkit\n', encoding="utf-8"
+    )
     rules = _dep_rules(synthetic_repo)
     assert ("unused-dependency", "requests") in rules
     assert ("undeclared-dependency", "tomlkit") in rules
@@ -193,7 +249,8 @@ def test_unused_and_undeclared_dependencies(synthetic_repo: Path):
 
 def test_dev_dependency_in_prod(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "uses_pytest.py").write_text(
-        '"""Imports a dev-only tool."""\nimport pytest\n', encoding="utf-8")
+        '"""Imports a dev-only tool."""\nimport pytest\n', encoding="utf-8"
+    )
     assert ("dev-dependency-in-prod", "pytest") in _dep_rules(synthetic_repo)
 
 
@@ -219,12 +276,12 @@ def test_corrupt_pyproject_degrades_not_aborts(synthetic_repo: Path):
     assert not [f for f in a["findings"] if f["category"] == "dependency"]
 
 
-CONTRACTS_FAKE = '''\
+CONTRACTS_FAKE = """\
 [[forbid]]
 from = "plex_renamer.beta"
 to = "plex_renamer.alpha"
 reason = "test rule"
-'''
+"""
 
 
 def test_contract_violation_reported(synthetic_repo: Path):
@@ -240,7 +297,9 @@ def test_contract_violation_reported(synthetic_repo: Path):
 
 
 def test_contract_not_violated_in_allowed_direction(synthetic_repo: Path):
-    allowed = '[[forbid]]\nfrom = "plex_renamer.alpha"\nto = "plex_renamer.beta"\nreason = "reverse"\n'
+    allowed = (
+        '[[forbid]]\nfrom = "plex_renamer.alpha"\nto = "plex_renamer.beta"\nreason = "reverse"\n'
+    )
     inv = _inventory.build_inventory(synthetic_repo)
     graph = _graph.build_graph(synthetic_repo, inv)
     a = _analyze.run_analysis(synthetic_repo, inv, graph, contracts_text=allowed)
@@ -283,7 +342,9 @@ def test_ruff_exit1_empty_stdout_degrades(synthetic_repo: Path, monkeypatch):
     assert not [f for f in a["findings"] if f["source"] == "ruff"]
 
 
-def test_run_returns_2_and_writes_artifact_when_tool_degrades(synthetic_repo: Path, monkeypatch, capsys):
+def test_run_returns_2_and_writes_artifact_when_tool_degrades(
+    synthetic_repo: Path, monkeypatch, capsys
+):
     _inventory.run(synthetic_repo, None)
     _graph.run(synthetic_repo, None)
 

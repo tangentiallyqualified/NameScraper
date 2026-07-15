@@ -88,6 +88,19 @@ def test_pull_request_audit_job_runs_coverage_verification() -> None:
     assert "run: scripts/audit.cmd --verify --with-coverage\n" in verify
 
 
+def test_pull_request_audit_job_uploads_sarif() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-verify")
+    upload = _step(job, "- name: Upload audit SARIF")
+
+    assert "security-events: write" in job
+    assert "uses: github/codeql-action/upload-sarif@v3" in upload
+    assert "sarif_file: audit.sarif" in upload
+    assert job.index("scripts/audit.cmd --verify --with-coverage") < job.index(
+        "github/codeql-action/upload-sarif@v3"
+    )
+
+
 def test_pull_request_quality_gate_collects_full_suite_coverage_first() -> None:
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
     job = _job(workflow, "audit-verify")
