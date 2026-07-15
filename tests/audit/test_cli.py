@@ -305,6 +305,17 @@ def test_coverage_max_age_help_marks_option_as_legacy(capsys):
     assert "legacy compatibility" in capsys.readouterr().out.lower()
 
 
+def test_quality_check_help_reports_stale_baseline_without_calling_it_debt(capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--help"])
+
+    assert exc_info.value.code == 0
+    output = " ".join(capsys.readouterr().out.lower().split())
+    assert "fail on new/enlarged quality debt" in output
+    assert "report stale baseline entries" in output
+    assert "debt or stale baseline entries" not in output
+
+
 @pytest.mark.parametrize("other", ["--fast", "--check", "inventory"])
 def test_verify_is_mutually_exclusive_with_other_run_modes(synthetic_repo: Path, other: str):
     with pytest.raises(SystemExit) as exc_info:

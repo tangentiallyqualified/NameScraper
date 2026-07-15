@@ -166,7 +166,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--quality-check",
         action="store_true",
-        help="Fail on new/enlarged quality debt or stale baseline entries.",
+        help="Fail on new/enlarged quality debt; report stale baseline entries.",
     )
     parser.add_argument(
         "--update-quality-baseline",
