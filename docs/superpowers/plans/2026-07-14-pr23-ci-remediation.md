@@ -233,3 +233,46 @@ After committing, rerun `.\scripts\audit.cmd --verify` because document status d
 - [ ] **Step 8: Push and monitor**
 
 Fast-forward `dev/audit-debt3` to the reviewed head, push it, and monitor PR #23 until both `fast-tests` and `audit-verify` complete.
+
+### Task 5: Stabilize Coverage Across Supported Python Runtimes
+
+**Files:**
+- Create: `tests/test_matching_helpers.py`
+- Modify: generated audit artifacts selected by the audit harness.
+
+**Interfaces:**
+- Consumes: `plex_renamer.engine._tv_scanner_consolidated._contiguous_run`, `plex_renamer.engine.matching.pick_alternate_matches`, and full-suite coverage evidence.
+- Produces: explicit coverage of both helpers' natural loop-completion paths so Python 3.12 and Python 3.14 generate the same baseline percentages.
+
+- [ ] **Step 1: Preserve the cross-runtime RED evidence**
+
+Record that the same passing suite reports `_tv_scanner_consolidated.py:47` and `matching.py:169` covered on Python 3.12 but missing on Python 3.14. Confirm those are the only fields that differ in `docs/audit/baseline.json`.
+
+- [ ] **Step 2: Add the smallest behavior tests for natural loop completion**
+
+Add one test that exhausts `_contiguous_run` without taking its `break`, and one test that exhausts `pick_alternate_matches` before reaching its limit. Assert the returned values, not coverage internals. Do not change production code or coverage normalization.
+
+- [ ] **Step 3: Verify focused behavior and GREEN line evidence**
+
+Run the new test module. Collect full coverage under the repository Python 3.14 environment and confirm lines 47 and 169 are no longer missing. Run the disposable constrained Python 3.12 reproduction and confirm its generated `docs/audit/baseline.json` is byte-identical to the Python 3.14 result.
+
+- [ ] **Step 4: Enforce ratchets and regenerate artifacts**
+
+Run, in order:
+
+```powershell
+.\scripts\test-fast.cmd -Coverage
+.\scripts\audit.cmd --quality-check
+.\scripts\audit.cmd
+.\scripts\audit.cmd --verify
+```
+
+Expected: zero test failures, zero new/enlarged debt, and generated output current. Inspect the generated diff and confirm it contains only deterministic consequences of the two added tests.
+
+- [ ] **Step 5: Commit, review, and verify again**
+
+Commit the tests and resulting artifacts with intentional messages. After committing, rerun `.\scripts\audit.cmd --verify` because document status depends on committed Git history. Obtain task-level and final remediation reviews.
+
+- [ ] **Step 6: Push and monitor**
+
+Fast-forward `dev/audit-debt3` to the reviewed head, push it, and monitor PR #23 until both `fast-tests` and `audit-verify` complete successfully.
