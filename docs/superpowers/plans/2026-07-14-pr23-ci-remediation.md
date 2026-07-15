@@ -14,7 +14,7 @@
 - Do not use `pip install --no-deps`.
 - Every CI job that installs `.[dev]` and runs audit tests must apply `scripts/audit/constraints.txt`.
 - Preserve production calls to `Path.resolve()` and canonical containment behavior.
-- Change only the six Windows-sensitive expectations reported by Actions run `29391461679`.
+- Change production semantics only through the six Windows-sensitive expectations reported by Actions run `29391461679`; formatting and a cohesive test-file split are authorized solely to satisfy the existing ratchets.
 - Do not refresh the quality baseline to accept new or enlarged debt.
 - Preserve unrelated user-owned files, including the ignored `scripts/scan_real_library.py` in the main checkout.
 
@@ -85,6 +85,39 @@ Expected: all focused tests pass.
 - [ ] **Step 4: Commit**
 
 Commit message: `fix(tests): canonicalize Windows path expectations`
+
+### Task 2A: Pay Down Touched-Test Formatting and Size Debt
+
+**Files:**
+- Modify: `tests/test_media_controller.py`
+- Modify: `tests/test_refresh_policy_service.py`
+- Create: one narrowly named `tests/test_media_controller_*.py` file only if needed to keep `tests/test_media_controller.py` at or below its committed `1961` LOC ceiling after formatting.
+
+**Interfaces:**
+- Consumes: the six canonical-path expectations from Task 2 and the existing quality baseline.
+- Produces: fully Ruff-formatted touched test files, no enlarged LOC debt, and no loss or duplication of collected tests.
+
+- [ ] **Step 1: Format both touched test files**
+
+Run Ruff formatting on `tests/test_media_controller.py` and `tests/test_refresh_policy_service.py`. Do not add formatter exclusions or refresh the formatting baseline.
+
+- [ ] **Step 2: Extract one cohesive controller-test unit if required**
+
+If formatting leaves `tests/test_media_controller.py` above `1961` LOC, move the smallest cohesive class or group of related classes needed to a narrowly named formatted test module. Reuse existing helpers through the repository's established adjacent-test import pattern; do not copy controller setup logic. Preserve every test and avoid new typing or lint findings in the new file.
+
+- [ ] **Step 3: Verify test preservation and behavior**
+
+Run the focused controller and refresh-policy tests, including the new module if created. Compare collection before and after the split so no test is lost or duplicated.
+
+- [ ] **Step 4: Collect fresh coverage and enforce ratchets**
+
+Run `.\scripts\test-fast.cmd -Coverage`, then `.\scripts\audit.cmd --quality-check`.
+
+Expected: the test suite passes and the quality gate reports no new or enlarged debt. Stale formatter-baseline entries are an expected improvement and must not be re-enrolled.
+
+- [ ] **Step 5: Commit**
+
+Commit message: `refactor(tests): pay down touched-file debt`
 
 ### Task 3: Regenerate and Verify Audit Evidence
 
