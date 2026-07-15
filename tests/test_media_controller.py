@@ -864,6 +864,7 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
         output = self.tmp / "TV Output"
         source = self.tmp / "Incoming" / "Bleach" / "Season 01"
         output.mkdir()
+        resolved_output = output.resolve()
         source.mkdir(parents=True)
         episode = source / "Bleach.S01E01.mkv"
         episode.write_text("x")
@@ -889,10 +890,10 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
 
         retarget_tv_state_to_output(state, output)
 
-        self.assertEqual(state.output_root, output.resolve())
+        self.assertEqual(state.output_root, resolved_output)
         self.assertEqual(
             state.preview_items[0].target_dir,
-            output / "Bleach (2004)" / "Season 01",
+            resolved_output / "Bleach (2004)" / "Season 01",
         )
 
     def test_tv_retarget_leaves_unmatched_preview_at_source_target(self):
@@ -930,6 +931,7 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
         output = self.tmp / "Movies Output"
         source = self.tmp / "Incoming"
         output.mkdir()
+        resolved_output = output.resolve()
         source.mkdir()
         movie = source / "Alien.1979.mkv"
         movie.write_text("x")
@@ -951,11 +953,12 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
 
         retarget_movie_items_to_output([item], output)
 
-        self.assertEqual(item.target_dir, output / "Alien (1979)")
+        self.assertEqual(item.target_dir, resolved_output / "Alien (1979)")
 
     def test_movie_rematch_keeps_state_and_controller_preview_on_output_root(self):
         output = self.tmp / "Movies Output"
         output.mkdir()
+        resolved_output = output.resolve()
         movie_file = self.tmp / "Incoming" / "Alien.Source.mkv"
         movie_file.parent.mkdir()
         movie_file.write_text("x")
@@ -1009,9 +1012,9 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
         self.ctrl.rematch_movie_state(state, {"id": 42, "title": "Alien", "year": "1979"})
 
         self.assertIs(state.preview_items[0], self.ctrl.movie_preview_items[0])
-        self.assertEqual(state.output_root, output)
-        self.assertEqual(state.preview_items[0].target_dir, output / "Alien (1979)")
-        self.assertEqual(self.ctrl.movie_preview_items[0].target_dir, output / "Alien (1979)")
+        self.assertEqual(state.output_root, resolved_output)
+        self.assertEqual(state.preview_items[0].target_dir, resolved_output / "Alien (1979)")
+        self.assertEqual(self.ctrl.movie_preview_items[0].target_dir, resolved_output / "Alien (1979)")
 
 
 class RematchStateTests(_ControllerTestCase):
