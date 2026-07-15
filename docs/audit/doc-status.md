@@ -31,4 +31,4 @@
 | `README.md` | 2026-07-14 | `scripts/scan_real_library.py` |
 | `docs/superpowers/plans/2026-07-14-pr23-ci-remediation.md` | 2026-07-15 | `scripts/scan_real_library.py` |
 
-_Generated from audit input de8457a6a4a1 by scripts\audit.cmd._
+_Generated from audit input 24febbe056ef by scripts\audit.cmd._
