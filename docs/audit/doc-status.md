@@ -16,7 +16,6 @@
 
 | Doc | Last touched | Broken refs |
 |---|---|---|
-| `README.md` | 2026-07-05 | `scripts/scan_real_library.py` |
 | `docs/superpowers/plans/2026-07-12-audit-harness-review-fixes.md` | 2026-07-12 | `plex_renamer.gui_`, `scripts/audit/_render_llm.py`, `tests/audit/test_render_llm.py` |
 | `docs/audit/findings-review-gui-core-early-widgets.md` | 2026-07-13 | - |
 | `docs/audit/findings-review-non-gui.md` | 2026-07-13 | `plex_renamer.app`, `plex_renamer.tmdb`, `scripts/scan_real_library.py` |
@@ -29,5 +28,6 @@
 | `docs/superpowers/plans/2026-07-13-quality-ratchets.md` | 2026-07-13 | - |
 | `docs/superpowers/specs/2026-07-14-audit-harness-readme-design.md` | 2026-07-14 | - |
 | `docs/superpowers/plans/2026-07-14-audit-harness-readme.md` | 2026-07-14 | - |
+| `README.md` | 2026-07-14 | `scripts/scan_real_library.py` |
 
 _Generated from audit input 42f25f81c877 by scripts\audit.cmd._
