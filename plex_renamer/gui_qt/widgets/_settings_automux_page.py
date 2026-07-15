@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from ..._lang_normalize import normalize_lang, normalize_lang_list
 from ..._mkv_locate import find_mkvmerge
 from .. import _scale
-from ._settings_tab_sections import SettingsSectionCard
+from ._settings_page import SettingsSectionCard
 
 
 class AutoMuxSettingsPage(SettingsSectionCard):

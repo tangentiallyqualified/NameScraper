@@ -7,6 +7,26 @@ from audit import _analyze, _graph, _inventory
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_SETTINGS_MODULE_PREFIX = "plex_renamer.gui_qt.widgets."
+_SETTINGS_AUTOMUX_PAGE = f"{_SETTINGS_MODULE_PREFIX}_settings_automux_page"
+_SETTINGS_METADATA_PAGE = f"{_SETTINGS_MODULE_PREFIX}_settings_metadata_page"
+_SETTINGS_PAGE_COMPONENTS = f"{_SETTINGS_MODULE_PREFIX}_settings_page"
+_SETTINGS_SECTIONS = f"{_SETTINGS_MODULE_PREFIX}_settings_tab_sections"
+
+_LEGACY_SETTINGS_PAGE_CYCLE = {
+    "modules": [
+        _SETTINGS_AUTOMUX_PAGE,
+        _SETTINGS_METADATA_PAGE,
+        _SETTINGS_SECTIONS,
+    ],
+    "edges": [
+        [_SETTINGS_AUTOMUX_PAGE, _SETTINGS_SECTIONS],
+        [_SETTINGS_METADATA_PAGE, _SETTINGS_SECTIONS],
+        [_SETTINGS_SECTIONS, _SETTINGS_AUTOMUX_PAGE],
+        [_SETTINGS_SECTIONS, _SETTINGS_METADATA_PAGE],
+    ],
+}
+
 
 def test_structured_audit_files_are_pinned_to_lf() -> None:
     attributes = {
@@ -47,3 +67,30 @@ def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles() -> None
         findings,
         indent=2,
     )
+
+
+def test_settings_page_composer_has_one_way_dependencies() -> None:
+    inventory = _inventory.build_inventory(REPO_ROOT)
+    graph = _graph.build_graph(REPO_ROOT, inventory)
+
+    assert _LEGACY_SETTINGS_PAGE_CYCLE not in graph["cycles"]
+
+    settings_modules = {
+        _SETTINGS_AUTOMUX_PAGE,
+        _SETTINGS_METADATA_PAGE,
+        _SETTINGS_PAGE_COMPONENTS,
+        _SETTINGS_SECTIONS,
+    }
+    settings_edges = sorted(
+        [module, imported]
+        for module in settings_modules
+        for imported in graph["modules"][module]["imports"]
+        if imported in settings_modules
+    )
+    assert settings_edges == [
+        [_SETTINGS_AUTOMUX_PAGE, _SETTINGS_PAGE_COMPONENTS],
+        [_SETTINGS_METADATA_PAGE, _SETTINGS_PAGE_COMPONENTS],
+        [_SETTINGS_SECTIONS, _SETTINGS_AUTOMUX_PAGE],
+        [_SETTINGS_SECTIONS, _SETTINGS_METADATA_PAGE],
+        [_SETTINGS_SECTIONS, _SETTINGS_PAGE_COMPONENTS],
+    ]

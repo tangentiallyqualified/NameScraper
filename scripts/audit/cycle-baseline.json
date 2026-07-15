@@ -87,31 +87,6 @@
           "plex_renamer.engine._tv_scanner"
         ]
       ]
-    },
-    {
-      "modules": [
-        "plex_renamer.gui_qt.widgets._settings_automux_page",
-        "plex_renamer.gui_qt.widgets._settings_metadata_page",
-        "plex_renamer.gui_qt.widgets._settings_tab_sections"
-      ],
-      "edges": [
-        [
-          "plex_renamer.gui_qt.widgets._settings_automux_page",
-          "plex_renamer.gui_qt.widgets._settings_tab_sections"
-        ],
-        [
-          "plex_renamer.gui_qt.widgets._settings_metadata_page",
-          "plex_renamer.gui_qt.widgets._settings_tab_sections"
-        ],
-        [
-          "plex_renamer.gui_qt.widgets._settings_tab_sections",
-          "plex_renamer.gui_qt.widgets._settings_automux_page"
-        ],
-        [
-          "plex_renamer.gui_qt.widgets._settings_tab_sections",
-          "plex_renamer.gui_qt.widgets._settings_metadata_page"
-        ]
-      ]
     }
   ]
 }

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from ..._mkv_locate import find_mkvpropedit
 from .. import _scale
-from ._settings_tab_sections import SettingsSectionCard
+from ._settings_page import SettingsSectionCard
 
 
 class MetadataSettingsPage(SettingsSectionCard):
