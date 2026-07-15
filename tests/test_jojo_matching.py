@@ -245,7 +245,11 @@ class MovieScannerCompanionVideoTests(unittest.TestCase):
             companion_file.write_text("x")
 
             tmdb = _FakeMovieTMDB()
-            scanner = MovieScanner(tmdb, root)
+            scanner = MovieScanner(
+                tmdb,
+                root,
+                tv_discovery_service=TVLibraryDiscoveryService(),
+            )
 
             items = scanner.scan()
 
@@ -273,7 +277,11 @@ class MovieScannerCompanionVideoTests(unittest.TestCase):
             extra_file.write_text("x")
 
             tmdb = _FakeMovieTMDB()
-            scanner = MovieScanner(tmdb, root)
+            scanner = MovieScanner(
+                tmdb,
+                root,
+                tv_discovery_service=TVLibraryDiscoveryService(),
+            )
 
             items = scanner.scan()
 

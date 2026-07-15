@@ -7,8 +7,9 @@ from audit import _artifacts, _diff
 
 
 def _metrics(loc=100, cc=5, cov=80.0, dead=0, sha="aa", path="plex_renamer/alpha.py",
-             dead_symbols=None, coverage=None):
-    metrics = {"modules": {path: {"module": "plex_renamer.alpha", "loc": loc, "sha256": sha,
+             dead_symbols=None, coverage=None, input_digest="a" * 64):
+    metrics = {"input_digest": input_digest,
+            "modules": {path: {"module": "plex_renamer.alpha", "loc": loc, "sha256": sha,
                                "max_complexity": cc, "avg_complexity": 2.0, "fan_in": 1,
                                "fan_out": 0, "coverage_percent": cov, "dead_candidates": dead,
                                "dead_high_confidence": dead, "public_symbols": 2, "flags": []}},
@@ -143,15 +144,111 @@ def test_rename_detected_by_hash():
     assert result["added"] == [] and result["removed"] == []
 
 
-def test_run_writes_changes_and_baseline_capped(synthetic_repo: Path):
+def test_run_is_byte_identical_for_the_same_input_digest(synthetic_repo: Path):
     _artifacts.write_artifact(synthetic_repo, "metrics", _metrics())
-    for i in range(12):
-        assert _diff.run(synthetic_repo, None) == 0
-    changes = (synthetic_repo / "docs" / "audit" / "CHANGES.md").read_text(encoding="utf-8")
-    assert changes.count("## Audit ") == 10  # capped
-    assert "\n\n\n" not in changes  # no blank-line growth between sections
-    baseline = (synthetic_repo / "docs" / "audit" / "baseline.json")
-    assert baseline.exists()
+
+    assert _diff.run(synthetic_repo, None) == 0
+    baseline_path = synthetic_repo / "docs" / "audit" / "baseline.json"
+    changes_path = synthetic_repo / "docs" / "audit" / "CHANGES.md"
+    first_baseline = baseline_path.read_bytes()
+    first_changes = changes_path.read_bytes()
+
+    assert _diff.run(synthetic_repo, None) == 0
+    assert baseline_path.read_bytes() == first_baseline
+    assert changes_path.read_bytes() == first_changes
+
+
+def test_same_digest_sanitizes_preserved_previous_baseline(synthetic_repo: Path):
+    metrics = _metrics()
+    _artifacts.write_artifact(synthetic_repo, "metrics", metrics)
+    previous = _baseline_from(metrics)
+    previous.update({
+        "input_digest": "0" * 64,
+        "commit": "previous123",
+        "generated_at": "yesterday",
+        "age_commits": 7,
+        "previous_baseline": {
+            "input_digest": "f" * 64,
+            "commit": "nested123",
+        },
+    })
+    existing = _baseline_from(metrics)
+    existing.update({
+        "input_digest": metrics["input_digest"],
+        "previous_baseline": previous,
+    })
+    baseline_path = synthetic_repo / "docs" / "audit" / "baseline.json"
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_path.write_text(json.dumps(existing), encoding="utf-8")
+
+    assert _diff.run(synthetic_repo, None) == 0
+
+    saved_previous = json.loads(
+        baseline_path.read_text(encoding="utf-8")
+    )["previous_baseline"]
+    encoded = json.dumps(saved_previous)
+    assert saved_previous["input_digest"] == "0" * 64
+    assert "previous_baseline" not in saved_previous
+    assert '"commit"' not in encoded
+    assert "generated_at" not in encoded
+    assert "age_commits" not in encoded
+
+
+def test_new_digest_rotates_current_snapshot_exactly_once(synthetic_repo: Path):
+    first = _metrics(
+        loc=100,
+        input_digest="a" * 64,
+        coverage={
+            "usable": True,
+            "scope_id": "scope-default",
+            "source": "fresh",
+        },
+    )
+    _artifacts.write_artifact(synthetic_repo, "metrics", first)
+    assert _diff.run(synthetic_repo, None) == 0
+
+    second = _metrics(loc=180, input_digest="b" * 64)
+    _artifacts.write_artifact(synthetic_repo, "metrics", second)
+    assert _diff.run(synthetic_repo, None) == 0
+    baseline_path = synthetic_repo / "docs" / "audit" / "baseline.json"
+    rotated = json.loads(baseline_path.read_text(encoding="utf-8"))
+
+    assert rotated["input_digest"] == "b" * 64
+    assert rotated["previous_baseline"]["input_digest"] == "a" * 64
+    assert rotated["previous_baseline"]["coverage"]["source"] == "coverage.py"
+    assert "previous_baseline" not in rotated["previous_baseline"]
+    changes = (synthetic_repo / "docs" / "audit" / "CHANGES.md").read_text(
+        encoding="utf-8"
+    )
+    assert "<!-- audit:input-digest: " + "b" * 64 + " -->" in changes
+    assert "<!-- audit:baseline-input-digest: " + "a" * 64 + " -->" in changes
+    assert "## Audit " + "b" * 12 + " vs baseline (" + "a" * 12 + ")" in changes
+
+    assert _diff.run(synthetic_repo, None) == 0
+    assert json.loads(baseline_path.read_text(encoding="utf-8")) == rotated
+
+
+def test_baseline_omits_transient_provenance(synthetic_repo: Path):
+    metrics = _metrics(coverage={
+        "usable": True,
+        "input_digest": "a" * 64,
+        "collected_at_commit": "old1234",
+        "age_commits": 3,
+    })
+    metrics.update({"commit": "current123", "generated_at": "now"})
+    _artifacts.write_artifact(synthetic_repo, "metrics", metrics)
+
+    assert _diff.run(synthetic_repo, None) == 0
+    baseline = json.loads(
+        (synthetic_repo / "docs" / "audit" / "baseline.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    encoded = json.dumps(baseline)
+    assert "generated_at" not in encoded
+    assert '"commit"' not in encoded
+    assert "collected_at_commit" not in encoded
+    assert "age_commits" not in encoded
 
 
 def test_duplicate_sha_rename_consumed_once():
@@ -206,19 +303,10 @@ def test_legacy_baseline_has_no_symbol_level_deltas():
     assert result["movements"] == ["`plex_renamer/alpha.py`: dead candidates 1 -> 2"]
 
 
-def test_null_baseline_commit_renders_unknown(synthetic_repo: Path):
-    base = _baseline_from(_metrics())
-    base["commit"] = None
-    section = _diff._section(synthetic_repo, _diff.compare(base, _metrics()), base, _metrics())
-    assert "vs baseline (unknown)" in section
-    assert "(None)" not in section
-
-
-def test_metrics_artifact_commit_controls_section_header(synthetic_repo: Path):
+def test_input_digest_controls_section_header(synthetic_repo: Path):
     metrics = _metrics()
-    metrics["commit"] = "artifact123"
     section = _diff._section(synthetic_repo, _diff.compare(None, metrics), None, metrics)
-    assert "(artifact123) vs baseline" in section
+    assert "## Audit " + "a" * 12 + " vs baseline (none (first run))" in section
 
 
 def test_run_snapshots_and_reports_doc_status_transitions(synthetic_repo: Path, monkeypatch):

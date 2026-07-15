@@ -56,7 +56,6 @@ class MainWindowTabsCoordinator:
         window._queue_tab = QueueTab(
             window.queue_ctrl,
             tmdb_provider=window._ensure_tmdb,
-            navigate_to_media=window._switch_to_tab,
         )
         window._history_tab = HistoryTab(
             window.queue_ctrl,
@@ -118,7 +117,7 @@ class MainWindowTabsCoordinator:
 
     def _build_badges(self) -> None:
         window = self._window
-        window._queue_badge = TabBadge(show_failure_pip=True, parent=window._tabs)
+        window._queue_badge = TabBadge(parent=window._tabs)
         window._history_badge = TabBadge(parent=window._tabs)
         tab_bar = window._tabs.tabBar()
         tab_bar.setTabButton(self._queue_index, QTabBar.ButtonPosition.RightSide, window._queue_badge)

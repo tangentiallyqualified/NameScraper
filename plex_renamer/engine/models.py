@@ -77,13 +77,6 @@ class PreviewItem:
     source_relative_folder: str = ""
     file_id: int | None = None   # Link back to EpisodeAssignmentTable.files
 
-    def is_move(self) -> bool:
-        """True if this rename also moves the file to a different folder."""
-        return (
-            self.target_dir is not None
-            and self.target_dir != self.original.parent
-        )
-
     @property
     def is_conflict(self) -> bool:
         return self.status.startswith("CONFLICT")
@@ -265,29 +258,6 @@ class ScanState:
         if self.completeness:
             return self.completeness.total_matched
         return 0
-
-    @property
-    def match_pct(self) -> float:
-        if self.completeness:
-            return self.completeness.pct
-        return 0.0
-
-    @property
-    def all_skipped(self) -> bool:
-        if not self.scanned or not self.preview_items:
-            return False
-        return all(it.status.startswith("SKIP") for it in self.preview_items)
-
-    @property
-    def actionable_indices(self) -> set[int]:
-        return {
-            index for index, item in enumerate(self.preview_items)
-            if item.is_actionable
-        }
-
-    @property
-    def actionable_file_count(self) -> int:
-        return len(self.actionable_indices)
 
     def reset_gui_state(self) -> None:
         self.check_vars.clear()

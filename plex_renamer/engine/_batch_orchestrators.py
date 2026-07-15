@@ -13,7 +13,6 @@ from ..parsing import (
     best_tv_match_title,
     clean_folder_name,
     extract_year,
-    get_season,
     is_generic_show_folder_name,
     is_sample_file,
     looks_like_tv_episode,
@@ -41,6 +40,7 @@ from ._batch_tv_season_merge import (
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
 )
+from ._discovery_ports import MovieLibraryDiscoverer, TVLibraryDiscoverer
 from ._rename_execution import check_duplicates
 from ._scan_runtime import ScanCancelledError, _raise_if_cancelled
 from ._state import get_auto_accept_threshold
@@ -50,7 +50,6 @@ from .matching import (
     _tv_episode_evidence_adjustment,
     apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
-    boost_tv_scores_with_episode_evidence,
     pick_alternate_matches,
     score_results,
     score_tv_results,
@@ -101,7 +100,7 @@ class BatchTVOrchestrator:
         self,
         tmdb: TMDBClient,
         library_root: Path,
-        discovery_service=None,
+        discovery_service: TVLibraryDiscoverer,
     ):
         self.tmdb = tmdb
         self.root = library_root
@@ -146,20 +145,6 @@ class BatchTVOrchestrator:
         evidence: list[DirectEpisodeEvidence],
     ) -> float:
         return _tv_episode_evidence_adjustment(self.tmdb, show_id, evidence)
-
-    def _boost_tv_scores_with_episode_evidence(
-        self,
-        scored: list[tuple[dict, float]],
-        evidence: list[DirectEpisodeEvidence],
-    ) -> list[tuple[dict, float]]:
-        return boost_tv_scores_with_episode_evidence(self.tmdb, scored, evidence)
-
-    def _get_discovery_service(self):
-        if self.discovery_service is None:
-            from ..app.services import TVLibraryDiscoveryService
-
-            self.discovery_service = TVLibraryDiscoveryService()
-        return self.discovery_service
 
     def _build_show_candidates(
         self,
@@ -422,8 +407,7 @@ class BatchTVOrchestrator:
         cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find show folders and match to TMDB."""
-        discovery_service = self._get_discovery_service()
-        discovered = discovery_service.discover_show_roots(self.root)
+        discovered = self.discovery_service.discover_show_roots(self.root)
         candidates = self._build_show_candidates(discovered, cancel_event=cancel_event)
 
         if not candidates:
@@ -748,51 +732,13 @@ class BatchTVOrchestrator:
         self._apply_duplicate_labels()
         return merged_state
 
-    @staticmethod
-    def is_tv_library(folder: Path) -> bool:
-        """Heuristic check: does this folder look like a TV library root."""
-        show_like_children = 0
-        try:
-            for directory in folder.iterdir():
-                if not directory.is_dir() or directory.name.startswith("."):
-                    continue
-                if get_season(directory) is not None:
-                    continue
-                if directory.name.lower() in (
-                    "extras", "featurettes", "@eadir", "#recycle",
-                    ".debris", "lost+found",
-                ):
-                    continue
-                has_season_subdir = False
-                video_files: list[Path] = []
-                for child in directory.iterdir():
-                    if child.is_dir() and get_season(child) is not None:
-                        has_season_subdir = True
-                        break
-                    if child.is_file() and child.suffix.lower() in VIDEO_EXTENSIONS:
-                        video_files.append(child)
-
-                if has_season_subdir:
-                    show_like_children += 1
-                elif len(video_files) > 2:
-                    show_like_children += 1
-                elif video_files and any(looks_like_tv_episode(file) for file in video_files):
-                    show_like_children += 1
-
-                if show_like_children >= 2:
-                    return True
-        except OSError:
-            pass
-        return False
-
-
 class BatchMovieOrchestrator:
     """
     Discovers movie folders in a library root, matches each to TMDB,
     and creates ScanState instances for the GUI.
 
     Two-phase workflow:
-      Phase 1 (discover): Scan filesystem via MovieLibraryDiscoveryService,
+      Phase 1 (discover): Scan filesystem via the injected MovieLibraryDiscoverer,
           identify movie_root and multi_movie_folder candidates, parallel
           TMDB search.
       Phase 2 (scan): For each matched movie, build PreviewItems with
@@ -803,7 +749,7 @@ class BatchMovieOrchestrator:
         self,
         tmdb: TMDBClient,
         library_root: Path,
-        discovery_service=None,
+        discovery_service: MovieLibraryDiscoverer,
     ):
         self.tmdb = tmdb
         self.root = library_root
@@ -868,13 +814,6 @@ class BatchMovieOrchestrator:
                 state.duplicate_of_relative_folder = existing.relative_folder or None
                 state.checked = False
 
-    def _get_discovery_service(self):
-        if self.discovery_service is None:
-            from ..app.services import MovieLibraryDiscoveryService
-
-            self.discovery_service = MovieLibraryDiscoveryService()
-        return self.discovery_service
-
     def discover_movies(
         self,
         progress_callback: Callable | None = None,
@@ -882,8 +821,7 @@ class BatchMovieOrchestrator:
         """Phase 1: Find movie folders and match to TMDB."""
         from ._movie_scanner import _prepare_movie_query
 
-        discovery_service = self._get_discovery_service()
-        discovered = discovery_service.discover_movie_roots(self.root)
+        discovered = self.discovery_service.discover_movie_roots(self.root)
 
         entries: list[tuple[object, str, str | None, Path | None]] = []
         for candidate in discovered:
@@ -1097,27 +1035,3 @@ class BatchMovieOrchestrator:
                 _log.error("Failed to scan %s: %s", state.display_name, error)
             if progress_callback:
                 progress_callback(index + 1, total)
-
-    def rematch_movie(self, state: ScanState, new_match: dict) -> None:
-        """Swap a movie's TMDB match and invalidate its scan data."""
-        state.media_info = new_match
-        raw_source = state.source_file.stem if state.source_file is not None else state.folder.name
-        raw_name = clean_folder_name(raw_source)
-        year_hint = extract_year(raw_source)
-        scored = score_results([new_match], raw_name, year_hint, title_key="title")
-        if scored:
-            evidence_path = (
-                state.source_file
-                if state.source_file is not None
-                else state.folder / state.folder.name
-            )
-            state.confidence = apply_movie_confidence_adjustments(
-                raw_confidence=min(scored[0][1], 1.0),
-                file_path=evidence_path,
-                tmdb_title=new_match.get("title", ""),
-                tmdb_year=new_match.get("year"),
-            )
-        else:
-            state.confidence = 0.0
-        state.reset_scan()
-        self._apply_duplicate_labels()

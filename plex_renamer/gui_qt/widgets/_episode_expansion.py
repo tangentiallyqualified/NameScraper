@@ -155,11 +155,9 @@ class EpisodeExpansionCard(QFrame):
         self._action_buttons: list[QPushButton] = []
         self._header_action_buttons: list[QPushButton] = []
         self._mux_optout_button: QPushButton | None = None
-        self._copy_buttons: list[QToolButton] = []
         self._open_dir_buttons: list[QToolButton] = []
         self._title_label: QLabel | None = None
         self._status_pill: QLabel | None = None
-        self._header_row: QHBoxLayout | None = None
         self._build_ui()
 
     def sizeHint(self) -> QSize:  # noqa: N802

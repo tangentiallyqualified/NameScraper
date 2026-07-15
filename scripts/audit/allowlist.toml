@@ -1,10 +1,11 @@
-# Known-legitimate symbols that dead-code analysis would otherwise flag.
-# Each entry may set `symbol` and/or `path` (fnmatch patterns) and must give a reason.
-ignore = [
+# Archive only. Live matching moved to exact records in decisions.toml.
+# These wildcard records preserve historical prose and must never be applied by the audit.
+historical_ignore = [
   { symbol = "closeEvent", reason = "Qt event handler, called by framework" },
   { symbol = "eventFilter", reason = "Qt event handler, called by framework" },
   { symbol = "paintEvent", reason = "Qt event handler, called by framework" },
   { symbol = "resizeEvent", reason = "Qt event handler, called by framework" },
   { symbol = "showEvent", reason = "Qt event handler, called by framework" },
+  { symbol = "REFRESHING_CACHE", path = "plex_renamer/app/models/state_models.py", reason = "Exported ScanLifecycle compatibility value reserved for cache-refresh progress" },
   { symbol = "main", path = "plex_renamer/__main__.py", reason = "console entry point" },
 ]

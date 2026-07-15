@@ -8,6 +8,7 @@ __pycache__/
 .worktrees/
 .scan-dumps/
 .audit/
+.pyrightconfig.effective.json
 .coverage
 .coverage.*
 

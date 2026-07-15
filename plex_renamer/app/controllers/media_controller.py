@@ -63,7 +63,6 @@ from ..services.episode_projection_cache import EpisodeProjectionCacheService
 from ..services.refresh_policy_service import RefreshPolicyService
 from ..services.settings_service import SettingsService
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
-from ..services.movie_library_discovery_service import MovieLibraryDiscoveryService
 
 
 class MediaController:
@@ -85,7 +84,6 @@ class MediaController:
         cache_service: PersistentCacheService,
         refresh_policy: RefreshPolicyService,
         tv_discovery: TVLibraryDiscoveryService | None = None,
-        movie_discovery: MovieLibraryDiscoveryService | None = None,
     ) -> None:
         self._job_store = job_store
         self._command_gating = command_gating
@@ -93,7 +91,6 @@ class MediaController:
         self._cache_service = cache_service
         self._refresh_policy = refresh_policy
         self._tv_discovery = tv_discovery or TVLibraryDiscoveryService()
-        self._movie_discovery = movie_discovery or MovieLibraryDiscoveryService()
         self._episode_projection_cache = EpisodeProjectionCacheService()
         set_auto_accept_threshold(self._settings.auto_accept_threshold)
         set_episode_auto_accept_threshold(self._settings.episode_auto_accept_threshold)
@@ -428,17 +425,26 @@ class MediaController:
         folder: Path,
         tmdb: Any,
         *,
-        scanner_factory: Any = MovieScanner,
+        scanner_factory: Any | None = None,
     ) -> None:
         """Discover and scan movies.  Spawns a background thread.
 
         Fires ``on_progress`` during scanning and ``on_library_changed``
         when items are populated.
         """
+        factory = scanner_factory
+        if factory is None:
+            def factory(client: Any, root: Path) -> MovieScanner:
+                return MovieScanner(
+                    client,
+                    root,
+                    tv_discovery_service=self._tv_discovery,
+                )
+
         self._movie_workflow.start_batch(
             folder,
             tmdb,
-            scanner_factory=scanner_factory,
+            scanner_factory=factory,
         )
 
     def _build_movie_library_states(self, items: list[PreviewItem], scanner: MovieScanner) -> None:

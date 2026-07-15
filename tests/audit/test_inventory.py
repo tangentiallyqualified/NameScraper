@@ -52,6 +52,29 @@ def test_docs_flag_broken_refs(synthetic_repo: Path):
     assert guide["last_touched"]  # git commit date
 
 
+def test_generated_audit_docs_are_excluded_from_content_inventory(
+        synthetic_repo: Path, repo_git):
+    generated_paths = (
+        "docs/audit/CHANGES.md",
+        "docs/audit/code-index/INDEX.md",
+        "docs/audit/doc-status.md",
+        "docs/audit/llm/INDEX.md",
+        "docs/audit/maps/overview.md",
+    )
+    for relative in generated_paths:
+        path = synthetic_repo / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("generated audit output\n", encoding="utf-8")
+
+    before = {record["path"] for record in _inventory.build_inventory(synthetic_repo)["docs"]}
+    repo_git(synthetic_repo, "add", "docs/audit")
+    repo_git(synthetic_repo, "commit", "-m", "track generated audit docs")
+    after = {record["path"] for record in _inventory.build_inventory(synthetic_repo)["docs"]}
+
+    assert before == after
+    assert not set(generated_paths).intersection(after)
+
+
 def test_excluded_dirs_skipped(synthetic_repo: Path):
     (synthetic_repo / ".venv").mkdir()
     (synthetic_repo / ".venv" / "junk.py").write_text("x = 1\n", encoding="utf-8")
@@ -78,7 +101,7 @@ def test_git_timeout_falls_back_to_mtime(synthetic_repo: Path, monkeypatch):
 
 
 def test_scripts_inventoried(synthetic_repo: Path):
-    (synthetic_repo / "scripts").mkdir()
+    (synthetic_repo / "scripts").mkdir(exist_ok=True)
     (synthetic_repo / "scripts" / "tool.ps1").write_text("Write-Host hi\n", encoding="utf-8")
     inv = _inventory.build_inventory(synthetic_repo)
     assert {"path": "scripts/tool.ps1"} in inv["scripts"]

@@ -68,6 +68,12 @@ def synthetic_repo(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (tmp_path / "README.md").write_text("# Mini\n", encoding="utf-8")
+    constraints = tmp_path / "scripts" / "audit" / "constraints.txt"
+    constraints.parent.mkdir(parents=True)
+    constraints.write_text(
+        "coverage==7.15.0\nradon==6.0.1\nruff==0.15.21\nvulture==2.16\n",
+        encoding="utf-8",
+    )
     git(tmp_path, "init")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-m", "initial")

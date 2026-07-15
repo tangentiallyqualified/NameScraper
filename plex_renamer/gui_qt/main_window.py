@@ -44,7 +44,6 @@ from ._main_window_state import MainWindowStateCoordinator
 from ._main_window_tabs import MainWindowTabsCoordinator
 from ._main_window_tmdb import MainWindowTmdbCoordinator
 from . import _scale
-from .widgets.media_workspace import MediaWorkspace
 from .widgets.toast_manager import ToastManager
 
 _log = logging.getLogger(__name__)
@@ -164,9 +163,6 @@ class MainWindow(QMainWindow):
             tmdb_client_factory=TMDBClient,
         )
 
-    def _restore_tmdb_cache_snapshot(self) -> None:
-        self._tmdb_coordinator.restore_tmdb_cache_snapshot()
-
     def _persist_tmdb_cache_snapshot(self) -> None:
         self._tmdb_coordinator.persist_tmdb_cache_snapshot()
 
@@ -196,9 +192,6 @@ class MainWindow(QMainWindow):
 
     def _on_poster_backfill_finished(self, updated: int) -> None:
         self._feedback_coordinator.on_poster_backfill_finished(updated)
-
-    def _refresh_media_workspaces(self) -> None:
-        self._state_coordinator.refresh_media_workspaces()
 
     def _apply_view_mode(self, mode: str) -> None:
         self._state_coordinator.apply_view_mode(mode)
@@ -245,19 +238,11 @@ class MainWindow(QMainWindow):
     def _start_movie_scan(self, path: str) -> None:
         self._scan_coordinator.start_movie_scan(path)
 
-    def _active_media_workspace_for_shortcuts(self) -> MediaWorkspace | None:
-        return self._shortcut_coordinator.active_media_workspace()
-
     def _queue_selected_from_shortcut(self) -> None:
         self._shortcut_coordinator.queue_selected()
 
     def _queue_checked_from_shortcut(self) -> None:
         self._shortcut_coordinator.queue_checked()
-
-    @staticmethod
-    def _text_input_focused() -> bool:
-        """Return True if a text input widget currently has focus."""
-        return MainWindowShortcutCoordinator.text_input_focused()
 
     def _toggle_focused_check(self) -> None:
         self._shortcut_coordinator.toggle_focused_check()
@@ -275,10 +260,6 @@ class MainWindow(QMainWindow):
         self._shortcut_coordinator.enter_from_shortcut()
 
     # ── Controller callback handlers (main thread via bridge) ────
-
-    def _active_workspace(self) -> MediaWorkspace:
-        """Return the workspace matching the controller's active mode."""
-        return self._scan_coordinator.active_workspace()
 
     def _on_scan_progress(self, progress: ScanProgress) -> None:
         self._scan_coordinator.on_scan_progress(progress)
@@ -343,9 +324,6 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         self._state_coordinator.on_tab_changed(index)
 
-    def _capture_active_snapshot(self) -> None:
-        self._state_coordinator.capture_active_snapshot()
-
     def _on_compact_toggled(self, checked: bool) -> None:
         self._apply_view_mode("compact" if checked else "normal")
 
@@ -359,9 +337,6 @@ class MainWindow(QMainWindow):
 
     def _restore_window_state(self) -> None:
         self._shell_coordinator.restore_window_state()
-
-    def _save_window_state(self) -> None:
-        self._shell_coordinator.save_window_state()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

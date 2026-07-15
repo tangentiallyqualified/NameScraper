@@ -12,7 +12,6 @@ from ..parsing import (
 )
 from ..tmdb import TMDBClient
 from ._tv_scanner_consolidated import (
-    build_consolidated_preview as _build_consolidated_preview,
     collect_absolute_files as _collect_absolute_files,
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
     try_title_based_matching as _try_title_based_matching,
@@ -23,7 +22,7 @@ from ._tv_scanner_seasons import (
     resolve_tv_season_dirs,
 )
 from .episode_assignments import EpisodeAssignmentTable
-from .models import CompletenessReport, PreviewItem, SeasonCompleteness, SeasonFolderEntry
+from .models import CompletenessReport, PreviewItem, SeasonFolderEntry
 
 _log = logging.getLogger(__name__)
 
@@ -118,11 +117,6 @@ class TVScanner:
         }
         return self._tmdb_seasons
 
-    def invalidate_cache(self) -> None:
-        """Force re-scan on next call."""
-        self._season_dirs = None
-        self._tmdb_seasons = None
-
     @property
     def _media_fields(self) -> dict:
         """Common fields for PreviewItem construction."""
@@ -170,22 +164,6 @@ class TVScanner:
         season_dirs = self._get_season_dirs()
         tmdb_seasons = self._get_tmdb_seasons()
         return self._build_consolidated_preview(season_dirs, tmdb_seasons)
-
-    def get_mismatch_info(self) -> dict:
-        """Return info about the season mismatch for UI display."""
-        season_dirs = self._get_season_dirs()
-        tmdb_seasons = self._get_tmdb_seasons()
-        _, user_nums, tmdb_nums = self._detect_mismatch(season_dirs, tmdb_seasons)
-        extra = sorted(user_nums - tmdb_nums)
-        return {
-            "user_seasons": sorted(user_nums),
-            "tmdb_seasons": {
-                season_num: tmdb_seasons[season_num]["count"]
-                for season_num in sorted(tmdb_nums)
-                if season_num in tmdb_seasons
-            },
-            "extra_user_seasons": extra,
-        }
 
     def _detect_mismatch(
         self,

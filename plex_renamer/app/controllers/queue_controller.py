@@ -22,7 +22,6 @@ from ...job_store import JobStore, RenameJob
 from ._queue_history_helpers import (
     backfill_missing_queue_job_poster_paths,
     close_queue_resources,
-    record_completed_queue_job,
     revert_queue_job,
 )
 from ._queue_submission_helpers import (
@@ -180,23 +179,9 @@ class QueueController:
 
     # ── Direct rename recording ────────────────────────────────────
 
-    def record_completed_job(self, job: RenameJob, result: RenameResult) -> None:
-        """Record an already-executed rename as a completed history entry.
-
-        Used by the legacy direct-rename path (execute immediately, then
-        record for undo).  The PySide6 shell will use queue→execute
-        instead, so this method exists to keep the tkinter shell routed
-        through the controller rather than accessing JobStore directly.
-        """
-        record_completed_queue_job(self.job_store, job, result)
-
     def set_job_poster_path(self, job_id: str, poster_path: str | None) -> None:
         """Persist a resolved poster path for an existing job."""
         self.job_store.set_poster_path(job_id, poster_path)
-
-    def get_latest_revertible_job(self) -> RenameJob | None:
-        """Return the most recent completed job with stored undo data."""
-        return self.job_store.get_latest_completed_with_undo()
 
     # ── Execution ───────────────────────────────────────────────────
 

@@ -1,0 +1,49 @@
+# Live finding decisions. Every record matches one normalized finding exactly.
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-variable"
+path = "plex_renamer/app/models/state_models.py"
+symbol = "plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1"
+reason_code = "intentional-reservation"
+reason = "Exported ScanLifecycle compatibility value reserved for cache-refresh progress."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-method"
+path = "plex_renamer/gui_qt/widgets/_episode_expansion.py"
+symbol = "plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1"
+reason_code = "framework-callback"
+reason = "Qt invokes this QWidget paintEvent override to render the chip strip."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-method"
+path = "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py"
+symbol = "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1"
+reason_code = "framework-callback"
+reason = "Qt invokes this QCheckBox paintEvent override to render the master checkbox."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-method"
+path = "plex_renamer/gui_qt/widgets/busy_overlay.py"
+symbol = "plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1"
+reason_code = "framework-callback"
+reason = "Qt invokes this QWidget paintEvent override to render the busy overlay."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-method"
+path = "plex_renamer/gui_qt/widgets/busy_overlay.py"
+symbol = "plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1"
+reason_code = "framework-callback"
+reason = "Qt invokes this QWidget paintEvent override to render the spinner."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-method"
+path = "plex_renamer/gui_qt/widgets/scan_progress.py"
+symbol = "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
+reason_code = "framework-callback"
+reason = "Qt invokes this QWidget paintEvent override to render the conveyor animation."

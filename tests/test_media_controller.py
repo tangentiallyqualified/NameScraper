@@ -1,10 +1,13 @@
 """Tests for MediaController — UI-neutral session orchestration."""
+
 from __future__ import annotations
 
 import time
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest.mock import patch
 
 from plex_renamer.app.controllers.media_controller import MediaController
@@ -14,11 +17,19 @@ from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.constants import JobStatus, MediaType
-from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, RenameResult, ScanCancelledError, ScanState, set_auto_accept_threshold
+from plex_renamer.engine import (
+    BatchTVOrchestrator,
+    PreviewItem,
+    RenameResult,
+    ScanCancelledError,
+    ScanState,
+    set_auto_accept_threshold,
+)
 from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 
 
 # ── Fake TMDB client ─────────────────────────────────────────────────
+
 
 class _FakeTMDB:
     language = "en-US"
@@ -29,17 +40,19 @@ class _FakeTMDB:
         for index, (name, year) in enumerate(queries, start=1):
             if progress_callback:
                 progress_callback(index, total)
-            results.append([
-                {
-                    "id": hash(name) % 10000,
-                    "name": name,
-                    "year": year or "2020",
-                    "poster_path": None,
-                    "overview": "",
-                    "number_of_seasons": 1,
-                    "number_of_episodes": 12,
-                }
-            ])
+            results.append(
+                [
+                    {
+                        "id": hash(name) % 10000,
+                        "name": name,
+                        "year": year or "2020",
+                        "poster_path": None,
+                        "overview": "",
+                        "number_of_seasons": 1,
+                        "number_of_episodes": 12,
+                    }
+                ]
+            )
         return results
 
     def get_alternative_titles(self, media_id, media_type="tv"):
@@ -52,10 +65,10 @@ class _FakeTMDB:
         return {}, 0
 
     def get_episode_list(self, show_id, season_number):
-        return [
-            {"episode_number": i, "name": f"Episode {i}"}
-            for i in range(1, 13)
-        ]
+        return [{"episode_number": i, "name": f"Episode {i}"} for i in range(1, 13)]
+
+
+FakeTMDB = _FakeTMDB
 
 
 class _FakeMovieScanner:
@@ -75,17 +88,19 @@ class _SlowTMDB(_FakeTMDB):
             time.sleep(0.05)
             if progress_callback:
                 progress_callback(index, total)
-            results.append([
-                {
-                    "id": index,
-                    "name": name,
-                    "year": year or "2020",
-                    "poster_path": None,
-                    "overview": "",
-                    "number_of_seasons": 1,
-                    "number_of_episodes": 12,
-                }
-            ])
+            results.append(
+                [
+                    {
+                        "id": index,
+                        "name": name,
+                        "year": year or "2020",
+                        "poster_path": None,
+                        "overview": "",
+                        "number_of_seasons": 1,
+                        "number_of_episodes": 12,
+                    }
+                ]
+            )
         return results
 
 
@@ -133,6 +148,7 @@ class _SlowMovieBatchScanner:
 
 # ── Helper to build a controller with temp services ──────────────────
 
+
 def _make_controller(tmp: Path):
     db_path = tmp / "test.db"
     store = JobStore(db_path=db_path)
@@ -149,7 +165,7 @@ def _make_controller(tmp: Path):
 
 
 def _wait_until(
-    predicate,
+    predicate: Callable[[], bool],
     *,
     timeout_s: float = 2.0,
     interval_s: float = 0.01,
@@ -163,7 +179,10 @@ def _wait_until(
     raise AssertionError(f"Timed out waiting for {description}")
 
 
-class _ControllerTestCase(unittest.TestCase):
+wait_until = _wait_until
+
+
+class ControllerTestCase(unittest.TestCase):
     def setUp(self):
         self._tmp = TemporaryDirectory(ignore_cleanup_errors=True)
         self.tmp = Path(self._tmp.name)
@@ -175,13 +194,13 @@ class _ControllerTestCase(unittest.TestCase):
 
     def set_tv_session(
         self,
-        states,
+        states: Any,
         *,
-        active_scan=None,
-        batch_mode=True,
-        tv_root_folder=None,
-        batch_orchestrator=None,
-        selected_index=None,
+        active_scan: Any = None,
+        batch_mode: bool = True,
+        tv_root_folder: Any = None,
+        batch_orchestrator: Any = None,
+        selected_index: int | None = None,
     ) -> None:
         self.ctrl._batch_mode = batch_mode
         self.ctrl._batch_states = list(states)
@@ -194,13 +213,13 @@ class _ControllerTestCase(unittest.TestCase):
 
     def set_movie_session(
         self,
-        states,
+        states: Any,
         *,
-        preview_items=None,
-        movie_folder=None,
-        movie_scanner=None,
-        movie_media_info=None,
-        selected_index=None,
+        preview_items: Any = None,
+        movie_folder: Any = None,
+        movie_scanner: Any = None,
+        movie_media_info: Any = None,
+        selected_index: int | None = None,
     ) -> None:
         self.ctrl._movie_library_states = list(states)
         self.ctrl._movie_preview_items = list(preview_items or [])
@@ -214,8 +233,8 @@ class _ControllerTestCase(unittest.TestCase):
 
 # ── Tests ─────────────────────────────────────────────────────────────
 
-class MediaControllerInitTests(_ControllerTestCase):
 
+class MediaControllerInitTests(ControllerTestCase):
     def test_initial_state(self):
         self.assertEqual(self.ctrl.active_content_mode, MediaType.TV)
         self.assertIsNone(self.ctrl.active_library_mode)
@@ -256,8 +275,7 @@ class MediaControllerInitTests(_ControllerTestCase):
         self.assertEqual(state.season_assignment, 0)
 
 
-class AcceptTVShowTests(_ControllerTestCase):
-
+class AcceptTVShowTests(ControllerTestCase):
     def test_accept_tv_show_sets_mode_and_state(self):
         folder = self.tmp / "Naruto"
         folder.mkdir()
@@ -300,8 +318,7 @@ class AcceptTVShowTests(_ControllerTestCase):
         self.assertEqual(lib_events[0], ("library", 1))
 
 
-class SelectShowTests(_ControllerTestCase):
-
+class SelectShowTests(ControllerTestCase):
     def test_select_show_sets_active_scan(self):
         states = [
             ScanState(folder=self.tmp / "A", media_info={"id": 1, "name": "A"}),
@@ -320,8 +337,7 @@ class SelectShowTests(_ControllerTestCase):
         self.assertIsNone(result)
 
 
-class TVBatchTests(_ControllerTestCase):
-
+class TVBatchTests(ControllerTestCase):
     def test_start_tv_batch_populates_states(self):
         root = self.tmp / "tv_root"
         (root / "Naruto" / "Season 01").mkdir(parents=True)
@@ -355,10 +371,13 @@ class TVBatchTests(_ControllerTestCase):
         self.ctrl.start_tv_batch(root, _FakeTMDB())
 
         _wait_until(
-            lambda: self.ctrl.scan_progress.lifecycle in {
-                ScanLifecycle.WARNING,
-                ScanLifecycle.READY,
-            },
+            lambda: (
+                self.ctrl.scan_progress.lifecycle
+                in {
+                    ScanLifecycle.WARNING,
+                    ScanLifecycle.READY,
+                }
+            ),
             description="empty TV batch scan to finish",
         )
 
@@ -370,7 +389,9 @@ class TVBatchTests(_ControllerTestCase):
         (root / "Naruto" / "Season 01" / "Naruto - S01E01.mkv").write_text("x")
         complete_lifecycles: list[ScanLifecycle] = []
         self.ctrl.add_listener(
-            on_scan_complete=lambda _state: complete_lifecycles.append(self.ctrl.scan_progress.lifecycle),
+            on_scan_complete=lambda _state: complete_lifecycles.append(
+                self.ctrl.scan_progress.lifecycle
+            ),
         )
 
         self.ctrl.start_tv_batch(root, _FakeTMDB())
@@ -398,11 +419,12 @@ class TVBatchTests(_ControllerTestCase):
         )
 
         preparing_events = [
-            event for event in events
-            if event.phase == "Preparing matched shows..."
+            event for event in events if event.phase == "Preparing matched shows..."
         ]
         self.assertTrue(preparing_events)
-        self.assertTrue(all(event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS for event in preparing_events))
+        self.assertTrue(
+            all(event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS for event in preparing_events)
+        )
 
     def test_cancel_tv_batch_sets_cancelled_progress(self):
         root = self.tmp / "tv_root"
@@ -504,13 +526,9 @@ class TVBatchTests(_ControllerTestCase):
             def scan_all(self, progress_callback=None, cancel_event=None):
                 state.preview_items = [
                     PreviewItem(
-                        original=state.folder
-                        / "Season 01"
-                        / "Prepared.Show.S01E01.mkv",
+                        original=state.folder / "Season 01" / "Prepared.Show.S01E01.mkv",
                         new_name="Prepared Show (2024) - S01E01 - Pilot.mkv",
-                        target_dir=state.folder
-                        / "Prepared Show (2024)"
-                        / "Season 01",
+                        target_dir=state.folder / "Prepared Show (2024)" / "Season 01",
                         season=1,
                         episodes=[1],
                         status="OK",
@@ -539,10 +557,7 @@ class TVBatchTests(_ControllerTestCase):
             media_info={"id": 12, "name": "Review Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=self.tmp
-                    / "ReviewShow"
-                    / "Season 01"
-                    / "Review.Show.S01E01.mkv",
+                    original=self.tmp / "ReviewShow" / "Season 01" / "Review.Show.S01E01.mkv",
                     new_name="Review Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=self.tmp / "Review Show (2024)" / "Season 01",
                     season=1,
@@ -605,10 +620,18 @@ class TVBatchTests(_ControllerTestCase):
             description="TV bulk scan to finish",
         )
 
-        scanning_events = [event for event in events if event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS]
-        self.assertTrue(any(event.current_item == "Show A" and event.done == 0 for event in scanning_events))
-        self.assertTrue(any(event.current_item == "Show B" and event.done == 1 for event in scanning_events))
-        self.assertTrue(any(event.current_item == "Show B" and event.done == 2 for event in scanning_events))
+        scanning_events = [
+            event for event in events if event.lifecycle == ScanLifecycle.BUILDING_PREVIEWS
+        ]
+        self.assertTrue(
+            any(event.current_item == "Show A" and event.done == 0 for event in scanning_events)
+        )
+        self.assertTrue(
+            any(event.current_item == "Show B" and event.done == 1 for event in scanning_events)
+        )
+        self.assertTrue(
+            any(event.current_item == "Show B" and event.done == 2 for event in scanning_events)
+        )
 
     def test_start_movie_batch_forwards_scanner_progress_to_scan_progress(self):
         root = self.tmp / "movies"
@@ -619,7 +642,9 @@ class TVBatchTests(_ControllerTestCase):
         self.ctrl.start_movie_batch(root, _FakeTMDB(), scanner_factory=_SlowMovieBatchScanner)
 
         _wait_until(
-            lambda: any(event.lifecycle == ScanLifecycle.MATCHING and event.done >= 2 for event in events),
+            lambda: any(
+                event.lifecycle == ScanLifecycle.MATCHING and event.done >= 2 for event in events
+            ),
             description="movie batch progress events",
         )
         self.ctrl.cancel_scan()
@@ -630,7 +655,6 @@ class TVBatchTests(_ControllerTestCase):
 
 
 class BatchTVOrchestratorRegressionTests(unittest.TestCase):
-
     def test_scan_all_includes_queued_unscanned_states(self):
         state = ScanState(
             folder=Path("C:/library/tv/QueuedShow"),
@@ -641,117 +665,16 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
         orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
         orchestrator.states = [state]
         scanned: list[ScanState] = []
-        orchestrator.scan_show = lambda current_state, cancel_event=None: scanned.append(current_state)
+        orchestrator.scan_show = lambda current_state, cancel_event=None: scanned.append(
+            current_state
+        )
 
         orchestrator.scan_all()
 
         self.assertEqual(scanned, [state])
 
 
-class ScanShowRegressionTests(_ControllerTestCase):
-
-    def test_scan_show_uses_preserved_single_show_season_hint_after_rematch(self):
-        folder = self.tmp / "Yuru Camp Specials"
-        folder.mkdir()
-        state = self.ctrl.accept_tv_show(
-            folder,
-            _FakeTMDB(),
-            {"id": 101, "name": "Yuru Camp", "year": "2018"},
-        )
-        created: dict[str, object] = {}
-
-        class _FakeScanner:
-            def __init__(self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None):
-                created["tmdb"] = tmdb
-                created["show_info"] = show_info
-                created["root_folder"] = root_folder
-                created["season_hint"] = season_hint
-                created["season_folders"] = season_folders
-
-            def scan(self):
-                created["scan_called"] = True
-                return ([], False)
-
-            def get_completeness(self, items, checked_indices):
-                created["checked_indices"] = checked_indices
-                return None
-
-        self.ctrl.rematch_tv_state(state, {"id": 202, "name": "Yuru Camp", "year": "2018"})
-
-        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
-            self.ctrl.scan_show(state, _FakeTMDB())
-
-        _wait_until(
-            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
-            description="single-show rematch rescan to finish",
-        )
-
-        self.assertTrue(created.get("scan_called"))
-        self.assertEqual(created.get("season_hint"), 0)
-        self.assertIsNone(created.get("season_folders"))
-        self.assertEqual(created.get("root_folder"), folder)
-        self.assertEqual(created.get("checked_indices"), set())
-
-    def test_scan_show_uses_batch_scan_inputs_for_rematched_tv_state(self):
-        state = ScanState(
-            folder=self.tmp / "Merged.Show",
-            media_info={"id": 11, "name": "Merged Show", "year": "2024"},
-            scanned=False,
-            season_assignment=2,
-            season_folders={2: self.tmp / "Merged.Show" / "Season 02"},
-        )
-        created: dict[str, object] = {}
-
-        class _FakeScanner:
-            def __init__(self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None):
-                created["tmdb"] = tmdb
-                created["show_info"] = show_info
-                created["root_folder"] = root_folder
-                created["season_hint"] = season_hint
-                created["season_folders"] = season_folders
-
-            def scan(self):
-                created["scan_called"] = True
-                return ([], True)
-
-            def scan_consolidated(self):
-                created["scan_consolidated_called"] = True
-                return [
-                    PreviewItem(
-                        original=state.folder / "Season 02" / "Merged.Show.S02E01.mkv",
-                        new_name="Merged Show (2024) - S02E01 - Pilot.mkv",
-                        target_dir=state.folder / "Season 02",
-                        season=2,
-                        episodes=[1],
-                        status="OK",
-                    )
-                ]
-
-            def get_completeness(self, items, checked_indices):
-                created["checked_indices"] = checked_indices
-                return None
-
-        self.set_tv_session([state], batch_mode=True)
-
-        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
-            self.ctrl.scan_show(state, _FakeTMDB())
-
-        _wait_until(
-            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
-            description="rematched TV state to finish scanning",
-        )
-
-        self.assertTrue(created.get("scan_called"))
-        self.assertTrue(created.get("scan_consolidated_called"))
-        self.assertEqual(created.get("season_hint"), 2)
-        self.assertEqual(created.get("season_folders"), state.season_folders)
-        self.assertEqual(created.get("checked_indices"), {0})
-        self.assertEqual(len(state.preview_items), 1)
-        self.assertEqual(state.preview_items[0].new_name, "Merged Show (2024) - S02E01 - Pilot.mkv")
-
-
-class MovieStateBuildTests(_ControllerTestCase):
-
+class MovieStateBuildTests(ControllerTestCase):
     def test_build_movie_library_states_uses_scanner_metadata_and_skips_non_movies(self):
         movie_file = self.tmp / "Dune.Part.Two.2024.mkv"
         skipped_file = self.tmp / "Show.S01E01.mkv"
@@ -839,10 +762,25 @@ class MovieStateBuildTests(_ControllerTestCase):
         )
         scanner = _FakeMovieScanner(
             chosen_by_path={
-                proper_file: {"id": 42, "title": "Alien", "year": "1979", "poster_path": None, "overview": ""},
-                duplicate_file: {"id": 42, "title": "Alien", "year": "1979", "poster_path": None, "overview": ""},
+                proper_file: {
+                    "id": 42,
+                    "title": "Alien",
+                    "year": "1979",
+                    "poster_path": None,
+                    "overview": "",
+                },
+                duplicate_file: {
+                    "id": 42,
+                    "title": "Alien",
+                    "year": "1979",
+                    "poster_path": None,
+                    "overview": "",
+                },
             },
-            search_results={proper_file: [{"id": 42, "title": "Alien"}], duplicate_file: [{"id": 42, "title": "Alien"}]},
+            search_results={
+                proper_file: [{"id": 42, "title": "Alien"}],
+                duplicate_file: [{"id": 42, "title": "Alien"}],
+            },
         )
         self.ctrl._movie_folder = self.tmp
 
@@ -859,11 +797,12 @@ class MovieStateBuildTests(_ControllerTestCase):
         self.assertFalse(duplicate_state.checked)
 
 
-class OutputPreviewRetargetingTests(_ControllerTestCase):
+class OutputPreviewRetargetingTests(ControllerTestCase):
     def test_tv_scan_state_preview_targets_output_root(self):
         output = self.tmp / "TV Output"
         source = self.tmp / "Incoming" / "Bleach" / "Season 01"
         output.mkdir()
+        resolved_output = output.resolve()
         source.mkdir(parents=True)
         episode = source / "Bleach.S01E01.mkv"
         episode.write_text("x")
@@ -889,10 +828,10 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
 
         retarget_tv_state_to_output(state, output)
 
-        self.assertEqual(state.output_root, output.resolve())
+        self.assertEqual(state.output_root, resolved_output)
         self.assertEqual(
             state.preview_items[0].target_dir,
-            output / "Bleach (2004)" / "Season 01",
+            resolved_output / "Bleach (2004)" / "Season 01",
         )
 
     def test_tv_retarget_leaves_unmatched_preview_at_source_target(self):
@@ -930,6 +869,7 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
         output = self.tmp / "Movies Output"
         source = self.tmp / "Incoming"
         output.mkdir()
+        resolved_output = output.resolve()
         source.mkdir()
         movie = source / "Alien.1979.mkv"
         movie.write_text("x")
@@ -951,11 +891,12 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
 
         retarget_movie_items_to_output([item], output)
 
-        self.assertEqual(item.target_dir, output / "Alien (1979)")
+        self.assertEqual(item.target_dir, resolved_output / "Alien (1979)")
 
     def test_movie_rematch_keeps_state_and_controller_preview_on_output_root(self):
         output = self.tmp / "Movies Output"
         output.mkdir()
+        resolved_output = output.resolve()
         movie_file = self.tmp / "Incoming" / "Alien.Source.mkv"
         movie_file.parent.mkdir()
         movie_file.write_text("x")
@@ -1009,13 +950,14 @@ class OutputPreviewRetargetingTests(_ControllerTestCase):
         self.ctrl.rematch_movie_state(state, {"id": 42, "title": "Alien", "year": "1979"})
 
         self.assertIs(state.preview_items[0], self.ctrl.movie_preview_items[0])
-        self.assertEqual(state.output_root, output)
-        self.assertEqual(state.preview_items[0].target_dir, output / "Alien (1979)")
-        self.assertEqual(self.ctrl.movie_preview_items[0].target_dir, output / "Alien (1979)")
+        self.assertEqual(state.output_root, resolved_output)
+        self.assertEqual(state.preview_items[0].target_dir, resolved_output / "Alien (1979)")
+        self.assertEqual(
+            self.ctrl.movie_preview_items[0].target_dir, resolved_output / "Alien (1979)"
+        )
 
 
-class RematchStateTests(_ControllerTestCase):
-
+class RematchStateTests(ControllerTestCase):
     def tearDown(self):
         set_auto_accept_threshold(0.55)
         super().tearDown()
@@ -1149,20 +1091,28 @@ class RematchStateTests(_ControllerTestCase):
         )
         state.assignments = table
         state.preview_items = project_preview_items(
-            table, show_info=show_info, root=folder, media_fields=media_fields,
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields=media_fields,
         )
         # Ensure threshold starts low so both items project as OK initially.
         self.ctrl.settings.episode_auto_accept_threshold = 0.5
         self.ctrl.apply_runtime_settings()
         # Reproject after threshold is set.
         state.preview_items = project_preview_items(
-            table, show_info=show_info, root=folder, media_fields=media_fields,
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields=media_fields,
         )
         self.set_tv_session([state], batch_mode=False)
 
         # Both are OK at threshold 0.5 (confidence 0.6 > 0.5).
         approved_item = next(i for i in state.preview_items if i.file_id == approved_entry.file_id)
-        unapproved_item = next(i for i in state.preview_items if i.file_id == unapproved_entry.file_id)
+        unapproved_item = next(
+            i for i in state.preview_items if i.file_id == unapproved_entry.file_id
+        )
         self.assertEqual(approved_item.status, "OK")
         self.assertEqual(unapproved_item.status, "OK")
 
@@ -1170,7 +1120,9 @@ class RematchStateTests(_ControllerTestCase):
         self.ctrl.settings.episode_auto_accept_threshold = 0.85
         self.ctrl.apply_runtime_settings()
         approved_item = next(i for i in state.preview_items if i.file_id == approved_entry.file_id)
-        unapproved_item = next(i for i in state.preview_items if i.file_id == unapproved_entry.file_id)
+        unapproved_item = next(
+            i for i in state.preview_items if i.file_id == unapproved_entry.file_id
+        )
         self.assertEqual(approved_item.status, "OK", "Approved row must not flip to REVIEW")
         self.assertTrue(unapproved_item.is_episode_review, "Unapproved row must flip to REVIEW")
 
@@ -1384,8 +1336,20 @@ class RematchStateTests(_ControllerTestCase):
                 self.movie_info = {movie_file: {"id": 1, "title": "Old Match", "year": "2023"}}
                 self._results = {
                     movie_file: [
-                        {"id": 99, "title": "Dune: Part Two", "year": "2024", "poster_path": "/poster.jpg", "overview": "Paul Atreides returns."},
-                        {"id": 1, "title": "Old Match", "year": "2023", "poster_path": None, "overview": ""},
+                        {
+                            "id": 99,
+                            "title": "Dune: Part Two",
+                            "year": "2024",
+                            "poster_path": "/poster.jpg",
+                            "overview": "Paul Atreides returns.",
+                        },
+                        {
+                            "id": 1,
+                            "title": "Old Match",
+                            "year": "2023",
+                            "poster_path": None,
+                            "overview": "",
+                        },
                     ]
                 }
 
@@ -1428,7 +1392,13 @@ class RematchStateTests(_ControllerTestCase):
 
         self.ctrl.rematch_movie_state(
             state,
-            {"id": 99, "title": "Dune: Part Two", "year": "2024", "poster_path": "/poster.jpg", "overview": "Paul Atreides returns."},
+            {
+                "id": 99,
+                "title": "Dune: Part Two",
+                "year": "2024",
+                "poster_path": "/poster.jpg",
+                "overview": "Paul Atreides returns.",
+            },
         )
 
         self.assertEqual(state.media_info["id"], 99)
@@ -1460,8 +1430,13 @@ class RematchStateTests(_ControllerTestCase):
                 self.movie_info = {movie_file: {"id": 7, "title": "Wrong Match", "year": "2019"}}
                 self._results = {
                     movie_file: [
-                        {"id": 42, "title": "Some Film", "year": "2020",
-                         "poster_path": None, "overview": ""},
+                        {
+                            "id": 42,
+                            "title": "Some Film",
+                            "year": "2020",
+                            "poster_path": None,
+                            "overview": "",
+                        },
                     ]
                 }
 
@@ -1504,8 +1479,7 @@ class RematchStateTests(_ControllerTestCase):
 
         self.ctrl.rematch_movie_state(
             state,
-            {"id": 42, "title": "Some Film", "year": "2020",
-             "poster_path": None, "overview": ""},
+            {"id": 42, "title": "Some Film", "year": "2020", "poster_path": None, "overview": ""},
         )
 
         # state.confidence must come from the preview item's episode_confidence,
@@ -1589,12 +1563,14 @@ class RematchStateTests(_ControllerTestCase):
         self.assertFalse(preview.is_actionable)
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": "Example Movie (2024).eng.srt",
-                "language": "eng",
-                "set_default": False,
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": "Example Movie (2024).eng.srt",
+                    "language": "eng",
+                    "set_default": False,
+                }
+            ],
         }
 
         class _Binding:
@@ -1616,8 +1592,7 @@ class RematchStateTests(_ControllerTestCase):
         self.assertTrue(state.check_vars["0"].get())
 
 
-class MovieBatchCancellationTests(_ControllerTestCase):
-
+class MovieBatchCancellationTests(ControllerTestCase):
     def test_cancel_movie_batch_sets_cancelled_progress(self):
         root = self.tmp / "movies"
         root.mkdir()
@@ -1644,8 +1619,7 @@ class MovieBatchCancellationTests(_ControllerTestCase):
         self.assertEqual(self.ctrl.movie_library_states, [])
 
 
-class SessionSaveRestoreTests(_ControllerTestCase):
-
+class SessionSaveRestoreTests(ControllerTestCase):
     def test_save_restore_tv_from_tab_switch(self):
         state = ScanState(
             folder=self.tmp / "Show",
@@ -1720,8 +1694,7 @@ class SessionSaveRestoreTests(_ControllerTestCase):
         self.assertEqual(self.ctrl.active_library_mode, MediaType.MOVIE)
 
 
-class SyncQueuedStatesTests(_ControllerTestCase):
-
+class SyncQueuedStatesTests(ControllerTestCase):
     def test_sync_marks_queued_tv_states(self):
         state = ScanState(
             folder=self.tmp / "Show",
@@ -1752,15 +1725,17 @@ class SyncQueuedStatesTests(_ControllerTestCase):
         self.assertFalse(state.queued)
 
 
-class CompletedJobStateProjectionTests(_ControllerTestCase):
-
+class CompletedJobStateProjectionTests(ControllerTestCase):
     def test_apply_completed_tv_job_updates_state_to_plex_ready(self):
         state = ScanState(
             folder=self.tmp / "Example.Show.2024",
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=self.tmp / "Example.Show.2024" / "Season 01" / "Example.Show.S01E01.mkv",
+                    original=self.tmp
+                    / "Example.Show.2024"
+                    / "Season 01"
+                    / "Example.Show.S01E01.mkv",
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=self.tmp / "Example Show (2024)" / "Season 01",
                     season=1,
@@ -1799,7 +1774,13 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
         self.assertTrue(changed)
         self.assertEqual(state.folder, self.tmp / "Example Show (2024)")
         self.assertEqual(state.relative_folder, "Example Show (2024)")
-        self.assertEqual(state.preview_items[0].original, self.tmp / "Example Show (2024)" / "Season 01" / "Example Show (2024) - S01E01 - Pilot.mkv")
+        self.assertEqual(
+            state.preview_items[0].original,
+            self.tmp
+            / "Example Show (2024)"
+            / "Season 01"
+            / "Example Show (2024) - S01E01 - Pilot.mkv",
+        )
         self.assertFalse(state.preview_items[0].is_actionable)
         self.assertTrue(self.ctrl.command_gating.is_fully_ready_state(state))
 
@@ -1814,7 +1795,10 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=source_root / "Example.Show.2024" / "Season 01" / "Example.Show.S01E01.mkv",
+                    original=source_root
+                    / "Example.Show.2024"
+                    / "Season 01"
+                    / "Example.Show.S01E01.mkv",
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
@@ -1855,7 +1839,9 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
         self.assertTrue(changed)
         self.assertEqual(state.folder, output_root / "Example Show (2024)")
         self.assertEqual(state.relative_folder, "Example Show (2024)")
-        self.assertEqual(state.preview_items[0].original, final_dir / "Example Show (2024) - S01E01 - Pilot.mkv")
+        self.assertEqual(
+            state.preview_items[0].original, final_dir / "Example Show (2024) - S01E01 - Pilot.mkv"
+        )
         self.assertEqual(state.preview_items[0].target_dir, final_dir)
         self.assertEqual(state.season_folders[1], final_dir)
         self.assertFalse(state.preview_items[0].is_actionable)
@@ -1918,8 +1904,7 @@ class CompletedJobStateProjectionTests(_ControllerTestCase):
         self.assertFalse(state.queued)
 
 
-class ListenerTests(_ControllerTestCase):
-
+class ListenerTests(ControllerTestCase):
     def test_add_and_clear_listeners(self):
         lid = self.ctrl.add_listener(on_progress=lambda p: None)
         self.assertEqual(lid, 0)

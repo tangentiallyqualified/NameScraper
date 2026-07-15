@@ -1,0 +1,52 @@
+name: Update audit artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit-update:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create audit virtual environment
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: |
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\python.exe -m pip install -e ".[dev]" -c scripts\audit\constraints.txt
+
+      - name: Generate audit docs
+        shell: pwsh
+        run: scripts/audit.cmd --with-coverage
+
+      - name: Stage generated audit docs
+        if: always()
+        shell: pwsh
+        run: git add -A -- docs/audit
+
+      - name: Create binary patch
+        if: always()
+        shell: pwsh
+        run: git diff --cached --binary --output=audit-generated.patch HEAD -- docs/audit
+
+      - name: Upload generated audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-generated
+          path: |
+            audit-generated.patch
+            docs/audit/**
+            .audit/*.json
+          include-hidden-files: true
+          if-no-files-found: warn

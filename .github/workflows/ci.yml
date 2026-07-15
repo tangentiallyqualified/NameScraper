@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev]" -c scripts/audit/constraints.txt
 
       - name: Run fast tests (non-Qt)
         env:
@@ -43,3 +43,49 @@ jobs:
             --ignore=tests/test_qt_workspace_widgets.py \
             --ignore=tests/conftest_qt.py \
             -q --tb=short
+
+  audit-verify:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create audit virtual environment
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: |
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\python.exe -m pip install -e ".[dev]" -c scripts\audit\constraints.txt
+
+      - name: Collect full-suite coverage evidence
+        shell: pwsh
+        run: scripts/test-fast.cmd -Coverage
+
+      - name: Enforce quality ratchets
+        shell: pwsh
+        run: scripts/audit.cmd --quality-check
+
+      - name: Verify generated audit docs
+        shell: pwsh
+        run: |
+          scripts/audit.cmd --verify
+          $verifyExit = $LASTEXITCODE
+          if ($verifyExit -ne 0) {
+            scripts/audit.cmd
+            git --no-pager diff -- docs/audit/baseline.json
+            exit $verifyExit
+          }
+
+      - name: Upload audit SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: audit.sarif

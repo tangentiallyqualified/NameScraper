@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import json
-import re
-from datetime import datetime, timezone
 from pathlib import Path
 
 from . import _artifacts, _docs_ledger
 
 BASELINE_REL = Path("docs") / "audit" / "baseline.json"
 CHANGES_REL = Path("docs") / "audit" / "CHANGES.md"
-HISTORY_CAP = 10
 LOC_RATIO = 1.5
 CC_DELTA = 5
 COVERAGE_DELTA = 10.0
@@ -167,6 +164,50 @@ def _baseline_module(record: dict) -> dict:
     return snapshot
 
 
+_TRANSIENT_KEYS = {
+    "commit",
+    "generated_at",
+    "age_commits",
+    "collected_at_commit",
+}
+
+
+def _without_transient(value):
+    if isinstance(value, dict):
+        return {
+            key: _without_transient(item)
+            for key, item in value.items()
+            if key not in _TRANSIENT_KEYS and key != "previous_baseline"
+        }
+    if isinstance(value, list):
+        return [_without_transient(item) for item in value]
+    return value
+
+
+def _committed_snapshot(value):
+    """Strip operational provenance, including legacy coverage load paths."""
+    snapshot = _without_transient(value)
+    if not isinstance(snapshot, dict):
+        return snapshot
+    coverage = snapshot.get("coverage")
+    if isinstance(coverage, dict) and coverage.get("source") in {"fresh", "imported"}:
+        coverage["source"] = "coverage.py"
+    return snapshot
+
+
+def _baseline_snapshot(metrics: dict, docs: dict[str, dict]) -> dict:
+    snapshot = {
+        "input_digest": metrics["input_digest"],
+        "modules": {p: _baseline_module(r) for p, r in metrics["modules"].items()},
+        "headline": metrics["headline"],
+        "docs": docs,
+    }
+    for key in ("coverage", "dead_code", "tool_status"):
+        if key in metrics:
+            snapshot[key] = metrics[key]
+    return _committed_snapshot(snapshot)
+
+
 def compare(baseline: dict | None, metrics: dict) -> dict:
     current = metrics["modules"]
     if baseline is None:
@@ -230,11 +271,13 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
 
 
 def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict) -> str:
-    commit = metrics.get("commit") or _artifacts.current_commit(repo_root) or "unknown"
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    base_commit = (baseline.get("commit") or "unknown") if baseline else "none (first run)"
+    digest = metrics.get("input_digest") or "unknown"
+    base_digest = (
+        (baseline.get("input_digest") or "unknown")[:12]
+        if baseline else "none (first run)"
+    )
     h = metrics["headline"]
-    lines = [f"## Audit {date} ({commit}) vs baseline ({base_commit})", ""]
+    lines = [f"## Audit {digest[:12]} vs baseline ({base_digest})", ""]
     dead_summary = (
         f"{h['dead_high_confidence']} high-confidence dead symbols"
         if _dead_evidence_usable(metrics, h) else "dead-code analysis unavailable"
@@ -267,36 +310,48 @@ def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict
 def run(repo_root: Path, options) -> int:
     metrics = _artifacts.read_artifact(repo_root, "metrics")
     baseline_path = repo_root / BASELINE_REL
-    baseline = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else None
-    result = compare(baseline, metrics)
+    existing = (
+        json.loads(baseline_path.read_text(encoding="utf-8"))
+        if baseline_path.exists() else None
+    )
+    same_input = (
+        isinstance(existing, dict)
+        and existing.get("input_digest") == metrics.get("input_digest")
+    )
+    if same_input:
+        previous = _committed_snapshot(existing.get("previous_baseline"))
+    else:
+        previous = _committed_snapshot(existing) if isinstance(existing, dict) else None
+
+    result = compare(previous, metrics)
     docs = _doc_snapshot(repo_root)
-    result["doc_transitions"] = _doc_transitions(baseline.get("docs") if baseline else None, docs)
+    result["doc_transitions"] = _doc_transitions(
+        previous.get("docs") if isinstance(previous, dict) else None, docs
+    )
 
     changes_path = repo_root / CHANGES_REL
-    header = "# Audit Change Log\n\n"
-    body = ""
-    if changes_path.exists():
-        existing = changes_path.read_text(encoding="utf-8")
-        body = existing.split("# Audit Change Log", 1)[-1].lstrip("\n")
-    sections = re.split(r"(?=^## Audit )", body, flags=re.MULTILINE)
-    sections = [s.strip() for s in sections if s.strip()]
-    new_section = _section(repo_root, result, baseline, metrics).strip()
-    new_body = "\n\n".join([new_section] + sections[: HISTORY_CAP - 1])
+    current_digest = metrics.get("input_digest") or "unknown"
+    previous_digest = (
+        previous.get("input_digest") or "unknown"
+        if isinstance(previous, dict) else "none"
+    )
+    body = "\n".join([
+        "# Audit Change Log",
+        "",
+        f"<!-- audit:input-digest: {current_digest} -->",
+        f"<!-- audit:baseline-input-digest: {previous_digest} -->",
+        "",
+        _section(repo_root, result, previous, metrics).strip(),
+        "",
+    ])
     changes_path.parent.mkdir(parents=True, exist_ok=True)
-    changes_path.write_text(header + new_body.rstrip() + "\n", encoding="utf-8")
+    _artifacts.write_text_lf(changes_path, body)
 
-    new_baseline = {
-        "commit": metrics.get("commit") or _artifacts.current_commit(repo_root),
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "modules": {p: _baseline_module(r) for p, r in metrics["modules"].items()},
-        "headline": metrics["headline"],
-        "docs": docs,
-    }
-    if "coverage" in metrics:
-        new_baseline["coverage"] = metrics["coverage"]
-    if "dead_code" in metrics:
-        new_baseline["dead_code"] = metrics["dead_code"]
-    baseline_path.write_text(json.dumps(new_baseline, indent=1, sort_keys=True), encoding="utf-8")
+    new_baseline = _baseline_snapshot(metrics, docs)
+    new_baseline["previous_baseline"] = previous
+    _artifacts.write_text_lf(
+        baseline_path, json.dumps(new_baseline, indent=1, sort_keys=True)
+    )
     n = len(result["movements"])
     print(f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed")
     return 0

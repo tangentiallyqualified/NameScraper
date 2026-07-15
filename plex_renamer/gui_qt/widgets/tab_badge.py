@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QHBoxLayout, QLabel, QWidget
 
 from .. import theme
@@ -11,7 +11,7 @@ from .. import theme
 class TabBadge(QWidget):
     """Tab-side count badge with optional failure pip."""
 
-    def __init__(self, *, show_failure_pip: bool = False, parent: QWidget | None = None) -> None:
+    def __init__(self, *, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("cssClass", "tab-badge")
 

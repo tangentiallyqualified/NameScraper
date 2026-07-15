@@ -439,7 +439,6 @@ class BulkAssignPanel(QFrame):
         self._choices: list = []
         self._previews: list = []
         self._claims_by_key: dict[tuple[int, int], list[tuple[int, str]]] = {}
-        self._claimed_file_by_key: dict[tuple[int, int], int] = {}
         self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
         self._staged_pairs: list[tuple[int, tuple[int, int]]] = []
         self._staged_unassign: set[int] = set()

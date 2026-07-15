@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.engine import MovieScanner, apply_movie_confidence_adjustments
 from plex_renamer.engine.matching import (
     _collect_movie_evidence,
@@ -249,7 +250,11 @@ class MovieScannerConfidenceTests(unittest.TestCase):
         tmdb.search_with_fallback.return_value = tmdb_results
         tmdb.search_movie.return_value = tmdb_results
         tmdb.get_alternative_titles.return_value = []
-        return MovieScanner(tmdb, tmp)
+        return MovieScanner(
+            tmdb,
+            tmp,
+            tv_discovery_service=TVLibraryDiscoveryService(),
+        )
 
     def test_preview_item_carries_real_confidence(self):
         with tempfile.TemporaryDirectory() as td:

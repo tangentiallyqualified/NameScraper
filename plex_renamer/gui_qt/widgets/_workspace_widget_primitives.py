@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QSizePolicy, QWidget
+from PySide6.QtWidgets import QCheckBox, QLabel, QSizePolicy, QWidget
 
 from .. import _scale, theme
 
@@ -18,7 +18,7 @@ def _check_palette(state: Qt.CheckState) -> tuple[QColor, QColor]:
 
 
 def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState) -> None:
-    """Rounded check indicator shared by MasterCheckBox, ToggleSwitch, and the roster delegate."""
+    """Paint the rounded indicator shared by MasterCheckBox and the roster delegate."""
     bg, border = _check_palette(state)
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -41,7 +41,7 @@ def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState)
 
 
 def paint_mini_progress(painter: QPainter, rect: QRect, *, value: int, color: QColor) -> None:
-    """4px track+fill bar shared by MiniProgressBar and the roster delegate."""
+    """Paint the roster delegate's compact track-and-fill progress bar."""
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     painter.setPen(Qt.PenStyle.NoPen)
@@ -161,71 +161,3 @@ class ElidedLabel(QLabel):
             )
         super().setText(display_text)
         self.setToolTip(self._full_text if display_text != self._full_text else "")
-
-
-class ClickableRow(QFrame):
-    clicked = Signal()
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-
-    def mousePressEvent(self, event) -> None:
-        self.clicked.emit()
-        super().mousePressEvent(event)
-
-
-class ToggleSwitch(QCheckBox):
-    _GRID_UNITS = 20
-    _RADIUS = 4
-
-    @property
-    def _SIZE(self) -> int:  # noqa: N802 — preserves original API
-        return _scale.px(self._GRID_UNITS)
-
-    def __init__(self, checked: bool = False, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setText("")
-        self.setChecked(checked)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(self._SIZE, self._SIZE)
-
-    def sizeHint(self) -> QSize:
-        return QSize(self._SIZE, self._SIZE)
-
-    def paintEvent(self, _event) -> None:  # noqa: N802
-        painter = QPainter(self)
-        size = self._SIZE
-        rect_f = QRectF(1.5, 1.5, size - 3.0, size - 3.0)
-        paint_check_indicator(painter, rect_f, self.checkState())
-        painter.end()
-
-
-class MiniProgressBar(QWidget):
-    def __init__(self, *, color: str, value: int = 0, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._color = QColor(color)
-        self._value = max(0, min(100, value))
-        self.setFixedHeight(_scale.px(4))
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-
-    def setValue(self, value: int) -> None:  # noqa: N802
-        self._value = max(0, min(100, value))
-        self.update()
-
-    def setColor(self, color: str) -> None:  # noqa: N802
-        self._color = QColor(color)
-        self.update()
-
-    def sizeHint(self) -> QSize:
-        return QSize(_scale.px(120), _scale.px(4))
-
-    def paintEvent(self, event) -> None:  # noqa: N802
-        del event
-        rect = self.rect()
-        if not rect.isValid():
-            return
-        painter = QPainter(self)
-        paint_mini_progress(painter, rect, value=self._value, color=self._color)
-        painter.end()

@@ -1,14 +1,14 @@
-<!-- Generated at commit 486aaef; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input bf384554fdd1; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
 
 
 ### `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format.
-- Tests: tests/conftest_qt.py, tests/test_mkv_locate.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
+- Tests: tests/conftest_qt.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
 
 ### `plex_renamer/__main__.py` — Entry point for NameScraper.
-- `main()`
+- `main()` — (no docstring)
 
 ### `plex_renamer/_job_execution_filesystem.py` — Filesystem helpers for queued rename execution.
 - `remap_target_into_final_root(target_dir, root_folder, final_root) -> Path` — Route root-relative targets into the final renamed show folder. (used by: plex_renamer.job_executor)
@@ -31,7 +31,7 @@
 
 ### `plex_renamer/_job_path_propagation.py` — Helpers for rewriting queued job paths after directory renames.
 - `rewrite_job_paths(*, library_root, source_folder, rename_ops, renamed_dirs) -> tuple[str, list[dict[str, Any]], bool]` — Apply renamed directory prefixes to one queued job payload. (used by: plex_renamer.job_store)
-- `rebase_path(path_str, old_prefix, new_prefix) -> str` — If *path_str* starts with *old_prefix*, replace that prefix. (used by: plex_renamer.job_store)
+- `rebase_path(path_str, old_prefix, new_prefix) -> str` — If *path_str* starts with *old_prefix*, replace that prefix.
 
 ### `plex_renamer/_job_store_codec.py` — Row-mapping and JSON serialization helpers for the job store.
 - `serialize_rename_ops(rename_ops) -> str` — Serialize rename ops using their existing to_dict contract. (used by: plex_renamer.job_store)
@@ -44,10 +44,10 @@
 ### `plex_renamer/_job_store_db.py` — SQLite connection and schema helpers for the persistent job queue.
 - `connect_job_store(db_path) -> sqlite3.Connection` — Create one SQLite connection configured for the job queue. (used by: plex_renamer.job_store)
 - `initialize_job_store(conn) -> None` — Create the schema and run any needed migrations. (used by: plex_renamer.job_store)
-- `migrate_job_store(conn, current_version) -> None` — Upgrade an existing job-store schema in place. (used by: plex_renamer.job_store)
+- `migrate_job_store(conn, current_version) -> None` — Upgrade an existing job-store schema in place.
 
 ### `plex_renamer/_job_store_ordering.py` — Queue ordering helpers for the persistent job store.
-- `compact_positions(conn) -> None` — Reassign positions 1..N for pending/running jobs. (used by: plex_renamer.job_store)
+- `compact_positions(conn) -> None` — Reassign positions 1..N for pending/running jobs.
 - `reorder_pending_job(conn, *, job_id, new_position, now) -> None` — Move one pending job to a new queue position. (used by: plex_renamer.job_store)
 - `move_pending_jobs(conn, *, job_ids, direction, now) -> bool` — Move a block of pending jobs up or down while preserving order. (used by: plex_renamer.job_store)
 - `move_pending_jobs_to_top(conn, *, job_ids, now) -> bool` — Move the given pending jobs to the top while preserving order. (used by: plex_renamer.job_store)
@@ -58,7 +58,7 @@
 - Tests: tests/test_lang_normalize.py
 
 ### `plex_renamer/_mkv_command.py` — Build the mkvmerge argv for one remux op from its MuxPlan.
-- `build_mkvmerge_args(*, mkvmerge_path, source, output, plan, resolve_sub, title, global_tags_path, cover_path) -> list[str]` (used by: plex_renamer._job_execution_remux)
+- `build_mkvmerge_args(*, mkvmerge_path, source, output, plan, resolve_sub, title, global_tags_path, cover_path) -> list[str]` — (no docstring) (used by: plex_renamer._job_execution_remux)
 - `build_mkvpropedit_args(propedit_path, target, *, title, tags_path, cover_path) -> list[str]` — argv for in-place container edits (title/tags/cover, no remux). (used by: plex_renamer._job_execution_metadata)
 - Tests: tests/test_mkv_command.py, tests/test_mkv_metadata_helpers.py
 
@@ -68,21 +68,21 @@
 - Tests: tests/test_mkv_locate.py, tests/test_mkv_metadata_helpers.py, tests/test_mkvmerge_integration.py
 
 ### `plex_renamer/_mkv_probe.py` — Track inspection via ``mkvmerge -J`` with a stat-keyed result cache.
-- `MediaTrack` (used by: plex_renamer.engine._mux_planner)
-- `ProbeResult` (used by: plex_renamer.app.services.automux_service, plex_renamer.engine._mux_planner)
+- `MediaTrack` — (no docstring) (used by: plex_renamer.engine._mux_planner)
+- `ProbeResult` — (no docstring) (used by: plex_renamer.app.services.automux_service, plex_renamer.engine._mux_planner)
 - `parse_identify_json(path, payload) -> ProbeResult` — Pure parse of a ``mkvmerge -J`` JSON document.
-- `clear_probe_cache() -> None`
+- `clear_probe_cache() -> None` — (no docstring)
 - `probe_file(mkvmerge_path, video_path) -> ProbeResult` — Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime). (used by: plex_renamer.app.services.automux_service)
 - Tests: tests/test_automux_service.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_mux_planner.py, tests/test_queue_submission_automux.py, tests/test_workspace_automux.py
 
 ### `plex_renamer/_mkv_tags_render.py` — Render Matroska global-tags XML from cached TMDB payloads.
-- `render_movie_tags(details) -> str` (used by: plex_renamer.app.services.metadata_service)
+- `render_movie_tags(details) -> str` — (no docstring) (used by: plex_renamer.app.services.metadata_service)
 - `render_episode_tags(show_details, blocks) -> str` — Layered 70 (show) / 60 (season) / 50 (per-episode) tags. (used by: plex_renamer.app.services.metadata_service)
 - Tests: tests/test_mkv_tags_render.py
 
 ### `plex_renamer/_nfo_render.py` — Render Kodi-convention NFO XML from cached TMDB payloads.
-- `render_tvshow_nfo(details) -> str` (used by: plex_renamer.app.services.metadata_service)
-- `render_movie_nfo(details) -> str` (used by: plex_renamer.app.services.metadata_service)
+- `render_tvshow_nfo(details) -> str` — (no docstring) (used by: plex_renamer.app.services.metadata_service)
+- `render_movie_nfo(details) -> str` — (no docstring) (used by: plex_renamer.app.services.metadata_service)
 - `render_episode_nfo(blocks) -> str` — One <episodedetails> root per block, concatenated after a single (used by: plex_renamer.app.services.metadata_service)
 - Tests: tests/test_nfo_render.py
 
@@ -128,25 +128,25 @@
 - `is_generic_show_folder_name(name) -> bool` — True when *name* is only a season/collection label, not a show title. (used by: plex_renamer.parsing)
 
 ### `plex_renamer/_tmdb_batch_search.py` — Batch search orchestration helpers for the TMDB client.
-- `resolve_movie_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` (used by: plex_renamer.tmdb)
-- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` (used by: plex_renamer.tmdb)
-- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[dict]]` (used by: plex_renamer.tmdb)
+- `resolve_movie_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[dict]]` — (no docstring) (used by: plex_renamer.tmdb)
 
 ### `plex_renamer/_tmdb_image_cache.py` — Image and poster cache helpers for the TMDB client.
 
 ### `plex_renamer/_tmdb_metadata_builder.py` — Pure metadata shaping helpers for TMDB client responses.
-- `build_tv_search_results(data) -> list[dict]` (used by: plex_renamer.tmdb)
-- `build_movie_search_results(data) -> list[dict]` (used by: plex_renamer.tmdb)
-- `build_empty_season_payload() -> dict[str, Any]` (used by: plex_renamer.tmdb)
-- `build_season_payload(data) -> dict[str, Any]` (used by: plex_renamer.tmdb)
+- `build_tv_search_results(data) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `build_movie_search_results(data) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `build_empty_season_payload() -> dict[str, Any]` — (no docstring) (used by: plex_renamer.tmdb)
+- `build_season_payload(data) -> dict[str, Any]` — (no docstring) (used by: plex_renamer.tmdb)
 - `select_logo_path(details, language) -> str | None` — Best clearlogo path from a widened details payload. (used by: plex_renamer.app.services.metadata_service)
 - Tests: tests/test_tmdb_export_assets.py
 
 ### `plex_renamer/_tmdb_metadata_cache.py` — Persistent metadata cache helpers for the TMDB client.
 
 ### `plex_renamer/_tmdb_search_helpers.py` — Search and alternate-title helpers for the TMDB client.
-- `extract_alternative_titles(data) -> list[tuple[str, str]]` (used by: plex_renamer.tmdb)
-- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[dict]` (used by: plex_renamer.tmdb)
+- `extract_alternative_titles(data) -> list[tuple[str, str]]` — (no docstring) (used by: plex_renamer.tmdb)
+- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
 
 ### `plex_renamer/_tmdb_transport.py` — Transport helpers for TMDB client networking and retry behavior.
 - `TMDBError` — Base class for TMDB client errors. (used by: plex_renamer.tmdb)
@@ -154,7 +154,7 @@
 - `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer.tmdb)
 - `TMDBAPIError` — Non-retryable API error (4xx other than 429). (used by: plex_renamer.tmdb)
 - `TMDBTransport` — Own the HTTP session, token bucket, and retry policy for TMDB requests. (used by: plex_renamer.tmdb)
-- Tests: tests/test_tmdb.py
+- Tests: tests/test_tmdb_transport.py
 
 ### `plex_renamer/constants.py` — Shared constants and configuration for NameScraper.
 - `ensure_log_dir() -> None` — Create the log directory if it doesn't exist. Called lazily on first use. (used by: plex_renamer._job_store_db, plex_renamer.app.services.cache_service, plex_renamer.app.services.settings_service, plex_renamer.keys)

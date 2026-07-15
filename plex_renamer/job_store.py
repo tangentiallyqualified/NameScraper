@@ -16,7 +16,6 @@ threads.  WAL mode allows concurrent readers.
 
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
 import threading
@@ -24,9 +23,8 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-from ._job_path_propagation import rebase_path, rewrite_job_paths
+from ._job_path_propagation import rewrite_job_paths
 from ._job_store_codec import (
     deserialize_rename_op_dicts,
     row_to_job,
@@ -34,9 +32,8 @@ from ._job_store_codec import (
     serialize_rename_ops,
     serialize_undo_data,
 )
-from ._job_store_db import connect_job_store, initialize_job_store, migrate_job_store
+from ._job_store_db import connect_job_store, initialize_job_store
 from ._job_store_ordering import (
-    compact_positions,
     move_pending_jobs,
     move_pending_jobs_to_top,
     reorder_pending_job,
@@ -204,16 +201,6 @@ class RenameJob:
         """True if this job can be executed (pending with selected ops)."""
         return self.status == JobStatus.PENDING and self.selected_count > 0
 
-    @property
-    def is_terminal(self) -> bool:
-        """True if this job is in a final state."""
-        return self.status in (
-            JobStatus.COMPLETED, JobStatus.FAILED,
-            JobStatus.CANCELLED, JobStatus.REVERTED,
-            JobStatus.REVERT_FAILED,
-        )
-
-
 # ─── SQLite store ────────────────────────────────────────────────────────────
 
 
@@ -270,10 +257,6 @@ class JobStore:
             initialize_job_store(conn)
         # Outside the lock — recover_interrupted acquires it itself.
         self.recover_interrupted()
-
-    def _migrate_db(self, conn: sqlite3.Connection, current_version: int) -> None:
-        """Compatibility wrapper for extracted schema migration helpers."""
-        migrate_job_store(conn, current_version)
 
     # ── Write operations ──────────────────────────────────────────────
 
@@ -425,21 +408,6 @@ class JobStore:
             _log.warning("Recovered %d interrupted job(s)", len(recovered))
         return recovered
 
-    def remove_job(self, job_id: str) -> bool:
-        """
-        Remove a pending or cancelled job from the queue.
-
-        Returns True if a row was deleted.
-        """
-        with self._lock:
-            conn = self._get_conn()
-            cursor = conn.execute(
-                "DELETE FROM jobs WHERE job_id = ? "
-                "AND status IN ('pending', 'cancelled')",
-                (job_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-
     def remove_jobs(self, job_ids: list[str]) -> int:
         """
         Remove multiple pending or cancelled jobs.
@@ -512,10 +480,6 @@ class JobStore:
             conn.commit()
             return cursor.rowcount
 
-    def _compact_positions(self, conn: sqlite3.Connection) -> None:
-        """Reassign positions 1..N for pending/running jobs. Call under lock."""
-        compact_positions(conn)
-
     # ── Path propagation ──────────────────────────────────────────────
 
     def propagate_path_changes(
@@ -572,11 +536,6 @@ class JobStore:
 
         return updated_count
 
-    @staticmethod
-    def _rebase_path(path_str: str, old_prefix: str, new_prefix: str) -> str:
-        """Compatibility wrapper for the extracted path-rewrite helper."""
-        return rebase_path(path_str, old_prefix, new_prefix)
-
     # ── Read operations ───────────────────────────────────────────────
 
     def get_job(self, job_id: str) -> RenameJob | None:
@@ -590,9 +549,6 @@ class JobStore:
     def get_pending(self) -> list[RenameJob]:
         return self._get_by_status([JobStatus.PENDING])
 
-    def get_running(self) -> list[RenameJob]:
-        return self._get_by_status([JobStatus.RUNNING])
-
     def get_queue(self) -> list[RenameJob]:
         return self._get_by_status([JobStatus.PENDING, JobStatus.RUNNING])
 
@@ -605,18 +561,6 @@ class JobStore:
                 "ORDER BY updated_at DESC"
             ).fetchall()
             return [self._row_to_job(r) for r in rows]
-
-    def get_latest_completed_with_undo(self) -> RenameJob | None:
-        """Return the most recently completed job that can still be reverted."""
-        with self._lock:
-            conn = self._get_conn()
-            row = conn.execute(
-                "SELECT * FROM jobs "
-                "WHERE status = ? AND undo_data IS NOT NULL "
-                "ORDER BY updated_at DESC LIMIT 1",
-                (JobStatus.COMPLETED,),
-            ).fetchone()
-            return self._row_to_job(row) if row else None
 
     def get_all(self) -> list[RenameJob]:
         with self._lock:
@@ -654,16 +598,6 @@ class JobStore:
                 "SELECT status, COUNT(*) as cnt FROM jobs GROUP BY status"
             ).fetchall()
             return {r["status"]: r["cnt"] for r in rows}
-
-    def get_queued_tmdb_ids(self) -> set[int]:
-        """Return TMDB IDs of all pending/running jobs for queued-state restoration."""
-        with self._lock:
-            conn = self._get_conn()
-            rows = conn.execute(
-                "SELECT DISTINCT tmdb_id FROM jobs "
-                "WHERE status IN ('pending', 'running')"
-            ).fetchall()
-            return {r["tmdb_id"] for r in rows}
 
     # ── Internal ──────────────────────────────────────────────────────
 

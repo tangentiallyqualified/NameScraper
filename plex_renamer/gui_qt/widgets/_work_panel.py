@@ -381,9 +381,8 @@ class MediaWorkPanel(QFrame):
         # Movie mode compacts the table to its content height (round5 Task 6
         # §2a) so the AutoMux tracks section below it can expand into the
         # rest of the panel. Row heights aren't known until the model has
-        # rows, and rows can change outside show_state() (e.g. movie-mode
-        # refresh_checks()'s _rebuild()), so recompute on every model reset
-        # rather than only from show_state().
+        # rows, and rows can change outside show_state(), so recompute on
+        # every model reset rather than only from show_state().
         self._model.modelReset.connect(self._sync_movie_mode_visibility)
 
     # -- Public API -------------------------------------------------------

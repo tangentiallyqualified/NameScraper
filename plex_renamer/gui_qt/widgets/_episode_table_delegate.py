@@ -89,8 +89,6 @@ def _is_legacy_action_row(row_data: EpisodeRowData) -> bool:
 
 
 class EpisodeTableDelegate(QStyledItemDelegate):
-    expansion_requested = Signal(QModelIndex)     # chevron click or Enter (view forwards)
-
     def __init__(self, view: QListView, *, media_type: str, parent=None) -> None:
         super().__init__(parent if parent is not None else view)
         self._view = view

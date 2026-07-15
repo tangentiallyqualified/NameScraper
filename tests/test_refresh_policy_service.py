@@ -1,4 +1,5 @@
 """Unit tests for RefreshPolicyService — TTL policies, freshness, cooldowns."""
+
 from __future__ import annotations
 
 import unittest
@@ -124,9 +125,7 @@ class RefreshPolicyServiceTests(unittest.TestCase):
     # -- should_background_refresh -------------------------------------------
 
     def test_should_refresh_when_missing(self):
-        self.assertTrue(
-            self.svc.should_background_refresh(refreshed_at=None, expires_at=None)
-        )
+        self.assertTrue(self.svc.should_background_refresh(refreshed_at=None, expires_at=None))
 
     def test_should_refresh_when_stale(self):
         now = _utc()
@@ -201,13 +200,13 @@ class RefreshPolicyServiceTests(unittest.TestCase):
             ep = show_dir / "ep.mkv"
             ep.touch()
             result = self.svc.get_rescan_scope(lib, ep)
-            self.assertEqual(result, lib / "Show")
+            self.assertEqual(result, (lib / "Show").resolve())
 
     def test_rescan_scope_returns_library_root_for_root_change(self):
         with TemporaryDirectory() as tmp:
             lib = Path(tmp)
             result = self.svc.get_rescan_scope(lib, lib)
-            self.assertEqual(result, lib)
+            self.assertEqual(result, lib.resolve())
 
     def test_rescan_scope_returns_library_root_for_outside_path(self):
         with TemporaryDirectory() as tmp:
@@ -215,7 +214,7 @@ class RefreshPolicyServiceTests(unittest.TestCase):
             lib.mkdir()
             outside = Path(tmp) / "other" / "file.mkv"
             result = self.svc.get_rescan_scope(lib, outside)
-            self.assertEqual(result, lib)
+            self.assertEqual(result, lib.resolve())
 
 
 if __name__ == "__main__":

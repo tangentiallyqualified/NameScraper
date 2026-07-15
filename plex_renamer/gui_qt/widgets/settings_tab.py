@@ -256,6 +256,3 @@ class SettingsTab(QScrollArea):
 
     def _refresh_cache_stats(self) -> None:
         self._actions_coordinator.refresh_cache_stats()
-
-    def _set_key_status(self, text: str, tone: str) -> None:
-        self._actions_coordinator.set_key_status(text, tone)

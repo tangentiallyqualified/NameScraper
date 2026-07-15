@@ -43,10 +43,6 @@ class MediaWorkspaceRosterPanel(QFrame):
         return self._master_check
 
     @property
-    def selection_summary(self) -> QLabel:
-        return self._selection_summary
-
-    @property
     def queue_button(self) -> QPushButton:
         return self._queue_button
 

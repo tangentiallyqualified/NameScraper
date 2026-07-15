@@ -120,7 +120,6 @@ class _Entry:
     preview_index: int | None
     guide_row: EpisodeGuideRow | None
     row_data: EpisodeRowData
-    collapsible: bool = False
 
 
 class EpisodeTableModel(QAbstractListModel):
@@ -253,18 +252,12 @@ class EpisodeTableModel(QAbstractListModel):
         self._search_text = normalized
         self._rebuild()
 
-    def search_text(self) -> str:
-        return self._search_text
-
     def set_episode_search(self, text: str) -> None:
         normalized = text.casefold().strip()
         if normalized == self._episode_search:
             return
         self._episode_search = normalized
         self._rebuild()
-
-    def episode_search(self) -> str:
-        return self._episode_search
 
     def toggle_section(self, section_key: str) -> None:
         if section_key in self._collapsed_sections:
@@ -390,15 +383,6 @@ class EpisodeTableModel(QAbstractListModel):
             return
         index = self.index(self._expanded_row, 0)
         self.dataChanged.emit(index, index, [EXPANDED_ROLE])
-
-    def refresh_checks(self) -> None:
-        if self._media_type != "movie" or self._state is None or not self._entries:
-            return
-        self._rebuild()
-        if self._entries:
-            top_left = self.index(0, 0)
-            bottom_right = self.index(len(self._entries) - 1, 0)
-            self.dataChanged.emit(top_left, bottom_right, [ROW_DATA_ROLE])
 
     def refresh_row_data(self, state: ScanState) -> None:
         """Recompute mux_active for every entry currently shown for *state*
@@ -629,7 +613,6 @@ class EpisodeTableModel(QAbstractListModel):
             preview_index=None,
             guide_row=None,
             row_data=EpisodeRowData(kind="section-header", title="FOLDER", collapsed=is_collapsed),
-            collapsible=True,
         )
         if is_collapsed:
             return
@@ -771,7 +754,6 @@ class EpisodeTableModel(QAbstractListModel):
                 preview_index=None,
                 guide_row=None,
                 row_data=EpisodeRowData(kind="section-header", title=season_title, collapsed=is_collapsed),
-                collapsible=True,
             )
             if is_collapsed:
                 continue

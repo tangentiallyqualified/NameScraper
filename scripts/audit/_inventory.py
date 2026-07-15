@@ -1,4 +1,5 @@
 """Stage 1: inventory of code, tests, docs, and scripts (ground truth)."""
+
 from __future__ import annotations
 
 import ast
@@ -11,11 +12,32 @@ from pathlib import Path
 from . import _artifacts
 
 EXCLUDED_DIRS = {
-    ".venv", ".audit", ".git", "__pycache__", ".pytest_cache", ".mypy_cache",
-    ".ruff_cache", ".worktrees", ".scan-dumps", ".superpowers", ".vscode",
-    ".claude", "plex_renamer.egg-info", ".github",
+    ".venv",
+    ".audit",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".worktrees",
+    ".scan-dumps",
+    ".superpowers",
+    ".vscode",
+    ".claude",
+    "plex_renamer.egg-info",
+    ".github",
 }
 DOC_SUFFIXES = {".md", ".rst", ".txt"}
+_GENERATED_AUDIT_DOCS = {
+    Path("docs/audit/CHANGES.md"),
+    Path("docs/audit/doc-status.md"),
+    Path("docs/audit/findings-live.md"),
+}
+_GENERATED_AUDIT_DIRS = {
+    Path("docs/audit/code-index"),
+    Path("docs/audit/llm"),
+    Path("docs/audit/maps"),
+}
 _SOURCE_REF = re.compile(r"(?:plex_renamer|scripts|tests)[\w\\/.-]*?\.\w{2,4}")
 
 
@@ -53,7 +75,11 @@ def _test_import_evidence(path: Path) -> tuple[list[str], list[str]]:
                 mods.add(alias.name)
                 if alias.asname:
                     imported_names[alias.asname] = alias.name
-        elif isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("plex_renamer"):
+        elif (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.startswith("plex_renamer")
+        ):
             mods.add(node.module)
             for alias in node.names:
                 if alias.name == "*":
@@ -79,14 +105,27 @@ def _git_last_touched(repo_root: Path, rel: Path) -> str | None:
     return _artifacts._git(repo_root, "log", "-1", "--format=%cI", "--", rel.as_posix()) or None
 
 
+def _is_generated_audit_doc(rel: Path) -> bool:
+    return rel in _GENERATED_AUDIT_DOCS or any(
+        rel.is_relative_to(directory) for directory in _GENERATED_AUDIT_DIRS
+    )
+
+
 def _doc_record(repo_root: Path, path: Path, rel: Path) -> dict:
     text = path.read_text(encoding="utf-8", errors="replace")
     refs = sorted({m.group(0).replace("\\", "/") for m in _SOURCE_REF.finditer(text)})
     broken = [r for r in refs if not (repo_root / r).exists()]
-    last = _git_last_touched(repo_root, rel)
+    last = "generated" if _is_generated_audit_doc(rel) else _git_last_touched(repo_root, rel)
     if last is None:
-        last = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat(timespec="seconds")
-    return {"path": rel.as_posix(), "last_touched": last, "source_refs": refs, "broken_refs": broken}
+        last = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat(
+            timespec="seconds"
+        )
+    return {
+        "path": rel.as_posix(),
+        "last_touched": last,
+        "source_refs": refs,
+        "broken_refs": broken,
+    }
 
 
 def build_inventory(repo_root: Path) -> dict:
@@ -99,22 +138,27 @@ def build_inventory(repo_root: Path) -> dict:
         top = rel.parts[0]
         try:
             if rel.suffix == ".py" and top == "plex_renamer":
-                python_files.append({
-                    "path": posix,
-                    "package": ".".join(rel.parts[:-1]),
-                    "loc": _loc(path),
-                    "sha256": _sha(path),
-                })
+                python_files.append(
+                    {
+                        "path": posix,
+                        "package": ".".join(rel.parts[:-1]),
+                        "loc": _loc(path),
+                        "sha256": _sha(path),
+                    }
+                )
             elif rel.suffix == ".py" and top == "tests":
                 imports_modules, imports_symbols = _test_import_evidence(path)
-                test_files.append({
-                    "path": posix,
-                    "loc": _loc(path),
-                    "imports_modules": imports_modules,
-                    "imports_symbols": imports_symbols,
-                })
+                test_files.append(
+                    {
+                        "path": posix,
+                        "loc": _loc(path),
+                        "imports_modules": imports_modules,
+                        "imports_symbols": imports_symbols,
+                    }
+                )
             elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
-                docs.append(_doc_record(repo_root, path, rel))
+                if not _is_generated_audit_doc(rel):
+                    docs.append(_doc_record(repo_root, path, rel))
             elif top == "scripts":
                 scripts.append({"path": posix})
         except OSError:

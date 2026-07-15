@@ -30,7 +30,11 @@ def _coverage_provenance(coverage: dict) -> dict:
         "available": coverage.get("available", False),
         "usable": usable,
         "reason": coverage.get("reason"),
-        "source": coverage.get("source"),
+        # How evidence reached this stage (fresh subprocess versus import) is
+        # operational state.  Keep that detail in .audit/coverage.json, but
+        # expose a stable tool identity to committed renderers.
+        "source": "coverage.py" if coverage.get("available") else None,
+        "input_digest": coverage.get("input_digest"),
         "collected_at_commit": coverage.get("collected_at_commit"),
         "age_commits": coverage.get("age_commits"),
         "stale": coverage.get("stale"),
@@ -87,7 +91,13 @@ def _unavailable_dead_counts() -> dict:
     }
 
 
-def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) -> dict:
+def build_metrics(
+    inventory: dict,
+    graph: dict,
+    analysis: dict,
+    coverage: dict,
+    repo_root: Path | None = None,
+) -> dict:
     by_path = {m["path"]: (name, m) for name, m in graph["modules"].items()}
     per_file = analysis.get("per_file", {})
     coverage_info = _coverage_provenance(coverage)
@@ -181,6 +191,10 @@ def build_metrics(inventory: dict, graph: dict, analysis: dict, coverage: dict) 
         "coverage_usable": coverage_info["usable"],
     }
     return {
+        "input_digest": (
+            _artifacts.input_digest(repo_root)
+            if repo_root is not None else coverage.get("input_digest")
+        ),
         "modules": modules,
         "headline": headline,
         "coverage": coverage_info,
@@ -206,6 +220,7 @@ def run(repo_root: Path, options) -> int:
         _artifacts.read_artifact(repo_root, "graph"),
         _artifacts.read_artifact(repo_root, "analysis"),
         _artifacts.read_artifact(repo_root, "coverage"),
+        repo_root,
     )
     _artifacts.write_artifact(repo_root, "metrics", metrics)
     h = metrics["headline"]
