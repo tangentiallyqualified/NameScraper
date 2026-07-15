@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -15,15 +16,16 @@ from plex_renamer.app.services.command_gating_service import CommandGatingServic
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
-from plex_renamer.constants import MediaType
+from plex_renamer.constants import JobStatus, MediaType
 from plex_renamer.engine import (
     BatchTVOrchestrator,
     PreviewItem,
+    RenameResult,
     ScanCancelledError,
     ScanState,
     set_auto_accept_threshold,
 )
-from plex_renamer.job_store import JobStore, RenameJob
+from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 
 
 # ── Fake TMDB client ─────────────────────────────────────────────────
@@ -64,6 +66,9 @@ class _FakeTMDB:
 
     def get_episode_list(self, show_id, season_number):
         return [{"episode_number": i, "name": f"Episode {i}"} for i in range(1, 13)]
+
+
+FakeTMDB = _FakeTMDB
 
 
 class _FakeMovieScanner:
@@ -160,7 +165,7 @@ def _make_controller(tmp: Path):
 
 
 def _wait_until(
-    predicate,
+    predicate: Callable[[], bool],
     *,
     timeout_s: float = 2.0,
     interval_s: float = 0.01,
@@ -172,6 +177,9 @@ def _wait_until(
             return
         time.sleep(interval_s)
     raise AssertionError(f"Timed out waiting for {description}")
+
+
+wait_until = _wait_until
 
 
 class ControllerTestCase(unittest.TestCase):
@@ -664,111 +672,6 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
         orchestrator.scan_all()
 
         self.assertEqual(scanned, [state])
-
-
-class ScanShowRegressionTests(ControllerTestCase):
-    def test_scan_show_uses_preserved_single_show_season_hint_after_rematch(self):
-        folder = self.tmp / "Yuru Camp Specials"
-        folder.mkdir()
-        state = self.ctrl.accept_tv_show(
-            folder,
-            _FakeTMDB(),
-            {"id": 101, "name": "Yuru Camp", "year": "2018"},
-        )
-        created: dict[str, object] = {}
-
-        class _FakeScanner:
-            def __init__(
-                self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None
-            ):
-                created["tmdb"] = tmdb
-                created["show_info"] = show_info
-                created["root_folder"] = root_folder
-                created["season_hint"] = season_hint
-                created["season_folders"] = season_folders
-
-            def scan(self):
-                created["scan_called"] = True
-                return ([], False)
-
-            def get_completeness(self, items, checked_indices):
-                created["checked_indices"] = checked_indices
-                return None
-
-        self.ctrl.rematch_tv_state(state, {"id": 202, "name": "Yuru Camp", "year": "2018"})
-
-        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
-            self.ctrl.scan_show(state, _FakeTMDB())
-
-        _wait_until(
-            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
-            description="single-show rematch rescan to finish",
-        )
-
-        self.assertTrue(created.get("scan_called"))
-        self.assertEqual(created.get("season_hint"), 0)
-        self.assertIsNone(created.get("season_folders"))
-        self.assertEqual(created.get("root_folder"), folder)
-        self.assertEqual(created.get("checked_indices"), set())
-
-    def test_scan_show_uses_batch_scan_inputs_for_rematched_tv_state(self):
-        state = ScanState(
-            folder=self.tmp / "Merged.Show",
-            media_info={"id": 11, "name": "Merged Show", "year": "2024"},
-            scanned=False,
-            season_assignment=2,
-            season_folders={2: self.tmp / "Merged.Show" / "Season 02"},
-        )
-        created: dict[str, object] = {}
-
-        class _FakeScanner:
-            def __init__(
-                self, tmdb, show_info, root_folder, *, season_hint=None, season_folders=None
-            ):
-                created["tmdb"] = tmdb
-                created["show_info"] = show_info
-                created["root_folder"] = root_folder
-                created["season_hint"] = season_hint
-                created["season_folders"] = season_folders
-
-            def scan(self):
-                created["scan_called"] = True
-                return ([], True)
-
-            def scan_consolidated(self):
-                created["scan_consolidated_called"] = True
-                return [
-                    PreviewItem(
-                        original=state.folder / "Season 02" / "Merged.Show.S02E01.mkv",
-                        new_name="Merged Show (2024) - S02E01 - Pilot.mkv",
-                        target_dir=state.folder / "Season 02",
-                        season=2,
-                        episodes=[1],
-                        status="OK",
-                    )
-                ]
-
-            def get_completeness(self, items, checked_indices):
-                created["checked_indices"] = checked_indices
-                return None
-
-        self.set_tv_session([state], batch_mode=True)
-
-        with patch("plex_renamer.app.controllers.media_controller.TVScanner", _FakeScanner):
-            self.ctrl.scan_show(state, _FakeTMDB())
-
-        _wait_until(
-            lambda: state.scanned and self.ctrl.scan_progress.lifecycle == ScanLifecycle.READY,
-            description="rematched TV state to finish scanning",
-        )
-
-        self.assertTrue(created.get("scan_called"))
-        self.assertTrue(created.get("scan_consolidated_called"))
-        self.assertEqual(created.get("season_hint"), 2)
-        self.assertEqual(created.get("season_folders"), state.season_folders)
-        self.assertEqual(created.get("checked_indices"), {0})
-        self.assertEqual(len(state.preview_items), 1)
-        self.assertEqual(state.preview_items[0].new_name, "Merged Show (2024) - S02E01 - Pilot.mkv")
 
 
 class MovieStateBuildTests(ControllerTestCase):
@@ -1817,6 +1720,185 @@ class SyncQueuedStatesTests(ControllerTestCase):
             media_info={"id": 999, "name": "Other"},
         )
         self.set_tv_session([state], batch_mode=False)
+
+        self.ctrl.sync_queued_states()
+        self.assertFalse(state.queued)
+
+
+class CompletedJobStateProjectionTests(ControllerTestCase):
+    def test_apply_completed_tv_job_updates_state_to_plex_ready(self):
+        state = ScanState(
+            folder=self.tmp / "Example.Show.2024",
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=self.tmp
+                    / "Example.Show.2024"
+                    / "Season 01"
+                    / "Example.Show.S01E01.mkv",
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=self.tmp / "Example Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        self.set_tv_session([state], batch_mode=False, tv_root_folder=self.tmp)
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Example.Show.2024",
+            media_type=MediaType.TV,
+            tmdb_id=101,
+            media_name="Example Show (2024)",
+            show_folder_rename="Example Show (2024)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Example.Show.2024/Season 01/Example.Show.S01E01.mkv",
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir_relative="Example.Show.2024/Season 01",
+                    status="OK",
+                    season=1,
+                    episodes=[1],
+                    selected=True,
+                )
+            ],
+        )
+
+        changed = self.ctrl.apply_completed_job_to_state(job, RenameResult(renamed_count=1))
+
+        self.assertTrue(changed)
+        self.assertEqual(state.folder, self.tmp / "Example Show (2024)")
+        self.assertEqual(state.relative_folder, "Example Show (2024)")
+        self.assertEqual(
+            state.preview_items[0].original,
+            self.tmp
+            / "Example Show (2024)"
+            / "Season 01"
+            / "Example Show (2024) - S01E01 - Pilot.mkv",
+        )
+        self.assertFalse(state.preview_items[0].is_actionable)
+        self.assertTrue(self.ctrl.command_gating.is_fully_ready_state(state))
+
+    def test_apply_completed_destination_tv_job_updates_state_to_output_root(self):
+        source_root = self.tmp / "Incoming"
+        output_root = self.tmp / "TV Output"
+        source_root.mkdir()
+        output_root.mkdir()
+        state = ScanState(
+            folder=source_root / "Example.Show.2024",
+            relative_folder="Example.Show.2024",
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            preview_items=[
+                PreviewItem(
+                    original=source_root
+                    / "Example.Show.2024"
+                    / "Season 01"
+                    / "Example.Show.S01E01.mkv",
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir=output_root / "Example Show (2024)" / "Season 01",
+                    season=1,
+                    episodes=[1],
+                    status="OK",
+                )
+            ],
+            output_root=output_root,
+            scanned=True,
+            checked=True,
+            confidence=1.0,
+        )
+        self.set_tv_session([state], batch_mode=False, tv_root_folder=source_root)
+
+        job = RenameJob(
+            library_root=str(source_root),
+            output_root=str(output_root),
+            source_folder="Example.Show.2024",
+            media_type=MediaType.TV,
+            tmdb_id=101,
+            media_name="Example Show (2024)",
+            rename_ops=[
+                RenameOp(
+                    original_relative="Example.Show.2024/Season 01/Example.Show.S01E01.mkv",
+                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
+                    target_dir_relative="Example Show (2024)/Season 01",
+                    status="OK",
+                    season=1,
+                    episodes=[1],
+                    selected=True,
+                )
+            ],
+        )
+
+        changed = self.ctrl.apply_completed_job_to_state(job, RenameResult(renamed_count=1))
+
+        final_dir = output_root / "Example Show (2024)" / "Season 01"
+        self.assertTrue(changed)
+        self.assertEqual(state.folder, output_root / "Example Show (2024)")
+        self.assertEqual(state.relative_folder, "Example Show (2024)")
+        self.assertEqual(
+            state.preview_items[0].original, final_dir / "Example Show (2024) - S01E01 - Pilot.mkv"
+        )
+        self.assertEqual(state.preview_items[0].target_dir, final_dir)
+        self.assertEqual(state.season_folders[1], final_dir)
+        self.assertFalse(state.preview_items[0].is_actionable)
+
+    def test_sync_marks_duplicates_as_not_queued(self):
+        state = ScanState(
+            folder=self.tmp / "Dup",
+            media_info={"id": 100, "name": "Dup"},
+            duplicate_of="Primary Show",
+        )
+        self.set_tv_session([state], batch_mode=False)
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="Dup",
+            media_type=MediaType.TV,
+            tmdb_id=100,
+        )
+        self.store.add_job(job)
+
+        self.ctrl.sync_queued_states()
+        self.assertFalse(state.queued)
+
+    def test_sync_marks_movie_duplicates_as_not_queued(self):
+        state = ScanState(
+            folder=self.tmp / "DupMovie",
+            media_info={"id": 100, "title": "Dup Movie", "_media_type": MediaType.MOVIE},
+            duplicate_of="Primary Movie",
+        )
+        self.set_movie_session([state])
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="DupMovie",
+            media_type=MediaType.MOVIE,
+            tmdb_id=100,
+        )
+        self.store.add_job(job)
+
+        self.ctrl.sync_queued_states()
+        self.assertFalse(state.queued)
+
+    def test_sync_clears_completed_tv_states_from_queued(self):
+        state = ScanState(
+            folder=self.tmp / "DoneShow",
+            media_info={"id": 444, "name": "Done Show"},
+        )
+        self.set_tv_session([state], batch_mode=False)
+
+        job = RenameJob(
+            library_root=str(self.tmp),
+            source_folder="DoneShow",
+            media_type=MediaType.TV,
+            tmdb_id=444,
+            status=JobStatus.COMPLETED,
+        )
+        self.store.add_job(job)
 
         self.ctrl.sync_queued_states()
         self.assertFalse(state.queued)
