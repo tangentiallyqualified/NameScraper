@@ -95,8 +95,26 @@ def test_pull_request_audit_job_runs_coverage_verification() -> None:
     job = _job(workflow, "audit-verify")
     verify = _step(job, "- name: Verify generated audit docs")
 
-    assert "run: scripts/audit.cmd --verify\n" in verify
+    assert verify.count("scripts/audit.cmd --verify") == 1
     assert "--with-coverage" not in verify
+
+
+def test_pull_request_audit_job_prints_generated_baseline_drift_on_failure() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    job = _job(workflow, "audit-verify")
+    verify = _step(job, "- name: Verify generated audit docs")
+
+    failure_diagnostics = """\
+        run: |
+          scripts/audit.cmd --verify
+          $verifyExit = $LASTEXITCODE
+          if ($verifyExit -ne 0) {
+            scripts/audit.cmd
+            git --no-pager diff -- docs/audit/baseline.json
+            exit $verifyExit
+          }
+"""
+    assert failure_diagnostics in verify
 
 
 def test_pull_request_audit_job_uploads_sarif() -> None:
@@ -121,7 +139,7 @@ def test_pull_request_quality_gate_collects_full_suite_coverage_first() -> None:
     assert job.index("scripts/test-fast.cmd -Coverage") < job.index(
         "scripts/audit.cmd --quality-check"
     )
-    assert "run: scripts/audit.cmd --verify\n" in job
+    assert job.count("scripts/audit.cmd --verify") == 1
     assert job.count("scripts/test-fast.cmd -Coverage") == 1
 
 

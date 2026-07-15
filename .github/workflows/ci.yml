@@ -76,7 +76,14 @@ jobs:
 
       - name: Verify generated audit docs
         shell: pwsh
-        run: scripts/audit.cmd --verify
+        run: |
+          scripts/audit.cmd --verify
+          $verifyExit = $LASTEXITCODE
+          if ($verifyExit -ne 0) {
+            scripts/audit.cmd
+            git --no-pager diff -- docs/audit/baseline.json
+            exit $verifyExit
+          }
 
       - name: Upload audit SARIF
         uses: github/codeql-action/upload-sarif@v3
