@@ -1,4 +1,5 @@
 """Unit tests for RefreshPolicyService — TTL policies, freshness, cooldowns."""
+
 from __future__ import annotations
 
 import unittest
@@ -124,9 +125,7 @@ class RefreshPolicyServiceTests(unittest.TestCase):
     # -- should_background_refresh -------------------------------------------
 
     def test_should_refresh_when_missing(self):
-        self.assertTrue(
-            self.svc.should_background_refresh(refreshed_at=None, expires_at=None)
-        )
+        self.assertTrue(self.svc.should_background_refresh(refreshed_at=None, expires_at=None))
 
     def test_should_refresh_when_stale(self):
         now = _utc()
