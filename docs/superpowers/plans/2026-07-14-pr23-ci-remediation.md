@@ -15,6 +15,7 @@
 - Every CI job that installs `.[dev]` and runs audit tests must apply `scripts/audit/constraints.txt`.
 - Preserve production calls to `Path.resolve()` and canonical containment behavior.
 - Change production semantics only through the six Windows-sensitive expectations reported by Actions run `29391461679`; formatting and a cohesive test-file split are authorized solely to satisfy the existing ratchets.
+- Generator-owned JSON/SARIF outputs and enrolled JSON inputs must check out with LF bytes on every operating system.
 - Do not refresh the quality baseline to accept new or enlarged debt.
 - Preserve unrelated user-owned files, including the ignored `scripts/scan_real_library.py` in the main checkout.
 
@@ -161,3 +162,74 @@ After committing, rerun `.\scripts\audit.cmd --verify` because documentation sta
 - [ ] **Step 6: Push and monitor**
 
 Fast-forward `dev/audit-debt3` to the verified head, push it, and monitor PR #23 until both `fast-tests` and `audit-verify` complete.
+
+### Task 4: Pin Structured Audit Files to LF
+
+**Files:**
+- Modify: `.gitattributes`
+- Test: `tests/audit/test_repository_contracts.py`
+- Modify: generated audit artifacts selected by the audit harness.
+
+**Interfaces:**
+- Consumes: `_artifacts.write_text_lf()` and exact-byte generated-output verification.
+- Produces: OS-independent checkout bytes for enrolled JSON inputs and generated JSON/SARIF outputs.
+
+- [ ] **Step 1: Add a failing repository contract test**
+
+Add:
+
+```python
+def test_structured_audit_files_are_pinned_to_lf() -> None:
+    attributes = {
+        line.strip()
+        for line in (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    }
+    assert "*.json text eol=lf" in attributes
+    assert "*.sarif text eol=lf" in attributes
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run: `.\.venv\Scripts\python.exe -m pytest tests/audit/test_repository_contracts.py::test_structured_audit_files_are_pinned_to_lf -q`
+
+Expected: FAIL because both LF rules are absent.
+
+- [ ] **Step 3: Apply the minimal checkout contract**
+
+Add to `.gitattributes` beside the existing structured-text rules:
+
+```gitattributes
+*.json text eol=lf
+*.sarif text eol=lf
+```
+
+- [ ] **Step 4: Verify GREEN and the pristine digest hypothesis**
+
+Run the focused repository-contract test and confirm it passes. Confirm `git check-attr eol -- pyrightconfig.json audit.sarif docs/audit/baseline.json` reports `lf` for all three paths.
+
+- [ ] **Step 5: Commit the checkout fix**
+
+Commit message: `fix(audit): pin structured artifacts to LF`
+
+- [ ] **Step 6: Regenerate and verify exact-digest evidence**
+
+Run, in order:
+
+```powershell
+.\scripts\test-fast.cmd -Coverage
+.\scripts\audit.cmd --quality-check
+.\scripts\audit.cmd
+.\scripts\audit.cmd --verify
+```
+
+Expected: zero test failures, zero new/enlarged debt, and generated output current. Inspect the generated diff and confirm it contains only deterministic consequences of Task 4.
+
+- [ ] **Step 7: Commit artifacts and verify again**
+
+Commit message: `chore(audit): refresh LF contract artifacts`
+
+After committing, rerun `.\scripts\audit.cmd --verify` because document status depends on committed history.
+
+- [ ] **Step 8: Push and monitor**
+
+Fast-forward `dev/audit-debt3` to the reviewed head, push it, and monitor PR #23 until both `fast-tests` and `audit-verify` complete.
