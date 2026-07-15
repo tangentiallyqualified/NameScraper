@@ -306,3 +306,33 @@ Run the focused workflow tests, `git diff --check`, and the quality ratchet. Com
 - [ ] **Step 5: Push and inspect the decisive CI diff**
 
 Fast-forward `dev/audit-debt3`, push, and monitor the replacement run. If verification still fails, use the printed unified diff to design the architecture-level fix; do not make another symptom-level coverage edit.
+
+### Task 7: Make MKVToolNix Discovery Coverage Hermetic
+
+**Files:**
+- Create: `tests/test_mkv_locate_fallbacks.py`
+- Modify: generated audit artifacts selected by the audit harness.
+
+**Interfaces:**
+- Consumes: `plex_renamer._mkv_locate.find_mkvpropedit` and its PATH/Program Files discovery branches.
+- Produces: identical `_mkv_locate.py` coverage whether or not MKVToolNix is installed on the host runner.
+
+- [ ] **Step 1: Preserve the decisive RED evidence**
+
+Record that local full coverage reports `_mkv_locate.py` at `90.2%` with lines `57, 62-64` missing, while the GitHub Windows runner reports `95.1%` because installed runner software exercises part of discovery. Confirm this is the only current metric difference after Task 6's expected digest roll-forward.
+
+- [ ] **Step 2: Add hermetic fallback behavior tests**
+
+In a new, Ruff-clean module, add one test for `mkvpropedit` resolution through `shutil.which` and one for resolution through a temporary `ProgramFiles/MKVToolNix` directory. Monkeypatch `find_mkvmerge`, `shutil.which`, and environment variables so neither test observes host-installed software. Assert returned paths, not coverage internals. Do not change production discovery behavior.
+
+- [ ] **Step 3: Verify focused behavior and coverage stability**
+
+Run the new test module, then full coverage. Confirm `_mkv_locate.py` no longer has environment-dependent missing lines and the quality ratchet reports no new/enlarged debt.
+
+- [ ] **Step 4: Regenerate and verify all enrolled artifacts**
+
+Run `scripts/audit.cmd`, inspect the diff, then run `scripts/audit.cmd --verify`. Expected changes are the Task 6/7 input-digest roll-forward, deterministic test-index/doc-status updates, and the `_mkv_locate.py` coverage improvement only.
+
+- [ ] **Step 5: Commit, review, push, and monitor**
+
+Commit tests and artifacts intentionally, obtain independent review, fast-forward `dev/audit-debt3`, push, and monitor both CI jobs to success. Do not merge the PR.
