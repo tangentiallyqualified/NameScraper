@@ -170,10 +170,11 @@ $env:PLEX_RENAMER_DEBUG_TRANSIENT_WINDOWS="1"
 
 ## Testing
 
-Dev dependencies (just pytest) install with the `dev` extra:
+The `dev` extra installs pytest and the audit toolchain. Use the committed
+constraints file so local analyzer versions match CI:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]" -c .\scripts\audit\constraints.txt
 ```
 
 - **Full suite:** `.\.venv\Scripts\python.exe -m pytest`
@@ -187,6 +188,49 @@ than reading raw terminal output from offscreen PySide runs).
 There is also an opt-in real-library validation harness,
 `scripts/scan_real_library.py`, used to exercise the batch TV engine against a
 real media drive; it is not part of the automated suite.
+
+## Audit harness and quality ratchets
+
+The audit harness generates the code maps and live findings under `docs/audit/`
+and the root `audit.sarif`. Its quality gate prevents new or enlarged formatting,
+lint, typing, complexity, file-size, and coverage debt while allowing the
+committed legacy baseline to improve over time.
+
+Run the same sequence used by CI before submitting a change:
+
+```powershell
+.\scripts\test-fast.cmd -Coverage
+.\scripts\audit.cmd --quality-check
+.\scripts\audit.cmd --verify
+```
+
+`--quality-check` does not collect coverage. If coverage is missing, partial,
+filtered, failed, or no longer matches the repository input digest, rerun
+`test-fast.cmd -Coverage`. New or enlarged debt fails the gate; stale baseline
+entries are reported as improvements and do not fail it.
+
+To regenerate committed audit artifacts with fresh coverage after an intentional
+input change, run:
+
+```powershell
+.\scripts\audit.cmd --with-coverage
+```
+
+Inspect and commit the generated changes rather than hand-editing generated
+sections. Exact analyzer/rule/path/symbol decisions belong in
+`scripts/audit/decisions.toml`; stale, duplicate, expired, or invalid decisions
+fail generation.
+
+After removing legacy debt, safely prune the existing quality baseline with:
+
+```powershell
+.\scripts\test-fast.cmd -Coverage
+.\scripts\audit.cmd --update-quality-baseline
+```
+
+The updater refuses new or enlarged debt and never enrolls newly discovered
+Python files as legacy. Note the Windows wrapper syntax: `test-fast.cmd` uses
+`-Coverage`, while `audit.cmd` uses options such as `--with-coverage`.
 
 ---
 

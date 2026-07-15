@@ -27,5 +27,7 @@
 | `docs/superpowers/plans/2026-07-13-deterministic-audit-ci.md` | 2026-07-13 | `plex_renamer/example.py`, `scripts/audit/_render_llm.py`, `tests/audit/test_render_llm.py` |
 | `docs/superpowers/plans/2026-07-13-architecture-debt-ratchets.md` | 2026-07-13 | `scripts/audit/cycle-baseline.json` |
 | `docs/superpowers/plans/2026-07-13-quality-ratchets.md` | 2026-07-13 | - |
+| `docs/superpowers/specs/2026-07-14-audit-harness-readme-design.md` | 2026-07-14 | - |
+| `docs/superpowers/plans/2026-07-14-audit-harness-readme.md` | 2026-07-14 | - |
 
-_Generated from audit input d547a06165fa by scripts\audit.cmd._
+_Generated from audit input 42f25f81c877 by scripts\audit.cmd._
