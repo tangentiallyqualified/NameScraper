@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "6d57e67cd7d321f598d2deacec791d884a9925c8c4426d845f7a94680fa05aa2",
+  "input_digest": "bf384554fdd1a1cd009502b6c53aa6d08cfd84d1037d0f42877f945bb1595321",
   "module_count": 176,
   "partial": false,
   "reason": null,
@@ -104,7 +104,7 @@
   }
  },
  "headline": {
-  "avg_coverage": 44.6,
+  "avg_coverage": 44.7,
   "coverage_failed": false,
   "coverage_partial": false,
   "coverage_stale": false,
@@ -128,12 +128,12 @@
    "test-referenced": 3
   },
   "files": 176,
-  "module_avg_coverage": 52.6,
+  "module_avg_coverage": 52.7,
   "modules_over_complexity": 62,
-  "statement_coverage": 44.6,
+  "statement_coverage": 44.7,
   "total_loc": 38404
  },
- "input_digest": "6d57e67cd7d321f598d2deacec791d884a9925c8c4426d845f7a94680fa05aa2",
+ "input_digest": "bf384554fdd1a1cd009502b6c53aa6d08cfd84d1037d0f42877f945bb1595321",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -407,7 +407,7 @@
    "sha256": "a5594b6c912ec705"
   },
   "plex_renamer/_mkv_locate.py": {
-   "coverage_percent": 90.2,
+   "coverage_percent": 100.0,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -4952,7 +4952,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "24febbe056ef54fbf27357afa5051dde4416154ac35edf3d6722effcb3dc21fc",
+   "input_digest": "6d57e67cd7d321f598d2deacec791d884a9925c8c4426d845f7a94680fa05aa2",
    "module_count": 176,
    "partial": false,
    "reason": null,
@@ -5083,7 +5083,7 @@
    "statement_coverage": 44.6,
    "total_loc": 38404
   },
-  "input_digest": "24febbe056ef54fbf27357afa5051dde4416154ac35edf3d6722effcb3dc21fc",
+  "input_digest": "6d57e67cd7d321f598d2deacec791d884a9925c8c4426d845f7a94680fa05aa2",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -7338,7 +7338,7 @@
     "sha256": "65e960c489e2438a"
    },
    "plex_renamer/engine/_tv_scanner_consolidated.py": {
-    "coverage_percent": 89.3,
+    "coverage_percent": 89.9,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7471,7 +7471,7 @@
     "sha256": "33e2d395044ee0ba"
    },
    "plex_renamer/engine/matching.py": {
-    "coverage_percent": 92.3,
+    "coverage_percent": 93.0,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
