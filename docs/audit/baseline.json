@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "3e52a6d469019148137916b97dfa7457524aed18b43f442075ca59becfb89fe4",
+  "input_digest": "3951be682fb4a0ff1f345ffe919737da07b92d364b43b6d38c0c6963e47b8cdf",
   "module_count": 176,
   "partial": false,
   "reason": null,
@@ -10,7 +10,7 @@
    "config_files": [
     {
      "path": "pyproject.toml",
-     "sha256": "648c61527351f5e02016fd605a8212cc7ecee0c23c1d14508bed1f67167a8c17"
+     "sha256": "320d21a39bbb9e474004f4bb6b5c570818b2762691f99d977bc541b79b7be418"
     }
    ],
    "coverage_source": [
@@ -53,9 +53,9 @@
    "method": "ast-qt-exclusion-v1",
    "pytest_args": [],
    "runner": "scripts/test_fast_runner.py",
-   "runner_sha256": "f2771cc0001592bcc9378664800015e585ba08dbb9a793d05890e120ef746946"
+   "runner_sha256": "a3063a28e5aa65bf26f7410b78e32d28b9d0110f9a0585a9d8ecbf0199dee9da"
   },
-  "scope_id": "077de12dbf39d8befcebd24f5110462489aafe8cf28f1df98d34cb975d9edf4f",
+  "scope_id": "e655b619b4ae4bea789d091b6437c56a5e2f1e0be27c39876d77507ff73d6123",
   "source": "coverage.py",
   "stale": false,
   "usable": true
@@ -75,7 +75,7 @@
   "README.md": {
    "error": null,
    "reviewed_commit": "7b246bb",
-   "stale": false
+   "stale": true
   },
   "docs/ai-publish-workflow.md": {
    "error": null,
@@ -110,21 +110,21 @@
   "coverage_stale": false,
   "coverage_usable": true,
   "cycles": 2,
-  "dead_allowlisted": 6,
-  "dead_candidates": 86,
+  "dead_allowlisted": 0,
+  "dead_candidates": 92,
   "dead_evidence_usable": true,
   "dead_exact_low_confidence": 0,
   "dead_high_confidence": 0,
-  "dead_low_confidence": 86,
+  "dead_low_confidence": 92,
   "dead_medium_confidence": 0,
-  "dead_protected_ambiguous": 83,
+  "dead_protected_ambiguous": 89,
   "dead_test_referenced": 3,
   "dead_tiers": {
-   "allowlisted": 6,
+   "allowlisted": 0,
    "high-confidence": 0,
    "low-confidence": 0,
    "medium-confidence": 0,
-   "protected-or-ambiguous": 83,
+   "protected-or-ambiguous": 89,
    "test-referenced": 3
   },
   "files": 176,
@@ -133,7 +133,7 @@
   "statement_coverage": 44.6,
   "total_loc": 38404
  },
- "input_digest": "3e52a6d469019148137916b97dfa7457524aed18b43f442075ca59becfb89fe4",
+ "input_digest": "3951be682fb4a0ff1f345ffe919737da07b92d364b43b6d38c0c6963e47b8cdf",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -1407,15 +1407,21 @@
   },
   "plex_renamer/app/models/state_models.py": {
    "coverage_percent": 96.0,
-   "dead_allowlisted": 1,
-   "dead_candidates": 8,
+   "dead_allowlisted": 0,
+   "dead_candidates": 9,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 8,
+   "dead_low_confidence": 9,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 8,
+   "dead_protected_ambiguous": 9,
    "dead_symbols": [
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
+     "line": 27,
+     "symbol": "REFRESHING_CACHE"
+    },
     {
      "assessment": "dynamic-or-unresolved",
      "confidence": 60,
@@ -1467,11 +1473,11 @@
    ],
    "dead_test_referenced": 0,
    "dead_tiers": {
-    "allowlisted": 1,
+    "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 8,
+    "protected-or-ambiguous": 9,
     "test-referenced": 0
    },
    "loc": 239,
@@ -3188,14 +3194,14 @@
   },
   "plex_renamer/gui_qt/widgets/_episode_expansion.py": {
    "coverage_percent": 0.0,
-   "dead_allowlisted": 1,
-   "dead_candidates": 6,
+   "dead_allowlisted": 0,
+   "dead_candidates": 7,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 6,
+   "dead_low_confidence": 7,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 6,
+   "dead_protected_ambiguous": 7,
    "dead_symbols": [
     {
      "assessment": "dynamic-or-unresolved",
@@ -3230,17 +3236,23 @@
     {
      "assessment": "dynamic-or-unresolved",
      "confidence": 60,
+     "line": 137,
+     "symbol": "paintEvent"
+    },
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
      "line": 329,
      "symbol": "status_pill_text"
     }
    ],
    "dead_test_referenced": 0,
    "dead_tiers": {
-    "allowlisted": 1,
+    "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 6,
+    "protected-or-ambiguous": 7,
     "test-referenced": 0
    },
    "loc": 485,
@@ -4330,29 +4342,35 @@
   },
   "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py": {
    "coverage_percent": 0.0,
-   "dead_allowlisted": 1,
-   "dead_candidates": 1,
+   "dead_allowlisted": 0,
+   "dead_candidates": 2,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 1,
+   "dead_low_confidence": 2,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 1,
+   "dead_protected_ambiguous": 2,
    "dead_symbols": [
     {
      "assessment": "dynamic-or-unresolved",
      "confidence": 60,
      "line": 92,
      "symbol": "nextCheckState"
+    },
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
+     "line": 103,
+     "symbol": "paintEvent"
     }
    ],
    "dead_test_referenced": 0,
    "dead_tiers": {
-    "allowlisted": 1,
+    "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 1,
+    "protected-or-ambiguous": 2,
     "test-referenced": 0
    },
    "loc": 163,
@@ -4361,22 +4379,35 @@
   },
   "plex_renamer/gui_qt/widgets/busy_overlay.py": {
    "coverage_percent": 0.0,
-   "dead_allowlisted": 2,
-   "dead_candidates": 0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 2,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 0,
+   "dead_low_confidence": 2,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 0,
-   "dead_symbols": [],
+   "dead_protected_ambiguous": 2,
+   "dead_symbols": [
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
+     "line": 52,
+     "symbol": "paintEvent"
+    },
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
+     "line": 89,
+     "symbol": "paintEvent"
+    }
+   ],
    "dead_test_referenced": 0,
    "dead_tiers": {
-    "allowlisted": 2,
+    "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 0,
+    "protected-or-ambiguous": 2,
     "test-referenced": 0
    },
    "loc": 143,
@@ -4603,22 +4634,29 @@
   },
   "plex_renamer/gui_qt/widgets/scan_progress.py": {
    "coverage_percent": 0.0,
-   "dead_allowlisted": 1,
-   "dead_candidates": 0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 1,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 0,
+   "dead_low_confidence": 1,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 0,
-   "dead_symbols": [],
+   "dead_protected_ambiguous": 1,
+   "dead_symbols": [
+    {
+     "assessment": "dynamic-or-unresolved",
+     "confidence": 60,
+     "line": 165,
+     "symbol": "paintEvent"
+    }
+   ],
    "dead_test_referenced": 0,
    "dead_tiers": {
-    "allowlisted": 1,
+    "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 0,
+    "protected-or-ambiguous": 1,
     "test-referenced": 0
    },
    "loc": 544,
@@ -4914,7 +4952,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "2b27ac69a538adb7aae00da390ddca1245571cea0418124c1fe25399fe474439",
+   "input_digest": "3e52a6d469019148137916b97dfa7457524aed18b43f442075ca59becfb89fe4",
    "module_count": 176,
    "partial": false,
    "reason": null,
@@ -5045,7 +5083,7 @@
    "statement_coverage": 44.6,
    "total_loc": 38404
   },
-  "input_digest": "2b27ac69a538adb7aae00da390ddca1245571cea0418124c1fe25399fe474439",
+  "input_digest": "3e52a6d469019148137916b97dfa7457524aed18b43f442075ca59becfb89fe4",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
