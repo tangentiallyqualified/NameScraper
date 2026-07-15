@@ -8,6 +8,15 @@ from audit import _analyze, _graph, _inventory
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_structured_audit_files_are_pinned_to_lf() -> None:
+    attributes = {
+        line.strip()
+        for line in (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    }
+    assert "*.json text eol=lf" in attributes
+    assert "*.sarif text eol=lf" in attributes
+
+
 def test_engine_does_not_import_application_layer():
     inventory = _inventory.build_inventory(REPO_ROOT)
     graph = _graph.build_graph(REPO_ROOT, inventory)
