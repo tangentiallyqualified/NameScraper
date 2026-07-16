@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from ...engine import PreviewItem, ScanState
-from ...engine.models import TVScanStateScanner
+from ...engine.models import TVScannerOperations
 from ..models import (
     EpisodeGuide,
     EpisodeGuideRow,
@@ -13,6 +13,7 @@ from ..models import (
     EpisodeSlotChoice,
     UnmappedFileRow,
 )
+from ._episode_metadata import episode_meta_value, episode_title
 
 if TYPE_CHECKING:
     from ...engine.episode_assignments import EpisodeAssignmentTable
@@ -44,13 +45,13 @@ class EpisodeMappingService:
             },
         )
         if state.scanner is not None:
-            scanner = cast(TVScanStateScanner, state.scanner)
+            scanner = cast(TVScannerOperations, state.scanner)
             checked = {
-                index for index, item in enumerate(state.preview_items)
-                if item.status == "OK"
+                index for index, item in enumerate(state.preview_items) if item.status == "OK"
             }
             state.completeness = scanner.get_completeness(
-                state.preview_items, checked_indices=checked,
+                state.preview_items,
+                checked_indices=checked,
             )
         state.reset_gui_state()
 
@@ -68,8 +69,11 @@ class EpisodeMappingService:
         if preview.file_id is None:
             raise ValueError("Preview row is not linked to a scanned file")
         table.assign(
-            preview.file_id, season, episodes,
-            origin=ORIGIN_MANUAL, displace=True,
+            preview.file_id,
+            season,
+            episodes,
+            origin=ORIGIN_MANUAL,
+            displace=True,
         )
         self.reproject(state)
 
@@ -99,8 +103,11 @@ class EpisodeMappingService:
             if episode == run[0] - 1 or episode == run[-1] + 1:
                 episodes = sorted(set(run) | {episode})
         table.assign(
-            preview.file_id, season, episodes,
-            origin=ORIGIN_MANUAL, displace=True,
+            preview.file_id,
+            season,
+            episodes,
+            origin=ORIGIN_MANUAL,
+            displace=True,
         )
         self.reproject(state)
 
@@ -130,7 +137,9 @@ class EpisodeMappingService:
         return count
 
     def apply_assignments(
-        self, state: ScanState, pairs: list[tuple[int, int, int]],
+        self,
+        state: ScanState,
+        pairs: list[tuple[int, int, int]],
     ) -> tuple[int, int]:
         """Apply (file_id, season, episode) pairs as one batch (Bulk Assign).
 
@@ -169,8 +178,11 @@ class EpisodeMappingService:
         for (file_id, season), episodes in grouped.items():
             try:
                 table.assign(
-                    file_id, season, sorted(set(episodes)),
-                    origin=ORIGIN_MANUAL, displace=True,
+                    file_id,
+                    season,
+                    sorted(set(episodes)),
+                    origin=ORIGIN_MANUAL,
+                    displace=True,
                 )
             except ValueError:
                 skipped += 1
@@ -192,7 +204,11 @@ class EpisodeMappingService:
         return len(file_ids)
 
     def resolve_conflict(
-        self, state: ScanState, season: int, episode: int, winner: PreviewItem,
+        self,
+        state: ScanState,
+        season: int,
+        episode: int,
+        winner: PreviewItem,
     ) -> None:
         table = self._require_table(state)
         if winner.file_id is None:
@@ -247,19 +263,20 @@ class EpisodeMappingService:
         for key, slot in sorted(table.slots.items()):
             claims = table.claims(*key)
             claimants = tuple(
-                (claim.file_id, table.files[claim.file_id].path.name)
-                for claim in claims
+                (claim.file_id, table.files[claim.file_id].path.name) for claim in claims
             )
             claimed_file_id = claims[0].file_id if len(claims) == 1 else None
             claimant = table.files.get(claimed_file_id) if claimed_file_id is not None else None
-            choices.append(EpisodeSlotChoice(
-                season=slot.season,
-                episode=slot.episode,
-                title=slot.title,
-                claimed_by=claimant.path.name if claimant else None,
-                claimed_file_id=claimed_file_id,
-                claimants=claimants,
-            ))
+            choices.append(
+                EpisodeSlotChoice(
+                    season=slot.season,
+                    episode=slot.episode,
+                    title=slot.title,
+                    claimed_by=claimant.path.name if claimant else None,
+                    claimed_file_id=claimed_file_id,
+                    claimants=claimants,
+                )
+            )
         return choices
 
     def all_primary_file_previews(self, state: ScanState) -> list[PreviewItem]:
@@ -270,10 +287,7 @@ class EpisodeMappingService:
     def unassigned_file_previews(self, state: ScanState) -> list[PreviewItem]:
         table = self._require_table(state)
         unassigned_ids = {entry.file_id for entry, _ in table.unassigned_files()}
-        return [
-            preview for preview in state.preview_items
-            if preview.file_id in unassigned_ids
-        ]
+        return [preview for preview in state.preview_items if preview.file_id in unassigned_ids]
 
     def unassigned_file_choices(self, state: ScanState) -> list[tuple[int, str]]:
         """Return (file_id, display_label) pairs for the file picker dialog."""
@@ -283,16 +297,16 @@ class EpisodeMappingService:
             if candidate.file_id is None:
                 continue
             reason = table.unassigned_reasons.get(candidate.file_id, "")
-            label = (
-                f"{candidate.original.name}  ({reason})"
-                if reason
-                else candidate.original.name
-            )
+            label = f"{candidate.original.name}  ({reason})" if reason else candidate.original.name
             result.append((candidate.file_id, label))
         return result
 
     def shareable_file_choices(
-        self, state: ScanState, *, season: int, episode: int,
+        self,
+        state: ScanState,
+        *,
+        season: int,
+        episode: int,
     ) -> list[tuple[int, str]]:
         """Assigned files whose run is contiguous-adjacent to (season, episode).
 
@@ -345,7 +359,8 @@ class EpisodeMappingService:
                 reason = preview.status
                 if state.assignments is not None and preview.file_id is not None:
                     reason = state.assignments.unassigned_reasons.get(
-                        preview.file_id, preview.status,
+                        preview.file_id,
+                        preview.status,
                     )
                 guide.unmapped_primary_files.append(
                     UnmappedFileRow(
@@ -369,8 +384,7 @@ class EpisodeMappingService:
                 if preview.is_conflict and conflict_totals.get(key, 0) > 1:
                     conflict_seen[key] = conflict_seen.get(key, 0) + 1
                     confidence_label = (
-                        f"Conflict — file {conflict_seen[key]}"
-                        f" of {conflict_totals[key]}"
+                        f"Conflict — file {conflict_seen[key]} of {conflict_totals[key]}"
                     )
                 guide.rows.append(
                     EpisodeGuideRow(
@@ -406,7 +420,9 @@ class EpisodeMappingService:
         guide.rows.sort(key=lambda row: (row.season, row.episode, row.status == "Missing File"))
         guide.orphan_companion_files = list(state.orphan_companion_files)
         guide.summary = EpisodeGuideSummary(
-            mapped_episodes=sum(1 for row in guide.rows if row.primary_file is not None and row.status != "Conflict"),
+            mapped_episodes=sum(
+                1 for row in guide.rows if row.primary_file is not None and row.status != "Conflict"
+            ),
             mapped_primary_files=len(mapped_primary_ids),
             companion_files=companion_count,
             missing_episodes=sum(1 for row in guide.rows if row.status == "Missing File"),
@@ -444,37 +460,8 @@ class EpisodeMappingService:
         pct = max(0, min(100, round(preview.episode_confidence * 100)))
         return f"{pct}%"
 
-    @staticmethod
-    def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:
-        if state.scanner is None:
-            return ""
-        scanner = cast(TVScanStateScanner, state.scanner)
-        meta = scanner.episode_meta.get(key, {})
-        value = meta.get(name, "")
-        return str(value) if value else ""
-
-    @classmethod
-    def _episode_title(cls, state: ScanState, key: tuple[int, int]) -> str:
-        meta_title = cls._episode_meta_value(state, key, "name")
-        if meta_title:
-            return meta_title
-        completeness = state.completeness
-        if completeness is None:
-            return ""
-        season_num, episode = key
-        season = completeness.specials if season_num == 0 else completeness.seasons.get(season_num)
-        if season is None:
-            return ""
-        for matched_episode, title in season.matched_episodes:
-            if matched_episode == episode:
-                return title
-        for review_episode, title in season.review_episodes:
-            if review_episode == episode:
-                return title
-        for missing_episode, title in season.missing:
-            if missing_episode == episode:
-                return title
-        return ""
+    _episode_meta_value = staticmethod(episode_meta_value)
+    _episode_title = staticmethod(episode_title)
 
     @staticmethod
     def _missing_episode_rows(state: ScanState) -> list[tuple[int, int, str]]:
@@ -485,8 +472,5 @@ class EpisodeMappingService:
         # the completeness %); always append specials so missing S0 rows render.
         rows: list[tuple[int, int, str]] = list(completeness.total_missing)
         if completeness.specials is not None:
-            rows.extend(
-                (0, episode, title)
-                for episode, title in completeness.specials.missing
-            )
+            rows.extend((0, episode, title) for episode, title in completeness.specials.missing)
         return rows

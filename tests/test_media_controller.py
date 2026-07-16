@@ -26,6 +26,7 @@ from plex_renamer.engine import (
     set_auto_accept_threshold,
 )
 from plex_renamer.job_store import JobStore, RenameJob, RenameOp
+from plex_renamer.engine.models import MovieScanStateScanner
 
 
 # ── Fake TMDB client ─────────────────────────────────────────────────
@@ -912,7 +913,11 @@ class OutputPreviewRetargetingTests(ControllerTestCase):
             media_name="Wrong Match",
         )
 
-        class _OutputRematchScanner:
+        class _OutputRematchScanner(MovieScanStateScanner):
+            @property
+            def explicit_files(self):
+                return None
+
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 1, "title": "Wrong Match", "year": "1980"}}
@@ -1330,7 +1335,11 @@ class RematchStateTests(ControllerTestCase):
             media_name="Old Match",
         )
 
-        class _RematchScanner:
+        class _RematchScanner(MovieScanStateScanner):
+            @property
+            def explicit_files(self):
+                return None
+
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 1, "title": "Old Match", "year": "2023"}}
@@ -1424,7 +1433,11 @@ class RematchStateTests(ControllerTestCase):
             media_name="Wrong Match",
         )
 
-        class _ConfidenceRematchScanner:
+        class _ConfidenceRematchScanner(MovieScanStateScanner):
+            @property
+            def explicit_files(self):
+                return None
+
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 7, "title": "Wrong Match", "year": "2019"}}

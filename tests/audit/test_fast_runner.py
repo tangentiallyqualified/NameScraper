@@ -7,9 +7,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from audit import _diff
+
 from scripts import test_fast_runner
+from scripts.audit import _coverage
 
 # Pytest imports this file under the top-level ``test_fast_runner`` name because
 # ``tests/audit`` is not a package.  Keep the existing coverage tests' top-level
@@ -60,6 +61,34 @@ def test_command_has_no_static_test_filename_manifest(tmp_path: Path):
         "--ignore=tests/conftest_qt.py",
     ]
     assert not any("test_qt_media_detail_panel.py" in part for part in command)
+
+
+def test_coverage_command_includes_discovered_qt_tests(tmp_path: Path):
+    args = argparse.Namespace(coverage=True, verbose_pytest=False, pytest_args=[])
+
+    command = test_fast_runner._build_command(
+        tmp_path,
+        args,
+        ["tests/test_qt_workspace.py"],
+    )
+
+    assert "--ignore=tests/test_qt_workspace.py" not in command
+    assert "--ignore=tests/conftest_qt.py" in command
+
+
+def test_expected_coverage_scope_includes_discovered_qt_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        test_fast_runner,
+        "_discover_qt_tests",
+        lambda _root: ["tests/test_qt_workspace.py"],
+    )
+
+    scope = _coverage._expected_fast_scope(tmp_path)
+
+    assert scope["excluded_tests"] == ["tests/conftest_qt.py"]
 
 
 def test_parse_and_build_preserve_coverage_verbose_and_passthrough(tmp_path: Path):
@@ -408,5 +437,5 @@ def test_launch_error_overwrites_successful_coverage_sidecar(tmp_path: Path, mon
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["failed"] is True
     assert meta["partial"] is True
-    assert "could not launch pytest: caf? executable unavailable" == meta["reason"]
+    assert meta["reason"] == "could not launch pytest: caf? executable unavailable"
     assert capsys.readouterr().err.isascii()

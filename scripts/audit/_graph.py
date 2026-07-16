@@ -1,4 +1,5 @@
 """Stage 2: import graph and symbol table via stdlib ast."""
+
 from __future__ import annotations
 
 import ast
@@ -22,22 +23,35 @@ def _module_name(rel_posix: str) -> str:
 
 
 _DOTTED_EFFECTS = {
-    "os.rename": "file-move", "os.replace": "file-move", "shutil.move": "file-move",
-    "os.remove": "file-delete", "os.unlink": "file-delete", "os.rmdir": "file-delete",
+    "os.rename": "file-move",
+    "os.replace": "file-move",
+    "shutil.move": "file-move",
+    "os.remove": "file-delete",
+    "os.unlink": "file-delete",
+    "os.rmdir": "file-delete",
     "shutil.rmtree": "file-delete",
-    "shutil.copy": "file-write", "shutil.copy2": "file-write",
-    "shutil.copyfile": "file-write", "shutil.copytree": "file-write",
-    "os.makedirs": "file-write", "os.mkdir": "file-write",
-    "os.system": "subprocess", "subprocess.run": "subprocess",
-    "subprocess.Popen": "subprocess", "subprocess.call": "subprocess",
-    "subprocess.check_call": "subprocess", "subprocess.check_output": "subprocess",
+    "shutil.copy": "file-write",
+    "shutil.copy2": "file-write",
+    "shutil.copyfile": "file-write",
+    "shutil.copytree": "file-write",
+    "os.makedirs": "file-write",
+    "os.mkdir": "file-write",
+    "os.system": "subprocess",
+    "subprocess.run": "subprocess",
+    "subprocess.Popen": "subprocess",
+    "subprocess.call": "subprocess",
+    "subprocess.check_call": "subprocess",
+    "subprocess.check_output": "subprocess",
     "os.getenv": "env",
 }
 _METHOD_EFFECTS = {
-    "write_text": "file-write", "write_bytes": "file-write",
-    "touch": "file-write", "mkdir": "file-write",
+    "write_text": "file-write",
+    "write_bytes": "file-write",
+    "touch": "file-write",
+    "mkdir": "file-write",
     "rename": "file-move",
-    "unlink": "file-delete", "rmdir": "file-delete",
+    "unlink": "file-delete",
+    "rmdir": "file-delete",
 }
 _NETWORK_IMPORTS = {"requests", "urllib", "urllib3", "http", "socket"}
 _WRITE_MODE_CHARS = set("wax+")
@@ -56,10 +70,18 @@ def _dotted_name(node: ast.AST) -> str | None:
 
 def _open_mode(call: ast.Call) -> str:
     mode = ""
-    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str):
+    if (
+        len(call.args) >= 2
+        and isinstance(call.args[1], ast.Constant)
+        and isinstance(call.args[1].value, str)
+    ):
         mode = call.args[1].value
     for kw in call.keywords:
-        if kw.arg == "mode" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg == "mode"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             mode = kw.value.value
     return mode
 
@@ -75,22 +97,28 @@ def _effects(tree: ast.Module, external_imports: list[str]) -> list[str]:
                 found.add(_DOTTED_EFFECTS[dotted])
             elif isinstance(node.func, ast.Attribute) and node.func.attr in _METHOD_EFFECTS:
                 found.add(_METHOD_EFFECTS[node.func.attr])
-            elif (isinstance(node.func, ast.Attribute) and node.func.attr == "replace"
-                  and len(node.args) == 1):
+            elif (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "replace"
+                and len(node.args) == 1
+            ):
                 found.add("file-move")
             elif isinstance(node.func, ast.Name) and node.func.id == "open":
                 if _WRITE_MODE_CHARS & set(_open_mode(node)):
                     found.add("file-write")
         elif isinstance(node, ast.Attribute):
-            if node.attr == "environ" and isinstance(node.value, ast.Name) and node.value.id == "os":
+            if (
+                node.attr == "environ"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "os"
+            ):
                 found.add("env")
     return sorted(found)
 
 
 def _entrypoint_modules(repo_root: Path, module_names: set[str]) -> set[str]:
     """Modules runnable directly: dunder-main files and [project.scripts] targets."""
-    eps = {name for name in module_names
-           if name == "__main__" or name.endswith(".__main__")}
+    eps = {name for name in module_names if name == "__main__" or name.endswith(".__main__")}
     pyproject = repo_root / "pyproject.toml"
     if not pyproject.exists():
         return eps
@@ -109,7 +137,9 @@ def _entrypoint_modules(repo_root: Path, module_names: set[str]) -> set[str]:
     return eps
 
 
-def _resolve_relative(current_module: str, is_init: bool, level: int, module: str | None) -> str | None:
+def _resolve_relative(
+    current_module: str, is_init: bool, level: int, module: str | None
+) -> str | None:
     parts = current_module.split(".")
     drop = level - 1 if is_init else level
     if drop > 0:
@@ -146,17 +176,29 @@ def _symbols(tree: ast.Module) -> list[dict]:
     out = []
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            out.append({
-                "name": node.name, "kind": "function", "line": node.lineno,
-                "signature": _signature(node), "doc": _first_doc_line(node),
-                "public": not node.name.startswith("_"), "imported_by": [],
-            })
+            out.append(
+                {
+                    "name": node.name,
+                    "kind": "function",
+                    "line": node.lineno,
+                    "signature": _signature(node),
+                    "doc": _first_doc_line(node),
+                    "public": not node.name.startswith("_"),
+                    "imported_by": [],
+                }
+            )
         elif isinstance(node, ast.ClassDef):
-            out.append({
-                "name": node.name, "kind": "class", "line": node.lineno,
-                "signature": node.name, "doc": _first_doc_line(node),
-                "public": not node.name.startswith("_"), "imported_by": [],
-            })
+            out.append(
+                {
+                    "name": node.name,
+                    "kind": "class",
+                    "line": node.lineno,
+                    "signature": node.name,
+                    "doc": _first_doc_line(node),
+                    "public": not node.name.startswith("_"),
+                    "imported_by": [],
+                }
+            )
     return out
 
 
@@ -194,6 +236,7 @@ def _strongly_connected(adj: dict[str, list[str]]) -> list[dict]:
                 components.append(sorted(comp))
 
     import sys
+
     old_limit = sys.getrecursionlimit()
     sys.setrecursionlimit(max(old_limit, 10000))
     try:
@@ -224,8 +267,11 @@ def _reexport_map(modules: dict[str, dict], trees: dict) -> dict[tuple[str, str]
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom):
                 continue
-            target = (node.module if node.level == 0
-                      else _resolve_relative(name, True, node.level, node.module))
+            target = (
+                node.module
+                if node.level == 0
+                else _resolve_relative(name, True, node.level, node.module)
+            )
             if not target or not _in_root_package(target):
                 continue
             for alias in node.names:
@@ -252,15 +298,22 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
     for rec in inventory["python_files"]:
         name = _module_name(rec["path"])
         try:
-            tree = ast.parse((repo_root / rec["path"]).read_text(encoding="utf-8", errors="replace"))
+            tree = ast.parse(
+                (repo_root / rec["path"]).read_text(encoding="utf-8", errors="replace")
+            )
         except SyntaxError as exc:
             line = exc.lineno or "?"
             raise RuntimeError(f"cannot parse {rec['path']}:{line}: {exc.msg}") from exc
         trees[name] = tree
         modules[name] = {
-            "path": rec["path"], "doc": _first_doc_line(tree),
-            "imports": [], "fan_in": 0, "fan_out": 0, "symbols": _symbols(tree),
-            "external_imports": [], "effects": [],
+            "path": rec["path"],
+            "doc": _first_doc_line(tree),
+            "imports": [],
+            "fan_in": 0,
+            "fan_out": 0,
+            "symbols": _symbols(tree),
+            "external_imports": [],
+            "effects": [],
         }
 
     # symbol lookup for imported_by attribution
@@ -282,8 +335,11 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
                 if node.level == 0 and node.module and not _in_root_package(node.module):
                     external.add(node.module.split(".")[0])
                     continue
-                target = (node.module if node.level == 0
-                          else _resolve_relative(name, is_init, node.level, node.module))
+                target = (
+                    node.module
+                    if node.level == 0
+                    else _resolve_relative(name, is_init, node.level, node.module)
+                )
                 if not target or not _in_root_package(target):
                     continue
                 for alias in node.names:

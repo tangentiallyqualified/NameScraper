@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import re
-import tomllib
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from . import _artifacts
+from . import _artifacts, _cycle_edges
+
+CYCLE_EDGE_CLASSIFICATIONS = _cycle_edges.CYCLE_EDGE_CLASSIFICATIONS
+CYCLE_EDGE_DISPOSITIONS = _cycle_edges.CYCLE_EDGE_DISPOSITIONS
+_engine_cycle_edges = _cycle_edges._engine_cycle_edges
+load_cycle_edge_classifications = _cycle_edges.load_cycle_edge_classifications
+render_classified_cycle_map = _cycle_edges.render_classified_cycle_map
 
 _package_of = _artifacts.package_of
 
@@ -30,125 +36,6 @@ DEAD_SECTIONS = (
     ),
     ("Test referenced", {"test-referenced"}),
 )
-
-CYCLE_EDGE_CLASSIFICATIONS = Path("docs/audit/engine-cycle-edges.toml")
-CYCLE_EDGE_FIELDS = {"source", "target", "owner", "purpose", "disposition"}
-CYCLE_EDGE_DISPOSITIONS = {
-    "algorithm-call",
-    "facade-backedge",
-    "runtime-construction",
-    "shared-model",
-}
-
-
-def _edge_text(edge: tuple[str, str]) -> str:
-    return f"{edge[0]} -> {edge[1]}"
-
-
-def _engine_cycle_edges(graph: dict) -> list[tuple[str, str]]:
-    prefix = "plex_renamer.engine."
-    return sorted(
-        (source, target)
-        for cycle in graph.get("cycles", [])
-        for source, target in cycle.get("edges", [])
-        if source.startswith(prefix) and target.startswith(prefix)
-    )
-
-
-def load_cycle_edge_classifications(repo_root: Path, graph: dict) -> list[dict]:
-    """Load and validate exact classifications for live engine SCC edges."""
-    path = repo_root / CYCLE_EDGE_CLASSIFICATIONS
-    if not path.exists():
-        raise ValueError(f"cycle edge classification file is missing: {path}")
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
-    if type(data.get("version")) is not int or data["version"] != 1:
-        raise ValueError("cycle edge classification version must be 1")
-    raw_records = data.get("edges")
-    if not isinstance(raw_records, list):
-        raise ValueError("cycle edge classifications must contain an edges array")
-
-    records: list[dict] = []
-    seen: set[tuple[str, str]] = set()
-    for index, record in enumerate(raw_records, 1):
-        if not isinstance(record, dict):
-            raise ValueError(f"cycle edge classification {index} must be a table")
-        fields = set(record)
-        missing_fields = sorted(CYCLE_EDGE_FIELDS - fields)
-        unexpected_fields = sorted(fields - CYCLE_EDGE_FIELDS)
-        if missing_fields:
-            raise ValueError(
-                f"cycle edge classification {index} missing fields: {', '.join(missing_fields)}"
-            )
-        if unexpected_fields:
-            raise ValueError(
-                "cycle edge classification "
-                f"{index} has unexpected fields: {', '.join(unexpected_fields)}"
-            )
-        for field in ("source", "target", "owner", "purpose", "disposition"):
-            if not isinstance(record[field], str) or not record[field].strip():
-                raise ValueError(
-                    f"cycle edge classification {index} {field} must be a non-empty string"
-                )
-        if record["disposition"] not in CYCLE_EDGE_DISPOSITIONS:
-            allowed = ", ".join(sorted(CYCLE_EDGE_DISPOSITIONS))
-            raise ValueError(
-                f"cycle edge classification {index} has unsupported disposition "
-                f"{record['disposition']!r}; expected one of: {allowed}"
-            )
-        edge = (record["source"], record["target"])
-        if edge in seen:
-            raise ValueError(f"duplicate classification for {_edge_text(edge)}")
-        seen.add(edge)
-        records.append(dict(record))
-
-    expected = set(_engine_cycle_edges(graph))
-    actual = set(seen)
-    missing = sorted(expected - actual)
-    unexpected = sorted(actual - expected)
-    if missing or unexpected:
-        details = []
-        if missing:
-            details.append("missing: " + ", ".join(_edge_text(edge) for edge in missing))
-        if unexpected:
-            details.append("unexpected: " + ", ".join(_edge_text(edge) for edge in unexpected))
-        raise ValueError("cycle edge classification coverage mismatch; " + "; ".join(details))
-    return sorted(records, key=lambda record: (record["source"], record["target"]))
-
-
-def _cycle_node_id(module: str) -> str:
-    node_id = re.sub(r"\W", "_", module.rsplit(".", 1)[-1])
-    return f"module_{node_id}" if node_id[:1].isdigit() else node_id
-
-
-def render_classified_cycle_map(classifications: list[dict]) -> str:
-    """Render deterministic Mermaid and detail rows from TOML classifications."""
-    lines = ["```mermaid", "graph LR"]
-    for record in classifications:
-        source = _cycle_node_id(record["source"])
-        target = _cycle_node_id(record["target"])
-        lines.append(f"    {source} -->|{record['disposition']}| {target}")
-    lines.append("```")
-    rows = [
-        "| "
-        + " | ".join(
-            (
-                f"`{record['source']}`",
-                f"`{record['target']}`",
-                _markdown_cell(record["owner"]),
-                _markdown_cell(record["purpose"]),
-                record["disposition"],
-            )
-        )
-        + " |"
-        for record in classifications
-    ]
-    return (
-        "### Classified cycle edges\n\n"
-        + "\n".join(lines)
-        + "\n\n| Source | Target | Owner | Import purpose | Disposition |\n"
-        "|---|---|---|---|---|\n"
-        + "\n".join(rows)
-    )
 
 
 def replace_generated(existing: str | None, section: str, body: str) -> str:
@@ -492,7 +379,7 @@ def _render_package_map(
     package: str,
     graph: dict,
     metrics: dict,
-    cycle_classifications: list[dict] | None = None,
+    cycle_classifications: Sequence[_cycle_edges.CycleEdgeClassification] | None = None,
 ) -> str:
     rows = [(path, rec) for path, rec in metrics["modules"].items() if _package_of(path) == package]
     entry, core, support = [], [], []
@@ -504,18 +391,24 @@ def _render_package_map(
             core.append(line)
         else:
             support.append(line)
-    sections = []
-    if entry:
-        sections.append("### Entry points (nothing imports these)\n" + "\n".join(entry))
-    if core:
-        sections.append("### Core (widely depended upon)\n" + "\n".join(core))
-    if support:
-        sections.append("### Support\n" + "\n".join(support))
+    sections = _package_sections(entry, core, support)
     if package == "engine" and cycle_classifications:
         sections.insert(0, render_classified_cycle_map(cycle_classifications))
     body = "\n\n".join(sections) if sections else "_No modules._"
     digest = metrics.get("input_digest") or "unknown"
     return body + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
+
+
+def _package_sections(entry: list[str], core: list[str], support: list[str]) -> list[str]:
+    sections = []
+    for heading, lines in (
+        ("Entry points (nothing imports these)", entry),
+        ("Core (widely depended upon)", core),
+        ("Support", support),
+    ):
+        if lines:
+            sections.append(f"### {heading}\n" + "\n".join(lines))
+    return sections
 
 
 def run(repo_root: Path, options) -> int:
@@ -533,9 +426,7 @@ def run(repo_root: Path, options) -> int:
     review_findings = cast(list[dict], raw_review_findings)
     classification_path = repo_root / CYCLE_EDGE_CLASSIFICATIONS
     cycle_classifications = (
-        load_cycle_edge_classifications(repo_root, graph)
-        if classification_path.exists()
-        else []
+        load_cycle_edge_classifications(repo_root, graph) if classification_path.exists() else []
     )
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,6 @@ from pathlib import Path
 
 from . import _artifacts, _coverage_order
 
-
 _FRESH_TIMEOUT_SECONDS = 1800
 _DIAGNOSTIC_LIMIT = 400
 
@@ -123,7 +122,7 @@ def _expected_fast_scope(repo_root: Path) -> dict:
         raise CoverageEvidenceError(
             "coverage-scope-incomplete: test discovery errors: " + "; ".join(errors)
         )
-    return test_fast_runner._coverage_scope(repo_root, [], list(qt_tests))
+    return test_fast_runner._coverage_scope(repo_root, [], [])
 
 
 def _validate_full_suite_scope(repo_root: Path, evidence: dict) -> None:

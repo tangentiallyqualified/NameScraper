@@ -33,12 +33,7 @@ def approve_scan_match(
     resolve_movie_preview_review: Any,
     set_actionable_preview_checks: Any,
 ) -> bool:
-    if (
-        state.show_id is None
-        or state.queued
-        or state.scanning
-        or state.duplicate_of is not None
-    ):
+    if state.show_id is None or state.queued or state.scanning or state.duplicate_of is not None:
         return False
     state.match_origin = "manual"
     resolve_movie_preview_review(state)
@@ -145,9 +140,7 @@ def rematch_movie_scan_state(
 ) -> MovieRematchResult:
     preview = state.preview_items[0] if state.preview_items else None
     scanner: MovieScanStateScanner | None = (
-        cast(MovieScanStateScanner, state.scanner)
-        if state.scanner is not None
-        else movie_scanner
+        cast(MovieScanStateScanner, state.scanner) if state.scanner is not None else movie_scanner
     )
     if (
         preview is None
@@ -157,6 +150,7 @@ def rematch_movie_scan_state(
     ):
         raise ValueError("Movie rematch requires an existing preview item and scanner")
 
+    _validate_movie_preview_source(scanner, preview)
     new_item = scanner.rematch_file(preview, new_match)
     raw_name = clean_folder_name(preview.original.stem)
     year_hint = extract_year(preview.original.stem)
@@ -195,3 +189,12 @@ def rematch_movie_scan_state(
             break
 
     return MovieRematchResult(updated_movie_preview_items)
+
+
+def _validate_movie_preview_source(
+    scanner: MovieScanStateScanner,
+    preview: PreviewItem,
+) -> None:
+    explicit_files = scanner.explicit_files
+    if explicit_files is not None and preview.original not in explicit_files:
+        raise ValueError("Movie preview source is not owned by the retained scanner")

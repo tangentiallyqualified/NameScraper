@@ -7,11 +7,10 @@ import json
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from audit import _artifacts
-
 
 _COVERAGE_SOURCE = ["plex_renamer"]
 _SCOPE_CONFIG_FILES = (
@@ -115,7 +114,7 @@ def _build_command(
             "--source=plex_renamer",
         ]
     command += ["-m", "pytest"]
-    command += [f"--ignore={path}" for path in sorted(qt_tests)]
+    command += [f"--ignore={path}" for path in _excluded_qt_tests(args, qt_tests)]
     command += [
         "--ignore=tests/conftest_qt.py",
         "--color=no",
@@ -125,6 +124,10 @@ def _build_command(
         command.append("-q")
     command.extend(args.pytest_args)
     return command
+
+
+def _excluded_qt_tests(args: argparse.Namespace, qt_tests: list[str]) -> list[str]:
+    return [] if args.coverage else sorted(qt_tests)
 
 
 def _write_logs(log_dir: Path, stdout: str, stderr: str) -> None:
@@ -244,7 +247,7 @@ def _write_coverage_sidecar(
         pass
 
     normalized_args = [str(arg) for arg in pytest_args]
-    collected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    collected_at = datetime.now(UTC).isoformat(timespec="seconds")
     failed = returncode != 0
     partial = True if failed else bool(normalized_args)
     try:
@@ -313,6 +316,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
         return 1
     command = _build_command(repo_root, args, qt_tests)
+    excluded_qt_tests = _excluded_qt_tests(args, qt_tests)
 
     try:
         result = subprocess.run(
@@ -328,7 +332,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         _write_logs(log_dir, "", reason + "\n")
         if args.coverage:
             _write_coverage_sidecar(
-                repo_root, 1, args.pytest_args, list(qt_tests), failure_reason=reason
+                repo_root, 1, args.pytest_args, excluded_qt_tests, failure_reason=reason
             )
         print(reason, file=sys.stderr)
         print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
@@ -352,11 +356,16 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
                 repo_root,
                 returncode,
                 args.pytest_args,
-                list(qt_tests),
+                excluded_qt_tests,
                 failure_reason=discovery_reason,
             )
         else:
-            sidecar_ok = _write_coverage_sidecar(repo_root, returncode, args.pytest_args, qt_tests)
+            sidecar_ok = _write_coverage_sidecar(
+                repo_root,
+                returncode,
+                args.pytest_args,
+                excluded_qt_tests,
+            )
         if not sidecar_ok:
             returncode = 1
             print(

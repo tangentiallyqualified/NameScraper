@@ -4,7 +4,9 @@ import json
 import textwrap
 from pathlib import Path
 
-from audit import _analyze, _artifacts, _graph, _inventory
+from audit import _artifacts, _graph, _inventory
+
+from scripts.audit import _analyze
 
 
 def _graph_for(repo: Path) -> dict:
@@ -58,17 +60,21 @@ def test_relative_import_resolution(synthetic_repo: Path):
 
 def test_cycle_detection(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "c1.py").write_text(
-        '"""C1."""\nfrom plex_renamer import c2\n', encoding="utf-8")
+        '"""C1."""\nfrom plex_renamer import c2\n', encoding="utf-8"
+    )
     (synthetic_repo / "plex_renamer" / "c2.py").write_text(
-        '"""C2."""\nfrom plex_renamer import c1\n', encoding="utf-8")
+        '"""C2."""\nfrom plex_renamer import c1\n', encoding="utf-8"
+    )
     g = _graph_for(synthetic_repo)
-    assert g["cycles"] == [{
-        "modules": ["plex_renamer.c1", "plex_renamer.c2"],
-        "edges": [
-            ["plex_renamer.c1", "plex_renamer.c2"],
-            ["plex_renamer.c2", "plex_renamer.c1"],
-        ],
-    }]
+    assert g["cycles"] == [
+        {
+            "modules": ["plex_renamer.c1", "plex_renamer.c2"],
+            "edges": [
+                ["plex_renamer.c1", "plex_renamer.c2"],
+                ["plex_renamer.c2", "plex_renamer.c1"],
+            ],
+        }
+    ]
 
 
 def test_cycle_ordering_is_stable_for_modules_edges_and_components(synthetic_repo: Path):
@@ -129,13 +135,15 @@ def test_cycle_that_adds_a_module_is_reported_as_enlarged(synthetic_repo: Path):
     _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
     _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c3")
     _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c1")
-    baseline = [{
-        "modules": ["plex_renamer.c1", "plex_renamer.c2"],
-        "edges": [
-            ["plex_renamer.c1", "plex_renamer.c2"],
-            ["plex_renamer.c2", "plex_renamer.c1"],
-        ],
-    }]
+    baseline = [
+        {
+            "modules": ["plex_renamer.c1", "plex_renamer.c2"],
+            "edges": [
+                ["plex_renamer.c1", "plex_renamer.c2"],
+                ["plex_renamer.c2", "plex_renamer.c1"],
+            ],
+        }
+    ]
 
     findings = _cycle_findings(_graph_for(synthetic_repo), baseline)
 
@@ -146,20 +154,23 @@ def test_cycle_that_shrinks_by_one_module_is_allowed(synthetic_repo: Path):
     _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
     _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")
     _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c1")
-    baseline = [{
-        "modules": ["plex_renamer.c1", "plex_renamer.c2", "plex_renamer.c3"],
-        "edges": [
-            ["plex_renamer.c1", "plex_renamer.c2"],
-            ["plex_renamer.c2", "plex_renamer.c3"],
-            ["plex_renamer.c3", "plex_renamer.c1"],
-        ],
-    }]
+    baseline = [
+        {
+            "modules": ["plex_renamer.c1", "plex_renamer.c2", "plex_renamer.c3"],
+            "edges": [
+                ["plex_renamer.c1", "plex_renamer.c2"],
+                ["plex_renamer.c2", "plex_renamer.c3"],
+                ["plex_renamer.c3", "plex_renamer.c1"],
+            ],
+        }
+    ]
 
     assert _cycle_findings(_graph_for(synthetic_repo), baseline) == []
 
 
 def test_run_requires_inventory(synthetic_repo: Path):
     import pytest
+
     with pytest.raises(_artifacts.MissingArtifactError):
         _graph.run(synthetic_repo, None)
 
@@ -202,25 +213,23 @@ def test_entrypoint_modules_flagged(synthetic_repo: Path):
 
 
 def test_no_pyproject_still_detects_dunder_main(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
-        '"""Entry."""\n', encoding="utf-8")
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text('"""Entry."""\n', encoding="utf-8")
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
     assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False
 
 
 def test_malformed_pyproject_schema_does_not_abort(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "__main__.py").write_text(
-        '"""Entry."""\n', encoding="utf-8")
-    (synthetic_repo / "pyproject.toml").write_text(
-        'project = "not a table"\n', encoding="utf-8")
+    (synthetic_repo / "plex_renamer" / "__main__.py").write_text('"""Entry."""\n', encoding="utf-8")
+    (synthetic_repo / "pyproject.toml").write_text('project = "not a table"\n', encoding="utf-8")
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.__main__"]["entrypoint"] is True
     assert g["modules"]["plex_renamer.beta"]["entrypoint"] is False
 
 
 def test_effects_detected_for_mutating_module(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "mover.py").write_text(textwrap.dedent('''\
+    (synthetic_repo / "plex_renamer" / "mover.py").write_text(
+        textwrap.dedent('''\
         """Mover."""
         import shutil
         import subprocess
@@ -240,14 +249,20 @@ def test_effects_detected_for_mutating_module(synthetic_repo: Path):
         def probe() -> None:
             """Spawn a process."""
             subprocess.run(["git", "status"], check=False)
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.mover"]["effects"] == [
-        "file-delete", "file-move", "subprocess"]
+        "file-delete",
+        "file-move",
+        "subprocess",
+    ]
 
 
 def test_effects_write_env_network(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "writer.py").write_text(textwrap.dedent('''\
+    (synthetic_repo / "plex_renamer" / "writer.py").write_text(
+        textwrap.dedent('''\
         """Writer."""
         import os
         import requests
@@ -263,10 +278,11 @@ def test_effects_write_env_network(synthetic_repo: Path):
         def token() -> str:
             """Read config from environment."""
             return os.environ.get("TOKEN", "")
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     g = _graph_for(synthetic_repo)
-    assert g["modules"]["plex_renamer.writer"]["effects"] == [
-        "env", "file-write", "network"]
+    assert g["modules"]["plex_renamer.writer"]["effects"] == ["env", "file-write", "network"]
 
 
 def test_effects_empty_for_pure_module(synthetic_repo: Path):
@@ -275,20 +291,24 @@ def test_effects_empty_for_pure_module(synthetic_repo: Path):
 
 
 def test_str_replace_not_flagged_as_file_move(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "parser.py").write_text(textwrap.dedent('''\
+    (synthetic_repo / "plex_renamer" / "parser.py").write_text(
+        textwrap.dedent('''\
         """Parser."""
 
 
         def clean(name: str) -> str:
             """Normalize separators."""
             return name.replace(".", " ")
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.parser"]["effects"] == []
 
 
 def test_path_replace_still_flagged(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "swapper.py").write_text(textwrap.dedent('''\
+    (synthetic_repo / "plex_renamer" / "swapper.py").write_text(
+        textwrap.dedent('''\
         """Swapper."""
         from pathlib import Path
 
@@ -296,14 +316,17 @@ def test_path_replace_still_flagged(synthetic_repo: Path):
         def swap(a: Path, b: Path) -> None:
             """Replace b with a."""
             a.replace(b)
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.swapper"]["effects"] == ["file-move"]
 
 
 def test_reexport_through_init_attributes_origin(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "__init__.py").write_text(
-        '"""Mini package."""\nfrom .alpha import used_function\n', encoding="utf-8")
+        '"""Mini package."""\nfrom .alpha import used_function\n', encoding="utf-8"
+    )
     (synthetic_repo / "plex_renamer" / "delta.py").write_text(
         '"""Delta."""\nfrom plex_renamer import used_function\n\n\n'
         'def go():\n    """Go."""\n    return used_function(2)\n',
@@ -316,14 +339,16 @@ def test_reexport_through_init_attributes_origin(synthetic_repo: Path):
 
 def test_similarly_named_external_package_stays_external(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "epsilon.py").write_text(
-        '"""Epsilon."""\nimport plex_renamerx\n', encoding="utf-8")
+        '"""Epsilon."""\nimport plex_renamerx\n', encoding="utf-8"
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.epsilon"]["imports"] == []
     assert g["modules"]["plex_renamer.epsilon"]["external_imports"] == ["plex_renamerx"]
 
 
 def test_class_and_private_symbols(synthetic_repo: Path):
-    (synthetic_repo / "plex_renamer" / "shapes.py").write_text(textwrap.dedent('''\
+    (synthetic_repo / "plex_renamer" / "shapes.py").write_text(
+        textwrap.dedent('''\
         """Shapes."""
 
 
@@ -333,7 +358,9 @@ def test_class_and_private_symbols(synthetic_repo: Path):
 
         def _hidden():
             """Private."""
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     g = _graph_for(synthetic_repo)
     syms = {s["name"]: s for s in g["modules"]["plex_renamer.shapes"]["symbols"]}
     assert syms["Circle"]["kind"] == "class"
@@ -361,13 +388,15 @@ def test_cli_graph_syntax_error_is_hard_failure(synthetic_repo: Path, capsys):
 
 def test_from_pkg_import_submodule_is_module_edge(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "zeta.py").write_text(
-        '"""Zeta."""\nfrom plex_renamer import alpha\n', encoding="utf-8")
+        '"""Zeta."""\nfrom plex_renamer import alpha\n', encoding="utf-8"
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.zeta"]["imports"] == ["plex_renamer.alpha"]
 
 
 def test_absolute_import_module_edge(synthetic_repo: Path):
     (synthetic_repo / "plex_renamer" / "eta.py").write_text(
-        '"""Eta."""\nimport plex_renamer.alpha\n', encoding="utf-8")
+        '"""Eta."""\nimport plex_renamer.alpha\n', encoding="utf-8"
+    )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.eta"]["imports"] == ["plex_renamer.alpha"]

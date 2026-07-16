@@ -4,26 +4,21 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
 from plex_renamer.app.controllers.queue_controller import BatchQueueResult
-from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
-from plex_renamer.constants import JobStatus
 from plex_renamer.engine import (
     CompanionFile,
     CompletenessReport,
     PreviewItem,
-    RenameResult,
     ScanState,
     SeasonCompleteness,
     get_checked_indices_from_state,
 )
-from plex_renamer.job_store import JobStore
-
-from conftest_qt import QtSmokeBase
 
 
 class QtMediaWorkspaceTests(QtSmokeBase):
@@ -40,7 +35,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 return BatchQueueResult(added=len(states))
 
         class _FakeMediaController:
@@ -66,7 +63,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
                     season=1,
@@ -106,8 +105,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 workspace._roster_queue_btn.minimumWidth(),
                 workspace._queue_inline_btn.sizeHint().width() + 20,
             )
-            roster_panel_right = workspace._roster_panel.mapTo(workspace, QPoint(0, 0)).x() + workspace._roster_panel.width()
-            queue_button_right = workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).x() + workspace._roster_queue_btn.width()
+            roster_panel_right = (
+                workspace._roster_panel.mapTo(workspace, QPoint(0, 0)).x()
+                + workspace._roster_panel.width()
+            )
+            queue_button_right = (
+                workspace._roster_queue_btn.mapTo(workspace, QPoint(0, 0)).x()
+                + workspace._roster_queue_btn.width()
+            )
             self.assertLessEqual(queue_button_right, roster_panel_right)
 
             workspace.close()
@@ -301,7 +306,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         workspace.close()
 
-    def _workspace_with_selected_state(self, *, tie_detected: bool = False, needs_review: bool = False):
+    def _workspace_with_selected_state(
+        self, *, tie_detected: bool = False, needs_review: bool = False
+    ):
         """Build a one-show TV workspace whose selected state has the given
         needs_review/tie_detected flags, for header-button tone/visibility
         assertions (Task 3)."""
@@ -334,7 +341,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_matched_state_has_neutral_fix_match(self):
-        workspace, state = self._workspace_with_selected_state(tie_detected=False, needs_review=False)
+        workspace, state = self._workspace_with_selected_state(
+            tie_detected=False, needs_review=False
+        )
         workspace._update_action_bar()
         self.assertTrue(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._fix_match_btn.text(), "Fix Match")
@@ -342,15 +351,20 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_review_state_has_caution_fix_match(self):
-        workspace, state = self._workspace_with_selected_state(tie_detected=False, needs_review=True)
+        workspace, state = self._workspace_with_selected_state(
+            tie_detected=False, needs_review=True
+        )
         workspace._update_action_bar()
         self.assertEqual(workspace._fix_match_btn.property("cssClass"), "caution")
         workspace.close()
 
     def test_header_buttons_use_default_size_variant(self):
         workspace, _state = self._workspace_with_selected_state()
-        for button in (workspace._fix_match_btn, workspace._queue_inline_btn,
-                       workspace._work_panel.automux_button):
+        for button in (
+            workspace._fix_match_btn,
+            workspace._queue_inline_btn,
+            workspace._work_panel.automux_button,
+        ):
             self.assertIsNone(button.property("sizeVariant"))
         workspace.close()
 
@@ -360,7 +374,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # reset itself must undo tie styling -- otherwise a hidden Fix Match
         # button and a caution-toned primary button survive into the
         # empty-ready view.
-        workspace, _state = self._workspace_with_selected_state(tie_detected=True, needs_review=True)
+        workspace, _state = self._workspace_with_selected_state(
+            tie_detected=True, needs_review=True
+        )
         workspace._update_action_bar()
         self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._queue_inline_btn.property("cssClass"), "caution")
@@ -408,7 +424,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
                     season=1,
@@ -416,7 +434,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                     status="OK",
                 ),
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 02/Example.Show.S02E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 02/Example.Show.S02E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S02E01 - Return.mkv",
                     target_dir=Path("C:/library/tv/Example Show (2024)/Season 02"),
                     season=2,
@@ -498,7 +518,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             CompletenessReport(
                 seasons={
                     1: SeasonCompleteness(season=1, expected=1, matched=1, missing=[]),
-                    2: SeasonCompleteness(season=2, expected=1, matched=0, missing=[(1, "Second Season")]),
+                    2: SeasonCompleteness(
+                        season=2, expected=1, matched=0, missing=[(1, "Second Season")]
+                    ),
                 },
                 specials=None,
                 total_expected=2,
@@ -548,7 +570,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
                     season=1,
@@ -607,8 +631,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             preview_items=[
                 PreviewItem(
                     original=Path(
-                        "C:/library/tv/Example.Show.2024/Season 01/"
-                        "Example Show (2024) - S01E01.mkv"
+                        "C:/library/tv/Example.Show.2024/Season 01/Example Show (2024) - S01E01.mkv"
                     ),
                     new_name="Example Show (2024) - S01E01.mkv",
                     target_dir=Path("C:/library/tv/Example.Show.2024/Season 01"),
@@ -624,12 +647,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertFalse(state.preview_items[0].is_actionable)
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": "Example Show (2024) - S01E01.eng.srt",
-                "language": "eng",
-                "set_default": False,
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": "Example Show (2024) - S01E01.eng.srt",
+                    "language": "eng",
+                    "set_default": False,
+                }
+            ],
         }
 
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
@@ -673,8 +698,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             preview_items=[
                 PreviewItem(
                     original=Path(
-                        "C:/library/tv/Example.Show.2024/Season 01/"
-                        "Example Show (2024) - S01E01.mkv"
+                        "C:/library/tv/Example.Show.2024/Season 01/Example Show (2024) - S01E01.mkv"
                     ),
                     new_name="Example Show (2024) - S01E01.mkv",
                     target_dir=Path("C:/library/tv/Example.Show.2024/Season 01"),
@@ -690,12 +714,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertFalse(state.preview_items[0].is_actionable)
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": "Example Show (2024) - S01E01.eng.srt",
-                "language": "eng",
-                "set_default": False,
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": "Example Show (2024) - S01E01.eng.srt",
+                    "language": "eng",
+                    "set_default": False,
+                }
+            ],
         }
 
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
@@ -737,7 +763,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         original = Path("C:/library/movies/Example Movie (2024)/Example Movie (2024).mkv")
         state = ScanState(
             folder=original.parent,
-            media_info={"id": 101, "title": "Example Movie", "year": "2024", "_media_type": "movie"},
+            media_info={
+                "id": 101,
+                "title": "Example Movie",
+                "year": "2024",
+                "_media_type": "movie",
+            },
             preview_items=[
                 PreviewItem(
                     original=original,
@@ -758,12 +789,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertFalse(state.preview_items[0].is_actionable)
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": "Example Movie (2024).eng.srt",
-                "language": "eng",
-                "set_default": False,
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": "Example Movie (2024).eng.srt",
+                    "language": "eng",
+                    "set_default": False,
+                }
+            ],
         }
 
         workspace = MediaWorkspace(media_type="movie", media_controller=_FakeMediaController(state))
@@ -810,8 +843,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             preview_items=[
                 PreviewItem(
                     original=Path(
-                        "C:/library/tv/Example.Show.2024/Season 01/"
-                        "Example Show (2024) - S01E01.mkv"
+                        "C:/library/tv/Example.Show.2024/Season 01/Example Show (2024) - S01E01.mkv"
                     ),
                     new_name="Example Show (2024) - S01E01.mkv",
                     target_dir=Path("C:/library/tv/Example.Show.2024/Season 01"),
@@ -827,12 +859,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertFalse(state.preview_items[0].is_actionable)
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": "Example Show (2024) - S01E01.eng.srt",
-                "language": "eng",
-                "set_default": False,
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": "Example Show (2024) - S01E01.eng.srt",
+                    "language": "eng",
+                    "set_default": False,
+                }
+            ],
         }
 
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
@@ -874,7 +908,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         state = ScanState(
             folder=Path("C:/library/movies/Example Movie"),
-            media_info={"id": 101, "title": "Example Movie", "year": "2024", "_media_type": "movie"},
+            media_info={
+                "id": 101,
+                "title": "Example Movie",
+                "year": "2024",
+                "_media_type": "movie",
+            },
             preview_items=[
                 PreviewItem(
                     original=Path("C:/library/movies/Example Movie/Example.Movie.2024.mkv"),
@@ -985,7 +1024,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.show_ready()
 
         self.assertEqual(workspace._queue_inline_btn.text(), "Assign Season")
-        with patch("plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getInt", return_value=(2, True)):
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getInt",
+            return_value=(2, True),
+        ):
             workspace._activate_selected_primary_action()
 
         self.assertEqual(state.season_assignment, 2)
@@ -1051,7 +1093,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -1079,7 +1123,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Matched Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"
+                    ),
                     new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Matched Show (2024)/Season 01"),
                     season=1,
@@ -1096,7 +1142,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 102, "name": "Unchecked Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Unchecked.Show.2024/Season 01/Unchecked.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Unchecked.Show.2024/Season 01/Unchecked.Show.S01E01.mkv"
+                    ),
                     new_name="Unchecked Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Unchecked Show (2024)/Season 01"),
                     season=1,
@@ -1168,7 +1216,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def scan_show(self, state, _tmdb):
                 state.preview_items = [
                     PreviewItem(
-                        original=Path("C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"
+                        ),
                         new_name="Replacement Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Replacement Show (2024)/Season 01"),
                         season=1,
@@ -1184,7 +1234,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Original Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"
+                    ),
                     new_name="Original Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Original Show (2024)/Season 01"),
                     season=1,
@@ -1210,7 +1262,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIn("Original Show (2024)", before_data.target)
 
         chosen = {"id": 202, "name": "Replacement Show", "year": "2024"}
-        with patch("plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick", return_value=chosen):
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick",
+            return_value=chosen,
+        ):
             workspace._fix_match()
 
         after_data = self._episode_row_data_for_preview_index(workspace, 0)
@@ -1248,7 +1303,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         state = ScanState(
             folder=Path("C:/library/movies/Example Movie"),
-            media_info={"id": 101, "title": "Example Movie", "year": "2024", "_media_type": "movie"},
+            media_info={
+                "id": 101,
+                "title": "Example Movie",
+                "year": "2024",
+                "_media_type": "movie",
+            },
             preview_items=[],
             scanned=True,
             checked=False,
@@ -1382,7 +1442,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show_ready()
 
-        self.assertTrue(any("SPECIALS" in text.upper() for text in self._episode_section_titles(workspace)))
+        self.assertTrue(
+            any("SPECIALS" in text.upper() for text in self._episode_section_titles(workspace))
+        )
 
         workspace.close()
 
@@ -1447,7 +1509,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace = MediaWorkspace(
             media_type="tv",
             media_controller=_FakeMediaController([state_a, state_b]),
-            queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=2)})(),
+            queue_controller=type(
+                "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=2)}
+            )(),
         )
         workspace.show_ready()
 
@@ -1491,7 +1555,15 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, output_root, command_gating, settings_service=None, tmdb_client=None):
+            def add_movie_batch(
+                self,
+                states,
+                root,
+                output_root,
+                command_gating,
+                settings_service=None,
+                tmdb_client=None,
+            ):
                 self.called = True
                 return BatchQueueResult(added=len(states))
 
@@ -1507,7 +1579,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 11, "title": "Dune: Part Two", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/movies/Dune.Part.Two.2024/Dune.Part.Two.2024.mkv"),
+                        original=Path(
+                            "C:/library/movies/Dune.Part.Two.2024/Dune.Part.Two.2024.mkv"
+                        ),
                         new_name="Dune: Part Two (2024).mkv",
                         target_dir=Path("C:/library/movies/Dune: Part Two (2024)"),
                         season=None,
@@ -1640,7 +1714,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="movie",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -1712,7 +1788,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="movie",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -2068,9 +2146,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace._state_coordinator.show_in_work_panel.assert_not_called()
         self.assertTrue(self._episode_section_collapsed(workspace, "SEASON 1"))
         # Collapsed season hides its episode rows.
-        self.assertFalse(
-            any(data.kind == "episode" for data in self._episode_row_datas(workspace))
-        )
+        self.assertFalse(any(data.kind == "episode" for data in self._episode_row_datas(workspace)))
         workspace.close()
 
     def test_media_workspace_folder_header_toggle_hides_rows_without_rebuilding_preview(self):
@@ -2138,10 +2214,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         result = coordinator.folder_preview_data(state)
         self.assertIsNotNone(result)
         source, target = result
-        self.assertEqual(source, str(state.folder))          # absolute path, not .name
+        self.assertEqual(source, str(state.folder))  # absolute path, not .name
         self.assertEqual(target, "Example Show (2024)")
 
-    def test_media_workspace_auto_collapsed_specials_header_expands_without_rebuilding_preview(self):
+    def test_media_workspace_auto_collapsed_specials_header_expands_without_rebuilding_preview(
+        self,
+    ):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeMediaController:
@@ -2336,8 +2414,11 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
         entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
         table.assign(
-            entry.file_id, 1, [1],
-            origin=ORIGIN_AUTO, confidence=0.5,
+            entry.file_id,
+            1,
+            [1],
+            origin=ORIGIN_AUTO,
+            confidence=0.5,
         )
         state = ScanState(
             folder=folder,
@@ -2442,12 +2523,17 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         incomplete_s1 = SeasonCompleteness(season=1, expected=3, matched=2, missing=[(3, "Three")])
 
         # A) regular seasons complete; one unmatched specials-ish extra file -> specials-unmapped
-        state_a, _table_a, _file_id_a = self._make_episode_table_state()  # existing factory producing has_episode_problems=True
+        state_a, _table_a, _file_id_a = (
+            self._make_episode_table_state()
+        )  # existing factory producing has_episode_problems=True
         state_a.completeness = CompletenessReport(
-            seasons={1: complete_s1}, specials=None,
-            total_expected=2, total_matched=2, total_missing=[],
+            seasons={1: complete_s1},
+            specials=None,
+            total_expected=2,
+            total_matched=2,
+            total_missing=[],
         )
-        for item in state_a.preview_items:                    # force problems onto non-regular rows
+        for item in state_a.preview_items:  # force problems onto non-regular rows
             if item.is_episode_review or item.is_unmatched or item.is_conflict:
                 item.season = None
         self.assertEqual(roster_group(state_a, media_type="tv"), "specials-unmapped")
@@ -2455,16 +2541,22 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # B) same problems but a regular season is incomplete -> stays review-episodes
         state_b, _table_b, _file_id_b = self._make_episode_table_state()
         state_b.completeness = CompletenessReport(
-            seasons={1: incomplete_s1}, specials=None,
-            total_expected=3, total_matched=2, total_missing=[(1, 3, "Three")],
+            seasons={1: incomplete_s1},
+            specials=None,
+            total_expected=3,
+            total_matched=2,
+            total_missing=[(1, 3, "Three")],
         )
         self.assertEqual(roster_group(state_b, media_type="tv"), "review-episodes")
 
         # C) a problem row on a regular season -> stays review-episodes
         state_c, _table_c, _file_id_c = self._make_episode_table_state()
         state_c.completeness = CompletenessReport(
-            seasons={1: complete_s1}, specials=None,
-            total_expected=2, total_matched=2, total_missing=[],
+            seasons={1: complete_s1},
+            specials=None,
+            total_expected=2,
+            total_matched=2,
+            total_missing=[],
         )
         for item in state_c.preview_items:
             if item.is_episode_review or item.is_unmatched or item.is_conflict:
@@ -2510,7 +2602,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # The fixture leaves S01E02 ("Sequel") unassigned; mark it missing via
         # completeness so the guide projects a "Missing File" row for it.
         state.completeness = CompletenessReport(
-            seasons={1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Sequel")])},
+            seasons={
+                1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Sequel")])
+            },
             specials=None,
             total_expected=2,
             total_matched=1,
@@ -2524,7 +2618,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         model = workspace._work_panel.model
         missing_row = next(
-            row for row in range(model.rowCount())
+            row
+            for row in range(model.rowCount())
             if (data := model.index(row, 0).data(ROW_DATA_ROLE)) is not None
             and data.status_text == "Missing File"
         )
@@ -2532,7 +2627,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertIsNotNone(guide_row)
         index = model.index(missing_row, 0)
 
-        with patch.object(workspace._action_coordinator, "handle_episode_row_action") as mock_handle:
+        with patch.object(
+            workspace._action_coordinator, "handle_episode_row_action"
+        ) as mock_handle:
             workspace._on_inline_row_action(index, "assign_file")
 
         mock_handle.assert_called_once_with(state, guide_row, "assign_file")
@@ -2585,7 +2682,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return [(1, 3)]
 
         workspace._action_coordinator.assign_unmapped_file(
-            state, preview, assign_dialog=_FakeAssignDialog,
+            state,
+            preview,
+            assign_dialog=_FakeAssignDialog,
         )
         self._app.processEvents()
 
@@ -2609,8 +2708,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         model = workspace._work_panel.model
         unmapped_row = next(
-            row for row in range(model.rowCount())
-            if model.row_kind_at(row) == "unmapped"
+            row for row in range(model.rowCount()) if model.row_kind_at(row) == "unmapped"
         )
         preview_index = model.preview_index_at(unmapped_row)
         self.assertIsNotNone(preview_index)
@@ -2624,13 +2722,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
     def test_episode_row_action_keep_this_resolves_conflict(self):
         """keep_this: dialog-free; winner keeps the slot, loser is unassigned."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         folder = Path("C:/library/tv/Example")
@@ -2690,7 +2788,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return [(1, 2)]
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "reassign", assign_dialog=_StubAssignDialog,
+            state,
+            row,
+            "reassign",
+            assign_dialog=_StubAssignDialog,
         )
         self._app.processEvents()
 
@@ -2701,10 +2802,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_approve_all_recategorizes_and_auto_checks_show(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_helpers import (
             is_state_queue_approvable,
         )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         # _make_episode_table_state assigns the only file at confidence 0.5,
         # so the show starts under "Needs Review — Episodes".
@@ -2754,7 +2855,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
         state.assignments = table
         state.preview_items = project_preview_items(
-            table, show_info=show_info, root=folder,
+            table,
+            show_info=show_info,
+            root=folder,
             media_fields={"media_id": 101, "media_name": "Example Show"},
         )
 
@@ -2772,7 +2875,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         # the offscreen run still exercises the real signal -> confirm ->
         # unassign chain without sitting in a modal event loop.
         with patch.object(
-            QMessageBox, "exec", return_value=QMessageBox.StandardButton.Yes,
+            QMessageBox,
+            "exec",
+            return_value=QMessageBox.StandardButton.Yes,
         ):
             workspace._work_panel.unassign_all_clicked.emit()
         self._app.processEvents()
@@ -2819,8 +2924,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
         from plex_renamer.gui_qt.widgets._media_helpers import is_state_queue_approvable
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         folder = Path("C:/library/tv/Conflicted")
         show_info = {"id": 77, "name": "Conflicted", "year": "2024"}
@@ -2838,7 +2943,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
         state.assignments = table
         state.preview_items = project_preview_items(
-            table, show_info=show_info, root=folder,
+            table,
+            show_info=show_info,
+            root=folder,
             media_fields={"media_id": 77, "media_name": "Conflicted"},
         )
 
@@ -2882,7 +2989,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return None  # cancel
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "reassign", assign_dialog=_CapturingDialog,
+            state,
+            row,
+            "reassign",
+            assign_dialog=_CapturingDialog,
         )
 
         self.assertIsNone(captured.get("preselected"))
@@ -2913,7 +3023,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return None  # cancel
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "assign_to_more", assign_dialog=_CapturingDialog,
+            state,
+            row,
+            "assign_to_more",
+            assign_dialog=_CapturingDialog,
         )
 
         self.assertEqual(set(captured.get("preselected") or set()), {(1, 1)})
@@ -2925,13 +3038,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
     def test_episode_row_action_assign_file_calls_dialog_and_assigns_slot(self):
         """assign_file: stub assign_dialog.pick_file returns a file_id; assignment lands."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         folder = Path("C:/library/tv/Example")
@@ -2971,7 +3084,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return picked_file_id
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "assign_file", assign_dialog=_StubAssignDialog,
+            state,
+            row,
+            "assign_file",
+            assign_dialog=_StubAssignDialog,
         )
         self._app.processEvents()
 
@@ -2983,13 +3099,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
     def test_assign_file_dialog_does_not_double_list_unmatched_extras(self):
         """UNMATCHED extras rows must appear only in 'unassigned', not also in 'assigned'."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         folder = Path("C:/library/tv/Example")
@@ -3000,17 +3116,23 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         e01_entry = table.add_file(folder / "Season 01" / "A.S01E01.mkv")
         table.assign(e01_entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
         # Unmatched extras file: has new_name set by projection but no table assignment.
-        from plex_renamer.engine.episode_assignments import EpisodeSlot as _Slot, REASON_NO_TITLE_MATCH
+        from plex_renamer.engine.episode_assignments import (
+            REASON_NO_TITLE_MATCH,
+        )
+
         extras_entry = table.add_file(
             folder / "Season 01" / "Extras" / "bts.mkv",
-            folder_season=0, from_extras_folder=True,
+            folder_season=0,
+            from_extras_folder=True,
         )
         table.mark_unassigned(extras_entry.file_id, REASON_NO_TITLE_MATCH)
 
         state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
         state.assignments = table
         state.preview_items = project_preview_items(
-            table, show_info=show_info, root=folder,
+            table,
+            show_info=show_info,
+            root=folder,
             media_fields={"media_id": 101, "media_name": "Example Show"},
         )
 
@@ -3039,7 +3161,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 return None  # cancel
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "assign_file", assign_dialog=_CapturingDialog,
+            state,
+            row,
+            "assign_file",
+            assign_dialog=_CapturingDialog,
         )
 
         # extras_entry must appear in unassigned only, not in assigned.
@@ -3047,7 +3172,8 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         assigned_ids = {fid for fid, _name in captured_assigned}
         self.assertIn(extras_entry.file_id, unassigned_ids)
         self.assertNotIn(
-            extras_entry.file_id, assigned_ids,
+            extras_entry.file_id,
+            assigned_ids,
             "UNMATCHED extras file must not appear in the 'Already assigned' list",
         )
         workspace.close()
@@ -3066,6 +3192,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         # Use a preview with file_id=None so approve_file raises ValueError.
         from plex_renamer.engine import PreviewItem
+
         bad_preview = PreviewItem(
             original=Path("C:/library/tv/Example/Season 01/NoId.mkv"),
             new_name=None,
@@ -3084,7 +3211,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 warnings.append(args)
 
         workspace._action_coordinator.handle_episode_row_action(
-            state, row, "approve", warning_box=_RecordingWarningBox,
+            state,
+            row,
+            "approve",
+            warning_box=_RecordingWarningBox,
         )
         self._app.processEvents()
 
@@ -3159,284 +3289,6 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         media_ctrl.invalidate_episode_guide.assert_called_with(state)
         media_ctrl.refresh_episode_guide.assert_called_with(state)
-        workspace.close()
-
-    def test_media_workspace_selected_review_episode_uses_card_actions(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[review_item],
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show()
-        workspace.show_ready()
-        self._app.processEvents()
-
-        card_row = workspace._work_panel.model.row_for_preview_index(0)
-        self.assertGreaterEqual(card_row, 0)
-        card = self._open_expansion_card(workspace, card_row)
-        self.assertIsNotNone(card)
-
-        self.assertEqual(workspace._queue_inline_btn.text(), "Queue This Show")
-        self.assertNotEqual(workspace._queue_inline_btn.text(), "Approve Episode")
-        # New API: the expansion card carries the Approve button plus reassign /
-        # unassign actions for Review rows.
-        self.assertIsNotNone(self._card_action_button(card, "approve"))
-        # Round5 §4a: Review above-fold actions (reassign/unassign) are hosted
-        # in the header parity strip; the card still carries them.
-        card_labels = [b.text() for b in (card._header_action_buttons + card._action_buttons)]
-        self.assertIn("Reassign...", card_labels)
-        self.assertIn("Unassign", card_labels)
-
-        workspace.close()
-
-    def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
-        # TODO(Task 12): restore end-to-end reassign assertions once dispatch is wired.
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            scanner=type(
-                "Scanner",
-                (),
-                {"episode_meta": {(1, 1): {"name": "Pilot"}, (1, 2): {"name": "Second"}}},
-            )(),
-            preview_items=[review_item],
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show()
-        workspace.show_ready()
-        self._app.processEvents()
-
-        card_row = workspace._work_panel.model.row_for_preview_index(0)
-        self.assertGreaterEqual(card_row, 0)
-        card = self._open_expansion_card(workspace, card_row)
-        self.assertIsNotNone(card)
-
-        # New API: no per-row Fix button; reassign is an expansion-card action
-        # (round5 §4a hosts it in the header parity strip for Review rows).
-        card_labels = [b.text() for b in (card._header_action_buttons + card._action_buttons)]
-        self.assertIn("Reassign...", card_labels)
-
-        workspace.close()
-
-    def test_media_workspace_approve_all_review_episodes_is_inline_with_filters(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        first = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
-        second = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E02.mkv"),
-            new_name="Example Show (2024) - S01E02 - Second.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[2],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.52,
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[first, second],
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show()
-        workspace.show_ready()
-        self._app.processEvents()
-
-        approve_all = workspace._work_panel.approve_all_button
-
-        self.assertTrue(approve_all.isVisible())
-        self.assertEqual(approve_all.text(), "Approve All")
-        self.assertEqual(approve_all.property("cssClass"), "primary")
-        # Approve All lives in the work panel's toolbar alongside the segmented
-        # filter control.
-        self.assertIs(approve_all.parent(), workspace._work_panel.segmented_filter.parent())
-
-        approve_all.click()
-        self._app.processEvents()
-
-        self.assertEqual([item.status for item in state.preview_items], ["OK", "OK"])
-        self.assertFalse(approve_all.isVisible())
-        self.assertTrue(workspace._queue_inline_btn.isEnabled())
-
-        workspace.close()
-
-    def test_media_workspace_tv_episode_guide_filters_all_and_problems(self):
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        class _FakeMediaController:
-            def __init__(self, state):
-                self.command_gating = CommandGatingService()
-                self.batch_states = [state]
-                self.movie_library_states = []
-                self.library_selected_index = 0
-                self.movie_folder = Path("C:/library/movies")
-                self.tv_root_folder = Path("C:/library/tv")
-
-            def select_show(self, index):
-                self.library_selected_index = index
-                if 0 <= index < len(self.batch_states):
-                    return self.batch_states[index]
-                return None
-
-            def sync_queued_states(self):
-                return None
-
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            preview_items=[
-                PreviewItem(
-                    original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-                    new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-                    target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-                    season=1,
-                    episodes=[1],
-                    status="OK",
-                ),
-                PreviewItem(
-                    original=Path("C:/library/tv/Example/Extra.mkv"),
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="SKIP: no episode mapping",
-                ),
-            ],
-            completeness=CompletenessReport(
-                seasons={1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Second")])},
-                specials=None,
-                total_expected=2,
-                total_matched=1,
-                total_missing=[(1, 2, "Second")],
-            ),
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show_ready()
-
-        # In the default "all" filter, UNMAPPED PRIMARY FILES must appear BEFORE season rows.
-        all_headers = [t.upper() for t in self._episode_section_titles(workspace)]
-        unmapped_indices = [i for i, h in enumerate(all_headers) if "UNMAPPED PRIMARY FILES" in h]
-        season_indices = [i for i, h in enumerate(all_headers) if "SEASON 1" in h]
-        self.assertTrue(unmapped_indices, "Expected an UNMAPPED PRIMARY FILES header")
-        self.assertTrue(season_indices, "Expected a SEASON 1 header")
-        self.assertLess(
-            unmapped_indices[0],
-            season_indices[0],
-            "UNMAPPED PRIMARY FILES header must appear before SEASON 1 header",
-        )
-
-        workspace._work_panel.segmented_filter.setCurrentText("Problems")
-        statuses = [data.status_text for data in self._episode_row_datas(workspace)]
-        self.assertNotIn("Mapped", statuses)
-        self.assertIn("Missing File", statuses)
-        self.assertTrue(
-            any("UNMAPPED PRIMARY FILES" in t.upper() for t in self._episode_section_titles(workspace))
-        )
-
-        # The old dedicated "Unmapped" filter segment is gone (R2 M9): unmapped
-        # files are reached via a season-strip chip instead, and the segmented
-        # control only offers All/Problems.
-        self.assertEqual(
-            set(workspace._work_panel.segmented_filter._buttons), {"All", "Problems"}
-        )
-
         workspace.close()
 
     def test_media_workspace_tv_episode_guide_separates_unmapped_and_orphan_companions(self):
@@ -3561,7 +3413,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 1, "title": "Crash", "year": "1996"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/movies/Crash.Collectors.Edition/Crash.Collectors.Edition.mkv"),
+                        original=Path(
+                            "C:/library/movies/Crash.Collectors.Edition/Crash.Collectors.Edition.mkv"
+                        ),
                         new_name="Crash (1996).mkv",
                         target_dir=Path("C:/library/movies/Crash (1996)"),
                         season=None,
@@ -3586,7 +3440,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="movie",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -3627,7 +3483,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Example Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E03.mkv"),
+                        original=Path(
+                            "C:/library/tv/Example Show/Season 01/Example.Show.S01E03.mkv"
+                        ),
                         new_name="Example Show (2024) - S01E03 - Episode 3.mkv",
                         target_dir=Path("C:/library/tv/Example Show/Season 01"),
                         season=1,
@@ -3635,7 +3493,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                         status="OK",
                     ),
                     PreviewItem(
-                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Example Show/Season 01/Example.Show.S01E01.mkv"
+                        ),
                         new_name="Example Show (2024) - S01E01 - Episode 1.mkv",
                         target_dir=Path("C:/library/tv/Example Show/Season 01"),
                         season=1,
@@ -3643,7 +3503,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                         status="OK",
                     ),
                     PreviewItem(
-                        original=Path("C:/library/tv/Example Show/Season 01/Example.Show.S01E02.mkv"),
+                        original=Path(
+                            "C:/library/tv/Example Show/Season 01/Example.Show.S01E02.mkv"
+                        ),
                         new_name="Example Show (2024) - S01E02 - Episode 2.mkv",
                         target_dir=Path("C:/library/tv/Example Show/Season 01"),
                         season=1,
@@ -3661,7 +3523,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -3670,8 +3534,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             preview_indices = [
                 model.preview_index_at(row)
                 for row in range(model.rowCount())
-                if model.row_kind_at(row) == "episode"
-                and model.preview_index_at(row) is not None
+                if model.row_kind_at(row) == "episode" and model.preview_index_at(row) is not None
             ]
 
             self.assertEqual(preview_indices, [1, 2, 0])
@@ -3789,7 +3652,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Example Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Example.Show.2024.Source/Season 01/Example Show (2024) - S01E01 - Pilot.mkv"),
+                        original=Path(
+                            "C:/library/tv/Example.Show.2024.Source/Season 01/Example Show (2024) - S01E01 - Pilot.mkv"
+                        ),
                         new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Example.Show.2024.Source/Season 01"),
                         season=1,
@@ -3807,7 +3672,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -3839,11 +3706,21 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def sync_queued_states(self):
                 return None
 
-        def _episode(path_root: str, season: int, episode: int, *, status: str = "OK", new_name: str | None = None, target_dir: Path | None = None):
+        def _episode(
+            path_root: str,
+            season: int,
+            episode: int,
+            *,
+            status: str = "OK",
+            new_name: str | None = None,
+            target_dir: Path | None = None,
+        ):
             original = Path(f"{path_root}/Season 01/Example.Show.S01E0{episode}.mkv")
             return PreviewItem(
                 original=original,
-                new_name=new_name if new_name is not None else f"Example Show (2024) - S01E0{episode} - Pilot.mkv",
+                new_name=new_name
+                if new_name is not None
+                else f"Example Show (2024) - S01E0{episode} - Pilot.mkv",
                 target_dir=target_dir if target_dir is not None else Path(f"{path_root}/Season 01"),
                 season=season,
                 episodes=[episode],
@@ -3857,7 +3734,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Matched Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"
+                        ),
                         new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Matched.Show.2024/Season 01"),
                         season=1,
@@ -3874,7 +3753,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 102, "name": "Review Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"
+                        ),
                         new_name="Review Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
                         season=1,
@@ -3892,7 +3773,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Matched Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Duplicate.Show.2024/Season 01/Duplicate.Show.S01E01.mkv"
+                        ),
                         new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Duplicate.Show.2024/Season 01"),
                         season=1,
@@ -3911,7 +3794,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 103, "name": "Plex Ready Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path(f"{plex_ready_root}/Season 01/Plex Ready Show (2024) - S01E01 - Pilot.mkv"),
+                        original=Path(
+                            f"{plex_ready_root}/Season 01/Plex Ready Show (2024) - S01E01 - Pilot.mkv"
+                        ),
                         new_name="Plex Ready Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path(f"{plex_ready_root}/Season 01"),
                         season=1,
@@ -3925,12 +3810,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
 
             media_ctrl = _FakeMediaController()
-            media_ctrl.batch_states = [matched_state, review_state, duplicate_state, plex_ready_state]
+            media_ctrl.batch_states = [
+                matched_state,
+                review_state,
+                duplicate_state,
+                plex_ready_state,
+            ]
 
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -3986,7 +3878,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Matched Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"
+                    ),
                     new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Matched.Show.2024/Season 01"),
                     season=1,
@@ -4003,7 +3897,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 102, "name": "Episode Review Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Episode.Review.Show.2024/Season 01/Episode.Review.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Episode.Review.Show.2024/Season 01/Episode.Review.Show.S01E01.mkv"
+                    ),
                     new_name="Episode Review Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Episode.Review.Show.2024/Season 01"),
                     season=1,
@@ -4068,7 +3964,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Auto Selected Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path(f"{plex_ready_root}/Season 01/Auto Selected Show (2024) - S01E01 - Pilot.mkv"),
+                        original=Path(
+                            f"{plex_ready_root}/Season 01/Auto Selected Show (2024) - S01E01 - Pilot.mkv"
+                        ),
                         new_name="Auto Selected Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path(f"{plex_ready_root}/Season 01"),
                         season=1,
@@ -4085,7 +3983,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 102, "name": "Matched Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Matched.Show.2024/Season 01/Matched.Show.S01E01.mkv"
+                        ),
                         new_name="Matched Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Matched.Show.2024/Season 01"),
                         season=1,
@@ -4102,7 +4002,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 103, "name": "Review Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"
+                        ),
                         new_name="Review Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
                         season=1,
@@ -4117,7 +4019,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
 
             media_ctrl = _FakeMediaController([plex_ready_state, matched_state, review_state])
-            workspace = MediaWorkspace(media_type="tv", media_controller=media_ctrl, settings_service=settings)
+            workspace = MediaWorkspace(
+                media_type="tv", media_controller=media_ctrl, settings_service=settings
+            )
 
             workspace.show_ready()
             self.assertEqual(media_ctrl.library_selected_index, 1)
@@ -4160,7 +4064,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 101, "name": "Example Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Example.Show.2024.Source/Season 01/Example Show (2024) - S01E01 - Pilot.mkv"),
+                        original=Path(
+                            "C:/library/tv/Example.Show.2024.Source/Season 01/Example Show (2024) - S01E01 - Pilot.mkv"
+                        ),
                         new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Example.Show.2024.Source/Season 01"),
                         season=1,
@@ -4179,7 +4085,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -4230,7 +4138,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
                 tmdb_provider=lambda: None,
             )
@@ -4299,7 +4209,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="movie",
                 media_controller=_FakeMediaController(state),
-                queue_controller=type("Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_movie_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
                 tmdb_provider=lambda: None,
             )
@@ -4319,9 +4231,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             option_rect = QRect(0, 0, 300, 110)
             card_rect = delegate._card_rect(option_rect)
             poster_rect = delegate._poster_rect(card_rect)
-            self.assertLessEqual(
-                abs(poster_rect.center().y() - card_rect.center().y()), 2
-            )
+            self.assertLessEqual(abs(poster_rect.center().y() - card_rect.center().y()), 2)
 
             workspace.close()
 
@@ -4354,7 +4264,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 media_info={"id": 102, "name": "Review Show", "year": "2024"},
                 preview_items=[
                     PreviewItem(
-                        original=Path("C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"),
+                        original=Path(
+                            "C:/library/tv/Review.Show.2024/Season 01/Review.Show.S01E01.mkv"
+                        ),
                         new_name="Review Show (2024) - S01E01 - Pilot.mkv",
                         target_dir=Path("C:/library/tv/Review.Show.2024/Season 01"),
                         season=1,
@@ -4372,7 +4284,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=0)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=0)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -4439,7 +4353,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             workspace = MediaWorkspace(
                 media_type="tv",
                 media_controller=media_ctrl,
-                queue_controller=type("Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)})(),
+                queue_controller=type(
+                    "Q", (), {"add_tv_batch": lambda *args, **kwargs: BatchQueueResult(added=1)}
+                )(),
                 settings_service=settings,
             )
             workspace.show_ready()
@@ -4467,7 +4383,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4548,7 +4466,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4618,7 +4538,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 def warning(parent, title, text):
                     calls.append((title, text))
 
-            workspace._media_ctrl.sync_queued_states = lambda: (_ for _ in ()).throw(RuntimeError("sync boom"))
+            workspace._media_ctrl.sync_queued_states = lambda: (_ for _ in ()).throw(
+                RuntimeError("sync boom")
+            )
             fired = []
             workspace.queue_changed.connect(lambda: fired.append(True))
             workspace._action_coordinator.queue_states(
@@ -4628,10 +4550,10 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             )
             self._app.processEvents()
 
-            self.assertTrue(queue_ctrl.called)                # batch handoff succeeded
+            self.assertTrue(queue_ctrl.called)  # batch handoff succeeded
             self.assertEqual(calls[0][0], "Queued With Warnings")
             self.assertIn("queued", calls[0][1])
-            self.assertEqual(fired, [True])                   # jobs exist; queue tab must learn
+            self.assertEqual(fired, [True])  # jobs exist; queue tab must learn
 
             workspace.close()
 
@@ -4644,7 +4566,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called = True
                 raise RuntimeError("queue boom")
 
@@ -4721,7 +4645,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             self.assertTrue(queue_ctrl.called)
             self.assertEqual(calls[0][0], "Queue Failed")
             self.assertIn("queue boom", calls[0][1])
-            self.assertEqual(fired, [])                       # nothing queued, nothing to learn
+            self.assertEqual(fired, [])  # nothing queued, nothing to learn
             workspace.close()
 
     def test_media_workspace_queueing_shows_busy_overlay_during_handoff(self):
@@ -4729,7 +4653,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 for state in states:
                     state.queued = True
                 return BatchQueueResult(added=len(states))
@@ -4757,7 +4683,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             media_info={"id": 101, "name": "Overlay Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Overlay.Show.2024/Season 01/Overlay.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Overlay.Show.2024/Season 01/Overlay.Show.S01E01.mkv"
+                    ),
                     new_name="Overlay Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=Path("C:/library/tv/Overlay Show (2024)/Season 01"),
                     season=1,
@@ -4793,8 +4721,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             seen: dict[str, bool] = {}
             original_add = queue_ctrl.add_tv_batch
 
-            def observing_add(states, root, output_root, gating,
-                              settings_service=None, tmdb_client=None):
+            def observing_add(
+                states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 overlay = workspace.findChild(BusyOverlay)
                 seen["visible"] = overlay is not None and overlay.isVisible()
                 return original_add(states, root, output_root, gating)
@@ -4813,7 +4742,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_movie_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called = True
                 for state in states:
                     state.queued = True
@@ -4904,7 +4835,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called_with = None
                 self.checked_at_call = None
 
-            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_movie_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 # Capture checked-state at call time: a successful queue
                 # legitimately unchecks the item afterward (queued items move
                 # to the QUEUED group and are no longer "selected to queue"),
@@ -5002,7 +4935,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             def __init__(self):
                 self.called = False
 
-            def add_movie_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_movie_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called = True
                 raise RuntimeError("queue boom")
 
@@ -5098,7 +5033,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called_with = None
                 self.checked_at_call = None
 
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 self.called_with = list(states)
                 self.checked_at_call = [state.checked for state in states]
                 for state in states:
@@ -5200,7 +5137,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         matched_one = ScanState(
             folder=root,
             source_file=root / "[QM] Evangelion 1.11.mkv",
-            media_info={"id": 11, "title": "Evangelion 1.11", "year": "2007", "_media_type": "movie"},
+            media_info={
+                "id": 11,
+                "title": "Evangelion 1.11",
+                "year": "2007",
+                "_media_type": "movie",
+            },
             preview_items=[
                 PreviewItem(
                     original=root / "[QM] Evangelion 1.11.mkv",
@@ -5221,12 +5163,19 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         matched_two = ScanState(
             folder=root,
             source_file=root / "[LG] Evangelion 3.0+1.11.mkv",
-            media_info={"id": 44, "title": "Evangelion: 3.0+1.11 Thrice Upon a Time", "year": "2021", "_media_type": "movie"},
+            media_info={
+                "id": 44,
+                "title": "Evangelion: 3.0+1.11 Thrice Upon a Time",
+                "year": "2021",
+                "_media_type": "movie",
+            },
             preview_items=[
                 PreviewItem(
                     original=root / "[LG] Evangelion 3.0+1.11.mkv",
                     new_name="Evangelion: 3.0+1.11 Thrice Upon a Time (2021).mkv",
-                    target_dir=Path("C:/library/movies/Evangelion: 3.0+1.11 Thrice Upon a Time (2021)"),
+                    target_dir=Path(
+                        "C:/library/movies/Evangelion: 3.0+1.11 Thrice Upon a Time (2021)"
+                    ),
                     season=None,
                     episodes=[],
                     status="OK",
@@ -5242,7 +5191,12 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         review_state = ScanState(
             folder=root,
             source_file=root / "[Baws] Evangelion 3.33.mkv",
-            media_info={"id": 33, "title": "Evangelion: 3.0 You Can (Not) Redo", "year": "2012", "_media_type": "movie"},
+            media_info={
+                "id": 33,
+                "title": "Evangelion: 3.0 You Can (Not) Redo",
+                "year": "2012",
+                "_media_type": "movie",
+            },
             preview_items=[
                 PreviewItem(
                     original=root / "[Baws] Evangelion 3.33.mkv",
@@ -5302,10 +5256,14 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self._dispose_top_level_widgets(MediaWorkspace)
         super().tearDown()
 
-    def _bulk_table_state(self, folder_name: str, *, media_id: int = 101, assign_first: bool = False):
+    def _bulk_table_state(
+        self, folder_name: str, *, media_id: int = 101, assign_first: bool = False
+    ):
         from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
         from plex_renamer.engine.episode_assignments import (
-            ORIGIN_MANUAL, EpisodeAssignmentTable, EpisodeSlot,
+            ORIGIN_MANUAL,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
         )
 
         table = EpisodeAssignmentTable()
@@ -5331,15 +5289,19 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         if assign_first:
             table.assign(file_ids[0], 1, [1], origin=ORIGIN_MANUAL)
             table.assign(file_ids[1], 1, [2], origin=ORIGIN_MANUAL)
-        state = ScanState(folder=Path(f"C:/library/tv/{folder_name}"),
-                          media_info={"id": media_id, "name": folder_name, "year": "2024"})
+        state = ScanState(
+            folder=Path(f"C:/library/tv/{folder_name}"),
+            media_info={"id": media_id, "name": folder_name, "year": "2024"},
+        )
         state.scanned = True
         state.confidence = 1.0
         state.assignments = table
         EpisodeMappingService().reproject(state)
         return state
 
-    def _tv_workspace_with_table_state(self, *, assign_first: bool = False, extra_state: bool = False):
+    def _tv_workspace_with_table_state(
+        self, *, assign_first: bool = False, extra_state: bool = False
+    ):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
         state = self._bulk_table_state("Show", assign_first=assign_first)
@@ -5348,7 +5310,9 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
             states.append(self._bulk_table_state("Other Show", media_id=102))
 
         class _FakeQueueController:
-            def add_tv_batch(self, states, root, output_root, gating, settings_service=None, tmdb_client=None):
+            def add_tv_batch(
+                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+            ):
                 return None
 
         class _FakeMediaController:
@@ -5408,7 +5372,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self.assertFalse(workspace._work_panel.bulk_assign_active())
         self.assertEqual(len(toasts), 1)
         self.assertEqual(toasts[0][2], "success")
-        self.assertIn("3", toasts[0][1])                    # "Assigned 3 file(s)."
+        self.assertIn("3", toasts[0][1])  # "Assigned 3 file(s)."
         table = state.assignments
         self.assertEqual(len(table.assignments()), 3)
 
@@ -5440,7 +5404,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         workspace._work_panel.bulk_panel.auto_map_remaining()
         workspace._work_panel.bulk_panel._cancel_button.click()
         self.assertFalse(workspace._work_panel.bulk_assign_active())
-        self.assertEqual(state.assignments.assignments(), [])   # nothing applied
+        self.assertEqual(state.assignments.assignments(), [])  # nothing applied
 
     def test_unassign_all_confirms_with_exact_count_and_offers_bulk(self):
         from PySide6.QtWidgets import QMessageBox
@@ -5455,10 +5419,10 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
             @staticmethod
             def question(parent, title, text, buttons, default):
                 prompts.append(text)
-                return QMessageBox.StandardButton.Yes          # plain unassign
+                return QMessageBox.StandardButton.Yes  # plain unassign
 
         workspace._action_coordinator.unassign_all_episode_mappings(warning_box=_Box)
-        self.assertIn("2", prompts[0])                          # exact count in the prompt
+        self.assertIn("2", prompts[0])  # exact count in the prompt
         self.assertEqual(state.assignments.assignments(), [])
         self.assertFalse(workspace._work_panel.bulk_assign_active())
 
@@ -5472,7 +5436,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
 
             @staticmethod
             def question(parent, title, text, buttons, default):
-                return QMessageBox.StandardButton.YesToAll      # "Unassign & Bulk Assign…"
+                return QMessageBox.StandardButton.YesToAll  # "Unassign & Bulk Assign…"
 
         workspace._action_coordinator.unassign_all_episode_mappings(warning_box=_Box)
         self.assertTrue(workspace._work_panel.bulk_assign_active())
@@ -5489,9 +5453,9 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         toasts: list[tuple] = []
         workspace.toast_requested.connect(lambda *a: toasts.append(a))
         state.assignments = None
-        workspace._on_bulk_apply(panel.staged_pairs())   # must not raise
+        workspace._on_bulk_apply(panel.staged_pairs())  # must not raise
         self.assertFalse(workspace._work_panel.bulk_assign_active())
-        self.assertEqual(toasts, [])                     # nothing was applied
+        self.assertEqual(toasts, [])  # nothing was applied
 
     def test_selection_change_discards_bulk_mode(self):
         # I2: bulk mode is pinned to the state it was entered on; switching
@@ -5517,7 +5481,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         self._app.processEvents()
         self.assertFalse(panel.bulk_assign_active())
         self.assertEqual(panel.bulk_panel.staged_pairs(), [])
-        self.assertEqual(state0.assignments.assignments(), [])   # nothing landed
+        self.assertEqual(state0.assignments.assignments(), [])  # nothing landed
         # A fresh bulk session on the new selection still works end-to-end.
         self.assertIs(workspace._selected_state(), state1)
         workspace._enter_bulk_assign()
@@ -5547,8 +5511,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
             return (len(assign_pairs), 0)
 
         with patch(
-            "plex_renamer.gui_qt.widgets._media_workspace_actions."
-            "EpisodeMappingService.apply_bulk",
+            "plex_renamer.gui_qt.widgets._media_workspace_actions.EpisodeMappingService.apply_bulk",
             new=observing_apply,
         ):
             workspace._on_bulk_apply(panel.staged_pairs())
@@ -5563,10 +5526,11 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         workspace = self._tv_workspace_with_table_state(assign_first=True)
         state = workspace._selected_state()
         table = state.assignments
-        unassign_file_id = table.claims(1, 1)[0].file_id     # a.mkv, claims S01E01
+        unassign_file_id = table.claims(1, 1)[0].file_id  # a.mkv, claims S01E01
         assign_file_id = next(
-            entry.file_id for entry in table.files.values()
-            if entry.path.name == "c.mkv"                    # unassigned fixture file
+            entry.file_id
+            for entry in table.files.values()
+            if entry.path.name == "c.mkv"  # unassigned fixture file
         )
         workspace._enter_bulk_assign()
         panel = workspace._work_panel.bulk_panel
@@ -5693,6 +5657,6 @@ class TestEpisodeAssignDialog(QtSmokeBase):
             file_label=long_name,
         )
         label = dialog._file_label
-        self.assertEqual(label.text(), long_name)      # no "…" elision
+        self.assertEqual(label.text(), long_name)  # no "…" elision
         self.assertTrue(label.wordWrap())
         dialog.close()

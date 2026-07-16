@@ -13,7 +13,7 @@ class _StructuralScanner:
         self.marker = marker
         self.show_info: dict[str, object] = {"id": 7, "name": "Show"}
         self.assignment_table: EpisodeAssignmentTable | None = None
-        self.episode_meta = {
+        self.episode_meta: dict[tuple[int, int], dict[str, object]] = {
             (1, 1): {"name": f"{marker} title", "air_date": "2024-01-01"},
         }
         self.completeness_calls: list[tuple[list[PreviewItem], set[int] | None]] = []
@@ -34,7 +34,7 @@ class _StructuralScanner:
             seasons={},
             specials=None,
             total_expected=1,
-            total_matched=len(checked_indices or set()),
+            total_matched=len(checked_indices or set[int]()),
             total_missing=[],
         )
 
@@ -99,3 +99,26 @@ def test_structural_scanner_episode_metadata_participates_in_cache_signature() -
     scanner.episode_meta[(1, 1)]["name"] = "after title"
 
     assert cache.signature_for_state(state) != before
+
+
+def test_structural_scanner_metadata_populates_episode_guide() -> None:
+    scanner = _StructuralScanner("guide")
+    item = PreviewItem(
+        original=Path("C:/library/Show/episode.mkv"),
+        new_name="Show - S01E01.mkv",
+        target_dir=Path("C:/library/Show/Season 01"),
+        season=1,
+        episodes=[1],
+        status="OK",
+    )
+    state = ScanState(
+        folder=Path("C:/library/Show"),
+        media_info={"id": 7, "name": "Show"},
+        scanner=scanner,
+        preview_items=[item],
+    )
+
+    guide = EpisodeMappingService().build_episode_guide(state)
+
+    assert guide.rows[0].title == "guide title"
+    assert guide.rows[0].air_date == "2024-01-01"

@@ -257,7 +257,7 @@ class SettingsTabSectionsBuilder:
         tab._cache_size_combo = QComboBox()
         for label, value in CACHE_SIZE_CHOICES:
             tab._cache_size_combo.addItem(label, value)
-        current = tab._settings.cache_max_size_bytes if tab._settings else 1024 ** 3
+        current = tab._settings.cache_max_size_bytes if tab._settings else 1024**3
         idx = tab._cache_size_combo.findData(current)
         tab._cache_size_combo.setCurrentIndex(idx if idx >= 0 else 2)
         tab._cache_size_combo.currentIndexChanged.connect(tab._on_cache_size)

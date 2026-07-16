@@ -3,7 +3,9 @@
 import json
 from pathlib import Path
 
-from audit import _analyze, _graph, _inventory, _render_human
+from audit import _analyze, _graph, _inventory
+
+from scripts.audit import _render_human
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -76,15 +78,10 @@ def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
     classifications = _render_human.load_cycle_edge_classifications(REPO_ROOT, graph)
     engine_edges = [list(edge) for edge in _render_human._engine_cycle_edges(graph)]
 
-    assert [
-        [record["source"], record["target"]]
-        for record in classifications
-    ] == engine_edges
+    assert [[record["source"], record["target"]] for record in classifications] == engine_edges
     assert classifications == []
     assert {
-        disposition: sum(
-            record["disposition"] == disposition for record in classifications
-        )
+        disposition: sum(record["disposition"] == disposition for record in classifications)
         for disposition in _render_human.CYCLE_EDGE_DISPOSITIONS
     } == {
         "algorithm-call": 0,

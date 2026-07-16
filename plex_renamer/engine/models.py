@@ -55,27 +55,29 @@ class CompanionFile:
     objects with the appropriate ``file_type``; no changes to ``PreviewItem``,
     ``_build_rename_ops``, the job executor, or the snapshot service.
     """
-    original: Path      # Absolute source path
-    new_name: str       # Target filename (already computed — no reconstruction needed)
-    file_type: str      # "subtitle" | "poster" | "nfo" | …
+
+    original: Path  # Absolute source path
+    new_name: str  # Target filename (already computed — no reconstruction needed)
+    file_type: str  # "subtitle" | "poster" | "nfo" | …
 
 
 @dataclass
 class PreviewItem:
     """One file's rename plan.  The GUI reads these to build the preview."""
+
     original: Path
     new_name: str | None
     target_dir: Path | None
-    season: int | None          # None for movies
-    episodes: list[int]         # Empty for movies
-    status: str                 # "OK", "SKIP: ...", "CONFLICT: ..."
+    season: int | None  # None for movies
+    episodes: list[int]  # Empty for movies
+    status: str  # "OK", "SKIP: ...", "CONFLICT: ..."
     media_type: str = MediaType.TV
-    media_id: int | None = None      # TMDB ID — for grouping in batch mode
-    media_name: str | None = None    # Display name — for grouping in batch mode
+    media_id: int | None = None  # TMDB ID — for grouping in batch mode
+    media_name: str | None = None  # Display name — for grouping in batch mode
     companions: list[CompanionFile] = field(default_factory=list)
     episode_confidence: float = 1.0
     source_relative_folder: str = ""
-    file_id: int | None = None   # Link back to EpisodeAssignmentTable.files
+    file_id: int | None = None  # Link back to EpisodeAssignmentTable.files
 
     @property
     def is_conflict(self) -> bool:
@@ -109,15 +111,13 @@ class PreviewItem:
         if self.status != "OK" and not self.is_unmatched and "REVIEW" not in self.status:
             return False
         target_dir = self.target_dir or self.original.parent
-        return not (
-            self.new_name == self.original.name
-            and target_dir == self.original.parent
-        )
+        return not (self.new_name == self.original.name and target_dir == self.original.parent)
 
 
 @dataclass
 class RenameResult:
     """Outcome of an execute_rename call."""
+
     renamed_count: int = 0
     errors: list[str] = field(default_factory=list)
     log_entry: dict = field(default_factory=dict)
@@ -127,12 +127,13 @@ class RenameResult:
 @dataclass
 class SeasonCompleteness:
     """Completeness info for a single season."""
+
     season: int
     expected: int
     matched: int
     missing: list[tuple[int, str]]
     matched_episodes: list[tuple[int, str]] = field(default_factory=list)
-    review: int = 0   # expected episodes mapped only by review-status files
+    review: int = 0  # expected episodes mapped only by review-status files
     review_episodes: list[tuple[int, str]] = field(default_factory=list)
 
     @property
@@ -147,6 +148,7 @@ class SeasonCompleteness:
 @dataclass
 class CompletenessReport:
     """Full completeness report for a TV series."""
+
     seasons: dict[int, SeasonCompleteness]
     specials: SeasonCompleteness | None
     total_expected: int
@@ -162,11 +164,18 @@ class CompletenessReport:
         return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
 
 
-class TVScanStateScanner(Protocol):
-    """TV scanner capabilities retained by a shared ``ScanState``."""
+class TVScanner(Protocol):
+    """Episode metadata capability retained by a TV ``ScanState``."""
 
     @property
     def episode_meta(self) -> Mapping[tuple[int, int], Mapping[str, object]]: ...
+
+
+TVScanStateScanner = TVScanner
+
+
+class TVScannerOperations(TVScanner, Protocol):
+    """Full TV scan operations used by controllers and reconciliation."""
 
     @property
     def assignment_table(self) -> EpisodeAssignmentTable | None: ...
@@ -188,17 +197,21 @@ class TVScanStateScanner(Protocol):
 class MovieScanStateScanner(Protocol):
     """Movie scanner capabilities retained by a shared ``ScanState``."""
 
+    @property
+    def explicit_files(self) -> list[Path] | None: ...
+
     def rematch_file(self, item: PreviewItem, chosen: dict) -> PreviewItem: ...
 
     def get_search_results(self, file_path: Path) -> list[dict]: ...
 
 
-ScanStateScanner = TVScanStateScanner | MovieScanStateScanner
+ScanStateScanner = TVScanner | MovieScanStateScanner
 
 
 @dataclass
 class ScanState:
     """Per-show scan state — decouples show-level data from the GUI."""
+
     folder: Path
     media_info: dict
     scanner: ScanStateScanner | None = None
@@ -263,9 +276,7 @@ class ScanState:
 
     @property
     def display_name(self) -> str:
-        name = (self.media_info.get("name")
-                or self.media_info.get("title")
-                or self.folder.name)
+        name = self.media_info.get("name") or self.media_info.get("title") or self.folder.name
         year = self.media_info.get("year", "")
         return f"{name} ({year})" if year else name
 
@@ -323,8 +334,7 @@ def plan_has_actions(plan: dict) -> bool:
     without an engine -> app import; automux_service re-exports it."""
     if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
         return True
-    return any(
-        m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+    return any(m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
 
 
 def file_mux_active(state: ScanState, index: int) -> bool:
@@ -415,7 +425,7 @@ def infer_explicit_season_assignment(
         folder_cleaned = clean_folder_name(folder.name, include_year=False).lower().strip()
         show_cleaned = clean_folder_name(show_name, include_year=False).lower().strip()
         if show_cleaned and folder_cleaned.startswith(show_cleaned):
-            suffix = folder_cleaned[len(show_cleaned):].strip()
+            suffix = folder_cleaned[len(show_cleaned) :].strip()
             if suffix.isdigit():
                 season = int(suffix)
                 if 1 <= season <= 50:

@@ -11,10 +11,12 @@ from ...engine.models import TVScanStateScanner
 from ..models import EpisodeGuide
 from .episode_mapping_service import EpisodeMappingService
 
+EpisodeProjectionSignature = tuple[object, ...]
+
 
 @dataclass(slots=True)
 class _CachedEpisodeGuide:
-    signature: tuple
+    signature: EpisodeProjectionSignature
     guide: EpisodeGuide
 
 
@@ -53,7 +55,9 @@ class EpisodeProjectionCacheService:
             return cached.guide
         return None
 
-    def build_guide_with_signature(self, state: ScanState) -> tuple[EpisodeGuide, tuple]:
+    def build_guide_with_signature(
+        self, state: ScanState
+    ) -> tuple[EpisodeGuide, EpisodeProjectionSignature]:
         """Build a guide plus the signature captured BEFORE the build.
 
         Safe to call off the GUI thread: pure reads over the state. If the
@@ -64,7 +68,12 @@ class EpisodeProjectionCacheService:
         signature = self.signature_for_state(state)
         return self._episode_mapping.build_episode_guide(state), signature
 
-    def store_guide(self, state: ScanState, guide: EpisodeGuide, signature: tuple) -> None:
+    def store_guide(
+        self,
+        state: ScanState,
+        guide: EpisodeGuide,
+        signature: EpisodeProjectionSignature,
+    ) -> None:
         self._cache[self._key_for_state(state)] = _CachedEpisodeGuide(signature, guide)
 
     def refresh_state(self, state: ScanState) -> EpisodeGuide:
@@ -77,7 +86,7 @@ class EpisodeProjectionCacheService:
     def invalidate_all(self) -> None:
         self._cache.clear()
 
-    def signature_for_state(self, state: ScanState) -> tuple:
+    def signature_for_state(self, state: ScanState) -> EpisodeProjectionSignature:
         preview_signature = tuple(
             (
                 str(preview.original),
@@ -126,11 +135,7 @@ class EpisodeProjectionCacheService:
             scanner_meta = tuple(
                 (
                     key,
-                    tuple(
-                        sorted(
-                            (str(name), str(value)) for name, value in meta.items()
-                        )
-                    ),
+                    tuple(sorted((str(name), str(value)) for name, value in meta.items())),
                 )
                 for key, meta in sorted(scanner.episode_meta.items())
             )

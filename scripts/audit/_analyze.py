@@ -51,12 +51,18 @@ def _run_ruff(repo_root: Path) -> list[dict]:
     findings = []
     for item in json.loads(result.stdout or "[]"):
         path = _rel_to_repo(repo_root, item["filename"])
-        findings.append({
-            "source": "ruff", "rule": item["code"], "path": path,
-            "line": item["location"]["row"], "symbol": None,
-            "message": item["message"], "confidence": 100,
-            "category": "unused-import" if item["code"] == "F401" else "unused-name",
-        })
+        findings.append(
+            {
+                "source": "ruff",
+                "rule": item["code"],
+                "path": path,
+                "line": item["location"]["row"],
+                "symbol": None,
+                "message": item["message"],
+                "confidence": 100,
+                "category": "unused-import" if item["code"] == "F401" else "unused-name",
+            }
+        )
     return findings
 
 
@@ -68,12 +74,18 @@ def _run_vulture(repo_root: Path) -> list[dict]:
     findings = []
     for item in v.get_unused_code():
         rel = _rel_to_repo(repo_root, str(item.filename))
-        findings.append({
-            "source": "vulture", "rule": f"unused-{item.typ}", "path": rel,
-            "line": item.first_lineno, "symbol": str(item.name),
-            "message": f"unused {item.typ} '{item.name}'",
-            "confidence": item.confidence, "category": "dead-code",
-        })
+        findings.append(
+            {
+                "source": "vulture",
+                "rule": f"unused-{item.typ}",
+                "path": rel,
+                "line": item.first_lineno,
+                "symbol": str(item.name),
+                "message": f"unused {item.typ} '{item.name}'",
+                "confidence": item.confidence,
+                "category": "dead-code",
+            }
+        )
     return findings
 
 
@@ -98,17 +110,22 @@ def _run_radon(repo_root: Path, inventory: dict) -> tuple[list[dict], dict]:
         }
         for b in blocks:
             if b.complexity > COMPLEXITY_THRESHOLD:
-                findings.append({
-                    "source": "radon", "rule": "CC", "path": rec["path"],
-                    "line": b.lineno, "symbol": b.name,
-                    "message": f"cyclomatic complexity {b.complexity}",
-                    "confidence": 100, "category": "complexity",
-                })
+                findings.append(
+                    {
+                        "source": "radon",
+                        "rule": "CC",
+                        "path": rec["path"],
+                        "line": b.lineno,
+                        "symbol": b.name,
+                        "message": f"cyclomatic complexity {b.complexity}",
+                        "confidence": 100,
+                        "category": "complexity",
+                    }
+                )
     return findings, per_file
 
 
-def _assess_dead_code(findings: list[dict], graph: dict,
-                      inventory: dict | None = None) -> None:
+def _assess_dead_code(findings: list[dict], graph: dict, inventory: dict | None = None) -> None:
     production_refs_by_symbol: dict[tuple[str, str], list[str]] = {}
     module_by_path: dict[str, str] = {}
     entrypoint_paths: set[str] = set()
@@ -132,7 +149,9 @@ def _assess_dead_code(findings: list[dict], graph: dict,
         key = (f["path"], f["symbol"] or "")
         production_refs = production_refs_by_symbol.get(key)
         module_name = module_by_path.get(f["path"])
-        qualified_symbol = f"{module_name}.{f['symbol']}" if module_name and f.get("symbol") else None
+        qualified_symbol = (
+            f"{module_name}.{f['symbol']}" if module_name and f.get("symbol") else None
+        )
         test_refs = sorted(test_refs_by_symbol.get(qualified_symbol or "", set()))
         f["production_references"] = production_refs or []
         f["test_references"] = test_refs
@@ -157,12 +176,16 @@ def _assess_dead_code(findings: list[dict], graph: dict,
 def _apply_allowlist(findings: list[dict], allowlist_text: str) -> None:
     entries = tomllib.loads(allowlist_text).get("ignore", [])
     for f in findings:
-        matched = next((
-            e for e in entries
-            if (("symbol" not in e) or fnmatch.fnmatch(f["symbol"] or "", e["symbol"]))
-            and (("path" not in e) or fnmatch.fnmatch(f["path"], e["path"]))
-            and ("symbol" in e or "path" in e)
-        ), None)
+        matched = next(
+            (
+                e
+                for e in entries
+                if (("symbol" not in e) or fnmatch.fnmatch(f["symbol"] or "", e["symbol"]))
+                and (("path" not in e) or fnmatch.fnmatch(f["path"], e["path"]))
+                and ("symbol" in e or "path" in e)
+            ),
+            None,
+        )
         f["allowlisted"] = matched is not None
         f["allowlist_reason"] = matched.get("reason") if matched is not None else None
 
@@ -201,8 +224,13 @@ def _tops_for(deps: set[str], dist_tops: dict[str, set[str]]) -> set[str]:
 
 def _dep_finding(rule: str, symbol: str, message: str) -> dict:
     return {
-        "source": "deps", "rule": rule, "path": "pyproject.toml", "line": 1,
-        "symbol": symbol, "message": message, "confidence": 100,
+        "source": "deps",
+        "rule": rule,
+        "path": "pyproject.toml",
+        "line": 1,
+        "symbol": symbol,
+        "message": message,
+        "confidence": 100,
         "category": "dependency",
     }
 
@@ -219,22 +247,30 @@ def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
         modules = set(cycle["modules"])
         if any(modules <= legacy for legacy in baseline_modules):
             continue
-        rule = ("enlarged-cycle"
-                if any(modules & legacy for legacy in baseline_modules)
-                else "new-cycle")
+        rule = (
+            "enlarged-cycle"
+            if any(modules & legacy for legacy in baseline_modules)
+            else "new-cycle"
+        )
         symbol = ", ".join(cycle["modules"])
-        findings.append({
-            "source": "contracts", "rule": rule,
-            "path": "scripts/audit/cycle-baseline.json", "line": 1,
-            "symbol": symbol,
-            "message": f"{rule.replace('-', ' ')}: {symbol}",
-            "confidence": 100, "category": "layer-violation",
-        })
+        findings.append(
+            {
+                "source": "contracts",
+                "rule": rule,
+                "path": "scripts/audit/cycle-baseline.json",
+                "line": 1,
+                "symbol": symbol,
+                "message": f"{rule.replace('-', ' ')}: {symbol}",
+                "confidence": 100,
+                "category": "layer-violation",
+            }
+        )
     return findings
 
 
-def _check_contracts(graph: dict, contracts_text: str,
-                     cycle_baseline_text: str | None = None) -> list[dict]:
+def _check_contracts(
+    graph: dict, contracts_text: str, cycle_baseline_text: str | None = None
+) -> list[dict]:
     rules = tomllib.loads(contracts_text).get("forbid", []) if contracts_text else []
     findings = []
     for name, mod in sorted(graph["modules"].items()):
@@ -242,16 +278,37 @@ def _check_contracts(graph: dict, contracts_text: str,
             for rule in rules:
                 if _module_prefixed(name, rule["from"]) and _module_prefixed(target, rule["to"]):
                     reason = rule.get("reason", "")
-                    findings.append({
-                        "source": "contracts", "rule": "forbidden-import",
-                        "path": mod["path"], "line": 1, "symbol": target,
-                        "message": f"{name} imports {target} - forbidden by contract "
-                                   f"{rule['from']} -> {rule['to']} ({reason})",
-                        "confidence": 100, "category": "layer-violation",
-                    })
+                    findings.append(
+                        {
+                            "source": "contracts",
+                            "rule": "forbidden-import",
+                            "path": mod["path"],
+                            "line": 1,
+                            "symbol": target,
+                            "message": f"{name} imports {target} - forbidden by contract "
+                            f"{rule['from']} -> {rule['to']} ({reason})",
+                            "confidence": 100,
+                            "category": "layer-violation",
+                        }
+                    )
     if cycle_baseline_text is not None:
         findings.extend(_cycle_contract_findings(graph, cycle_baseline_text))
     return findings
+
+
+def _contract_findings(
+    graph: dict,
+    contracts_text: str,
+    cycle_baseline_text: str | None,
+) -> list[dict]:
+    if not contracts_text:
+        return []
+    contract_config = tomllib.loads(contracts_text)
+    baseline_name = contract_config.get("cycles", {}).get("baseline")
+    if cycle_baseline_text is None and baseline_name:
+        baseline_path = Path(__file__).parent / baseline_name
+        cycle_baseline_text = baseline_path.read_text(encoding="utf-8")
+    return _check_contracts(graph, contracts_text, cycle_baseline_text)
 
 
 def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
@@ -271,33 +328,51 @@ def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:
     findings = []
     for dep in sorted(runtime):
         if not (tops_by_runtime_dep[dep] & imported):
-            findings.append(_dep_finding(
-                "unused-dependency", dep,
-                f"declared dependency '{dep}' is never imported by plex_renamer"))
+            findings.append(
+                _dep_finding(
+                    "unused-dependency",
+                    dep,
+                    f"declared dependency '{dep}' is never imported by plex_renamer",
+                )
+            )
     runtime_tops = set().union(*tops_by_runtime_dep.values())
     dev_tops = _tops_for(dev, dist_tops)
     for top in sorted(imported):
         if top in runtime_tops:
             continue
         if top in dev_tops:
-            findings.append(_dep_finding(
-                "dev-dependency-in-prod", top,
-                f"'{top}' is imported by plex_renamer but only declared as a dev dependency"))
+            findings.append(
+                _dep_finding(
+                    "dev-dependency-in-prod",
+                    top,
+                    f"'{top}' is imported by plex_renamer but only declared as a dev dependency",
+                )
+            )
         else:
-            findings.append(_dep_finding(
-                "undeclared-dependency", top,
-                f"'{top}' is imported by plex_renamer but not declared in pyproject.toml"))
+            findings.append(
+                _dep_finding(
+                    "undeclared-dependency",
+                    top,
+                    f"'{top}' is imported by plex_renamer but not declared in pyproject.toml",
+                )
+            )
     return findings
 
 
-def run_analysis(repo_root: Path, inventory: dict, graph: dict,
-                 allowlist_text: str | None = None,
-                 pyproject_text: str | None = None,
-                 contracts_text: str | None = None,
-                 cycle_baseline_text: str | None = None) -> dict:
+def run_analysis(
+    repo_root: Path,
+    inventory: dict,
+    graph: dict,
+    allowlist_text: str | None = None,
+    pyproject_text: str | None = None,
+    contracts_text: str | None = None,
+    cycle_baseline_text: str | None = None,
+) -> dict:
     if allowlist_text is None:
         default = Path(__file__).parent / "allowlist.toml"
-        allowlist_text = default.read_text(encoding="utf-8") if default.exists() else "ignore = []\n"
+        allowlist_text = (
+            default.read_text(encoding="utf-8") if default.exists() else "ignore = []\n"
+        )
 
     findings: list[dict] = []
     per_file: dict[str, dict] = {}
@@ -318,7 +393,9 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
     try:
         if pyproject_text is None:
             pyproject_path = repo_root / "pyproject.toml"
-            pyproject_text = pyproject_path.read_text(encoding="utf-8") if pyproject_path.exists() else ""
+            pyproject_text = (
+                pyproject_path.read_text(encoding="utf-8") if pyproject_path.exists() else ""
+            )
         if pyproject_text:
             findings.extend(_check_dependencies(graph, pyproject_text))
         tool_status["deps"] = {"ok": True, "reason": None}
@@ -328,15 +405,10 @@ def run_analysis(repo_root: Path, inventory: dict, graph: dict,
     try:
         if contracts_text is None:
             default_contracts = Path(__file__).parent / "contracts.toml"
-            contracts_text = (default_contracts.read_text(encoding="utf-8")
-                              if default_contracts.exists() else "")
-        contract_config = tomllib.loads(contracts_text) if contracts_text else {}
-        baseline_name = contract_config.get("cycles", {}).get("baseline")
-        if cycle_baseline_text is None and baseline_name:
-            baseline_path = Path(__file__).parent / baseline_name
-            cycle_baseline_text = baseline_path.read_text(encoding="utf-8")
-        if contracts_text:
-            findings.extend(_check_contracts(graph, contracts_text, cycle_baseline_text))
+            contracts_text = (
+                default_contracts.read_text(encoding="utf-8") if default_contracts.exists() else ""
+            )
+        findings.extend(_contract_findings(graph, contracts_text, cycle_baseline_text))
         tool_status["contracts"] = {"ok": True, "reason": None}
     except Exception as exc:
         tool_status["contracts"] = {"ok": False, "reason": str(exc)[:200]}
@@ -354,6 +426,9 @@ def run(repo_root: Path, options) -> int:
     _artifacts.write_artifact(repo_root, "analysis", analysis)
     bad = [t for t, s in analysis["tool_status"].items() if not s["ok"]]
     n = len([f for f in analysis["findings"] if not f["allowlisted"]])
-    print(_artifacts.ascii_safe(
-        f"analyze: {n} findings" + (f"; unavailable: {', '.join(bad)}" if bad else "")))
+    print(
+        _artifacts.ascii_safe(
+            f"analyze: {n} findings" + (f"; unavailable: {', '.join(bad)}" if bad else "")
+        )
+    )
     return 2 if bad else 0
