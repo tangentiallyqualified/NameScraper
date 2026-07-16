@@ -1,4 +1,4 @@
-<!-- Generated from audit input bf384554fdd1; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 9993b0fe917f; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -76,7 +76,7 @@
 - `load_stylesheet() -> str` — (no docstring)
 
 ### `plex_renamer/gui_qt/widgets/__init__.py` — Phase 3+ widget modules for the PySide6 shell.
-- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_roster_model.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
+- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_qt_media_workspace_review_actions.py, tests/test_roster_model.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
 
 ### `plex_renamer/gui_qt/widgets/_automux_tracks.py` — AutoMux tracks section (spec §8.1/§8.2): embedded-track keep/strip and
 - `AutoMuxTracksWidget` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_automux)
@@ -92,7 +92,7 @@
 
 ### `plex_renamer/gui_qt/widgets/_episode_expansion.py` — EpisodeExpansionCard — persistent-editor detail card for an expanded
 - `episode_row_actions(row) -> list[tuple[str, str]]` — Action ids + labels available for one episode-guide row.
-- `EpisodeExpansionCard` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_state)
+- `EpisodeExpansionCard` — (no docstring) (used by: plex_renamer.gui_qt.widgets, plex_renamer.gui_qt.widgets._media_workspace_state)
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_qt_workspace_widgets.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` — Painted episode-table rows: EpisodeTableDelegate + EpisodeTableView (GUI V4 Plan 3).
@@ -301,10 +301,14 @@
 
 ### `plex_renamer/gui_qt/widgets/_settings_automux_page.py` — AutoMux settings page (spec §3) — replaces the hidden Tools shell.
 - `AutoMuxSettingsPage` — (no docstring) (used by: plex_renamer.gui_qt.widgets._settings_tab_sections)
-- Tests: tests/test_settings_tab_automux.py
+- Tests: tests/test_settings_page_composition.py, tests/test_settings_tab_automux.py
 
 ### `plex_renamer/gui_qt/widgets/_settings_metadata_page.py` — Metadata export settings page (spec: local-metadata-artwork).
 - `MetadataSettingsPage` — (no docstring) (used by: plex_renamer.gui_qt.widgets._settings_tab_sections)
+- Tests: tests/test_settings_page_composition.py
+
+### `plex_renamer/gui_qt/widgets/_settings_page.py` — Shared leaf components for settings pages.
+- `SettingsSectionCard` — A settings section card with a title header row and content area. (used by: plex_renamer.gui_qt.widgets._settings_automux_page, plex_renamer.gui_qt.widgets._settings_metadata_page, plex_renamer.gui_qt.widgets._settings_tab_sections)
 
 ### `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — Action and status helpers for the settings tab.
 - `SettingsTabActionsCoordinator` — (no docstring) (used by: plex_renamer.gui_qt.widgets.settings_tab)
@@ -312,7 +316,6 @@
 - `repolish_widget(widget) -> None` — (no docstring)
 
 ### `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — Section-building helpers for the settings tab.
-- `SettingsSectionCard` — A settings section card with a title header row and content area. (used by: plex_renamer.gui_qt.widgets._settings_automux_page, plex_renamer.gui_qt.widgets._settings_metadata_page)
 - `SettingsTabSectionsBuilder` — (no docstring) (used by: plex_renamer.gui_qt.widgets.settings_tab)
 - Tests: tests/test_settings_tab_cache.py
 
@@ -327,7 +330,7 @@
 - Tests: tests/test_qt_toasts.py
 
 ### `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table
-- `MediaWorkPanel` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_ui)
+- `MediaWorkPanel` — (no docstring) (used by: plex_renamer.gui_qt.widgets, plex_renamer.gui_qt.widgets._media_workspace_ui)
 - Tests: tests/test_qt_async_guide.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — Primitive widgets shared by media workspace roster and preview rows.
@@ -365,7 +368,7 @@
 
 ### `plex_renamer/gui_qt/widgets/media_workspace.py` — Media workspace widget for TV Shows and Movies tabs.
 - `MediaWorkspace` — TV or Movie tab workspace with state-driven content switching. (used by: plex_renamer.gui_qt._main_window_tabs)
-- Tests: tests/test_qt_media_workspace.py, tests/test_workspace_expansion.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/queue_tab.py` — Queue tab — controller-backed queue view for Phase 4.
 - `QueueTab` — Queue tab backed by QueueController. (used by: plex_renamer.gui_qt._main_window_tabs)
@@ -382,7 +385,7 @@
 
 ### `plex_renamer/gui_qt/widgets/settings_tab.py` — Settings tab.
 - `SettingsTab` — Scrollable settings panel with section cards. (used by: plex_renamer.gui_qt._main_window_tabs)
-- Tests: tests/test_qt_main_window.py, tests/test_settings_longpath.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py
+- Tests: tests/test_qt_main_window.py, tests/test_settings_longpath.py, tests/test_settings_page_composition.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py
 
 ### `plex_renamer/gui_qt/widgets/status_chip.py` — Season/status chips shared by the roster delegate and (Plan 3) season strip.
 - `ChipSpec` — (no docstring) (used by: plex_renamer.gui_qt.widgets._episode_expansion, plex_renamer.gui_qt.widgets._roster_model)

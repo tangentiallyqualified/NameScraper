@@ -27,7 +27,7 @@
             "qualifiedSymbol": "plex_renamer._job_store_db.connect_job_store.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -54,7 +54,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -80,7 +80,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.MediaTrack.is_forced#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -106,7 +106,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.ProbeResult.container_type#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -132,7 +132,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.clear_probe_cache#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 45
+          "ruleIndex": 44
         },
         {
           "level": "warning",
@@ -734,60 +734,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_match_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 155
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"rematch_file\" for class \"TVScanner\" Attribute \"rematch_file\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._match_state_helpers.rematch_movie_scan_state::reportAttributeAccessIssue::Cannot access attribute \"rematch_file\" for class \"TVScanner\" Attribute \"rematch_file\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_match_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 30,
-                  "startLine": 158
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"get_search_results\" for class \"TVScanner\" Attribute \"get_search_results\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._match_state_helpers.rematch_movie_scan_state::reportAttributeAccessIssue::Cannot access attribute \"get_search_results\" for class \"TVScanner\" Attribute \"get_search_results\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "plex_renamer/app/controllers/_movie_state_helpers.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -808,141 +754,6 @@
           },
           "ruleId": "ruff/SIM108",
           "ruleIndex": 36
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_movie_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 21,
-                  "startLine": 48
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"MovieScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"MovieScanner\" is not assignable to type \"TVScanner | None\" \"MovieScanner\" is not assignable to \"TVScanner\" \"MovieScanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._movie_state_helpers.build_movie_library_states::reportArgumentType::Argument of type \"MovieScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"MovieScanner\" is not assignable to type \"TVScanner | None\" \"MovieScanner\" is not assignable to \"TVScanner\" \"MovieScanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_tv_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 35,
-                  "startLine": 56
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"scan\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._tv_state_helpers.run_tv_scan::reportOptionalMemberAccess::\"scan\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_tv_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 25,
-                  "startLine": 58
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"scan_consolidated\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._tv_state_helpers.run_tv_scan::reportOptionalMemberAccess::\"scan_consolidated\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_tv_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 38,
-                  "startLine": 64
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"show_info\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._tv_state_helpers.run_tv_scan::reportOptionalMemberAccess::\"show_info\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/controllers/_tv_state_helpers.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 80
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"get_completeness\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.app.controllers._tv_state_helpers.run_tv_scan::reportOptionalMemberAccess::\"get_completeness\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 7
         },
         {
           "level": "warning",
@@ -1049,7 +860,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.media_controller.MediaController.accept_tv_show#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1183,7 +994,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.pending_count#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -1209,7 +1020,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.add_single_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1236,7 +1047,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.utc_now_iso::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -1262,7 +1073,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48,
+          "ruleIndex": 47,
           "suppressions": [
             {
               "justification": "intentional-reservation: Exported ScanLifecycle compatibility value reserved for cache-refresh progress.",
@@ -1294,7 +1105,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.CacheEntry.last_accessed_at#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1347,7 +1158,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.actionable_indices#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1454,7 +1265,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.eligible_job_count#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1480,7 +1291,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.mapped_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1506,7 +1317,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.missing_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1532,7 +1343,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.review_required#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1585,7 +1396,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideRow.episode_key#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -1611,7 +1422,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide.source_label#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -1800,7 +1611,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service::deprecated-import::Import from `collections.abc` instead: `Iterator`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -1827,7 +1638,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service._utc_now::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -1853,7 +1664,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService._connect.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -1879,7 +1690,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.make_key#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1905,7 +1716,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1931,7 +1742,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1957,7 +1768,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -1970,7 +1781,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 26
+                  "startLine": 28
                 }
               }
             }
@@ -1984,7 +1795,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService._require_table::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -1996,7 +1807,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 130
+                  "startLine": 139
                 }
               }
             }
@@ -2010,7 +1821,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -2022,34 +1833,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 6
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import from `collections.abc` instead: `Iterable`"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.app.services.episode_projection_cache::deprecated-import::Import from `collections.abc` instead: `Iterable`#1"
-          },
-          "ruleId": "ruff/UP035",
-          "ruleIndex": 42
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/services/episode_projection_cache.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startLine": 24
+                  "startLine": 81
                 }
               }
             }
@@ -2063,7 +1847,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -2144,7 +1928,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service._utc_now::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -2170,7 +1954,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -2223,7 +2007,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -2249,7 +2033,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.can_manual_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -2275,7 +2059,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.get_rescan_scope#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -2301,7 +2085,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.settings_service.SettingsService.match_country#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -2463,7 +2247,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.settings_service.SettingsService._load::redundant-open-modes::Unnecessary mode argument#1"
           },
           "ruleId": "ruff/UP015",
-          "ruleIndex": 40
+          "ruleIndex": 39
         },
         {
           "level": "warning",
@@ -2516,7 +2300,7 @@
             "qualifiedSymbol": "plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -3028,7 +2812,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -3414,33 +3198,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 29,
-                  "startLine": 1008
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot assign to attribute \"scanner\" for class \"ScanState\" Type \"MovieScanner\" is not assignable to type \"TVScanner | None\" \"MovieScanner\" is not assignable to \"TVScanner\" \"MovieScanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.scan_movie::reportAttributeAccessIssue::Cannot assign to attribute \"scanner\" for class \"ScanState\" Type \"MovieScanner\" is not assignable to type \"TVScanner | None\" \"MovieScanner\" is not assignable to \"TVScanner\" \"MovieScanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "plex_renamer/engine/_batch_tv_duplicates.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -3473,7 +3230,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 45
+                  "startLine": 46
                 }
               }
             }
@@ -3500,7 +3257,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 53
+                  "startLine": 54
                 }
               }
             }
@@ -3527,7 +3284,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 59
+                  "startLine": 61
                 }
               }
             }
@@ -3554,7 +3311,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 59
+                  "startLine": 61
                 }
               }
             }
@@ -3581,7 +3338,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 65
+                  "startLine": 67
                 }
               }
             }
@@ -3608,7 +3365,7 @@
                 },
                 "region": {
                   "startColumn": 17,
-                  "startLine": 67
+                  "startLine": 69
                 }
               }
             }
@@ -3784,7 +3541,7 @@
             "qualifiedSymbol": "plex_renamer.engine._discovery_ports::deprecated-import::Import from `collections.abc` instead: `Sequence`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -3985,32 +3742,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 109
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "unused property 'explicit_files'"
-          },
-          "properties": {
-            "analyzer": "vulture",
-            "category": "dead-code",
-            "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
-          },
-          "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_movie_scanner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 13,
                   "startLine": 291
                 }
@@ -4106,7 +3837,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.output_name#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -4132,7 +3863,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.user_modified#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -4159,7 +3890,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.from_dict::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -4213,7 +3944,7 @@
             "qualifiedSymbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -4321,7 +4052,7 @@
             "qualifiedSymbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -4725,7 +4456,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.ROLE_VERSION#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -4805,7 +4536,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -4867,114 +4598,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "plex_renamer/engine/models.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 41,
-                  "startLine": 24
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unused `noqa` directive (unused: `F401`)"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine.models::unused-noqa::Unused `noqa` directive (unused: `F401`)#1"
-          },
-          "ruleId": "ruff/RUF100",
-          "ruleIndex": 32
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/models.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 62,
-                  "startLine": 25
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unused `noqa` directive (unused: `F401`)"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine.models::unused-noqa::Unused `noqa` directive (unused: `F401`)#2"
-          },
-          "ruleId": "ruff/RUF100",
-          "ruleIndex": 32
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/models.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 14,
-                  "startLine": 170
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Remove quotes from type annotation"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine.models.ScanState::quoted-annotation::Remove quotes from type annotation#1"
-          },
-          "ruleId": "ruff/UP037",
-          "ruleIndex": 43
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/models.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 18,
-                  "startLine": 174
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Remove quotes from type annotation"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine.models.ScanState::quoted-annotation::Remove quotes from type annotation#2"
-          },
-          "ruleId": "ruff/UP037",
-          "ruleIndex": 43
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "plex_renamer/engine/show_details.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -4993,7 +4616,7 @@
             "qualifiedSymbol": "plex_renamer.engine.show_details.ShowDetails.first_air_date#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -5020,7 +4643,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._main_window_bootstrap::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -5101,7 +4724,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._main_window_feedback::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -5128,7 +4751,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._main_window_tabs::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -5155,7 +4778,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._main_window_tmdb::deprecated-import::Import from `collections.abc` instead: `Callable`#1"
           },
           "ruleId": "ruff/UP035",
-          "ruleIndex": 42
+          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -5208,7 +4831,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._scale.row_height#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 45
+          "ruleIndex": 44
         },
         {
           "level": "warning",
@@ -5585,7 +5208,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -5611,7 +5234,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow.source_parent#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -5691,7 +5314,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_table_model.JobTableModel.headerData#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -5933,7 +5556,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6175,7 +5798,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeTypes#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6255,7 +5878,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6281,7 +5904,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag.supportedActions#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 48
+          "ruleIndex": 47
         },
         {
           "level": "warning",
@@ -6334,7 +5957,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.is_claimed#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6387,7 +6010,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6440,7 +6063,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragMoveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6493,7 +6116,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6546,7 +6169,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel.show_state._claimed_file_by_key#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -6572,7 +6195,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._select_file#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6625,7 +6248,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46,
+          "ruleIndex": 45,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the chip strip.",
@@ -6739,7 +6362,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._CollapseHeader.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -6792,7 +6415,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -6818,7 +6441,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6844,7 +6467,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6870,7 +6493,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -6896,7 +6519,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -7138,7 +6761,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -7245,7 +6868,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -7298,7 +6921,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -7513,7 +7136,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.filter_mode#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -7539,7 +7162,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.row_for_preview_index#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -7890,7 +7513,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_detail_preview.JobPreviewRow::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -8051,7 +7674,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint.backgroundBrush#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -8564,7 +8187,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_roster.MediaWorkspaceRosterPanel.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -8860,7 +8483,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.entry_kind_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -8886,7 +8509,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.group_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -8925,7 +8548,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 100
+                  "startLine": 103
                 }
               }
             }
@@ -8939,7 +8562,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_subs_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -8951,7 +8574,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 102
+                  "startLine": 106
                 }
               }
             }
@@ -8965,7 +8588,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_langs_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -8977,7 +8600,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 124
+                  "startLine": 123
                 }
               }
             }
@@ -8991,7 +8614,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._default_audio_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -9003,7 +8626,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 131
+                  "startLine": 129
                 }
               }
             }
@@ -9017,7 +8640,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._no_fear_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -9083,61 +8706,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 3
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_sections::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 72
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Remove quotes from type annotation"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsSectionCard.page::quoted-annotation::Remove quotes from type annotation#1"
-          },
-          "ruleId": "ruff/UP037",
-          "ruleIndex": 43
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/gui_qt/widgets/_settings_tab_sections.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startLine": 131
+                  "startLine": 78
                 }
               }
             }
@@ -9151,7 +8720,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsTabSectionsBuilder.build_destinations_section._destinations_page#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 44
+          "ruleIndex": 43
         },
         {
           "level": "warning",
@@ -9178,7 +8747,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -9204,7 +8773,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.check_summary#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9230,7 +8799,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9256,7 +8825,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.episode_search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9282,7 +8851,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.segmented_filter#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9308,7 +8877,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.approve_all_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9334,7 +8903,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.summary_label#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9360,7 +8929,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.overflow_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 47
+          "ruleIndex": 46
         },
         {
           "level": "warning",
@@ -9548,7 +9117,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.nextCheckState#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -9574,7 +9143,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46,
+          "ruleIndex": 45,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QCheckBox paintEvent override to render the master checkbox.",
@@ -9741,7 +9310,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46,
+          "ruleIndex": 45,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the spinner.",
@@ -9773,7 +9342,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46,
+          "ruleIndex": 45,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the busy overlay.",
@@ -9806,7 +9375,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state.EmptyStateWidget.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -9913,7 +9482,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -9939,7 +9508,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragLeaveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -9965,7 +9534,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10018,7 +9587,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.set_checked#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10044,7 +9613,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_season_expanded#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10124,7 +9693,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_selection_valid#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10150,7 +9719,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.validation_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10176,7 +9745,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -10365,7 +9934,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.media_workspace.MediaWorkspace.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -10796,7 +10365,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46,
+          "ruleIndex": 45,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the conveyor animation.",
@@ -10910,7 +10479,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.settings_tab.SettingsTab.__init__::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -11044,7 +10613,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -11070,7 +10639,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -11448,7 +11017,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.RenameJob::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11475,7 +11044,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.RenameJob::datetime-timezone-utc::Use `datetime.UTC` alias#2"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11529,7 +11098,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.add_job::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11556,7 +11125,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.update_status::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11583,7 +11152,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.set_undo_data::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11610,7 +11179,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.set_poster_path::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11637,7 +11206,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.recover_interrupted::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11663,7 +11232,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.reorder_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 46
+          "ruleIndex": 45
         },
         {
           "level": "warning",
@@ -11690,7 +11259,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.reorder_job::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11717,7 +11286,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.move_jobs::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11744,7 +11313,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.move_jobs_to_top::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11771,7 +11340,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.propagate_path_changes::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -11879,7 +11448,7 @@
             "qualifiedSymbol": "plex_renamer.thread_pool::quoted-annotation::Remove quotes from type annotation#1"
           },
           "ruleId": "ruff/UP037",
-          "ruleIndex": 43
+          "ruleIndex": 42
         },
         {
           "level": "warning",
@@ -11961,60 +11530,6 @@
           },
           "ruleId": "pyright/reportCallIssue",
           "ruleIndex": 3
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "scripts/audit/_coverage.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 1,
-                  "startLine": 3
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "scripts.audit._coverage::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "scripts/audit/_coverage.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 5,
-                  "startLine": 24
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Use ternary operator `text = value.decode(\"utf-8\", errors=\"replace\") if isinstance(value, bytes) else str(value or \"\")` instead of `if`-`else`-block"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "scripts.audit._coverage._diagnostic_context::if-else-block-instead-of-if-exp::Use ternary operator `text = value.decode(\"utf-8\", errors=\"replace\") if isinstance(value, bytes) else str(value or \"\")` instead of `if`-`else`-block#1"
-          },
-          "ruleId": "ruff/SIM108",
-          "ruleIndex": 36
         },
         {
           "level": "warning",
@@ -12162,7 +11677,7 @@
                 },
                 "region": {
                   "startColumn": 13,
-                  "startLine": 81
+                  "startLine": 106
                 }
               }
             }
@@ -12189,7 +11704,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 294
+                  "startLine": 360
                 }
               }
             }
@@ -12230,7 +11745,7 @@
             "qualifiedSymbol": "scripts.audit._inventory._doc_record::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -12312,60 +11827,6 @@
           },
           "ruleId": "ruff/SIM105",
           "ruleIndex": 35
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "scripts/test_fast_runner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 1,
-                  "startLine": 1
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "scripts.test_fast_runner::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "scripts/test_fast_runner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 247
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Use `datetime.UTC` alias"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "scripts.test_fast_runner._write_coverage_sidecar::datetime-timezone-utc::Use `datetime.UTC` alias#1"
-          },
-          "ruleId": "ruff/UP017",
-          "ruleIndex": 41
         },
         {
           "level": "warning",
@@ -12809,35 +12270,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 1
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.audit.test_fast_runner::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/audit/test_fast_runner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 19,
-                  "startLine": 11
+                  "startLine": 10
                 }
               }
             }
@@ -12859,39 +12293,12 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/audit/test_fast_runner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 12,
-                  "startLine": 411
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Yoda condition detected"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.audit.test_fast_runner.test_launch_error_overwrites_successful_coverage_sidecar::yoda-conditions::Yoda condition detected#1"
-          },
-          "ruleId": "ruff/SIM300",
-          "ruleIndex": 39
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/audit/test_graph.py",
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 6
+                  "startLine": 7
                 }
               }
             }
@@ -12918,7 +12325,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 6
+                  "startLine": 7
                 }
               }
             }
@@ -12945,7 +12352,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 6
+                  "startLine": 7
                 }
               }
             }
@@ -12972,7 +12379,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 242
+                  "startLine": 380
                 }
               }
             }
@@ -13997,35 +13404,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 3
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.audit.test_repository_contracts::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/audit/test_repository_contracts.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 19,
-                  "startLine": 5
+                  "startLine": 6
                 }
               }
             }
@@ -14052,7 +13432,7 @@
                 },
                 "region": {
                   "startColumn": 29,
-                  "startLine": 5
+                  "startLine": 6
                 }
               }
             }
@@ -14079,7 +13459,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5
+                  "startLine": 6
                 }
               }
             }
@@ -16496,7 +15876,7 @@
             "qualifiedSymbol": "tests.test_cache_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -25500,7 +24880,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 668
+                  "startLine": 669
                 }
               }
             }
@@ -25527,7 +24907,7 @@
                 },
                 "region": {
                   "startColumn": 75,
-                  "startLine": 720
+                  "startLine": 721
                 }
               }
             }
@@ -25554,7 +24934,7 @@
                 },
                 "region": {
                   "startColumn": 78,
-                  "startLine": 787
+                  "startLine": 788
                 }
               }
             }
@@ -25580,35 +24960,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 21,
-                  "startLine": 944
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_OutputRematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_OutputRematchScanner\" is not assignable to type \"TVScanner | None\" \"_OutputRematchScanner\" is not assignable to \"TVScanner\" \"_OutputRematchScanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_media_controller.OutputPreviewRetargetingTests.test_movie_rematch_keeps_state_and_controller_preview_on_output_root::reportArgumentType::Argument of type \"_OutputRematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_OutputRematchScanner\" is not assignable to type \"TVScanner | None\" \"_OutputRematchScanner\" is not assignable to \"TVScanner\" \"_OutputRematchScanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_media_controller.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 9,
-                  "startLine": 1062
+                  "startLine": 1067
                 }
               }
             }
@@ -25635,7 +24988,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1188
+                  "startLine": 1193
                 }
               }
             }
@@ -25662,7 +25015,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1244
+                  "startLine": 1249
                 }
               }
             }
@@ -25689,7 +25042,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1296
+                  "startLine": 1301
                 }
               }
             }
@@ -25704,60 +25057,6 @@
           },
           "ruleId": "pyright/reportAttributeAccessIssue",
           "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_media_controller.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 21,
-                  "startLine": 1383
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_RematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_RematchScanner\" is not assignable to type \"TVScanner | None\" \"_RematchScanner\" is not assignable to \"TVScanner\" \"_RematchScanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_media_controller.RematchStateTests.test_rematch_movie_state_rebuilds_preview::reportArgumentType::Argument of type \"_RematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_RematchScanner\" is not assignable to type \"TVScanner | None\" \"_RematchScanner\" is not assignable to \"TVScanner\" \"_RematchScanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_media_controller.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 21,
-                  "startLine": 1470
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_ConfidenceRematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_ConfidenceRematchScanner\" is not assignable to type \"TVScanner | None\" \"_ConfidenceRematchScanner\" is not assignable to \"TVScanner\" \"_ConfidenceRematchScanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_media_controller.RematchStateTests.test_rematch_movie_sets_state_confidence_from_preview::reportArgumentType::Argument of type \"_ConfidenceRematchScanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"_ConfidenceRematchScanner\" is not assignable to type \"TVScanner | None\" \"_ConfidenceRematchScanner\" is not assignable to \"TVScanner\" \"_ConfidenceRematchScanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
         },
         {
           "level": "warning",
@@ -36785,143 +36084,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 1
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 53,
-                  "startLine": 11
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
-          },
-          "ruleId": "ruff/F401",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 36,
-                  "startLine": 14
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`plex_renamer.constants.JobStatus` imported but unused"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
-          },
-          "ruleId": "ruff/F401",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 5,
-                  "startLine": 19
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`plex_renamer.engine.RenameResult` imported but unused"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
-          },
-          "ruleId": "ruff/F401",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 36,
-                  "startLine": 24
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`plex_renamer.job_store.JobStore` imported but unused"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
-          },
-          "ruleId": "ruff/F401",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 40,
-                  "startLine": 98
+                  "startLine": 97
                 }
               }
             }
@@ -36948,7 +36112,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 99
+                  "startLine": 98
                 }
               }
             }
@@ -36975,7 +36139,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 100
+                  "startLine": 99
                 }
               }
             }
@@ -37002,7 +36166,7 @@
                 },
                 "region": {
                   "startColumn": 66,
-                  "startLine": 100
+                  "startLine": 99
                 }
               }
             }
@@ -37029,7 +36193,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 102
+                  "startLine": 101
                 }
               }
             }
@@ -37056,7 +36220,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 103
+                  "startLine": 102
                 }
               }
             }
@@ -37083,7 +36247,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 106
+                  "startLine": 105
                 }
               }
             }
@@ -37110,7 +36274,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 107
+                  "startLine": 106
                 }
               }
             }
@@ -37136,7 +36300,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 44,
+                  "startColumn": 27,
                   "startLine": 109
                 }
               }
@@ -37163,8 +36327,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 105,
-                  "startLine": 109
+                  "startColumn": 29,
+                  "startLine": 110
                 }
               }
             }
@@ -37190,8 +36354,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 44,
-                  "startLine": 110
+                  "startColumn": 27,
+                  "startLine": 113
                 }
               }
             }
@@ -37217,8 +36381,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 109,
-                  "startLine": 110
+                  "startColumn": 29,
+                  "startLine": 114
                 }
               }
             }
@@ -37245,7 +36409,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 171
+                  "startLine": 176
                 }
               }
             }
@@ -37272,7 +36436,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 172
+                  "startLine": 177
                 }
               }
             }
@@ -37299,7 +36463,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 211
+                  "startLine": 216
                 }
               }
             }
@@ -37326,7 +36490,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 251
+                  "startLine": 256
                 }
               }
             }
@@ -37353,7 +36517,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 256
+                  "startLine": 261
                 }
               }
             }
@@ -37380,7 +36544,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 298
+                  "startLine": 303
                 }
               }
             }
@@ -37407,7 +36571,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 299
+                  "startLine": 304
                 }
               }
             }
@@ -37434,7 +36598,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 300
+                  "startLine": 305
                 }
               }
             }
@@ -37461,7 +36625,7 @@
                 },
                 "region": {
                   "startColumn": 20,
-                  "startLine": 329
+                  "startLine": 336
                 }
               }
             }
@@ -37488,7 +36652,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 331
+                  "startLine": 338
                 }
               }
             }
@@ -37515,7 +36679,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 332
+                  "startLine": 339
                 }
               }
             }
@@ -37542,7 +36706,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 333
+                  "startLine": 340
                 }
               }
             }
@@ -37569,7 +36733,7 @@
                 },
                 "region": {
                   "startColumn": 20,
-                  "startLine": 337
+                  "startLine": 344
                 }
               }
             }
@@ -37596,7 +36760,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 339
+                  "startLine": 348
                 }
               }
             }
@@ -37623,7 +36787,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 340
+                  "startLine": 349
                 }
               }
             }
@@ -37650,7 +36814,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 341
+                  "startLine": 350
                 }
               }
             }
@@ -37677,7 +36841,7 @@
                 },
                 "region": {
                   "startColumn": 20,
-                  "startLine": 345
+                  "startLine": 354
                 }
               }
             }
@@ -37704,7 +36868,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 347
+                  "startLine": 358
                 }
               }
             }
@@ -37730,8 +36894,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 34,
-                  "startLine": 352
+                  "startColumn": 23,
+                  "startLine": 364
                 }
               }
             }
@@ -37757,8 +36921,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 60,
-                  "startLine": 352
+                  "startColumn": 23,
+                  "startLine": 365
                 }
               }
             }
@@ -37784,8 +36948,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 34,
-                  "startLine": 353
+                  "startColumn": 23,
+                  "startLine": 366
                 }
               }
             }
@@ -37812,7 +36976,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 365
+                  "startLine": 381
                 }
               }
             }
@@ -37839,7 +37003,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 366
+                  "startLine": 382
                 }
               }
             }
@@ -37866,7 +37030,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 370
+                  "startLine": 386
                 }
               }
             }
@@ -37893,7 +37057,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 372
+                  "startLine": 388
                 }
               }
             }
@@ -37920,7 +37084,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 375
+                  "startLine": 391
                 }
               }
             }
@@ -37947,7 +37111,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 376
+                  "startLine": 392
                 }
               }
             }
@@ -37974,7 +37138,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 377
+                  "startLine": 393
                 }
               }
             }
@@ -38001,7 +37165,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 378
+                  "startLine": 394
                 }
               }
             }
@@ -38028,7 +37192,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 437
+                  "startLine": 457
                 }
               }
             }
@@ -38055,7 +37219,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 520
+                  "startLine": 542
                 }
               }
             }
@@ -38082,7 +37246,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 521
+                  "startLine": 543
                 }
               }
             }
@@ -38109,7 +37273,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 574
+                  "startLine": 598
                 }
               }
             }
@@ -38136,7 +37300,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 575
+                  "startLine": 599
                 }
               }
             }
@@ -38163,7 +37327,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 942
+                  "startLine": 981
                 }
               }
             }
@@ -38190,7 +37354,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 943
+                  "startLine": 982
                 }
               }
             }
@@ -38217,7 +37381,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 987
+                  "startLine": 1026
                 }
               }
             }
@@ -38244,7 +37408,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 992
+                  "startLine": 1034
                 }
               }
             }
@@ -38271,7 +37435,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1040
+                  "startLine": 1082
                 }
               }
             }
@@ -38298,7 +37462,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1045
+                  "startLine": 1087
                 }
               }
             }
@@ -38325,7 +37489,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1046
+                  "startLine": 1088
                 }
               }
             }
@@ -38352,7 +37516,7 @@
                 },
                 "region": {
                   "startColumn": 59,
-                  "startLine": 1210
+                  "startLine": 1262
                 }
               }
             }
@@ -38379,7 +37543,7 @@
                 },
                 "region": {
                   "startColumn": 61,
-                  "startLine": 1218
+                  "startLine": 1273
                 }
               }
             }
@@ -38406,7 +37570,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1219
+                  "startLine": 1274
                 }
               }
             }
@@ -38433,7 +37597,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1454
+                  "startLine": 1518
                 }
               }
             }
@@ -38460,7 +37624,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1458
+                  "startLine": 1522
                 }
               }
             }
@@ -38487,7 +37651,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1460
+                  "startLine": 1524
                 }
               }
             }
@@ -38514,7 +37678,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1464
+                  "startLine": 1528
                 }
               }
             }
@@ -38541,7 +37705,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 1557
+                  "startLine": 1631
                 }
               }
             }
@@ -38568,7 +37732,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 1560
+                  "startLine": 1634
                 }
               }
             }
@@ -38595,7 +37759,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 1562
+                  "startLine": 1636
                 }
               }
             }
@@ -38622,7 +37786,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1565
+                  "startLine": 1639
                 }
               }
             }
@@ -38649,7 +37813,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 1648
+                  "startLine": 1724
                 }
               }
             }
@@ -38676,7 +37840,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1722
+                  "startLine": 1800
                 }
               }
             }
@@ -38703,7 +37867,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1730
+                  "startLine": 1808
                 }
               }
             }
@@ -38730,7 +37894,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1731
+                  "startLine": 1809
                 }
               }
             }
@@ -38757,7 +37921,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1736
+                  "startLine": 1814
                 }
               }
             }
@@ -38784,7 +37948,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1739
+                  "startLine": 1817
                 }
               }
             }
@@ -38811,7 +37975,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1816
+                  "startLine": 1894
                 }
               }
             }
@@ -38838,7 +38002,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1817
+                  "startLine": 1895
                 }
               }
             }
@@ -38865,7 +38029,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1830
+                  "startLine": 1908
                 }
               }
             }
@@ -38892,7 +38056,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1831
+                  "startLine": 1909
                 }
               }
             }
@@ -38919,7 +38083,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1832
+                  "startLine": 1910
                 }
               }
             }
@@ -38946,7 +38110,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1833
+                  "startLine": 1911
                 }
               }
             }
@@ -38973,7 +38137,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 1835
+                  "startLine": 1913
                 }
               }
             }
@@ -39000,7 +38164,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 1964
+                  "startLine": 2042
                 }
               }
             }
@@ -39027,7 +38191,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 1965
+                  "startLine": 2043
                 }
               }
             }
@@ -39054,7 +38218,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2066
+                  "startLine": 2144
                 }
               }
             }
@@ -39081,7 +38245,7 @@
                 },
                 "region": {
                   "startColumn": 26,
-                  "startLine": 2140
+                  "startLine": 2216
                 }
               }
             }
@@ -39108,7 +38272,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2283
+                  "startLine": 2361
                 }
               }
             }
@@ -39135,7 +38299,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2285
+                  "startLine": 2363
                 }
               }
             }
@@ -39162,7 +38326,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 2290
+                  "startLine": 2368
                 }
               }
             }
@@ -39189,7 +38353,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2294
+                  "startLine": 2372
                 }
               }
             }
@@ -39216,7 +38380,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2301
+                  "startLine": 2379
                 }
               }
             }
@@ -39243,7 +38407,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 2366
+                  "startLine": 2447
                 }
               }
             }
@@ -39270,7 +38434,7 @@
                 },
                 "region": {
                   "startColumn": 30,
-                  "startLine": 2367
+                  "startLine": 2448
                 }
               }
             }
@@ -39297,7 +38461,7 @@
                 },
                 "region": {
                   "startColumn": 24,
-                  "startLine": 2374
+                  "startLine": 2455
                 }
               }
             }
@@ -39324,7 +38488,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 2499
+                  "startLine": 2591
                 }
               }
             }
@@ -39351,7 +38515,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2525
+                  "startLine": 2619
                 }
               }
             }
@@ -39378,7 +38542,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 2592
+                  "startLine": 2691
                 }
               }
             }
@@ -39405,7 +38569,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2594
+                  "startLine": 2693
                 }
               }
             }
@@ -39432,7 +38596,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 2595
+                  "startLine": 2694
                 }
               }
             }
@@ -39459,7 +38623,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2610
+                  "startLine": 2709
                 }
               }
             }
@@ -39485,35 +38649,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 2627
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_keep_this_resolves_conflict::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 37,
-                  "startLine": 2700
+                  "startLine": 2801
                 }
               }
             }
@@ -39539,35 +38676,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 2704
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_approve_all_recategorizes_and_auto_checks_show::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 23,
-                  "startLine": 2777
+                  "startLine": 2882
                 }
               }
             }
@@ -39594,7 +38704,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2799
+                  "startLine": 2904
                 }
               }
             }
@@ -39620,62 +38730,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 2816
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_approve_all_with_remaining_conflict_stays_in_review_no_checkbox::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 2928
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_assign_file_calls_dialog_and_assigns_slot::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 37,
-                  "startLine": 2980
+                  "startLine": 3096
                 }
               }
             }
@@ -39702,7 +38758,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2981
+                  "startLine": 3097
                 }
               }
             }
@@ -39728,89 +38784,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 2986
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 3003
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unsorted-imports::Import block is un-sorted or un-formatted#2"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 76,
-                  "startLine": 3003
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`plex_renamer.engine.episode_assignments.EpisodeSlot` imported but unused"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_assign_file_dialog_does_not_double_list_unmatched_extras::unused-import::`plex_renamer.engine.episode_assignments.EpisodeSlot` imported but unused#1"
-          },
-          "ruleId": "ruff/F401",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 16,
-                  "startLine": 3060
+                  "startLine": 3186
                 }
               }
             }
@@ -39837,7 +38812,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 3060
+                  "startLine": 3186
                 }
               }
             }
@@ -39863,278 +38838,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 30,
-                  "startLine": 3207
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_selected_review_episode_uses_card_actions::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 36,
-                  "startLine": 3212
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_selected_review_episode_uses_card_actions::reportAttributeAccessIssue::Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 39,
-                  "startLine": 3213
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_selected_review_episode_uses_card_actions::reportAttributeAccessIssue::Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 21,
-                  "startLine": 3259
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"Scanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"Scanner\" is not assignable to type \"TVScanner | None\" \"Scanner\" is not assignable to \"TVScanner\" \"Scanner\" is not assignable to \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_review_episode_fix_button_replaced_by_actions_menu::reportArgumentType::Argument of type \"Scanner\" cannot be assigned to parameter \"scanner\" of type \"TVScanner | None\" in function \"__init__\" Type \"Scanner\" is not assignable to type \"TVScanner | None\" \"Scanner\" is not assignable to \"TVScanner\" \"Scanner\" is not assignable to \"None\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 30,
-                  "startLine": 3274
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_review_episode_fix_button_replaced_by_actions_menu::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 3338
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_approve_all_review_episodes_is_inline_with_filters::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 55,
-                  "startLine": 3345
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_approve_all_review_episodes_is_inline_with_filters::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 35,
-                  "startLine": 3352
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_approve_all_review_episodes_is_inline_with_filters::reportAttributeAccessIssue::Cannot access attribute \"_queue_inline_btn\" for class \"MediaWorkspace\" Attribute \"_queue_inline_btn\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 19,
-                  "startLine": 3425
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_tv_episode_guide_filters_all_and_problems::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 3437
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_media_workspace_tv_episode_guide_filters_all_and_problems::reportAttributeAccessIssue::Cannot access attribute \"_work_panel\" for class \"MediaWorkspace\" Attribute \"_work_panel\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 39,
-                  "startLine": 3596
+                  "startLine": 3452
                 }
               }
             }
@@ -40161,7 +38866,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 3597
+                  "startLine": 3453
                 }
               }
             }
@@ -40188,7 +38893,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 3598
+                  "startLine": 3454
                 }
               }
             }
@@ -40215,7 +38920,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 3669
+                  "startLine": 3533
                 }
               }
             }
@@ -40242,7 +38947,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3946
+                  "startLine": 3838
                 }
               }
             }
@@ -40269,7 +38974,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3951
+                  "startLine": 3843
                 }
               }
             }
@@ -40296,7 +39001,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 3955
+                  "startLine": 3847
                 }
               }
             }
@@ -40323,7 +39028,7 @@
                 },
                 "region": {
                   "startColumn": 46,
-                  "startLine": 3959
+                  "startLine": 3851
                 }
               }
             }
@@ -40350,7 +39055,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 4036
+                  "startLine": 3932
                 }
               }
             }
@@ -40377,7 +39082,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 4037
+                  "startLine": 3933
                 }
               }
             }
@@ -40404,7 +39109,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4191
+                  "startLine": 4099
                 }
               }
             }
@@ -40431,7 +39136,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 4239
+                  "startLine": 4149
                 }
               }
             }
@@ -40458,7 +39163,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 4317
+                  "startLine": 4229
                 }
               }
             }
@@ -40485,7 +39190,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4387
+                  "startLine": 4301
                 }
               }
             }
@@ -40512,7 +39217,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4388
+                  "startLine": 4302
                 }
               }
             }
@@ -40539,7 +39244,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4621
+                  "startLine": 4541
                 }
               }
             }
@@ -40566,7 +39271,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 4803
+                  "startLine": 4732
                 }
               }
             }
@@ -40593,7 +39298,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 4877
+                  "startLine": 4808
                 }
               }
             }
@@ -40620,7 +39325,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4885
+                  "startLine": 4816
                 }
               }
             }
@@ -40647,7 +39352,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5267
+                  "startLine": 5221
                 }
               }
             }
@@ -40674,7 +39379,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5274
+                  "startLine": 5228
                 }
               }
             }
@@ -40700,35 +39405,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 5306
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests._bulk_table_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 35,
-                  "startLine": 5395
+                  "startLine": 5359
                 }
               }
             }
@@ -40755,7 +39433,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5397
+                  "startLine": 5361
                 }
               }
             }
@@ -40782,7 +39460,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5403
+                  "startLine": 5367
                 }
               }
             }
@@ -40809,7 +39487,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5408
+                  "startLine": 5372
                 }
               }
             }
@@ -40836,7 +39514,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5412
+                  "startLine": 5376
                 }
               }
             }
@@ -40863,7 +39541,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5413
+                  "startLine": 5377
                 }
               }
             }
@@ -40890,7 +39568,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5423
+                  "startLine": 5387
                 }
               }
             }
@@ -40917,7 +39595,7 @@
                 },
                 "region": {
                   "startColumn": 17,
-                  "startLine": 5428
+                  "startLine": 5392
                 }
               }
             }
@@ -40944,7 +39622,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5430
+                  "startLine": 5394
                 }
               }
             }
@@ -40971,7 +39649,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5434
+                  "startLine": 5398
                 }
               }
             }
@@ -40998,7 +39676,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 5434
+                  "startLine": 5398
                 }
               }
             }
@@ -41025,7 +39703,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5440
+                  "startLine": 5404
                 }
               }
             }
@@ -41052,7 +39730,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5441
+                  "startLine": 5405
                 }
               }
             }
@@ -41079,7 +39757,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5442
+                  "startLine": 5406
                 }
               }
             }
@@ -41106,7 +39784,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5443
+                  "startLine": 5407
                 }
               }
             }
@@ -41133,7 +39811,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5443
+                  "startLine": 5407
                 }
               }
             }
@@ -41160,7 +39838,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5462
+                  "startLine": 5426
                 }
               }
             }
@@ -41187,7 +39865,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5462
+                  "startLine": 5426
                 }
               }
             }
@@ -41214,7 +39892,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5463
+                  "startLine": 5427
                 }
               }
             }
@@ -41241,7 +39919,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 5478
+                  "startLine": 5442
                 }
               }
             }
@@ -41268,7 +39946,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5487
+                  "startLine": 5451
                 }
               }
             }
@@ -41295,7 +39973,7 @@
                 },
                 "region": {
                   "startColumn": 15,
-                  "startLine": 5491
+                  "startLine": 5455
                 }
               }
             }
@@ -41322,7 +40000,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5493
+                  "startLine": 5457
                 }
               }
             }
@@ -41349,7 +40027,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 5502
+                  "startLine": 5466
                 }
               }
             }
@@ -41376,7 +40054,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5504
+                  "startLine": 5468
                 }
               }
             }
@@ -41403,7 +40081,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5507
+                  "startLine": 5471
                 }
               }
             }
@@ -41430,7 +40108,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 5513
+                  "startLine": 5477
                 }
               }
             }
@@ -41457,7 +40135,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5520
+                  "startLine": 5484
                 }
               }
             }
@@ -41484,7 +40162,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5520
+                  "startLine": 5484
                 }
               }
             }
@@ -41511,7 +40189,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5524
+                  "startLine": 5488
                 }
               }
             }
@@ -41538,7 +40216,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5527
+                  "startLine": 5491
                 }
               }
             }
@@ -41565,7 +40243,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5528
+                  "startLine": 5492
                 }
               }
             }
@@ -41592,7 +40270,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5531
+                  "startLine": 5495
                 }
               }
             }
@@ -41619,7 +40297,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5531
+                  "startLine": 5495
                 }
               }
             }
@@ -41646,7 +40324,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5540
+                  "startLine": 5504
                 }
               }
             }
@@ -41673,7 +40351,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5545
+                  "startLine": 5509
                 }
               }
             }
@@ -41700,7 +40378,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5556
+                  "startLine": 5519
                 }
               }
             }
@@ -41727,7 +40405,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5565
+                  "startLine": 5528
                 }
               }
             }
@@ -41754,7 +40432,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 5566
+                  "startLine": 5529
                 }
               }
             }
@@ -41780,8 +40458,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 46,
-                  "startLine": 5568
+                  "startColumn": 32,
+                  "startLine": 5532
                 }
               }
             }
@@ -41808,7 +40486,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5572
+                  "startLine": 5536
                 }
               }
             }
@@ -41835,7 +40513,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5583
+                  "startLine": 5547
                 }
               }
             }
@@ -41862,7 +40540,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5589
+                  "startLine": 5553
                 }
               }
             }
@@ -41889,7 +40567,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5591
+                  "startLine": 5555
                 }
               }
             }
@@ -41916,7 +40594,7 @@
                 },
                 "region": {
                   "startColumn": 41,
-                  "startLine": 5593
+                  "startLine": 5557
                 }
               }
             }
@@ -41943,7 +40621,7 @@
                 },
                 "region": {
                   "startColumn": 47,
-                  "startLine": 5594
+                  "startLine": 5558
                 }
               }
             }
@@ -41970,7 +40648,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5696
+                  "startLine": 5660
                 }
               }
             }
@@ -41997,7 +40675,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 5697
+                  "startLine": 5661
                 }
               }
             }
@@ -45116,7 +43794,7 @@
             "qualifiedSymbol": "tests.test_refresh_policy_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
           },
           "ruleId": "ruff/UP017",
-          "ruleIndex": 41
+          "ruleIndex": 40
         },
         {
           "level": "warning",
@@ -51307,13 +49985,6 @@
               "name": "ruff-SIM117",
               "shortDescription": {
                 "text": "ruff/SIM117"
-              }
-            },
-            {
-              "id": "ruff/SIM300",
-              "name": "ruff-SIM300",
-              "shortDescription": {
-                "text": "ruff/SIM300"
               }
             },
             {
