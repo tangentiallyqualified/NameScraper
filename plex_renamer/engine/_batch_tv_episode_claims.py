@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 from ._batch_tv_duplicates import normalized_relative_folder
 from ._episode_projection import project_preview_items
 from ._episode_resolution import resolve_table_conflicts
 from .episode_assignments import merge_tables
-from .models import PreviewItem, ScanState
+from .models import PreviewItem, ScanState, TVScanStateScanner
 
 
 def assign_preview_source_folders(
@@ -112,11 +113,12 @@ def reconcile_scanned_episode_claims(
         primary.checked = any(state.checked for state in group)
         primary.reset_gui_state()
         if primary.scanner is not None:
+            scanner = cast(TVScanStateScanner, primary.scanner)
             checked = {
                 index for index, item in enumerate(primary.preview_items)
                 if item.status == "OK"
             }
-            primary.completeness = primary.scanner.get_completeness(
+            primary.completeness = scanner.get_completeness(
                 primary.preview_items,
                 checked_indices=checked,
             )

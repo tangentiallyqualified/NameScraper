@@ -80,27 +80,34 @@ def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
         [record["source"], record["target"]]
         for record in classifications
     ] == engine_edges
-    dispositions = {
-        (record["source"], record["target"]): record["disposition"]
-        for record in classifications
-    }
-    assert dispositions[
-        ("plex_renamer.engine.matching", "plex_renamer.engine.models")
-    ] == "algorithm-call"
-    assert dispositions[
-        ("plex_renamer.engine.models", "plex_renamer.engine._tv_scanner")
-    ] == "shared-model"
+    assert classifications == []
     assert {
         disposition: sum(
             record["disposition"] == disposition for record in classifications
         )
         for disposition in _render_human.CYCLE_EDGE_DISPOSITIONS
     } == {
-        "algorithm-call": 10,
+        "algorithm-call": 0,
         "facade-backedge": 0,
         "runtime-construction": 0,
-        "shared-model": 8,
+        "shared-model": 0,
     }
+
+
+def test_engine_models_do_not_close_a_cycle_through_the_tv_scanner() -> None:
+    inventory = _inventory.build_inventory(REPO_ROOT)
+    graph = _graph.build_graph(REPO_ROOT, inventory)
+
+    models_module = "plex_renamer.engine.models"
+    concrete_scanner_module = "plex_renamer.engine._tv_scanner"
+    assert concrete_scanner_module not in graph["modules"][models_module]["imports"]
+
+    engine_cycles = [
+        cycle
+        for cycle in graph["cycles"]
+        if any(module.startswith("plex_renamer.engine.") for module in cycle["modules"])
+    ]
+    assert engine_cycles == []
 
 
 def test_settings_page_composer_has_one_way_dependencies() -> None:

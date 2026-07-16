@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
+from ...engine.models import MovieScanStateScanner
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +144,11 @@ def rematch_movie_scan_state(
     score_results: Any,
 ) -> MovieRematchResult:
     preview = state.preview_items[0] if state.preview_items else None
-    scanner = state.scanner or movie_scanner
+    scanner: MovieScanStateScanner | None = (
+        cast(MovieScanStateScanner, state.scanner)
+        if state.scanner is not None
+        else movie_scanner
+    )
     if (
         preview is None
         or scanner is None

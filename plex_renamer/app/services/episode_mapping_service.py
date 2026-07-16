@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ...engine import PreviewItem, ScanState
+from ...engine.models import TVScanStateScanner
 from ..models import (
     EpisodeGuide,
     EpisodeGuideRow,
@@ -43,11 +44,12 @@ class EpisodeMappingService:
             },
         )
         if state.scanner is not None:
+            scanner = cast(TVScanStateScanner, state.scanner)
             checked = {
                 index for index, item in enumerate(state.preview_items)
                 if item.status == "OK"
             }
-            state.completeness = state.scanner.get_completeness(
+            state.completeness = scanner.get_completeness(
                 state.preview_items, checked_indices=checked,
             )
         state.reset_gui_state()
@@ -446,7 +448,8 @@ class EpisodeMappingService:
     def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:
         if state.scanner is None:
             return ""
-        meta = state.scanner.episode_meta.get(key, {})
+        scanner = cast(TVScanStateScanner, state.scanner)
+        meta = scanner.episode_meta.get(key, {})
         value = meta.get(name, "")
         return str(value) if value else ""
 

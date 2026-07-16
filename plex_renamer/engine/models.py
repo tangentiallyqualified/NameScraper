@@ -6,9 +6,10 @@ the shapes without pulling in the full engine core.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from ..constants import VIDEO_EXTENSIONS, MediaType
 from ..parsing import (
@@ -21,8 +22,7 @@ from ..parsing import (
 from ._state import get_auto_accept_threshold
 
 if TYPE_CHECKING:
-    from ._tv_scanner import TVScanner  # noqa: F401
-    from .episode_assignments import EpisodeAssignmentTable  # noqa: F401
+    from .episode_assignments import EpisodeAssignmentTable
 
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
@@ -162,16 +162,50 @@ class CompletenessReport:
         return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
 
 
+class TVScanStateScanner(Protocol):
+    """TV scanner capabilities retained by a shared ``ScanState``."""
+
+    @property
+    def episode_meta(self) -> Mapping[tuple[int, int], Mapping[str, object]]: ...
+
+    @property
+    def assignment_table(self) -> EpisodeAssignmentTable | None: ...
+
+    @property
+    def show_info(self) -> Mapping[str, object]: ...
+
+    def scan(self) -> tuple[list[PreviewItem], bool]: ...
+
+    def scan_consolidated(self) -> list[PreviewItem]: ...
+
+    def get_completeness(
+        self,
+        items: list[PreviewItem],
+        checked_indices: set[int] | None = None,
+    ) -> CompletenessReport: ...
+
+
+class MovieScanStateScanner(Protocol):
+    """Movie scanner capabilities retained by a shared ``ScanState``."""
+
+    def rematch_file(self, item: PreviewItem, chosen: dict) -> PreviewItem: ...
+
+    def get_search_results(self, file_path: Path) -> list[dict]: ...
+
+
+ScanStateScanner = TVScanStateScanner | MovieScanStateScanner
+
+
 @dataclass
 class ScanState:
     """Per-show scan state — decouples show-level data from the GUI."""
     folder: Path
     media_info: dict
-    scanner: "TVScanner | None" = None
+    scanner: ScanStateScanner | None = None
     source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
     completeness: CompletenessReport | None = None
-    assignments: "EpisodeAssignmentTable | None" = None
+    assignments: EpisodeAssignmentTable | None = None
 
     # Match metadata
     confidence: float = 0.0

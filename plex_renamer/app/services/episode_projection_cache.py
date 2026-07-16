@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
+from typing import cast
 
 from ...engine import ScanState
+from ...engine.models import TVScanStateScanner
 from ..models import EpisodeGuide
 from .episode_mapping_service import EpisodeMappingService
 
@@ -120,6 +122,7 @@ class EpisodeProjectionCacheService:
             )
         scanner_meta = ()
         if state.scanner is not None:
+            scanner = cast(TVScanStateScanner, state.scanner)
             scanner_meta = tuple(
                 (
                     key,
@@ -129,7 +132,7 @@ class EpisodeProjectionCacheService:
                         )
                     ),
                 )
-                for key, meta in sorted(state.scanner.episode_meta.items())
+                for key, meta in sorted(scanner.episode_meta.items())
             )
         orphan_signature = tuple(
             (str(companion.original), companion.new_name, companion.file_type)
