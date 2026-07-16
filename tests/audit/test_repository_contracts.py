@@ -80,6 +80,27 @@ def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
         [record["source"], record["target"]]
         for record in classifications
     ] == engine_edges
+    dispositions = {
+        (record["source"], record["target"]): record["disposition"]
+        for record in classifications
+    }
+    assert dispositions[
+        ("plex_renamer.engine.matching", "plex_renamer.engine.models")
+    ] == "algorithm-call"
+    assert dispositions[
+        ("plex_renamer.engine.models", "plex_renamer.engine._tv_scanner")
+    ] == "shared-model"
+    assert {
+        disposition: sum(
+            record["disposition"] == disposition for record in classifications
+        )
+        for disposition in _render_human.CYCLE_EDGE_DISPOSITIONS
+    } == {
+        "algorithm-call": 10,
+        "facade-backedge": 0,
+        "runtime-construction": 0,
+        "shared-model": 8,
+    }
 
 
 def test_settings_page_composer_has_one_way_dependencies() -> None:
