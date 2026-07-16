@@ -239,17 +239,37 @@ def _module_prefixed(module: str, prefix: str) -> bool:
     return module == prefix or module.startswith(prefix + ".")
 
 
+def _cycle_matches_legacy(
+    modules: set[str],
+    edges: set[tuple[str, str]],
+    legacy_modules: set[str],
+    legacy_edges: set[tuple[str, str]],
+) -> bool:
+    """Apply the exact legacy cycle policy for module and internal-edge containment."""
+    return modules < legacy_modules or (modules == legacy_modules and edges <= legacy_edges)
+
+
 def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
     baseline = json.loads(baseline_text)
-    baseline_modules = [set(cycle["modules"]) for cycle in baseline["cycles"]]
+    baseline_cycles = [
+        (
+            set(cycle["modules"]),
+            {tuple(edge) for edge in cycle["edges"]},
+        )
+        for cycle in baseline["cycles"]
+    ]
     findings = []
     for cycle in graph.get("cycles", []):
         modules = set(cycle["modules"])
-        if any(modules <= legacy for legacy in baseline_modules):
+        edges = {tuple(edge) for edge in cycle["edges"]}
+        if any(
+            _cycle_matches_legacy(modules, edges, legacy_modules, legacy_edges)
+            for legacy_modules, legacy_edges in baseline_cycles
+        ):
             continue
         rule = (
             "enlarged-cycle"
-            if any(modules & legacy for legacy in baseline_modules)
+            if any(modules & legacy_modules for legacy_modules, _legacy_edges in baseline_cycles)
             else "new-cycle"
         )
         symbol = ", ".join(cycle["modules"])

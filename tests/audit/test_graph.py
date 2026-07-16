@@ -150,6 +150,33 @@ def test_cycle_that_adds_a_module_is_reported_as_enlarged(synthetic_repo: Path):
     assert [finding["rule"] for finding in findings] == ["enlarged-cycle"]
 
 
+def test_cycle_with_same_members_and_new_internal_edge_is_reported_as_enlarged(
+    synthetic_repo: Path,
+):
+    _write_module(
+        synthetic_repo,
+        "plex_renamer.c1",
+        "plex_renamer.c2",
+        "plex_renamer.c3",
+    )
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c3")
+    _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c1")
+    baseline = [
+        {
+            "modules": ["plex_renamer.c1", "plex_renamer.c2", "plex_renamer.c3"],
+            "edges": [
+                ["plex_renamer.c1", "plex_renamer.c2"],
+                ["plex_renamer.c2", "plex_renamer.c3"],
+                ["plex_renamer.c3", "plex_renamer.c1"],
+            ],
+        }
+    ]
+
+    findings = _cycle_findings(_graph_for(synthetic_repo), baseline)
+
+    assert [finding["rule"] for finding in findings] == ["enlarged-cycle"]
+
+
 def test_cycle_that_shrinks_by_one_module_is_allowed(synthetic_repo: Path):
     _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
     _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")

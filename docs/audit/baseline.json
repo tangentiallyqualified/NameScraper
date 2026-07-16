@@ -2,8 +2,8 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "d77226aed8492395a1d8bc400d25bbbdf31684600d52003c752e8a5005cdf588",
-  "module_count": 178,
+  "input_digest": "cda5954423561fc6e19050180d911b610486c86e346a12b9530e643aee85d8d0",
+  "module_count": 177,
   "partial": false,
   "reason": null,
   "scope": {
@@ -96,13 +96,13 @@
    "protected-or-ambiguous": 89,
    "test-referenced": 3
   },
-  "files": 178,
+  "files": 177,
   "module_avg_coverage": 88.1,
   "modules_over_complexity": 62,
   "statement_coverage": 87.9,
-  "total_loc": 38538
+  "total_loc": 38523
  },
- "input_digest": "d77226aed8492395a1d8bc400d25bbbdf31684600d52003c752e8a5005cdf588",
+ "input_digest": "cda5954423561fc6e19050180d911b610486c86e346a12b9530e643aee85d8d0",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -1477,30 +1477,6 @@
    "max_complexity": 0,
    "sha256": "92e5674ac6f1d52e"
   },
-  "plex_renamer/app/services/_episode_metadata.py": {
-   "coverage_percent": 96.3,
-   "dead_allowlisted": 0,
-   "dead_candidates": 0,
-   "dead_evidence_usable": true,
-   "dead_exact_low_confidence": 0,
-   "dead_high_confidence": 0,
-   "dead_low_confidence": 0,
-   "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 0,
-   "dead_symbols": [],
-   "dead_test_referenced": 0,
-   "dead_tiers": {
-    "allowlisted": 0,
-    "high-confidence": 0,
-    "low-confidence": 0,
-    "medium-confidence": 0,
-    "protected-or-ambiguous": 0,
-    "test-referenced": 0
-   },
-   "loc": 39,
-   "max_complexity": 8,
-   "sha256": "c9dd6d8501c6d653"
-  },
   "plex_renamer/app/services/_movie_library_classification.py": {
    "coverage_percent": 92.9,
    "dead_allowlisted": 0,
@@ -1677,7 +1653,7 @@
    "sha256": "91eab3afb95d631c"
   },
   "plex_renamer/app/services/episode_mapping_service.py": {
-   "coverage_percent": 94.8,
+   "coverage_percent": 95.3,
    "dead_allowlisted": 0,
    "dead_candidates": 1,
    "dead_evidence_usable": true,
@@ -1690,7 +1666,7 @@
     {
      "assessment": "dynamic-or-unresolved",
      "confidence": 60,
-     "line": 139,
+     "line": 135,
      "symbol": "apply_assignments"
     }
    ],
@@ -1703,9 +1679,9 @@
     "protected-or-ambiguous": 1,
     "test-referenced": 0
    },
-   "loc": 476,
+   "loc": 500,
    "max_complexity": 27,
-   "sha256": "a25fdc758e6950f9"
+   "sha256": "c9262f1e55e090ae"
   },
   "plex_renamer/app/services/episode_projection_cache.py": {
    "coverage_percent": 98.8,
@@ -4969,8 +4945,8 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "a2b61ad2bf53af45b0f8c9aad24f8ac2ed34affaa3c7ae7fd23d8b77f8dcf1ea",
-   "module_count": 178,
+   "input_digest": "d930b91b56d922bbb7eef04447d4d4c5589477e8782f793940709c52e0d7e270",
+   "module_count": 177,
    "partial": false,
    "reason": null,
    "scope": {
@@ -4997,7 +4973,7 @@
    "usable": true
   },
   "dead_code": {
-   "observed_findings": 91,
+   "observed_findings": 92,
    "reason": null,
    "source": "vulture",
    "usable": true
@@ -5047,29 +5023,29 @@
    "coverage_usable": true,
    "cycles": 0,
    "dead_allowlisted": 0,
-   "dead_candidates": 91,
+   "dead_candidates": 92,
    "dead_evidence_usable": true,
    "dead_exact_low_confidence": 0,
    "dead_high_confidence": 0,
-   "dead_low_confidence": 91,
+   "dead_low_confidence": 92,
    "dead_medium_confidence": 0,
-   "dead_protected_ambiguous": 88,
+   "dead_protected_ambiguous": 89,
    "dead_test_referenced": 3,
    "dead_tiers": {
     "allowlisted": 0,
     "high-confidence": 0,
     "low-confidence": 0,
     "medium-confidence": 0,
-    "protected-or-ambiguous": 88,
+    "protected-or-ambiguous": 89,
     "test-referenced": 3
    },
-   "files": 178,
+   "files": 177,
    "module_avg_coverage": 88.1,
    "modules_over_complexity": 62,
    "statement_coverage": 87.9,
-   "total_loc": 38538
+   "total_loc": 38526
   },
-  "input_digest": "a2b61ad2bf53af45b0f8c9aad24f8ac2ed34affaa3c7ae7fd23d8b77f8dcf1ea",
+  "input_digest": "d930b91b56d922bbb7eef04447d4d4c5589477e8782f793940709c52e0d7e270",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -6031,7 +6007,7 @@
     },
     "loc": 190,
     "max_complexity": 15,
-    "sha256": "bd1828cfee33bf67"
+    "sha256": "af76f32decd37d64"
    },
    "plex_renamer/app/controllers/_movie_batch_helpers.py": {
     "coverage_percent": 68.9,
@@ -6444,30 +6420,6 @@
     "max_complexity": 0,
     "sha256": "92e5674ac6f1d52e"
    },
-   "plex_renamer/app/services/_episode_metadata.py": {
-    "coverage_percent": 96.3,
-    "dead_allowlisted": 0,
-    "dead_candidates": 0,
-    "dead_evidence_usable": true,
-    "dead_exact_low_confidence": 0,
-    "dead_high_confidence": 0,
-    "dead_low_confidence": 0,
-    "dead_medium_confidence": 0,
-    "dead_protected_ambiguous": 0,
-    "dead_symbols": [],
-    "dead_test_referenced": 0,
-    "dead_tiers": {
-     "allowlisted": 0,
-     "high-confidence": 0,
-     "low-confidence": 0,
-     "medium-confidence": 0,
-     "protected-or-ambiguous": 0,
-     "test-referenced": 0
-    },
-    "loc": 39,
-    "max_complexity": 8,
-    "sha256": "c9dd6d8501c6d653"
-   },
    "plex_renamer/app/services/_movie_library_classification.py": {
     "coverage_percent": 92.9,
     "dead_allowlisted": 0,
@@ -6644,7 +6596,7 @@
     "sha256": "91eab3afb95d631c"
    },
    "plex_renamer/app/services/episode_mapping_service.py": {
-    "coverage_percent": 94.8,
+    "coverage_percent": 94.9,
     "dead_allowlisted": 0,
     "dead_candidates": 1,
     "dead_evidence_usable": true,
@@ -6657,7 +6609,7 @@
      {
       "assessment": "dynamic-or-unresolved",
       "confidence": 60,
-      "line": 139,
+      "line": 138,
       "symbol": "apply_assignments"
      }
     ],
@@ -6670,9 +6622,9 @@
      "protected-or-ambiguous": 1,
      "test-referenced": 0
     },
-    "loc": 476,
+    "loc": 503,
     "max_complexity": 27,
-    "sha256": "a25fdc758e6950f9"
+    "sha256": "7b70821d0fac42ab"
    },
    "plex_renamer/app/services/episode_projection_cache.py": {
     "coverage_percent": 98.8,
@@ -7160,28 +7112,35 @@
     "sha256": "8b41a1953dd9c18e"
    },
    "plex_renamer/engine/_movie_scanner.py": {
-    "coverage_percent": 77.9,
+    "coverage_percent": 80.1,
     "dead_allowlisted": 0,
-    "dead_candidates": 0,
+    "dead_candidates": 1,
     "dead_evidence_usable": true,
     "dead_exact_low_confidence": 0,
     "dead_high_confidence": 0,
-    "dead_low_confidence": 0,
+    "dead_low_confidence": 1,
     "dead_medium_confidence": 0,
-    "dead_protected_ambiguous": 0,
-    "dead_symbols": [],
+    "dead_protected_ambiguous": 1,
+    "dead_symbols": [
+     {
+      "assessment": "dynamic-or-unresolved",
+      "confidence": 60,
+      "line": 109,
+      "symbol": "explicit_files"
+     }
+    ],
     "dead_test_referenced": 0,
     "dead_tiers": {
      "allowlisted": 0,
      "high-confidence": 0,
      "low-confidence": 0,
      "medium-confidence": 0,
-     "protected-or-ambiguous": 0,
+     "protected-or-ambiguous": 1,
      "test-referenced": 0
     },
     "loc": 424,
     "max_complexity": 15,
-    "sha256": "f0c84dbd047e42c1"
+    "sha256": "063c907e3378b2c1"
    },
    "plex_renamer/engine/_mux_planner.py": {
     "coverage_percent": 98.6,

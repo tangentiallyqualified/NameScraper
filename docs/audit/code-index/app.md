@@ -1,4 +1,4 @@
-<!-- Generated from audit input d77226aed849; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cda595442356; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -141,11 +141,7 @@
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_qt_media_workspace.py, tests/test_work_panel.py
 
 ### `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services.
-- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
-
-### `plex_renamer/app/services/_episode_metadata.py` — Episode metadata lookup helpers for guide projection.
-- `episode_meta_value(state, key, name) -> str` — (no docstring) (used by: plex_renamer.app.services.episode_mapping_service)
-- `episode_title(state, key) -> str` — (no docstring) (used by: plex_renamer.app.services.episode_mapping_service)
+- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_episode_metadata_ownership.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery.
 - `DirChild` — (no docstring)
@@ -184,7 +180,7 @@
 
 ### `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections.
 - `EpisodeMappingService` — Project raw scan preview state into episode-guide workflow state. (used by: plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.services, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._media_workspace_actions)
-- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
+- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
 
 ### `plex_renamer/app/services/episode_projection_cache.py` — Cache scan-time TV episode-guide projections for batch UI rendering.
 - `EpisodeProjectionCacheService` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)

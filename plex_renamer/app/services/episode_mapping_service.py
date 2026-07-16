@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from ...engine import PreviewItem, ScanState
-from ...engine.models import TVScannerOperations
+from ...engine.models import TVScannerOperations, TVScanStateScanner
 from ..models import (
     EpisodeGuide,
     EpisodeGuideRow,
@@ -13,7 +13,6 @@ from ..models import (
     EpisodeSlotChoice,
     UnmappedFileRow,
 )
-from ._episode_metadata import episode_meta_value, episode_title
 
 if TYPE_CHECKING:
     from ...engine.episode_assignments import EpisodeAssignmentTable
@@ -25,7 +24,7 @@ class EpisodeMappingService:
     # ── table-backed mutations ──────────────────────────────────────
 
     @staticmethod
-    def _require_table(state: ScanState) -> "EpisodeAssignmentTable":
+    def _require_table(state: ScanState) -> EpisodeAssignmentTable:
         table = state.assignments
         if table is None:
             raise ValueError("This show has no assignment table (rescan needed)")
@@ -85,11 +84,8 @@ class EpisodeMappingService:
         season: int,
         episode: int,
     ) -> None:
-        """Assign a file to one episode, extending its run when contiguous.
-
-        If the file already has an assignment in *season* whose run is
-        adjacent to *episode*, the episode is added to that run; otherwise
-        the file is assigned to just *episode* (replacing any prior run).
+        """Assign one episode, extending an adjacent run in the same season.
+        Otherwise replace the file's prior run with that episode.
         """
         from ...engine.episode_assignments import ORIGIN_MANUAL
 
@@ -460,8 +456,36 @@ class EpisodeMappingService:
         pct = max(0, min(100, round(preview.episode_confidence * 100)))
         return f"{pct}%"
 
-    _episode_meta_value = staticmethod(episode_meta_value)
-    _episode_title = staticmethod(episode_title)
+    @staticmethod
+    def _episode_meta_value(state: ScanState, key: tuple[int, int], name: str) -> str:
+        if state.scanner is None:
+            return ""
+        scanner = cast(TVScanStateScanner, state.scanner)
+        meta = scanner.episode_meta.get(key, {})
+        value = meta.get(name, "")
+        return str(value) if value else ""
+
+    @classmethod
+    def _episode_title(cls, state: ScanState, key: tuple[int, int]) -> str:
+        meta_title = cls._episode_meta_value(state, key, "name")
+        if meta_title:
+            return meta_title
+        completeness = state.completeness
+        if completeness is None:
+            return ""
+        season_num, episode = key
+        season = completeness.specials if season_num == 0 else completeness.seasons.get(season_num)
+        if season is None:
+            return ""
+        for candidates in (
+            season.matched_episodes,
+            season.review_episodes,
+            season.missing,
+        ):
+            for candidate_episode, title in candidates:
+                if candidate_episode == episode:
+                    return title
+        return ""
 
     @staticmethod
     def _missing_episode_rows(state: ScanState) -> list[tuple[int, int, str]]:

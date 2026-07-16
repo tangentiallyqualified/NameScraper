@@ -35,8 +35,8 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Modules | 178 |
-| Total LOC | 38538 |
+| Modules | 177 |
+| Total LOC | 38523 |
 | Statement coverage | 87.9% |
 | Module-average coverage | 88.1% |
 | Import cycles | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | d77226aed849 | - |
+| matched | coverage.py | cda595442356 | - |
 
 ## Least-covered modules
 
@@ -99,9 +99,9 @@ graph LR
 | Module | Fan-in |
 |---|---|
 | `plex_renamer/constants.py` | 49 |
-| `plex_renamer/engine/__init__.py` | 43 |
-| `plex_renamer/engine/models.py` | 25 |
+| `plex_renamer/engine/__init__.py` | 42 |
 | `plex_renamer/gui_qt/_scale.py` | 25 |
+| `plex_renamer/engine/models.py` | 24 |
 | `plex_renamer/parsing.py` | 24 |
 | `plex_renamer/app/models/__init__.py` | 23 |
 | `plex_renamer/job_store.py` | 16 |
@@ -168,7 +168,7 @@ _None._
 - [ ] `plex_renamer/app/services/cache_service.py:185` plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/cache_service.py:202` plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/cache_service.py:221` plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/app/services/episode_mapping_service.py:139` plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/app/services/episode_mapping_service.py:135` plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/episode_projection_cache.py:81` plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:27` plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:102` plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -248,5 +248,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:89` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:165` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input d77226aed849 by scripts\audit.cmd._
+_Generated from audit input cda595442356 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

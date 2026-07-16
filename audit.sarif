@@ -1780,34 +1780,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 45,
-                  "startLine": 28
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Remove quotes from type annotation"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService._require_table::quoted-annotation::Remove quotes from type annotation#1"
-          },
-          "ruleId": "ruff/UP037",
-          "ruleIndex": 42
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/app/services/episode_mapping_service.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startLine": 139
+                  "startLine": 135
                 }
               }
             }
@@ -12384,7 +12357,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 380
+                  "startLine": 407
                 }
               }
             }

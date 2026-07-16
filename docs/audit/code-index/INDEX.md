@@ -1,4 +1,4 @@
-<!-- Generated from audit input d77226aed849; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cda595442356; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
@@ -34,14 +34,13 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/app/models/__init__.py` — Typed application-layer models shared across controllers and services. [pub 0 | in 23 | out 1]
 - `plex_renamer/app/models/state_models.py` — Structured application-layer state models used by Phase 1 services. [pub 17 | in 4 | out 0] [† dead protected/ambiguous x9]
 - `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services. [pub 0 | in 1 | out 7]
-- `plex_renamer/app/services/_episode_metadata.py` — Episode metadata lookup helpers for guide projection. [pub 2 | in 1 | out 2]
 - `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery. [pub 3 | in 1 | out 3] [⚠ complexity]
 - `plex_renamer/app/services/_settings_schema.py` — Schema, defaults, and validation helpers for SettingsService. [pub 1 | in 1 | out 0]
 - `plex_renamer/app/services/_tv_library_classification.py` — Folder-classification helpers for recursive TV library discovery. [pub 3 | in 1 | out 3] [⚠ complexity]
 - `plex_renamer/app/services/automux_service.py` — Session-scoped AutoMux planning: probe files and attach mux plans. [pub 10 | in 5 | out 5] [⚠ complexity]
 - `plex_renamer/app/services/cache_service.py` — Persistent metadata cache with freshness tracking and bounded eviction. [pub 1 | in 3 | out 3] [† dead protected/ambiguous x5]
 - `plex_renamer/app/services/command_gating_service.py` — Queue command gating extracted from widget click handlers. [pub 1 | in 10 | out 4] [⚠ complexity]
-- `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections. [pub 1 | in 5 | out 6] [⚠ complexity | † dead protected/ambiguous x1]
+- `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections. [pub 1 | in 5 | out 5] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/app/services/episode_projection_cache.py` — Cache scan-time TV episode-guide projections for batch UI rendering. [pub 1 | in 1 | out 4] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/app/services/metadata_service.py` — Metadata/artwork export planning (spec: local-metadata-artwork). [pub 7 | in 2 | out 7] [⚠ complexity]
 - `plex_renamer/app/services/movie_library_discovery_service.py` — Recursive movie-library discovery for nested batch scan workflows. [pub 1 | in 1 | out 2]
@@ -52,7 +51,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 
 ## engine
 
-- `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module. [pub 0 | in 43 | out 9]
+- `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module. [pub 0 | in 42 | out 9]
 - `plex_renamer/engine/_batch_orchestrators.py` — Batch orchestration for TV and movie library discovery/scanning. [pub 2 | in 2 | out 16] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/engine/_batch_tv_duplicates.py` — Duplicate-labeling helpers for batch TV discovery. [pub 3 | in 3 | out 1] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_episode_claims.py` — Episode-claim reconciliation for scanned batch TV siblings. [pub 2 | in 1 | out 5] [⚠ complexity]
@@ -75,7 +74,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/engine/_tv_scanner_seasons.py` — Season directory resolution helpers for TVScanner. [pub 2 | in 1 | out 3] [⚠ complexity]
 - `plex_renamer/engine/episode_assignments.py` — First-class file<->episode assignment table for TV scans. [pub 8 | in 9 | out 0] [⚠ complexity | † dead test-referenced x1 | protected/ambiguous x1]
 - `plex_renamer/engine/matching.py` — Title scoring and TMDB match ranking. [pub 7 | in 4 | out 4] [⚠ complexity]
-- `plex_renamer/engine/models.py` — Engine data structures — pure data classes with no scanning logic. [pub 15 | in 25 | out 4] [⚠ complexity]
+- `plex_renamer/engine/models.py` — Engine data structures — pure data classes with no scanning logic. [pub 15 | in 24 | out 4] [⚠ complexity]
 - `plex_renamer/engine/show_details.py` — Provider-neutral show detail payload. [pub 3 | in 2 | out 0] [† dead protected/ambiguous x1]
 
 ## gui_qt

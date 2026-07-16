@@ -45,13 +45,16 @@ def _edge_text(edge: tuple[str, str]) -> str:
     return f"{edge[0]} -> {edge[1]}"
 
 
+def _is_engine_module(module: str) -> bool:
+    return module == "plex_renamer.engine" or module.startswith("plex_renamer.engine.")
+
+
 def _engine_cycle_edges(graph: CycleGraph) -> list[tuple[str, str]]:
-    prefix = "plex_renamer.engine."
     return sorted(
         (source, target)
         for cycle in graph["cycles"]
         for source, target in cycle["edges"]
-        if source.startswith(prefix) and target.startswith(prefix)
+        if _is_engine_module(source) and _is_engine_module(target)
     )
 
 

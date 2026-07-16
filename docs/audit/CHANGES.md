@@ -1,10 +1,9 @@
 # Audit Change Log
 
-<!-- audit:input-digest: d77226aed8492395a1d8bc400d25bbbdf31684600d52003c752e8a5005cdf588 -->
-<!-- audit:baseline-input-digest: a2b61ad2bf53af45b0f8c9aad24f8ac2ed34affaa3c7ae7fd23d8b77f8dcf1ea -->
+<!-- audit:input-digest: cda5954423561fc6e19050180d911b610486c86e346a12b9530e643aee85d8d0 -->
+<!-- audit:baseline-input-digest: d930b91b56d922bbb7eef04447d4d4c5589477e8782f793940709c52e0d7e270 -->
 
-## Audit d77226aed849 vs baseline (a2b61ad2bf53)
+## Audit cda595442356 vs baseline (d930b91b56d9)
 
-- Headline: 178 modules, 38538 LOC, 0 high-confidence dead symbols, 0 cycles
-- Notable movements:
-  - `plex_renamer/engine/_movie_scanner.py`: new dead symbol `explicit_files` (dynamic-or-unresolved, 60%)
+- Headline: 177 modules, 38523 LOC, 0 high-confidence dead symbols, 0 cycles
+- No notable changes since baseline.

@@ -28,6 +28,59 @@ def test_render_human_preserves_cycle_edge_field_compatibility_export() -> None:
     assert _render_human.CYCLE_EDGE_FIELDS is _cycle_edges.CYCLE_EDGE_FIELDS
 
 
+def test_engine_cycle_edges_include_exact_facade_in_both_directions(synthetic_repo: Path) -> None:
+    graph: _cycle_edges.CycleGraph = {
+        "cycles": [
+            {
+                "modules": [
+                    "plex_renamer.engine",
+                    "plex_renamer.engine.leaf",
+                ],
+                "edges": [
+                    ["plex_renamer.engine", "plex_renamer.engine.leaf"],
+                    ["plex_renamer.engine.leaf", "plex_renamer.engine"],
+                ],
+            },
+            {
+                "modules": [
+                    "plex_renamer.engineering",
+                    "plex_renamer.engineering.leaf",
+                ],
+                "edges": [
+                    ["plex_renamer.engineering", "plex_renamer.engineering.leaf"],
+                    ["plex_renamer.engineering.leaf", "plex_renamer.engineering"],
+                ],
+            },
+        ]
+    }
+
+    _write_cycle_classifications(
+        synthetic_repo,
+        """
+[[edges]]
+source = "plex_renamer.engine"
+target = "plex_renamer.engine.leaf"
+owner = "engine-facade"
+purpose = "Export the leaf API."
+disposition = "facade-backedge"
+
+[[edges]]
+source = "plex_renamer.engine.leaf"
+target = "plex_renamer.engine"
+owner = "engine-leaf"
+purpose = "Import the facade API."
+disposition = "facade-backedge"
+""",
+    )
+
+    records = _cycle_edges.load_cycle_edge_classifications(synthetic_repo, graph)
+
+    assert [(record["source"], record["target"]) for record in records] == [
+        ("plex_renamer.engine", "plex_renamer.engine.leaf"),
+        ("plex_renamer.engine.leaf", "plex_renamer.engine"),
+    ]
+
+
 def _write_cycle_classifications(repo: Path, records: str) -> None:
     path = repo / "docs" / "audit" / "engine-cycle-edges.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
