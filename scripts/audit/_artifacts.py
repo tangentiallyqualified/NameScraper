@@ -21,6 +21,7 @@ AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
     "docs/**/*.md",
     "docs/**/*.rst",
     "docs/**/*.txt",
+    "docs/audit/engine-cycle-edges.toml",
     "pyproject.toml",
     "pyrightconfig.json",
     "docs/audit/doc-ledger.toml",

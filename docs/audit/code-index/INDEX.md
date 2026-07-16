@@ -1,4 +1,4 @@
-<!-- Generated from audit input 9993b0fe917f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d77226aed849; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
@@ -62,7 +62,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/engine/_discovery_ports.py` — Structural ports for application-owned library discovery. [pub 4 | in 2 | out 0]
 - `plex_renamer/engine/_episode_projection.py` — Project an EpisodeAssignmentTable into PreviewItem rows. [pub 1 | in 4 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_episode_resolution.py` — Shared episode resolution policy and confidence calibration. [pub 13 | in 4 | out 2] [⚠ complexity]
-- `plex_renamer/engine/_movie_scanner.py` — Movie scanning helpers and scanner implementation. [pub 1 | in 5 | out 8] [⚠ complexity]
+- `plex_renamer/engine/_movie_scanner.py` — Movie scanning helpers and scanner implementation. [pub 1 | in 5 | out 8] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/engine/_mux_planner.py` — Pure mux planning: (probe, companion subs, settings) → MuxPlan. [pub 5 | in 3 | out 2] [⚠ complexity | † dead protected/ambiguous x2]
 - `plex_renamer/engine/_queue_bridge.py` — Helpers for converting scan preview state into persistent queue jobs. [pub 3 | in 2 | out 4] [⚠ complexity]
 - `plex_renamer/engine/_rename_execution.py` — Rename execution helpers shared by the direct-rename and queue flows. [pub 2 | in 3 | out 2] [⚠ complexity | ◌ cov 15%]
@@ -98,10 +98,10 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py` — Status-based proxy model for queue and history tables. [pub 1 | in 1 | out 1] [† dead protected/ambiguous x2]
 - `plex_renamer/gui_qt/models/job_table_model.py` — Table model for queue/history jobs. [pub 2 | in 2 | out 3] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/gui_qt/theme.py` — GUI V4 design tokens — the single source of truth for color and shape. [pub 6 | in 14 | out 0]
-- `plex_renamer/gui_qt/widgets/__init__.py` — Phase 3+ widget modules for the PySide6 shell. [pub 0 | in 0 | out 2]
+- `plex_renamer/gui_qt/widgets/__init__.py` — Phase 3+ widget modules for the PySide6 shell. [pub 0 | in 0 | out 0]
 - `plex_renamer/gui_qt/widgets/_automux_tracks.py` — AutoMux tracks section (spec §8.1/§8.2): embedded-track keep/strip and [pub 1 | in 1 | out 1] [† dead protected/ambiguous x1]
 - `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` — BulkAssignPanel — two-pane files→slots surface for GUI V4 Plan 4 (Bulk Assign). [pub 5 | in 1 | out 3] [⚠ complexity | † dead protected/ambiguous x9]
-- `plex_renamer/gui_qt/widgets/_episode_expansion.py` — EpisodeExpansionCard — persistent-editor detail card for an expanded [pub 2 | in 2 | out 5] [† dead protected/ambiguous x7]
+- `plex_renamer/gui_qt/widgets/_episode_expansion.py` — EpisodeExpansionCard — persistent-editor detail card for an expanded [pub 2 | in 1 | out 5] [† dead protected/ambiguous x7]
 - `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` — Painted episode-table rows: EpisodeTableDelegate + EpisodeTableView (GUI V4 Plan 3). [pub 2 | in 1 | out 3] [⚠ complexity | † dead protected/ambiguous x2]
 - `plex_renamer/gui_qt/widgets/_episode_table_model.py` — Read-model over ScanState + EpisodeGuide for the work-panel episode table (GUI V4 Plan 3). [pub 2 | in 3 | out 7] [⚠ complexity | † dead protected/ambiguous x2]
 - `plex_renamer/gui_qt/widgets/_formatting.py` — Small shared formatting helpers for Qt widgets. [pub 2 | in 4 | out 0]
@@ -142,7 +142,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — Section-building helpers for the settings tab. [pub 1 | in 1 | out 5] [† dead protected/ambiguous x1]
 - `plex_renamer/gui_qt/widgets/_settings_tab_state.py` — State synchronization helpers for the settings tab. [pub 1 | in 1 | out 2]
 - `plex_renamer/gui_qt/widgets/_toast_manager_layout.py` — Layout and overflow helpers for toast notifications. [pub 4 | in 1 | out 0]
-- `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table [pub 1 | in 2 | out 11] [† dead protected/ambiguous x7]
+- `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table [pub 1 | in 1 | out 11] [† dead protected/ambiguous x7]
 - `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — Primitive widgets shared by media workspace roster and preview rows. [pub 5 | in 6 | out 2] [† dead protected/ambiguous x2]
 - `plex_renamer/gui_qt/widgets/busy_overlay.py` — BusyOverlay: translucent scrim + spinner + label over any panel (spec §7). [pub 3 | in 3 | out 2] [† dead protected/ambiguous x2]
 - `plex_renamer/gui_qt/widgets/empty_state.py` — Empty-state widget shown when no folder has been selected. [pub 1 | in 1 | out 2] [† dead protected/ambiguous x3]

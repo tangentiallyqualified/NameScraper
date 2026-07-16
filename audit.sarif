@@ -3742,6 +3742,38 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
+                  "startLine": 109
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "unused property 'explicit_files'"
+          },
+          "properties": {
+            "analyzer": "vulture",
+            "category": "dead-code",
+            "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
+          },
+          "ruleId": "vulture/unused-property",
+          "ruleIndex": 46,
+          "suppressions": [
+            {
+              "justification": "public-api: MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression.",
+              "kind": "external"
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "plex_renamer/engine/_movie_scanner.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
                   "startColumn": 13,
                   "startLine": 291
                 }
@@ -11812,7 +11844,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 218
+                  "startLine": 221
                 }
               }
             }
@@ -11946,35 +11978,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 1,
-                  "startLine": 1
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Import block is un-sorted or un-formatted"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.audit.test_artifacts::unsorted-imports::Import block is un-sorted or un-formatted#1"
-          },
-          "ruleId": "ruff/I001",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/audit/test_artifacts.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 19,
-                  "startLine": 7
+                  "startLine": 6
                 }
               }
             }
@@ -13135,7 +13140,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5
+                  "startLine": 6
                 }
               }
             }
@@ -13162,7 +13167,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 28
+                  "startLine": 29
                 }
               }
             }
@@ -13189,7 +13194,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 28
+                  "startLine": 29
                 }
               }
             }
@@ -13216,7 +13221,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 28
+                  "startLine": 29
                 }
               }
             }
@@ -13243,7 +13248,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 28
+                  "startLine": 29
                 }
               }
             }
@@ -13270,7 +13275,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 81
+                  "startLine": 108
                 }
               }
             }
@@ -13297,7 +13302,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 81
+                  "startLine": 108
                 }
               }
             }
@@ -13324,7 +13329,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 81
+                  "startLine": 108
                 }
               }
             }
@@ -13351,7 +13356,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 81
+                  "startLine": 108
                 }
               }
             }
@@ -13378,7 +13383,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 119
+                  "startLine": 149
                 }
               }
             }
@@ -14284,6 +14289,39 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_alt_title_matching.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 51,
+                  "startLine": 642
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Cannot access attribute \"explicit_files\" for class \"MovieScanStateScanner\" Attribute \"explicit_files\" is unknown"
+          },
+          "properties": {
+            "analyzer": "pyright",
+            "category": "typing",
+            "qualifiedSymbol": "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests.test_multi_movie_folder_scan_uses_only_selected_source_file::reportAttributeAccessIssue::Cannot access attribute \"explicit_files\" for class \"MovieScanStateScanner\" Attribute \"explicit_files\" is unknown#1"
+          },
+          "ruleId": "pyright/reportAttributeAccessIssue",
+          "ruleIndex": 2,
+          "suppressions": [
+            {
+              "justification": "public-api: Runtime concrete MovieScanner exposes explicit_files for inspection, while MovieScanStateScanner intentionally omits it to preserve legacy duck-typed rematch compatibility.",
+              "kind": "external"
+            }
+          ]
         },
         {
           "level": "warning",
@@ -24880,7 +24918,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 669
+                  "startLine": 667
                 }
               }
             }
@@ -24907,7 +24945,7 @@
                 },
                 "region": {
                   "startColumn": 75,
-                  "startLine": 721
+                  "startLine": 719
                 }
               }
             }
@@ -24934,7 +24972,7 @@
                 },
                 "region": {
                   "startColumn": 78,
-                  "startLine": 788
+                  "startLine": 786
                 }
               }
             }
@@ -24961,7 +24999,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 1067
+                  "startLine": 1061
                 }
               }
             }
@@ -24988,7 +25026,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1193
+                  "startLine": 1187
                 }
               }
             }
@@ -25015,7 +25053,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1249
+                  "startLine": 1243
                 }
               }
             }
@@ -25042,7 +25080,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 1301
+                  "startLine": 1295
                 }
               }
             }

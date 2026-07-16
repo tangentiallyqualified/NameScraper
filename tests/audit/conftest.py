@@ -16,7 +16,10 @@ if str(SCRIPTS_DIR) not in sys.path:
 def git(repo: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-c", "user.name=audit-test", "-c", "user.email=audit@test", *args],
-        cwd=repo, capture_output=True, text=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -29,7 +32,8 @@ def synthetic_repo(tmp_path: Path) -> Path:
     pkg = tmp_path / "plex_renamer"
     pkg.mkdir()
     (pkg / "__init__.py").write_text('"""Mini package."""\n', encoding="utf-8")
-    (pkg / "alpha.py").write_text(textwrap.dedent('''\
+    (pkg / "alpha.py").write_text(
+        textwrap.dedent('''\
         """Alpha module: scoring helpers."""
         import json
 
@@ -42,8 +46,11 @@ def synthetic_repo(tmp_path: Path) -> Path:
         def dead_function() -> None:
             """Never called by anything."""
             print("never runs")
-    '''), encoding="utf-8")
-    (pkg / "beta.py").write_text(textwrap.dedent('''\
+    '''),
+        encoding="utf-8",
+    )
+    (pkg / "beta.py").write_text(
+        textwrap.dedent('''\
         """Beta module: consumes alpha."""
         from plex_renamer.alpha import used_function
 
@@ -51,16 +58,21 @@ def synthetic_repo(tmp_path: Path) -> Path:
         def run() -> int:
             """Entry point."""
             return used_function(21)
-    '''), encoding="utf-8")
+    '''),
+        encoding="utf-8",
+    )
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
-    (tests_dir / "test_alpha.py").write_text(textwrap.dedent('''\
+    (tests_dir / "test_alpha.py").write_text(
+        textwrap.dedent("""\
         from plex_renamer.alpha import used_function
 
 
         def test_used_function():
             assert used_function(2) == 4
-    '''), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
     (docs_dir / "guide.md").write_text(
@@ -74,6 +86,9 @@ def synthetic_repo(tmp_path: Path) -> Path:
         "coverage==7.15.0\nradon==6.0.1\nruff==0.15.21\nvulture==2.16\n",
         encoding="utf-8",
     )
+    classifications = tmp_path / "docs" / "audit" / "engine-cycle-edges.toml"
+    classifications.parent.mkdir(parents=True, exist_ok=True)
+    classifications.write_text("version = 1\n\nedges = []\n", encoding="utf-8")
     git(tmp_path, "init")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-m", "initial")

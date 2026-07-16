@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from audit import _render_human
 
 
@@ -53,6 +54,9 @@ def _run_all_stages(repo: Path) -> None:
     )
     _artifacts.write_artifact(repo, "coverage", {"available": False, "modules": {}})
     _metrics.run(repo, None)
+    classification_path = repo / "docs" / "audit" / "engine-cycle-edges.toml"
+    classification_path.parent.mkdir(parents=True, exist_ok=True)
+    classification_path.write_text("version = 1\n\nedges = []\n", encoding="utf-8")
 
 
 def test_overview_contains_mermaid_and_dead_checklist(synthetic_repo: Path):
@@ -75,6 +79,29 @@ def test_rerun_preserves_curated_prose(synthetic_repo: Path):
     overview_path.write_text("CURATED NOTE\n\n" + content, encoding="utf-8")
     _render_human.run(synthetic_repo, None)
     assert overview_path.read_text(encoding="utf-8").startswith("CURATED NOTE")
+
+
+def test_run_fails_when_engine_cycle_classification_file_is_missing(synthetic_repo: Path):
+    _run_all_stages(synthetic_repo)
+    (synthetic_repo / "docs" / "audit" / "engine-cycle-edges.toml").unlink()
+
+    with pytest.raises(ValueError, match="cycle edge classification file is missing"):
+        _render_human.run(synthetic_repo, None)
+
+
+def test_run_renders_explicit_empty_engine_cycle_section(synthetic_repo: Path):
+    engine = synthetic_repo / "plex_renamer" / "engine"
+    engine.mkdir()
+    (engine / "__init__.py").write_text('"""Headless engine."""\n', encoding="utf-8")
+    _run_all_stages(synthetic_repo)
+
+    assert _render_human.run(synthetic_repo, None) == 0
+
+    engine_map = (synthetic_repo / "docs" / "audit" / "maps" / "engine.md").read_text(
+        encoding="utf-8"
+    )
+    assert "### Classified cycle edges" in engine_map
+    assert "No internal cycle edges." in engine_map
 
 
 def test_coverage_digest_flows_through_metrics_to_rendered_provenance(synthetic_repo: Path):
@@ -107,6 +134,9 @@ def test_coverage_digest_flows_through_metrics_to_rendered_provenance(synthetic_
     )
 
     assert _metrics.run(synthetic_repo, None) == 0
+    classification_path = synthetic_repo / "docs" / "audit" / "engine-cycle-edges.toml"
+    classification_path.parent.mkdir(parents=True, exist_ok=True)
+    classification_path.write_text("version = 1\n\nedges = []\n", encoding="utf-8")
     assert _render_human.run(synthetic_repo, None) == 0
 
     overview = (synthetic_repo / "docs" / "audit" / "maps" / "overview.md").read_text(

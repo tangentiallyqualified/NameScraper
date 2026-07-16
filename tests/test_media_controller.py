@@ -26,8 +26,6 @@ from plex_renamer.engine import (
     set_auto_accept_threshold,
 )
 from plex_renamer.job_store import JobStore, RenameJob, RenameOp
-from plex_renamer.engine.models import MovieScanStateScanner
-
 
 # ── Fake TMDB client ─────────────────────────────────────────────────
 
@@ -913,11 +911,7 @@ class OutputPreviewRetargetingTests(ControllerTestCase):
             media_name="Wrong Match",
         )
 
-        class _OutputRematchScanner(MovieScanStateScanner):
-            @property
-            def explicit_files(self):
-                return None
-
+        class _OutputRematchScanner:
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 1, "title": "Wrong Match", "year": "1980"}}
@@ -936,7 +930,7 @@ class OutputPreviewRetargetingTests(ControllerTestCase):
                     media_name=chosen["title"],
                 )
 
-            def get_search_results(self, path):
+            def get_search_results(self, file_path):
                 return [{"id": 42, "title": "Alien", "year": "1979"}]
 
         scanner = _OutputRematchScanner(self.tmp / "Incoming")
@@ -1335,11 +1329,7 @@ class RematchStateTests(ControllerTestCase):
             media_name="Old Match",
         )
 
-        class _RematchScanner(MovieScanStateScanner):
-            @property
-            def explicit_files(self):
-                return None
-
+        class _RematchScanner:
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 1, "title": "Old Match", "year": "2023"}}
@@ -1378,8 +1368,8 @@ class RematchStateTests(ControllerTestCase):
                 new_item.episode_confidence = 1.0
                 return new_item
 
-            def get_search_results(self, path):
-                return list(self._results.get(path, []))
+            def get_search_results(self, file_path):
+                return list(self._results.get(file_path, []))
 
         scanner = _RematchScanner(self.tmp)
         state = ScanState(
@@ -1433,11 +1423,7 @@ class RematchStateTests(ControllerTestCase):
             media_name="Wrong Match",
         )
 
-        class _ConfidenceRematchScanner(MovieScanStateScanner):
-            @property
-            def explicit_files(self):
-                return None
-
+        class _ConfidenceRematchScanner:
             def __init__(self, target_root):
                 self._target_root = target_root
                 self.movie_info = {movie_file: {"id": 7, "title": "Wrong Match", "year": "2019"}}
@@ -1469,8 +1455,8 @@ class RematchStateTests(ControllerTestCase):
                 new_item.episode_confidence = 1.0
                 return new_item
 
-            def get_search_results(self, path):
-                return list(self._results.get(path, []))
+            def get_search_results(self, file_path):
+                return list(self._results.get(file_path, []))
 
         scanner = _ConfidenceRematchScanner(self.tmp)
         state = ScanState(

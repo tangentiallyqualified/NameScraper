@@ -1,4 +1,8 @@
 <!-- audit:generated:start map-engine -->
+### Classified cycle edges
+
+_No internal cycle edges._
+
 ### Entry points (nothing imports these)
 - `plex_renamer/engine/_core.py` — fan-in 0, fan-out 7, LOC 56
 
@@ -15,7 +19,7 @@
 - `plex_renamer/engine/_tv_scanner.py` — fan-in 3, fan-out 11, LOC 325
 - `plex_renamer/engine/episode_assignments.py` — fan-in 9, fan-out 0, LOC 335
 - `plex_renamer/engine/matching.py` — fan-in 4, fan-out 4, LOC 614
-- `plex_renamer/engine/models.py` — fan-in 25, fan-out 4, LOC 434
+- `plex_renamer/engine/models.py` — fan-in 25, fan-out 4, LOC 431
 
 ### Support
 - `plex_renamer/engine/_batch_orchestrators.py` — fan-in 2, fan-out 16, LOC 1037
@@ -30,5 +34,5 @@
 - `plex_renamer/engine/_tv_scanner_seasons.py` — fan-in 1, fan-out 3, LOC 253
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 59
 
-_Generated from audit input 9993b0fe917f by scripts\audit.cmd._
+_Generated from audit input d77226aed849 by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->

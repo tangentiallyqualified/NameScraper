@@ -8,7 +8,8 @@ from PySide6.QtWidgets import QPushButton
 
 from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
-from plex_renamer.gui_qt.widgets import EpisodeExpansionCard, MediaWorkPanel
+from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
 

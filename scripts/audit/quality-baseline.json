@@ -82,7 +82,7 @@
    "loc": 719
   },
   "tests/test_media_controller.py": {
-   "loc": 1959
+   "loc": 1945
   },
   "tests/test_qt_job_detail_panel.py": {
    "loc": 881
@@ -2966,7 +2966,6 @@
     "sha256:840f2c0e58ef95b79cd6a7c52e6382791ec529613d2c1418859ddf6787a1366a#1",
     "sha256:07bd013be7d5713edc702ac908deac85a0375eb32147b04deb5153a63315f4b7#1",
     "sha256:09cd33b75d7246ab42bcb344e619cd262b7bf2a236489977e3fc42c8da576895#1",
-    "sha256:7ae51faa4fba31842173745c9de8346a6f1893886674bb0c6102d6901eaa1775#1",
     "sha256:09ac20427cdf17fafa95640cbeb48f81303a8affc2cb57ea53a61936709b40d1#1",
     "sha256:e7f3999cdc8733ba1edbd350b523389cb7303bf61be0732239f543f912ba8616#1",
     "sha256:6bd71e08ae6b66ac02bba3e1157e1c47d4d78abad3183b374e0ad417e5d0a05f#1",
@@ -2988,11 +2987,7 @@
     "sha256:cbefc7be665365d8128994c55bb2cf03070f00bcca456bb17f26729d6791642b#1",
     "sha256:bd9499f327072810df7bc269c179d9accf8fa8abf78cd508cdf73ae08be00cbd#1",
     "sha256:ca0926c1ca211605d63948bf7501a1d47b46a44a3a4c97049d66f87b1f90c153#1",
-    "sha256:f404240aa4b8ddeeb1842af29531a99c68a3cdf9f98da51b2c05b05dad929cc8#1",
-    "sha256:21680ff0bd133c164b9b34ccfe36a1b47011ee6fa16c5f477226163408fe9563#1",
-    "sha256:d80078927be3f2cdce84a6451d58a5552ff60b4f76bfb37c4b48e0ff5cc3ad49#1",
-    "sha256:64f4c1083d3fb373b7c3df7fa73ca474bc433889468e27a274a177b316990621#1",
-    "sha256:4e43de313686874fb3eb09cf2c2f8c10d05cc4323abd6129d1f1c2813efbec8d#1"
+    "sha256:f404240aa4b8ddeeb1842af29531a99c68a3cdf9f98da51b2c05b05dad929cc8#1"
    ],
    "plex_renamer/app/controllers/_movie_batch_helpers.py": [
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
@@ -11384,11 +11379,7 @@
     "sha256:6b25657f3b18d83d2dad2553fe51ce873cf03846126fdcd01516545d2fa11614#1",
     "sha256:86e168979afa678545f66abb0caa075441e072dfb37e2bfddde1f7c67915463d#1"
    ],
-   "plex_renamer/gui_qt/widgets/__init__.py": [
-    "sha256:00a9f1fcc332c81c0d9c5fafdd1f93acf900596662856a06ec070ff5cb940069#1",
-    "sha256:9bcd5ec785f327ff867913787a9864939a0464a91613341b230db8fe19e13c16#1",
-    "sha256:8ac45a1a29a0ef7df8b130349355ef62583548acabd90820fcec1fec46046556#1"
-   ],
+   "plex_renamer/gui_qt/widgets/__init__.py": [],
    "plex_renamer/gui_qt/widgets/_automux_tracks.py": [
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:37effa9caacd97bad7e2ded872a87a97b8975fca47afea9c20251191e2a288dd#1",
@@ -21844,9 +21835,9 @@
     "statements": 4
    },
    "plex_renamer/app/controllers": {
-    "covered": 1337,
-    "percent": 88.1,
-    "statements": 1517
+    "covered": 1333,
+    "percent": 88.2,
+    "statements": 1512
    },
    "plex_renamer/app/models": {
     "covered": 172,
@@ -21859,8 +21850,8 @@
     "statements": 1766
    },
    "plex_renamer/engine": {
-    "covered": 3426,
-    "percent": 87.4,
+    "covered": 3430,
+    "percent": 87.5,
     "statements": 3922
    },
    "plex_renamer/gui_qt": {
@@ -21875,8 +21866,8 @@
    },
    "plex_renamer/gui_qt/widgets": {
     "covered": 8183,
-    "percent": 88.4,
-    "statements": 9253
+    "percent": 88.5,
+    "statements": 9250
    }
   },
   "scope_id": "e750d408a407f9aee7347d77201a972130733c5d0a9667f8b5717b3e2e0b3f58",
@@ -24516,12 +24507,6 @@
    "path": "tests/audit/test_artifacts.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.audit.test_artifacts::reportAttributeAccessIssue::\"_artifacts\" is unknown import symbol#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_artifacts.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_artifacts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -33038,7 +33023,6 @@
   "scripts/audit/_metrics.py": "sha256:7d5f92780b57114aa85c77eeb4c599e7ce5b59fff3a4f30699cb5621c51bb028",
   "scripts/audit/_toolchain.py": "sha256:b46b9f8522cd55f4e5b0e31bcf4d2f1455c79d1a69d534dcda98b88dfe597fb2",
   "scripts/test_smoke_runner.py": "sha256:0b8fd6dd0238b46222e0c6de8146120d26cd5cf0ea1c2b879540f0b9fbb08af5",
-  "tests/audit/conftest.py": "sha256:8da6cb10bfd36b89ee915f141b90f9e9b870b4a7cc75682995fea37ea551c2d6",
   "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
   "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
   "tests/audit/test_inventory.py": "sha256:e4c7745f72d92185a54cd67dc9cad6883d5ddde8b1e1b412db94be24ce6d69c1",

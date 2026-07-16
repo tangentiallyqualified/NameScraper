@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from audit import _artifacts
 
 
@@ -23,6 +22,7 @@ def _audit_repo(tmp_path: Path) -> Path:
         "tests/audit/test_stage.py": "def test_stage(): pass\n",
         "pyproject.toml": "[tool.audit]\n",
         "docs/audit/doc-ledger.toml": "documents = []\n",
+        "docs/audit/engine-cycle-edges.toml": "version = 1\n\nedges = []\n",
         "docs/audit/maps/overview.md": "generated overview\n",
         "docs/guide.md": "ordinary documentation\n",
         "README.md": "root documentation\n",
@@ -125,6 +125,18 @@ def test_input_digest_changes_when_ordinary_documentation_changes(tmp_path: Path
     first = _artifacts.input_digest(repo)
 
     (repo / "docs/guide.md").write_text("changed documentation\n", encoding="utf-8")
+
+    assert _artifacts.input_digest(repo) != first
+
+
+def test_input_digest_changes_when_engine_cycle_classifications_change(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+
+    (repo / "docs/audit/engine-cycle-edges.toml").write_text(
+        'version = 1\n\n[[edges]]\nsource = "engine.alpha"\n',
+        encoding="utf-8",
+    )
 
     assert _artifacts.input_digest(repo) != first
 

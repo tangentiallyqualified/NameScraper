@@ -47,3 +47,19 @@ path = "plex_renamer/gui_qt/widgets/scan_progress.py"
 symbol = "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
 reason_code = "framework-callback"
 reason = "Qt invokes this QWidget paintEvent override to render the conveyor animation."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-property"
+path = "plex_renamer/engine/_movie_scanner.py"
+symbol = "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
+reason_code = "public-api"
+reason = "MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression."
+
+[[decision]]
+analyzer = "pyright"
+rule = "reportAttributeAccessIssue"
+path = "tests/test_alt_title_matching.py"
+symbol = "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests.test_multi_movie_folder_scan_uses_only_selected_source_file::reportAttributeAccessIssue::Cannot access attribute \"explicit_files\" for class \"MovieScanStateScanner\" Attribute \"explicit_files\" is unknown#1"
+reason_code = "public-api"
+reason = "Runtime concrete MovieScanner exposes explicit_files for inspection, while MovieScanStateScanner intentionally omits it to preserve legacy duck-typed rematch compatibility."

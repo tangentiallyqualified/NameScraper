@@ -197,9 +197,6 @@ class TVScannerOperations(TVScanner, Protocol):
 class MovieScanStateScanner(Protocol):
     """Movie scanner capabilities retained by a shared ``ScanState``."""
 
-    @property
-    def explicit_files(self) -> list[Path] | None: ...
-
     def rematch_file(self, item: PreviewItem, chosen: dict) -> PreviewItem: ...
 
     def get_search_results(self, file_path: Path) -> list[dict]: ...

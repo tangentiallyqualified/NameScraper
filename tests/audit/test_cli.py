@@ -189,7 +189,7 @@ def test_verify_reports_current_generated_output(synthetic_repo: Path, monkeypat
 
 def test_verify_reports_sorted_drift_and_restores_tree(synthetic_repo: Path, monkeypatch, capsys):
     audit_dir = synthetic_repo / "docs" / "audit"
-    audit_dir.mkdir(parents=True)
+    audit_dir.mkdir(parents=True, exist_ok=True)
     original = b"curated bytes\r\n"
     curated = audit_dir / "findings-review.md"
     curated.write_bytes(original)
@@ -213,7 +213,7 @@ def test_verify_reports_sorted_drift_and_restores_tree(synthetic_repo: Path, mon
 
 def test_verify_returns_pipeline_failure_after_restoration(synthetic_repo: Path, monkeypatch):
     audit_dir = synthetic_repo / "docs" / "audit"
-    audit_dir.mkdir(parents=True)
+    audit_dir.mkdir(parents=True, exist_ok=True)
     baseline = audit_dir / "baseline.json"
     baseline.write_bytes(b"original\n")
 
@@ -253,7 +253,7 @@ def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
     seeded = {
         path.relative_to(synthetic_repo).as_posix(): path.read_bytes()
         for path in generated.rglob("*")
-        if path.is_file() and path.name != "doc-ledger.toml"
+        if path.is_file() and path.name not in {"doc-ledger.toml", "engine-cycle-edges.toml"}
     }
     assert seeded
     for relative, content in seeded.items():
@@ -281,7 +281,7 @@ def test_verify_is_byte_stable_when_default_text_newlines_are_windows_style(
     assert {
         path.relative_to(synthetic_repo).as_posix(): path.read_bytes()
         for path in generated.rglob("*")
-        if path.is_file() and path.name != "doc-ledger.toml"
+        if path.is_file() and path.name not in {"doc-ledger.toml", "engine-cycle-edges.toml"}
     } == seeded
 
 

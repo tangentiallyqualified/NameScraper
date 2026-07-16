@@ -150,6 +150,8 @@ def _markdown_cell(value: str) -> str:
 
 def render_classified_cycle_map(classifications: Sequence[CycleEdgeClassification]) -> str:
     """Render deterministic Mermaid and detail rows from TOML classifications."""
+    if not classifications:
+        return "### Classified cycle edges\n\n_No internal cycle edges._"
     lines = ["```mermaid", "graph LR"]
     for record in classifications:
         source = _cycle_node_id(record["source"])

@@ -36,7 +36,7 @@ graph LR
 | Metric | Value |
 |---|---|
 | Modules | 178 |
-| Total LOC | 38556 |
+| Total LOC | 38538 |
 | Statement coverage | 87.9% |
 | Module-average coverage | 88.1% |
 | Import cycles | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 9993b0fe917f | - |
+| matched | coverage.py | d77226aed849 | - |
 
 ## Least-covered modules
 
@@ -241,11 +241,12 @@ _None._
 ### Allowlisted
 
 - [x] `plex_renamer/app/models/state_models.py:27` plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Exported ScanLifecycle compatibility value reserved for cache-refresh progress.)
+- [x] `plex_renamer/engine/_movie_scanner.py:109` plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression.)
 - [x] `plex_renamer/gui_qt/widgets/_episode_expansion.py:137` plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the chip strip.)
 - [x] `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py:103` plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QCheckBox paintEvent override to render the master checkbox.)
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:52` plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the spinner.)
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:89` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:165` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input 9993b0fe917f by scripts\audit.cmd._
+_Generated from audit input d77226aed849 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

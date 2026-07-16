@@ -25,7 +25,7 @@
 - `plex_renamer/app/controllers/_controller_state_helpers.py` — fan-in 2, fan-out 4, LOC 86
 - `plex_renamer/app/controllers/_controller_tv_workflows.py` — fan-in 1, fan-out 6, LOC 110
 - `plex_renamer/app/controllers/_job_projection_helpers.py` — fan-in 1, fan-out 2, LOC 216
-- `plex_renamer/app/controllers/_match_state_helpers.py` — fan-in 1, fan-out 3, LOC 200
+- `plex_renamer/app/controllers/_match_state_helpers.py` — fan-in 1, fan-out 3, LOC 190
 - `plex_renamer/app/controllers/_movie_batch_helpers.py` — fan-in 2, fan-out 4, LOC 198
 - `plex_renamer/app/controllers/_movie_state_helpers.py` — fan-in 2, fan-out 3, LOC 145
 - `plex_renamer/app/controllers/_queue_history_helpers.py` — fan-in 1, fan-out 3, LOC 58
@@ -46,5 +46,5 @@
 - `plex_renamer/app/services/movie_library_discovery_service.py` — fan-in 1, fan-out 2, LOC 124
 - `plex_renamer/app/services/output_destination_service.py` — fan-in 2, fan-out 0, LOC 108
 
-_Generated from audit input 9993b0fe917f by scripts\audit.cmd._
+_Generated from audit input d77226aed849 by scripts\audit.cmd._
 <!-- audit:generated:end map-app -->

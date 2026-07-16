@@ -1,4 +1,4 @@
-<!-- Generated from audit input 9993b0fe917f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d77226aed849; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -76,7 +76,7 @@
 - `load_stylesheet() -> str` — (no docstring)
 
 ### `plex_renamer/gui_qt/widgets/__init__.py` — Phase 3+ widget modules for the PySide6 shell.
-- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_qt_media_workspace_review_actions.py, tests/test_roster_model.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
+- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_roster_model.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
 
 ### `plex_renamer/gui_qt/widgets/_automux_tracks.py` — AutoMux tracks section (spec §8.1/§8.2): embedded-track keep/strip and
 - `AutoMuxTracksWidget` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_automux)
@@ -92,8 +92,8 @@
 
 ### `plex_renamer/gui_qt/widgets/_episode_expansion.py` — EpisodeExpansionCard — persistent-editor detail card for an expanded
 - `episode_row_actions(row) -> list[tuple[str, str]]` — Action ids + labels available for one episode-guide row.
-- `EpisodeExpansionCard` — (no docstring) (used by: plex_renamer.gui_qt.widgets, plex_renamer.gui_qt.widgets._media_workspace_state)
-- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_qt_workspace_widgets.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- `EpisodeExpansionCard` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_state)
+- Tests: tests/test_episode_expansion.py, tests/test_episode_expansion_confidence.py, tests/test_episode_table_delegate.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_workspace_widgets.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` — Painted episode-table rows: EpisodeTableDelegate + EpisodeTableView (GUI V4 Plan 3).
 - `EpisodeTableDelegate` — (no docstring) (used by: plex_renamer.gui_qt.widgets._work_panel)
@@ -330,8 +330,8 @@
 - Tests: tests/test_qt_toasts.py
 
 ### `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table
-- `MediaWorkPanel` — (no docstring) (used by: plex_renamer.gui_qt.widgets, plex_renamer.gui_qt.widgets._media_workspace_ui)
-- Tests: tests/test_qt_async_guide.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- `MediaWorkPanel` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_ui)
+- Tests: tests/test_qt_async_guide.py, tests/test_qt_media_workspace_review_actions.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — Primitive widgets shared by media workspace roster and preview rows.
 - `paint_check_indicator(painter, rect, state) -> None` — Paint the rounded indicator shared by MasterCheckBox and the roster delegate. (used by: plex_renamer.gui_qt.widgets._roster_delegate)

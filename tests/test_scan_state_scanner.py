@@ -1,11 +1,15 @@
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 import pytest
 
+from plex_renamer.app.controllers._match_state_helpers import rematch_movie_scan_state
 from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
 from plex_renamer.app.services.episode_projection_cache import EpisodeProjectionCacheService
-from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState
+from plex_renamer.constants import MediaType
+from plex_renamer.engine import CompletenessReport, MovieScanner, PreviewItem, ScanState
 from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
+from plex_renamer.tmdb import TMDBClient
 
 
 class _StructuralScanner:
@@ -37,6 +41,74 @@ class _StructuralScanner:
             total_matched=len(checked_indices or set[int]()),
             total_missing=[],
         )
+
+
+class _LegacyMovieRematchScanner:
+    def rematch_file(
+        self,
+        item: PreviewItem,
+        chosen: dict[Any, Any],
+    ) -> PreviewItem:
+        return PreviewItem(
+            original=item.original,
+            new_name="Legacy Movie (2024).mkv",
+            target_dir=item.original.parent / "Legacy Movie (2024)",
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type=MediaType.MOVIE,
+            media_id=42,
+            media_name="Legacy Movie",
+        )
+
+    def get_search_results(self, file_path: Path) -> list[dict[Any, Any]]:
+        return [{"id": 42, "title": "Legacy Movie", "year": "2024"}]
+
+
+class _MovieScannerRunner(Protocol):
+    def scan(self) -> list[PreviewItem]: ...
+
+
+def test_movie_scanner_reads_explicit_files_through_its_public_capability() -> None:
+    sample = Path("C:/library/sample.mkv")
+    scanner = MovieScanner(cast(TMDBClient, object()), sample.parent, files=[sample])
+    runner = cast(_MovieScannerRunner, scanner)
+
+    items = runner.scan()
+
+    assert [item.original for item in items] == [sample]
+    assert items[0].status == "SKIP: release sample clip"
+
+
+def test_movie_rematch_accepts_legacy_duck_typed_scanner() -> None:
+    source = Path("C:/library/Legacy.Movie.2024.mkv")
+    preview = PreviewItem(source, "Wrong.mkv", source.parent, None, [], "REVIEW: verify")
+    scanner = _LegacyMovieRematchScanner()
+    state = ScanState(source.parent, {"id": 1, "title": "Wrong"}, scanner, preview_items=[preview])
+
+    def clean_folder_name(value: str) -> str:
+        return value
+
+    def extract_year(_value: str) -> None:
+        return None
+
+    def score_results(
+        *_args: object,
+        **_kwargs: object,
+    ) -> list[tuple[dict[str, object], float]]:
+        return []
+
+    rematch_movie_scan_state(
+        state,
+        {"id": 42, "title": "Legacy Movie", "year": "2024"},
+        movie_preview_items=[preview],
+        movie_scanner=None,
+        clean_folder_name=clean_folder_name,
+        extract_year=extract_year,
+        score_results=score_results,
+    )
+
+    assert state.preview_items[0].new_name == "Legacy Movie (2024).mkv"
 
 
 @pytest.mark.parametrize("marker", ["initial", "replacement"])

@@ -9,7 +9,10 @@ from pathlib import Path, PurePosixPath
 
 GENERATED_ROOT = Path("docs") / "audit"
 GENERATED_FILES = {Path("audit.sarif")}
-POLICY_INPUTS = {GENERATED_ROOT / "doc-ledger.toml"}
+POLICY_INPUTS = {
+    GENERATED_ROOT / "doc-ledger.toml",
+    GENERATED_ROOT / "engine-cycle-edges.toml",
+}
 _REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
 

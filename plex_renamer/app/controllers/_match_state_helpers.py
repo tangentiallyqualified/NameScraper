@@ -130,7 +130,7 @@ def rematch_tv_scan_state(
 
 def rematch_movie_scan_state(
     state: ScanState,
-    new_match: dict,
+    new_match: dict[str, Any],
     *,
     movie_preview_items: list[PreviewItem],
     movie_scanner: Any,
@@ -150,7 +150,6 @@ def rematch_movie_scan_state(
     ):
         raise ValueError("Movie rematch requires an existing preview item and scanner")
 
-    _validate_movie_preview_source(scanner, preview)
     new_item = scanner.rematch_file(preview, new_match)
     raw_name = clean_folder_name(preview.original.stem)
     year_hint = extract_year(preview.original.stem)
@@ -189,12 +188,3 @@ def rematch_movie_scan_state(
             break
 
     return MovieRematchResult(updated_movie_preview_items)
-
-
-def _validate_movie_preview_source(
-    scanner: MovieScanStateScanner,
-    preview: PreviewItem,
-) -> None:
-    explicit_files = scanner.explicit_files
-    if explicit_files is not None and preview.original not in explicit_files:
-        raise ValueError("Movie preview source is not owned by the retained scanner")

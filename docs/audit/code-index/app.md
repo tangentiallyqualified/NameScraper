@@ -1,4 +1,4 @@
-<!-- Generated from audit input 9993b0fe917f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d77226aed849; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -57,6 +57,7 @@
 - `assign_state_season(state, season_num, *, batch_states, batch_orchestrator, movie_library_states, apply_movie_duplicate_labels) -> SeasonAssignmentResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
 - `rematch_tv_scan_state(state, new_match, *, batch_states, batch_orchestrator, tmdb, best_tv_match_title, extract_year, score_tv_results, score_results, pick_alternate_matches) -> TVRematchResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
 - `rematch_movie_scan_state(state, new_match, *, movie_preview_items, movie_scanner, clean_folder_name, extract_year, score_results) -> MovieRematchResult` — (no docstring) (used by: plex_renamer.app.controllers._controller_match_helpers)
+- Tests: tests/test_scan_state_scanner.py
 
 ### `plex_renamer/app/controllers/_movie_batch_helpers.py` — Helpers for movie batch scanning workflows.
 - `start_movie_batch_session(controller, folder, tmdb, scanner_factory) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
@@ -117,7 +118,7 @@
 - Tests: tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py
 
 ### `plex_renamer/app/models/__init__.py` — Typed application-layer models shared across controllers and services.
-- Tests: tests/test_cache_service.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_discovery.py, tests/test_qt_main_window.py, tests/test_qt_workspace_widgets.py, tests/test_refresh_policy_service.py, tests/test_scan_improvements.py
+- Tests: tests/test_cache_service.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion_confidence.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_discovery.py, tests/test_qt_main_window.py, tests/test_qt_workspace_widgets.py, tests/test_refresh_policy_service.py, tests/test_scan_improvements.py
 
 ### `plex_renamer/app/models/state_models.py` — Structured application-layer state models used by Phase 1 services.
 - `utc_now_iso() -> str` — Return the current UTC time as an ISO-8601 string.

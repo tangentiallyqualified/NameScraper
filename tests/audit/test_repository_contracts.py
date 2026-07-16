@@ -58,14 +58,12 @@ def test_engine_does_not_import_application_layer():
 def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles() -> None:
     inventory = _inventory.build_inventory(REPO_ROOT)
     graph = _graph.build_graph(REPO_ROOT, inventory)
-    audit_dir = REPO_ROOT / "scripts" / "audit"
-    contracts = (audit_dir / "contracts.toml").read_text(encoding="utf-8")
-    baseline = (audit_dir / "cycle-baseline.json").read_text(encoding="utf-8")
-
-    findings = _analyze._check_contracts(graph, contracts, baseline)
+    analysis = _analyze.run_analysis(REPO_ROOT, inventory, graph)
 
     blocking_rules = {"new-cycle", "enlarged-cycle", "forbidden-import"}
-    assert [f for f in findings if f["rule"] in blocking_rules] == [], json.dumps(
+    findings = [f for f in analysis["findings"] if f["rule"] in blocking_rules]
+    assert analysis["tool_status"]["contracts"] == {"ok": True, "reason": None}
+    assert findings == [], json.dumps(
         findings,
         indent=2,
     )
@@ -132,3 +130,10 @@ def test_settings_page_composer_has_one_way_dependencies() -> None:
         [_SETTINGS_SECTIONS, _SETTINGS_METADATA_PAGE],
         [_SETTINGS_SECTIONS, _SETTINGS_PAGE_COMPONENTS],
     ]
+
+
+def test_widgets_package_is_an_inert_namespace() -> None:
+    inventory = _inventory.build_inventory(REPO_ROOT)
+    graph = _graph.build_graph(REPO_ROOT, inventory)
+
+    assert graph["modules"]["plex_renamer.gui_qt.widgets"]["imports"] == []

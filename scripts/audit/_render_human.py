@@ -393,8 +393,8 @@ def _render_package_map(
         else:
             support.append(line)
     sections = _package_sections(entry, core, support)
-    if package == "engine" and cycle_classifications:
-        sections.insert(0, render_classified_cycle_map(cycle_classifications))
+    if package == "engine":
+        sections.insert(0, render_classified_cycle_map(cycle_classifications or ()))
     body = "\n\n".join(sections) if sections else "_No modules._"
     digest = metrics.get("input_digest") or "unknown"
     return body + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
@@ -425,13 +425,8 @@ def run(repo_root: Path, options) -> int:
     if not isinstance(raw_review_findings, list) or not isinstance(modules, dict):
         raise ValueError("audit render artifacts have unsupported schemas")
     review_findings = cast(list[dict], raw_review_findings)
-    classification_path = repo_root / CYCLE_EDGE_CLASSIFICATIONS
     cycle_graph = cast(_cycle_edges.CycleGraph, graph)
-    cycle_classifications = (
-        load_cycle_edge_classifications(repo_root, cycle_graph)
-        if classification_path.exists()
-        else []
-    )
+    cycle_classifications = load_cycle_edge_classifications(repo_root, cycle_graph)
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 
