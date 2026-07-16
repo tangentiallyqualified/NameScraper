@@ -59,3 +59,41 @@ The commit includes the production, audit-policy, tests, supported
 `scripts/audit/cycle-baseline.json`, `audit.sarif`, and generated `docs/audit`
 files. Those generated files were refreshed and verified only as working-tree
 evidence and remain unstaged as required.
+
+## Important-review follow-up
+
+The four Important findings were repaired in a single TDD follow-up:
+
+- Replaced the open-ended episode projection tuple with exact nested aliases
+  for previews, companions, completeness, scanner metadata, season names, and
+  the top-level cache signature. A narrow projection-media protocol removes
+  the last strict-Pyright unknown at the legacy `ScanState.media_info` boundary.
+- Replaced cycle-edge `Mapping[str, object]`/`dict[str, object]` casts with a
+  `CycleGraph` schema, recursive TOML value types, and explicit non-empty string
+  narrowing. Malformed record errors and exact graph-coverage validation remain
+  unchanged. `_render_human.CYCLE_EDGE_FIELDS` is again a compatibility export.
+- Coverage evidence now identifies itself as `full-coverage`, records the
+  `complete-test-discovery-v1` method, and prints `Full coverage test suite` for
+  coverage runs. The validator expects that identity and describes the
+  complete coverage suite. Ordinary non-coverage runs retain the `Fast test
+  suite` label. Unexpected test exclusions now force partial evidence.
+
+### Follow-up evidence
+
+- RED: focused pytest stopped during collection because the new structured
+  projection aliases did not exist. Strict Pyright then reported eight unknown
+  media-info diagnostics, followed by one boundary diagnostic after the first
+  narrowing attempt.
+- GREEN: strict Pyright on the projection-cache and cycle-edge modules reported
+  0 errors, 0 warnings; the expanded focused suite passed 157 tests, and the
+  final post-ratchet slice passed 38 tests.
+- Ruff formatting and lint passed for all 13 follow-up source/test files.
+- Fresh complete-suite coverage passed 2,305 tests: 2,292 passed and 13 skipped.
+  Its sidecar records `full_suite=true`, `partial=false`, `failed=false`, no
+  pytest filters, and only `tests/conftest_qt.py` (a fixture module) excluded.
+- The pre-refresh gate reported 0 new/enlarged debt and 3 stale improvements.
+  The supported refresh recorded 1,837 findings, 37 ceilings, and 354 legacy
+  Python files. The final gate reported `baseline current; no new or enlarged
+  debt`.
+- Audit generation reported 178 modules, 0 cycles, and 1,843 normalized
+  findings. `scripts\\audit.ps1 --verify` reported generated output current.

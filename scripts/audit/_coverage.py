@@ -20,10 +20,7 @@ class CoverageEvidenceError(RuntimeError):
 
 def _diagnostic_context(value: object) -> str:
     """Return bounded, single-line, console-safe subprocess context."""
-    if isinstance(value, bytes):
-        text = value.decode("utf-8", errors="replace")
-    else:
-        text = str(value or "")
+    text = value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value or "")
     text = " ".join(text.split())
     return _artifacts.ascii_safe(text)[:_DIAGNOSTIC_LIMIT]
 
@@ -113,7 +110,7 @@ def _canonical_scope_id(scope: dict) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def _expected_fast_scope(repo_root: Path) -> dict:
+def _expected_full_coverage_scope(repo_root: Path) -> dict:
     from scripts import test_fast_runner
 
     qt_tests = test_fast_runner._discover_qt_tests(repo_root)
@@ -128,16 +125,16 @@ def _expected_fast_scope(repo_root: Path) -> dict:
 def _validate_full_suite_scope(repo_root: Path, evidence: dict) -> None:
     scope = evidence.get("scope")
     scope_id = evidence.get("scope_id")
-    if evidence.get("suite") != "fast":
-        raise CoverageEvidenceError("coverage-scope-incomplete: expected suite 'fast'")
+    if evidence.get("suite") != "full-coverage":
+        raise CoverageEvidenceError("coverage-scope-incomplete: expected suite 'full-coverage'")
     if not isinstance(scope, dict):
         raise CoverageEvidenceError("coverage-scope-incomplete: scope object missing")
     if not isinstance(scope_id, str) or scope_id != _canonical_scope_id(scope):
         raise CoverageEvidenceError("coverage-scope-incomplete: scope_id mismatch")
-    expected = _expected_fast_scope(repo_root)
+    expected = _expected_full_coverage_scope(repo_root)
     if scope != expected:
         raise CoverageEvidenceError(
-            "coverage-scope-incomplete: scope does not match the unfiltered fast suite"
+            "coverage-scope-incomplete: scope does not match the complete coverage suite"
         )
 
 

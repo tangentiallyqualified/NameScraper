@@ -4,12 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.audit import _cycle_edges
+from scripts.audit import _cycle_edges, _render_human
 
 
-def _engine_cycle_graph() -> dict[str, object]:
+def _engine_cycle_graph() -> _cycle_edges.CycleGraph:
     return {
-        "modules": {},
         "cycles": [
             {
                 "modules": [
@@ -23,6 +22,10 @@ def _engine_cycle_graph() -> dict[str, object]:
             }
         ],
     }
+
+
+def test_render_human_preserves_cycle_edge_field_compatibility_export() -> None:
+    assert _render_human.CYCLE_EDGE_FIELDS is _cycle_edges.CYCLE_EDGE_FIELDS
 
 
 def _write_cycle_classifications(repo: Path, records: str) -> None:
@@ -65,6 +68,7 @@ disposition = "algorithm-call"
     ("field_line", "message"),
     [
         ('owner = ""', "owner must be a non-empty string"),
+        ("owner = 7", "owner must be a non-empty string"),
         ('purpose = ""', "purpose must be a non-empty string"),
         ('disposition = "unknown"', "unsupported disposition"),
     ],

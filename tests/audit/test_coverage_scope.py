@@ -82,7 +82,7 @@ def _make_coverage(repo: Path, *, include_source: bool = True) -> None:
                 "input_digest": _artifacts.input_digest(repo),
                 "collected_at": "2026-07-12T00:00:00+00:00",
                 "full_suite": True,
-                "suite": "fast",
+                "suite": "full-coverage",
                 "scope_id": _scope_id(scope),
                 "scope": scope,
             }

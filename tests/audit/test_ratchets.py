@@ -29,7 +29,7 @@ def _finding(
 def _coverage_evidence() -> dict:
     return {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {"plex_renamer/a.py": {"executable_lines": []}},

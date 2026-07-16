@@ -4,14 +4,67 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import cast
+from typing import Protocol, TypeAlias, cast
 
 from ...engine import ScanState
 from ...engine.models import TVScanStateScanner
 from ..models import EpisodeGuide
 from .episode_mapping_service import EpisodeMappingService
 
-EpisodeProjectionSignature = tuple[object, ...]
+EpisodeDetailSignature: TypeAlias = tuple[int, str]
+CompanionProjectionSignature: TypeAlias = tuple[str, str, str]
+PreviewProjectionSignature: TypeAlias = tuple[
+    str,
+    str | None,
+    str,
+    int | None,
+    tuple[int, ...],
+    str,
+    float,
+    tuple[CompanionProjectionSignature, ...],
+]
+SeasonProjectionSignature: TypeAlias = tuple[
+    int,
+    int,
+    int,
+    tuple[EpisodeDetailSignature, ...],
+    tuple[EpisodeDetailSignature, ...],
+]
+SpecialsProjectionSignature: TypeAlias = tuple[
+    int,
+    int,
+    tuple[EpisodeDetailSignature, ...],
+    tuple[EpisodeDetailSignature, ...],
+]
+MissingEpisodeSignature: TypeAlias = tuple[int, int, str]
+CompletenessProjectionSignature: TypeAlias = tuple[
+    tuple[SeasonProjectionSignature, ...],
+    SpecialsProjectionSignature | None,
+    int,
+    int,
+    tuple[MissingEpisodeSignature, ...],
+]
+ScannerMetadataValueSignature: TypeAlias = tuple[str, str]
+ScannerMetadataEntrySignature: TypeAlias = tuple[
+    tuple[int, int], tuple[ScannerMetadataValueSignature, ...]
+]
+ScannerMetadataSignature: TypeAlias = tuple[ScannerMetadataEntrySignature, ...]
+SeasonNameSignature: TypeAlias = tuple[int, str]
+EpisodeProjectionSignature: TypeAlias = tuple[
+    int | None,
+    str,
+    str,
+    str,
+    tuple[SeasonNameSignature, ...],
+    tuple[PreviewProjectionSignature, ...],
+    CompletenessProjectionSignature | None,
+    ScannerMetadataSignature,
+    tuple[CompanionProjectionSignature, ...],
+]
+
+
+class _ProjectionMediaState(Protocol):
+    media_info: dict[str, str | int | None]
 
 
 @dataclass(slots=True)
@@ -87,7 +140,8 @@ class EpisodeProjectionCacheService:
         self._cache.clear()
 
     def signature_for_state(self, state: ScanState) -> EpisodeProjectionSignature:
-        preview_signature = tuple(
+        media_info = cast(_ProjectionMediaState, state).media_info
+        preview_signature: tuple[PreviewProjectionSignature, ...] = tuple(
             (
                 str(preview.original),
                 preview.new_name,
@@ -104,7 +158,7 @@ class EpisodeProjectionCacheService:
             for preview in state.preview_items
         )
         completeness = state.completeness
-        completeness_signature = None
+        completeness_signature: CompletenessProjectionSignature | None = None
         if completeness is not None:
             completeness_signature = (
                 tuple(
@@ -129,7 +183,7 @@ class EpisodeProjectionCacheService:
                 completeness.total_matched,
                 tuple(completeness.total_missing),
             )
-        scanner_meta = ()
+        scanner_meta: ScannerMetadataSignature = ()
         if state.scanner is not None:
             scanner = cast(TVScanStateScanner, state.scanner)
             scanner_meta = tuple(
@@ -139,14 +193,14 @@ class EpisodeProjectionCacheService:
                 )
                 for key, meta in sorted(scanner.episode_meta.items())
             )
-        orphan_signature = tuple(
+        orphan_signature: tuple[CompanionProjectionSignature, ...] = tuple(
             (str(companion.original), companion.new_name, companion.file_type)
             for companion in state.orphan_companion_files
         )
         return (
             state.show_id,
-            state.media_info.get("name") or state.media_info.get("title") or "",
-            state.media_info.get("year") or "",
+            str(media_info.get("name") or media_info.get("title") or ""),
+            str(media_info.get("year") or ""),
             state.active_episode_source,
             tuple(sorted(state.season_names.items())),
             preview_signature,

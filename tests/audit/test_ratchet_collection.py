@@ -42,7 +42,7 @@ def _coverage_evidence(
     lines = fingerprints or [(f"line-{number}", number < covered) for number in range(statements)]
     return {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {
@@ -73,7 +73,7 @@ def test_changed_line_threshold_is_authoritative_policy() -> None:
 def test_coverage_baseline_schema_strips_line_results_and_records_provenance() -> None:
     current = {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {
@@ -99,7 +99,7 @@ def test_coverage_baseline_schema_strips_line_results_and_records_provenance() -
         "full_suite": True,
         "package_floors": current["package_floors"],
         "scope_id": "b" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
     }
 
 

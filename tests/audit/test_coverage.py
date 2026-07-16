@@ -41,7 +41,7 @@ def _make_coverage_data(repo: Path, repo_git, *, include_source: bool = True) ->
                 "input_digest": _artifacts.input_digest(repo),
                 "collected_at": "2026-07-12T00:00:00+00:00",
                 "full_suite": True,
-                "suite": "fast",
+                "suite": "full-coverage",
                 "scope_id": test_fast_runner._scope_id(scope),
                 "scope": scope,
             }

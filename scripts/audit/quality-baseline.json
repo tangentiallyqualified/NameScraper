@@ -433,7 +433,7 @@
   },
   "scripts/test_fast_runner.py": {
    "scripts.test_fast_runner._imports_qt_support": 16,
-   "scripts.test_fast_runner._write_coverage_sidecar": 12,
+   "scripts.test_fast_runner._write_coverage_sidecar": 11,
    "scripts.test_fast_runner.main": 23
   },
   "scripts/test_smoke_runner.py": {
@@ -5052,12 +5052,25 @@
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:0a899062fa3ae6701748a7bdc9c5ad91410ae5a1d4892b21d96b13486218217b#1",
     "sha256:9e63ee62217c139d62ff0aa136c668cdcd631edd06b7f3dcadfdf769e2eb1faa#1",
-    "sha256:0b56e134afc827920ccf1f5848c9b156f223a1854f7c358bbd6c6ecf929e3073#1",
+    "sha256:77b89fdd1e6a11c42e3ca5eacbb31bdf330e8cc32c9c15934915a32203dfe689#1",
     "sha256:5b78e113b1423755fffa15bf5d2f7e7f6dab99fc99e4a215bf84634f0c75b8da#1",
     "sha256:7297e3667e76260c02f7252b0e709ccb2ff5b83f4a98d589ce18db7e4e647103#1",
     "sha256:9f4d9b024a41cdb271f0550b497a5b68272cd225eab2faf28c25db00e89b7107#1",
     "sha256:3ef575af2fa6333decaac22b3eedcb8ff4f049ef7c089f1e716a457fae463a50#1",
-    "sha256:d0a055bedbe7f9be793d1c0b903e24dbe53928817aa2090223760b367508e5b3#1",
+    "sha256:560e46d9e76f94c27d04955de02d463025c02821ba78242c314e155b26aec2e9#1",
+    "sha256:fa3a1b32c6e8906fa32d28fefe1e0f6c03905569a80946fea8072aeabb678b54#1",
+    "sha256:fe2ed30d9362e08f47b0a188a454f9f71a458ca4cd4cd3d421cf5c20d62a4850#1",
+    "sha256:62c2023388261e1bddf3cb234ff8b008c5806b5beb93142d9acbeaf228ef0ee1#1",
+    "sha256:76acbfd1d696136486eb5d818976dd210c75117d61a05746776bc4c6c374c295#1",
+    "sha256:1f537e875a560a0ae40de4b59f81cef5e184747c1f0338d26ed3849607cf70f6#1",
+    "sha256:9ee6096d09e4d721ef84cc724f2657c44c6d2fa0c4f1d6b8d857dfd598efccd7#1",
+    "sha256:9ce864736e81054983b0c775a565a190db656ca8dabaa5ab89d17a5764a7ef12#1",
+    "sha256:f7af4e9f04877f67ce6ca4d5d3a80354985223d8ebdf7184dc04aa652eb2807e#1",
+    "sha256:c46d7b809945746da391f0d9ca2d93f31967cd7b6cf3c308ca083bc94717a46d#1",
+    "sha256:8770b0fa0b5fa25acc3e55fdb7a54b23e95521c89ba60aec95a68d4204ca304e#1",
+    "sha256:e08507450f8dd6f704add5d54b0dcb5d89c0fcaa4bdc5f482f2ca989c99b366a#1",
+    "sha256:87c2dfde153894ed6f17e4ae2e7e9cbc079465bf75b22d2fa6ed734b450e9c50#1",
+    "sha256:08be4cec0ad9332adbcb220231a54b2907f3e4b742ab1cfbaa03438dc0095221#1",
     "sha256:165a85c21784bb4df22d6e12240e07165b87c4937542b0cc6f6c03567367282a#1",
     "sha256:5fb619de909c3c5193658f9f0ae9ed0c8da7b24641b1fdff62c8762213390114#1",
     "sha256:dd07f9e1d95c35d0e8c8bacf227d13799c2332ffc9615f9fa86f6b0e8df3f128#1",
@@ -5103,16 +5116,17 @@
     "sha256:ad5239a835827ab370ee3c9a00f216c21bff416c00fcf9a04af2c81277153b83#1",
     "sha256:baede5990746b263895d247002944ba827336d5a50be2ff43f39ead2478019b1#1",
     "sha256:0f702ce2ab672df0a5ab8cb295c05bb3b59558a972317a13ff3e5b13dcd58f92#1",
-    "sha256:32cdbdfb00faf555b4fd2c57b5b4ea670ad604b78f6d437eb1ab0f2c73b38572#1",
+    "sha256:796c44a3f55d685a1096051f258a862d25e1ad832ba62893bc4802a767974701#1",
+    "sha256:6e4ce462e50367b1a4e1eff746136a67d19fffeef101551a2ed0f1e8b00eac3b#1",
     "sha256:c8a530642b2d4245e9a4af6bbc5b68b473afe30cb466cbed8d6cea768096e036#1",
-    "sha256:9a2bdbaff0b1fc55c4549668af6ee84e54fd117d27766e237af4cd6fcec64806#1",
+    "sha256:ecfde57da5bbf527967c49f5902d0846695df2cff8fdf93e523528ed8c4e70f0#1",
     "sha256:8bf52f9120069e7d7e65366ac089359c77490d9101358afa8e24d04c01eb472a#1",
     "sha256:84a7b3079a4d42533d1666da85977b105ede8397723a54321d38b93dda3d8de5#1",
-    "sha256:21c191f6033e75984e3f57603430f242bebc251c272617d25df1e0a1cf38ffcd#1",
+    "sha256:cfd5dda5a072f9df7b476c7fa4e1a28a087b34656c6e2c613ba919bc1d791092#1",
     "sha256:04cdc22112645fb6647261ed555f1ffe1e236e08ad8f3995b5c1615319d32795#1",
     "sha256:276408976c730fe6fade107e31f4775b7440c4da04e7c563645b76e7db43a704#1",
     "sha256:255ef3374aab20f6b152dd0aee0c6dd7d35ffbff6f6e733fc3ec35e68a00b903#1",
-    "sha256:97c3e29ad4d53de0843c076eb21a2cce28f8a14718c424ffeb6de56609fff6c2#1",
+    "sha256:854a564b228854bdb628c97d3372dd0f5446b303f3a01b4c453d8a4a85654faa#1",
     "sha256:c02618aaf9b5952481451ddda6dcaef21129e76e99cda2ff0b753858043baed1#1",
     "sha256:34ab06c9ef9a4aa87e9dee0212ab1e8bc9c1cedc6328cf3df47a564a32183d27#1",
     "sha256:2b5a6caebb2e24e4285c1d4bb5faabea0c50fba090eb54b606605b0633353895#1",
@@ -21840,9 +21854,9 @@
     "statements": 175
    },
    "plex_renamer/app/services": {
-    "covered": 1620,
+    "covered": 1634,
     "percent": 92.5,
-    "statements": 1752
+    "statements": 1766
    },
    "plex_renamer/engine": {
     "covered": 3426,
@@ -21865,8 +21879,8 @@
     "statements": 9253
    }
   },
-  "scope_id": "4d1d1c15051423c3c7e480c7a6b24aef9c12ee2da51c924c535482df6f799ea2",
-  "suite": "fast"
+  "scope_id": "e750d408a407f9aee7347d77201a972130733c5d0a9667f8b5717b3e2e0b3f58",
+  "suite": "full-coverage"
  },
  "findings": [
   {
@@ -24406,12 +24420,6 @@
    "path": "scripts/audit/__main__.py",
    "rule": "reportCallIssue",
    "symbol": "scripts.audit.__main__._run_pipeline::reportCallIssue::Object of type \"object\" is not callable Attribute \"__call__\" is unknown#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "scripts/audit/_coverage.py",
-   "rule": "SIM108",
-   "symbol": "scripts.audit._coverage._diagnostic_context::if-else-block-instead-of-if-exp::Use ternary operator `text = value.decode(\"utf-8\", errors=\"replace\") if isinstance(value, bytes) else str(value or \"\")` instead of `if`-`else`-block#1"
   },
   {
    "analyzer": "pyright",
@@ -33066,7 +33074,6 @@
   "tests/test_episode_expansion.py": "sha256:2ec6388ff9ce06bb43749c8514c30f953d6640a15b1b61f46bcd9c488ad31968",
   "tests/test_episode_mapping_projection.py": "sha256:d737090f126faf60fde6ac5f9fd3787906ec8268da4b4baed405df79b7b03640",
   "tests/test_episode_projection.py": "sha256:bc40e83cf35d6c85cac0cadf7b008ab7a0992bcdcf2f753def837d98e6b335ac",
-  "tests/test_episode_projection_cache.py": "sha256:47a443a918c6a04929f5fa7747fd0ada704cd19ca8664e1cdf7e1059a21c20d2",
   "tests/test_episode_resolution.py": "sha256:12ef8400159645cfc2fda3a73c6823a0848db9f97329604265ba6febc36e43f6",
   "tests/test_episode_table_delegate.py": "sha256:9bb910352f1ad915b71af63d29593d3f5e0827067203c97d874d0861e1370b1b",
   "tests/test_episode_table_model.py": "sha256:c5e8185aa641fd4d2b837e906e9bf098af9a0320eab4ab4c32de27cfb6153c81",

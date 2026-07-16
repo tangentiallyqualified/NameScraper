@@ -10,6 +10,7 @@ from typing import cast
 from . import _artifacts, _cycle_edges
 
 CYCLE_EDGE_CLASSIFICATIONS = _cycle_edges.CYCLE_EDGE_CLASSIFICATIONS
+CYCLE_EDGE_FIELDS = _cycle_edges.CYCLE_EDGE_FIELDS
 CYCLE_EDGE_DISPOSITIONS = _cycle_edges.CYCLE_EDGE_DISPOSITIONS
 _engine_cycle_edges = _cycle_edges._engine_cycle_edges
 load_cycle_edge_classifications = _cycle_edges.load_cycle_edge_classifications
@@ -425,8 +426,11 @@ def run(repo_root: Path, options) -> int:
         raise ValueError("audit render artifacts have unsupported schemas")
     review_findings = cast(list[dict], raw_review_findings)
     classification_path = repo_root / CYCLE_EDGE_CLASSIFICATIONS
+    cycle_graph = cast(_cycle_edges.CycleGraph, graph)
     cycle_classifications = (
-        load_cycle_edge_classifications(repo_root, graph) if classification_path.exists() else []
+        load_cycle_edge_classifications(repo_root, cycle_graph)
+        if classification_path.exists()
+        else []
     )
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)

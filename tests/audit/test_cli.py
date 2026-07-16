@@ -13,7 +13,7 @@ def test_quality_check_returns_zero_for_stale_baseline_only(
 ) -> None:
     coverage = {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {"plex_renamer/a.py": {"executable_lines": []}},
@@ -32,7 +32,7 @@ def test_quality_check_returns_zero_for_stale_baseline_only(
             "full_suite": True,
             "package_floors": {},
             "scope_id": "b" * 64,
-            "suite": "fast",
+            "suite": "full-coverage",
         },
     }
     path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
