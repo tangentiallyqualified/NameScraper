@@ -52,13 +52,13 @@
    "loc": 580
   },
   "scripts/audit/_ratchets.py": {
-   "loc": 555
+   "loc": 507
   },
   "tests/audit/test_coverage.py": {
    "loc": 545
   },
   "tests/test_alt_title_matching.py": {
-   "loc": 859
+   "loc": 619
   },
   "tests/test_bulk_assign_panel.py": {
    "loc": 675
@@ -3261,7 +3261,7 @@
     "sha256:4b82753174ff426a343dab735a024c7f4ac0c239f06793e7a82bbefda02ef810#1",
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#2",
     "sha256:18367545d6919f98a335094b3ffa55072ab385c3ed7478524eb1ea47f3922709#1",
-    "sha256:cfdc2943267dc06033a1f228c9274f1a84ceb2516617a598b393ec45ba4315a5#1",
+    "sha256:d3352c48946c866539138de84e2ccb3f693ccc69ad44915a5bd6030be2a846ce#1",
     "sha256:1a0fe0851e36a3ebd0a87e3c936c951550775ad66067b20af873ac6f40201627#1",
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#3",
     "sha256:028a480ea07b317a4d063fc1c1234ef4238b21da674f83095d45f11189efc140#1",
@@ -3297,6 +3297,7 @@
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#7",
     "sha256:2e64617a2b81f2931a77c1afdbeadd3bb646e4ad5930cb3ecdf7e4e962a6a03f#1",
     "sha256:d0ae33c8fbf0f936cbddd8e6cc45a95efe1334411f03c4729df7d83807889198#1",
+    "sha256:c78c19b0a08f68a36e7462e58b87fc124139620e031261dea738de20059fd773#1",
     "sha256:28587f4c4c8d09a4ee27121d540d5f4f0b4c3c3b45bb09566d6d276212096889#2",
     "sha256:5d2b2f279d9b7c547334732e2b0c524f550b794520d9c889710afb60ce7786ec#1",
     "sha256:84d761e44d8af024522790a08b1136d2351261d6d6e3bd51699a0c8316ccd3e5#2",
@@ -3503,7 +3504,7 @@
     "sha256:0e456a71d9a130c566790947f5549b8db74d55d884b75ac6ca23766883dfcec0#1",
     "sha256:df5758f9f36cfb4484c0f64a6caa5f70ed328c178221fb5e7a70b17d00edc9fe#1",
     "sha256:0c368ab2843514830611959eddfd2f57984d1e12a40c4bd7387c190d1d688d40#1",
-    "sha256:1755841eed6fac5dbdbe430d261e1c609ecc010c80cb6d46ba3b9b354ecebe82#1",
+    "sha256:aee59a5aeea308a6b86c1fd59186b9dc102e4a6356ca757491cbee8ba212587e#1",
     "sha256:1eac81c03d1829d2a614278f04931aa65e72f846ac49925036cae067ce1fc6fe#1",
     "sha256:a20ddc778fc6a86c60cf3e147cde3107d41feed097a10994b8516d5826c98958#1",
     "sha256:b57b484f9f7e8b9f1006b9c22e565f90ba9d1eb29a97fb75800b3f071ce3c157#1",
@@ -3635,7 +3636,7 @@
     "sha256:a3449d2ca199d921e45f2d38612ae7a3c9550f44c8a76081af79be6366013cec#1",
     "sha256:374ec7cd1eee0e0946d28c24ccacdceea7137c11c2a4b69705394783cdacba39#1",
     "sha256:74a24e5c5b9951ccacc462034795276918050a54b5ee87ff38309c7eb11bb954#1",
-    "sha256:964b76d31701b7dc858e7114ce5d0621220be64971191d7d3c9e995c2ba6b8ea#1",
+    "sha256:0de8cfde3b6250d773d83ea85b50dbd4b9e12972bec85ea5229873356d9fa630#1",
     "sha256:86d3d366d3aa13420600c75451c4d542e00c3d207e1142f1b9707147c16e230d#1",
     "sha256:d2abfcecf10dd27a6bfd1dd2ebec0a20c1b6f832ff1412d31f34ee5fab5ad82e#1",
     "sha256:0b7262ce51744069c95c1dae3692125077d4f84d9b3e805d8de03f9edac91283#1",
@@ -5040,7 +5041,7 @@
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:0a899062fa3ae6701748a7bdc9c5ad91410ae5a1d4892b21d96b13486218217b#1",
     "sha256:9e63ee62217c139d62ff0aa136c668cdcd631edd06b7f3dcadfdf769e2eb1faa#1",
-    "sha256:77b89fdd1e6a11c42e3ca5eacbb31bdf330e8cc32c9c15934915a32203dfe689#1",
+    "sha256:fe81204a9af84685e9ea1be562fb502e28954fdcefff2fe6fe0420d3d68f9a47#1",
     "sha256:5b78e113b1423755fffa15bf5d2f7e7f6dab99fc99e4a215bf84634f0c75b8da#1",
     "sha256:7297e3667e76260c02f7252b0e709ccb2ff5b83f4a98d589ce18db7e4e647103#1",
     "sha256:9f4d9b024a41cdb271f0550b497a5b68272cd225eab2faf28c25db00e89b7107#1",
@@ -5057,8 +5058,6 @@
     "sha256:c46d7b809945746da391f0d9ca2d93f31967cd7b6cf3c308ca083bc94717a46d#1",
     "sha256:8770b0fa0b5fa25acc3e55fdb7a54b23e95521c89ba60aec95a68d4204ca304e#1",
     "sha256:e08507450f8dd6f704add5d54b0dcb5d89c0fcaa4bdc5f482f2ca989c99b366a#1",
-    "sha256:87c2dfde153894ed6f17e4ae2e7e9cbc079465bf75b22d2fa6ed734b450e9c50#1",
-    "sha256:08be4cec0ad9332adbcb220231a54b2907f3e4b742ab1cfbaa03438dc0095221#1",
     "sha256:165a85c21784bb4df22d6e12240e07165b87c4937542b0cc6f6c03567367282a#1",
     "sha256:5fb619de909c3c5193658f9f0ae9ed0c8da7b24641b1fdff62c8762213390114#1",
     "sha256:dd07f9e1d95c35d0e8c8bacf227d13799c2332ffc9615f9fa86f6b0e8df3f128#1",
@@ -5104,7 +5103,7 @@
     "sha256:ad5239a835827ab370ee3c9a00f216c21bff416c00fcf9a04af2c81277153b83#1",
     "sha256:baede5990746b263895d247002944ba827336d5a50be2ff43f39ead2478019b1#1",
     "sha256:0f702ce2ab672df0a5ab8cb295c05bb3b59558a972317a13ff3e5b13dcd58f92#1",
-    "sha256:796c44a3f55d685a1096051f258a862d25e1ad832ba62893bc4802a767974701#1",
+    "sha256:074d9ce281415763c628f68ad2c5e50529cbb0f3cec6d930eff6ba25e8bab61a#1",
     "sha256:6e4ce462e50367b1a4e1eff746136a67d19fffeef101551a2ed0f1e8b00eac3b#1",
     "sha256:c8a530642b2d4245e9a4af6bbc5b68b473afe30cb466cbed8d6cea768096e036#1",
     "sha256:ecfde57da5bbf527967c49f5902d0846695df2cff8fdf93e523528ed8c4e70f0#1",
@@ -8265,8 +8264,9 @@
    "plex_renamer/engine/_queue_bridge.py": [
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:6d69f2ac09017b8a49d050ab336e953b8fa02ae08c24396916ea7ea42418e627#1",
+    "sha256:4690531a502bc34754af7ac40cc624cbd3b9b5caefb7c38dd88e3956d733f4ca#1",
     "sha256:4711adc582172a967f81053f207a4890391758c001231e46c6fcfa0b02bda5d6#1",
-    "sha256:b8b211f872f543957ea58fc466129fbbdb5370005c72aabed16f5a602428ae2b#1",
+    "sha256:c6e27f051dd7e7a87cc491e24b446ff40ae1ec349493181486cd992f8f35f9a9#1",
     "sha256:143a2281066f4f306c1457cb1cb5c3e732de75f9dcb23f50def6080bc50a0f94#1",
     "sha256:d0ed3e192847c302ffcc163aff94789b0ab5d6088390ec604daec4c7e8ab898c#1",
     "sha256:4b13869f84ef7ea92c8c8eb43f6151fda94b8498dfe4e6357744eae0584be42e#1",
@@ -8300,7 +8300,7 @@
     "sha256:e0f2ab632ab52849e7b04b23565d309f347b2235004dfb5112878da2302e1297#1",
     "sha256:b804934176bd0d7576da400ab33fcf0526604c6468bf5678ea1124b7172083d1#1",
     "sha256:7119366ef52e02d10287ce1c609c479cdd692d45f4d2f8af0b47b7d8a532a4ac#1",
-    "sha256:b53e83189a236b21bebdc16841eada997218fae10899bcb824c3dc4a1848e297#1",
+    "sha256:fa64fb068a51e4ed6478e690caeb1685f0426fc3610899a374b49017369dccc3#1",
     "sha256:8b4207c12d18aaf6cff6aedceb4604b773e080ead2d2e0057a201ab9dfd60107#1",
     "sha256:c2d7925997149017dc8b9eb2a6d6f5441c3e5431b595b9fd17b9f2c11877b0e4#1",
     "sha256:501dcc82b6eb2d4d41341dd979587a167c3e2bae1bfb51c4b6e78e90c8783fad#1",
@@ -8309,13 +8309,19 @@
     "sha256:536fd72c27943bca9bf24b3f188b8b25e45dbb0bbf301f27598dff81bdec4ab6#1",
     "sha256:312d0e25d1fc88c20305b5633dbbba6b4e8ed12311f11d5247daeea36955e07c#1",
     "sha256:b7a81a7df4fb201e9fb2f810c5ebaa92f252826a729602df9f6f01236317558c#1",
-    "sha256:7b060bb78fe0c4db88e06e23141c981e2649a297d61879358f5ccd1654a268a9#1",
+    "sha256:30052671dcddef8d0e6413c046185a430c2b863e071e8c9bbf1aa4c68acec17b#1",
     "sha256:b91a16f51827b7188f192029d655901ce0e6cde698542444a2ccdab4a4bcb2d9#1",
+    "sha256:779a87f90e5cb113d8610a980444de44aa9de94b205f393831b092ba921129a3#1",
+    "sha256:976df86fd09c192360a03ae0f3b75b1e086c9af34d0987ab1c376d866cded9ec#1",
+    "sha256:fde37bfe5ceba5a5e9861d6e565442276013484098f39fc8deaeda645420c807#1",
+    "sha256:8fa77626b6fbe283d8770448aebb4fa7e1092ebf4114bb54a517487c0a5a32e3#1",
+    "sha256:f4498e1c7d58d2a113744472259a7c63b99613e9fc3f031db7489d63b1f5b9d1#1",
     "sha256:26c2c6e39756bda768dee96f71c81de1f307e4051ba8c2f1f129a744b027aedb#1",
     "sha256:290383358b191dd1788bcd25bd95e10d5483e39ac03becabcdf5d46f47f17844#1",
     "sha256:1be5f96343be38061d167ceda0761e26aafa2c1df19afee31566ff24eda90b03#1",
     "sha256:b46630cc580f9e013cabd01d5f6e342a4ede9c40f627c4b2d9d789da75bc34a1#1",
-    "sha256:b5f8d767a5c69c480686a7cfda5fb725409699a1f659f657404188e00ab769e2#1",
+    "sha256:c0d21d30b25aff5cb02a7e6af3437f851a6088ae102732d0cc951310fc48ff56#1",
+    "sha256:ed006f46d00211949e30050d4381fcb5338c66a0ede23fcf375c52a26b1a9138#1",
     "sha256:42dce6653fd190497b60770233f4012b79a20fe4e24e0a9bf7225e1680b18e93#1",
     "sha256:d2c9e17467153bf5ecf690a171414ddf0046d0fa0d193222badfb27b4e262639#1",
     "sha256:40ee2951104cb6a6cdaf0914fb60e7cc6b434c9468bb429a9d46c4943f31add5#1",
@@ -9714,12 +9720,13 @@
     "sha256:635170505dfe604867d862163c30cd71f0fb8fdae9055600333ba9f6c2322df4#1",
     "sha256:e98b1ef8c905ca7881ab778fdd7ac7001d0bb818527b22a1bc7321b3198135da#1",
     "sha256:6d69f2ac09017b8a49d050ab336e953b8fa02ae08c24396916ea7ea42418e627#1",
-    "sha256:055ed371570541ed465bf1752df523c08f8fb059632836f7877a56280e5e2cfb#1",
+    "sha256:2d9938c49884bffa5c178a9c242567580b5e2bb9d50d6de51ff0724979acafac#1",
     "sha256:11f83ebdb4afba817ae9ce26a241de21ab73a6ce1068ba8307d8432f25d0514f#1",
     "sha256:44d0eeece1059e62da3ab94c31798e3b8d5095cde83ef235cf5493181faa2a2b#1",
     "sha256:dbd62266fa46b066522cc96c986ae22ae7b86d062f17490bcd9aa62cf69500bf#1",
     "sha256:d3c792a1d8d42c5652d3b844efe27ad631f096c134af5bb0fc38be56cc4774e5#1",
     "sha256:d44c41dbc68c33bd16bf265dcb71467a9f4dab92422023c1c5ccbb5deb6bbc7a#1",
+    "sha256:8cf6ce5e8398560c41814a5faa4d96e4e35303f16f1375a8d591f89c79d8f86b#1",
     "sha256:6b990382847e86a66fe62cc914de88fe111d1f55896bcf6fdb9b025a9550e12f#1",
     "sha256:c5486299c31ab1b9ea5bed3927f30ba643ecae4132c4cd6854bb65ea9159fc69#1",
     "sha256:35f311a47e9e45b77f7acad912c21b010c08ea02cb9457e95a7babcafffe2afc#1",
@@ -9804,15 +9811,14 @@
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#11",
     "sha256:61d31c44ecd53ee18492f7dc7644c65de21b427a7e58ad7037d2380aa670fa5b#2",
     "sha256:e5159c4ed9445c77065b0776212b608341e973ff21dca2ab11a498afd76841b8#1",
-    "sha256:63b6fb518900e36c7aef7dc5337c9650d2a143e83836a42ea06dc1aab19bd7d9#1",
-    "sha256:2e53d83742812ecd8126265dc46d61507563022a6a9bedcab947fcced2a21c37#1",
-    "sha256:73bcb85f7f26fb1cf376c043f1a519fa4854ae969929ff50a6ab0ed3025c185b#1",
+    "sha256:28832e9920d0f6ff19d6ce1b2234bac7b834ffa6e56f22ac34a05b9d583cc754#1",
+    "sha256:ba9bbf0c78c3d9bf319e6ecdf229fc465f9aec387bd30c7c1611f7d15ca2e0ed#1",
     "sha256:1759d9334362fb7e4b3e0b750491679e1c6cbe9196c74d165036c437176f8aa5#1",
-    "sha256:bb61c14606237316d4f156e1a5fcd1d8a45cf80db5afb31c119aad84b94db8ae#1",
+    "sha256:7e293b1b61bb0367bfe861db6ac32ff6a0688b806efcee665061952b140e624a#1",
     "sha256:e14f90dd3ff85ddd4d5c1a4f8efbb401fea4b95763c5c6acb98f507e9ad25701#6",
     "sha256:14d3b1e2f736d3735571f5d9d93e5fe26c12359c0830db8f875ddcb9210acb76#1",
     "sha256:0626047ea5c21a7e302873708cdebf9b27c216c607e36e967c5e3342fc83d266#1",
-    "sha256:55a2b4902bc2a79914bdab9324df4d156c0d2b8cb9c9b54d29fd13904ba12847#1",
+    "sha256:5fcb89b0b5cac3c68cd4dffa796b4f4828c3b2b6bb98b0440f39f4f81aacd991#1",
     "sha256:b6fbeabb766628ce850f7b0c2d7eb67160ef24a64400a4fe4c6420595c55d10d#1",
     "sha256:a0960c8215ff737b0f78abecc0c599d4c170bc2c4eab2f6e7f20312bd1f1475c#1",
     "sha256:12be3b46e041413bb3277f257f1458e0a722d71ef55665cbbba31643490ebe03#1",
@@ -9855,12 +9861,13 @@
     "sha256:9934e639610c9616d30168082998f074cc7675515b3a07129666a07dd80e9d74#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#12",
     "sha256:2543d46db74a4d51ebc5ab9766a9e3f1788be78c545f82bdb7ebb36803894858#1",
-    "sha256:6bca7508fc9cf30ed03cb5aefd8a3b1f6d05494ac51b68f8371f4d28b26b1890#1",
+    "sha256:59c436e1e67d7de0319a12cb4f37ae3aba9ec1519bf47061d3758abc05d74742#1",
+    "sha256:520d8a038af41cbeb9da3828ed02893b4b6a66d954979af9964d7f3b8f11f7d8#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#13",
     "sha256:fa33cec93a51b878b0dad1d215ab2c9b1192230417d72be3505c02254e32b2cc#1",
     "sha256:d26a65db3aba5ea35910beb84204fae591ab5d5f32f4e01327c84f02cca5a5fd#1",
     "sha256:a7c1623030cf64ec2c5874272e57f37e16790a0987478e5023eacbbfb0f9c33c#1",
-    "sha256:6138019751942b9e44e02faff4edd30c7d0ef725496b965e0acd297a86e7dd69#1",
+    "sha256:c9ecf7913612bf11b3b7116807fff1b0a49aa5796fb75e00fd52b61f58927f6f#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#14",
     "sha256:497bd234ba0c430931f290c0250122c73358de5512f50c0b584f0606c693d685#1",
     "sha256:d3fb56717e6976f07d7ce485bc4ab615b72373d55edc3f6229e2e66f0217e718#1",
@@ -16212,7 +16219,7 @@
     "sha256:298bec10ea5c726d50b92a58d0bef5cf5e55ea910b0da484428d2c1de31b0880#1",
     "sha256:422911da55638f19de4f888c98a7e31e5cf60917544d2aacfce8eebbf94bfa6d#1",
     "sha256:12c7c9368e546c52e7a44176e0f829f54beb8a501afef41c572643c185be33ee#1",
-    "sha256:271ca7988ac0b5a7404c8d317abcd85da0693449ba066c9621c32882266bec32#1",
+    "sha256:03f2acccfc6d6c5a1ebf2c6dfeb2708e9f7f2074e1e359426a3687f65e41d19f#1",
     "sha256:0c639ab3fc62c3fd84835a234702c0bdf1b18ba4d9b452d899f176bd222b8dd6#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#2",
     "sha256:81cadffc4e65867b1832e83c3a9c378f7caee5c133109eba8761717a571dc4b0#1",
@@ -21828,9 +21835,9 @@
     "statements": 4
    },
    "plex_renamer/app/controllers": {
-    "covered": 1333,
+    "covered": 1334,
     "percent": 88.2,
-    "statements": 1512
+    "statements": 1513
    },
    "plex_renamer/app/models": {
     "covered": 172,
@@ -21839,13 +21846,13 @@
    },
    "plex_renamer/app/services": {
     "covered": 1630,
-    "percent": 92.6,
-    "statements": 1761
+    "percent": 92.7,
+    "statements": 1759
    },
    "plex_renamer/engine": {
-    "covered": 3430,
+    "covered": 3438,
     "percent": 87.5,
-    "statements": 3922
+    "statements": 3930
    },
    "plex_renamer/gui_qt": {
     "covered": 920,
@@ -22730,48 +22737,6 @@
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.engine._queue_bridge._build_rename_ops::reportArgumentType::Argument of type \"Unknown | str | None\" cannot be assigned to parameter \"new_name\" of type \"str\" in function \"__init__\" Type \"Unknown | str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "reportUndefinedVariable",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::reportUndefinedVariable::\"RenameJob\" is not defined#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "reportUndefinedVariable",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::reportUndefinedVariable::\"RenameJob\" is not defined#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "F821",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::undefined-name::Undefined name `RenameJob`#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "F821",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::undefined-name::Undefined name `RenameJob`#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "I001",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "UP037",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_items::quoted-annotation::Remove quotes from type annotation#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_queue_bridge.py",
-   "rule": "UP037",
-   "symbol": "plex_renamer.engine._queue_bridge.build_rename_job_from_state::quoted-annotation::Remove quotes from type annotation#1"
   },
   {
    "analyzer": "ruff",
@@ -24893,174 +24858,6 @@
   },
   {
    "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_alt_title_can_reorder_results::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_crouching_tiger_hidden_dragon::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_disambiguation_via_alt_title::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_dune_part_one_boosted_via_alt_title::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_empty_results_is_noop::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_harry_potter_subtitle_difference::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_many_alt_titles_uses_best::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_no_alt_titles_preserves_scores::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_no_boost_when_already_above_threshold::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_parasite_korean_primary::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_spider_man_across_the_spider_verse::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_spirited_away_japanese_primary::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_tv_abbreviated_name_boosted::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_tv_attack_on_titan::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_tv_dark_german_show::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.BoostScoresTests.test_tv_money_heist_spanish_primary::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_french_user_matches_french_alt_title::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_german_user_matches_german_alt_title::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_japanese_user_anime_reverse_lookup::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_no_preferred_country_falls_back_to_english::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_preferred_country_match_wins::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_preferred_country_titles_tried::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.LanguagePriorityTests.test_spanish_user_matches_spanish_tv_alt::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"boost_scores_with_alt_titles\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests._discover::reportArgumentType::Argument of type \"_FakeTMDBForMovieOrchestrator\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"__init__\" \"_FakeTMDBForMovieOrchestrator\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests.test_multi_movie_folder_scan_uses_only_selected_source_file::reportArgumentType::Argument of type \"_FakeTMDBForMovieOrchestrator\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"__init__\" \"_FakeTMDBForMovieOrchestrator\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportAttributeAccessIssue",
-   "symbol": "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests.test_multi_movie_folder_scan_uses_only_selected_source_file::reportAttributeAccessIssue::Cannot access attribute \"explicit_files\" for class \"TVScanner\" Attribute \"explicit_files\" is unknown#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "reportOptionalMemberAccess",
-   "symbol": "tests.test_alt_title_matching.MovieOrchestratorAltTitleTests.test_multi_movie_folder_scan_uses_only_selected_source_file::reportOptionalMemberAccess::\"explicit_files\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_alt_title_matching.py",
-   "rule": "I001",
-   "symbol": "tests.test_alt_title_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "pyright",
    "path": "tests/test_automux_service.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_automux_service.test_effective_mux_plans_drops_opted_out_indices::reportArgumentType::Argument of type \"dict[int, dict[Unknown, Unknown]] | None\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@set]\" in function \"__init__\" Type \"dict[int, dict[Unknown, Unknown]] | None\" is not assignable to type \"Iterable[int]\" \"None\" is incompatible with protocol \"Iterable[int]\" \"__iter__\" is not present#1"
@@ -25382,12 +25179,6 @@
    "path": "tests/test_cache_service.py",
    "rule": "UP017",
    "symbol": "tests.test_cache_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_command_gating_service.py",
-   "rule": "I001",
-   "symbol": "tests.test_command_gating_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -32838,18 +32629,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "I001",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests._coordinator_with_fake::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "I001",
-   "symbol": "tests.test_workspace_poster_warmup::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
    "rule": "RUF059",
    "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_disconnects_after_show_ready::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
   },
@@ -32909,10 +32688,8 @@
   "plex_renamer/app/controllers/_job_projection_helpers.py": "sha256:b154ee852f90d4247b07462c7d27e0124d1ed337986a7f211dfe3cbbb2fd3347",
   "plex_renamer/app/controllers/_movie_batch_helpers.py": "sha256:65cf91c9e7b0876144a8367d1a1b322997291d6d4bca64593eac1cd3b3ae3e63",
   "plex_renamer/app/controllers/_movie_state_helpers.py": "sha256:21170386a5973f948d76d3d48e2df05b2a1d34f41da82e7da9bbda7cb664c319",
-  "plex_renamer/app/controllers/_queue_submission_helpers.py": "sha256:6fac30713940c2cf6721c335bbde0b71ab41b27fa1b701c76cc1d77c1fc21097",
   "plex_renamer/app/controllers/_scan_operation_helpers.py": "sha256:99f9ce83f74711572dba1034d1ce36fe030cc925fef98e3bad34d795c539ba5e",
   "plex_renamer/app/controllers/_tab_session_helpers.py": "sha256:bdb892b44181f8363f0ff8b35d7838979b3420d32ffa9abe1fd3cc95bc783312",
-  "plex_renamer/app/controllers/_tv_batch_helpers.py": "sha256:0c54ae98810898bdf1c26e8f43ca3b500fce5d9edc0be1a72146f3724009debd",
   "plex_renamer/app/controllers/media_controller.py": "sha256:e7adcac64c7038342146ffb77cbb5d665c00044d87fe9d314efbdb34e065ddce",
   "plex_renamer/app/models/state_models.py": "sha256:cb09458bb1ff9cc60462b9779fee5d811117183964f9e6028a474a196330c343",
   "plex_renamer/app/services/_movie_library_classification.py": "sha256:52b65299b09d0264fc5f48a8833b279666cb2c3953864ee8d6e2e31143c9c14c",
@@ -32920,7 +32697,6 @@
   "plex_renamer/app/services/_tv_library_classification.py": "sha256:97c1b2254b8edd2948fcf4d8b648cec7a81093fef47650b858be39fa3c2b9526",
   "plex_renamer/app/services/automux_service.py": "sha256:133c8c5082c1c4668a4e9baa7cfe307e075e6a5033644abe2f77dd02e9322f70",
   "plex_renamer/app/services/cache_service.py": "sha256:22e7cb098b97a9e99b0af32244f4ae35521bc7d5d0ac2a3864aa57daf1d76c6c",
-  "plex_renamer/app/services/command_gating_service.py": "sha256:91eab3afb95d631caf0bdbe96142d767c46e6cd553099723793a6d8ba2a5e2c3",
   "plex_renamer/app/services/metadata_service.py": "sha256:e42afbb976ce284f5a5a15ec48fbf30207d7791c6d225d162b0ca36fb7204058",
   "plex_renamer/app/services/movie_library_discovery_service.py": "sha256:ca806fe7e9c53015765bd32cb2796498ddf08e8f79418a343ee9cbc04ad9eada",
   "plex_renamer/app/services/output_destination_service.py": "sha256:dfba590c6b6276590b138e28ccdb8aa826b7dd46579ea9da8f85818b42c57e56",
@@ -32936,7 +32712,6 @@
   "plex_renamer/engine/_episode_resolution.py": "sha256:8b41a1953dd9c18e334d62a6633e75e7bea823b9540303e94bf078b35d6bbd1d",
   "plex_renamer/engine/_movie_scanner.py": "sha256:063c907e3378b2c1d7ab7177af09cd7417b96bb15bbbfdd10d78f32c352a786f",
   "plex_renamer/engine/_mux_planner.py": "sha256:ef99962db8bf109dfe73395d90bf3356096d524f5c8bd85fdf605164d7f2aa2d",
-  "plex_renamer/engine/_queue_bridge.py": "sha256:b45417cf8d33bad0eb9e499ab109f301fe7cd282e910bbe9736f62ee44ddd723",
   "plex_renamer/engine/_rename_execution.py": "sha256:15e6655a16ef6777965cc6eca89aa3e8b954361e61ad715124c61cbf57bc336e",
   "plex_renamer/engine/_scan_runtime.py": "sha256:b9441ff8c2fdb6304d4944575f3fa5c62923b013df6d32b4b53166f6046d0b23",
   "plex_renamer/engine/_tv_scanner.py": "sha256:65e960c489e2438a7c2c82fa9c851a427dc09e357f1e41caf2d2285b55788ebc",
@@ -32982,7 +32757,6 @@
   "plex_renamer/gui_qt/widgets/_media_workspace_state.py": "sha256:719e43a495405378523ef909aa812506caca44c6341ad60d93e99cf251340e11",
   "plex_renamer/gui_qt/widgets/_media_workspace_sync.py": "sha256:396cda3e807b5ee39daa9045d7519a51c9ba5171c054b6b3556389f089c9f25e",
   "plex_renamer/gui_qt/widgets/_media_workspace_ui.py": "sha256:01c9d76e8a94d83721262729a04be035fdb546c521ca38a2cd148601744860e8",
-  "plex_renamer/gui_qt/widgets/_media_workspace_view.py": "sha256:0c169a7c3ea422e33fe21311b1ba30e23c64b7cc4c7f0eb34b665eb6801f6529",
   "plex_renamer/gui_qt/widgets/_queue_tab_actions.py": "sha256:c96a3fb116c6a38b25690e32b7d7945bccd61e849015e8e068b0c33b799cc9b4",
   "plex_renamer/gui_qt/widgets/_queue_tab_state.py": "sha256:5721461385b625e294442d68bcff3145d3237f9754b8a35fad28dc152a5abb53",
   "plex_renamer/gui_qt/widgets/_roster_delegate.py": "sha256:43784ca9acec48e1c361793019360644c4a080b8aa79940bee8531a14c6cb4b8",
@@ -33021,7 +32795,6 @@
   "tests/parsing_corpus.py": "sha256:ac0c226957b477c2b07c72b1870f238956b8cb2a37fb7b08706a127008a3da6d",
   "tests/test_acronym_titles.py": "sha256:4c089fe664313b596883c0bb8c8f6df05aacae149a6833d55651cd58d1fcaf66",
   "tests/test_air_date_clusters.py": "sha256:e8a5252d4855c2c4ba76ac4dcd3ac8f56d202c6521bd2517fad7d7b7c8e0a491",
-  "tests/test_alt_title_matching.py": "sha256:09dee7de3dbacb64d2ea424329329a9801be43ca7d13bbd2427348d0d8b88a7e",
   "tests/test_automux_service.py": "sha256:395fe8ba0dca5d67e19c365a077540e974bdb34833f6260719a2df967c19fd72",
   "tests/test_automux_settings.py": "sha256:82fb69321be15e3a8a085947bf2c55738a53c49732f9559c51b6b362b4819b9f",
   "tests/test_automux_tracks_widget.py": "sha256:6c56be86307a4e86dcb13d358960937e6b064f865da933f495ca269164e91c77",
@@ -33029,7 +32802,6 @@
   "tests/test_batch_autoaccept_guards.py": "sha256:eb9c8f88ac14f32479393fdbd71084f77c1dd8668acd36733ab9372d6009fe25",
   "tests/test_bulk_assign_panel.py": "sha256:da8cf3349a27c264526a3e2924404e80626191046fe5ad16f2b640dd80e5ddd5",
   "tests/test_cache_service.py": "sha256:35a0e908d54a04f71a5b270275bce8d81bce9a799ac7fa6a2d82fec3c5902966",
-  "tests/test_command_gating_service.py": "sha256:fd564cd61d1b6a6f04a2c4873a2678121530376429d5f2fc63e1b0ed148e9844",
   "tests/test_companion_subtitles.py": "sha256:619b80e594844e8f7b6f7f915591b1ac7d1573cd921c926ef8fd38f62a3e5a25",
   "tests/test_completeness_review_counts.py": "sha256:2407cf8a7a4d10899494e45baba31ba2bf1ecabc8daf5e29f88707beccb4ac11",
   "tests/test_confidence_adjustment_guards.py": "sha256:2058d45f5b8d2989ae4bacf29ac8b30c5073396e90ead498d48d7703965d12a9",
@@ -33144,8 +32916,7 @@
   "tests/test_underscore_segments.py": "sha256:51940c6196ea7b5b554e21e12ab1695431157d9b4bd7d8576b1c666c0ac63ec7",
   "tests/test_work_panel.py": "sha256:6575737e443f8acf163317b619185965260541b1b442b2dd71694d02355da8db",
   "tests/test_workspace_automux.py": "sha256:6c0258f5735bb04e3a73676ea172d338c567fed44426c3e115d2db3d94b3fcfb",
-  "tests/test_workspace_expansion.py": "sha256:50f0f744692163f7a48a1a466b357f2d32a2c0fe28612e9ee079ef524656992e",
-  "tests/test_workspace_poster_warmup.py": "sha256:e086baafe623bce938c5f3ab05e9b68f8a727b74b9278fbae72d5bc5c37dcdb4"
+  "tests/test_workspace_expansion.py": "sha256:50f0f744692163f7a48a1a466b357f2d32a2c0fe28612e9ee079ef524656992e"
  },
  "schema_version": 2,
  "typing": {
