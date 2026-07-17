@@ -4,9 +4,19 @@ import json
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from audit import _analyze, _cycle_edges, _graph, _inventory
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(scope="module")
+def repo_graph() -> tuple:
+    inventory = _inventory.build_inventory(REPO_ROOT)
+    graph = _graph.build_graph(REPO_ROOT, inventory)
+    return inventory, graph
+
 
 _SETTINGS_MODULE_PREFIX = "plex_renamer.gui_qt.widgets."
 _SETTINGS_AUTOMUX_PAGE = f"{_SETTINGS_MODULE_PREFIX}_settings_automux_page"
@@ -38,9 +48,8 @@ def test_structured_audit_files_are_pinned_to_lf() -> None:
     assert "*.sarif text eol=lf" in attributes
 
 
-def test_engine_does_not_import_application_layer():
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_engine_does_not_import_application_layer(repo_graph: tuple):
+    _, graph = repo_graph
     contracts = (REPO_ROOT / "scripts" / "audit" / "contracts.toml").read_text(
         encoding="utf-8",
     )
@@ -54,9 +63,10 @@ def test_engine_does_not_import_application_layer():
     assert engine_to_app == []
 
 
-def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles() -> None:
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles(
+    repo_graph: tuple,
+) -> None:
+    inventory, graph = repo_graph
     analysis = _analyze.run_analysis(REPO_ROOT, inventory, graph)
 
     blocking_rules = {"new-cycle", "enlarged-cycle", "forbidden-import"}
@@ -68,9 +78,10 @@ def test_repository_has_no_new_enlarged_or_forbidden_dependency_cycles() -> None
     )
 
 
-def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly(
+    repo_graph: tuple,
+) -> None:
+    _, graph = repo_graph
 
     classifications = _cycle_edges.load_cycle_edge_classifications(REPO_ROOT, graph)
     engine_edges = [list(edge) for edge in _cycle_edges._engine_cycle_edges(graph)]
@@ -88,9 +99,10 @@ def test_engine_cycle_edge_classifications_cover_the_live_scc_exactly() -> None:
     }
 
 
-def test_engine_models_do_not_close_a_cycle_through_the_tv_scanner() -> None:
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_engine_models_do_not_close_a_cycle_through_the_tv_scanner(
+    repo_graph: tuple,
+) -> None:
+    _, graph = repo_graph
 
     models_module = "plex_renamer.engine.models"
     concrete_scanner_module = "plex_renamer.engine._tv_scanner"
@@ -104,9 +116,8 @@ def test_engine_models_do_not_close_a_cycle_through_the_tv_scanner() -> None:
     assert engine_cycles == []
 
 
-def test_settings_page_composer_has_one_way_dependencies() -> None:
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_settings_page_composer_has_one_way_dependencies(repo_graph: tuple) -> None:
+    _, graph = repo_graph
 
     assert _LEGACY_SETTINGS_PAGE_CYCLE not in graph["cycles"]
 
@@ -131,8 +142,7 @@ def test_settings_page_composer_has_one_way_dependencies() -> None:
     ]
 
 
-def test_widgets_package_is_an_inert_namespace() -> None:
-    inventory = _inventory.build_inventory(REPO_ROOT)
-    graph = _graph.build_graph(REPO_ROOT, inventory)
+def test_widgets_package_is_an_inert_namespace(repo_graph: tuple) -> None:
+    _, graph = repo_graph
 
     assert graph["modules"]["plex_renamer.gui_qt.widgets"]["imports"] == []
