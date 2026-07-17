@@ -1,11 +1,11 @@
-<!-- Generated from audit input cda595442356; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 56bb439f1c24; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
 
 
 ### `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format.
-- Tests: tests/conftest_qt.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
+- Tests: tests/conftest_qt.py, tests/test_alt_title_matching_orchestrator.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
 
 ### `plex_renamer/__main__.py` — Entry point for NameScraper.
 - `main()` — (no docstring)
@@ -189,4 +189,4 @@
 
 ### `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client.
 - `TMDBClient` — TMDB client with connection pooling, response caching, rate limiting, (used by: plex_renamer.app.services.metadata_service, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy, plex_renamer.engine._movie_scanner, plex_renamer.engine._tv_scanner, plex_renamer.engine.matching, plex_renamer.gui_qt.main_window)
-- Tests: tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py
+- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py

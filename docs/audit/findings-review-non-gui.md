@@ -102,3 +102,7 @@ Source totals remain 62 Vulture + 9 Ruff + 2 contracts = 73.
 - Test coverage alone did not rescue an obsolete implementation: `ingest_preview_items` is still tested, but its production caller was replaced by direct table construction. Conversely, cache reset/size hooks and public service methods are deliberate tested surfaces.
 - Both contract findings are real despite lazy/local imports. Dependency injection or moving discovery orchestration above `engine` is required to restore the documented layer direction.
 - The two TMDB exception imports are compatibility re-exports, not ordinary unused imports; explicit aliases/`__all__` entries (or targeted Ruff ignores) would communicate that intent.
+
+## 2026-07-17 postscript
+
+This partition's 36 `CONFIRMED` records, including both confirmed layer-contract violations noted above, are part of the review's 108-record total remediated on `dev/audit-debt3` (PRs #20-#23); see [findings-review.md](findings-review.md) for the full outcome. The generated checklist ([maps/overview.md](maps/overview.md)) has been regenerated since; these verdicts remain the unmodified historical record of the original triage and are not rewritten.

@@ -58,7 +58,7 @@
 - `plex_renamer/gui_qt/widgets/_media_workspace_state.py` — fan-in 1, fan-out 4, LOC 261
 - `plex_renamer/gui_qt/widgets/_media_workspace_sync.py` — fan-in 1, fan-out 2, LOC 78
 - `plex_renamer/gui_qt/widgets/_media_workspace_ui.py` — fan-in 1, fan-out 4, LOC 157
-- `plex_renamer/gui_qt/widgets/_media_workspace_view.py` — fan-in 1, fan-out 3, LOC 62
+- `plex_renamer/gui_qt/widgets/_media_workspace_view.py` — fan-in 1, fan-out 3, LOC 64
 - `plex_renamer/gui_qt/widgets/_queue_tab_actions.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/_queue_tab_presentation.py` — fan-in 1, fan-out 1, LOC 15
 - `plex_renamer/gui_qt/widgets/_queue_tab_state.py` — fan-in 2, fan-out 1, LOC 58
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input cda595442356 by scripts\audit.cmd._
+_Generated from audit input 56bb439f1c24 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

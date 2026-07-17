@@ -4,7 +4,7 @@
 
 ### Core (widely depended upon)
 - `plex_renamer/app/controllers/_controller_match_helpers.py` — fan-in 3, fan-out 6, LOC 138
-- `plex_renamer/app/controllers/_tv_batch_helpers.py` — fan-in 3, fan-out 6, LOC 385
+- `plex_renamer/app/controllers/_tv_batch_helpers.py` — fan-in 3, fan-out 6, LOC 383
 - `plex_renamer/app/models/__init__.py` — fan-in 23, fan-out 1, LOC 39
 - `plex_renamer/app/models/state_models.py` — fan-in 4, fan-out 0, LOC 239
 - `plex_renamer/app/services/automux_service.py` — fan-in 5, fan-out 5, LOC 190
@@ -29,7 +29,7 @@
 - `plex_renamer/app/controllers/_movie_batch_helpers.py` — fan-in 2, fan-out 4, LOC 198
 - `plex_renamer/app/controllers/_movie_state_helpers.py` — fan-in 2, fan-out 3, LOC 145
 - `plex_renamer/app/controllers/_queue_history_helpers.py` — fan-in 1, fan-out 3, LOC 58
-- `plex_renamer/app/controllers/_queue_submission_helpers.py` — fan-in 1, fan-out 7, LOC 240
+- `plex_renamer/app/controllers/_queue_submission_helpers.py` — fan-in 1, fan-out 7, LOC 245
 - `plex_renamer/app/controllers/_scan_operation_helpers.py` — fan-in 1, fan-out 2, LOC 62
 - `plex_renamer/app/controllers/_single_show_scan_helpers.py` — fan-in 1, fan-out 5, LOC 117
 - `plex_renamer/app/controllers/_tab_session_helpers.py` — fan-in 2, fan-out 2, LOC 128
@@ -40,10 +40,10 @@
 - `plex_renamer/app/services/_movie_library_classification.py` — fan-in 1, fan-out 3, LOC 184
 - `plex_renamer/app/services/_settings_schema.py` — fan-in 1, fan-out 0, LOC 126
 - `plex_renamer/app/services/_tv_library_classification.py` — fan-in 1, fan-out 3, LOC 345
-- `plex_renamer/app/services/episode_projection_cache.py` — fan-in 1, fan-out 4, LOC 215
+- `plex_renamer/app/services/episode_projection_cache.py` — fan-in 1, fan-out 4, LOC 211
 - `plex_renamer/app/services/metadata_service.py` — fan-in 2, fan-out 7, LOC 403
 - `plex_renamer/app/services/movie_library_discovery_service.py` — fan-in 1, fan-out 2, LOC 124
 - `plex_renamer/app/services/output_destination_service.py` — fan-in 2, fan-out 0, LOC 108
 
-_Generated from audit input cda595442356 by scripts\audit.cmd._
+_Generated from audit input 56bb439f1c24 by scripts\audit.cmd._
 <!-- audit:generated:end map-app -->

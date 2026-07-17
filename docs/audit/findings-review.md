@@ -62,3 +62,7 @@ The source checklist remains in the generated [audit overview](maps/overview.md)
 ## Review limits
 
 This review establishes usage within this repository and the intent evidenced by exports, documentation, tests, and history. It cannot discover untracked third-party consumers. Public compatibility surfaces were therefore retained when the repository provides affirmative evidence of that intent.
+
+## 2026-07-17 postscript
+
+All 108 `CONFIRMED` records above, including both confirmed layer-contract violations, were remediated on `dev/audit-debt3` (PRs #20-#23). The generated checklist ([maps/overview.md](maps/overview.md)) has been regenerated since; these verdicts remain the unmodified historical record of the original triage and are not rewritten.

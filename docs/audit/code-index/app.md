@@ -1,4 +1,4 @@
-<!-- Generated from audit input cda595442356; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 56bb439f1c24; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -141,7 +141,7 @@
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_qt_media_workspace.py, tests/test_work_panel.py
 
 ### `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services.
-- Tests: tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_episode_metadata_ownership.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_alt_title_matching_orchestrator.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_episode_metadata_ownership.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery.
 - `DirChild` — (no docstring)
