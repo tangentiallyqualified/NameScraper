@@ -269,7 +269,10 @@ def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
             continue
         rule = (
             "enlarged-cycle"
-            if any(modules & legacy_modules for legacy_modules, _legacy_edges in baseline_cycles)
+            if any(
+                legacy_modules <= modules or modules <= legacy_modules
+                for legacy_modules, _legacy_edges in baseline_cycles
+            )
             else "new-cycle"
         )
         symbol = ", ".join(cycle["modules"])

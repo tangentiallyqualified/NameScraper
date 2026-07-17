@@ -446,3 +446,26 @@ def test_absolute_import_module_edge(synthetic_repo: Path):
     )
     g = _graph_for(synthetic_repo)
     assert g["modules"]["plex_renamer.eta"]["imports"] == ["plex_renamer.alpha"]
+
+
+def test_new_cycle_sharing_one_module_with_unrelated_legacy_cycle_is_new(
+    synthetic_repo: Path,
+):
+    _write_module(synthetic_repo, "plex_renamer.c1", "plex_renamer.c2")
+    _write_module(synthetic_repo, "plex_renamer.c2", "plex_renamer.c1")
+    _write_module(synthetic_repo, "plex_renamer.c3", "plex_renamer.c4")
+    _write_module(synthetic_repo, "plex_renamer.c4", "plex_renamer.c3")
+    baseline = [
+        {
+            "modules": ["plex_renamer.c2", "plex_renamer.c5"],
+            "edges": [
+                ["plex_renamer.c2", "plex_renamer.c5"],
+                ["plex_renamer.c5", "plex_renamer.c2"],
+            ],
+        }
+    ]
+
+    findings = _cycle_findings(_graph_for(synthetic_repo), baseline)
+
+    rules = sorted(finding["rule"] for finding in findings)
+    assert rules == ["new-cycle", "new-cycle"]
