@@ -5,8 +5,9 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from audit import _analyze, _graph, _inventory
 
-from audit import _analyze, _cycle_edges, _graph, _inventory
+from scripts.audit import _cycle_edges
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
