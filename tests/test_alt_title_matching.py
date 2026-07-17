@@ -21,6 +21,7 @@ from plex_renamer.engine import (
     boost_scores_with_alt_titles,
     score_results,
 )
+from plex_renamer.engine._movie_scanner import MovieScanner
 
 
 # ── Fake TMDB client ────────────────────────────────────────────────────────
@@ -639,7 +640,9 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
             orchestrator.scan_movie(matrix_state)
 
             self.assertTrue(matrix_state.scanned)
-            self.assertEqual(matrix_state.scanner.explicit_files, [matrix_file])
+            scanner = matrix_state.scanner
+            assert isinstance(scanner, MovieScanner)
+            self.assertEqual(scanner.explicit_files, [matrix_file])
             self.assertEqual(len(matrix_state.preview_items), 1)
             self.assertEqual(matrix_state.preview_items[0].original, matrix_file)
 
