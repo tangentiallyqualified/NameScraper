@@ -54,9 +54,6 @@ def _run_all_stages(repo: Path) -> None:
     )
     _artifacts.write_artifact(repo, "coverage", {"available": False, "modules": {}})
     _metrics.run(repo, None)
-    classification_path = repo / "docs" / "audit" / "engine-cycle-edges.toml"
-    classification_path.parent.mkdir(parents=True, exist_ok=True)
-    classification_path.write_text("version = 1\n\nedges = []\n", encoding="utf-8")
 
 
 def test_overview_contains_mermaid_and_dead_checklist(synthetic_repo: Path):
@@ -134,9 +131,6 @@ def test_coverage_digest_flows_through_metrics_to_rendered_provenance(synthetic_
     )
 
     assert _metrics.run(synthetic_repo, None) == 0
-    classification_path = synthetic_repo / "docs" / "audit" / "engine-cycle-edges.toml"
-    classification_path.parent.mkdir(parents=True, exist_ok=True)
-    classification_path.write_text("version = 1\n\nedges = []\n", encoding="utf-8")
     assert _render_human.run(synthetic_repo, None) == 0
 
     overview = (synthetic_repo / "docs" / "audit" / "maps" / "overview.md").read_text(

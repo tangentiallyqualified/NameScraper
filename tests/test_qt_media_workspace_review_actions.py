@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 
+from _scanner_fakes import MetadataScannerFake
 from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QPushButton
 
@@ -11,17 +11,6 @@ from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, Seas
 from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-
-class _EpisodeMetadataScanner:
-    """Typed metadata capability used by review-card projection tests."""
-
-    @property
-    def episode_meta(self) -> Mapping[tuple[int, int], Mapping[str, object]]:
-        return {
-            (1, 1): {"name": "Pilot"},
-            (1, 2): {"name": "Second"},
-        }
 
 
 class _FakeMediaController:
@@ -148,7 +137,12 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
         state = ScanState(
             folder=Path("C:/library/tv/Example"),
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            scanner=_EpisodeMetadataScanner(),
+            scanner=MetadataScannerFake(
+                {
+                    (1, 1): {"name": "Pilot"},
+                    (1, 2): {"name": "Second"},
+                }
+            ),
             preview_items=[review_item],
             scanned=True,
             checked=False,

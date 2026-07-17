@@ -1,26 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from operator import attrgetter
 from pathlib import Path
 from typing import cast
+
+from _scanner_fakes import MetadataScannerFake
 
 from plex_renamer.app.services import episode_mapping_service
 from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
 from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
 from plex_renamer.engine.models import TVScanStateScanner
-
-
-class _MetadataScanner:
-    @property
-    def episode_meta(self) -> Mapping[tuple[int, int], Mapping[str, object]]:
-        return {
-            (1, 1): {
-                "name": "Scanner Pilot",
-                "overview": "Scanner overview",
-                "air_date": "2024-01-02",
-            }
-        }
 
 
 def test_episode_metadata_lookup_remains_owned_by_mapping_service() -> None:
@@ -51,7 +41,18 @@ def test_episode_metadata_lookup_remains_owned_by_mapping_service() -> None:
     state = ScanState(
         folder=root,
         media_info={"id": 10, "name": "Show", "year": "2024"},
-        scanner=cast(TVScanStateScanner, _MetadataScanner()),
+        scanner=cast(
+            TVScanStateScanner,
+            MetadataScannerFake(
+                {
+                    (1, 1): {
+                        "name": "Scanner Pilot",
+                        "overview": "Scanner overview",
+                        "air_date": "2024-01-02",
+                    }
+                }
+            ),
+        ),
         preview_items=[preview],
         completeness=completeness,
         scanned=True,
@@ -81,7 +82,18 @@ def test_episode_title_is_empty_when_completeness_has_no_matching_season() -> No
     state = ScanState(
         folder=Path("C:/library/tv/Show"),
         media_info={"id": 10, "name": "Show", "year": "2024"},
-        scanner=cast(TVScanStateScanner, _MetadataScanner()),
+        scanner=cast(
+            TVScanStateScanner,
+            MetadataScannerFake(
+                {
+                    (1, 1): {
+                        "name": "Scanner Pilot",
+                        "overview": "Scanner overview",
+                        "air_date": "2024-01-02",
+                    }
+                }
+            ),
+        ),
         preview_items=[preview],
         completeness=CompletenessReport(
             seasons={},
