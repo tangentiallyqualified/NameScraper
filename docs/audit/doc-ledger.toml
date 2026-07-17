@@ -1,11 +1,11 @@
 # Opt-in ledger: docs whose accuracy is manually maintained.
 # When any matching source changes after reviewed_commit, the doc is flagged stale.
 docs = [
-  { path = "CLAUDE.md", sources = ["plex_renamer/engine/*.py", "plex_renamer/_parsing_*.py", "scripts/*.cmd", "scripts/*.ps1"], reviewed_commit = "0325ca8" },
-  { path = "README.md", sources = ["plex_renamer/__main__.py", "pyproject.toml"], reviewed_commit = "7b246bb" },
+  { path = "CLAUDE.md", sources = ["plex_renamer/engine/*.py", "plex_renamer/_parsing_*.py", "scripts/*.cmd", "scripts/*.ps1"], reviewed_commit = "5ff8f6e" },
+  { path = "README.md", sources = ["plex_renamer/__main__.py", "pyproject.toml"], reviewed_commit = "5ff8f6e" },
   { path = "docs/ai-publish-workflow.md", sources = ["scripts/git-publish.ps1", "scripts/git-publish.cmd"], reviewed_commit = "0325ca8" },
-  { path = "docs/audit/findings-review.md", sources = ["plex_renamer", "tests", "scripts"], reviewed_commit = "e5f4f40" },
-  { path = "docs/audit/findings-review-non-gui.md", sources = ["plex_renamer", "tests", "scripts"], reviewed_commit = "e5f4f40" },
-  { path = "docs/audit/findings-review-gui-core-early-widgets.md", sources = ["plex_renamer/gui_qt", "tests", "scripts/audit/allowlist.toml"], reviewed_commit = "e5f4f40" },
-  { path = "docs/audit/findings-review-late-widgets.md", sources = ["plex_renamer/gui_qt", "tests", "scripts/audit/allowlist.toml"], reviewed_commit = "e5f4f40" },
+  { path = "docs/audit/findings-review.md", sources = ["plex_renamer", "tests", "scripts"], reviewed_commit = "5ff8f6e" },
+  { path = "docs/audit/findings-review-non-gui.md", sources = ["plex_renamer", "tests", "scripts"], reviewed_commit = "5ff8f6e" },
+  { path = "docs/audit/findings-review-gui-core-early-widgets.md", sources = ["plex_renamer/gui_qt", "tests", "scripts/audit/allowlist.toml"], reviewed_commit = "5ff8f6e" },
+  { path = "docs/audit/findings-review-late-widgets.md", sources = ["plex_renamer/gui_qt", "tests", "scripts/audit/allowlist.toml"], reviewed_commit = "5ff8f6e" },
 ]
