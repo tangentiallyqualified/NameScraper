@@ -240,6 +240,29 @@ def test_quality_collection_rejects_a_stale_repo_decision(
         _ratchets.collect_current(synthetic_repo)
 
 
+def test_repository_python_records_excludes_git_untracked_files(
+    synthetic_repo: Path,
+) -> None:
+    untracked = synthetic_repo / "plex_renamer" / "untracked.py"
+    untracked.write_text("VALUE = 1\n", encoding="utf-8")
+
+    records = _ratchets._repository_python_records(synthetic_repo)
+    paths = {record["path"] for record in records}
+
+    assert "plex_renamer/alpha.py" in paths
+    assert "plex_renamer/untracked.py" not in paths
+
+
+def test_untracked_python_findings_are_filtered_out() -> None:
+    tracked = {"scripts/tracked.py"}
+
+    assert _ratchets._is_untracked_quality_python("scripts/untracked.py", tracked)
+    assert not _ratchets._is_untracked_quality_python("scripts/tracked.py", tracked)
+    assert not _ratchets._is_untracked_quality_python("scripts\\tracked.py", tracked)
+    assert not _ratchets._is_untracked_quality_python("docs/guide.md", tracked)
+    assert not _ratchets._is_untracked_quality_python("", tracked)
+
+
 def test_findings_stage_writes_rich_review_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

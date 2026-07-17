@@ -348,19 +348,6 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
     }
 
 
-def test_repository_python_records_excludes_git_untracked_files(
-    synthetic_repo: Path,
-) -> None:
-    untracked = synthetic_repo / "plex_renamer" / "untracked.py"
-    untracked.write_text("VALUE = 1\n", encoding="utf-8")
-
-    records = _ratchets._repository_python_records(synthetic_repo)
-    paths = {record["path"] for record in records}
-
-    assert "plex_renamer/alpha.py" in paths
-    assert "plex_renamer/untracked.py" not in paths
-
-
 def test_policy_ruff_scans_explicit_repository_python_roots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

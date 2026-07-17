@@ -182,6 +182,19 @@ def current_commit(repo_root: Path) -> str | None:
     return _git(repo_root, "rev-parse", "--short", "HEAD")
 
 
+def tracked_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
+    """Git-tracked files under *pathspecs*, repo-relative with forward slashes.
+
+    Returns None when git is unavailable or fails, mirroring the degrade
+    behavior of the other git helpers here; callers that require complete
+    evidence must treat None as an error.
+    """
+    out = _git(repo_root, "ls-files", "-z", "--", *pathspecs)
+    if out is None:
+        return None
+    return sorted({entry for entry in out.split("\0") if entry})
+
+
 def commits_between(repo_root: Path, old_commit: str) -> int | None:
     out = _git(repo_root, "rev-list", "--count", f"{old_commit}..HEAD")
     return int(out) if out is not None and out.isdigit() else None
