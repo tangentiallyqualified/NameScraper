@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 """Movie-orchestrator and language-priority alt-title matching tests.
 
 Split from test_alt_title_matching.py to keep both files under the
@@ -13,30 +14,61 @@ Covers:
 from __future__ import annotations
 
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
 from test_alt_title_matching import _FakeTMDB
 
-from plex_renamer.engine import (
-    AUTO_ACCEPT_THRESHOLD,
-    BatchMovieOrchestrator,
-    boost_scores_with_alt_titles,
-    score_results,
-)
+from plex_renamer import engine
+from plex_renamer.engine import AUTO_ACCEPT_THRESHOLD, BatchMovieOrchestrator, ScanState
 from plex_renamer.engine._movie_scanner import MovieScanner
 from plex_renamer.tmdb import TMDBClient
+
+SearchResult = dict[str, object]
+Scored = list[tuple[SearchResult, float]]
+
+# The engine's scoring signatures use bare generics (legacy typing), so their
+# symbols are partially unknown under strict checking; cast them to precise
+# callables once here, mirroring tests/audit/test_coverage_scope.py.
+_score_results = cast(
+    Callable[..., Scored],
+    engine.score_results,  # pyright: ignore[reportUnknownMemberType]
+)
+_boost_scores = cast(
+    Callable[..., Scored],
+    engine.boost_scores_with_alt_titles,  # pyright: ignore[reportUnknownMemberType]
+)
+
+
+def _discover_movies(orchestrator: BatchMovieOrchestrator) -> list[ScanState]:
+    return orchestrator.discover_movies()  # pyright: ignore[reportUnknownMemberType]
+
+
+def _scan_movie(orchestrator: BatchMovieOrchestrator, state: ScanState) -> None:
+    orchestrator.scan_movie(state)  # pyright: ignore[reportUnknownMemberType]
+
+
+def _result(
+    media_id: int,
+    title: str,
+    year: str,
+    *,
+    key: str = "title",
+    overview: str = "",
+) -> SearchResult:
+    return {"id": media_id, key: title, "year": year, "poster_path": None, "overview": overview}
+
 
 # ── Integration: movie orchestrator with alt titles ──────────────────────────
 
 
-class _FakeTMDBForMovieOrchestrator(TMDBClient):
+class _FakeTMDBForMovieOrchestrator:
     """TMDB stub for testing the full movie discovery + alt title flow.
 
-    Subclasses TMDBClient (without calling its __init__) purely so it type
-    checks as one at the BatchMovieOrchestrator call sites below.
-
-    Supports multiple movies to exercise realistic batch discovery:
+    Not a real TMDBClient; construction sites cast it to one. Supports
+    multiple movies to exercise realistic batch discovery:
       - Dune (2021) — subtitle mismatch, needs alt title boost
       - Spirited Away (2001) — Japanese primary, English alt needed
       - The Matrix (1999) — exact match, no boost needed
@@ -45,76 +77,21 @@ class _FakeTMDBForMovieOrchestrator(TMDBClient):
 
     language = "en-US"
 
-    def __init__(self) -> None:
-        pass  # deliberately skip TMDBClient.__init__; this fake is stateless
-
-    MOVIES = {
-        "dune": [
-            {
-                "id": 438631,
-                "title": "Dune",
-                "year": "2021",
-                "poster_path": None,
-                "overview": "A noble family...",
-            },
-        ],
+    MOVIES: dict[str, list[SearchResult]] = {
+        "dune": [_result(438631, "Dune", "2021", overview="A noble family...")],
         "spirited away": [
-            {
-                "id": 129,
-                "title": "Sen to Chihiro no Kamikakushi",
-                "year": "2001",
-                "poster_path": None,
-                "overview": "A girl...",
-            },
+            _result(129, "Sen to Chihiro no Kamikakushi", "2001", overview="A girl...")
         ],
         "sen to chihiro": [
-            {
-                "id": 129,
-                "title": "Sen to Chihiro no Kamikakushi",
-                "year": "2001",
-                "poster_path": None,
-                "overview": "A girl...",
-            },
+            _result(129, "Sen to Chihiro no Kamikakushi", "2001", overview="A girl...")
         ],
-        "matrix": [
-            {
-                "id": 603,
-                "title": "The Matrix",
-                "year": "1999",
-                "poster_path": None,
-                "overview": "A hacker...",
-            },
-        ],
-        "parasite": [
-            {
-                "id": 496243,
-                "title": "Gisaengchung",
-                "year": "2019",
-                "poster_path": None,
-                "overview": "Greed and class...",
-            },
-        ],
-        "gisaengchung": [
-            {
-                "id": 496243,
-                "title": "Gisaengchung",
-                "year": "2019",
-                "poster_path": None,
-                "overview": "Greed and class...",
-            },
-        ],
-        "crouching tiger": [
-            {
-                "id": 146,
-                "title": "Wo hu cang long",
-                "year": "2000",
-                "poster_path": None,
-                "overview": "Two warriors...",
-            },
-        ],
+        "matrix": [_result(603, "The Matrix", "1999", overview="A hacker...")],
+        "parasite": [_result(496243, "Gisaengchung", "2019", overview="Greed and class...")],
+        "gisaengchung": [_result(496243, "Gisaengchung", "2019", overview="Greed and class...")],
+        "crouching tiger": [_result(146, "Wo hu cang long", "2000", overview="Two warriors...")],
     }
 
-    ALT_TITLES = {
+    ALT_TITLES: dict[int, list[tuple[str, str]]] = {
         438631: [
             ("Dune: Part One", "US"),
             ("Dune: Parte uno", "IT"),
@@ -137,14 +114,19 @@ class _FakeTMDBForMovieOrchestrator(TMDBClient):
         ],
     }
 
-    def search_movie(self, query, year=None):
+    def search_movie(self, query: str, year: str | None = None) -> list[SearchResult]:
         q = query.lower()
-        for key, results in self.MOVIES.items():
-            if key in q:
+        for movie_key, results in self.MOVIES.items():
+            if movie_key in q:
                 return list(results)
         return []
 
-    def search_with_fallback(self, query, search_fn, **kwargs):
+    def search_with_fallback(
+        self,
+        query: str,
+        search_fn: Callable[..., list[SearchResult]],
+        **kwargs: object,
+    ) -> list[SearchResult]:
         words = query.split()
         for n in range(len(words), 0, -1):
             attempt = " ".join(words[:n])
@@ -153,15 +135,22 @@ class _FakeTMDBForMovieOrchestrator(TMDBClient):
                 return results
         return []
 
-    def search_movies_batch(self, queries, max_workers=8, progress_callback=None):
-        results = []
+    def search_movies_batch(
+        self,
+        queries: list[tuple[str, str | None]],
+        max_workers: int = 8,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[list[SearchResult]]:
+        results: list[list[SearchResult]] = []
         for i, (query, year) in enumerate(queries, 1):
             if progress_callback:
                 progress_callback(i, len(queries))
             results.append(self.search_with_fallback(query, self.search_movie, year=year))
         return results
 
-    def get_alternative_titles(self, media_id, media_type="movie"):
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie"
+    ) -> list[tuple[str, str]]:
         return self.ALT_TITLES.get(media_id, [])
 
 
@@ -169,91 +158,67 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
     """The movie orchestrator should use alt titles to boost low-confidence
     matches during discovery."""
 
-    def _discover(self, folder_names):
+    def _discover(self, folder_names: list[str]) -> list[ScanState]:
         """Helper: create temp dirs and run movie discovery."""
         from plex_renamer.app.services import MovieLibraryDiscoveryService
 
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             for name in folder_names:
-                d = root / name
-                d.mkdir()
-                (d / f"{name.split('.')[0]}.mkv").write_text("x")
+                folder = root / name
+                folder.mkdir()
+                (folder / f"{name.split('.')[0]}.mkv").write_text("x")
 
-            tmdb = _FakeTMDBForMovieOrchestrator()
+            tmdb = cast(TMDBClient, _FakeTMDBForMovieOrchestrator())
             orchestrator = BatchMovieOrchestrator(
                 tmdb,
                 root,
                 discovery_service=MovieLibraryDiscoveryService(),
             )
-            return orchestrator.discover_movies()
+            return _discover_movies(orchestrator)
 
-    def test_dune_part_one_matched_with_high_confidence(self):
-        """Dune.Part.One.2021 folder should auto-accept via alt title boost."""
-        states = self._discover(["Dune.Part.One.2021.2160p.UHD.BluRay"])
+    def _assert_single_confident_match(self, states: list[ScanState], show_id: int) -> ScanState:
         self.assertEqual(len(states), 1)
         state = states[0]
-        self.assertEqual(state.show_id, 438631)
+        self.assertEqual(state.show_id, show_id)
         self.assertGreaterEqual(
             state.confidence,
             AUTO_ACCEPT_THRESHOLD,
             f"Expected confidence >= {AUTO_ACCEPT_THRESHOLD}, got {state.confidence:.2f}",
         )
+        return state
+
+    def test_dune_part_one_matched_with_high_confidence(self) -> None:
+        """Dune.Part.One.2021 folder should auto-accept via alt title boost."""
+        states = self._discover(["Dune.Part.One.2021.2160p.UHD.BluRay"])
+        state = self._assert_single_confident_match(states, 438631)
         self.assertFalse(state.checked, "Matched results start unchecked until explicitly queued")
 
-    def test_matrix_exact_match_no_boost_needed(self):
+    def test_matrix_exact_match_no_boost_needed(self) -> None:
         """The.Matrix.1999 should auto-accept without needing alt titles."""
         states = self._discover(["The.Matrix.1999.1080p.BluRay"])
-        self.assertEqual(len(states), 1)
-        state = states[0]
-        self.assertEqual(state.show_id, 603)
-        self.assertGreaterEqual(state.confidence, AUTO_ACCEPT_THRESHOLD)
+        state = self._assert_single_confident_match(states, 603)
         self.assertFalse(state.checked)
 
-    def test_spirited_away_english_folder_matches_japanese_primary(self):
+    def test_spirited_away_english_folder_matches_japanese_primary(self) -> None:
         """Spirited.Away.2001 should match the Japanese-titled TMDB entry
         via English alt title."""
         states = self._discover(["Spirited.Away.2001.1080p.BluRay"])
-        self.assertEqual(len(states), 1)
-        state = states[0]
-        self.assertEqual(state.show_id, 129)
-        self.assertGreaterEqual(
-            state.confidence,
-            AUTO_ACCEPT_THRESHOLD,
-            f"Expected confidence >= {AUTO_ACCEPT_THRESHOLD}, got {state.confidence:.2f}",
-        )
+        self._assert_single_confident_match(states, 129)
 
-    def test_parasite_english_folder_matches_korean_primary(self):
+    def test_parasite_english_folder_matches_korean_primary(self) -> None:
         """Parasite.2019 should match the Korean-titled TMDB entry
         via English alt title."""
         states = self._discover(["Parasite.2019.2160p.UHD.BluRay"])
-        self.assertEqual(len(states), 1)
-        state = states[0]
-        self.assertEqual(state.show_id, 496243)
-        self.assertGreaterEqual(
-            state.confidence,
-            AUTO_ACCEPT_THRESHOLD,
-            f"Expected confidence >= {AUTO_ACCEPT_THRESHOLD}, got {state.confidence:.2f}",
-        )
+        self._assert_single_confident_match(states, 496243)
 
-    def test_crouching_tiger_english_folder(self):
+    def test_crouching_tiger_english_folder(self) -> None:
         """Crouching.Tiger.Hidden.Dragon.2000 should match the Mandarin
         TMDB entry via English alt title."""
-        states = self._discover(
-            [
-                "Crouching.Tiger.Hidden.Dragon.2000.1080p.BluRay",
-            ]
-        )
-        self.assertEqual(len(states), 1)
-        state = states[0]
-        self.assertEqual(state.show_id, 146)
-        self.assertGreaterEqual(
-            state.confidence,
-            AUTO_ACCEPT_THRESHOLD,
-            f"Expected confidence >= {AUTO_ACCEPT_THRESHOLD}, got {state.confidence:.2f}",
-        )
+        states = self._discover(["Crouching.Tiger.Hidden.Dragon.2000.1080p.BluRay"])
+        self._assert_single_confident_match(states, 146)
 
-    def test_multi_movie_folder_scan_uses_only_selected_source_file(self):
+    def test_multi_movie_folder_scan_uses_only_selected_source_file(self) -> None:
         """A multi-movie dump folder should scan only the matched source file."""
         from plex_renamer.app.services import MovieLibraryDiscoveryService
 
@@ -268,20 +233,20 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
             dune_file.write_text("x")
             parasite_file.write_text("x")
 
-            tmdb = _FakeTMDBForMovieOrchestrator()
+            tmdb = cast(TMDBClient, _FakeTMDBForMovieOrchestrator())
             orchestrator = BatchMovieOrchestrator(
                 tmdb,
                 root,
                 discovery_service=MovieLibraryDiscoveryService(),
             )
 
-            states = orchestrator.discover_movies()
+            states = _discover_movies(orchestrator)
             self.assertEqual(len(states), 3)
 
             matrix_state = next(state for state in states if state.show_id == 603)
             self.assertEqual(matrix_state.source_file, matrix_file)
 
-            orchestrator.scan_movie(matrix_state)
+            _scan_movie(orchestrator, matrix_state)
 
             self.assertTrue(matrix_state.scanned)
             scanner = matrix_state.scanner
@@ -297,25 +262,17 @@ class MovieOrchestratorAltTitleTests(unittest.TestCase):
 class LanguagePriorityTests(unittest.TestCase):
     """Verify that preferred_country influences alt title ordering."""
 
-    def test_preferred_country_titles_tried(self):
+    def test_preferred_country_titles_tried(self) -> None:
         """Alt titles from the preferred country should be considered."""
-        results = [
-            {
-                "id": 10,
-                "title": "Vollkommen Anderer Titel",
-                "year": "2020",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(10, "Vollkommen Anderer Titel", "2020")]
         raw_name = "My Movie (2020)"
         year_hint = "2020"
 
-        scored = score_results(results, raw_name, year_hint, title_key="title")
+        scored = _score_results(results, raw_name, year_hint, title_key="title")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB({10: [("My Movie", "US"), ("Mein Film", "DE")]})
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -327,22 +284,14 @@ class LanguagePriorityTests(unittest.TestCase):
         # English fallback should still boost the score
         self.assertGreater(boosted[0][1], scored[0][1])
 
-    def test_preferred_country_match_wins(self):
+    def test_preferred_country_match_wins(self) -> None:
         """When the preferred country has the matching title, it should
         be found and used for boosting."""
-        results = [
-            {
-                "id": 20,
-                "title": "Vollkommen Anderer Titel",
-                "year": "2020",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(20, "Vollkommen Anderer Titel", "2020")]
         raw_name = "Le Titre Français (2020)"
         year_hint = "2020"
 
-        scored = score_results(results, raw_name, year_hint, title_key="title")
+        scored = _score_results(results, raw_name, year_hint, title_key="title")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -353,7 +302,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -364,24 +313,16 @@ class LanguagePriorityTests(unittest.TestCase):
         )
         self.assertGreaterEqual(boosted[0][1], AUTO_ACCEPT_THRESHOLD)
 
-    def test_french_user_matches_french_alt_title(self):
+    def test_french_user_matches_french_alt_title(self) -> None:
         """A French user searching for 'Le Voyage de Chihiro' should match
         via the FR alt title of Spirited Away. Year omitted to keep primary
         score below threshold (shared 'chihiro' token would otherwise push
         the LCS high enough with the year bonus)."""
-        results = [
-            {
-                "id": 129,
-                "title": "Sen to Chihiro no Kamikakushi",
-                "year": "2001",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(129, "Sen to Chihiro no Kamikakushi", "2001")]
         raw_name = "Le Voyage de Chihiro"
         year_hint = None
 
-        scored = score_results(results, raw_name, year_hint, title_key="title")
+        scored = _score_results(results, raw_name, year_hint, title_key="title")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -393,7 +334,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -404,22 +345,14 @@ class LanguagePriorityTests(unittest.TestCase):
         )
         self.assertGreater(boosted[0][1], scored[0][1])
 
-    def test_german_user_matches_german_alt_title(self):
+    def test_german_user_matches_german_alt_title(self) -> None:
         """A German user's folder 'Ziemlich beste Freunde' should match
         'Intouchables' via the DE alt title."""
-        results = [
-            {
-                "id": 200,
-                "title": "Intouchables",
-                "year": "2011",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(200, "Intouchables", "2011")]
         raw_name = "Ziemlich beste Freunde (2011)"
         year_hint = "2011"
 
-        scored = score_results(results, raw_name, year_hint, title_key="title")
+        scored = _score_results(results, raw_name, year_hint, title_key="title")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -431,7 +364,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -442,22 +375,14 @@ class LanguagePriorityTests(unittest.TestCase):
         )
         self.assertGreaterEqual(boosted[0][1], AUTO_ACCEPT_THRESHOLD)
 
-    def test_spanish_user_matches_spanish_tv_alt(self):
+    def test_spanish_user_matches_spanish_tv_alt(self) -> None:
         """A Spanish user's folder 'La Casa de Papel' should match when
         the primary is the English Netflix title 'Money Heist'."""
-        results = [
-            {
-                "id": 71446,
-                "name": "Money Heist",
-                "year": "2017",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(71446, "Money Heist", "2017", key="name")]
         raw_name = "La Casa de Papel (2017)"
         year_hint = "2017"
 
-        scored = score_results(results, raw_name, year_hint, title_key="name")
+        scored = _score_results(results, raw_name, year_hint, title_key="name")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -469,7 +394,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -480,22 +405,14 @@ class LanguagePriorityTests(unittest.TestCase):
         )
         self.assertGreaterEqual(boosted[0][1], AUTO_ACCEPT_THRESHOLD)
 
-    def test_japanese_user_anime_reverse_lookup(self):
+    def test_japanese_user_anime_reverse_lookup(self) -> None:
         """A Japanese user with folder '進撃の巨人' should match
         'Attack on Titan' via JP alt title."""
-        results = [
-            {
-                "id": 1429,
-                "name": "Attack on Titan",
-                "year": "2013",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(1429, "Attack on Titan", "2013", key="name")]
         raw_name = "進撃の巨人 (2013)"
         year_hint = "2013"
 
-        scored = score_results(results, raw_name, year_hint, title_key="name")
+        scored = _score_results(results, raw_name, year_hint, title_key="name")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -507,7 +424,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
@@ -518,22 +435,14 @@ class LanguagePriorityTests(unittest.TestCase):
         )
         self.assertGreaterEqual(boosted[0][1], AUTO_ACCEPT_THRESHOLD)
 
-    def test_no_preferred_country_falls_back_to_english(self):
+    def test_no_preferred_country_falls_back_to_english(self) -> None:
         """When no preferred country is set, English alt titles should
         still be found as a fallback."""
-        results = [
-            {
-                "id": 496243,
-                "title": "Gisaengchung",
-                "year": "2019",
-                "poster_path": None,
-                "overview": "",
-            },
-        ]
+        results = [_result(496243, "Gisaengchung", "2019")]
         raw_name = "Parasite (2019)"
         year_hint = "2019"
 
-        scored = score_results(results, raw_name, year_hint, title_key="title")
+        scored = _score_results(results, raw_name, year_hint, title_key="title")
         self.assertLess(scored[0][1], AUTO_ACCEPT_THRESHOLD)
 
         tmdb = _FakeTMDB(
@@ -544,7 +453,7 @@ class LanguagePriorityTests(unittest.TestCase):
                 ]
             }
         )
-        boosted = boost_scores_with_alt_titles(
+        boosted = _boost_scores(
             scored,
             raw_name,
             year_hint,
