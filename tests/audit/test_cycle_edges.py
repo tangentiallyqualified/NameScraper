@@ -198,6 +198,24 @@ disposition = "algorithm-call"
         _cycle_edges.load_cycle_edge_classifications(synthetic_repo, _engine_cycle_graph())
 
 
+def test_cycle_map_keeps_same_leaf_modules_distinct():
+    records = [
+        {
+            "source": "plex_renamer.engine.tv._state",
+            "target": "plex_renamer.engine.movie._state",
+            "owner": "engine",
+            "purpose": "test",
+            "disposition": "shared-model",
+        },
+    ]
+
+    rendered = _cycle_edges.render_classified_cycle_map(records)
+
+    mermaid = rendered.split("```")[1]
+    assert "plex_renamer_engine_tv__state" in mermaid
+    assert "plex_renamer_engine_movie__state" in mermaid
+
+
 def test_classified_cycle_map_is_rendered_from_sorted_toml_records(synthetic_repo: Path):
     _write_cycle_classifications(
         synthetic_repo,
@@ -224,8 +242,8 @@ disposition = "algorithm-call"
 
     rendered = _cycle_edges.render_classified_cycle_map(classifications)
 
-    assert rendered.index("alpha -->|algorithm-call| beta") < rendered.index(
-        "beta -->|runtime-construction| alpha"
+    assert rendered.index('plex_renamer_engine_alpha["alpha"] -->|algorithm-call| plex_renamer_engine_beta["beta"]') < rendered.index(
+        'plex_renamer_engine_beta["beta"] -->|runtime-construction| plex_renamer_engine_alpha["alpha"]'
     )
     assert "| `plex_renamer.engine.alpha` | `plex_renamer.engine.beta` | engine-alpha |" in rendered
     assert "Call beta's algorithm." in rendered

@@ -143,7 +143,7 @@ def load_cycle_edge_classifications(
 
 
 def _cycle_node_id(module: str) -> str:
-    node_id = re.sub(r"\W", "_", module.rsplit(".", 1)[-1])
+    node_id = re.sub(r"\W", "_", module)
     return f"module_{node_id}" if node_id[:1].isdigit() else node_id
 
 
@@ -159,7 +159,11 @@ def render_classified_cycle_map(classifications: Sequence[CycleEdgeClassificatio
     for record in classifications:
         source = _cycle_node_id(record["source"])
         target = _cycle_node_id(record["target"])
-        lines.append(f"    {source} -->|{record['disposition']}| {target}")
+        source_leaf = record["source"].rsplit(".", 1)[-1]
+        target_leaf = record["target"].rsplit(".", 1)[-1]
+        lines.append(
+            f'    {source}["{source_leaf}"] -->|{record["disposition"]}| {target}["{target_leaf}"]'
+        )
     lines.append("```")
     rows = [
         "| "
