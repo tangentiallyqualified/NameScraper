@@ -195,7 +195,7 @@ disposition = "algorithm-call"
 
 
 def test_cycle_map_keeps_same_leaf_modules_distinct():
-    records = [
+    records: list[_cycle_edges.CycleEdgeClassification] = [
         {
             "source": "plex_renamer.engine.tv._state",
             "target": "plex_renamer.engine.movie._state",
