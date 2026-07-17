@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..constants import JobKind, MediaType
-from .models import PreviewItem, ScanState, file_mux_active
+from .models import MediaInfoValue, PreviewItem, ScanState, file_mux_active
+
+if TYPE_CHECKING:
+    from ..job_store import RenameJob
 
 
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
@@ -120,6 +124,16 @@ def _build_rename_ops(
     return ops
 
 
+def _narrowed_media_fields(
+    media_info: dict[str, MediaInfoValue],
+) -> tuple[str, str, str | None]:
+    """Narrow the ``MediaInfoValue`` fields a rename job needs to concrete types."""
+    name = str(media_info.get("name") or "")
+    year = str(media_info.get("year") or "")
+    poster_path = media_info.get("poster_path")
+    return name, year, poster_path if isinstance(poster_path, str) else None
+
+
 def build_rename_job_from_state(
     state: ScanState,
     library_root: Path,
@@ -127,17 +141,14 @@ def build_rename_job_from_state(
     show_folder_rename: str | None = None,
     checked_indices: set[int] | None = None,
     mux_plans: dict[int, dict] | None = None,
-) -> "RenameJob":
+) -> RenameJob:
     """Create a RenameJob from a TV batch scan state."""
     from ..job_store import RenameJob
-
     from ..parsing import build_show_folder_name
 
     checked_indices = checked_indices or get_checked_indices_from_state(state)
-    fallback_folder = show_folder_rename or build_show_folder_name(
-        str(state.media_info.get("name") or ""),
-        str(state.media_info.get("year") or ""),
-    )
+    name, year, poster_path = _narrowed_media_fields(state.media_info)
+    fallback_folder = show_folder_rename or build_show_folder_name(name, year)
     ops = _build_rename_ops(
         state.preview_items,
         checked_indices,
@@ -156,12 +167,11 @@ def build_rename_job_from_state(
         except ValueError:
             source_folder = state.folder.name
 
-    poster_path = state.media_info.get("poster_path")
     return RenameJob(
         media_type=MediaType.TV,
         tmdb_id=state.show_id or 0,
         media_name=state.display_name,
-        poster_path=poster_path if isinstance(poster_path, str) else None,
+        poster_path=poster_path,
         library_root=str(library_root),
         output_root=str(output_root),
         source_folder=source_folder,
@@ -183,7 +193,7 @@ def build_rename_job_from_items(
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
     mux_plans: dict[int, dict] | None = None,
-) -> "RenameJob":
+) -> RenameJob:
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob
 
