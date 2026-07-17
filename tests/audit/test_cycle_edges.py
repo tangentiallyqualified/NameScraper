@@ -242,7 +242,9 @@ disposition = "algorithm-call"
 
     rendered = _cycle_edges.render_classified_cycle_map(classifications)
 
-    assert rendered.index('plex_renamer_engine_alpha["alpha"] -->|algorithm-call| plex_renamer_engine_beta["beta"]') < rendered.index(
+    assert rendered.index(
+        'plex_renamer_engine_alpha["alpha"] -->|algorithm-call| plex_renamer_engine_beta["beta"]'
+    ) < rendered.index(
         'plex_renamer_engine_beta["beta"] -->|runtime-construction| plex_renamer_engine_alpha["alpha"]'
     )
     assert "| `plex_renamer.engine.alpha` | `plex_renamer.engine.beta` | engine-alpha |" in rendered
