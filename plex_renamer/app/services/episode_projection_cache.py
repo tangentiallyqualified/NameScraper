@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from ...engine import ScanState
 from ...engine.models import TVScanStateScanner
@@ -61,10 +61,6 @@ EpisodeProjectionSignature: TypeAlias = tuple[
     ScannerMetadataSignature,
     tuple[CompanionProjectionSignature, ...],
 ]
-
-
-class _ProjectionMediaState(Protocol):
-    media_info: dict[str, str | int | None]
 
 
 @dataclass(slots=True)
@@ -140,7 +136,7 @@ class EpisodeProjectionCacheService:
         self._cache.clear()
 
     def signature_for_state(self, state: ScanState) -> EpisodeProjectionSignature:
-        media_info = cast(_ProjectionMediaState, state).media_info
+        media_info = state.media_info
         preview_signature: tuple[PreviewProjectionSignature, ...] = tuple(
             (
                 str(preview.original),

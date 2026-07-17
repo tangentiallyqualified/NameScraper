@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 from ..constants import VIDEO_EXTENSIONS, MediaType
 from ..parsing import (
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
 SeasonFolderEntry = Path | tuple[Path, ...]
+MediaInfoValue: TypeAlias = str | int | float | None
 
 
 def iter_season_folder_paths(entry: SeasonFolderEntry) -> tuple[Path, ...]:
@@ -207,7 +208,7 @@ class ScanState:
     """Per-show scan state — decouples show-level data from the GUI."""
 
     folder: Path
-    media_info: dict
+    media_info: dict[str, MediaInfoValue]
     scanner: ScanStateScanner | None = None
     source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
@@ -266,13 +267,14 @@ class ScanState:
 
     @property
     def show_id(self) -> int | None:
-        return self.media_info.get("id")
+        media_id = self.media_info.get("id")
+        return media_id if isinstance(media_id, int) else None
 
     @property
     def display_name(self) -> str:
         name = self.media_info.get("name") or self.media_info.get("title") or self.folder.name
         year = self.media_info.get("year", "")
-        return f"{name} ({year})" if year else name
+        return f"{name} ({year})" if year else str(name)
 
     @property
     def needs_review(self) -> bool:

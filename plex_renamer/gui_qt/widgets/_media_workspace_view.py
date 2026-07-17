@@ -18,14 +18,14 @@ class MediaWorkspaceViewCoordinator:
         source = str(state.folder)
         if workspace._media_type == "movie":
             target = build_movie_name(
-                state.media_info.get("title", state.display_name),
-                state.media_info.get("year", ""),
+                str(state.media_info.get("title", state.display_name)),
+                str(state.media_info.get("year", "")),
                 "",
             )
         else:
             target = build_show_folder_name(
-                state.media_info.get("name", state.display_name),
-                state.media_info.get("year", ""),
+                str(state.media_info.get("name", state.display_name)),
+                str(state.media_info.get("year", "")),
             )
         if not source or not target:
             return None
@@ -38,7 +38,9 @@ class MediaWorkspaceViewCoordinator:
         for index, state in enumerate(workspace._current_states()):
             if _roster_selection_key(state) != state_key:
                 continue
-            workspace._set_roster_current_state(index, auto_selected=workspace._roster_selection_is_auto)
+            workspace._set_roster_current_state(
+                index, auto_selected=workspace._roster_selection_is_auto
+            )
             workspace._roster_panel.scroll_state_into_context(index)
             return
 

@@ -56,8 +56,10 @@ def _bake_metadata_plan(job, settings_service, tmdb_client, library_root) -> Non
         # undecorated and continue. Core invariant: metadata must never
         # fail a job or block queueing.
         _log.warning(
-            "Metadata plan bake failed for job %r; queueing without "
-            "metadata plan.", getattr(job, "job_id", None), exc_info=True)
+            "Metadata plan bake failed for job %r; queueing without metadata plan.",
+            getattr(job, "job_id", None),
+            exc_info=True,
+        )
         job.metadata_plan = None
 
 
@@ -144,13 +146,15 @@ def add_tv_batch_jobs(
             continue
 
         checked = set(eligibility.selected_indices)
-        if not checked and any(command_gating.is_actionable_item(item) for item in state.preview_items):
+        if not checked and any(
+            command_gating.is_actionable_item(item) for item in state.preview_items
+        ):
             result.blocked.append(f"{state.display_name}: Select at least one file before queueing")
             continue
 
         show_folder = build_show_folder_name(
-            state.media_info.get("name", ""),
-            state.media_info.get("year", ""),
+            str(state.media_info.get("name", "")),
+            str(state.media_info.get("year", "")),
         )
         mux_plans = _mux_plans_for_state(state, settings_service, library_root)
         job = build_rename_job_from_state(
@@ -210,10 +214,11 @@ def add_movie_batch_jobs(
 
         item = state.preview_items[0]
         movie_folder = build_movie_name(
-            state.media_info.get("title", ""),
-            state.media_info.get("year", ""),
+            str(state.media_info.get("title", "")),
+            str(state.media_info.get("year", "")),
             "",
         )
+        poster_path = state.media_info.get("poster_path")
         mux_plans = _mux_plans_for_state(state, settings_service, library_root)
         job = build_rename_job_from_items(
             items=[item],
@@ -225,7 +230,7 @@ def add_movie_batch_jobs(
             output_root=output_root,
             source_folder=item.original.parent,
             show_folder_rename=movie_folder,
-            poster_path=state.media_info.get("poster_path"),
+            poster_path=poster_path if isinstance(poster_path, str) else None,
             mux_plans=mux_plans,
         )
         _bake_metadata_plan(job, settings_service, tmdb_client, library_root)

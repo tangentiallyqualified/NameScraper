@@ -11,7 +11,8 @@ from .models import PreviewItem, ScanState, file_mux_active
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
     """Return indices of checked, actionable preview items from a scan state."""
     return {
-        index for index, item in enumerate(state.preview_items)
+        index
+        for index, item in enumerate(state.preview_items)
         if state.check_vars.get(str(index)) is not None
         and state.check_vars[str(index)].get()
         and (_is_queue_actionable(item) or file_mux_active(state, index))
@@ -73,22 +74,25 @@ def _build_rename_ops(
         if plan:
             new_name = plan.get("output_name") or item.new_name
             merged_paths = {
-                m["source_relative"] for m in plan.get("subtitle_merges", [])
+                m["source_relative"]
+                for m in plan.get("subtitle_merges", [])
                 if m.get("action") == "merge"
             }
 
         is_selected = index in checked_indices
-        ops.append(RenameOp(
-            original_relative=original_rel,
-            new_name=new_name,
-            target_dir_relative=target_rel,
-            status=item.status,
-            season=item.season,
-            episodes=list(item.episodes),
-            selected=is_selected,
-            file_type="video",
-            mux=plan,
-        ))
+        ops.append(
+            RenameOp(
+                original_relative=original_rel,
+                new_name=new_name,
+                target_dir_relative=target_rel,
+                status=item.status,
+                season=item.season,
+                episodes=list(item.episodes),
+                selected=is_selected,
+                file_type="video",
+                mux=plan,
+            )
+        )
 
         merged_paths_normalized = {p.replace("\\", "/") for p in merged_paths}
         for companion in item.companions:
@@ -100,16 +104,18 @@ def _build_rename_ops(
             if companion_rel.replace("\\", "/") in merged_paths_normalized:
                 continue  # consumed by the mux — no rename op
 
-            ops.append(RenameOp(
-                original_relative=companion_rel,
-                new_name=companion.new_name,
-                target_dir_relative=target_rel,
-                status="OK",
-                season=item.season,
-                episodes=list(item.episodes),
-                selected=is_selected,
-                file_type=companion.file_type,
-            ))
+            ops.append(
+                RenameOp(
+                    original_relative=companion_rel,
+                    new_name=companion.new_name,
+                    target_dir_relative=target_rel,
+                    status="OK",
+                    season=item.season,
+                    episodes=list(item.episodes),
+                    selected=is_selected,
+                    file_type=companion.file_type,
+                )
+            )
 
     return ops
 
@@ -129,8 +135,8 @@ def build_rename_job_from_state(
 
     checked_indices = checked_indices or get_checked_indices_from_state(state)
     fallback_folder = show_folder_rename or build_show_folder_name(
-        state.media_info.get("name", ""),
-        state.media_info.get("year", ""),
+        str(state.media_info.get("name") or ""),
+        str(state.media_info.get("year") or ""),
     )
     ops = _build_rename_ops(
         state.preview_items,
@@ -150,11 +156,12 @@ def build_rename_job_from_state(
         except ValueError:
             source_folder = state.folder.name
 
+    poster_path = state.media_info.get("poster_path")
     return RenameJob(
         media_type=MediaType.TV,
         tmdb_id=state.show_id or 0,
         media_name=state.display_name,
-        poster_path=state.media_info.get("poster_path"),
+        poster_path=poster_path if isinstance(poster_path, str) else None,
         library_root=str(library_root),
         output_root=str(output_root),
         source_folder=source_folder,
