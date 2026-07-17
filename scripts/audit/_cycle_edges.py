@@ -9,6 +9,8 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import TypeAlias, TypedDict
 
+from . import _artifacts
+
 CYCLE_EDGE_CLASSIFICATIONS = Path("docs/audit/engine-cycle-edges.toml")
 CYCLE_EDGE_FIELDS = {"source", "target", "owner", "purpose", "disposition"}
 CYCLE_EDGE_DISPOSITIONS = {
@@ -58,13 +60,6 @@ def _engine_cycle_edges(graph: CycleGraph) -> list[tuple[str, str]]:
     )
 
 
-def _required_string(record: TomlTable, index: int, field: str) -> str:
-    value = record[field]
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"cycle edge classification {index} {field} must be a non-empty string")
-    return value
-
-
 def _validated_record(record: TomlValue, index: int) -> CycleEdgeClassification:
     if not isinstance(record, dict):
         raise ValueError(f"cycle edge classification {index} must be a table")
@@ -80,11 +75,13 @@ def _validated_record(record: TomlValue, index: int) -> CycleEdgeClassification:
             "cycle edge classification "
             f"{index} has unexpected fields: {', '.join(unexpected_fields)}"
         )
-    source = _required_string(record, index, "source")
-    target = _required_string(record, index, "target")
-    owner = _required_string(record, index, "owner")
-    purpose = _required_string(record, index, "purpose")
-    disposition = _required_string(record, index, "disposition")
+    source = _artifacts.required_string(record, "source", f"cycle edge classification {index}")
+    target = _artifacts.required_string(record, "target", f"cycle edge classification {index}")
+    owner = _artifacts.required_string(record, "owner", f"cycle edge classification {index}")
+    purpose = _artifacts.required_string(record, "purpose", f"cycle edge classification {index}")
+    disposition = _artifacts.required_string(
+        record, "disposition", f"cycle edge classification {index}"
+    )
     if disposition not in CYCLE_EDGE_DISPOSITIONS:
         allowed = ", ".join(sorted(CYCLE_EDGE_DISPOSITIONS))
         raise ValueError(

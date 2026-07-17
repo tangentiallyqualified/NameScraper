@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -134,6 +135,14 @@ def package_of(path: str) -> str:
     """Top-level package segment of a repo-relative module path ('root' for top-level files)."""
     parts = Path(path).parts
     return parts[1] if len(parts) > 2 else "root"
+
+
+def required_string(record: Mapping[str, object], field: str, context: str) -> str:
+    """Validate a required non-empty TOML string field; returns the stripped value."""
+    value = record.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} {field} must be a non-empty string")
+    return value.strip()
 
 
 def write_artifact(repo_root: Path, name: str, payload: dict[str, object]) -> Path:

@@ -93,7 +93,7 @@ def test_unknown_reason_code_is_rejected() -> None:
 
 
 def test_blank_prose_reason_is_rejected() -> None:
-    with pytest.raises(_decisions.DecisionPolicyError, match="non-empty reason"):
+    with pytest.raises(_decisions.DecisionPolicyError, match="reason must be a non-empty string"):
         _decisions.loads(_policy(reason="   "))
 
 
