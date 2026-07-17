@@ -1,14 +1,14 @@
 # tests/test_workspace_poster_warmup.py
 """SCANNING→READY waits for poster warmup, with a timeout (LD3)."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QLabel, QStackedWidget, QWidget
-
-from conftest_qt import QtSmokeBase
 
 
 class _StubScanProgress:
@@ -61,10 +61,10 @@ class _FakeWorkspace(QWidget):
 
 class PosterWarmupTests(QtSmokeBase):
     def _coordinator_with_fake(self, pending_seq):
-        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
         from plex_renamer.gui_qt.widgets._media_workspace_lifecycle import (
             MediaWorkspaceLifecycleCoordinator,
         )
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
 
         model = RosterModel(media_type="tv")
         pending = list(pending_seq)
@@ -168,9 +168,9 @@ class PosterWarmupTests(QtSmokeBase):
         pass
 
     def _state(self, *, show_id):
-        from plex_renamer.engine.models import ScanState
+        from plex_renamer.engine.models import MediaInfoValue, ScanState
 
-        media_info = {"name": "Show", "year": "2020"}
+        media_info: dict[str, MediaInfoValue] = {"name": "Show", "year": "2020"}
         if show_id is not None:
             media_info["id"] = show_id
         return ScanState(folder=Path(f"C:/lib/show-{show_id}"), media_info=media_info)
