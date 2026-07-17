@@ -164,17 +164,14 @@ class CompletenessReport:
         return (self.total_matched / self.total_expected * 100) if self.total_expected else 0.0
 
 
-class TVScanner(Protocol):
+class TVScanStateScanner(Protocol):
     """Episode metadata capability retained by a TV ``ScanState``."""
 
     @property
     def episode_meta(self) -> Mapping[tuple[int, int], Mapping[str, object]]: ...
 
 
-TVScanStateScanner = TVScanner
-
-
-class TVScannerOperations(TVScanner, Protocol):
+class TVScannerOperations(TVScanStateScanner, Protocol):
     """Full TV scan operations used by controllers and reconciliation."""
 
     @property
@@ -202,7 +199,7 @@ class MovieScanStateScanner(Protocol):
     def get_search_results(self, file_path: Path) -> list[dict]: ...
 
 
-ScanStateScanner = TVScanner | MovieScanStateScanner
+ScanStateScanner = TVScanStateScanner | MovieScanStateScanner
 
 
 @dataclass
