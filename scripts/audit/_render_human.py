@@ -9,13 +9,6 @@ from typing import cast
 
 from . import _artifacts, _cycle_edges
 
-CYCLE_EDGE_CLASSIFICATIONS = _cycle_edges.CYCLE_EDGE_CLASSIFICATIONS
-CYCLE_EDGE_FIELDS = _cycle_edges.CYCLE_EDGE_FIELDS
-CYCLE_EDGE_DISPOSITIONS = _cycle_edges.CYCLE_EDGE_DISPOSITIONS
-_engine_cycle_edges = _cycle_edges._engine_cycle_edges
-load_cycle_edge_classifications = _cycle_edges.load_cycle_edge_classifications
-render_classified_cycle_map = _cycle_edges.render_classified_cycle_map
-
 _package_of = _artifacts.package_of
 
 START = "<!-- audit:generated:start {name} -->"
@@ -394,7 +387,7 @@ def _render_package_map(
             support.append(line)
     sections = _package_sections(entry, core, support)
     if package == "engine":
-        sections.insert(0, render_classified_cycle_map(cycle_classifications or ()))
+        sections.insert(0, _cycle_edges.render_classified_cycle_map(cycle_classifications or ()))
     body = "\n\n".join(sections) if sections else "_No modules._"
     digest = metrics.get("input_digest") or "unknown"
     return body + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
@@ -426,7 +419,7 @@ def run(repo_root: Path, options) -> int:
         raise ValueError("audit render artifacts have unsupported schemas")
     review_findings = cast(list[dict], raw_review_findings)
     cycle_graph = cast(_cycle_edges.CycleGraph, graph)
-    cycle_classifications = load_cycle_edge_classifications(repo_root, cycle_graph)
+    cycle_classifications = _cycle_edges.load_cycle_edge_classifications(repo_root, cycle_graph)
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 

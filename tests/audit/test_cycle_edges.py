@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.audit import _cycle_edges, _render_human
+from scripts.audit import _cycle_edges
 
 
 def _engine_cycle_graph() -> _cycle_edges.CycleGraph:
@@ -22,10 +22,6 @@ def _engine_cycle_graph() -> _cycle_edges.CycleGraph:
             }
         ],
     }
-
-
-def test_render_human_preserves_cycle_edge_field_compatibility_export() -> None:
-    assert _render_human.CYCLE_EDGE_FIELDS is _cycle_edges.CYCLE_EDGE_FIELDS
 
 
 def test_engine_cycle_edges_include_exact_facade_in_both_directions(synthetic_repo: Path) -> None:
