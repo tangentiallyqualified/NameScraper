@@ -16,12 +16,19 @@ from . import _analyze, _ratchet_identity
 Finding = dict[str, Any]
 MetricMap = dict[str, dict[str, Any]]
 
+_rel_to_repo = _analyze._rel_to_repo  # pyright: ignore[reportPrivateUsage]
+_suffix_occurrences = cast(
+    Callable[[list[Finding]], list[Finding]],
+    _ratchet_identity.suffix_occurrences,  # pyright: ignore[reportUnknownMemberType]
+)
+
 
 def normalized_python_files(records: object) -> list[str]:
     if not isinstance(records, list):
         return []
+    items = cast(list[object], records)
     return sorted(
-        {str(record).replace("\\", "/") for record in records if isinstance(record, str) and record}
+        {str(record).replace("\\", "/") for record in items if isinstance(record, str) and record}
     )
 
 
@@ -266,10 +273,10 @@ def run_policy_pyright(
         payload = json.loads(result.stdout or "{}")
     except json.JSONDecodeError as exc:
         raise ValueError("pyright emitted invalid JSON evidence") from exc
-    findings = []
+    findings: list[Finding] = []
     scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
     for item in payload.get("generalDiagnostics", []):
-        path = _analyze._rel_to_repo(repo_root, item["file"])
+        path = _rel_to_repo(repo_root, item["file"])
         start = item.get("range", {}).get("start", {})
         line = int(start.get("line", 0)) + 1
         column = int(start.get("character", 0)) + 1
@@ -291,7 +298,7 @@ def run_policy_pyright(
                 "allowlist_reason": None,
             }
         )
-    return _ratchet_identity.suffix_occurrences(findings)
+    return _suffix_occurrences(findings)
 
 
 def run_policy_format(repo_root: Path, python_files: list[str]) -> dict[str, str]:
