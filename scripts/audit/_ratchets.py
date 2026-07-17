@@ -358,7 +358,33 @@ def _run_policy_pyright(
     return _ratchet_identity.suffix_occurrences(findings)
 
 
+def _git_tracked_files(repo_root: Path, root_names: list[str]) -> set[str]:
+    """Repo-relative, forward-slash paths git tracks under *root_names*.
+
+    Quality-ratchet evidence must reflect only checked-in state: a
+    gitignored/untracked local file (e.g. a developer scratch script) must
+    not inflate LOC/CC findings that a clean CI checkout would never see.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z", "--", *root_names],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            errors="strict",
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise QualityEvidenceError(f"git ls-files failed: {exc}") from exc
+    if result.returncode != 0:
+        raise QualityEvidenceError(
+            f"git ls-files exited {result.returncode}: {result.stderr.strip()[:200]}"
+        )
+    return {entry for entry in result.stdout.split("\0") if entry}
+
+
 def _repository_python_records(repo_root: Path) -> list[dict]:
+    tracked = _git_tracked_files(repo_root, sorted(_QUALITY_PYTHON_ROOTS))
     records = []
     for root_name in sorted(_QUALITY_PYTHON_ROOTS):
         quality_root = repo_root / root_name
@@ -367,12 +393,15 @@ def _repository_python_records(repo_root: Path) -> list[dict]:
         for path, relative_to_root in _inventory._iter_files(quality_root):
             if relative_to_root.suffix != ".py":
                 continue
+            relative = Path(root_name) / relative_to_root
+            relative_posix = relative.as_posix()
+            if relative_posix not in tracked:
+                continue
             try:
                 loc = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
             except OSError:
                 continue
-            relative = Path(root_name) / relative_to_root
-            records.append({"path": relative.as_posix(), "loc": loc})
+            records.append({"path": relative_posix, "loc": loc})
     return records
 
 

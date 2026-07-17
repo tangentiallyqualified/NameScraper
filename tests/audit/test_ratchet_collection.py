@@ -239,7 +239,7 @@ def test_quality_check_cli_separates_debt_and_stale_baseline(
 
 
 def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, repo_git
 ) -> None:
     large_test = tmp_path / "tests" / "test_legacy_large.py"
     large_test.parent.mkdir()
@@ -259,6 +259,10 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         ignored = parent / excluded / "ignored.py"
         ignored.parent.mkdir()
         ignored.write_text("# ignored\n" * 600, encoding="utf-8")
+
+    repo_git(tmp_path, "init")
+    repo_git(tmp_path, "add", "-A")
+    repo_git(tmp_path, "commit", "-m", "fixture")
 
     analysis = {
         "findings": [],
@@ -342,6 +346,19 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         ("scripts/legacy_complex.py", "enlarged-debt"),
         ("tests/test_legacy_large.py", "enlarged-debt"),
     }
+
+
+def test_repository_python_records_excludes_git_untracked_files(
+    synthetic_repo: Path,
+) -> None:
+    untracked = synthetic_repo / "plex_renamer" / "untracked.py"
+    untracked.write_text("VALUE = 1\n", encoding="utf-8")
+
+    records = _ratchets._repository_python_records(synthetic_repo)
+    paths = {record["path"] for record in records}
+
+    assert "plex_renamer/alpha.py" in paths
+    assert "plex_renamer/untracked.py" not in paths
 
 
 def test_policy_ruff_scans_explicit_repository_python_roots(
