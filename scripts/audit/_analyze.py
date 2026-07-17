@@ -292,9 +292,9 @@ def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
 
 
 def _check_contracts(
-    graph: dict, contracts_text: str, cycle_baseline_text: str | None = None
+    graph: dict, contract_config: dict, cycle_baseline_text: str | None = None
 ) -> list[dict]:
-    rules = tomllib.loads(contracts_text).get("forbid", []) if contracts_text else []
+    rules = contract_config.get("forbid", [])
     findings = []
     for name, mod in sorted(graph["modules"].items()):
         for target in mod["imports"]:
@@ -331,7 +331,7 @@ def _contract_findings(
     if cycle_baseline_text is None and baseline_name:
         baseline_path = Path(__file__).parent / baseline_name
         cycle_baseline_text = baseline_path.read_text(encoding="utf-8")
-    return _check_contracts(graph, contracts_text, cycle_baseline_text)
+    return _check_contracts(graph, contract_config, cycle_baseline_text)
 
 
 def _check_dependencies(graph: dict, pyproject_text: str) -> list[dict]:

@@ -1,6 +1,7 @@
 """Repository-specific architectural contract regressions."""
 
 import json
+import tomllib
 from pathlib import Path
 
 from audit import _analyze, _graph, _inventory
@@ -45,7 +46,7 @@ def test_engine_does_not_import_application_layer():
     contracts = (REPO_ROOT / "scripts" / "audit" / "contracts.toml").read_text(
         encoding="utf-8",
     )
-    findings = _analyze._check_contracts(graph, contracts)
+    findings = _analyze._check_contracts(graph, tomllib.loads(contracts))
     engine_to_app = [
         finding
         for finding in findings

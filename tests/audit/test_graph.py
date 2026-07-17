@@ -25,7 +25,7 @@ def _cycle_findings(graph: dict, baseline_cycles: list[dict]) -> list[dict]:
     baseline = json.dumps({"version": 1, "cycles": baseline_cycles})
     return [
         finding
-        for finding in _analyze._check_contracts(graph, "", baseline)
+        for finding in _analyze._check_contracts(graph, {}, baseline)
         if finding["rule"] in {"new-cycle", "enlarged-cycle"}
     ]
 
