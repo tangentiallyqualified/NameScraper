@@ -245,8 +245,8 @@ def _cycle_matches_legacy(
     legacy_modules: set[str],
     legacy_edges: set[tuple[str, str]],
 ) -> bool:
-    """Apply the exact legacy cycle policy for module and internal-edge containment."""
-    return modules < legacy_modules or (modules == legacy_modules and edges <= legacy_edges)
+    """A cycle is legacy-compliant only if every module AND every edge already existed."""
+    return modules <= legacy_modules and edges <= legacy_edges
 
 
 def _cycle_contract_findings(graph: dict, baseline_text: str) -> list[dict]:
