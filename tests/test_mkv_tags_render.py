@@ -57,7 +57,7 @@ def test_movie_tags_fields_and_escaping():
     assert set(by_target) == {"50"}
     simples = _simples(by_target["50"][0])
     assert simples["TITLE"] == ["Dune & Sons <deluxe>"]
-    assert simples["DATE_RELEASED"] == ["2021-09-15"]
+    assert simples["DATE_RELEASED"] == ["2021"]
     assert simples["SYNOPSIS"] == ["Paul Atreides journeys to Arrakis."]
     assert simples["GENRE"] == ["Science Fiction", "Adventure"]
 
@@ -97,6 +97,14 @@ def test_multi_episode_emits_one_50_tag_per_block():
     assert second["PART_NUMBER"] == ["2"]
     assert second["TITLE"] == ["Second"]
     assert "SYNOPSIS" not in second         # missing meta fields omitted
+
+
+def test_malformed_release_date_omits_date_tag():
+    # Players compose "TITLE (DATE_RELEASED)" for display; a partial date
+    # fragment would be worse than no date at all.
+    root = _root(render_movie_tags({"title": "Bare", "release_date": "20"}))
+    simples = _simples(root.find("Tag"))
+    assert "DATE_RELEASED" not in simples
 
 
 def test_unicode_survives():
