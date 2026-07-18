@@ -110,3 +110,11 @@ def test_update_without_flag_still_refuses_enlarged_debt(
     output = capsys.readouterr().out
     assert "quality baseline: refused -" in output
     assert "accepted" not in output
+
+
+def test_accept_enlarged_requires_update_quality_baseline(tmp_path: Path) -> None:
+    """Verify --accept-enlarged alone is rejected (requires --update-quality-baseline)."""
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["--accept-enlarged", "--repo-root", str(tmp_path)])
+
+    assert exc_info.value.code == 2
