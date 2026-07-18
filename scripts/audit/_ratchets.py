@@ -105,9 +105,9 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
     return _build_baseline(current, _normalized_python_files(current.get("python_files")))
 
 
-def build_baseline(current: dict, previous_baseline: dict) -> dict:
+def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
     """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
-    if isinstance(previous_baseline.get("coverage"), dict):
+    if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")
         result = _coverage.evaluate_quality_coverage(
@@ -444,14 +444,14 @@ def _load_baseline(repo_root: Path) -> dict:
     return baseline
 
 
-def run_quality_baseline_update(repo_root: Path) -> int:
+def run_quality_baseline_update(repo_root: Path, accept_enlarged: bool = False) -> int:
     """Refresh a supported baseline without ever seeding newly discovered Python files."""
     try:
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
-        _quality_refresh.reject_new_debt(evaluate_ratchets(current, previous))
-        baseline = build_baseline(current, previous)
+        _quality_refresh.gate_refresh_debt(evaluate_ratchets(current, previous), accept_enlarged)
+        baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
         path.write_text(
             json.dumps(baseline, indent=1, sort_keys=True) + "\n",
