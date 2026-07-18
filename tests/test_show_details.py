@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import unittest
 
+from plex_renamer.engine._batch_tv_match_policy import episode_count_tiebreak
 from plex_renamer.engine.show_details import (
     SeasonSummary,
     ShowDetails,
     show_details_from_tmdb,
 )
-from plex_renamer.engine._batch_tv_match_policy import episode_count_tiebreak
 
 
 class ShowDetailsNormalizationTests(unittest.TestCase):
@@ -24,17 +24,19 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
         self.assertIsNone(show_details_from_tmdb(None))
 
     def test_full_payload_normalizes(self):
-        details = show_details_from_tmdb({
-            "id": 1396,
-            "number_of_episodes": 62,
-            "number_of_seasons": 5,
-            "first_air_date": "2008-01-20",
-            "status": "Ended",
-            "seasons": [
-                {"season_number": 0, "episode_count": 9},
-                {"season_number": 1, "episode_count": 7},
-            ],
-        })
+        details = show_details_from_tmdb(
+            {
+                "id": 1396,
+                "number_of_episodes": 62,
+                "number_of_seasons": 5,
+                "first_air_date": "2008-01-20",
+                "status": "Ended",
+                "seasons": [
+                    {"season_number": 0, "episode_count": 9},
+                    {"season_number": 1, "episode_count": 7},
+                ],
+            }
+        )
         self.assertEqual(details.id, 1396)
         self.assertEqual(details.number_of_episodes, 62)
         self.assertEqual(details.number_of_seasons, 5)
@@ -46,9 +48,13 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
         )
 
     def test_unaired_mapping(self):
-        planned = show_details_from_tmdb({
-            "id": 1, "first_air_date": "2027-01-01", "status": "Planned",
-        })
+        planned = show_details_from_tmdb(
+            {
+                "id": 1,
+                "first_air_date": "2027-01-01",
+                "status": "Planned",
+            }
+        )
         self.assertTrue(planned.unaired)
         no_date = show_details_from_tmdb({"id": 2, "status": "Ended"})
         self.assertTrue(no_date.unaired)
@@ -77,12 +83,16 @@ class TiebreakAbstainsOnFetchFailureTests(unittest.TestCase):
         show_b = {"id": 2, "name": "Show", "year": "2012"}
         scored = [(show_a, 1.0), (show_b, 1.0)]
         # show_a's fetch fails (None); show_b has a perfect count match.
-        tmdb = _StubTMDB({
-            2: {"number_of_episodes": 13, "first_air_date": "2012-01-01"},
-        })
+        tmdb = _StubTMDB(
+            {
+                2: {"number_of_episodes": 13, "first_air_date": "2012-01-01"},
+            }
+        )
 
         best, score, discriminated = episode_count_tiebreak(
-            tmdb, scored, file_count=13,
+            tmdb,
+            scored,
+            file_count=13,
         )
 
         self.assertIs(best, show_a, "abstention keeps the original winner")
@@ -93,13 +103,17 @@ class TiebreakAbstainsOnFetchFailureTests(unittest.TestCase):
         show_a = {"id": 1, "name": "Show", "year": "2010"}
         show_b = {"id": 2, "name": "Show", "year": "2012"}
         scored = [(show_a, 1.0), (show_b, 1.0)]
-        tmdb = _StubTMDB({
-            1: {"number_of_episodes": 190, "first_air_date": "2010-01-01"},
-            2: {"number_of_episodes": 13, "first_air_date": "2012-01-01"},
-        })
+        tmdb = _StubTMDB(
+            {
+                1: {"number_of_episodes": 190, "first_air_date": "2010-01-01"},
+                2: {"number_of_episodes": 13, "first_air_date": "2012-01-01"},
+            }
+        )
 
         best, _score, discriminated = episode_count_tiebreak(
-            tmdb, scored, file_count=13,
+            tmdb,
+            scored,
+            file_count=13,
         )
 
         self.assertIs(best, show_b)

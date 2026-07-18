@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
@@ -15,8 +16,6 @@ from plex_renamer.constants import JobStatus
 from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
 from plex_renamer.job_store import JobStore
 
-from conftest_qt import QtSmokeBase
-
 
 class QtJobDetailPanelTests(QtSmokeBase):
     def test_job_detail_panel_uses_persisted_job_poster_path_before_tmdb_lookup(self):
@@ -25,7 +24,11 @@ class QtJobDetailPanelTests(QtSmokeBase):
 
         tmdb = MagicMock()
         tmdb.fetch_image = MagicMock(return_value=None)
-        tmdb.fetch_poster = MagicMock(side_effect=AssertionError("fetch_poster should not be used when poster_path is persisted"))
+        tmdb.fetch_poster = MagicMock(
+            side_effect=AssertionError(
+                "fetch_poster should not be used when poster_path is persisted"
+            )
+        )
 
         panel = JobDetailPanel(tmdb_provider=lambda: tmdb)
         job = RenameJob(
@@ -55,7 +58,11 @@ class QtJobDetailPanelTests(QtSmokeBase):
         tmdb = MagicMock()
         tmdb.get_cached_poster_path = MagicMock(return_value="/poster.jpg")
         tmdb.fetch_image = MagicMock(return_value=None)
-        tmdb.fetch_poster = MagicMock(side_effect=AssertionError("fetch_poster should not be needed when cached metadata has poster_path"))
+        tmdb.fetch_poster = MagicMock(
+            side_effect=AssertionError(
+                "fetch_poster should not be needed when cached metadata has poster_path"
+            )
+        )
 
         panel = JobDetailPanel(
             tmdb_provider=lambda: tmdb,
@@ -212,6 +219,7 @@ class QtJobDetailPanelTests(QtSmokeBase):
 
     def test_job_detail_panel_hides_target_button_in_queue_mode(self):
         from PySide6.QtWidgets import QSizePolicy
+
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
         from plex_renamer.job_store import RenameJob
 
@@ -511,7 +519,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertEqual(folder_widget._before_key.text(), "Source")
         self.assertEqual(folder_widget._after_key.text(), "Target")
         self.assertEqual(folder_widget._before.text(), "Movies")
-        self.assertEqual(folder_widget._after.text(), "Legend of the Galactic Heroes - Overture to a New War (1993)")
+        self.assertEqual(
+            folder_widget._after.text(),
+            "Legend of the Galactic Heroes - Overture to a New War (1993)",
+        )
         panel.close()
 
     def test_job_detail_panel_preview_rows_use_compact_labeled_fields(self):
@@ -520,7 +531,9 @@ class QtJobDetailPanelTests(QtSmokeBase):
 
         panel = JobDetailPanel()
         panel.resize(720, 640)
-        long_original = "Legend of the Galactic Heroes - Overture to a New War [Extremely Long Source Name].mkv"
+        long_original = (
+            "Legend of the Galactic Heroes - Overture to a New War [Extremely Long Source Name].mkv"
+        )
         long_new = "Legend of the Galactic Heroes - Overture to a New War (1993) - Director's Cut Restoration Edition.mkv"
         job = RenameJob(
             library_root="C:/library",
@@ -702,9 +715,7 @@ class QtJobDetailPanelTests(QtSmokeBase):
     def test_job_detail_panel_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/widgets/job_detail_panel.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/widgets/job_detail_panel.py").read_text(encoding="utf-8")
         self.assertIn("_scale", source)
         for literal in (
             "setMinimumWidth(400)",
@@ -727,13 +738,16 @@ class QtJobDetailPanelTests(QtSmokeBase):
                     original_relative="Show/ep1.mkv",
                     new_name="Show - S01E01 - Pilot.mkv",
                     target_dir_relative="Show/Season 01",
-                    status="OK", season=1, file_type="video",
+                    status="OK",
+                    season=1,
+                    file_type="video",
                 ),
                 RenameOp(
                     original_relative="Show/ep1.eng.srt",
                     new_name="Show - S01E01 - Pilot.eng.srt",
                     target_dir_relative="Show/Season 01",
-                    status="OK", file_type="subtitle",
+                    status="OK",
+                    file_type="subtitle",
                 ),
             ],
         )
@@ -751,8 +765,8 @@ class QtJobDetailPanelTests(QtSmokeBase):
                 season_header = item
         self.assertIsNotNone(season_header)
         video_item = season_header.child(0)
-        self.assertEqual(video_item.childCount(), 1)           # companion nested
-        self.assertTrue(video_item.isExpanded())               # visible by default
+        self.assertEqual(video_item.childCount(), 1)  # companion nested
+        self.assertTrue(video_item.isExpanded())  # visible by default
         companion_widget = tree.itemWidget(video_item.child(0), 0)
         self.assertIsNotNone(companion_widget)
         self.assertEqual(companion_widget._badge_label.text(), "SUB")
@@ -772,13 +786,16 @@ class QtJobDetailPanelTests(QtSmokeBase):
                     original_relative="Show/ep1.mkv",
                     new_name="Show - S01E01 - Pilot.mkv",
                     target_dir_relative="Show/Season 01",
-                    status="OK", season=1, file_type="video",
+                    status="OK",
+                    season=1,
+                    file_type="video",
                 ),
                 RenameOp(
                     original_relative="Show/ep1.eng.srt",
                     new_name="Show - S01E01 - Pilot.eng.srt",
                     target_dir_relative="Show/Season 01",
-                    status="OK", file_type="subtitle",
+                    status="OK",
+                    file_type="subtitle",
                 ),
             ],
         )
@@ -791,10 +808,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
         # The group-header arrow prefix must never leak onto ordinary rows:
         # their delegate-painted text sits behind the transparent row widget.
         self.assertEqual(video_item.text(0), "")
-        panel._on_preview_item_clicked(video_item, 0)   # collapse companions
+        panel._on_preview_item_clicked(video_item, 0)  # collapse companions
         self.assertFalse(video_item.isExpanded())
         self.assertEqual(video_item.text(0), "")
-        panel._on_preview_item_clicked(video_item, 0)   # expand companions
+        panel._on_preview_item_clicked(video_item, 0)  # expand companions
         self.assertTrue(video_item.isExpanded())
         self.assertEqual(video_item.text(0), "")
         # Header arrows still update normally.
@@ -809,8 +826,10 @@ class QtJobDetailPanelTests(QtSmokeBase):
 
         panel = JobDetailPanel()
         job = RenameJob(
-            library_root="C:/library", source_folder="Show",
-            media_name="Example Show", error_message="boom",
+            library_root="C:/library",
+            source_folder="Show",
+            media_name="Example Show",
+            error_message="boom",
         )
         panel.set_job(job)
         self.assertEqual(panel._error.styleSheet(), "")
@@ -830,7 +849,8 @@ class QtJobDetailPanelTests(QtSmokeBase):
             message = panel._empty_message
             needed = message.heightForWidth(message.width())
             self.assertGreaterEqual(
-                message.height(), needed,
+                message.height(),
+                needed,
                 f"empty-card message clipped in history_mode={history_mode}: "
                 f"{message.height()}px shown, {needed}px needed",
             )
@@ -862,11 +882,16 @@ class QtJobDetailPanelTests(QtSmokeBase):
 
         line_spacing = label.fontMetrics().lineSpacing()
         content_width = label.width() - 2 * label.margin()
-        true_narrow = label.fontMetrics().boundingRect(
-            QRect(0, 0, content_width, 1 << 20),
-            int(Qt.TextFlag.TextWordWrap),
-            text,
-        ).height() + 2 * label.margin()
+        true_narrow = (
+            label.fontMetrics()
+            .boundingRect(
+                QRect(0, 0, content_width, 1 << 20),
+                int(Qt.TextFlag.TextWordWrap),
+                text,
+            )
+            .height()
+            + 2 * label.margin()
+        )
 
         narrow_reserve = label.minimumHeight()
         self.assertGreater(narrow_reserve, line_spacing, "wrap not exercised")
@@ -875,7 +900,8 @@ class QtJobDetailPanelTests(QtSmokeBase):
         label.resize(460, 10)
         self._app.processEvents()
         self.assertLess(
-            label.minimumHeight(), narrow_reserve,
+            label.minimumHeight(),
+            narrow_reserve,
             "widening did not shrink the reserved height (heightForWidth ratchet)",
         )
         label.close()

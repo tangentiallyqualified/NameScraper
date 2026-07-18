@@ -1,5 +1,6 @@
 # tests/test_settings_longpath.py
 """Non-blocking long-path (MAX_PATH) warning at destination selection (S1)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,9 +12,10 @@ from conftest_qt import QtSmokeBase
 
 class LongPathWarningTests(QtSmokeBase):
     def _tab(self, tmp_path: Path):
-        from plex_renamer.app.services.settings_service import SettingsService
         from plex_renamer.app.services.cache_service import PersistentCacheService
+        from plex_renamer.app.services.settings_service import SettingsService
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
         settings = SettingsService(path=tmp_path / "s.json")
         cache = PersistentCacheService(db_path=tmp_path / "c.db")
         tab = SettingsTab(settings_service=settings, cache_service=cache)

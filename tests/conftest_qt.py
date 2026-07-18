@@ -1,10 +1,11 @@
 """Shared Qt smoke-test base class and helpers."""
+
 from __future__ import annotations
 
-from contextlib import ExitStack
 import importlib.util
 import os
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -63,7 +64,10 @@ class QtSmokeBase(unittest.TestCase):
             patch("plex_renamer.gui_qt.main_window.SettingsService", return_value=isolated_settings)
         )
         self._main_window_stack.enter_context(
-            patch("plex_renamer.gui_qt.main_window.PersistentCacheService", return_value=isolated_cache)
+            patch(
+                "plex_renamer.gui_qt.main_window.PersistentCacheService",
+                return_value=isolated_cache,
+            )
         )
         self._main_window_stack.enter_context(
             patch("plex_renamer.gui_qt.main_window.JobStore", return_value=isolated_store)

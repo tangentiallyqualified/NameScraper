@@ -1,11 +1,11 @@
 # tests/test_scan_progress.py
 """Conveyor offset is a smooth function of elapsed time (LD1)."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
 
 import pytest
-
 from conftest_qt import QtSmokeBase
 
 
@@ -48,23 +48,31 @@ def test_stepper_widget_is_gone():
 
 def test_offset_zero_at_start():
     from plex_renamer.gui_qt.widgets.scan_progress import conveyor_offset
+
     assert conveyor_offset(0, slot_w=100, cycle_ms=1000) == 0.0
+
 
 def test_offset_monotonic_within_cycle():
     from plex_renamer.gui_qt.widgets.scan_progress import conveyor_offset
+
     a = conveyor_offset(200, slot_w=100, cycle_ms=1000)
     b = conveyor_offset(400, slot_w=100, cycle_ms=1000)
     assert 0 <= a < b < 100
 
+
 def test_offset_wraps_at_cycle():
     from plex_renamer.gui_qt.widgets.scan_progress import conveyor_offset
+
     assert conveyor_offset(1000, slot_w=100, cycle_ms=1000) == 0.0
-    assert conveyor_offset(1200, slot_w=100, cycle_ms=1000) == conveyor_offset(200, slot_w=100, cycle_ms=1000)
+    assert conveyor_offset(1200, slot_w=100, cycle_ms=1000) == conveyor_offset(
+        200, slot_w=100, cycle_ms=1000
+    )
 
 
 class AnimationTimerTests(QtSmokeBase):
     def test_animation_timer_runs_at_60fps(self):
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         widget = ScanProgressWidget(media_type="tv")
         self.assertEqual(widget._animation_timer.interval(), 16)
 
@@ -72,7 +80,9 @@ class AnimationTimerTests(QtSmokeBase):
 class ConveyorPosterTests(QtSmokeBase):
     def test_set_and_add_posters(self):
         from PySide6.QtGui import QPixmap
+
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.set_posters([QPixmap(10, 14)])
         w.add_poster(QPixmap(10, 14))
@@ -80,14 +90,18 @@ class ConveyorPosterTests(QtSmokeBase):
 
     def test_set_posters_filters_null_pixmaps(self):
         from PySide6.QtGui import QPixmap
+
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.set_posters([QPixmap(10, 14), QPixmap(), None])
         self.assertEqual(len(w._animation._posters), 1)
 
     def test_add_poster_ignores_null_pixmap(self):
         from PySide6.QtGui import QPixmap
+
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.add_poster(QPixmap())
         w.add_poster(None)
@@ -95,7 +109,9 @@ class ConveyorPosterTests(QtSmokeBase):
 
     def test_start_clears_posters(self):
         from PySide6.QtGui import QPixmap
+
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.set_posters([QPixmap(10, 14)])
         w.start()
@@ -109,6 +125,7 @@ class ConveyorDprPaintTests(QtSmokeBase):
 
     def _painted_animation(self, poster_size=(20, 30)):
         from PySide6.QtGui import QPixmap
+
         from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
 
         anim = _ConveyorAnimation()
@@ -141,16 +158,19 @@ class ConveyorDprPaintTests(QtSmokeBase):
 class ConveyorPosterAssignmentTest(QtSmokeBase):
     def _pixmap(self, color):
         from PySide6.QtGui import QPixmap
+
         pm = QPixmap(10, 15)
         pm.fill(color)
         return pm
 
     def _animation(self):
         from plex_renamer.gui_qt.widgets.scan_progress import _ConveyorAnimation
+
         return _ConveyorAnimation()
 
     def test_card_gets_no_poster_if_none_loaded_at_crossing(self):
         from PySide6.QtCore import Qt
+
         anim = self._animation()
         # Card 3 crosses the beam with an empty pool: stays empty forever.
         self.assertIsNone(anim.poster_for_card(3, crossed=True))
@@ -159,6 +179,7 @@ class ConveyorPosterAssignmentTest(QtSmokeBase):
 
     def test_posters_assigned_in_order_at_crossing_and_sticky(self):
         from PySide6.QtCore import Qt
+
         anim = self._animation()
         red = self._pixmap(Qt.red)
         blue = self._pixmap(Qt.blue)
@@ -174,16 +195,18 @@ class ConveyorPosterAssignmentTest(QtSmokeBase):
 
     def test_not_yet_crossed_card_has_no_poster(self):
         from PySide6.QtCore import Qt
+
         anim = self._animation()
         anim.add_poster(self._pixmap(Qt.red))
         self.assertIsNone(anim.poster_for_card(5, crossed=False))
 
     def test_set_posters_is_additive_by_cachekey(self):
         from PySide6.QtCore import Qt
+
         anim = self._animation()
         red = self._pixmap(Qt.red)
         anim.set_posters([red])
-        anim.set_posters([red])           # repeated feed tick: no duplicate
+        anim.set_posters([red])  # repeated feed tick: no duplicate
         anim.poster_for_card(1, crossed=True)
         self.assertIsNone(anim.poster_for_card(2, crossed=True))  # pool exhausted
 
@@ -191,6 +214,7 @@ class ConveyorPosterAssignmentTest(QtSmokeBase):
 class FillerRotationTests(QtSmokeBase):
     def test_filler_rotation_covers_pool_before_repeating(self):
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.start()
         seen = []
@@ -222,6 +246,7 @@ class FillerRotationTests(QtSmokeBase):
         the start of the shuffled order (that was the 'repeats too often'
         bug): only the 4s quiet-window timer should restart."""
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
         w = ScanProgressWidget(media_type="tv")
         w.start()
         w._rotate_filler()

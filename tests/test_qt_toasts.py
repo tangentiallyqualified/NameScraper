@@ -1,8 +1,8 @@
 # tests/test_qt_toasts.py
 """Rebuilt toast card: clamp/expand, copy, sticky errors, hover pause (Plan 6)."""
+
 import shiboken6
 from conftest_qt import QtSmokeBase
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
@@ -15,7 +15,7 @@ _CARDS: list = []
 def _make_card(**kwargs):
     from plex_renamer.gui_qt.widgets.toast_manager import _ToastCard
 
-    defaults = dict(title="Title", message=_SHORT, tone="accent", duration_ms=None)
+    defaults = {"title": "Title", "message": _SHORT, "tone": "accent", "duration_ms": None}
     defaults.update(kwargs)
     card = _ToastCard(**defaults)
     _CARDS.append(card)
@@ -159,9 +159,8 @@ class ToastCardBehaviorTests(_ToastCardTestBase):
         self.assertEqual(card._duration_ms, 1500)
 
     def test_hover_pauses_and_resumes_countdown(self):
-        from PySide6.QtCore import QEvent
+        from PySide6.QtCore import QEvent, QPointF
         from PySide6.QtGui import QEnterEvent
-        from PySide6.QtCore import QPointF
 
         card = _make_card(tone="success", duration_ms=5000)
         self.assertTrue(card._timer.isActive())
@@ -203,10 +202,10 @@ class ToastManagerDefaultTests(_ToastCardTestBase):
         geometry (and the card's actual assigned height) stay wrong
         forever, leaving dead space and a mispositioned container.
         """
-        from plex_renamer.gui_qt.widgets.toast_manager import ToastManager
         from plex_renamer.gui_qt.widgets._toast_manager_layout import (
             plan_toast_manager_geometry,
         )
+        from plex_renamer.gui_qt.widgets.toast_manager import ToastManager
 
         host = QWidget()
         host.resize(800, 600)

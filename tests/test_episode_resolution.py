@@ -56,9 +56,7 @@ class TestMultiEpisodeRuns:
         assert rel is True
 
     def test_chained_dash_e_run_three(self):
-        eps, _, rel = extract_episode(
-            "ChalkZone.S01E01-E02-E03.DVDRip.1080p.mkv"
-        )
+        eps, _, rel = extract_episode("ChalkZone.S01E01-E02-E03.DVDRip.1080p.mkv")
         assert eps == [1, 2, 3]
         assert rel is True
 
@@ -270,8 +268,10 @@ class TestTitleStrength:
 class TestResolutionRules:
     def test_rule1_number_and_title_agree(self):
         res = resolve_file(
-            parsed_episodes=(2,), raw_title="The Heist",
-            is_season_relative=True, season_titles=S1_TITLES,
+            parsed_episodes=(2,),
+            raw_title="The Heist",
+            is_season_relative=True,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (2,)
         assert res.confidence >= CONF_AGREE
@@ -280,8 +280,10 @@ class TestResolutionRules:
     def test_rule2_strong_title_beats_number(self):
         # The user-reported case: s00e03 named "Special A" must map to e02.
         res = resolve_file(
-            parsed_episodes=(3,), raw_title="Special A",
-            is_season_relative=True, season_titles=S0_TITLES,
+            parsed_episodes=(3,),
+            raw_title="Special A",
+            is_season_relative=True,
+            season_titles=S0_TITLES,
         )
         assert res.episodes == (2,)
         assert res.confidence == CONF_TITLE_WINS
@@ -289,7 +291,8 @@ class TestResolutionRules:
     def test_rule3_weak_title_keeps_number_capped(self):
         # Title fuzzy-misses; the valid number wins but lands in review range.
         res = resolve_file(
-            parsed_episodes=(3,), raw_title="Endgame Part",
+            parsed_episodes=(3,),
+            raw_title="Endgame Part",
             is_season_relative=True,
             season_titles={1: "Pilot", 2: "Endgame Part One", 3: "Endgame Part Two"},
         )
@@ -298,64 +301,80 @@ class TestResolutionRules:
 
     def test_rule4_number_only_relative(self):
         res = resolve_file(
-            parsed_episodes=(4,), raw_title=None,
-            is_season_relative=True, season_titles=S1_TITLES,
+            parsed_episodes=(4,),
+            raw_title=None,
+            is_season_relative=True,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (4,)
         assert res.confidence == CONF_NUMBER_RELATIVE
 
     def test_rule4_number_only_inferred(self):
         res = resolve_file(
-            parsed_episodes=(4,), raw_title=None,
-            is_season_relative=False, season_titles=S1_TITLES,
+            parsed_episodes=(4,),
+            raw_title=None,
+            is_season_relative=False,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (4,)
         assert res.confidence == CONF_NUMBER_INFERRED
 
     def test_rule5_title_only_strong(self):
         res = resolve_file(
-            parsed_episodes=(), raw_title="Endgame",
-            is_season_relative=False, season_titles=S1_TITLES,
+            parsed_episodes=(),
+            raw_title="Endgame",
+            is_season_relative=False,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (3,)
         assert res.confidence == CONF_TITLE_ONLY
 
     def test_rule5_title_only_weak_is_unassigned(self):
         res = resolve_file(
-            parsed_episodes=(), raw_title="Bloopers Reel",
-            is_season_relative=False, season_titles=S1_TITLES,
+            parsed_episodes=(),
+            raw_title="Bloopers Reel",
+            is_season_relative=False,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == ()
         assert res.reason == "no TMDB title match"
 
     def test_rule6_nothing_is_unassigned(self):
         res = resolve_file(
-            parsed_episodes=(), raw_title=None,
-            is_season_relative=False, season_titles=S1_TITLES,
+            parsed_episodes=(),
+            raw_title=None,
+            is_season_relative=False,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == ()
         assert res.reason == "could not parse episode number"
 
     def test_number_not_in_season_is_unassigned(self):
         res = resolve_file(
-            parsed_episodes=(99,), raw_title=None,
-            is_season_relative=True, season_titles=S1_TITLES,
+            parsed_episodes=(99,),
+            raw_title=None,
+            is_season_relative=True,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == ()
         assert res.reason == "episode not in TMDB season"
 
     def test_multi_episode_run_validated(self):
         res = resolve_file(
-            parsed_episodes=(1, 2, 3), raw_title=None,
-            is_season_relative=True, season_titles=S1_TITLES,
+            parsed_episodes=(1, 2, 3),
+            raw_title=None,
+            is_season_relative=True,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (1, 2, 3)
         assert res.confidence == CONF_NUMBER_RELATIVE
 
     def test_rule4_unaffected_when_no_title_evidence(self):
         res = resolve_file(
-            parsed_episodes=(3,), raw_title="Completely Unrelated Thing",
-            is_season_relative=True, season_titles=S1_TITLES,
+            parsed_episodes=(3,),
+            raw_title="Completely Unrelated Thing",
+            is_season_relative=True,
+            season_titles=S1_TITLES,
         )
         assert res.episodes == (3,)
         assert res.confidence == CONF_NUMBER_RELATIVE
@@ -364,7 +383,8 @@ class TestResolutionRules:
         # Parsed E2 is valid; title substring-matches E3 only. Title wins,
         # but lands in review (below threshold) rather than auto-accepting.
         res = resolve_file(
-            parsed_episodes=(2,), raw_title="Endgame",
+            parsed_episodes=(2,),
+            raw_title="Endgame",
             is_season_relative=True,
             season_titles={1: "Pilot", 2: "The Heist", 3: "Endgame Saga"},
         )
@@ -379,7 +399,8 @@ class TestResolutionRules:
         # As Told By Ginger S02E06 release is title-offset and handled by the
         # conflict-resolution path, not this rule.)
         res = resolve_file(
-            parsed_episodes=(6,), raw_title="Sibling Revile-ry",
+            parsed_episodes=(6,),
+            raw_title="Sibling Revile-ry",
             is_season_relative=True,
             season_titles={
                 5: "Hello Stranger",
@@ -402,10 +423,14 @@ class TestMultiSegmentTitleRun:
 
     # TMDB Season 1 where the source's numbering is shuffled vs TMDB order.
     CATDOG_S1 = {
-        1: "Dog Gone", 2: "All You Can't Eat",
-        5: "Full Moon Fever", 6: "War of the CatDog",
-        13: "The Island", 14: "All You Need is Lube",
-        25: "Armed and Dangerous", 26: "Fistful of Mail!",
+        1: "Dog Gone",
+        2: "All You Can't Eat",
+        5: "Full Moon Fever",
+        6: "War of the CatDog",
+        13: "The Island",
+        14: "All You Need is Lube",
+        25: "Armed and Dangerous",
+        26: "Fistful of Mail!",
     }
 
     def test_number_maps_wrong_but_segment_titles_win(self):
@@ -448,8 +473,12 @@ class TestMultiSegmentTitleRun:
 
     def test_three_segment_run(self):
         titles = {
-            1: "Send in the CatDog", 2: "Fishing For Trouble", 3: "Fetch",
-            10: "Decoy", 11: "Decoy 2", 12: "Decoy 3",
+            1: "Send in the CatDog",
+            2: "Fishing For Trouble",
+            3: "Fetch",
+            10: "Decoy",
+            11: "Decoy 2",
+            12: "Decoy 3",
         }
         res = resolve_file(
             parsed_episodes=(10, 11, 12),
@@ -466,8 +495,10 @@ class TestMultiSegmentTitleRun:
         # confidence with review-locked "title-fuzzy" evidence — never
         # auto-accept.
         titles = {
-            31: "Decoy A", 32: "Decoy B",
-            37: "Neferkitty", 38: "Curiosity Almost Killed The Cat",
+            31: "Decoy A",
+            32: "Decoy B",
+            37: "Neferkitty",
+            38: "Curiosity Almost Killed The Cat",
         }
         res = resolve_file(
             parsed_episodes=(31, 32),
@@ -580,11 +611,13 @@ class TestSingleNumberSegmentedRun:
         # compatible source prefix floors must NOT lift the ambiguous
         # multi-segment number claim to 0.88 (the reproduced Animaniacs bug).
         from pathlib import Path
-        from plex_renamer.engine.episode_assignments import (
-            EpisodeAssignmentTable, EpisodeSlot,
-        )
+
         from plex_renamer.engine._episode_resolution import (
             apply_confidence_adjustments,
+        )
+        from plex_renamer.engine.episode_assignments import (
+            EpisodeAssignmentTable,
+            EpisodeSlot,
         )
 
         raw_title = "Flipper Parody & Temporary Insanity & Missing Thing"
@@ -607,15 +640,19 @@ class TestSingleNumberSegmentedRun:
             folder_season=1,
         )
         table.assign(
-            entry.file_id, 1, list(res.episodes),
-            origin="auto", confidence=res.confidence, evidence=res.evidence,
+            entry.file_id,
+            1,
+            list(res.episodes),
+            origin="auto",
+            confidence=res.confidence,
+            evidence=res.evidence,
         )
         apply_confidence_adjustments(
-            table, show_info={"id": 3, "name": "Demo Show", "year": "1993"},
+            table,
+            show_info={"id": 3, "name": "Demo Show", "year": "1993"},
         )
         assert (
-            table.assignment_for(entry.file_id).confidence
-            < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+            table.assignment_for(entry.file_id).confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
         )
 
     def test_exact_full_title_match_beats_segmentation(self):
@@ -674,9 +711,11 @@ class TestSingleNumberSegmentedRun:
 class TestSpecialsTrust:
     def test_special_number_only_forces_review(self):
         res = resolve_file(
-            parsed_episodes=(8,), raw_title=None,
+            parsed_episodes=(8,),
+            raw_title=None,
             is_season_relative=True,
-            season_titles={8: "How to Draw Eddy"}, season=0,
+            season_titles={8: "How to Draw Eddy"},
+            season=0,
         )
         assert res.episodes == (8,)
         assert res.confidence == CONF_SPECIAL_NUMBER_ONLY
@@ -685,7 +724,8 @@ class TestSpecialsTrust:
     def test_special_strong_title_still_wins(self):
         # Exact title for E12 overrides the parsed S00E08 number.
         res = resolve_file(
-            parsed_episodes=(8,), raw_title="The Grim Adventures of the KND",
+            parsed_episodes=(8,),
+            raw_title="The Grim Adventures of the KND",
             is_season_relative=True,
             season_titles={8: "How to Draw Eddy", 12: "The Grim Adventures of the KND"},
             season=0,
@@ -695,21 +735,17 @@ class TestSpecialsTrust:
 
     def test_regular_season_number_only_unchanged(self):
         res = resolve_file(
-            parsed_episodes=(4,), raw_title=None,
-            is_season_relative=True, season_titles=S1_TITLES, season=1,
+            parsed_episodes=(4,),
+            raw_title=None,
+            is_season_relative=True,
+            season_titles=S1_TITLES,
+            season=1,
         )
         assert res.confidence == CONF_NUMBER_RELATIVE
 
 
 from pathlib import Path
 
-from plex_renamer.engine.episode_assignments import (
-    ORIGIN_AUTO,
-    ORIGIN_MANUAL,
-    REASON_LOST_CONFLICT,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
 from plex_renamer.engine._episode_resolution import (
     COMPATIBLE_PREFIX_FLOOR,
     CONF_TITLE_ONLY,
@@ -719,6 +755,13 @@ from plex_renamer.engine._episode_resolution import (
     EXACT_COVERAGE_FLOOR,
     EXPLICIT_EPISODE_FLOOR,
     apply_confidence_adjustments,
+)
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    ORIGIN_MANUAL,
+    REASON_LOST_CONFLICT,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
 )
 
 SHOW = {"id": 7, "name": "Demo Show", "year": "2020"}
@@ -735,7 +778,8 @@ class TestConfidenceAdjustments:
     def test_explicit_episode_floor(self):
         table = coverage_table()
         entry = table.add_file(
-            Path("Demo Show S01E01.mkv"), is_season_relative=True,
+            Path("Demo Show S01E01.mkv"),
+            is_season_relative=True,
         )
         table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
         apply_confidence_adjustments(table, show_info=SHOW)
@@ -745,7 +789,8 @@ class TestConfidenceAdjustments:
         table = coverage_table()
         entry = table.add_file(
             Path("Demo Show S01E02 - Ep 2.mkv"),
-            is_season_relative=True, raw_title="Ep 2",
+            is_season_relative=True,
+            raw_title="Ep 2",
         )
         table.assign(entry.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.5)
         apply_confidence_adjustments(table, show_info=SHOW)
@@ -755,7 +800,8 @@ class TestConfidenceAdjustments:
         table = coverage_table(3)
         for episode in range(1, 4):
             entry = table.add_file(
-                Path(f"demo - {episode}.mkv"), is_season_relative=False,
+                Path(f"demo - {episode}.mkv"),
+                is_season_relative=False,
             )
             table.assign(entry.file_id, 1, [episode], origin=ORIGIN_AUTO, confidence=0.5)
         apply_confidence_adjustments(table, show_info=SHOW)
@@ -774,14 +820,12 @@ class TestConfidenceAdjustments:
     def test_contradictory_source_prefix_caps(self):
         table = coverage_table()
         entry = table.add_file(
-            Path("Totally Different Show S01E01.mkv"), is_season_relative=True,
+            Path("Totally Different Show S01E01.mkv"),
+            is_season_relative=True,
         )
         table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
         apply_confidence_adjustments(table, show_info=SHOW)
-        assert (
-            table.assignment_for(entry.file_id).confidence
-            <= CONTRADICTORY_PREFIX_CAP
-        )
+        assert table.assignment_for(entry.file_id).confidence <= CONTRADICTORY_PREFIX_CAP
 
     def test_franchise_prefix_source_is_not_contradictory(self):
         """Andor S2 regression: files named "Star.Wars.Andor.S02E01..." match
@@ -799,10 +843,7 @@ class TestConfidenceAdjustments:
         )
         table.assign(entry.file_id, 2, [1], origin=ORIGIN_AUTO, confidence=0.86)
         apply_confidence_adjustments(table, show_info=show)
-        assert (
-            table.assignment_for(entry.file_id).confidence
-            >= EXPLICIT_EPISODE_FLOOR
-        )
+        assert table.assignment_for(entry.file_id).confidence >= EXPLICIT_EPISODE_FLOOR
 
     def test_season0_title_only_not_capped_by_prefix(self):
         # Real Animaniacs featurette: the "(480p ...)" quality suffix makes
@@ -813,9 +854,13 @@ class TestConfidenceAdjustments:
         # CONTRADICTORY_PREFIX_CAP (0.45); with the guard it must stay
         # >= CONF_TITLE_ONLY.
         table = EpisodeAssignmentTable()
-        table.add_slot(EpisodeSlot(
-            season=0, episode=2, title="The Writers Flipped, They Have No Script",
-        ))
+        table.add_slot(
+            EpisodeSlot(
+                season=0,
+                episode=2,
+                title="The Writers Flipped, They Have No Script",
+            )
+        )
         entry = table.add_file(
             Path(
                 "The Writers Flipped, They Have No Script "
@@ -826,8 +871,12 @@ class TestConfidenceAdjustments:
             folder_season=0,
         )
         table.assign(
-            entry.file_id, 0, [2], origin=ORIGIN_AUTO,
-            confidence=CONF_TITLE_ONLY, evidence=frozenset({"title-strong"}),
+            entry.file_id,
+            0,
+            [2],
+            origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_ONLY,
+            evidence=frozenset({"title-strong"}),
         )
         apply_confidence_adjustments(table, show_info=SHOW)
         assert table.assignment_for(entry.file_id).confidence >= CONF_TITLE_ONLY
@@ -835,21 +884,25 @@ class TestConfidenceAdjustments:
     def test_special_number_only_survives_adjustments(self):
         from plex_renamer.engine._episode_resolution import CONF_SPECIAL_NUMBER_ONLY
         from plex_renamer.engine._state import DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+
         table = EpisodeAssignmentTable()
         table.add_slot(EpisodeSlot(season=0, episode=8, title="How to Draw Eddy"))
         entry = table.add_file(
             Path("Demo Show - S00E08 - Some Special.mkv"),
-            is_season_relative=True, raw_title="Some Special",
+            is_season_relative=True,
+            raw_title="Some Special",
         )
         table.assign(
-            entry.file_id, 0, [8], origin=ORIGIN_AUTO,
+            entry.file_id,
+            0,
+            [8],
+            origin=ORIGIN_AUTO,
             confidence=CONF_SPECIAL_NUMBER_ONLY,
             evidence=frozenset({"number", "special-number-only"}),
         )
         apply_confidence_adjustments(table, show_info=SHOW)
         assert (
-            table.assignment_for(entry.file_id).confidence
-            < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+            table.assignment_for(entry.file_id).confidence < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
         )
 
     def test_inexact_title_override_survives_floors(self):
@@ -858,10 +911,14 @@ class TestConfidenceAdjustments:
             table.add_slot(EpisodeSlot(season=1, episode=ep, title=f"Ep {ep}"))
         entry = table.add_file(
             Path("Demo Show - S01E02 - Ep 1 extras.mkv"),
-            is_season_relative=True, raw_title="Ep 1 extras",
+            is_season_relative=True,
+            raw_title="Ep 1 extras",
         )
         table.assign(
-            entry.file_id, 1, [1], origin=ORIGIN_AUTO,
+            entry.file_id,
+            1,
+            [1],
+            origin=ORIGIN_AUTO,
             confidence=CONF_TITLE_WINS_INEXACT,
             evidence=frozenset({"title-strong-inexact", "number-disagree"}),
         )
@@ -874,8 +931,8 @@ class TestConfidenceAdjustments:
         assert capped < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
 
 
-from plex_renamer.engine.episode_assignments import REASON_NO_TITLE_MATCH, REASON_NOT_IN_SEASON
 from plex_renamer.engine._episode_resolution import rescue_cross_season_titles
+from plex_renamer.engine.episode_assignments import REASON_NO_TITLE_MATCH, REASON_NOT_IN_SEASON
 
 
 class TestCrossSeasonTitleRescue:
@@ -898,8 +955,10 @@ class TestCrossSeasonTitleRescue:
         table = self._ginger_table()
         entry = table.add_file(
             Path("ATBG - S01E17 - I Spy a Witch.mkv"),
-            parsed_episodes=(17,), raw_title="I Spy a Witch",
-            folder_season=1, is_season_relative=True,
+            parsed_episodes=(17,),
+            raw_title="I Spy a Witch",
+            folder_season=1,
+            is_season_relative=True,
         )
         table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
         rescue_cross_season_titles(table)
@@ -914,8 +973,10 @@ class TestCrossSeasonTitleRescue:
         table = self._ginger_table()
         entry = table.add_file(
             Path("ATBG - S01E18 - Deja Who.mkv"),
-            parsed_episodes=(18,), raw_title="Deja Who",
-            folder_season=1, is_season_relative=True,
+            parsed_episodes=(18,),
+            raw_title="Deja Who",
+            folder_season=1,
+            is_season_relative=True,
         )
         table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
         rescue_cross_season_titles(table)
@@ -928,7 +989,9 @@ class TestCrossSeasonTitleRescue:
         table.assign(claimer.file_id, 2, [1], origin=ORIGIN_AUTO, confidence=0.9)
         entry = table.add_file(
             Path("ATBG - S01E17 - I Spy a Witch.mkv"),
-            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+            parsed_episodes=(17,),
+            raw_title="I Spy a Witch",
+            folder_season=1,
         )
         table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
         rescue_cross_season_titles(table)
@@ -940,7 +1003,9 @@ class TestCrossSeasonTitleRescue:
         table.add_slot(EpisodeSlot(season=3, episode=5, title="I Spy a Witch"))
         entry = table.add_file(
             Path("ATBG - S01E17 - I Spy a Witch.mkv"),
-            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+            parsed_episodes=(17,),
+            raw_title="I Spy a Witch",
+            folder_season=1,
         )
         table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
         rescue_cross_season_titles(table)
@@ -950,7 +1015,9 @@ class TestCrossSeasonTitleRescue:
         table = self._ginger_table()
         entry = table.add_file(
             Path("ATBG - S01E17 - I Spy a Witch.mkv"),
-            parsed_episodes=(17,), raw_title="I Spy a Witch", folder_season=1,
+            parsed_episodes=(17,),
+            raw_title="I Spy a Witch",
+            folder_season=1,
         )
         table.mark_unassigned(entry.file_id, REASON_NO_TITLE_MATCH)
         rescue_cross_season_titles(table)
@@ -961,7 +1028,9 @@ class TestCrossSeasonTitleRescue:
         table.add_slot(EpisodeSlot(season=0, episode=4, title="A Bonus Special"))
         entry = table.add_file(
             Path("ATBG - S01E21 - A Bonus Special.mkv"),
-            parsed_episodes=(21,), raw_title="A Bonus Special", folder_season=1,
+            parsed_episodes=(21,),
+            raw_title="A Bonus Special",
+            folder_season=1,
         )
         table.mark_unassigned(entry.file_id, REASON_NOT_IN_SEASON)
         rescue_cross_season_titles(table)
@@ -977,15 +1046,24 @@ class TestConflictResolution:
             raw_title="Sibling Revile-ry",
         )
         num_file = table.add_file(
-            Path("ATBG - S02E10 - April's Fools.mkv"), is_season_relative=True,
+            Path("ATBG - S02E10 - April's Fools.mkv"),
+            is_season_relative=True,
         )
         table.assign(
-            title_file.file_id, 2, [10], origin=ORIGIN_AUTO,
-            confidence=CONF_TITLE_WINS, evidence=frozenset(title_ev),
+            title_file.file_id,
+            2,
+            [10],
+            origin=ORIGIN_AUTO,
+            confidence=CONF_TITLE_WINS,
+            evidence=frozenset(title_ev),
         )
         table.assign(
-            num_file.file_id, 2, [10], origin=num_origin,
-            confidence=CONF_NUMBER_RELATIVE, evidence=frozenset(num_ev),
+            num_file.file_id,
+            2,
+            [10],
+            origin=num_origin,
+            confidence=CONF_NUMBER_RELATIVE,
+            evidence=frozenset(num_ev),
         )
         return table, title_file, num_file
 
@@ -1029,7 +1107,8 @@ class TestConflictResolution:
     def test_manual_claim_not_evicted(self):
         table, title_file, num_file = self._two_claimants(
             title_ev={"title-strong", "number-disagree"},
-            num_ev={"number"}, num_origin=ORIGIN_MANUAL,
+            num_ev={"number"},
+            num_origin=ORIGIN_MANUAL,
         )
         apply_confidence_adjustments(table, show_info=SHOW)
         assert (2, 10) in table.conflicts()

@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from parsing_corpus import CORPUS
 
 from plex_renamer.parsing import (
     extract_episode,
@@ -19,7 +20,6 @@ from plex_renamer.parsing import (
     extract_year,
     looks_like_tv_episode,
 )
-from parsing_corpus import CORPUS
 
 
 def _params():

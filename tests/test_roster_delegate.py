@@ -1,5 +1,6 @@
 # tests/test_roster_delegate.py
 """RosterDelegate geometry, painting smoke, and RosterListView hit-testing."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,13 +10,16 @@ from conftest_qt import QtSmokeBase
 
 def _scale_spacing():
     from plex_renamer.gui_qt import _scale
-    return _scale.px(4)   # _CHIP_SPACING_UNITS
+
+    return _scale.px(4)  # _CHIP_SPACING_UNITS
 
 
 def _make_state(name: str):
     from plex_renamer.engine.models import ScanState
 
-    state = ScanState(folder=Path(f"C:/lib/{name}"), media_info={"id": 7, "name": name, "year": "2020"})
+    state = ScanState(
+        folder=Path(f"C:/lib/{name}"), media_info={"id": 7, "name": name, "year": "2020"}
+    )
     state.scanned = True
     state.confidence = 0.9
     return state
@@ -62,6 +66,7 @@ class RosterDelegateTests(QtSmokeBase):
     def test_toggle_click_emits_without_moving_selection(self):
         from PySide6.QtCore import QPoint, Qt
         from PySide6.QtTest import QTest
+
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
 
         view, model, delegate = self._view([_make_state("A")])
@@ -72,7 +77,9 @@ class RosterDelegateTests(QtSmokeBase):
         rect = view.visualRect(index)
         row_data = index.data(ROW_DATA_ROLE)
         target = delegate.toggle_rect(rect, row_data).center()
-        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, target)
+        QTest.mouseClick(
+            view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, target
+        )
         self.assertEqual(toggled, [1])
         self.assertNotEqual(view.currentIndex().row(), 1)
         view.close()
@@ -86,7 +93,12 @@ class RosterDelegateTests(QtSmokeBase):
         groups: list[str] = []
         view.header_clicked.connect(groups.append)
         rect = view.visualRect(model.index(0, 0))
-        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rect.center())
+        QTest.mouseClick(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            rect.center(),
+        )
         self.assertEqual(groups, ["matched"])
         view.close()
 
@@ -94,12 +106,12 @@ class RosterDelegateTests(QtSmokeBase):
         from unittest.mock import patch
 
         from PySide6.QtCore import QEvent, QPoint
+        from PySide6.QtGui import QFontMetrics, QHelpEvent
         from PySide6.QtWidgets import QStyleOptionViewItem, QToolTip
-        from PySide6.QtGui import QHelpEvent
-        from PySide6.QtGui import QFontMetrics
+
         from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
         from plex_renamer.gui_qt import _scale
-        from plex_renamer.gui_qt.widgets._roster_delegate import _CONF_BLOCK_U, _CHIP_TOP_GAP_U
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CHIP_TOP_GAP_U, _CONF_BLOCK_U
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
         from plex_renamer.gui_qt.widgets.status_chip import (
             chip_font_metrics,
@@ -112,8 +124,11 @@ class RosterDelegateTests(QtSmokeBase):
             for n in (111, 112, 113)
         }
         state.completeness = CompletenessReport(
-            seasons=seasons, specials=None,
-            total_expected=300, total_matched=297, total_missing=[],
+            seasons=seasons,
+            specials=None,
+            total_expected=300,
+            total_matched=297,
+            total_missing=[],
         )
         view, model, delegate = self._view([state])
         view.show()
@@ -127,12 +142,15 @@ class RosterDelegateTests(QtSmokeBase):
         line_height = QFontMetrics(view.font()).lineSpacing()
         confidence_y = body.y() + 2 * line_height + _scale.px(4)
         chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
-        painted = chip_rects_wrapped(body.x(), chip_y, row_data.chips, chip_font_metrics(), body.width())
+        painted = chip_rects_wrapped(
+            body.x(), chip_y, row_data.chips, chip_font_metrics(), body.width()
+        )
         probe = QPoint(painted[2].left() + 1, painted[2].center().y())
 
         shown: list[str] = []
         with patch.object(
-            QToolTip, "showText",
+            QToolTip,
+            "showText",
             side_effect=lambda _pos, text, *_args: shown.append(text),
         ):
             event = QHelpEvent(QEvent.Type.ToolTip, probe, view.viewport().mapToGlobal(probe))
@@ -145,26 +163,32 @@ class RosterDelegateTests(QtSmokeBase):
 class ChipWrapTests(QtSmokeBase):
     def _chips(self, n):
         from plex_renamer.gui_qt.widgets.status_chip import ChipSpec
+
         return [ChipSpec(f"S{i} 9/10", "warning", "") for i in range(1, n + 1)]
 
     def test_chips_wrap_to_multiple_rows_when_narrow(self):
         from plex_renamer.gui_qt.widgets.status_chip import (
-            chip_font_metrics, chip_rects_wrapped, chip_row_height,
+            chip_font_metrics,
+            chip_rects_wrapped,
+            chip_row_height,
         )
+
         chips = self._chips(6)
         metrics = chip_font_metrics()
         one_chip_w = metrics.horizontalAdvance("S1 9/10") + 40
         rects = chip_rects_wrapped(0, 0, chips, metrics, max_width=one_chip_w)
         tops = sorted({r.top() for r in rects})
-        self.assertGreater(len(tops), 1)                 # wrapped
+        self.assertGreater(len(tops), 1)  # wrapped
         self.assertEqual(tops[1] - tops[0], chip_row_height() + _scale_spacing())
         # every chip fits within max_width
         self.assertTrue(all(r.right() <= one_chip_w for r in rects))
 
     def test_single_row_when_wide(self):
         from plex_renamer.gui_qt.widgets.status_chip import (
-            chip_font_metrics, chip_rects_wrapped,
+            chip_font_metrics,
+            chip_rects_wrapped,
         )
+
         chips = self._chips(3)
         metrics = chip_font_metrics()
         rects = chip_rects_wrapped(0, 0, chips, metrics, max_width=100000)
@@ -172,11 +196,14 @@ class ChipWrapTests(QtSmokeBase):
 
     def test_wrapped_height_grows_with_rows(self):
         from plex_renamer.gui_qt.widgets.status_chip import (
-            chip_font_metrics, chip_wrapped_height,
+            chip_font_metrics,
+            chip_wrapped_height,
         )
+
         metrics = chip_font_metrics()
-        narrow = chip_wrapped_height(self._chips(6), metrics, max_width=
-                                     metrics.horizontalAdvance("S1 9/10") + 40)
+        narrow = chip_wrapped_height(
+            self._chips(6), metrics, max_width=metrics.horizontalAdvance("S1 9/10") + 40
+        )
         wide = chip_wrapped_height(self._chips(6), metrics, max_width=100000)
         self.assertGreater(narrow, wide)
 
@@ -202,6 +229,7 @@ class RosterPillRemovalTests(QtSmokeBase):
         from PySide6.QtCore import Qt
         from PySide6.QtGui import QFontMetrics
         from PySide6.QtWidgets import QStyleOptionViewItem
+
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
 
         state = _make_state("Aqua Teen Hunger Force Colon Movie Film")
@@ -272,7 +300,8 @@ class RosterPillRemovalTests(QtSmokeBase):
         mid_color = image.pixelColor(mid_x, title_mid_y)
 
         self.assertEqual(
-            corner_color.name(), mid_color.name(),
+            corner_color.name(),
+            mid_color.name(),
             "top-right corner of the title row differs from the rest of the "
             "row -- a pill (or other isolated fill) is still being painted",
         )
@@ -281,6 +310,7 @@ class RosterPillRemovalTests(QtSmokeBase):
 
 def _scale_px(n):
     from plex_renamer.gui_qt import _scale
+
     return _scale.px(n)
 
 
@@ -293,11 +323,12 @@ class RosterCardGapTests(QtSmokeBase):
         return delegate
 
     def test_card_rect_inset_from_option_rect(self):
-        from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, _CARD_GAP_U
-        from plex_renamer.gui_qt._scale import px
         from PySide6.QtCore import QRect
 
-        delegate = self._any_delegate()          # helper as in earlier classes
+        from plex_renamer.gui_qt._scale import px
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U, RosterDelegate
+
+        delegate = self._any_delegate()  # helper as in earlier classes
         option_rect = QRect(0, 0, 360, px(120))
         card = delegate._card_rect(option_rect)
         self.assertEqual(card.top(), option_rect.top() + px(_CARD_GAP_U))
@@ -316,31 +347,44 @@ class RosterCardGapTests(QtSmokeBase):
     def test_band_wash_removed(self):
         """R2 L6: the green/yellow/red band tint must be gone entirely."""
         import plex_renamer.gui_qt.widgets._roster_delegate as mod
+
         self.assertFalse(hasattr(mod, "_BAND_WASH"))
 
 
 class RosterSizeHintTests(QtSmokeBase):
     def _state_with_seasons(self, n_seasons):
         from pathlib import Path
+
         from plex_renamer.engine.models import (
-            ScanState, CompletenessReport, SeasonCompleteness,
+            CompletenessReport,
+            ScanState,
+            SeasonCompleteness,
         )
-        state = ScanState(folder=Path("C:/lib/Big Show"),
-                          media_info={"id": 1, "name": "Big Show", "year": "2020",
-                                      "_media_type": "tv"})
+
+        state = ScanState(
+            folder=Path("C:/lib/Big Show"),
+            media_info={"id": 1, "name": "Big Show", "year": "2020", "_media_type": "tv"},
+        )
         state.scanned = True
         state.confidence = 0.9
-        seasons = {i: SeasonCompleteness(season=i, expected=10, matched=9,
-                                         missing=[(1, "Ep 1")]) for i in range(1, n_seasons + 1)}
+        seasons = {
+            i: SeasonCompleteness(season=i, expected=10, matched=9, missing=[(1, "Ep 1")])
+            for i in range(1, n_seasons + 1)
+        }
         state.completeness = CompletenessReport(
-            seasons=seasons, specials=None,
-            total_expected=10 * n_seasons, total_matched=9 * n_seasons, total_missing=[])
+            seasons=seasons,
+            specials=None,
+            total_expected=10 * n_seasons,
+            total_matched=9 * n_seasons,
+            total_missing=[],
+        )
         return state
 
     def _card_height(self, state):
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
         from plex_renamer.gui_qt.widgets._roster_delegate import RosterDelegate, RosterListView
         from plex_renamer.gui_qt.widgets._roster_model import RosterModel
-        from PySide6.QtWidgets import QStyleOptionViewItem
 
         model = RosterModel(media_type="tv")
         model.set_states([state], collapsed_groups={})
@@ -357,6 +401,7 @@ class RosterSizeHintTests(QtSmokeBase):
     def test_many_seasons_grows_card_height(self):
         from plex_renamer.gui_qt._scale import px
         from plex_renamer.gui_qt.widgets._roster_delegate import _ROW_NORMAL_U
+
         tall = self._card_height(self._state_with_seasons(12))
         base = self._card_height(self._state_with_seasons(1))
         self.assertGreaterEqual(base, px(_ROW_NORMAL_U) - 1)
@@ -374,15 +419,21 @@ class RosterSizeHintTests(QtSmokeBase):
         chip_wrapped_height over the compact body width) and confirm
         sizeHint matches, rather than any hardcoded compact constant.
         """
+        from PySide6.QtGui import QFontMetrics
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        from plex_renamer.gui_qt._scale import px
         from plex_renamer.gui_qt.widgets._roster_delegate import (
-            RosterDelegate, RosterListView, _CARD_GAP_U, _CONF_BLOCK_U,
-            _CHIP_TOP_GAP_U, _MARGIN_U, _ROW_NORMAL_U,
+            _CARD_GAP_U,
+            _CHIP_TOP_GAP_U,
+            _CONF_BLOCK_U,
+            _MARGIN_U,
+            _ROW_NORMAL_U,
+            RosterDelegate,
+            RosterListView,
         )
         from plex_renamer.gui_qt.widgets._roster_model import RosterModel
         from plex_renamer.gui_qt.widgets.status_chip import chip_font_metrics, chip_wrapped_height
-        from plex_renamer.gui_qt._scale import px
-        from PySide6.QtGui import QFontMetrics
-        from PySide6.QtWidgets import QStyleOptionViewItem
 
         state = self._state_with_seasons(12)
         model = RosterModel(media_type="tv")
@@ -399,6 +450,7 @@ class RosterSizeHintTests(QtSmokeBase):
         delegate.set_compact(True)
         model.set_compact(True)
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
         row_data = index.data(ROW_DATA_ROLE)
         self.assertTrue(row_data.chips)  # compact still builds chips (L7)
 
@@ -407,7 +459,12 @@ class RosterSizeHintTests(QtSmokeBase):
         line_height = QFontMetrics(view.font()).lineSpacing()
         chip_h = chip_wrapped_height(row_data.chips, chip_font_metrics(), delegate._body_width())
         expected_content = (
-            gap2 + 2 * px(_MARGIN_U) + 2 * line_height + px(_CONF_BLOCK_U) + px(_CHIP_TOP_GAP_U) + chip_h
+            gap2
+            + 2 * px(_MARGIN_U)
+            + 2 * line_height
+            + px(_CONF_BLOCK_U)
+            + px(_CHIP_TOP_GAP_U)
+            + chip_h
         )
         expected = max(base, expected_content)
         self.assertEqual(delegate.sizeHint(option, index).height(), expected)

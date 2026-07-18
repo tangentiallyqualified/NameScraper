@@ -61,55 +61,55 @@
    "loc": 619
   },
   "tests/test_bulk_assign_panel.py": {
-   "loc": 675
+   "loc": 718
   },
   "tests/test_episode_expansion.py": {
-   "loc": 604
+   "loc": 650
   },
   "tests/test_episode_mapping_projection.py": {
-   "loc": 551
+   "loc": 558
   },
   "tests/test_episode_resolution.py": {
-   "loc": 1035
+   "loc": 1114
   },
   "tests/test_episode_table_delegate.py": {
-   "loc": 800
+   "loc": 979
   },
   "tests/test_episode_table_model.py": {
-   "loc": 518
+   "loc": 687
   },
   "tests/test_jojo_matching.py": {
-   "loc": 719
+   "loc": 746
   },
   "tests/test_media_controller.py": {
    "loc": 1945
   },
   "tests/test_qt_job_detail_panel.py": {
-   "loc": 881
+   "loc": 907
   },
   "tests/test_qt_main_window.py": {
-   "loc": 1043
+   "loc": 1057
   },
   "tests/test_qt_media_workspace.py": {
    "loc": 5662
   },
   "tests/test_qt_queue_history.py": {
-   "loc": 842
+   "loc": 868
   },
   "tests/test_queue_controller.py": {
-   "loc": 1085
+   "loc": 1106
   },
   "tests/test_scan_improvements.py": {
-   "loc": 2763
+   "loc": 2873
   },
   "tests/test_work_panel.py": {
-   "loc": 864
+   "loc": 911
   },
   "tests/test_workspace_automux.py": {
-   "loc": 614
+   "loc": 640
   },
   "tests/test_workspace_expansion.py": {
-   "loc": 1034
+   "loc": 1103
   }
  },
  "complexity": {
@@ -23692,12 +23692,6 @@
    "symbol": "tests.audit.test_metrics::reportAttributeAccessIssue::\"_metrics\" is unknown import symbol#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_metrics.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_metrics::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/audit/test_ratchet_collection.py",
    "rule": "reportAttributeAccessIssue",
@@ -23774,12 +23768,6 @@
    "path": "tests/audit/test_render_code_index.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.audit.test_render_code_index::reportAttributeAccessIssue::\"_render_code_index\" is unknown import symbol#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_render_code_index.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_render_code_index::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -23920,12 +23908,6 @@
    "symbol": "tests.audit.test_toolchain::reportAttributeAccessIssue::\"_toolchain\" is unknown import symbol#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_toolchain.py",
-   "rule": "I001",
-   "symbol": "tests.audit.test_toolchain::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/audit/test_type_policy.py",
    "rule": "reportAttributeAccessIssue",
@@ -23956,214 +23938,16 @@
    "symbol": "tests.conftest_qt.QtSmokeBase._dispose_top_level_widgets::reportAttributeAccessIssue::Cannot access attribute \"topLevelWidgets\" for class \"QCoreApplication\" Attribute \"topLevelWidgets\" is unknown#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/conftest_qt.py",
-   "rule": "I001",
-   "symbol": "tests.conftest_qt::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_air_date_clusters.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_air_date_clusters.test_folder_season_maps_to_nth_cluster::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_air_date_clusters.py",
-   "rule": "I001",
-   "symbol": "tests.test_air_date_clusters::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_automux_service.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_automux_service.test_effective_mux_plans_drops_opted_out_indices::reportArgumentType::Argument of type \"dict[int, dict[Unknown, Unknown]] | None\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@set]\" in function \"__init__\" Type \"dict[int, dict[Unknown, Unknown]] | None\" is not assignable to type \"Iterable[int]\" \"None\" is incompatible with protocol \"Iterable[int]\" \"__iter__\" is not present#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"companions\" of type \"list[CompanionFile]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[CompanionFile]\" \"int\" is not assignable to \"list[CompanionFile]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"companions\" of type \"list[CompanionFile]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[CompanionFile]\" \"int\" is not assignable to \"list[CompanionFile]\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"companions\" of type \"list[CompanionFile]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[CompanionFile]\" \"int\" is not assignable to \"list[CompanionFile]\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episode_confidence\" of type \"float\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"float\" \"str\" is not assignable to \"float\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episode_confidence\" of type \"float\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"float\" \"str\" is not assignable to \"float\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episode_confidence\" of type \"float\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"float\" \"str\" is not assignable to \"float\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episodes\" of type \"list[int]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[int]\" \"int\" is not assignable to \"list[int]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episodes\" of type \"list[int]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[int]\" \"int\" is not assignable to \"list[int]\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"episodes\" of type \"list[int]\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"list[int]\" \"int\" is not assignable to \"list[int]\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"file_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"file_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"file_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_id\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_name\" of type \"str | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_name\" of type \"str | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_name\" of type \"str | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"season\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"season\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"season\" of type \"int | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"source_relative_folder\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"source_relative_folder\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"source_relative_folder\" of type \"str\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"target_dir\" of type \"Path | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"Path | None\" Type \"int\" is not assignable to type \"Path | None\" \"int\" is not assignable to \"Path\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"target_dir\" of type \"Path | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"Path | None\" Type \"int\" is not assignable to type \"Path | None\" \"int\" is not assignable to \"Path\" \"int\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_automux_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::reportArgumentType::Argument of type \"int | list[int] | str\" cannot be assigned to parameter \"target_dir\" of type \"Path | None\" in function \"__init__\" Type \"int | list[int] | str\" is not assignable to type \"Path | None\" Type \"int\" is not assignable to type \"Path | None\" \"int\" is not assignable to \"Path\" \"int\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_automux_service.py",
-   "rule": "C408",
-   "symbol": "tests.test_automux_service.test_item_mux_probe_eligible_excludes_unmatched_and_nameless::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "ruff",
@@ -24188,12 +23972,6 @@
    "path": "tests/test_batch_autoaccept_guards.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_batch_autoaccept_guards.YearHintTieBreakTests.test_year_hint_breaks_same_name_tie::reportArgumentType::Argument of type \"_FakeTMDBSameNameYearedShows\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"__init__\" \"_FakeTMDBSameNameYearedShows\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_batch_autoaccept_guards.py",
-   "rule": "I001",
-   "symbol": "tests.test_batch_autoaccept_guards::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24244,24 +24022,6 @@
    "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_toggling_unassign_off_drops_dependent_stage::unused-variable::Local variable `claimed_fid` is assigned to but never used#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_bulk_assign_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_bulk_assign_panel._bulk_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_bulk_assign_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_bulk_assign_panel._bulk_state_assigned_with_evidence::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_bulk_assign_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_bulk_assign_panel._bulk_state_with_conflict::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_cache_service.py",
    "rule": "reportOptionalMemberAccess",
@@ -24290,18 +24050,6 @@
    "path": "tests/test_cache_service.py",
    "rule": "F841",
    "symbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::unused-variable::Local variable `entry` is assigned to but never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_cache_service.py",
-   "rule": "UP017",
-   "symbol": "tests.test_cache_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_completeness_review_counts.py",
-   "rule": "I001",
-   "symbol": "tests.test_completeness_review_counts::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24390,12 +24138,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_duplicate_copies.py",
-   "rule": "I001",
-   "symbol": "tests.test_duplicate_copies::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_duplicate_copies.py",
    "rule": "RUF059",
    "symbol": "tests.test_duplicate_copies.test_duplicate_projects_with_duplicate_status::unused-unpacked-variable::Unpacked variable `mislabeled` is never used#1"
   },
@@ -24428,12 +24170,6 @@
    "path": "tests/test_episode_assignments.py",
    "rule": "E402",
    "symbol": "tests.test_episode_assignments::module-import-not-at-top-of-file::Module level import not at top of file#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_assignments.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_assignments::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24596,36 +24332,6 @@
    "path": "tests/test_episode_expansion.py",
    "rule": "F401",
    "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_path_rows_bold_their_labels::unused-import::`PySide6.QtWidgets.QLabel` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_companion_subtitle_rows_labeled_instead_of_badged::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_episode_content_and_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_episode_row_actions_vocabulary_is_frozen::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_header_actions_stack_under_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_status_pill_is_a_capsule::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24829,19 +24535,13 @@
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "F811",
-   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeAssignmentTable` from line 165: `EpisodeAssignmentTable` redefined here#1"
+   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeAssignmentTable` from line 163: `EpisodeAssignmentTable` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_mapping_projection.py",
    "rule": "F811",
-   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 166: `EpisodeSlot` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_mapping_projection::unsorted-imports::Import block is un-sorted or un-formatted#1"
+   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 164: `EpisodeSlot` redefined here#1"
   },
   {
    "analyzer": "ruff",
@@ -24854,12 +24554,6 @@
    "path": "tests/test_episode_projection.py",
    "rule": "reportOperatorIssue",
    "symbol": "tests.test_episode_projection.TestProjection.test_multi_episode_name::reportOperatorIssue::Operator \"in\" not supported for types \"Literal['S01E01-E03']\" and \"str | None\" Operator \"in\" not supported for types \"Literal['S01E01-E03']\" and \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_projection.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_projection::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -24979,31 +24673,13 @@
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "F811",
-   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 235: `CONF_TITLE_ONLY` redefined here#1"
+   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 233: `CONF_TITLE_ONLY` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
    "rule": "F811",
-   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 237: `CONF_TITLE_WINS_INEXACT` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_resolution.TestSingleNumberSegmentedRun.test_multi_segment_number_claim_not_floored_to_auto_accept::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_resolution::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_resolution::unsorted-imports::Import block is un-sorted or un-formatted#2"
+   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 235: `CONF_TITLE_WINS_INEXACT` redefined here#1"
   },
   {
    "analyzer": "ruff",
@@ -25063,625 +24739,7 @@
    "analyzer": "pyright",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checkable\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checkable\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checkable\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checked\" of type \"bool | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool | None\" Type \"int\" is not assignable to type \"bool | None\" \"int\" is not assignable to \"bool\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checked\" of type \"bool | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool | None\" Type \"int\" is not assignable to type \"bool | None\" \"int\" is not assignable to \"bool\" \"int\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checked\" of type \"bool | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool | None\" Type \"int\" is not assignable to type \"bool | None\" \"int\" is not assignable to \"bool\" \"int\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"collapsed\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"collapsed\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"collapsed\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"companion_count\" of type \"int\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"companion_count\" of type \"int\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"companion_count\" of type \"int\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"confidence_pct\" of type \"int | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"confidence_pct\" of type \"int | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"confidence_pct\" of type \"int | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"detail\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"detail\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"detail\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"filename\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"filename\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"filename\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"inline_actions\" of type \"tuple[tuple[str, str], ...]\" in function \"__init__\" Type \"str | int\" is not assignable to type \"tuple[tuple[str, str], ...]\" \"int\" is not assignable to \"tuple[tuple[str, str], ...]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"kind\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"kind\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"kind\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"mux_active\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"mux_active\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"mux_active\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_text\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_text\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_text\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_tone\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_tone\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_tone\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"subtitle_name\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"subtitle_name\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"subtitle_name\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"target\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"target\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"target\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"tooltip\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"tooltip\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"tooltip\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#3"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
    "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_persistent_editor_parents_into_viewport.provider::reportArgumentType::Argument of type \"EpisodeGuideRow | None\" cannot be assigned to parameter \"row\" of type \"EpisodeGuideRow\" in function \"show_episode\" Type \"EpisodeGuideRow | None\" is not assignable to type \"EpisodeGuideRow\" \"None\" is not assignable to \"EpisodeGuideRow\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checkable\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checked\" of type \"bool | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool | None\" Type \"int\" is not assignable to type \"bool | None\" \"int\" is not assignable to \"bool\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"collapsed\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"companion_count\" of type \"int\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"confidence_pct\" of type \"int | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"detail\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"filename\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"inline_actions\" of type \"tuple[tuple[str, str], ...]\" in function \"__init__\" Type \"str | int\" is not assignable to type \"tuple[tuple[str, str], ...]\" \"int\" is not assignable to \"tuple[tuple[str, str], ...]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"kind\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"mux_active\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_text\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_tone\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"subtitle_name\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"target\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"tooltip\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checkable\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"checked\" of type \"bool | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool | None\" Type \"int\" is not assignable to type \"bool | None\" \"int\" is not assignable to \"bool\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"collapsed\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"companion_count\" of type \"int\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"confidence_pct\" of type \"int | None\" in function \"__init__\" Type \"str | int\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"detail\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"filename\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"inline_actions\" of type \"tuple[tuple[str, str], ...]\" in function \"__init__\" Type \"str | int\" is not assignable to type \"tuple[tuple[str, str], ...]\" \"int\" is not assignable to \"tuple[tuple[str, str], ...]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"kind\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"mux_active\" of type \"bool\" in function \"__init__\" Type \"str | int\" is not assignable to type \"bool\" \"int\" is not assignable to \"bool\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_text\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"status_tone\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"subtitle_name\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"target\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::reportArgumentType::Argument of type \"str | int\" cannot be assigned to parameter \"tooltip\" of type \"str\" in function \"__init__\" Type \"str | int\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "C408",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "C408",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._row::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "C408",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._row::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests._view_with_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_buttons_stack_vertically_under_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_no_overlap_between_buttons_and_pill::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_pill_and_inline_actions_top_aligned_share_baseline::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_text_right_edge_clears_the_column::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests._view::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.HelpEventTests._view::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.HelpEventTests.test_tooltip_only_when_elided::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineActionTextWidthTest.test_text_right_edge_stops_before_inline_action::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_duplicate_row_has_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_mapped_row_has_no_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_unmapped_row_has_inline_assign_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineAssignUnmappedActionTests.test_unmapped_row_inline_action_click_emits_assign_unmapped::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineMissingActionTests.test_missing_row_reports_inline_action_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.InlineMissingActionTests.test_non_missing_row_has_no_inline_action::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.MovieRowFlatTests._movie_view::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.MovieRowFlatTests.test_movie_file_rows_are_double_line_with_target::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.MuxChipTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_delegate.PillConfidenceTests._delegate::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -25786,36 +24844,6 @@
    "symbol": "tests.test_episode_table_model.MuxActiveRowDataTests._row_data_for_status::reportArgumentType::Argument of type \"Self@MuxActiveRowDataTests\" cannot be assigned to parameter \"self\" of type \"EpisodeTableModelTests\" in function \"_row_data_for_status\" \"MuxActiveRowDataTests*\" is not assignable to \"EpisodeTableModelTests\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_model.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests._model_with_guide::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_model.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests.test_movie_entry_is_not_checkable::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_model.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_model.EpisodeTableModelTests.test_movie_rows_are_flat_not_checkable::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_model.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_model._episode_filter_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_model.py",
-   "rule": "I001",
-   "symbol": "tests.test_episode_table_model._guide_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_executor_metadata_integration.py",
    "rule": "reportArgumentType",
@@ -25895,12 +24923,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_executor_metadata_integration.py",
-   "rule": "I001",
-   "symbol": "tests.test_executor_metadata_integration::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_explicit_special_numbers.py",
    "rule": "F401",
    "symbol": "tests.test_explicit_special_numbers::unused-import::`pathlib.Path` imported but unused#1"
@@ -25932,12 +24954,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_extras_and_prefix_fixes.py",
-   "rule": "I001",
-   "symbol": "tests.test_extras_and_prefix_fixes::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "RUF059",
    "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::unused-unpacked-variable::Unpacked variable `items` is never used#1"
   },
@@ -25946,12 +24962,6 @@
    "path": "tests/test_fuzzy_title_matching.py",
    "rule": "F401",
    "symbol": "tests.test_fuzzy_title_matching::unused-import::`plex_renamer.engine._episode_resolution.CONF_AGREE` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_gui_theme.py",
-   "rule": "I001",
-   "symbol": "tests.test_gui_theme.test_settings_sections_have_no_header_icons::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -25994,12 +25004,6 @@
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_to_the_top_to_season_4::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"__init__\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_haikyuu_matching.py",
-   "rule": "I001",
-   "symbol": "tests.test_haikyuu_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -26052,134 +25056,8 @@
   {
    "analyzer": "pyright",
    "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"created_at\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"data_source\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"depends_on\" of type \"str | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"error_message\" of type \"str | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"job_id\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"job_kind\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"library_root\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"media_name\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"metadata_plan\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"int\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"int\" is not assignable to \"dict[Unknown, Unknown]\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"output_root\" of type \"str | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"position\" of type \"int\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"poster_path\" of type \"str | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"rename_ops\" of type \"list[RenameOp]\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"list[RenameOp]\" \"int\" is not assignable to \"list[RenameOp]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"show_folder_rename\" of type \"str | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str | None\" Type \"int\" is not assignable to type \"str | None\" \"int\" is not assignable to \"str\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"source_folder\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"status\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"tmdb_id\" of type \"int\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"int\" \"str\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"undo_data\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"int\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"int\" is not assignable to \"dict[Unknown, Unknown]\" \"int\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_job_store_metadata_plan._job::reportArgumentType::Argument of type \"str | int | list[RenameOp]\" cannot be assigned to parameter \"updated_at\" of type \"str\" in function \"__init__\" Type \"str | int | list[RenameOp]\" is not assignable to type \"str\" \"int\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_job_store_metadata_plan.py",
    "rule": "reportOptionalSubscript",
    "symbol": "tests.test_job_store_metadata_plan.test_v4_database_migrates::reportOptionalSubscript::Object of type \"None\" is not subscriptable#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_job_store_metadata_plan.py",
-   "rule": "C408",
-   "symbol": "tests.test_job_store_metadata_plan._job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "pyright",
@@ -26254,12 +25132,6 @@
    "symbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_jojo_matching.py",
-   "rule": "I001",
-   "symbol": "tests.test_jojo_matching::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_media_controller.py",
    "rule": "reportArgumentType",
@@ -26296,148 +25168,10 @@
    "symbol": "tests.test_media_controller.RematchStateTests.test_rematch_tv_state_resyncs_controller_batch_states_when_orchestrator_list_drifted::reportAttributeAccessIssue::Cannot assign to attribute \"tmdb\" for class \"BatchTVOrchestrator\" Expression of type \"_FakeTMDB\" cannot be assigned to attribute \"tmdb\" of class \"BatchTVOrchestrator\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_media_controller.py",
-   "rule": "I001",
-   "symbol": "tests.test_media_controller.RematchStateTests.test_apply_runtime_settings_table_backed_respects_approved_and_unapproved::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_media_controller.py",
-   "rule": "I001",
-   "symbol": "tests.test_media_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"created_at\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"data_source\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"depends_on\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"error_message\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"job_id\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"job_kind\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"library_root\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"media_name\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"metadata_plan\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"list[RenameOp]\" is not assignable to \"dict[Unknown, Unknown]\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"output_root\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"position\" of type \"int\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"int\" \"list[RenameOp]\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"poster_path\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"show_folder_rename\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"source_folder\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"status\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"tmdb_id\" of type \"int\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"int\" \"list[RenameOp]\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"undo_data\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"list[RenameOp]\" is not assignable to \"dict[Unknown, Unknown]\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"updated_at\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_metadata_embed_extras.py",
    "rule": "reportOptionalSubscript",
    "symbol": "tests.test_metadata_embed_extras.test_toggles_gate_fields_independently::reportOptionalSubscript::Object of type \"None\" is not subscriptable#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "C408",
-   "symbol": "tests.test_metadata_embed_extras.make_settings::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_embed_extras.py",
-   "rule": "C408",
-   "symbol": "tests.test_metadata_embed_extras.tv_job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
   },
   {
    "analyzer": "pyright",
@@ -26480,126 +25214,6 @@
    "path": "tests/test_metadata_local_inventory.py",
    "rule": "F401",
    "symbol": "tests.test_metadata_local_inventory::unused-import::`plex_renamer.job_store.RenameOp` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_local_inventory.py",
-   "rule": "I001",
-   "symbol": "tests.test_metadata_local_inventory::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"created_at\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"data_source\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"depends_on\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"error_message\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"job_id\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"job_kind\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"library_root\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"media_name\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"metadata_plan\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"list[RenameOp]\" is not assignable to \"dict[Unknown, Unknown]\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"output_root\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"position\" of type \"int\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"int\" \"list[RenameOp]\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"poster_path\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"show_folder_rename\" of type \"str | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str | None\" Type \"list[RenameOp]\" is not assignable to type \"str | None\" \"list[RenameOp]\" is not assignable to \"str\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"source_folder\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"status\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"tmdb_id\" of type \"int\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"int\" \"list[RenameOp]\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"undo_data\" of type \"dict[Unknown, Unknown] | None\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" Type \"list[RenameOp]\" is not assignable to type \"dict[Unknown, Unknown] | None\" \"list[RenameOp]\" is not assignable to \"dict[Unknown, Unknown]\" \"list[RenameOp]\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_metadata_service.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_metadata_service.tv_job::reportArgumentType::Argument of type \"Unknown | list[RenameOp]\" cannot be assigned to parameter \"updated_at\" of type \"str\" in function \"__init__\" Type \"Unknown | list[RenameOp]\" is not assignable to type \"str\" \"list[RenameOp]\" is not assignable to \"str\"#1"
   },
   {
    "analyzer": "pyright",
@@ -26717,18 +25331,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_metadata_service.py",
-   "rule": "C408",
-   "symbol": "tests.test_metadata_service.make_settings::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_service.py",
-   "rule": "C408",
-   "symbol": "tests.test_metadata_service.tv_job::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_mkv_locate.py",
    "rule": "F401",
    "symbol": "tests.test_mkv_locate::unused-import::`pathlib.Path` imported but unused#1"
@@ -26776,12 +25378,6 @@
    "symbol": "tests.test_mkvmerge_integration.test_probe_plan_execute_round_trip::reportArgumentType::Argument of type \"Path | None\" cannot be assigned to parameter \"mkvmerge_path\" of type \"Path\" in function \"probe_file\" Type \"Path | None\" is not assignable to type \"Path\" \"None\" is not assignable to \"Path\"#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_mkvmerge_integration.py",
-   "rule": "I001",
-   "symbol": "tests.test_mkvmerge_integration::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_multisegment_zero_match.py",
    "rule": "reportOptionalMemberAccess",
@@ -26804,12 +25400,6 @@
    "path": "tests/test_multisegment_zero_match.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_multisegment_zero_match.test_cross_season_segmented_rescue_moves_file::reportOptionalMemberAccess::\"season\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_multisegment_zero_match.py",
-   "rule": "I001",
-   "symbol": "tests.test_multisegment_zero_match::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -26999,24 +25589,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_output_destination_service.py",
-   "rule": "I001",
-   "symbol": "tests.test_output_destination_service::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_parsing_corpus.py",
-   "rule": "I001",
-   "symbol": "tests.test_parsing_corpus::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_parsing_edgecases.py",
-   "rule": "I001",
-   "symbol": "tests.test_parsing_edgecases::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_parsing_edgecases.py",
    "rule": "RUF059",
    "symbol": "tests.test_parsing_edgecases.test_extract_episode_recognizes_bracketed_episode_number::unused-unpacked-variable::Unpacked variable `title` is never used#1"
@@ -27146,12 +25718,6 @@
    "path": "tests/test_qt_chrome.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_qt_chrome.QtChromeTests.test_tv_tab_restore_shows_busy_overlay_during_restore::reportAttributeAccessIssue::Cannot access attribute \"media_ctrl\" for class \"MainWindow\" Attribute \"media_ctrl\" is unknown#3"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_chrome.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_chrome::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -27715,37 +26281,25 @@
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_from_library_root_files::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_from_library_root_files::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_without_show_folder_rename::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_without_show_folder_rename::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_recovers_movie_folder_source_name_when_source_folder_is_dot::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_recovers_movie_folder_source_name_when_source_folder_is_dot::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened::redefined-while-unused::Redefinition of unused `Qt` from line 7: `Qt` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_hides_target_button_in_queue_mode::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_job_detail_panel::unsorted-imports::Import block is un-sorted or un-formatted#1"
+   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened::redefined-while-unused::Redefinition of unused `Qt` from line 8: `Qt` redefined here#1"
   },
   {
    "analyzer": "pyright",
@@ -28687,67 +27241,25 @@
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `RenameResult` from line 15: `RenameResult` redefined here#1"
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `RenameResult` from line 16: `RenameResult` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `JobStatus` from line 14: `JobStatus` redefined here#1"
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
   },
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
    "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `RenameResult` from line 15: `RenameResult` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_persists_tmdb_snapshot_on_invalidate::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_settings_section_cards_use_title_header_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_settings_tab_category_page_controls_stay_top_aligned::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_allows_tooltip_events_and_windows::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_hides_tool_windows::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_transient_popup_filter_keeps_real_menus_visible::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_main_window::unsorted-imports::Import block is un-sorted or un-formatted#1"
+   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `RenameResult` from line 16: `RenameResult` redefined here#1"
   },
   {
    "analyzer": "ruff",
@@ -29968,280 +28480,16 @@
    "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_build_placeholder_pixmap_scales_for_hidpi::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_and_history_tabs_refresh::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_tab_context_menu_exposes_queue_and_folder_actions::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_tab_remove_updates_badge_and_tv_requeue_state::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_status_pill_paints_without_error::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_status_size_hint_reserves_uppercase_pill_width::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_queue_history::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_scale.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_dpi_scale_falls_back_when_no_screen::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_scale.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_icon_tokens_return_qsize::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_scale.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_margins_scales_each_value::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_scale.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_row_height_uses_font_metrics::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_scale.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_scale.ScaleHelperTests.test_scaling_at_simulated_hidpi::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"action_callback\" of type \"(() -> None) | None\" in function \"__init__\" Type \"str | None\" is not assignable to type \"(() -> None) | None\" Type \"str\" is not assignable to type \"(() -> None) | None\" Type \"str\" is not assignable to type \"() -> None\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"duration_ms\" of type \"int | None\" in function \"__init__\" Type \"str | None\" is not assignable to type \"int | None\" Type \"str\" is not assignable to type \"int | None\" \"str\" is not assignable to \"int\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"message\" of type \"str\" in function \"__init__\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"parent\" of type \"QWidget | None\" in function \"__init__\" Type \"str | None\" is not assignable to type \"QWidget | None\" Type \"str\" is not assignable to type \"QWidget | None\" \"str\" is not assignable to \"QWidget\" \"str\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"title\" of type \"str\" in function \"__init__\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_qt_toasts._make_card::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"tone\" of type \"str\" in function \"__init__\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_toasts.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_qt_toasts.ToastManagerDefaultTests.test_second_toast_reposition_settles_to_current_sizehints::reportOptionalMemberAccess::\"sizeHint\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "C408",
-   "symbol": "tests.test_qt_toasts._make_card::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_toasts.ToastCardBehaviorTests.test_hover_pauses_and_resumes_countdown::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_toasts.ToastManagerDefaultTests.test_second_toast_reposition_settles_to_current_sizehints::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_toasts.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_toasts::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_workspace_widgets.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_qt_workspace_widgets.WorkspaceWidgetPrimitiveTests.test_scan_progress_conveyor_advances_only_while_active::reportAttributeAccessIssue::Cannot assign to attribute \"update\" for class \"_ConveyorAnimation\" One or more overloads of \"update\" is not assignable Type \"() -> None\" is not assignable to type \"(arg__1: QRect, /) -> None\" Function accepts too few positional parameters; expected 1 but received 0#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_workspace_widgets.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_workspace_widgets.WorkspaceWidgetPrimitiveTests.test_paint_statics_render_without_error::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_workspace_widgets.py",
-   "rule": "I001",
-   "symbol": "tests.test_qt_workspace_widgets::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"checked_indices\" of type \"set[int]\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"set[int]\" \"Path\" is not assignable to \"set[int]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"checked_indices\" of type \"set[int]\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"set[int]\" \"Path\" is not assignable to \"set[int]\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"items\" of type \"list[PreviewItem]\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"list[PreviewItem]\" \"Path\" is not assignable to \"list[PreviewItem]\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"items\" of type \"list[PreviewItem]\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"list[PreviewItem]\" \"Path\" is not assignable to \"list[PreviewItem]\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"library_root\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"library_root\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"media_name\" of type \"str\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str\" \"Path\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"media_name\" of type \"str\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str\" \"Path\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str\" \"Path\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"media_type\" of type \"str\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str\" \"Path\" is not assignable to \"str\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"output_root\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"output_root\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"poster_path\" of type \"str | None\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str | None\" Type \"Path\" is not assignable to type \"str | None\" \"Path\" is not assignable to \"str\" \"Path\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"poster_path\" of type \"str | None\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str | None\" Type \"Path\" is not assignable to type \"str | None\" \"Path\" is not assignable to \"str\" \"Path\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"show_folder_rename\" of type \"str | None\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str | None\" Type \"Path\" is not assignable to type \"str | None\" \"Path\" is not assignable to \"str\" \"Path\" is not assignable to \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"show_folder_rename\" of type \"str | None\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"str | None\" Type \"Path\" is not assignable to type \"str | None\" \"Path\" is not assignable to \"str\" \"Path\" is not assignable to \"None\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"source_folder\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"source_folder\" of type \"Path\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"Path\" \"int\" is not assignable to \"Path\"#2"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"tmdb_id\" of type \"int\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"int\" \"Path\" is not assignable to \"int\"#1"
-  },
-  {
-   "analyzer": "pyright",
-   "path": "tests/test_queue_controller.py",
-   "rule": "reportArgumentType",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::reportArgumentType::Argument of type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" cannot be assigned to parameter \"tmdb_id\" of type \"int\" in function \"add_single_job\" Type \"list[PreviewItem] | set[int] | MediaType | int | str | Path\" is not assignable to type \"int\" \"Path\" is not assignable to \"int\"#2"
   },
   {
    "analyzer": "pyright",
@@ -30340,40 +28588,16 @@
    "symbol": "tests.test_queue_controller.QueueControllerTests.test_set_job_poster_path_updates_existing_job::reportOptionalMemberAccess::\"poster_path\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_queue_controller.py",
-   "rule": "C408",
-   "symbol": "tests.test_queue_controller.QueueControllerTests.test_add_single_job_duplicate_raises::unnecessary-collection-call::Unnecessary `dict()` call (rewrite as a literal)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_queue_controller.py",
-   "rule": "I001",
-   "symbol": "tests.test_queue_controller::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_queue_executor_progress.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_queue_executor_progress.test_progress_listener_fires::reportOptionalMemberAccess::\"status\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_queue_metadata_wiring.py",
-   "rule": "I001",
-   "symbol": "tests.test_queue_metadata_wiring::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_queue_output_targets.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::reportArgumentType::Argument of type \"_Controller\" cannot be assigned to parameter \"controller\" of type \"_SingleShowScanController\" in function \"start_single_show_scan\" \"_Controller\" is incompatible with protocol \"_SingleShowScanController\" \"_SingleShowScanController\" is not assignable to \"_Controller\" \"refresh_episode_guide\" is an incompatible type Type \"(target: Unknown) -> None\" is not assignable to type \"(state: ScanState) -> Any\" Parameter name mismatch: \"state\" versus \"target\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_queue_output_targets.py",
-   "rule": "I001",
-   "symbol": "tests.test_queue_output_targets::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -30464,18 +28688,6 @@
    "path": "tests/test_refresh_policy_service.py",
    "rule": "F401",
    "symbol": "tests.test_refresh_policy_service::unused-import::`plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_refresh_policy_service.py",
-   "rule": "UP017",
-   "symbol": "tests.test_refresh_policy_service._utc::datetime-timezone-utc::Use `datetime.UTC` alias#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_release_junk_titles.py",
-   "rule": "I001",
-   "symbol": "tests.test_release_junk_titles::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -30578,66 +28790,6 @@
    "path": "tests/test_roster_delegate.py",
    "rule": "F401",
    "symbol": "tests.test_roster_delegate.RosterPillRemovalTests.test_pill_not_painted_top_right_corner_matches_background::unused-import::`PySide6.QtWidgets.QStyleOptionViewItem` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_chips_wrap_to_multiple_rows_when_narrow::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_single_row_when_wide::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.ChipWrapTests.test_wrapped_height_grows_with_rows::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterCardGapTests.test_card_rect_inset_from_option_rect::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_chip_tooltip_hit_rects_match_painted_chips::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_toggle_click_emits_without_moving_selection::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterPillRemovalTests.test_title_uses_full_body_width_no_pill_reservation::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterSizeHintTests._card_height::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterSizeHintTests._state_with_seasons::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "I001",
-   "symbol": "tests.test_roster_delegate.RosterSizeHintTests.test_compact_size_hint_uses_same_dynamic_formula_as_normal::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -30906,30 +29058,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_improvements.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_episode_tiebreak_uses_per_season_count_for_single_season_evidence::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_movie_at_library_root_ignores_folder_rename_and_stays_inside_root::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_season_count_tiebreaker_overrides_wrong_year::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_improvements::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
    "rule": "RUF059",
    "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_show_named_specials_child_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
   },
@@ -31018,42 +29146,6 @@
    "symbol": "tests.test_scan_progress.ConveyorPosterAssignmentTest.test_posters_assigned_in_order_at_crossing_and_sticky::reportOptionalMemberAccess::\"cacheKey\" is not a known attribute of \"None\"#4"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress.ConveyorDprPaintTests._painted_animation::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_add_poster_ignores_null_pixmap::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_set_and_add_posters::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_set_posters_filters_null_pixmaps::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress.ConveyorPosterTests.test_start_clears_posters::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_progress.py",
-   "rule": "I001",
-   "symbol": "tests.test_scan_progress::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_settings_longpath.py",
    "rule": "reportAttributeAccessIssue",
@@ -31070,18 +29162,6 @@
    "path": "tests/test_settings_longpath.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_settings_longpath.LongPathWarningTests.test_browse_with_short_path_clears_warning::reportAttributeAccessIssue::Cannot access attribute \"_destinations_status\" for class \"SettingsTab\" Attribute \"_destinations_status\" is unknown#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_settings_longpath.py",
-   "rule": "I001",
-   "symbol": "tests.test_settings_longpath.LongPathWarningTests._tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_settings_tab_automux.py",
-   "rule": "I001",
-   "symbol": "tests.test_settings_tab_automux.AutoMuxSettingsPageTests.test_nav_shows_automux_and_no_tools::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -31106,12 +29186,6 @@
    "path": "tests/test_settings_tab_cache.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests.test_selecting_size_persists_and_applies::reportAttributeAccessIssue::Cannot access attribute \"_cache_size_combo\" for class \"SettingsTab\" Attribute \"_cache_size_combo\" is unknown#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_settings_tab_cache.py",
-   "rule": "I001",
-   "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests._tab::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -31192,12 +29266,6 @@
    "symbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_unaired_mapping::reportOptionalMemberAccess::\"unaired\" is not a known attribute of \"None\"#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_show_details.py",
-   "rule": "I001",
-   "symbol": "tests.test_show_details::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_show_scoring_no_year.py",
    "rule": "reportArgumentType",
@@ -31232,12 +29300,6 @@
    "path": "tests/test_status_chip.py",
    "rule": "RUF001",
    "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_symbol_folding.py",
-   "rule": "I001",
-   "symbol": "tests.test_symbol_folding::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -31319,12 +29381,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_tmdb.py",
-   "rule": "I001",
-   "symbol": "tests.test_tmdb::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_token_aligned_substring.py",
    "rule": "RUF001",
    "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
@@ -31391,21 +29447,9 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_umbrella_season_merge.py",
-   "rule": "I001",
-   "symbol": "tests.test_umbrella_season_merge::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_underscore_segments.py",
    "rule": "F401",
    "symbol": "tests.test_underscore_segments::unused-import::`plex_renamer.engine._episode_resolution.CONF_TITLE_WINS_INEXACT` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_underscore_segments.py",
-   "rule": "I001",
-   "symbol": "tests.test_underscore_segments::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "pyright",
@@ -31534,42 +29578,6 @@
    "symbol": "tests.test_work_panel.WorkPanelTests.test_refresh_strip_rebuilds_after_completeness_change::reportOptionalMemberAccess::\"seasons\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests._movie_state_actionable::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_freed_space_goes_to_tracks_not_gap::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_hides_overflow::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_hides_tv_toolbar::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests.test_movie_mode_tracks_below_table_and_table_compact::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_work_panel.py",
-   "rule": "I001",
-   "symbol": "tests.test_work_panel.WorkPanelTests.test_series_chip_hidden_in_movie_mode::unsorted-imports::Import block is un-sorted or un-formatted#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_workspace_automux.py",
    "rule": "reportArgumentType",
@@ -31592,12 +29600,6 @@
    "path": "tests/test_workspace_automux.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_workspace_automux.WorkspaceAutoMuxTests.test_plan_edited_stores_on_state::reportOptionalMemberAccess::\"_rows_host\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_automux.py",
-   "rule": "I001",
-   "symbol": "tests.test_workspace_automux.AutoMuxButtonAndChipTests.test_plan_ready_skips_work_panel_refresh_when_not_selected::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -31700,12 +29702,6 @@
    "path": "tests/test_workspace_expansion.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_workspace_expansion.OptedOutMuxPlanNotFedToCardTests.test_optout_suppresses_merged_note_and_keeps_output_row::reportOptionalMemberAccess::\"text\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_expansion.py",
-   "rule": "I001",
-   "symbol": "tests.test_workspace_expansion::unsorted-imports::Import block is un-sorted or un-formatted#1"
   },
   {
    "analyzer": "ruff",
@@ -31840,23 +29836,13 @@
   "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
   "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
   "tests/audit/test_inventory.py": "sha256:e4c7745f72d92185a54cd67dc9cad6883d5ddde8b1e1b412db94be24ce6d69c1",
-  "tests/audit/test_metrics.py": "sha256:9ef1c1407654fa2cb78c3b998ab63f03cb79efc176d146a7553885b81880e514",
-  "tests/audit/test_render_code_index.py": "sha256:0324c6427a000808f4bfb024de9f2fa5df0a5f807327ac31b19bedaf6265c4c3",
   "tests/audit/test_render_extensions.py": "sha256:d45e07382c1738774dadc29efacfffe13b17c26fea12267f8cfbd12f8764d1f0",
-  "tests/audit/test_toolchain.py": "sha256:f5d19fc96a028f21cfa91ca9eae8b357649c3fee34087233709a0bc3a46b3058",
-  "tests/conftest_qt.py": "sha256:d7df8d684a54fd4901f98a3bdc2ee5ac61253b5a92dbfa4da24d05ae90595a00",
   "tests/parsing_corpus.py": "sha256:ac0c226957b477c2b07c72b1870f238956b8cb2a37fb7b08706a127008a3da6d",
   "tests/test_acronym_titles.py": "sha256:4c089fe664313b596883c0bb8c8f6df05aacae149a6833d55651cd58d1fcaf66",
-  "tests/test_air_date_clusters.py": "sha256:e8a5252d4855c2c4ba76ac4dcd3ac8f56d202c6521bd2517fad7d7b7c8e0a491",
-  "tests/test_automux_service.py": "sha256:395fe8ba0dca5d67e19c365a077540e974bdb34833f6260719a2df967c19fd72",
   "tests/test_automux_settings.py": "sha256:82fb69321be15e3a8a085947bf2c55738a53c49732f9559c51b6b362b4819b9f",
   "tests/test_automux_tracks_widget.py": "sha256:6c56be86307a4e86dcb13d358960937e6b064f865da933f495ca269164e91c77",
   "tests/test_bare_episode_prefix_titles.py": "sha256:1466bdd9ef4053fc1c8bc093a6e12ab491a5f7799e2750928c85f8fa21e539e3",
-  "tests/test_batch_autoaccept_guards.py": "sha256:eb9c8f88ac14f32479393fdbd71084f77c1dd8668acd36733ab9372d6009fe25",
-  "tests/test_bulk_assign_panel.py": "sha256:da8cf3349a27c264526a3e2924404e80626191046fe5ad16f2b640dd80e5ddd5",
-  "tests/test_cache_service.py": "sha256:35a0e908d54a04f71a5b270275bce8d81bce9a799ac7fa6a2d82fec3c5902966",
   "tests/test_companion_subtitles.py": "sha256:619b80e594844e8f7b6f7f915591b1ac7d1573cd921c926ef8fd38f62a3e5a25",
-  "tests/test_completeness_review_counts.py": "sha256:2407cf8a7a4d10899494e45baba31ba2bf1ecabc8daf5e29f88707beccb4ac11",
   "tests/test_confidence_adjustment_guards.py": "sha256:2058d45f5b8d2989ae4bacf29ac8b30c5073396e90ead498d48d7703965d12a9",
   "tests/test_conflict_queue_protection.py": "sha256:b793c6d2f1bee73a6d77bb46671cd5970cc66150f671b55044e0ad726be71d09",
   "tests/test_conflict_resolution.py": "sha256:4b6ae1618c0eb3b4662a0be68970fe1fed79162282c67e74c7ab941444dc645f",
@@ -31865,70 +29851,38 @@
   "tests/test_consolidated_two_phase.py": "sha256:9c9cfb8e88cad3034e5e1524230fc9cc63e9af221df64986721a2fa50afea8c3",
   "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
   "tests/test_disc_grouped_run_ambiguity.py": "sha256:72c1aa3f23f20e7fe06862bb406c1d569c5b79bf40c7db706e3ed0ba6ba288b5",
-  "tests/test_duplicate_copies.py": "sha256:8c448f62049eb27e6b6b6f178622ff2c0e98d6e7a324f490fe8b0a20446c8880",
-  "tests/test_episode_assignments.py": "sha256:b4451ae73c1567e2315e969d1ab7a30a3fc631c9013b5f862c719a7651bc1efe",
-  "tests/test_episode_expansion.py": "sha256:2ec6388ff9ce06bb43749c8514c30f953d6640a15b1b61f46bcd9c488ad31968",
-  "tests/test_episode_mapping_projection.py": "sha256:d737090f126faf60fde6ac5f9fd3787906ec8268da4b4baed405df79b7b03640",
-  "tests/test_episode_projection.py": "sha256:bc40e83cf35d6c85cac0cadf7b008ab7a0992bcdcf2f753def837d98e6b335ac",
-  "tests/test_episode_resolution.py": "sha256:12ef8400159645cfc2fda3a73c6823a0848db9f97329604265ba6febc36e43f6",
-  "tests/test_episode_table_delegate.py": "sha256:9bb910352f1ad915b71af63d29593d3f5e0827067203c97d874d0861e1370b1b",
-  "tests/test_episode_table_model.py": "sha256:c5e8185aa641fd4d2b837e906e9bf098af9a0320eab4ab4c32de27cfb6153c81",
-  "tests/test_executor_metadata_integration.py": "sha256:938caa7937106bc862728e8bf1d88ce31671e287f926fa212c01205cb005c217",
   "tests/test_explicit_special_numbers.py": "sha256:6c3bf7811edc92091ab7b982b716a5686e7c90a5be1046911703d22a608d94f1",
-  "tests/test_extras_and_prefix_fixes.py": "sha256:87adc9d84c461bf6cc0a2729bbea7682bffed460344125aebc45c2fc2cd5fa35",
   "tests/test_filename_formatting.py": "sha256:3227f2720c996563d34dcd322bc4771624f976d84a610eeb3d63fe5a0725713c",
   "tests/test_fragment_anchor_guard.py": "sha256:25f5c2d7592313f45593a577fd2e8c165a045b3f87d5654f3737e6fc552e2c2d",
   "tests/test_fuzzy_title_matching.py": "sha256:40cf2ba71d2cd57e6d9e1cdae6ea4becb366a93ff45a60925aa83b1b4a678066",
   "tests/test_gui_perf_guards.py": "sha256:6ce046618b71b4f43c8096947d189fa56e1486f237f07bf504a5c8174429482a",
-  "tests/test_gui_theme.py": "sha256:4e8625a30261cb9a80b6a619f0601ea9092304abe2046c111e13a33556bc97d6",
-  "tests/test_haikyuu_matching.py": "sha256:69b54637b6cf2eb128b684278a667af0d4caa4e64cfeea51d75f42ef6d57b844",
   "tests/test_job_execution_metadata.py": "sha256:6357968fb6d9e926ab3032087cb4488bc9a7e60445aecc8c180f7b59eb530d4a",
   "tests/test_job_preview_grouping.py": "sha256:7fd86a330bb4aa3da85854aa1fb9ce90566636fcb7c23316568daacbfdea6c19",
-  "tests/test_job_store_metadata_plan.py": "sha256:8cbac07b159c52956fdbd56667deb4f25c7ff9b1c6d43b420470ccd3faa185fc",
-  "tests/test_jojo_matching.py": "sha256:8d410c0aa6f654a8d49149d474b4d057727b1f5d1ae883e66dff215f2d480a0e",
   "tests/test_lang_normalize.py": "sha256:465978bd6266894198addad5d36d69ac272be61184b9e6dff98c0dd0e2962480",
   "tests/test_lost_conflict_rescue.py": "sha256:638b6bc74d688efdf01119b6b785e9ee49d2ae569b10a3eebf17e9561cad14c8",
   "tests/test_manual_assign_queueable.py": "sha256:ffa9fded866c1746cb80348874977b20c7854677b93b529994b1090a841c53ab",
   "tests/test_merged_show_checked_gating.py": "sha256:8bf8cb8b7252c52a02ea6c9578e69da79d4b9625871ff3141591cf1e9745eef1",
-  "tests/test_metadata_embed_extras.py": "sha256:ac951a165308bde5129d58e59b56775e9ad108f1fde5b97e51d5e6bac8fb80bd",
-  "tests/test_metadata_local_inventory.py": "sha256:db1cb468b0c8a5a58d1364badf1685149cf3eb9dcd0ce9d850b07f67d405a054",
-  "tests/test_metadata_service.py": "sha256:27e29ad86ce5fefe2c4cf6871aad3193849bb91d2fbad5bb3d3c5a17c3644737",
   "tests/test_mkv_command.py": "sha256:9e6b74f5cf8512a58c63a2b9caa43333666c7ec5dcdb7c771e78efee84276fcc",
   "tests/test_mkv_locate.py": "sha256:f0e6c0ab2b9cd14e08c0a2625f362a91b8ede24a8dd3c422f5414e269c262141",
   "tests/test_mkv_metadata_helpers.py": "sha256:05a0373028e29e1b3a4a11c5b5450631d5ff93b102c041d4d871671f1d45c42d",
   "tests/test_mkv_probe.py": "sha256:a23f6e523b4bd335b080d1e5f56998731880659f0f813f07e64243376992f618",
   "tests/test_mkv_tags_render.py": "sha256:692633d860aba1e86cb778e48dfd11aa56b0765dfb938f8df5a325b15d917138",
-  "tests/test_mkvmerge_integration.py": "sha256:f11ef4a905f8f9a810669fe2c5ac747884da73bbf5a77445ce798a4f131af66d",
   "tests/test_movie_confidence_adjustments.py": "sha256:6ef4406d919c90124e564174d5b36ed5fbeb4092d0f965ee9aca6c407791b79b",
-  "tests/test_multisegment_zero_match.py": "sha256:980a0c2d9223d004b0fc860d8e86a8b3b6067dd14c532f83ec69d5a3d1f7f8ca",
   "tests/test_mux_planner.py": "sha256:aa20ea6b5295a739cc28be73fde7874418b155111d875b1a487a799969840edd",
   "tests/test_near_exact_titles.py": "sha256:97fd46c31f29327f202a7d07a4e2b6f9bd853187fc1bb057db1a9a58bbf127a7",
   "tests/test_nfo_render.py": "sha256:44b69336cfaafa7e2e2f3d3d6df160d9ca2228f946d188f09248f303c522e7fc",
   "tests/test_no_raw_hex.py": "sha256:50b29a03fb9fb916abe4b7485c5bbc8325813c534a5fb5f63db218bc52e55283",
   "tests/test_offset_inference.py": "sha256:8fc5a3a9bffa621ec6951eeea1508aa6e5bec3c3d3df74443f9a1fcea3602ff8",
-  "tests/test_output_destination_service.py": "sha256:99d7d2ffb345b11a0be5f345e50e306d7c2976bb8b94a11ae35836430070e5d1",
-  "tests/test_parsing_edgecases.py": "sha256:45d9c1f3e542ca057e31c456b1a0b8348f53e264b3a3f13d34e37b145526c097",
   "tests/test_positional_fill_overlap.py": "sha256:70d484419b07093cd085f6f888b487ca45202d501e47028b066969fe79221b59",
   "tests/test_qt_app_popup_filter.py": "sha256:e8e7c0fcee9ae0f0969b3f0684c0d6cbeb220080901b58ac0ee92910032def42",
   "tests/test_qt_async_guide.py": "sha256:6c402bad3d4083f2d0d0cbbdd62a1847cb7641f9ab82f72dcd3657459ffaf33a",
   "tests/test_qt_busy_overlay.py": "sha256:2b982601e9c277a9d01f37dad1f898f461ec2fe9cdb499201a974d9a60df37b4",
-  "tests/test_qt_chrome.py": "sha256:15cb188977a63a6484172e2f3f8105fc404d464dbab09accbb5018ae07d93b65",
-  "tests/test_qt_job_detail_panel.py": "sha256:59cabba71d568ddbc707b427a8142330bf07669d101bd81e5428c3bd9773b6ec",
-  "tests/test_qt_main_window.py": "sha256:b0f0503ab42c795538e2a2af0992ec6d2bea6b222fd8c2964ba9e7b6fb341a41",
   "tests/test_qt_perf_guards.py": "sha256:000fd6f38aad4dc80808b762ce5716dfd8e1cf2768b4c8ff1da0ce13088cc663",
-  "tests/test_qt_queue_history.py": "sha256:a6d568fd041c779439d39cc03777dcb840cad8b491a5ae4d1b2c3ed71e7dbac1",
-  "tests/test_qt_scale.py": "sha256:e57f71151aa378edefe64be628fba832ef9c520244d551a8fc49b7caf9e5b2e6",
-  "tests/test_qt_toasts.py": "sha256:3c9df5b84513b6b29d9faf460a43144b30c78231f9ff2d975f31c80a496564d1",
-  "tests/test_qt_workspace_widgets.py": "sha256:d7b8f04c4f87cfd027e93e3e7134f9ec338b67fd32c108b9d7148ce6bf62d57e",
   "tests/test_queue_bridge_mux.py": "sha256:a7fa1c3446ab98d12ffc3057cb8a4b4aa81e8a375ebadc25337405c9e59c8afb",
-  "tests/test_queue_controller.py": "sha256:e1165ee3bc01565f616b33bd620c015eb76bcf874e41f856d42e67e467023675",
   "tests/test_queue_executor_progress.py": "sha256:7e7ed95f85bbf109712f7c2aa53b88e50bbeca45b28b8a15e8724c9bc3b9098b",
-  "tests/test_queue_metadata_wiring.py": "sha256:55a24da82019a8871884514ca19515a71e19db608c6017b704b422cf00aa0832",
-  "tests/test_queue_output_targets.py": "sha256:fd9dd2a4e53b3d218faeb6f04b19a43ee4181fa65af9c85e1ae1c7d95c6cf1d9",
   "tests/test_queue_submission_automux.py": "sha256:7d920665bb096b890e30fa2b278eb79abdad59f793739fe81fa4848a0e510804",
   "tests/test_queue_tab_remux.py": "sha256:6b7f52acb8d6a48f223811f91be8bd2065811d0a2465527f8a7040da149b86ae",
   "tests/test_recent_menus.py": "sha256:fcf96f6e61494f100c2be835a83ef522e35449a08e082060e2ccec72ca0709d3",
-  "tests/test_release_junk_titles.py": "sha256:79740000f42bb425fb830320b2c501f2a19bb553423de349a47d73e0f3e21d2c",
   "tests/test_remux_confirmation.py": "sha256:155deb658ad5591613761f29021532807db135fc3cf8ddf6fe9d33998ec2cf2b",
   "tests/test_remux_embed_extras.py": "sha256:934a452872817f02b7c828bca8a8ed605059adb30a649eadc9c78049d6ea7a18",
   "tests/test_remux_execution.py": "sha256:58464e02cd3b126ea0b3a7875a6582c34dcd00ed3fb9d3b3332cbb6f64699532",
@@ -31936,40 +29890,26 @@
   "tests/test_remux_revert.py": "sha256:0e27cc71557cf5b19d58a67f2288458966a9cf53011f3853b76f551f486bf8f4",
   "tests/test_roster_autoselect.py": "sha256:b1268e21147535ae2bb331bba7d2d089588408391480a0ceb554ae0ac54f35f0",
   "tests/test_roster_classification.py": "sha256:d9bc9bbdd44a6f0f94c76b85d308773529255edda10818600bf09324384d625e",
-  "tests/test_roster_delegate.py": "sha256:61a307769761304224630fd97736ef5dc8b3cc423622f15fba088248b453c6d2",
   "tests/test_roster_model.py": "sha256:a8bfd5e887f3bdf6dcedad200a61ee67bd21fc7dd243e0131c136ad9816cae48",
   "tests/test_run_extension.py": "sha256:50f12cee195b85945b802b4a7c4ff9cfd4068e92ed9531d1b3aeda837a9320e3",
   "tests/test_run_extension_guards.py": "sha256:b7473272f0e4f4d0676170e36843e30c89ed2ec48b83e450791a8ae15598b505",
   "tests/test_same_season_rescue.py": "sha256:9f9d60e44cb319abb1d606c415b617aa02cab777e79acd6fde7ce68ed2076095",
   "tests/test_same_season_scattered.py": "sha256:82a8ab95906f9947b1952cc642080faf2738d2fcd0e98fc537b4ba8e5a7a1a6f",
-  "tests/test_scan_improvements.py": "sha256:42daac35ec5665cf7c591af3bdf4a23cc4637d1b6c722b629d0b93f8b79b79e2",
-  "tests/test_scan_progress.py": "sha256:6a3a89d25456d81f9914fe3d237892dc3dac7f42b87315a8901d0834676d9599",
   "tests/test_segmented_group_separators.py": "sha256:b95c64b431299db4098889ae8ca6d71c124596379485db8768032dcd2b77e43b",
   "tests/test_segmented_positional_fill.py": "sha256:8e492466804982d650b1289ffa0239368b9d6db6491a38939b36cbed3cc0872e",
-  "tests/test_settings_longpath.py": "sha256:da2498898af7e57eae2198d8d9a06b69bbf9c3f9fb4eb27fda002f3fb9cd2504",
   "tests/test_settings_metadata_keys.py": "sha256:ef742655fb6c71df92e7240eb0a9e1a224f860421eb5eed7121cf58f349001a6",
   "tests/test_settings_service.py": "sha256:b0749136bffa9c49e22b590973904ae4d375fa220089ec29b2121d8c299d587a",
-  "tests/test_settings_tab_automux.py": "sha256:e5e7ac8978d018b66bfdb52c2ee9df86f2383b2e4afe1c3a1994770a2e4e5c92",
-  "tests/test_settings_tab_cache.py": "sha256:693d806b8bbdcbf86af3d3dd86e68dc182f480a0e45a1dc3e9eeadc1da7316d8",
-  "tests/test_show_details.py": "sha256:854e48a9c75d9fdf95c652fc81da1e6d2908ffb8932da6116e06a8db8c4cac0d",
   "tests/test_show_name_title_and_hint_rescue.py": "sha256:5a5606bee37f24f7b0090d5a70a4f47b5173a40d65a74d329d19463fae29169f",
   "tests/test_show_scoring_no_year.py": "sha256:47c40514986cac88625224767a34e40f0d28e1221cc2708bfba219caff57449f",
   "tests/test_show_scoring_token_subset.py": "sha256:e562d92746f25dfe22d65cb8679d8408b287136278322ebae725467580a8f1f6",
   "tests/test_specials_guards.py": "sha256:f81bfde9aa592e3891ba7c7e94bac2d07fc239fdbaa69afc8ae61e6d5e421969",
   "tests/test_squatter_chain_rescue.py": "sha256:c53dcad064b5cacecfa76be4437d40629a8393c990ae8891819e248735794c6a",
   "tests/test_status_chip.py": "sha256:da9e458f78e3151c1f816873a7d6f8286591f7131208a73fa473fdf6ebc4523f",
-  "tests/test_symbol_folding.py": "sha256:8919ced1056dd2826231288be5013afa1c172ee5856554c2c534eac7a8b228ec",
   "tests/test_thread_pool.py": "sha256:1faf070848285de4f9d063fc50e0c4c4f952b5ef9cc9bff54f8a54e4e8278c79",
   "tests/test_tiebreak_discrimination.py": "sha256:aefd2fe038debcf978d68118cdbc9f151d28af0aa4dc4e65df7573b3743ee9ab",
-  "tests/test_tmdb.py": "sha256:4da6b6d2e361f4f07c25e4960074fe3137275cd77d6f068324d306b2fad33f22",
   "tests/test_tmdb_export_assets.py": "sha256:5a20bd46a0fb1fa540b76bad2155b16bacc037dde9e7a9d4db8dd80d552039fc",
   "tests/test_token_aligned_substring.py": "sha256:095c43cbdbf788a4d72e4453c84ed329e3b8efb85870aefd8f6f8193c9a8e5a7",
-  "tests/test_tv_scanner_normal.py": "sha256:16c9036f3203d206b9a1b28398fd141e2fb8db6cc251ad50ef8d300650a5382b",
-  "tests/test_umbrella_season_merge.py": "sha256:57f50e4f732559509e2f12909bbe8ba5dace5c855207cc3b7b052818f497d621",
-  "tests/test_underscore_segments.py": "sha256:51940c6196ea7b5b554e21e12ab1695431157d9b4bd7d8576b1c666c0ac63ec7",
-  "tests/test_work_panel.py": "sha256:6575737e443f8acf163317b619185965260541b1b442b2dd71694d02355da8db",
-  "tests/test_workspace_automux.py": "sha256:6c0258f5735bb04e3a73676ea172d338c567fed44426c3e115d2db3d94b3fcfb",
-  "tests/test_workspace_expansion.py": "sha256:50f0f744692163f7a48a1a466b357f2d32a2c0fe28612e9ee079ef524656992e"
+  "tests/test_tv_scanner_normal.py": "sha256:16c9036f3203d206b9a1b28398fd141e2fb8db6cc251ad50ef8d300650a5382b"
  },
  "schema_version": 2,
  "typing": {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,7 +16,7 @@ from plex_renamer.constants import MediaType
 
 
 def _utc(offset_hours: float = 0) -> datetime:
-    return datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(hours=offset_hours)
+    return datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=offset_hours)
 
 
 class RefreshPolicyServiceTests(unittest.TestCase):

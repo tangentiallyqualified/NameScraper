@@ -16,36 +16,46 @@ from pathlib import Path
 
 import pytest
 
-from plex_renamer.parsing import normalize_for_match
 from plex_renamer.engine._episode_resolution import _source_prefix_compatible
-from plex_renamer.engine._tv_scanner_seasons import resolve_tv_season_dirs
 from plex_renamer.engine._tv_scanner_normal import _resolve_into_table
+from plex_renamer.engine._tv_scanner_seasons import resolve_tv_season_dirs
 from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
-from plex_renamer.parsing import get_season
+from plex_renamer.parsing import get_season, normalize_for_match
 
 
 class TestPrefixCompatibility:
-    @pytest.mark.parametrize("source,show", [
-        ("MASH", "M*A*S*H"),
-        ("Hells Paradise", "Hell's Paradise"),
-        ("Frieren Beyond Journeys End", "Frieren: Beyond Journey's End"),
-        ("Star Trek TNG", "Star Trek: The Next Generation"),
-    ])
+    @pytest.mark.parametrize(
+        "source,show",
+        [
+            ("MASH", "M*A*S*H"),
+            ("Hells Paradise", "Hell's Paradise"),
+            ("Frieren Beyond Journeys End", "Frieren: Beyond Journey's End"),
+            ("Star Trek TNG", "Star Trek: The Next Generation"),
+        ],
+    )
     def test_punctuation_and_acronym_variants_are_compatible(self, source, show):
         assert _source_prefix_compatible(
-            normalize_for_match(source), normalize_for_match(show),
+            normalize_for_match(source),
+            normalize_for_match(show),
         )
 
-    @pytest.mark.parametrize("source,show", [
-        ("Andromeda", "Andor"),
-        ("Watchmen Motion Comic", "Watchmen"),  # prefix containment, was already True
-    ])
+    @pytest.mark.parametrize(
+        "source,show",
+        [
+            ("Andromeda", "Andor"),
+            ("Watchmen Motion Comic", "Watchmen"),  # prefix containment, was already True
+        ],
+    )
     def test_containment_still_behaves(self, source, show):
         # Andromeda/Andor must stay contradictory; containment stays compatible.
         expected = source.lower().startswith(show.lower())
-        assert _source_prefix_compatible(
-            normalize_for_match(source), normalize_for_match(show),
-        ) is expected
+        assert (
+            _source_prefix_compatible(
+                normalize_for_match(source),
+                normalize_for_match(show),
+            )
+            is expected
+        )
 
 
 class TestRootEpisodesWithExtrasSubdir:
@@ -137,11 +147,15 @@ class TestExtrasFolderNumberClaims:
                 return {
                     0: {
                         "titles": {1: "The Mayfly of Space", 2: "Second Sortie"},
-                        "posters": {}, "episodes": {}, "count": 2,
+                        "posters": {},
+                        "episodes": {},
+                        "count": 2,
                     },
                     1: {
                         "titles": {1: "Alpha", 2: "Beta"},
-                        "posters": {}, "episodes": {}, "count": 2,
+                        "posters": {},
+                        "episodes": {},
+                        "count": 2,
                     },
                 }, 2
 
@@ -152,7 +166,9 @@ class TestExtrasFolderNumberClaims:
                 return {"id": show_id, "seasons": []}
 
         scanner = TVScanner(
-            _FakeTMDB(), {"id": 9, "name": "Space War", "year": "1991"}, root,
+            _FakeTMDB(),
+            {"id": 9, "name": "Space War", "year": "1991"},
+            root,
         )
         items, _mismatch = scanner.scan()
         table = scanner.assignment_table
@@ -161,8 +177,7 @@ class TestExtrasFolderNumberClaims:
         assert len(paths) == len(set(paths)), "files scanned twice"
 
         by_slot = {
-            (a.season, a.episodes): table.files[a.file_id].path.name
-            for a in table.assignments()
+            (a.season, a.episodes): table.files[a.file_id].path.name for a in table.assignments()
         }
         assert by_slot[(1, (1,))].startswith("[Group] Space War - 01")
         assert by_slot[(1, (2,))].startswith("[Group] Space War - 02")

@@ -10,7 +10,7 @@ from PIL import Image
 
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
-from plex_renamer.tmdb import TMDBClient, _HTTP_POOL_CONNECTIONS, _HTTP_POOL_MAXSIZE
+from plex_renamer.tmdb import _HTTP_POOL_CONNECTIONS, _HTTP_POOL_MAXSIZE, TMDBClient
 
 
 class TMDBClientTests(unittest.TestCase):
@@ -34,7 +34,9 @@ class TMDBClientTests(unittest.TestCase):
 
             first_client = TMDBClient("dummy-api-key", cache_service=cache)
             first_client._get_safe = MagicMock(return_value={"poster_path": "/poster.jpg"})
-            first_client.fetch_image = MagicMock(return_value=Image.new("RGB", (96, 144), color="red"))
+            first_client.fetch_image = MagicMock(
+                return_value=Image.new("RGB", (96, 144), color="red")
+            )
 
             first_result = first_client.fetch_poster(123, media_type="movie", target_width=96)
 
@@ -44,8 +46,12 @@ class TMDBClientTests(unittest.TestCase):
             first_client._session.close()
 
             second_client = TMDBClient("dummy-api-key", cache_service=cache)
-            second_client._get_safe = MagicMock(side_effect=AssertionError("metadata should not be fetched"))
-            second_client.fetch_image = MagicMock(side_effect=AssertionError("poster should not be redownloaded"))
+            second_client._get_safe = MagicMock(
+                side_effect=AssertionError("metadata should not be fetched")
+            )
+            second_client.fetch_image = MagicMock(
+                side_effect=AssertionError("poster should not be redownloaded")
+            )
 
             second_result = second_client.fetch_poster(123, media_type="movie", target_width=96)
 
@@ -74,7 +80,9 @@ class TMDBClientTests(unittest.TestCase):
             first_client._session.close()
 
             second_client = TMDBClient("dummy-api-key", cache_service=cache)
-            second_client._session.get = MagicMock(side_effect=AssertionError("source image should not be redownloaded"))
+            second_client._session.get = MagicMock(
+                side_effect=AssertionError("source image should not be redownloaded")
+            )
 
             second_result = second_client.fetch_image("/poster.jpg", target_width=42)
 
@@ -92,12 +100,17 @@ class TMDBClientTests(unittest.TestCase):
                 cache_service=cache,
                 refresh_policy=refresh_policy,
             )
-            first_client._get_safe = MagicMock(return_value={"id": 321, "name": "Andor", "status": "Ended"})
+            first_client._get_safe = MagicMock(
+                return_value={"id": 321, "name": "Andor", "status": "Ended"}
+            )
 
             first_result = first_client.get_tv_details(321)
 
             self.assertEqual(first_result["name"], "Andor")
-            first_client._get_safe.assert_called_once_with("/tv/321", {"append_to_response": "credits,images", "include_image_language": "en,null"})
+            first_client._get_safe.assert_called_once_with(
+                "/tv/321",
+                {"append_to_response": "credits,images", "include_image_language": "en,null"},
+            )
             first_client._session.close()
 
             second_client = TMDBClient(
@@ -105,7 +118,9 @@ class TMDBClientTests(unittest.TestCase):
                 cache_service=cache,
                 refresh_policy=refresh_policy,
             )
-            second_client._get_safe = MagicMock(side_effect=AssertionError("details should not be refetched"))
+            second_client._get_safe = MagicMock(
+                side_effect=AssertionError("details should not be refetched")
+            )
 
             second_result = second_client.get_tv_details(321)
 
@@ -152,7 +167,9 @@ class TMDBClientTests(unittest.TestCase):
                 cache_service=cache,
                 refresh_policy=refresh_policy,
             )
-            second_client._get_safe = MagicMock(side_effect=AssertionError("season should not be refetched"))
+            second_client._get_safe = MagicMock(
+                side_effect=AssertionError("season should not be refetched")
+            )
 
             second_result = second_client.get_season(555, 1)
 
@@ -162,91 +179,113 @@ class TMDBClientTests(unittest.TestCase):
 
     def test_search_tv_maps_results_to_client_shape(self):
         client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(return_value={
-            "results": [
-                {
-                    "id": 77,
-                    "name": "Andor",
-                    "first_air_date": "2022-09-21",
-                    "poster_path": "/andor.jpg",
-                    "overview": "Rebel spy drama.",
-                }
-            ]
-        })
+        client._get_safe = MagicMock(
+            return_value={
+                "results": [
+                    {
+                        "id": 77,
+                        "name": "Andor",
+                        "first_air_date": "2022-09-21",
+                        "poster_path": "/andor.jpg",
+                        "overview": "Rebel spy drama.",
+                    }
+                ]
+            }
+        )
 
         results = client.search_tv("Andor", year="2022")
 
-        self.assertEqual(results, [{
-            "id": 77,
-            "name": "Andor",
-            "year": "2022",
-            "poster_path": "/andor.jpg",
-            "overview": "Rebel spy drama.",
-        }])
-        client._get_safe.assert_called_once_with("/search/tv", {"query": "Andor", "first_air_date_year": "2022"})
+        self.assertEqual(
+            results,
+            [
+                {
+                    "id": 77,
+                    "name": "Andor",
+                    "year": "2022",
+                    "poster_path": "/andor.jpg",
+                    "overview": "Rebel spy drama.",
+                }
+            ],
+        )
+        client._get_safe.assert_called_once_with(
+            "/search/tv", {"query": "Andor", "first_air_date_year": "2022"}
+        )
         client._session.close()
 
     def test_search_movie_maps_results_to_client_shape(self):
         client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(return_value={
-            "results": [
-                {
-                    "id": 11,
-                    "title": "The Matrix",
-                    "release_date": "1999-03-31",
-                    "poster_path": "/matrix.jpg",
-                    "overview": "Simulation sci-fi.",
-                }
-            ]
-        })
+        client._get_safe = MagicMock(
+            return_value={
+                "results": [
+                    {
+                        "id": 11,
+                        "title": "The Matrix",
+                        "release_date": "1999-03-31",
+                        "poster_path": "/matrix.jpg",
+                        "overview": "Simulation sci-fi.",
+                    }
+                ]
+            }
+        )
 
         results = client.search_movie("The Matrix", year="1999")
 
-        self.assertEqual(results, [{
-            "id": 11,
-            "title": "The Matrix",
-            "year": "1999",
-            "poster_path": "/matrix.jpg",
-            "overview": "Simulation sci-fi.",
-        }])
-        client._get_safe.assert_called_once_with("/search/movie", {"query": "The Matrix", "year": "1999"})
+        self.assertEqual(
+            results,
+            [
+                {
+                    "id": 11,
+                    "title": "The Matrix",
+                    "year": "1999",
+                    "poster_path": "/matrix.jpg",
+                    "overview": "Simulation sci-fi.",
+                }
+            ],
+        )
+        client._get_safe.assert_called_once_with(
+            "/search/movie", {"query": "The Matrix", "year": "1999"}
+        )
         client._session.close()
 
     def test_get_season_builds_detail_panel_metadata(self):
         client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(return_value={
-            "poster_path": "/season.jpg",
-            "episodes": [
-                {
-                    "episode_number": 1,
-                    "name": "Pilot",
-                    "overview": "Episode overview",
-                    "air_date": "2024-01-01",
-                    "vote_average": 8.5,
-                    "vote_count": 100,
-                    "runtime": 42,
-                    "still_path": "/still.jpg",
-                    "guest_stars": [
-                        {"name": f"Guest {index}", "character": f"Character {index}"}
-                        for index in range(1, 8)
-                    ],
-                    "crew": [
-                        {"job": "Director", "name": "Director Name"},
-                        {"job": "Writer", "name": "Writer Name"},
-                        {"job": "Teleplay", "name": "Teleplay Name"},
-                        {"job": "Story", "name": "Story Name"},
-                        {"job": "Producer", "name": "Producer Name"},
-                    ],
-                }
-            ],
-        })
+        client._get_safe = MagicMock(
+            return_value={
+                "poster_path": "/season.jpg",
+                "episodes": [
+                    {
+                        "episode_number": 1,
+                        "name": "Pilot",
+                        "overview": "Episode overview",
+                        "air_date": "2024-01-01",
+                        "vote_average": 8.5,
+                        "vote_count": 100,
+                        "runtime": 42,
+                        "still_path": "/still.jpg",
+                        "guest_stars": [
+                            {"name": f"Guest {index}", "character": f"Character {index}"}
+                            for index in range(1, 8)
+                        ],
+                        "crew": [
+                            {"job": "Director", "name": "Director Name"},
+                            {"job": "Writer", "name": "Writer Name"},
+                            {"job": "Teleplay", "name": "Teleplay Name"},
+                            {"job": "Story", "name": "Story Name"},
+                            {"job": "Producer", "name": "Producer Name"},
+                        ],
+                    }
+                ],
+            }
+        )
 
         result = client.get_season(555, 1)
 
         self.assertEqual(result["titles"][1], "Pilot")
         self.assertEqual(result["posters"][1], "/still.jpg")
         self.assertEqual(result["episodes"][1]["directors"], ["Director Name"])
-        self.assertEqual(result["episodes"][1]["writers"], ["Writer Name", "Teleplay Name", "Story Name"])
+        self.assertEqual(
+            result["episodes"][1]["writers"], ["Writer Name", "Teleplay Name", "Story Name"]
+        )
         self.assertEqual(len(result["episodes"][1]["guest_stars"]), 5)
         self.assertEqual(result["season_poster_path"], "/season.jpg")
         client._session.close()
@@ -273,10 +312,13 @@ class TMDBClientTests(unittest.TestCase):
             progress_callback=lambda done, total: progress_events.append((done, total)),
         )
 
-        self.assertEqual(results, [
-            [{"id": 7, "title": "JoJo", "year": "2012"}],
-            [{"id": 11, "title": "The Matrix", "year": "1999"}],
-        ])
+        self.assertEqual(
+            results,
+            [
+                [{"id": 7, "title": "JoJo", "year": "2012"}],
+                [{"id": 11, "title": "The Matrix", "year": "1999"}],
+            ],
+        )
         self.assertEqual(progress_events, [(1, 2), (2, 2)])
         client._session.close()
 
@@ -298,30 +340,40 @@ class TMDBClientTests(unittest.TestCase):
 
         results = client.search_tv_batch([("BSG", "2003")], max_workers=1)
 
-        self.assertEqual(results, [[
-            {"id": 1, "name": "Battlestar Galactica", "year": "2004"},
-            {"id": 2, "name": "Battlestar Galactica", "year": "1978"},
-        ]])
+        self.assertEqual(
+            results,
+            [
+                [
+                    {"id": 1, "name": "Battlestar Galactica", "year": "2004"},
+                    {"id": 2, "name": "Battlestar Galactica", "year": "1978"},
+                ]
+            ],
+        )
         client._session.close()
 
     def test_get_alternative_titles_deduplicates_and_caches_results(self):
         client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(return_value={
-            "titles": [
-                {"title": "Spirited Away", "iso_3166_1": "US"},
-                {"title": "Spirited Away", "iso_3166_1": "GB"},
-                {"title": "Sen to Chihiro no kamikakushi", "iso_3166_1": "JP"},
-                {"title": "", "iso_3166_1": "FR"},
-            ]
-        })
+        client._get_safe = MagicMock(
+            return_value={
+                "titles": [
+                    {"title": "Spirited Away", "iso_3166_1": "US"},
+                    {"title": "Spirited Away", "iso_3166_1": "GB"},
+                    {"title": "Sen to Chihiro no kamikakushi", "iso_3166_1": "JP"},
+                    {"title": "", "iso_3166_1": "FR"},
+                ]
+            }
+        )
 
         first_result = client.get_alternative_titles(42, media_type="movie")
         second_result = client.get_alternative_titles(42, media_type="movie")
 
-        self.assertEqual(first_result, [
-            ("Spirited Away", "US"),
-            ("Sen to Chihiro no kamikakushi", "JP"),
-        ])
+        self.assertEqual(
+            first_result,
+            [
+                ("Spirited Away", "US"),
+                ("Sen to Chihiro no kamikakushi", "JP"),
+            ],
+        )
         self.assertEqual(second_result, first_result)
         client._get_safe.assert_called_once_with("/movie/42/alternative_titles")
         client._session.close()
@@ -344,10 +396,13 @@ class TMDBClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result, [{"id": 11}])
-        self.assertEqual(attempts, [
-            ("The Matrix Reloaded", "1999"),
-            ("The Matrix", "1999"),
-        ])
+        self.assertEqual(
+            attempts,
+            [
+                ("The Matrix Reloaded", "1999"),
+                ("The Matrix", "1999"),
+            ],
+        )
         client._session.close()
 
     def test_search_with_fallback_respects_min_words(self):

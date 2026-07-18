@@ -1,5 +1,6 @@
 # tests/test_episode_table_model.py
 """EpisodeTableModel row composition, filters, search, expansion."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,39 +10,91 @@ from conftest_qt import QtSmokeBase
 
 def _guide_state():
     """Synthetic TV state with a real assignment table + completeness."""
-    from plex_renamer.engine.models import (
-        CompanionFile, CompletenessReport, ScanState, SeasonCompleteness,
-    )
     from plex_renamer.app.models.state_models import (
-        EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary, UnmappedFileRow,
+        EpisodeGuide,
+        EpisodeGuideRow,
+        EpisodeGuideSummary,
+        UnmappedFileRow,
     )
-    from plex_renamer.engine.models import PreviewItem
+    from plex_renamer.engine.models import (
+        CompanionFile,
+        CompletenessReport,
+        PreviewItem,
+        ScanState,
+        SeasonCompleteness,
+    )
 
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
-    p1 = PreviewItem(original=Path("C:/lib/Show/s01e01.mkv"), new_name="Show - S01E01 - One.mkv",
-                     target_dir=None, season=1, episodes=[1], status="OK",
-                     companions=[CompanionFile(original=Path("C:/lib/Show/s01e01.en.srt"),
-                                               new_name="Show - S01E01 - One.en.srt", file_type="subtitle")])
-    p2 = PreviewItem(original=Path("C:/lib/Show/s01e02.mkv"), new_name="Show - S01E02 - Two.mkv",
-                     target_dir=None, season=1, episodes=[2], status="REVIEW: episode confidence below threshold")
+    p1 = PreviewItem(
+        original=Path("C:/lib/Show/s01e01.mkv"),
+        new_name="Show - S01E01 - One.mkv",
+        target_dir=None,
+        season=1,
+        episodes=[1],
+        status="OK",
+        companions=[
+            CompanionFile(
+                original=Path("C:/lib/Show/s01e01.en.srt"),
+                new_name="Show - S01E01 - One.en.srt",
+                file_type="subtitle",
+            )
+        ],
+    )
+    p2 = PreviewItem(
+        original=Path("C:/lib/Show/s01e02.mkv"),
+        new_name="Show - S01E02 - Two.mkv",
+        target_dir=None,
+        season=1,
+        episodes=[2],
+        status="REVIEW: episode confidence below threshold",
+    )
     state.preview_items = [p1, p2]
     state.completeness = CompletenessReport(
         seasons={1: SeasonCompleteness(season=1, expected=3, matched=2, missing=[(3, "Three")])},
-        specials=None, total_expected=3, total_matched=2, total_missing=[(1, 3, "Three")],
+        specials=None,
+        total_expected=3,
+        total_matched=2,
+        total_missing=[(1, 3, "Three")],
     )
-    guide = EpisodeGuide(rows=[
-        EpisodeGuideRow(season=1, episode=1, title="One", primary_file=p1,
-                        companions=list(p1.companions),
-                        target_rename="Show - S01E01 - One.mkv", status="Mapped",
-                        confidence_label="96%", overview="Ep one.", air_date="2020-01-01"),
-        EpisodeGuideRow(season=1, episode=2, title="Two", primary_file=p2,
-                        target_rename="Show - S01E02 - Two.mkv", status="Review",
-                        confidence_label="61%"),
-        EpisodeGuideRow(season=1, episode=3, title="Three", status="Missing File"),
-    ], unmapped_primary_files=[UnmappedFileRow(original=Path("C:/lib/Show/extra.mkv"), reason="no episode parsed")],
-       summary=EpisodeGuideSummary(mapped_episodes=2, mapped_primary_files=2, companion_files=0,
-                                   missing_episodes=1, unmapped_primary_files=1))
+    guide = EpisodeGuide(
+        rows=[
+            EpisodeGuideRow(
+                season=1,
+                episode=1,
+                title="One",
+                primary_file=p1,
+                companions=list(p1.companions),
+                target_rename="Show - S01E01 - One.mkv",
+                status="Mapped",
+                confidence_label="96%",
+                overview="Ep one.",
+                air_date="2020-01-01",
+            ),
+            EpisodeGuideRow(
+                season=1,
+                episode=2,
+                title="Two",
+                primary_file=p2,
+                target_rename="Show - S01E02 - Two.mkv",
+                status="Review",
+                confidence_label="61%",
+            ),
+            EpisodeGuideRow(season=1, episode=3, title="Three", status="Missing File"),
+        ],
+        unmapped_primary_files=[
+            UnmappedFileRow(original=Path("C:/lib/Show/extra.mkv"), reason="no episode parsed")
+        ],
+        summary=EpisodeGuideSummary(
+            mapped_episodes=2,
+            mapped_primary_files=2,
+            companion_files=0,
+            missing_episodes=1,
+            unmapped_primary_files=1,
+        ),
+    )
     return state, guide
 
 
@@ -50,30 +103,75 @@ def _episode_filter_state():
     SxxEyy, NxMM, bare season) -- S02E05 titled 'Winterfell' with a '1080p'
     filename to exercise the AND-with-filename-filter case."""
     from plex_renamer.app.models.state_models import (
-        EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary, UnmappedFileRow,
+        EpisodeGuide,
+        EpisodeGuideRow,
+        EpisodeGuideSummary,
+        UnmappedFileRow,
     )
     from plex_renamer.engine.models import PreviewItem, ScanState
 
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
-    p1 = PreviewItem(original=Path("C:/lib/Show/s01e01.mkv"), new_name="Show - S01E01 - Alpha.mkv",
-                     target_dir=None, season=1, episodes=[1], status="OK")
-    p2 = PreviewItem(original=Path("C:/lib/Show/s02e05.1080p.mkv"), new_name="Show - S02E05 - Winterfell.mkv",
-                     target_dir=None, season=2, episodes=[5], status="OK")
-    p3 = PreviewItem(original=Path("C:/lib/Show/s02e06.mkv"), new_name="Show - S02E06 - Beta.mkv",
-                     target_dir=None, season=2, episodes=[6], status="OK")
+    p1 = PreviewItem(
+        original=Path("C:/lib/Show/s01e01.mkv"),
+        new_name="Show - S01E01 - Alpha.mkv",
+        target_dir=None,
+        season=1,
+        episodes=[1],
+        status="OK",
+    )
+    p2 = PreviewItem(
+        original=Path("C:/lib/Show/s02e05.1080p.mkv"),
+        new_name="Show - S02E05 - Winterfell.mkv",
+        target_dir=None,
+        season=2,
+        episodes=[5],
+        status="OK",
+    )
+    p3 = PreviewItem(
+        original=Path("C:/lib/Show/s02e06.mkv"),
+        new_name="Show - S02E06 - Beta.mkv",
+        target_dir=None,
+        season=2,
+        episodes=[6],
+        status="OK",
+    )
     state.preview_items = [p1, p2, p3]
     guide = EpisodeGuide(
         rows=[
-            EpisodeGuideRow(season=1, episode=1, title="Alpha", primary_file=p1,
-                            target_rename="Show - S01E01 - Alpha.mkv", status="Mapped"),
-            EpisodeGuideRow(season=2, episode=5, title="Winterfell", primary_file=p2,
-                            target_rename="Show - S02E05 - Winterfell.mkv", status="Mapped"),
-            EpisodeGuideRow(season=2, episode=6, title="Beta", primary_file=p3,
-                            target_rename="Show - S02E06 - Beta.mkv", status="Mapped"),
+            EpisodeGuideRow(
+                season=1,
+                episode=1,
+                title="Alpha",
+                primary_file=p1,
+                target_rename="Show - S01E01 - Alpha.mkv",
+                status="Mapped",
+            ),
+            EpisodeGuideRow(
+                season=2,
+                episode=5,
+                title="Winterfell",
+                primary_file=p2,
+                target_rename="Show - S02E05 - Winterfell.mkv",
+                status="Mapped",
+            ),
+            EpisodeGuideRow(
+                season=2,
+                episode=6,
+                title="Beta",
+                primary_file=p3,
+                target_rename="Show - S02E06 - Beta.mkv",
+                status="Mapped",
+            ),
         ],
-        unmapped_primary_files=[UnmappedFileRow(original=Path("C:/lib/Show/extra.mkv"), reason="no episode parsed")],
-        summary=EpisodeGuideSummary(mapped_episodes=3, mapped_primary_files=3, unmapped_primary_files=1),
+        unmapped_primary_files=[
+            UnmappedFileRow(original=Path("C:/lib/Show/extra.mkv"), reason="no episode parsed")
+        ],
+        summary=EpisodeGuideSummary(
+            mapped_episodes=3, mapped_primary_files=3, unmapped_primary_files=1
+        ),
     )
     return state, guide
 
@@ -87,10 +185,14 @@ class EpisodeTableModelTests(QtSmokeBase):
     def _model(self, state, guide, collapsed=None, folder_preview=None, settings_service=None):
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
 
-        model = EpisodeTableModel(media_type="tv", guide_provider=lambda _s: guide,
-                                  settings_service=settings_service)
-        model.show_state(state, collapsed_sections=collapsed if collapsed is not None else set(),
-                         folder_preview=folder_preview)
+        model = EpisodeTableModel(
+            media_type="tv", guide_provider=lambda _s: guide, settings_service=settings_service
+        )
+        model.show_state(
+            state,
+            collapsed_sections=collapsed if collapsed is not None else set(),
+            folder_preview=folder_preview,
+        )
         return model
 
     def _model_with_guide(self, statuses):
@@ -98,11 +200,15 @@ class EpisodeTableModelTests(QtSmokeBase):
         (episode numbers 1..N) — enough to exercise inline_actions adjacency
         without the full _guide_state() fixture's companions/completeness."""
         from plex_renamer.app.models.state_models import (
-            EpisodeGuide, EpisodeGuideRow, EpisodeGuideSummary,
+            EpisodeGuide,
+            EpisodeGuideRow,
+            EpisodeGuideSummary,
         )
         from plex_renamer.engine.models import ScanState
 
-        state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"})
+        state = ScanState(
+            folder=Path("C:/lib/Show"), media_info={"id": 7, "name": "Show", "year": "2020"}
+        )
         state.scanned = True
         rows = [
             EpisodeGuideRow(season=1, episode=i, title=f"Ep{i}", status=status)
@@ -165,8 +271,9 @@ class EpisodeTableModelTests(QtSmokeBase):
         model = self._model(state, guide)
         kinds = [model.row_kind_at(row) for row in range(model.rowCount())]
         # unmapped label+row, season header, 3 episode rows (incl. ghost)
-        self.assertEqual(kinds, ["section-label", "unmapped", "section-header",
-                                 "episode", "episode", "episode"])
+        self.assertEqual(
+            kinds, ["section-label", "unmapped", "section-header", "episode", "episode", "episode"]
+        )
 
     def test_ghost_row_is_missing_file_episode(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
@@ -183,7 +290,7 @@ class EpisodeTableModelTests(QtSmokeBase):
 
         state, guide = _guide_state()
         model = self._model(state, guide)
-        data = model.index(1, 0).data(ROW_DATA_ROLE)   # row kind "unmapped"
+        data = model.index(1, 0).data(ROW_DATA_ROLE)  # row kind "unmapped"
         self.assertEqual(data.detail, "no episode parsed")
         self.assertNotEqual(data.title, data.detail)
 
@@ -201,7 +308,7 @@ class EpisodeTableModelTests(QtSmokeBase):
 
         state, guide = _guide_state()
         model = self._model(state, guide)
-        data = model.index(3, 0).data(ROW_DATA_ROLE)   # row "One" — has a subtitle companion
+        data = model.index(3, 0).data(ROW_DATA_ROLE)  # row "One" — has a subtitle companion
         self.assertEqual(data.subtitle_name, str(guide.rows[0].companions[0].original))
 
     def test_episode_row_without_subtitle_companion_has_empty_subtitle_name(self):
@@ -209,7 +316,7 @@ class EpisodeTableModelTests(QtSmokeBase):
 
         state, guide = _guide_state()
         model = self._model(state, guide)
-        data = model.index(4, 0).data(ROW_DATA_ROLE)   # row "Two" — no companions
+        data = model.index(4, 0).data(ROW_DATA_ROLE)  # row "Two" — no companions
         self.assertEqual(data.subtitle_name, "")
 
     def test_compact_mode_keeps_episode_filename(self):
@@ -233,8 +340,11 @@ class EpisodeTableModelTests(QtSmokeBase):
         state, guide = _guide_state()
         model = self._model(state, guide)
         model.set_filter_mode("problems")
-        titles = [model.index(r, 0).data() for r in range(model.rowCount())
-                  if model.row_kind_at(r) == "episode"]
+        titles = [
+            model.index(r, 0).data()
+            for r in range(model.rowCount())
+            if model.row_kind_at(r) == "episode"
+        ]
         self.assertEqual(len(titles), 2)
         self.assertNotIn("S01E01 · One", titles)
 
@@ -245,7 +355,9 @@ class EpisodeTableModelTests(QtSmokeBase):
         episode_rows = [r for r in range(model.rowCount()) if model.row_kind_at(r) == "episode"]
         self.assertEqual(len(episode_rows), 1)
         model.set_search_text("")
-        self.assertEqual(len([r for r in range(model.rowCount()) if model.row_kind_at(r) == "episode"]), 3)
+        self.assertEqual(
+            len([r for r in range(model.rowCount()) if model.row_kind_at(r) == "episode"]), 3
+        )
 
     def _episode_titles(self, model):
         from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE
@@ -295,8 +407,10 @@ class EpisodeTableModelTests(QtSmokeBase):
         key = model.season_section_key(1)
         model.toggle_section(key)
         self.assertIn(key, collapsed)
-        self.assertEqual([model.row_kind_at(r) for r in range(model.rowCount())],
-                         ["section-label", "unmapped", "section-header"])
+        self.assertEqual(
+            [model.row_kind_at(r) for r in range(model.rowCount())],
+            ["section-label", "unmapped", "section-header"],
+        )
 
     def test_expanded_row_roundtrip_emits_expanded_role(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import EXPANDED_ROLE
@@ -363,15 +477,36 @@ class EpisodeTableModelTests(QtSmokeBase):
         from plex_renamer.engine.models import CompanionFile, PreviewItem, ScanState
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeTableModel
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
-        keeper = PreviewItem(original=Path("C:/lib/Movie/movie.mkv"), new_name="Movie (2021).mkv",
-                             target_dir=None, season=None, episodes=[], status="OK", media_type="movie",
-                             companions=[CompanionFile(original=Path("C:/lib/Movie/movie.en.srt"),
-                                                       new_name="Movie (2021).en.srt", file_type="subtitle")])
-        extra = PreviewItem(original=Path("C:/lib/Movie/movie copy.mkv"), new_name=None,
-                            target_dir=None, season=None, episodes=[],
-                            status="DUPLICATE: copy of movie.mkv", media_type="movie")
+        keeper = PreviewItem(
+            original=Path("C:/lib/Movie/movie.mkv"),
+            new_name="Movie (2021).mkv",
+            target_dir=None,
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type="movie",
+            companions=[
+                CompanionFile(
+                    original=Path("C:/lib/Movie/movie.en.srt"),
+                    new_name="Movie (2021).en.srt",
+                    file_type="subtitle",
+                )
+            ],
+        )
+        extra = PreviewItem(
+            original=Path("C:/lib/Movie/movie copy.mkv"),
+            new_name=None,
+            target_dir=None,
+            season=None,
+            episodes=[],
+            status="DUPLICATE: copy of movie.mkv",
+            media_type="movie",
+        )
         state.preview_items = [keeper, extra]
         model = EpisodeTableModel(media_type="movie")
         model.show_state(state, collapsed_sections=set())
@@ -379,7 +514,7 @@ class EpisodeTableModelTests(QtSmokeBase):
 
     def test_problems_filter_bulk_hint_when_only_unmapped_remain(self):
         state, guide = _guide_state()
-        guide.rows[1].status = "Mapped"          # no Review/Conflict left
+        guide.rows[1].status = "Mapped"  # no Review/Conflict left
         model = self._model(state, guide)
         model.set_filter_mode("problems")
         kinds = [model.row_kind_at(r) for r in range(model.rowCount())]
@@ -390,28 +525,40 @@ class EpisodeTableModelTests(QtSmokeBase):
 
     def test_no_bulk_hint_when_review_rows_exist_or_other_filters(self):
         state, guide = _guide_state()
-        model = self._model(state, guide)        # guide still has a Review row
+        model = self._model(state, guide)  # guide still has a Review row
         model.set_filter_mode("problems")
         kinds = [model.row_kind_at(r) for r in range(model.rowCount())]
         self.assertNotIn("bulk-hint", kinds)
         guide.rows[1].status = "Mapped"
         model.set_filter_mode("all")
-        self.assertNotIn("bulk-hint",
-                         [model.row_kind_at(r) for r in range(model.rowCount())])
+        self.assertNotIn("bulk-hint", [model.row_kind_at(r) for r in range(model.rowCount())])
 
     def test_movie_rows_are_flat_not_checkable(self):
         """Movie-file rows no longer carry a middle-panel checkbox (GUI V4
         Plan 3 round-2 Task 1) — queue selection flows through the roster
         (left panel) instead. This row's title still renders regardless."""
         from plex_renamer.engine.models import PreviewItem, ScanState
-        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel
+        from plex_renamer.gui_qt.widgets._episode_table_model import (
+            ROW_DATA_ROLE,
+            EpisodeTableModel,
+        )
         from plex_renamer.gui_qt.widgets._workspace_widget_primitives import _CheckBinding
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
         state.confidence = 0.9
-        preview = PreviewItem(original=Path("C:/lib/Movie/movie.mkv"), new_name="Movie (2021).mkv",
-                              target_dir=None, season=None, episodes=[], status="OK", media_type="movie")
+        preview = PreviewItem(
+            original=Path("C:/lib/Movie/movie.mkv"),
+            new_name="Movie (2021).mkv",
+            target_dir=None,
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type="movie",
+        )
         state.preview_items = [preview]
         state.check_vars["0"] = _CheckBinding(True)
         model = EpisodeTableModel(media_type="movie")
@@ -425,14 +572,27 @@ class EpisodeTableModelTests(QtSmokeBase):
 
     def test_movie_entry_is_not_checkable(self):
         from plex_renamer.engine.models import PreviewItem, ScanState
-        from plex_renamer.gui_qt.widgets._episode_table_model import ROW_DATA_ROLE, EpisodeTableModel
+        from plex_renamer.gui_qt.widgets._episode_table_model import (
+            ROW_DATA_ROLE,
+            EpisodeTableModel,
+        )
         from plex_renamer.gui_qt.widgets._workspace_widget_primitives import _CheckBinding
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
         state.confidence = 0.9
-        preview = PreviewItem(original=Path("C:/lib/Movie/movie.mkv"), new_name="Movie (2021).mkv",
-                              target_dir=None, season=None, episodes=[], status="OK", media_type="movie")
+        preview = PreviewItem(
+            original=Path("C:/lib/Movie/movie.mkv"),
+            new_name="Movie (2021).mkv",
+            target_dir=None,
+            season=None,
+            episodes=[],
+            status="OK",
+            media_type="movie",
+        )
         state.preview_items = [preview]
         state.check_vars["0"] = _CheckBinding(True)
         model = EpisodeTableModel(media_type="movie")
@@ -445,8 +605,11 @@ class EpisodeTableModelTests(QtSmokeBase):
 
     def test_movie_status_label_parity(self):
         from plex_renamer.gui_qt.widgets._episode_table_model import _movie_status_label
+
         class _P:
-            def __init__(self, **k): self.__dict__.update(k)
+            def __init__(self, **k):
+                self.__dict__.update(k)
+
         ok = _P(is_conflict=False, is_unmatched=False, is_review=False, is_skipped=False)
         review = _P(is_conflict=False, is_unmatched=False, is_review=True, is_skipped=False)
         self.assertEqual(_movie_status_label(ok), "Matched")
@@ -475,8 +638,14 @@ class EpisodeTableModelTests(QtSmokeBase):
 # test_workspace_automux.py, trimmed to what plan_has_actions() checks).
 _ACTION_PLAN = {
     "track_decisions": [],
-    "subtitle_merges": [{"source_relative": "Show/a.eng.srt", "action": "merge",
-                          "language": "eng", "set_default": False}],
+    "subtitle_merges": [
+        {
+            "source_relative": "Show/a.eng.srt",
+            "action": "merge",
+            "language": "eng",
+            "set_default": False,
+        }
+    ],
 }
 
 

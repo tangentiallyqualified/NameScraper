@@ -12,10 +12,10 @@ from unittest.mock import patch
 
 from plex_renamer.app.controllers.media_controller import MediaController
 from plex_renamer.app.models import ScanLifecycle, ScanProgress
-from plex_renamer.app.services.command_gating_service import CommandGatingService
-from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
+from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
+from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.constants import JobStatus, MediaType
 from plex_renamer.engine import (
     BatchTVOrchestrator,
@@ -1058,12 +1058,12 @@ class RematchStateTests(ControllerTestCase):
 
     def test_apply_runtime_settings_table_backed_respects_approved_and_unapproved(self):
         """Table-backed state: approved below-threshold stays OK; unapproved becomes REVIEW."""
+        from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.engine._episode_projection import project_preview_items
 
         folder = self.tmp / "Show.2024"
         show_info = {"id": 10, "name": "Show", "year": "2024"}

@@ -5,21 +5,21 @@ harness rule).  A subtitle-only MKV is a valid Matroska file, so the
 whole probe → plan → command → execute chain runs without any media
 fixtures.
 """
+
 import subprocess
 
 import pytest
 
+from plex_renamer import _job_execution_remux as rex
 from plex_renamer._mkv_locate import find_mkvmerge
 from plex_renamer._mkv_probe import clear_probe_cache, probe_file
 from plex_renamer.engine._mux_planner import MuxSettings, build_mux_plan
 from plex_renamer.engine.models import RenameResult
 from plex_renamer.job_store import RenameOp
-from plex_renamer import _job_execution_remux as rex
 
 MKVMERGE = find_mkvmerge("")
 
-pytestmark = pytest.mark.skipif(
-    MKVMERGE is None, reason="mkvmerge not installed")
+pytestmark = pytest.mark.skipif(MKVMERGE is None, reason="mkvmerge not installed")
 
 SRT = "1\n00:00:01,000 --> 00:00:02,000\nhello\n"
 
@@ -31,9 +31,10 @@ def _make_source_mkv(tmp_path):
     source = tmp_path / "lib" / "Show" / "a.mkv"
     source.parent.mkdir(parents=True)
     subprocess.run(
-        [str(MKVMERGE), "--output", str(source),
-         "--language", "0:eng", str(seed)],
-        check=True, capture_output=True)
+        [str(MKVMERGE), "--output", str(source), "--language", "0:eng", str(seed)],
+        check=True,
+        capture_output=True,
+    )
     return source
 
 
@@ -55,18 +56,20 @@ def test_probe_plan_execute_round_trip(tmp_path):
         companion_subs=[("Show/a.jpn.srt", ".jpn")],
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["jpn"]),
         new_name="Show - S01E01 - Pilot.mkv",
-        mkvmerge_path=str(MKVMERGE))
+        mkvmerge_path=str(MKVMERGE),
+    )
     assert plan is not None
 
     op = RenameOp(
         original_relative="Show/a.mkv",
         new_name=plan.output_name,
         target_dir_relative="Show (2020)/Season 01",
-        status="OK", mux=plan.to_dict())
+        status="OK",
+        mux=plan.to_dict(),
+    )
     result = RenameResult()
     result.log_entry = {"renames": [], "remux_outputs": []}
-    assert rex.execute_remux_op(
-        op, source_root=lib, output_root=out, result=result), result.errors
+    assert rex.execute_remux_op(op, source_root=lib, output_root=out, result=result), result.errors
 
     final = out / "Show (2020)" / "Season 01" / "Show - S01E01 - Pilot.mkv"
     assert final.exists()

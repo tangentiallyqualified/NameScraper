@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from audit import _toolchain
-from audit import __main__ as cli
+from audit import __main__ as cli, _toolchain
 
 
 def _constraints(repo: Path, text: str) -> None:
@@ -50,7 +49,9 @@ def test_local_generation_stops_before_stages_when_toolchain_is_incompatible(
 ):
     ran = []
     monkeypatch.setattr(_toolchain, "validate", lambda _repo: ["ruff mismatch"])
-    monkeypatch.setattr(cli, "STAGES", [("inventory", lambda _root, _options: ran.append(True) or 0)])
+    monkeypatch.setattr(
+        cli, "STAGES", [("inventory", lambda _root, _options: ran.append(True) or 0)]
+    )
 
     assert cli.main(["--repo-root", str(synthetic_repo)]) == 1
 

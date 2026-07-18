@@ -1,11 +1,12 @@
 """RC19: folder-season N maps onto the Nth air-date cluster."""
+
 from pathlib import Path
 
+from plex_renamer.engine._episode_resolution import CONF_TITLE_WINS_INEXACT
 from plex_renamer.engine._tv_scanner_consolidated import (
     _air_date_clusters,
     apply_air_date_cluster_mapping,
 )
-from plex_renamer.engine._episode_resolution import CONF_TITLE_WINS_INEXACT
 from plex_renamer.engine.episode_assignments import (
     REASON_NOT_IN_SEASON,
     EpisodeAssignmentTable,
@@ -39,10 +40,14 @@ def test_folder_season_maps_to_nth_cluster():
     table = EpisodeAssignmentTable()
     data = _season_data()
     for episode, title in data["titles"].items():
-        table.add_slot(EpisodeSlot(
-            season=1, episode=episode, title=title,
-            air_date=data["episodes"][episode]["air_date"],
-        ))
+        table.add_slot(
+            EpisodeSlot(
+                season=1,
+                episode=episode,
+                title=title,
+                air_date=data["episodes"][episode]["air_date"],
+            )
+        )
     entries = []
     for episode in range(1, 12):
         entry = table.add_file(

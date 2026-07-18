@@ -5,8 +5,8 @@ from pathlib import Path
 
 import plex_renamer._job_execution_remux as remux_mod
 from plex_renamer.constants import JobKind, JobStatus, MediaType
-from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 from plex_renamer.job_executor import QueueExecutor, revert_job
+from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 
 
 def _tree_snapshot(root: Path) -> set[str]:
@@ -24,25 +24,43 @@ def make_env(tmp_path):
 
 def make_job(library_root, out, plan) -> RenameJob:
     return RenameJob(
-        media_type=MediaType.TV, tmdb_id=42, media_name="Show",
-        library_root=str(library_root), output_root=str(out),
-        source_folder="Show", show_folder_rename="Show (2019)",
-        rename_ops=[RenameOp(
-            original_relative="Show/Show.S01E01.mkv",
-            new_name="Show (2019) - S01E01 - Pilot.mkv",
-            target_dir_relative="Show (2019)/Season 01",
-            status="OK", season=1, episodes=[1])],
+        media_type=MediaType.TV,
+        tmdb_id=42,
+        media_name="Show",
+        library_root=str(library_root),
+        output_root=str(out),
+        source_folder="Show",
+        show_folder_rename="Show (2019)",
+        rename_ops=[
+            RenameOp(
+                original_relative="Show/Show.S01E01.mkv",
+                new_name="Show (2019) - S01E01 - Pilot.mkv",
+                target_dir_relative="Show (2019)/Season 01",
+                status="OK",
+                season=1,
+                episodes=[1],
+            )
+        ],
         metadata_plan=plan,
     )
 
 
 PLAN = {
-    "nfo_files": [{"target_relative": "Show (2019)/tvshow.nfo",
-                   "content": "<tvshow/>", "slot": "nfo:show"}],
-    "artwork": [{"tmdb_path": "/p.jpg",
-                 "target_relative": "Show (2019)/poster.jpg",
-                 "kind": "poster", "slot": "poster", "plex_extra": False}],
-    "embed_title": False, "prefer_local": False, "plex_naming": False,
+    "nfo_files": [
+        {"target_relative": "Show (2019)/tvshow.nfo", "content": "<tvshow/>", "slot": "nfo:show"}
+    ],
+    "artwork": [
+        {
+            "tmdb_path": "/p.jpg",
+            "target_relative": "Show (2019)/poster.jpg",
+            "kind": "poster",
+            "slot": "poster",
+            "plex_extra": False,
+        }
+    ],
+    "embed_title": False,
+    "prefer_local": False,
+    "plex_naming": False,
     "mkvpropedit_path": "",
 }
 
@@ -141,8 +159,7 @@ def test_malformed_metadata_entry_completes_with_warning(tmp_path):
     assert done.status == JobStatus.COMPLETED
     assert "nfo skipped" in (done.error_message or "")
     assert done.undo_data is not None
-    assert (out / "Show (2019)" / "Season 01" /
-            "Show (2019) - S01E01 - Pilot.mkv").exists()
+    assert (out / "Show (2019)" / "Season 01" / "Show (2019) - S01E01 - Pilot.mkv").exists()
 
 
 def test_remux_op_receives_title(tmp_path, monkeypatch):
@@ -158,15 +175,23 @@ def test_remux_op_receives_title(tmp_path, monkeypatch):
 
     mkvmerge = tmp_path / "mkvmerge.exe"
     mkvmerge.write_bytes(b"")
-    plan = {"nfo_files": [], "artwork": [], "embed_title": True,
-            "prefer_local": False, "plex_naming": False,
-            "mkvpropedit_path": ""}
+    plan = {
+        "nfo_files": [],
+        "artwork": [],
+        "embed_title": True,
+        "prefer_local": False,
+        "plex_naming": False,
+        "mkvpropedit_path": "",
+    }
     job = make_job(library_root, out, plan)
     job.job_kind = JobKind.REMUX
     job.rename_ops[0].mux = {
-        "mkvmerge_path": str(mkvmerge), "track_decisions": [],
-        "subtitle_merges": [], "strip_track_names": False,
-        "no_fear": False, "output_name": job.rename_ops[0].new_name,
+        "mkvmerge_path": str(mkvmerge),
+        "track_decisions": [],
+        "subtitle_merges": [],
+        "strip_track_names": False,
+        "no_fear": False,
+        "output_name": job.rename_ops[0].new_name,
     }
 
     store = JobStore(db_path=tmp_path / "jobs.db")
