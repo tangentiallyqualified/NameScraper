@@ -83,16 +83,19 @@ def execute_rename(
             else:
                 src.rename(dst)
 
-            result.log_entry["renames"].append({
-                "old": str(src), "new": str(dst),
-            })
+            result.log_entry["renames"].append(
+                {
+                    "old": str(src),
+                    "new": str(dst),
+                }
+            )
             result.renamed_count += 1
         except (OSError, shutil.Error) as error:
             result.errors.append(f"{src.name}: {error}")
 
     unmatched_dir = root_folder / "Unmatched"
     all_dirs = source_dirs.copy()
-    for _, dst, target_dir in renames:
+    for _, _dst, target_dir in renames:
         all_dirs.add(target_dir)
 
     for season_dir in all_dirs:
@@ -114,9 +117,12 @@ def execute_rename(
             continue
         try:
             season_dir.rename(proper_path)
-            result.log_entry["renamed_dirs"].append({
-                "old": str(season_dir), "new": str(proper_path),
-            })
+            result.log_entry["renamed_dirs"].append(
+                {
+                    "old": str(season_dir),
+                    "new": str(proper_path),
+                }
+            )
         except OSError:
             pass
 
@@ -132,16 +138,16 @@ def execute_rename(
     if show_folder_name and root_folder.exists():
         if root_folder.name != show_folder_name:
             new_root = root_folder.parent / show_folder_name
-            same_dir = (
-                os.path.normcase(str(root_folder))
-                == os.path.normcase(str(new_root))
-            )
+            same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
             if same_dir or not new_root.exists():
                 try:
                     root_folder.rename(new_root)
-                    result.log_entry["renamed_dirs"].append({
-                        "old": str(root_folder), "new": str(new_root),
-                    })
+                    result.log_entry["renamed_dirs"].append(
+                        {
+                            "old": str(root_folder),
+                            "new": str(new_root),
+                        }
+                    )
                     result.new_root = new_root
                 except OSError:
                     pass

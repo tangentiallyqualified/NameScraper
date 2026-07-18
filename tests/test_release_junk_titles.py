@@ -41,5 +41,5 @@ def test_part_title_survives_junk_strip():
 
 
 def test_clean_title_untouched():
-    eps, title, rel = extract_episode("Show - S01E05 - Armed and Dangerous.mkv")
+    eps, title, _rel = extract_episode("Show - S01E05 - Armed and Dangerous.mkv")
     assert eps == [5] and title == "Armed and Dangerous"

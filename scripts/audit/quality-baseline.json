@@ -91,7 +91,7 @@
    "loc": 1053
   },
   "tests/test_qt_media_workspace.py": {
-   "loc": 5662
+   "loc": 5664
   },
   "tests/test_qt_queue_history.py": {
    "loc": 864
@@ -6133,7 +6133,7 @@
     "sha256:51348136c76509e4fcd83cedaf07a80f8232f7a7808d22b8a46eb028d973fa1e#1",
     "sha256:afa7408cdad7f4b8bea65c20d485af001dbeb7ef4a267541e26c3878b6db3878#1",
     "sha256:90f16947d0afcae101c4546e3a983c97963f5e34576ac49b50b1681a85a1406a#1",
-    "sha256:fcb8f77b1c48008c0ebaff6b754c804eae1f09e6e10ce42d226d5b3b498ddf7a#1",
+    "sha256:088fce81057d3c9d7afcfef7f8376bd111af2d4c5217cf4a55d85fdba90fc484#1",
     "sha256:e61e458b9f45a0643e584a26043db5bed8e5124f539550ab5ff07833ddd15010#1",
     "sha256:7ef8691d0d9f2eb6756b9a6d0116b306284f89bbaecbd7071a3535f7666a8081#1",
     "sha256:cdc60413cbcdc5bd078cc2def9c65b407a11795d895a61cd92dcb98a8cf2d4d9#1",
@@ -8399,13 +8399,13 @@
     "sha256:458e61e2ec65d6f3a18f3b19c868ee0770d49273d3835f3e73488ce6cf728caf#1",
     "sha256:07e14b3f88ddea4d91f73b5e685c2561c5f4e859a715dd775493235cf40d95b9#1",
     "sha256:542aa3c0181822f265abaebb51e61482e4d5d140761e9f01ea7e682ef114f681#1",
-    "sha256:5ec5e4e2d10b03c9573a24140b763fa4875292f1bb1b45b836f691fc36b5a34b#1",
+    "sha256:ec551a656479772f88b4351e9db9cec4bc504409afb798f74e3e29910d89c4e6#1",
     "sha256:17aa24f1f3450e711b92001e71f6409099a59cf4af60b1acc769429cabdc12ec#1",
     "sha256:8a12230d3270464e2e6edac43e20f8b4db01c8e3f01e94452f3d96966232344a#1",
     "sha256:2f821b8dd89a8140c40ca38fbbf65817f38cb209caa59133c7b2de321247c147#1",
     "sha256:f6691bfe1e0a7b62f8484bb35d2e9d5f0ce2ee72cac407ecdaa1ef9df1384ff5#1",
     "sha256:631c04a8e94869536dee0aed959a9967329c75b3b2c7f4b8a42b7f5cb5775c32#1",
-    "sha256:f59f06ec459e4ab398a98f21c4f475e1b921637cd7f97dfdd928e4685d450a91#1",
+    "sha256:b6655b1f9042ec4c1c838d6ad6647dd3f06ebd85d00e877ab144189f319bd9e7#1",
     "sha256:36216b4a576f2ad8c769afc24ef67f573a8c471676b5f2da2729004571fa5aa2#1",
     "sha256:62f45fff50293bc5bf0e38145dc371c3749ace592ce0f6ceafc11ffba22bf4fd#1",
     "sha256:d25587cbb2877e5a51e5057710e06613b998e87da0b85932dba03ef97bc15a7a#1",
@@ -8426,7 +8426,7 @@
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#10",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#3",
     "sha256:c36fb618a19a070a6b1951e2c78c2197b58d31f60964c571d9e31249bcef95b7#1",
-    "sha256:490ba85aeb2c5c1ff93e8d209fe2dc9da81134f4428e7d9cb2f64e4d01f0762f#1",
+    "sha256:5ba591ca519843479a209d7abe1b280ed67e4c9c5db2c68f1a8345ab64ce96e7#1",
     "sha256:d8753f02e0d25ce1c2e6335254c5221e0d101fce009a32bba9f05e3f73d5bf67#1",
     "sha256:6223f31d04866d4f1f96d452a8ab44209bcd882e420f1a6fe010d82176e119fa#2",
     "sha256:acf5f9cc3103b72f71424679e49505c773165b27403da160432170290cc95875#1",
@@ -8440,11 +8440,11 @@
     "sha256:8881d7dfe920246536c69d2f365a3a57feeb3b492e89a802491811fc35bb106e#1",
     "sha256:27ca6037047fc270427a74071368a53ef1aff1526343e41fb225e664568299ce#1",
     "sha256:7e15152f60c20d3ba635d9544e1e7971f24691f7511e698c7c2c85e0a8e39e76#1",
-    "sha256:1829110306815b49a29610e011e3750425d8d412b7130cba4d031a9809fcd3a2#1",
+    "sha256:1d1d6399863fed9c68e1794ffa7eb56ef583fbe73041ee5267ebe961331f812f#1",
     "sha256:810db3ab7742f99e727b84b0a962d0fc06c7f881c5d101ef915c77a405a76bb8#1",
     "sha256:fc742218801ddbe08cfad234f8a61c4d6bbe28702e061e8d9b4af0292359ab90#1",
     "sha256:7ae958ef89c3971558920a5c3e4d639a2a22e141b1d20a72c62c1179e58ee942#1",
-    "sha256:b21e0caf96b588ddc49b95fa13f9f27de2e310c3da6517b9ad02080b014ad730#1",
+    "sha256:bca25e5f2b7efdfaeaff389e6589779443c206826c34b84ff6ca94ac336258ad#1",
     "sha256:6628d8bb8743cc0960c3b3981e9e4281aa6d78bb18bcb4af3e438fd33756e915#1",
     "sha256:6d8c8b1a2ce0462602a38689be25bec865f0086a9b195ec6fd8fcfad81ea69cf#1",
     "sha256:7f4b4c64c4a00b1f2c5ac95446ca2af625184c5fc7b99b4ed93f94abf46dc356#1",
@@ -15637,7 +15637,7 @@
     "sha256:f1cb70a44d018ca11517f36904975445e2cb24855851f420d7f1e8e2b330e91e#2",
     "sha256:eee83c3693340c7cbb54465717dab0c7e2131cdaffdcc7b4cdad5a7e5493e16f#1",
     "sha256:7d9d9ac0bf1e2067015d8065b326677e6a79425d24409ccc193bc0bbef66c6b6#4",
-    "sha256:f4116f82a81299ffed84e5f09576d2cf08f280e9e2cbfdb464e5c53d12c86cf5#1",
+    "sha256:dbb75c926f4970363fa133d76d3475f2eda08241ee5bc8e2995d86bbb19194ab#1",
     "sha256:b767bc733813f530434a666cf396a22084a3fe2ffb512977973bf1596a2fce12#1",
     "sha256:a3f0e0992ab4f17cfe1aaa85b63a0772ba641b6b3e4fb00e5e4a69bfd9e40c0f#1",
     "sha256:9f95bb45bb8fefda38ccfa1668e1a795036761134f49f0d7ee2a0927c536fd08#1",
@@ -15647,7 +15647,7 @@
     "sha256:075faeafe3ec5b8ce4bc96a5dcd04eb660b73827d8ca91143e87d12d76f180fe#1",
     "sha256:ba727083c1d6b746de204a9c73ad3578c900ac7728015213c49d022d6ec9d214#1",
     "sha256:5c0b0727f999618946bc365e44d84a07b57d4efb5248f157e2724777e9db1494#1",
-    "sha256:d9be2065e736a84628a07ed766339e5240f154e6f66bb831ef77fa2b60b1d160#1",
+    "sha256:0d289b991cf395e03c95d4507e9f38e15f5c4f510be802689081db08609c1ef2#1",
     "sha256:22c72f5960e85304b893e07e688eb9ec5cb112ffab89ef36568be3962884da90#1",
     "sha256:959bcda686db39122be8f4ebc1168cba612945d0d0e4a1a28c498991484616b6#1",
     "sha256:6150e9b93c564bd2fcf2b9d588619f0579cba4bd545434fb4e93b529c5fe81e5#1",
@@ -22444,12 +22444,6 @@
    "symbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_batch_orchestrators.py",
-   "rule": "RUF059",
-   "symbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._select_best_show_match::unused-unpacked-variable::Unpacked variable `runner_up` is never used#1"
-  },
-  {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "unused-method",
@@ -22568,12 +22562,6 @@
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.engine._queue_bridge._build_rename_ops::reportArgumentType::Argument of type \"Unknown | str | None\" cannot be assigned to parameter \"new_name\" of type \"str\" in function \"__init__\" Type \"Unknown | str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_rename_execution.py",
-   "rule": "B007",
-   "symbol": "plex_renamer.engine._rename_execution.execute_rename::unused-loop-control-variable::Loop control variable `dst` not used within loop body#1"
   },
   {
    "analyzer": "ruff",
@@ -23076,18 +23064,6 @@
   {
    "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
-   "rule": "B007",
-   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.ensure_check_bindings::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
-   "rule": "B007",
-   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.normalize_queue_selection::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
    "rule": "SIM114",
    "symbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.refresh_from_controller::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
   },
@@ -23526,12 +23502,6 @@
   {
    "analyzer": "ruff",
    "path": "scripts/audit/_graph.py",
-   "rule": "B007",
-   "symbol": "scripts.audit._graph.build_graph::unused-loop-control-variable::Loop control variable `name` not used within loop body#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "scripts/audit/_graph.py",
    "rule": "SIM102",
    "symbol": "scripts.audit._graph._effects::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
   },
@@ -23950,12 +23920,6 @@
    "symbol": "tests.test_automux_service.test_effective_mux_plans_drops_opted_out_indices::reportArgumentType::Argument of type \"dict[int, dict[Unknown, Unknown]] | None\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@set]\" in function \"__init__\" Type \"dict[int, dict[Unknown, Unknown]] | None\" is not assignable to type \"Iterable[int]\" \"None\" is incompatible with protocol \"Iterable[int]\" \"__iter__\" is not present#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_bare_episode_prefix_titles.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_bare_episode_prefix_titles.test_sxe_still_wins::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_batch_autoaccept_guards.py",
    "rule": "reportArgumentType",
@@ -24088,12 +24052,6 @@
    "symbol": "tests.test_conflict_resolution.TestRunShift.test_whole_run_claim_shifts_off_segmented_run::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_conflict_resolution.py",
-   "rule": "B007",
-   "symbol": "tests.test_conflict_resolution.TestShowNameTitleGuard.test_valid_explicit_episode_is_never_cross_season_rescued::unused-loop-control-variable::Loop control variable `episodes` not used within loop body#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_consolidated_assignments.py",
    "rule": "reportOptionalMemberAccess",
@@ -24122,12 +24080,6 @@
    "path": "tests/test_consolidated_two_phase.py",
    "rule": "E402",
    "symbol": "tests.test_consolidated_two_phase::module-import-not-at-top-of-file::Module level import not at top of file#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_duplicate_copies.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_duplicate_copies.test_duplicate_projects_with_duplicate_status::unused-unpacked-variable::Unpacked variable `mislabeled` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -24526,12 +24478,6 @@
    "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 164: `EpisodeSlot` redefined here#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_mapping_projection.BulkMutationTests.test_apply_bulk_single_reproject_for_mixed_batch::unused-unpacked-variable::Unpacked variable `skipped` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_projection.py",
    "rule": "reportOperatorIssue",
@@ -24658,60 +24604,6 @@
    "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 235: `CONF_TITLE_WINS_INEXACT` redefined here#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_title_agree_also_wins::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_three_episode_e_run::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_two_episode_format_unchanged::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "reportArgumentType",
@@ -24722,90 +24614,6 @@
    "path": "tests/test_episode_table_delegate.py",
    "rule": "RUF001",
    "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_buttons_stack_vertically_under_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_no_overlap_between_buttons_and_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_pill_and_inline_actions_top_aligned_share_baseline::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.ActionStripTests.test_text_right_edge_clears_the_column::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_bulk_hint_click_emits_signal::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_enter_emits_expand_on_current_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_header_click_emits_section_key::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `model` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -24920,12 +24728,6 @@
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::reportOptionalMemberAccess::\"files\" is not a known attribute of \"None\"#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_extras_and_prefix_fixes.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::unused-unpacked-variable::Unpacked variable `items` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -25526,18 +25328,6 @@
    "path": "tests/test_offset_inference.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_number_only_file_follows_anchor_offset::reportOptionalMemberAccess::\"evidence\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_offset_inference.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_when_offsets_disagree::unused-unpacked-variable::Unpacked variable `entries` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_parsing_edgecases.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_parsing_edgecases.test_extract_episode_recognizes_bracketed_episode_number::unused-unpacked-variable::Unpacked variable `title` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -28054,36 +27844,6 @@
    "symbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests.test_apply_with_skipped_pair_reports_error_tone_and_reason::collection-literal-concatenation::Consider `[*staged[:-1], (staged[-1][0], 1, 99)]` instead of concatenation#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `file_id` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `table` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_matched_state_has_neutral_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_review_state_has_caution_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_tie_state_shows_single_caution_choose_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_queue_history.py",
    "rule": "reportArgumentType",
@@ -28360,12 +28120,6 @@
    "symbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::reportArgumentType::Argument of type \"_Controller\" cannot be assigned to parameter \"controller\" of type \"_SingleShowScanController\" in function \"start_single_show_scan\" \"_Controller\" is incompatible with protocol \"_SingleShowScanController\" \"_SingleShowScanController\" is not assignable to \"_Controller\" \"refresh_episode_guide\" is an incompatible type Type \"(target: Unknown) -> None\" is not assignable to type \"(state: ScanState) -> Any\" Parameter name mismatch: \"state\" versus \"target\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_queue_output_targets.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::unused-unpacked-variable::Unpacked variable `library_root` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_queue_submission_automux.py",
    "rule": "reportArgumentType",
@@ -28444,18 +28198,6 @@
    "symbol": "tests.test_recent_menus.RecentMenuGatingTests.test_tv_tab_enables_only_tv_recent_menu::reportAttributeAccessIssue::Cannot access attribute \"_tabs\" for class \"MainWindow\" Attribute \"_tabs\" is unknown#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_release_junk_titles.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_release_junk_titles.test_clean_title_untouched::unused-unpacked-variable::Unpacked variable `rel` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_remux_execution.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_remux_execution.test_run_mkvmerge_parses_progress::unused-unpacked-variable::Unpacked variable `tail` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_remux_job_model.py",
    "rule": "reportOperatorIssue",
@@ -28498,12 +28240,6 @@
    "symbol": "tests.test_remux_job_model.test_recover_interrupted_marks_failed_and_sweeps_temp::reportOptionalMemberAccess::\"status\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_remux_revert.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_remux_revert.test_missing_output_is_not_fatal::unused-unpacked-variable::Unpacked variable `errors` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_roster_autoselect.py",
    "rule": "reportOptionalMemberAccess",
@@ -28526,24 +28262,6 @@
    "path": "tests/test_roster_autoselect.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_roster_autoselect.RosterAutoSelectTests.test_roster_controls_sit_above_the_list::reportOptionalMemberAccess::\"widget\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_header_click_emits_group::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `model` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -28780,30 +28498,6 @@
    "symbol": "tests.test_scan_improvements.TestTableDrivenScan.test_same_named_specials_in_two_seasons_resolve_as_duplicate_copies::reportOptionalMemberAccess::\"unassigned_reasons\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_show_named_specials_child_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_top_level_specials_folder_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_scan_improvements.ScanImprovementTests.test_score_results_prefers_exact_year_over_adjacent_year::unused-unpacked-variable::Unpacked variable `runner` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_scan_improvements.TestTableDrivenScan.test_same_named_specials_in_two_seasons_resolve_as_duplicate_copies::unused-unpacked-variable::Unpacked variable `items` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_scan_progress.py",
    "rule": "reportArgumentType",
@@ -28910,12 +28604,6 @@
    "path": "tests/test_settings_tab_cache.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests.test_selecting_size_persists_and_applies::reportAttributeAccessIssue::Cannot access attribute \"_cache_size_combo\" for class \"SettingsTab\" Attribute \"_cache_size_combo\" is unknown#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_settings_tab_cache.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_settings_tab_cache.CacheSizeComboTests.test_combo_lists_sizes_and_selects_current::unused-unpacked-variable::Unpacked variable `settings` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -29036,12 +28724,6 @@
    "path": "tests/test_tiebreak_discrimination.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_tiebreak_discrimination.test_unique_episode_count_discriminates::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"episode_count_tiebreak\" \"_FakeTMDB\" is not assignable to \"TMDBClient\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_tiebreak_discrimination.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_tiebreak_discrimination.test_unique_episode_count_discriminates::unused-unpacked-variable::Unpacked variable `score` is never used#1"
   },
   {
    "analyzer": "pyright",
@@ -29310,12 +28992,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_workspace_automux.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_automux.WorkspaceAutoMuxTests.test_plan_edited_stores_on_state::unused-unpacked-variable::Unpacked variable `roster` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_automux.py",
    "rule": "SIM105",
    "symbol": "tests.test_workspace_automux._dispose_coordinator::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
   },
@@ -29410,18 +29086,6 @@
    "symbol": "tests.test_workspace_expansion.OptedOutMuxPlanNotFedToCardTests.test_optout_suppresses_merged_note_and_keeps_output_row::reportOptionalMemberAccess::\"text\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_expansion.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_expansion.HeaderFollowsEpisodeTests.test_no_tmdb_overview_uses_single_display_path::unused-unpacked-variable::Unpacked variable `guide` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_expansion.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_expansion.MissingFileRowExpansionTests.test_missing_file_row_never_expands::unused-unpacked-variable::Unpacked variable `view` is never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_workspace_poster_warmup.py",
    "rule": "reportAttributeAccessIssue",
@@ -29444,36 +29108,6 @@
    "path": "tests/test_workspace_poster_warmup.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_show_scanning_starts_the_poster_feed_timer::reportOptionalMemberAccess::\"isActive\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_disconnects_after_show_ready::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_pushes_loaded_posters_on_signal::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_start_scan_poster_feed_reentrant_no_double_delivery::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_workspace_poster_warmup.py",
-   "rule": "RUF059",
-   "symbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
   }
  ],
  "formatting": {
@@ -29514,7 +29148,6 @@
   "plex_renamer/engine/_batch_tv_match_policy.py": "sha256:09959015b68b6babb9ad78f9855e276c177258b70221f52d2ce37df4c0bf1a48",
   "plex_renamer/engine/_batch_tv_season_merge.py": "sha256:4b2a0a6cdcd721ce70d286aaaabf6c247e008bf802fa380b6b316649a88783c7",
   "plex_renamer/engine/_episode_projection.py": "sha256:6779059c7a1cad3056ca8ccb0a4585a2828c6ac621938a6d3c253e2827439b49",
-  "plex_renamer/engine/_rename_execution.py": "sha256:15e6655a16ef6777965cc6eca89aa3e8b954361e61ad715124c61cbf57bc336e",
   "plex_renamer/engine/_tv_scanner_consolidated.py": "sha256:184265e744af973e446bdc2889f2f269e49ecaa51c5b4628b07e229a987e559e",
   "plex_renamer/engine/_tv_scanner_postprocess.py": "sha256:5c030ba580c4cfd7a51352eb3feac6d25d80896d47d55b1c2779c9b0a4315f81",
   "plex_renamer/engine/_tv_scanner_seasons.py": "sha256:caaf96193150d6172bfc7c205be533db525f8420ecbea00b4051f358e9aaac56",
@@ -29547,11 +29180,9 @@
   "tests/test_acronym_titles.py": "sha256:4c089fe664313b596883c0bb8c8f6df05aacae149a6833d55651cd58d1fcaf66",
   "tests/test_automux_settings.py": "sha256:82fb69321be15e3a8a085947bf2c55738a53c49732f9559c51b6b362b4819b9f",
   "tests/test_automux_tracks_widget.py": "sha256:6c56be86307a4e86dcb13d358960937e6b064f865da933f495ca269164e91c77",
-  "tests/test_bare_episode_prefix_titles.py": "sha256:1466bdd9ef4053fc1c8bc093a6e12ab491a5f7799e2750928c85f8fa21e539e3",
   "tests/test_companion_subtitles.py": "sha256:619b80e594844e8f7b6f7f915591b1ac7d1573cd921c926ef8fd38f62a3e5a25",
   "tests/test_confidence_adjustment_guards.py": "sha256:2058d45f5b8d2989ae4bacf29ac8b30c5073396e90ead498d48d7703965d12a9",
   "tests/test_conflict_queue_protection.py": "sha256:b793c6d2f1bee73a6d77bb46671cd5970cc66150f671b55044e0ad726be71d09",
-  "tests/test_conflict_resolution.py": "sha256:4b6ae1618c0eb3b4662a0be68970fe1fed79162282c67e74c7ab941444dc645f",
   "tests/test_conflict_snapshot_staleness.py": "sha256:375ba75463ac11f743f5380863a83fe886ea4f4765946b8d92aff94b70e6a2c8",
   "tests/test_consolidated_two_phase.py": "sha256:9c9cfb8e88cad3034e5e1524230fc9cc63e9af221df64986721a2fa50afea8c3",
   "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
@@ -29574,7 +29205,6 @@
   "tests/test_near_exact_titles.py": "sha256:97fd46c31f29327f202a7d07a4e2b6f9bd853187fc1bb057db1a9a58bbf127a7",
   "tests/test_nfo_render.py": "sha256:44b69336cfaafa7e2e2f3d3d6df160d9ca2228f946d188f09248f303c522e7fc",
   "tests/test_no_raw_hex.py": "sha256:50b29a03fb9fb916abe4b7485c5bbc8325813c534a5fb5f63db218bc52e55283",
-  "tests/test_offset_inference.py": "sha256:8fc5a3a9bffa621ec6951eeea1508aa6e5bec3c3d3df74443f9a1fcea3602ff8",
   "tests/test_positional_fill_overlap.py": "sha256:70d484419b07093cd085f6f888b487ca45202d501e47028b066969fe79221b59",
   "tests/test_qt_app_popup_filter.py": "sha256:e8e7c0fcee9ae0f0969b3f0684c0d6cbeb220080901b58ac0ee92910032def42",
   "tests/test_qt_async_guide.py": "sha256:6c402bad3d4083f2d0d0cbbdd62a1847cb7641f9ab82f72dcd3657459ffaf33a",
@@ -29587,9 +29217,7 @@
   "tests/test_recent_menus.py": "sha256:fcf96f6e61494f100c2be835a83ef522e35449a08e082060e2ccec72ca0709d3",
   "tests/test_remux_confirmation.py": "sha256:155deb658ad5591613761f29021532807db135fc3cf8ddf6fe9d33998ec2cf2b",
   "tests/test_remux_embed_extras.py": "sha256:934a452872817f02b7c828bca8a8ed605059adb30a649eadc9c78049d6ea7a18",
-  "tests/test_remux_execution.py": "sha256:58464e02cd3b126ea0b3a7875a6582c34dcd00ed3fb9d3b3332cbb6f64699532",
   "tests/test_remux_job_model.py": "sha256:65b2e2072e2e98dbb41e9c189e9495c37ae4132f8b9b851fcef159b4b1037e27",
-  "tests/test_remux_revert.py": "sha256:0e27cc71557cf5b19d58a67f2288458966a9cf53011f3853b76f551f486bf8f4",
   "tests/test_roster_autoselect.py": "sha256:b1268e21147535ae2bb331bba7d2d089588408391480a0ceb554ae0ac54f35f0",
   "tests/test_roster_classification.py": "sha256:d9bc9bbdd44a6f0f94c76b85d308773529255edda10818600bf09324384d625e",
   "tests/test_run_extension.py": "sha256:50f12cee195b85945b802b4a7c4ff9cfd4068e92ed9531d1b3aeda837a9320e3",
@@ -29606,7 +29234,6 @@
   "tests/test_squatter_chain_rescue.py": "sha256:c53dcad064b5cacecfa76be4437d40629a8393c990ae8891819e248735794c6a",
   "tests/test_status_chip.py": "sha256:da9e458f78e3151c1f816873a7d6f8286591f7131208a73fa473fdf6ebc4523f",
   "tests/test_thread_pool.py": "sha256:1faf070848285de4f9d063fc50e0c4c4f952b5ef9cc9bff54f8a54e4e8278c79",
-  "tests/test_tiebreak_discrimination.py": "sha256:aefd2fe038debcf978d68118cdbc9f151d28af0aa4dc4e65df7573b3743ee9ab",
   "tests/test_tmdb_export_assets.py": "sha256:5a20bd46a0fb1fa540b76bad2155b16bacc037dde9e7a9d4db8dd80d552039fc",
   "tests/test_token_aligned_substring.py": "sha256:095c43cbdbf788a4d72e4453c84ed329e3b8efb85870aefd8f6f8193c9a8e5a7"
  },

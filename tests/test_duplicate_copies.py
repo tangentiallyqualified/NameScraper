@@ -180,7 +180,7 @@ def test_numeric_parenthetical_is_not_a_variant_tag():
 
 
 def test_duplicate_projects_with_duplicate_status(tmp_path):
-    table, _agreeing, mislabeled = _dexter_table()
+    table, _agreeing, _mislabeled = _dexter_table()
     resolve_table_conflicts(table)
     items = project_preview_items(
         table,

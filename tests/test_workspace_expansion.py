@@ -83,7 +83,7 @@ class HeaderFollowsEpisodeTests(QtSmokeBase):
         with no TMDB should clear the series overview state, not restore
         previously-captured text."""
         panel = self._panel(media_type="tv", tmdb_provider=lambda: None)
-        state, guide = _guide_state()
+        state, _guide = _guide_state()
         panel.set_episode_overview("Episode text", "2024-01-01")
         self.assertTrue(panel._episode_overview_active)
 
@@ -189,7 +189,7 @@ class MissingFileRowExpansionTests(QtSmokeBase):
         raise AssertionError(f"no row with status_text={status_text!r}")
 
     def test_missing_file_row_never_expands(self):
-        workspace, model, view = self._workspace_with_missing_file_row()
+        workspace, model, _view = self._workspace_with_missing_file_row()
         row = self._first_row_with_status(model, "Missing File")
         workspace._on_table_expand_requested(model.index(row, 0))
         self.assertIsNone(model.expanded_row())

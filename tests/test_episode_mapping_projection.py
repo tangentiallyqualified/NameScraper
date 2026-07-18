@@ -427,7 +427,7 @@ class BulkMutationTests(unittest.TestCase):
 
         EpisodeMappingService.reproject = counting
         try:
-            applied, skipped = self.service.apply_bulk(
+            applied, _skipped = self.service.apply_bulk(
                 state,
                 assign_pairs=[(file_ids[1], 1, 2), (file_ids[2], 1, 99)],
                 unassign_file_ids=[file_ids[0]],

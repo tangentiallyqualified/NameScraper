@@ -72,7 +72,7 @@ class TestSingleShowScanRetarget:
     def test_single_show_scan_retargets_items_to_output_root(self, tmp_path, monkeypatch):
         from plex_renamer.app.controllers import _single_show_scan_helpers as helpers
 
-        state, library_root, output_root = _make_state(tmp_path)
+        state, _library_root, output_root = _make_state(tmp_path)
         state.scanned = False
 
         class _Settings:

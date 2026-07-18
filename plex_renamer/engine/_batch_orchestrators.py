@@ -281,7 +281,7 @@ class BatchTVOrchestrator:
         explicit_seasons = {item.season_num for item in episode_evidence} or None
         tie_broken_by_counts = False
         if file_count > 0 and len(scored) >= 2:
-            runner_up, runner_up_score = scored[1]
+            _runner_up, runner_up_score = scored[1]
             if best_score - runner_up_score <= 0.10:
                 best, best_score, tie_broken_by_counts = self._episode_count_tiebreak(
                     scored,

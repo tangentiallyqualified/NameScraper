@@ -170,7 +170,7 @@ class TestExtrasFolderNumberClaims:
             {"id": 9, "name": "Space War", "year": "1991"},
             root,
         )
-        items, _mismatch = scanner.scan()
+        _items, _mismatch = scanner.scan()
         table = scanner.assignment_table
 
         paths = [entry.path for entry in table.files.values()]

@@ -333,7 +333,9 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         return workspace, state
 
     def test_tie_state_shows_single_caution_choose_match(self):
-        workspace, state = self._workspace_with_selected_state(tie_detected=True, needs_review=True)
+        workspace, _state = self._workspace_with_selected_state(
+            tie_detected=True, needs_review=True
+        )
         workspace._update_action_bar()
         self.assertFalse(workspace._fix_match_btn.isVisibleTo(workspace))
         self.assertEqual(workspace._queue_inline_btn.text(), "Choose Match")
@@ -341,7 +343,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_matched_state_has_neutral_fix_match(self):
-        workspace, state = self._workspace_with_selected_state(
+        workspace, _state = self._workspace_with_selected_state(
             tie_detected=False, needs_review=False
         )
         workspace._update_action_bar()
@@ -351,7 +353,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         workspace.close()
 
     def test_review_state_has_caution_fix_match(self):
-        workspace, state = self._workspace_with_selected_state(
+        workspace, _state = self._workspace_with_selected_state(
             tie_detected=False, needs_review=True
         )
         workspace._update_action_bar()
@@ -3183,7 +3185,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
-        state, table, file_id = self._make_episode_table_state()
+        state, _table, _file_id = self._make_episode_table_state()
         workspace = MediaWorkspace(
             media_type="tv",
             media_controller=self._make_fake_media_ctrl(state),

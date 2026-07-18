@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "6f569aae46afb3a3db79a312d23a244a2b6e076247bb36c5ac40a12cb3a68d1f",
+  "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
   "module_count": 177,
   "partial": false,
   "reason": null,
@@ -100,9 +100,9 @@
   "module_avg_coverage": 88.1,
   "modules_over_complexity": 62,
   "statement_coverage": 87.9,
-  "total_loc": 39001
+  "total_loc": 39007
  },
- "input_digest": "6f569aae46afb3a3db79a312d23a244a2b6e076247bb36c5ac40a12cb3a68d1f",
+ "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -1974,7 +1974,7 @@
    },
    "loc": 1064,
    "max_complexity": 25,
-   "sha256": "000797ce7752bc82"
+   "sha256": "1000aeb81f71e991"
   },
   "plex_renamer/engine/_batch_tv_duplicates.py": {
    "coverage_percent": 81.2,
@@ -2280,9 +2280,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 149,
+   "loc": 155,
    "max_complexity": 35,
-   "sha256": "15e6655a16ef6777"
+   "sha256": "43ed555aa33be73c"
   },
   "plex_renamer/engine/_scan_runtime.py": {
    "coverage_percent": 85.7,
@@ -3811,7 +3811,7 @@
    },
    "loc": 176,
    "max_complexity": 17,
-   "sha256": "8d2d3f9750fb2765"
+   "sha256": "7fb1b4f1390389ee"
   },
   "plex_renamer/gui_qt/widgets/_media_workspace_roster.py": {
    "coverage_percent": 95.4,
@@ -4945,7 +4945,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "d3614d61139a766e6c5daf6e5ad2b57ffb8b64fc884d4a931f73cf617f10ae3b",
+   "input_digest": "fd88971053f90f414c5d2f39281af508dfe88e2171e9381617a645b96e8a39ac",
    "module_count": 177,
    "partial": false,
    "reason": null,
@@ -5043,9 +5043,9 @@
    "module_avg_coverage": 88.1,
    "modules_over_complexity": 62,
    "statement_coverage": 87.9,
-   "total_loc": 39001
+   "total_loc": 39007
   },
-  "input_digest": "d3614d61139a766e6c5daf6e5ad2b57ffb8b64fc884d4a931f73cf617f10ae3b",
+  "input_digest": "fd88971053f90f414c5d2f39281af508dfe88e2171e9381617a645b96e8a39ac",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -6917,7 +6917,7 @@
     },
     "loc": 1064,
     "max_complexity": 25,
-    "sha256": "000797ce7752bc82"
+    "sha256": "1000aeb81f71e991"
    },
    "plex_renamer/engine/_batch_tv_duplicates.py": {
     "coverage_percent": 81.2,
@@ -7223,9 +7223,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 149,
+    "loc": 155,
     "max_complexity": 35,
-    "sha256": "15e6655a16ef6777"
+    "sha256": "43ed555aa33be73c"
    },
    "plex_renamer/engine/_scan_runtime.py": {
     "coverage_percent": 85.7,
@@ -8754,7 +8754,7 @@
     },
     "loc": 176,
     "max_complexity": 17,
-    "sha256": "8d2d3f9750fb2765"
+    "sha256": "7fb1b4f1390389ee"
    },
    "plex_renamer/gui_qt/widgets/_media_workspace_roster.py": {
     "coverage_percent": 95.4,

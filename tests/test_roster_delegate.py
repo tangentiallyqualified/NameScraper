@@ -57,7 +57,7 @@ class RosterDelegateTests(QtSmokeBase):
         self.assertLess(compact_h, state_h)
 
     def test_render_grab_produces_pixels(self):
-        view, model, delegate = self._view([_make_state("A")])
+        view, _model, _delegate = self._view([_make_state("A")])
         view.show()
         pixmap = view.grab()
         self.assertFalse(pixmap.toImage().isNull())
@@ -88,7 +88,7 @@ class RosterDelegateTests(QtSmokeBase):
         from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest
 
-        view, model, delegate = self._view([_make_state("A")])
+        view, model, _delegate = self._view([_make_state("A")])
         view.show()
         groups: list[str] = []
         view.header_clicked.connect(groups.append)

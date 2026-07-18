@@ -37,7 +37,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets import _episode_table_delegate as d
 
         state, guide = _guide_state()
-        view, model, delegate = self._view(state, guide)
+        view, _model, _delegate = self._view(state, guide)
         self.assertEqual(view.sizeHintForRow(0), _scale.px(30))  # section label
         self.assertEqual(view.sizeHintForRow(2), _scale.px(30))  # season header
         self.assertEqual(
@@ -64,7 +64,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         # slot (a Mapped row adjacent to one would get assign_to_more).
         guide.rows[1].status = "Mapped"
         guide.rows[2].status = "Mapped"
-        view, model, delegate = self._view(state, guide)
+        view, _model, _delegate = self._view(state, guide)
         # row 3 ("One") has a subtitle companion -> triple-line height;
         # row 4 ("Two") has none -> plain double-line height.
         self.assertEqual(view.sizeHintForRow(3), _scale.px(68))
@@ -73,7 +73,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
 
     def test_render_grab(self):
         state, guide = _guide_state()
-        view, model, delegate = self._view(state, guide)
+        view, _model, _delegate = self._view(state, guide)
         view.show()
         self.assertFalse(view.grab().toImage().isNull())
         view.close()
@@ -126,7 +126,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         from PySide6.QtTest import QTest
 
         state, guide = _guide_state()
-        view, model, delegate = self._view(state, guide)
+        view, model, _delegate = self._view(state, guide)
         view.show()
         keys: list[str] = []
         view.header_clicked.connect(keys.append)
@@ -145,7 +145,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
         from PySide6.QtTest import QTest
 
         state, guide = _guide_state()
-        view, model, delegate = self._view(state, guide)
+        view, model, _delegate = self._view(state, guide)
         view.show()
         expanded: list[int] = []
         view.expand_key_pressed.connect(lambda index: expanded.append(index.row()))
@@ -160,7 +160,7 @@ class EpisodeTableDelegateTests(QtSmokeBase):
 
         state, guide = _guide_state()
         guide.rows[1].status = "Mapped"
-        view, model, delegate = self._view(state, guide)
+        view, model, _delegate = self._view(state, guide)
         model.set_filter_mode("problems")
         view.show()
         fired: list[bool] = []
@@ -306,7 +306,7 @@ class ActionStripTests(QtSmokeBase):
 
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
-        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        view, _model, delegate = self._view_with_rows(statuses=["Review"])
         base = {
             "kind": "episode",
             "title": "S01E01 · Pilot",
@@ -350,7 +350,7 @@ class ActionStripTests(QtSmokeBase):
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
-        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        view, _model, delegate = self._view_with_rows(statuses=["Review"])
         row_data = EpisodeRowData(
             kind="episode",
             title="S01E01 · Pilot",
@@ -385,7 +385,7 @@ class ActionStripTests(QtSmokeBase):
 
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
-        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        view, _model, delegate = self._view_with_rows(statuses=["Review"])
         row_data = EpisodeRowData(
             kind="episode",
             title="S01E01 · Pilot",
@@ -422,7 +422,7 @@ class ActionStripTests(QtSmokeBase):
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
-        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        view, _model, delegate = self._view_with_rows(statuses=["Review"])
         row_data = EpisodeRowData(
             kind="episode",
             title="S01E01 · Pilot",
@@ -460,7 +460,7 @@ class ActionStripTests(QtSmokeBase):
 
         from plex_renamer.gui_qt.widgets._episode_table_model import EpisodeRowData
 
-        view, model, delegate = self._view_with_rows(statuses=["Review"])
+        view, _model, delegate = self._view_with_rows(statuses=["Review"])
         row_data = EpisodeRowData(
             kind="episode",
             title="S01E01 · Pilot",

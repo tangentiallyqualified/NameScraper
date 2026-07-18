@@ -357,7 +357,7 @@ def build_graph(repo_root: Path, inventory: dict) -> dict:
         modules[name]["external_imports"] = sorted(external)
         modules[name]["effects"] = _effects(tree, modules[name]["external_imports"])
 
-    for name, mod in modules.items():
+    for _name, mod in modules.items():
         for target in mod["imports"]:
             modules[target]["fan_in"] += 1
 

@@ -173,7 +173,7 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
     def test_plan_edited_stores_on_state(self):
         state = self._state()
         state.mux_plans[0] = dict(PLAN)
-        coordinator, roster = self._coordinator(state, self._settings())
+        coordinator, _roster = self._coordinator(state, self._settings())
         widget = coordinator.tracks_widget_for(state, 0)
         from PySide6.QtWidgets import QCheckBox
 

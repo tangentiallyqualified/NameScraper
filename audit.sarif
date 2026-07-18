@@ -27,7 +27,7 @@
             "qualifiedSymbol": "plex_renamer._job_store_db.connect_job_store.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -53,7 +53,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.MediaTrack.is_forced#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -79,7 +79,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.ProbeResult.container_type#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -105,7 +105,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.clear_probe_cache#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 32
+          "ruleIndex": 30
         },
         {
           "level": "warning",
@@ -132,7 +132,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
           },
           "ruleId": "ruff/RUF003",
-          "ruleIndex": 20
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -159,7 +159,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -186,7 +186,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names._common_title_base::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -213,7 +213,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -240,7 +240,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -267,7 +267,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -294,7 +294,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -321,7 +321,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -348,7 +348,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
           },
           "ruleId": "ruff/SIM103",
-          "ruleIndex": 25
+          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -510,7 +510,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers._movie_state_helpers.build_movie_library_states::if-else-block-instead-of-if-exp::Use ternary operator `confidence = item.episode_confidence if media_id else 0.0` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -590,7 +590,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.media_controller.MediaController.accept_tv_show#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -697,7 +697,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.pending_count#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -723,7 +723,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.add_single_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -749,7 +749,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35,
+          "ruleIndex": 33,
           "suppressions": [
             {
               "justification": "intentional-reservation: Exported ScanLifecycle compatibility value reserved for cache-refresh progress.",
@@ -781,7 +781,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.CacheEntry.last_accessed_at#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -834,7 +834,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.actionable_indices#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -941,7 +941,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.eligible_job_count#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -967,7 +967,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.mapped_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -993,7 +993,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.missing_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -1019,7 +1019,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.review_required#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -1072,7 +1072,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideRow.episode_key#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -1098,7 +1098,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide.source_label#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -1233,7 +1233,7 @@
             "qualifiedSymbol": "plex_renamer.app.services._tv_library_classification.TVDirectoryClassifier.season_children_are_majority::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
           },
           "ruleId": "ruff/SIM114",
-          "ruleIndex": 28
+          "ruleIndex": 26
         },
         {
           "level": "warning",
@@ -1259,7 +1259,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService._connect.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -1285,7 +1285,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.make_key#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1311,7 +1311,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1337,7 +1337,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1363,7 +1363,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1389,7 +1389,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1415,7 +1415,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -1442,7 +1442,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.metadata_service._populate_tv::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -1469,7 +1469,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.metadata_service.inventory_local_metadata::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
           },
           "ruleId": "ruff/SIM114",
-          "ruleIndex": 28
+          "ruleIndex": 26
         },
         {
           "level": "warning",
@@ -1495,7 +1495,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -1522,7 +1522,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.build_expiry::if-else-block-instead-of-if-exp::Use ternary operator `base = _parse_dt(refreshed_at) if isinstance(refreshed_at, str) else refreshed_at` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -1548,7 +1548,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1574,7 +1574,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.can_manual_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1600,7 +1600,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.get_rescan_scope#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -1626,7 +1626,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.settings_service.SettingsService.match_country#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -1788,7 +1788,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.settings_service.SettingsService._load::redundant-open-modes::Unnecessary mode argument#1"
           },
           "ruleId": "ruff/UP015",
-          "ruleIndex": 30
+          "ruleIndex": 28
         },
         {
           "level": "warning",
@@ -1814,7 +1814,7 @@
             "qualifiedSymbol": "plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -2042,33 +2042,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 13,
-                  "startLine": 284
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `runner_up` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._select_best_show_match::unused-unpacked-variable::Unpacked variable `runner_up` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 50,
                   "startLine": 420
                 }
@@ -2111,7 +2084,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -2245,7 +2218,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -2272,7 +2245,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -2650,7 +2623,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_tv_episode_claims.reconcile_scanned_episode_claims::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
           },
           "ruleId": "ruff/RUF005",
-          "ruleIndex": 21
+          "ruleIndex": 20
         },
         {
           "level": "warning",
@@ -2920,7 +2893,7 @@
             "qualifiedSymbol": "plex_renamer.engine._episode_resolution._tokens_prefix_equal::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -2973,7 +2946,7 @@
             "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34,
+          "ruleIndex": 32,
           "suppressions": [
             {
               "justification": "public-api: MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression.",
@@ -3006,7 +2979,7 @@
             "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.scan::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -3086,7 +3059,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.output_name#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -3112,7 +3085,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.user_modified#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -3151,35 +3124,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 12,
-                  "startLine": 95
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Loop control variable `dst` not used within loop body"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.engine._rename_execution.execute_rename::unused-loop-control-variable::Loop control variable `dst` not used within loop body#1"
-          },
-          "ruleId": "ruff/B007",
-          "ruleIndex": 11
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_rename_execution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 13,
-                  "startLine": 125
+                  "startLine": 131
                 }
               }
             }
@@ -3193,7 +3139,7 @@
             "qualifiedSymbol": "plex_renamer.engine._rename_execution.execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -3206,7 +3152,7 @@
                 },
                 "region": {
                   "startColumn": 5,
-                  "startLine": 132
+                  "startLine": 138
                 }
               }
             }
@@ -3220,7 +3166,7 @@
             "qualifiedSymbol": "plex_renamer.engine._rename_execution.execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#2"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -3247,7 +3193,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -3274,7 +3220,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated.match_file_title_to_tmdb::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -3301,7 +3247,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated.build_consolidated_table::if-else-block-instead-of-if-exp::Use ternary operator `s0_data = tmdb_seasons[0] if 0 in tmdb_seasons else tmdb.get_season(show_info[\"id\"], 0)` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -3328,7 +3274,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_normal.build_normal_table.ensure_s0_titles::if-else-block-instead-of-if-exp::Use ternary operator `data = tmdb_seasons[0] if 0 in tmdb_seasons else tmdb.get_season(show_info[\"id\"], 0)` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -3381,7 +3327,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.ROLE_VERSION#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -3407,7 +3353,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -3434,7 +3380,7 @@
             "qualifiedSymbol": "plex_renamer.engine.matching.score_results::if-else-block-instead-of-if-exp::Use ternary operator `score = t_score * 0.7 + year_score * 0.3 if year_hint else t_score` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -3460,7 +3406,7 @@
             "qualifiedSymbol": "plex_renamer.engine.show_details.ShowDetails.first_air_date#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -3487,7 +3433,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._main_window_bridges.QueueBridge.on_poster_backfill_finished::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -3513,7 +3459,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._scale.row_height#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 32
+          "ruleIndex": 30
         },
         {
           "level": "warning",
@@ -3755,7 +3701,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -3781,7 +3727,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow.source_parent#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -3834,7 +3780,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_table_model.JobTableModel.headerData#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -3995,7 +3941,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4130,7 +4076,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel._stageable::needless-bool::Return the negated condition directly#1"
           },
           "ruleId": "ruff/SIM103",
-          "ruleIndex": 25
+          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -4156,7 +4102,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeTypes#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4182,7 +4128,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4208,7 +4154,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag.supportedActions#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 35
+          "ruleIndex": 33
         },
         {
           "level": "warning",
@@ -4234,7 +4180,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.is_claimed#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4260,7 +4206,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4286,7 +4232,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragMoveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4312,7 +4258,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4338,7 +4284,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel.show_state._claimed_file_by_key#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -4364,7 +4310,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._select_file#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4390,7 +4336,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33,
+          "ruleIndex": 31,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the chip strip.",
@@ -4449,7 +4395,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -4475,7 +4421,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4501,7 +4447,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4527,7 +4473,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4553,7 +4499,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4795,7 +4741,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -4822,7 +4768,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate._connect_to_view_model::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -4848,7 +4794,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4874,7 +4820,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4900,7 +4846,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.filter_mode#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4926,7 +4872,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.row_for_preview_index#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -4953,7 +4899,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._resolve_guide_or_schedule._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -4980,7 +4926,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel._resolve_guide_or_schedule._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#2"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -5196,7 +5142,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
           },
           "ruleId": "ruff/SIM114",
-          "ruleIndex": 28
+          "ruleIndex": 26
         },
         {
           "level": "warning",
@@ -5222,7 +5168,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint.backgroundBrush#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5303,7 +5249,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._match_picker_search.MatchPickerSearchCoordinator.run_search._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -5357,7 +5303,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_lifecycle.MediaWorkspaceLifecycleCoordinator._stop_scan_poster_feed::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -5384,7 +5330,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_lifecycle.MediaWorkspaceLifecycleCoordinator.show_ready_when_posters_warm._finalize::suppressible-exception::Use `contextlib.suppress(RuntimeError, TypeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -5411,7 +5357,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_match_actions.fix_match::lambda-assignment::Do not assign a `lambda` expression, use a `def`#1"
           },
           "ruleId": "ruff/E731",
-          "ruleIndex": 16
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -5438,61 +5384,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.refresh_from_controller::if-with-same-arms::Combine `if` branches using logical `or` operator#1"
           },
           "ruleId": "ruff/SIM114",
-          "ruleIndex": 28
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 20,
-                  "startLine": 108
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Loop control variable `item` not used within loop body"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.ensure_check_bindings::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
-          },
-          "ruleId": "ruff/B007",
-          "ruleIndex": 11
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/gui_qt/widgets/_media_workspace_refresh.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 28,
-                  "startLine": 125
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Loop control variable `item` not used within loop body"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "plex_renamer.gui_qt.widgets._media_workspace_refresh.MediaWorkspaceRefreshCoordinator.normalize_queue_selection::unused-loop-control-variable::Loop control variable `item` not used within loop body#1"
-          },
-          "ruleId": "ruff/B007",
-          "ruleIndex": 11
+          "ruleIndex": 26
         },
         {
           "level": "warning",
@@ -5546,7 +5438,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.helpEvent::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -5572,7 +5464,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.entry_kind_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -5598,7 +5490,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.group_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -5625,7 +5517,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel._build_row_data::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
           },
           "ruleId": "ruff/RUF005",
-          "ruleIndex": 21
+          "ruleIndex": 20
         },
         {
           "level": "warning",
@@ -5651,7 +5543,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_subs_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5677,7 +5569,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_langs_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5703,7 +5595,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._default_audio_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5729,7 +5621,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._no_fear_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5756,7 +5648,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_actions.SettingsTabActionsCoordinator.test_key._test_worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -5782,7 +5674,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsTabSectionsBuilder.build_destinations_section._destinations_page#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 31
+          "ruleIndex": 29
         },
         {
           "level": "warning",
@@ -5808,7 +5700,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.check_summary#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5834,7 +5726,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5860,7 +5752,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.episode_search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5886,7 +5778,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.segmented_filter#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5912,7 +5804,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.approve_all_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5938,7 +5830,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.summary_label#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -5964,7 +5856,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.overflow_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 34
+          "ruleIndex": 32
         },
         {
           "level": "warning",
@@ -6072,7 +5964,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel._refresh_strip::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
           },
           "ruleId": "ruff/RUF005",
-          "ruleIndex": 21
+          "ruleIndex": 20
         },
         {
           "level": "warning",
@@ -6099,7 +5991,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel._request_overview._worker::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -6125,7 +6017,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.nextCheckState#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6151,7 +6043,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33,
+          "ruleIndex": 31,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QCheckBox paintEvent override to render the master checkbox.",
@@ -6183,7 +6075,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33,
+          "ruleIndex": 31,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the spinner.",
@@ -6215,7 +6107,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33,
+          "ruleIndex": 31,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the busy overlay.",
@@ -6328,7 +6220,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6354,7 +6246,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragLeaveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6380,7 +6272,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6406,7 +6298,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.set_checked#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6432,7 +6324,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_season_expanded#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6458,7 +6350,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_selection_valid#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6484,7 +6376,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.validation_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6510,7 +6402,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -6887,7 +6779,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33,
+          "ruleIndex": 31,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the conveyor animation.",
@@ -6974,7 +6866,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -7001,7 +6893,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -7028,7 +6920,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -7055,7 +6947,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row_wrapped::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -7081,7 +6973,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -7107,7 +6999,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -7215,7 +7107,7 @@
             "qualifiedSymbol": "plex_renamer.job_executor._execute_rename::if-else-block-instead-of-if-exp::Use ternary operator `candidate_parent = library_root if job.media_type == MediaType.TV else root_folder.parent` instead of `if`-`else`-block#1"
           },
           "ruleId": "ruff/SIM108",
-          "ruleIndex": 27
+          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -7242,7 +7134,7 @@
             "qualifiedSymbol": "plex_renamer.job_executor._execute_rename::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -7296,7 +7188,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.close::suppressible-exception::Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -7322,7 +7214,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.reorder_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 33
+          "ruleIndex": 31
         },
         {
           "level": "warning",
@@ -7430,7 +7322,7 @@
             "qualifiedSymbol": "scripts.audit._diff._dead_evidence_usable::needless-bool::Return the negated condition directly#1"
           },
           "ruleId": "ruff/SIM103",
-          "ruleIndex": 25
+          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -7565,34 +7457,7 @@
             "qualifiedSymbol": "scripts.audit._graph._effects::collapsible-if::Use a single `if` statement instead of nested `if` statements#1"
           },
           "ruleId": "ruff/SIM102",
-          "ruleIndex": 24
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "scripts/audit/_graph.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 360
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Loop control variable `name` not used within loop body"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "scripts.audit._graph.build_graph::unused-loop-control-variable::Loop control variable `name` not used within loop body#1"
-          },
-          "ruleId": "ruff/B007",
-          "ruleIndex": 11
+          "ruleIndex": 22
         },
         {
           "level": "warning",
@@ -7619,7 +7484,7 @@
             "qualifiedSymbol": "scripts.audit._metrics._dead_counts::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
           },
           "ruleId": "ruff/C420",
-          "ruleIndex": 14
+          "ruleIndex": 13
         },
         {
           "level": "warning",
@@ -7646,7 +7511,7 @@
             "qualifiedSymbol": "scripts.audit._verify.restore_generated::suppressible-exception::Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -9374,7 +9239,7 @@
             "qualifiedSymbol": "tests.audit.test_verify.test_verify_rejects_preexisting_symlink_before_pipeline_without_mutation::pytest-raises-ambiguous-pattern::Pattern passed to `match=` contains metacharacters but is neither escaped nor raw#1"
           },
           "ruleId": "ruff/RUF043",
-          "ruleIndex": 22
+          "ruleIndex": 21
         },
         {
           "level": "warning",
@@ -9456,33 +9321,6 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_bare_episode_prefix_titles.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 10,
-                  "startLine": 33
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_bare_episode_prefix_titles.test_sxe_still_wins::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -9644,7 +9482,7 @@
             "qualifiedSymbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_toggling_unassign_off_drops_dependent_stage::unused-variable::Local variable `claimed_fid` is assigned to but never used#1"
           },
           "ruleId": "ruff/F841",
-          "ruleIndex": 18
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -9671,7 +9509,7 @@
             "qualifiedSymbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_auto_map_uses_evidence_not_position::unnecessary-comprehension::Unnecessary dict comprehension (rewrite using `dict()`)#1"
           },
           "ruleId": "ruff/C416",
-          "ruleIndex": 13
+          "ruleIndex": 12
         },
         {
           "level": "warning",
@@ -9806,7 +9644,7 @@
             "qualifiedSymbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::unused-variable::Local variable `entry` is assigned to but never used#1"
           },
           "ruleId": "ruff/F841",
-          "ruleIndex": 18
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -9981,7 +9819,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 136
+                  "startLine": 205
                 }
               }
             }
@@ -10008,7 +9846,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 137
+                  "startLine": 206
                 }
               }
             }
@@ -10035,7 +9873,7 @@
                 },
                 "region": {
                   "startColumn": 56,
-                  "startLine": 164
+                  "startLine": 250
                 }
               }
             }
@@ -10062,7 +9900,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 165
+                  "startLine": 251
                 }
               }
             }
@@ -10077,33 +9915,6 @@
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_conflict_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 224
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Loop control variable `episodes` not used within loop body"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_conflict_resolution.TestShowNameTitleGuard.test_valid_explicit_episode_is_never_cross_season_rescued::unused-loop-control-variable::Loop control variable `episodes` not used within loop body#1"
-          },
-          "ruleId": "ruff/B007",
-          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -10211,7 +10022,7 @@
             "qualifiedSymbol": "tests.test_consolidated_two_phase::module-import-not-at-top-of-file::Module level import not at top of file#1"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -10239,33 +10050,6 @@
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_duplicate_copies.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 23,
-                  "startLine": 183
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `mislabeled` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_duplicate_copies.test_duplicate_projects_with_duplicate_status::unused-unpacked-variable::Unpacked variable `mislabeled` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -10346,7 +10130,7 @@
             "qualifiedSymbol": "tests.test_episode_assignments::module-import-not-at-top-of-file::Module level import not at top of file#1"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -11129,7 +10913,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#1"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -11156,7 +10940,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#2"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -11345,7 +11129,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#3"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -11372,7 +11156,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeAssignmentTable` from line 163: `EpisodeAssignmentTable` redefined here#1"
           },
           "ruleId": "ruff/F811",
-          "ruleIndex": 17
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -11399,7 +11183,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 164: `EpisodeSlot` redefined here#1"
           },
           "ruleId": "ruff/F811",
-          "ruleIndex": 17
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -11816,33 +11600,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 22,
-                  "startLine": 430
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `skipped` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_mapping_projection.BulkMutationTests.test_apply_bulk_single_reproject_for_mixed_batch::unused-unpacked-variable::Unpacked variable `skipped` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_mapping_projection.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 45,
                   "startLine": 439
                 }
@@ -11939,7 +11696,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_follows_parse_evidence::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
           },
           "ruleId": "ruff/C416",
-          "ruleIndex": 13
+          "ruleIndex": 12
         },
         {
           "level": "warning",
@@ -11993,7 +11750,7 @@
             "qualifiedSymbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_does_not_double_claim_one_slot::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
           },
           "ruleId": "ruff/C416",
-          "ruleIndex": 13
+          "ruleIndex": 12
         },
         {
           "level": "warning",
@@ -12113,60 +11870,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 14,
-                  "startLine": 8
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_three_episode_e_run::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 14,
-                  "startLine": 38
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestMultiEpisodeRuns.test_two_episode_format_unchanged::unused-unpacked-variable::Unpacked variable `title` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 1,
                   "startLine": 169
                 }
@@ -12182,7 +11885,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#1"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12209,7 +11912,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#2"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12236,7 +11939,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#3"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12290,7 +11993,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#4"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12317,7 +12020,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#5"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12344,7 +12047,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 233: `CONF_TITLE_ONLY` redefined here#1"
           },
           "ruleId": "ruff/F811",
-          "ruleIndex": 17
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -12371,7 +12074,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 235: `CONF_TITLE_WINS_INEXACT` redefined here#1"
           },
           "ruleId": "ruff/F811",
-          "ruleIndex": 17
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -12398,7 +12101,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#6"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12641,7 +12344,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#7"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12668,7 +12371,7 @@
             "qualifiedSymbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#8"
           },
           "ruleId": "ruff/E402",
-          "ruleIndex": 15
+          "ruleIndex": 14
         },
         {
           "level": "warning",
@@ -12696,357 +12399,6 @@
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 1082
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_title_agree_also_wins::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 1091
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 28,
-                  "startLine": 1091
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `num_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_two_number_only_stays_conflict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 1099
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 28,
-                  "startLine": 1099
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `num_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_inexact_title_does_not_evict::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 1107
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `title_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `title_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_resolution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 28,
-                  "startLine": 1107
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `num_file` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_resolution.TestConflictResolution.test_manual_claim_not_evicted::unused-unpacked-variable::Unpacked variable `num_file` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 40
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 40
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_size_hints_by_kind::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 67
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 67
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_subtitle_row_is_taller_than_plain_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 76
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 76
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_render_grab::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -13085,222 +12437,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 22,
-                  "startLine": 129
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_header_click_emits_section_key::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 148
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_enter_emits_expand_on_current_row::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 163
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_bulk_hint_click_emits_signal::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 309
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_column_only_squeezes_text_when_wider_than_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 353
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ActionStripTests.test_pill_and_inline_actions_top_aligned_share_baseline::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 388
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ActionStripTests.test_no_overlap_between_buttons_and_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 425
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ActionStripTests.test_action_buttons_stack_vertically_under_pill::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 463
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_episode_table_delegate.ActionStripTests.test_text_right_edge_clears_the_column::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_episode_table_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 28,
                   "startLine": 583
                 }
@@ -13316,7 +12452,7 @@
             "qualifiedSymbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -13749,33 +12885,6 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_extras_and_prefix_fixes.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 173
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `items` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::unused-unpacked-variable::Unpacked variable `items` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -14423,7 +13532,7 @@
             "qualifiedSymbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
           },
           "ruleId": "ruff/C420",
-          "ruleIndex": 14
+          "ruleIndex": 13
         },
         {
           "level": "warning",
@@ -14450,7 +13559,7 @@
             "qualifiedSymbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#2"
           },
           "ruleId": "ruff/C420",
-          "ruleIndex": 14
+          "ruleIndex": 13
         },
         {
           "level": "warning",
@@ -14558,7 +13667,7 @@
             "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
           },
           "ruleId": "ruff/C420",
-          "ruleIndex": 14
+          "ruleIndex": 13
         },
         {
           "level": "warning",
@@ -14828,7 +13937,7 @@
             "qualifiedSymbol": "tests.test_metadata_local_inventory.test_inventory_maps_slots::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
           },
           "ruleId": "ruff/C416",
-          "ruleIndex": 13
+          "ruleIndex": 12
         },
         {
           "level": "warning",
@@ -16353,7 +15462,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 55
+                  "startLine": 59
                 }
               }
             }
@@ -16380,7 +15489,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 73
+                  "startLine": 81
                 }
               }
             }
@@ -16407,7 +15516,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 115
+                  "startLine": 129
                 }
               }
             }
@@ -16434,7 +15543,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 116
+                  "startLine": 130
                 }
               }
             }
@@ -16461,7 +15570,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 117
+                  "startLine": 131
                 }
               }
             }
@@ -16488,7 +15597,7 @@
                 },
                 "region": {
                   "startColumn": 50,
-                  "startLine": 180
+                  "startLine": 200
                 }
               }
             }
@@ -16500,60 +15609,6 @@
             "analyzer": "pyright",
             "category": "typing",
             "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_lost_conflict_file_moves_into_freed_slot::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_offset_inference.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 186
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `entries` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_when_offsets_disagree::unused-unpacked-variable::Unpacked variable `entries` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_offset_inference.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 52,
-                  "startLine": 213
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"episodes\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_when_offsets_disagree::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
@@ -16580,7 +15635,7 @@
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_with_single_anchor::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
+            "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_when_offsets_disagree::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
@@ -16591,26 +15646,26 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_parsing_edgecases.py",
+                  "uri": "tests/test_offset_inference.py",
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 15,
-                  "startLine": 65
+                  "startColumn": 52,
+                  "startLine": 275
                 }
               }
             }
           ],
           "message": {
-            "text": "Unpacked variable `title` is never used"
+            "text": "\"episodes\" is not a known attribute of \"None\""
           },
           "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_parsing_edgecases.test_extract_episode_recognizes_bracketed_episode_number::unused-unpacked-variable::Unpacked variable `title` is never used#1"
+            "analyzer": "pyright",
+            "category": "typing",
+            "qualifiedSymbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_no_rescue_with_single_anchor::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
           },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
+          "ruleId": "pyright/reportOptionalMemberAccess",
+          "ruleIndex": 7
         },
         {
           "level": "warning",
@@ -16691,7 +15746,7 @@
             "qualifiedSymbol": "tests.test_qt_busy_overlay.BusyOverlayTests.test_exception_inside_scope_still_removes_overlay::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
           },
           "ruleId": "ruff/SIM117",
-          "ruleIndex": 29
+          "ruleIndex": 27
         },
         {
           "level": "warning",
@@ -20012,7 +19067,7 @@
             "qualifiedSymbol": "tests.test_qt_main_window.QtMainWindowTests.test_queue_bridge_batches_bursty_queue_changed_refreshes::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
           },
           "ruleId": "ruff/B905",
-          "ruleIndex": 12
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -22712,7 +21767,7 @@
             "qualifiedSymbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
           },
           "ruleId": "ruff/SIM117",
-          "ruleIndex": 29
+          "ruleIndex": 27
         },
         {
           "level": "warning",
@@ -23993,35 +23048,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 20,
-                  "startLine": 336
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `state` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_tie_state_shows_single_caution_choose_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 36,
-                  "startLine": 338
+                  "startLine": 340
                 }
               }
             }
@@ -24048,7 +23076,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 339
+                  "startLine": 341
                 }
               }
             }
@@ -24075,7 +23103,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 340
+                  "startLine": 342
                 }
               }
             }
@@ -24101,35 +23129,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 20,
-                  "startLine": 344
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `state` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_matched_state_has_neutral_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 35,
-                  "startLine": 348
+                  "startLine": 350
                 }
               }
             }
@@ -24156,7 +23157,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 349
+                  "startLine": 351
                 }
               }
             }
@@ -24183,7 +23184,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 350
+                  "startLine": 352
                 }
               }
             }
@@ -24209,35 +23210,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 20,
-                  "startLine": 354
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `state` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_review_state_has_caution_fix_match::unused-unpacked-variable::Unpacked variable `state` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 36,
-                  "startLine": 358
+                  "startLine": 360
                 }
               }
             }
@@ -24264,7 +23238,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 364
+                  "startLine": 366
                 }
               }
             }
@@ -24291,7 +23265,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 365
+                  "startLine": 367
                 }
               }
             }
@@ -24318,7 +23292,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 366
+                  "startLine": 368
                 }
               }
             }
@@ -24345,7 +23319,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 381
+                  "startLine": 383
                 }
               }
             }
@@ -24372,7 +23346,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 382
+                  "startLine": 384
                 }
               }
             }
@@ -24399,7 +23373,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 386
+                  "startLine": 388
                 }
               }
             }
@@ -24426,7 +23400,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 388
+                  "startLine": 390
                 }
               }
             }
@@ -24453,7 +23427,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 391
+                  "startLine": 393
                 }
               }
             }
@@ -24480,7 +23454,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 392
+                  "startLine": 394
                 }
               }
             }
@@ -24507,7 +23481,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 393
+                  "startLine": 395
                 }
               }
             }
@@ -24534,7 +23508,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 394
+                  "startLine": 396
                 }
               }
             }
@@ -24561,7 +23535,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 457
+                  "startLine": 459
                 }
               }
             }
@@ -24588,7 +23562,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 542
+                  "startLine": 544
                 }
               }
             }
@@ -24615,7 +23589,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 543
+                  "startLine": 545
                 }
               }
             }
@@ -24642,7 +23616,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 598
+                  "startLine": 600
                 }
               }
             }
@@ -24669,7 +23643,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 599
+                  "startLine": 601
                 }
               }
             }
@@ -24696,7 +23670,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 981
+                  "startLine": 983
                 }
               }
             }
@@ -24723,7 +23697,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 982
+                  "startLine": 984
                 }
               }
             }
@@ -24750,7 +23724,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1026
+                  "startLine": 1028
                 }
               }
             }
@@ -24777,7 +23751,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1034
+                  "startLine": 1036
                 }
               }
             }
@@ -24804,7 +23778,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1082
+                  "startLine": 1084
                 }
               }
             }
@@ -24831,7 +23805,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1087
+                  "startLine": 1089
                 }
               }
             }
@@ -24858,7 +23832,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1088
+                  "startLine": 1090
                 }
               }
             }
@@ -24885,7 +23859,7 @@
                 },
                 "region": {
                   "startColumn": 59,
-                  "startLine": 1262
+                  "startLine": 1264
                 }
               }
             }
@@ -24912,7 +23886,7 @@
                 },
                 "region": {
                   "startColumn": 61,
-                  "startLine": 1273
+                  "startLine": 1275
                 }
               }
             }
@@ -24939,7 +23913,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1274
+                  "startLine": 1276
                 }
               }
             }
@@ -24966,7 +23940,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1518
+                  "startLine": 1520
                 }
               }
             }
@@ -24993,7 +23967,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1522
+                  "startLine": 1524
                 }
               }
             }
@@ -25020,7 +23994,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 1524
+                  "startLine": 1526
                 }
               }
             }
@@ -25047,7 +24021,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 1528
+                  "startLine": 1530
                 }
               }
             }
@@ -25074,7 +24048,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 1631
+                  "startLine": 1633
                 }
               }
             }
@@ -25101,7 +24075,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 1634
+                  "startLine": 1636
                 }
               }
             }
@@ -25128,7 +24102,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 1636
+                  "startLine": 1638
                 }
               }
             }
@@ -25155,7 +24129,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1639
+                  "startLine": 1641
                 }
               }
             }
@@ -25182,7 +24156,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 1724
+                  "startLine": 1726
                 }
               }
             }
@@ -25209,7 +24183,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1800
+                  "startLine": 1802
                 }
               }
             }
@@ -25236,7 +24210,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1808
+                  "startLine": 1810
                 }
               }
             }
@@ -25263,7 +24237,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1809
+                  "startLine": 1811
                 }
               }
             }
@@ -25290,7 +24264,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1814
+                  "startLine": 1816
                 }
               }
             }
@@ -25317,7 +24291,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 1817
+                  "startLine": 1819
                 }
               }
             }
@@ -25344,7 +24318,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1894
+                  "startLine": 1896
                 }
               }
             }
@@ -25371,7 +24345,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 1895
+                  "startLine": 1897
                 }
               }
             }
@@ -25398,7 +24372,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1908
+                  "startLine": 1910
                 }
               }
             }
@@ -25425,7 +24399,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1909
+                  "startLine": 1911
                 }
               }
             }
@@ -25452,7 +24426,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1910
+                  "startLine": 1912
                 }
               }
             }
@@ -25479,7 +24453,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 1911
+                  "startLine": 1913
                 }
               }
             }
@@ -25506,7 +24480,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 1913
+                  "startLine": 1915
                 }
               }
             }
@@ -25533,7 +24507,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2042
+                  "startLine": 2044
                 }
               }
             }
@@ -25560,7 +24534,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2043
+                  "startLine": 2045
                 }
               }
             }
@@ -25587,7 +24561,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2144
+                  "startLine": 2146
                 }
               }
             }
@@ -25614,7 +24588,7 @@
                 },
                 "region": {
                   "startColumn": 26,
-                  "startLine": 2216
+                  "startLine": 2218
                 }
               }
             }
@@ -25641,7 +24615,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2361
+                  "startLine": 2363
                 }
               }
             }
@@ -25668,7 +24642,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2363
+                  "startLine": 2365
                 }
               }
             }
@@ -25695,7 +24669,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 2368
+                  "startLine": 2370
                 }
               }
             }
@@ -25722,7 +24696,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 2372
+                  "startLine": 2374
                 }
               }
             }
@@ -25749,7 +24723,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2379
+                  "startLine": 2381
                 }
               }
             }
@@ -25776,7 +24750,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 2447
+                  "startLine": 2449
                 }
               }
             }
@@ -25803,7 +24777,7 @@
                 },
                 "region": {
                   "startColumn": 30,
-                  "startLine": 2448
+                  "startLine": 2450
                 }
               }
             }
@@ -25830,7 +24804,7 @@
                 },
                 "region": {
                   "startColumn": 24,
-                  "startLine": 2455
+                  "startLine": 2457
                 }
               }
             }
@@ -25857,7 +24831,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 2591
+                  "startLine": 2593
                 }
               }
             }
@@ -25884,7 +24858,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2619
+                  "startLine": 2621
                 }
               }
             }
@@ -25911,7 +24885,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 2691
+                  "startLine": 2693
                 }
               }
             }
@@ -25938,7 +24912,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2693
+                  "startLine": 2695
                 }
               }
             }
@@ -25965,7 +24939,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 2694
+                  "startLine": 2696
                 }
               }
             }
@@ -25992,7 +24966,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2709
+                  "startLine": 2711
                 }
               }
             }
@@ -26019,7 +24993,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 2801
+                  "startLine": 2803
                 }
               }
             }
@@ -26046,7 +25020,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 2882
+                  "startLine": 2884
                 }
               }
             }
@@ -26073,7 +25047,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 2904
+                  "startLine": 2906
                 }
               }
             }
@@ -26100,7 +25074,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 3096
+                  "startLine": 3098
                 }
               }
             }
@@ -26127,7 +25101,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 3097
+                  "startLine": 3099
                 }
               }
             }
@@ -26153,62 +25127,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 16,
-                  "startLine": 3186
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `table` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `table` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 23,
-                  "startLine": 3186
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `file_id` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_qt_media_workspace.QtMediaWorkspaceTests.test_episode_row_action_error_calls_warning_box_no_crash::unused-unpacked-variable::Unpacked variable `file_id` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 39,
-                  "startLine": 3452
+                  "startLine": 3454
                 }
               }
             }
@@ -26235,7 +25155,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 3453
+                  "startLine": 3455
                 }
               }
             }
@@ -26262,7 +25182,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 3454
+                  "startLine": 3456
                 }
               }
             }
@@ -26289,7 +25209,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 3533
+                  "startLine": 3535
                 }
               }
             }
@@ -26316,7 +25236,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3838
+                  "startLine": 3840
                 }
               }
             }
@@ -26343,7 +25263,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3843
+                  "startLine": 3845
                 }
               }
             }
@@ -26370,7 +25290,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 3847
+                  "startLine": 3849
                 }
               }
             }
@@ -26397,7 +25317,7 @@
                 },
                 "region": {
                   "startColumn": 46,
-                  "startLine": 3851
+                  "startLine": 3853
                 }
               }
             }
@@ -26424,7 +25344,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 3932
+                  "startLine": 3934
                 }
               }
             }
@@ -26451,7 +25371,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 3933
+                  "startLine": 3935
                 }
               }
             }
@@ -26478,7 +25398,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4099
+                  "startLine": 4101
                 }
               }
             }
@@ -26505,7 +25425,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 4149
+                  "startLine": 4151
                 }
               }
             }
@@ -26532,7 +25452,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 4229
+                  "startLine": 4231
                 }
               }
             }
@@ -26559,7 +25479,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4301
+                  "startLine": 4303
                 }
               }
             }
@@ -26586,7 +25506,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4302
+                  "startLine": 4304
                 }
               }
             }
@@ -26613,7 +25533,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4541
+                  "startLine": 4543
                 }
               }
             }
@@ -26640,7 +25560,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 4732
+                  "startLine": 4734
                 }
               }
             }
@@ -26667,7 +25587,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 4808
+                  "startLine": 4810
                 }
               }
             }
@@ -26694,7 +25614,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4816
+                  "startLine": 4818
                 }
               }
             }
@@ -26721,7 +25641,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5221
+                  "startLine": 5223
                 }
               }
             }
@@ -26748,7 +25668,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5228
+                  "startLine": 5230
                 }
               }
             }
@@ -26775,7 +25695,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 5359
+                  "startLine": 5361
                 }
               }
             }
@@ -26802,7 +25722,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5361
+                  "startLine": 5363
                 }
               }
             }
@@ -26829,7 +25749,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5367
+                  "startLine": 5369
                 }
               }
             }
@@ -26856,7 +25776,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5372
+                  "startLine": 5374
                 }
               }
             }
@@ -26883,7 +25803,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5376
+                  "startLine": 5378
                 }
               }
             }
@@ -26910,7 +25830,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5377
+                  "startLine": 5379
                 }
               }
             }
@@ -26937,7 +25857,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5387
+                  "startLine": 5389
                 }
               }
             }
@@ -26964,7 +25884,7 @@
                 },
                 "region": {
                   "startColumn": 17,
-                  "startLine": 5392
+                  "startLine": 5394
                 }
               }
             }
@@ -26978,7 +25898,7 @@
             "qualifiedSymbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests.test_apply_with_skipped_pair_reports_error_tone_and_reason::collection-literal-concatenation::Consider `[*staged[:-1], (staged[-1][0], 1, 99)]` instead of concatenation#1"
           },
           "ruleId": "ruff/RUF005",
-          "ruleIndex": 21
+          "ruleIndex": 20
         },
         {
           "level": "warning",
@@ -26991,7 +25911,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5394
+                  "startLine": 5396
                 }
               }
             }
@@ -27018,7 +25938,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5398
+                  "startLine": 5400
                 }
               }
             }
@@ -27045,7 +25965,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 5398
+                  "startLine": 5400
                 }
               }
             }
@@ -27072,7 +25992,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5404
+                  "startLine": 5406
                 }
               }
             }
@@ -27099,7 +26019,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5405
+                  "startLine": 5407
                 }
               }
             }
@@ -27126,7 +26046,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5406
+                  "startLine": 5408
                 }
               }
             }
@@ -27153,7 +26073,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5407
+                  "startLine": 5409
                 }
               }
             }
@@ -27180,7 +26100,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5407
+                  "startLine": 5409
                 }
               }
             }
@@ -27207,7 +26127,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5426
+                  "startLine": 5428
                 }
               }
             }
@@ -27234,7 +26154,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5426
+                  "startLine": 5428
                 }
               }
             }
@@ -27261,7 +26181,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5427
+                  "startLine": 5429
                 }
               }
             }
@@ -27288,7 +26208,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 5442
+                  "startLine": 5444
                 }
               }
             }
@@ -27315,7 +26235,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5451
+                  "startLine": 5453
                 }
               }
             }
@@ -27342,7 +26262,7 @@
                 },
                 "region": {
                   "startColumn": 15,
-                  "startLine": 5455
+                  "startLine": 5457
                 }
               }
             }
@@ -27369,7 +26289,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5457
+                  "startLine": 5459
                 }
               }
             }
@@ -27396,7 +26316,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 5466
+                  "startLine": 5468
                 }
               }
             }
@@ -27423,7 +26343,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5468
+                  "startLine": 5470
                 }
               }
             }
@@ -27450,7 +26370,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5471
+                  "startLine": 5473
                 }
               }
             }
@@ -27477,7 +26397,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 5477
+                  "startLine": 5479
                 }
               }
             }
@@ -27504,7 +26424,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5484
+                  "startLine": 5486
                 }
               }
             }
@@ -27531,7 +26451,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5484
+                  "startLine": 5486
                 }
               }
             }
@@ -27558,7 +26478,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5488
+                  "startLine": 5490
                 }
               }
             }
@@ -27585,7 +26505,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5491
+                  "startLine": 5493
                 }
               }
             }
@@ -27612,7 +26532,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5492
+                  "startLine": 5494
                 }
               }
             }
@@ -27639,7 +26559,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5495
+                  "startLine": 5497
                 }
               }
             }
@@ -27666,7 +26586,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5495
+                  "startLine": 5497
                 }
               }
             }
@@ -27693,7 +26613,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5504
+                  "startLine": 5506
                 }
               }
             }
@@ -27720,7 +26640,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5509
+                  "startLine": 5511
                 }
               }
             }
@@ -27747,7 +26667,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5519
+                  "startLine": 5521
                 }
               }
             }
@@ -27774,7 +26694,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5528
+                  "startLine": 5530
                 }
               }
             }
@@ -27801,7 +26721,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 5529
+                  "startLine": 5531
                 }
               }
             }
@@ -27828,7 +26748,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5532
+                  "startLine": 5534
                 }
               }
             }
@@ -27855,7 +26775,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5536
+                  "startLine": 5538
                 }
               }
             }
@@ -27882,7 +26802,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5547
+                  "startLine": 5549
                 }
               }
             }
@@ -27909,7 +26829,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5553
+                  "startLine": 5555
                 }
               }
             }
@@ -27936,7 +26856,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5555
+                  "startLine": 5557
                 }
               }
             }
@@ -27963,7 +26883,7 @@
                 },
                 "region": {
                   "startColumn": 41,
-                  "startLine": 5557
+                  "startLine": 5559
                 }
               }
             }
@@ -27990,7 +26910,7 @@
                 },
                 "region": {
                   "startColumn": 47,
-                  "startLine": 5558
+                  "startLine": 5560
                 }
               }
             }
@@ -28017,7 +26937,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5660
+                  "startLine": 5662
                 }
               }
             }
@@ -28044,7 +26964,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 5661
+                  "startLine": 5663
                 }
               }
             }
@@ -29285,33 +28205,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 16,
-                  "startLine": 75
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `library_root` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::unused-unpacked-variable::Unpacked variable `library_root` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_output_targets.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 13,
                   "startLine": 107
                 }
@@ -29686,60 +28579,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_release_junk_titles.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 17,
-                  "startLine": 44
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `rel` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_release_junk_titles.test_clean_title_untouched::unused-unpacked-variable::Unpacked variable `rel` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_remux_execution.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 11,
-                  "startLine": 122
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `tail` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_remux_execution.test_run_mkvmerge_parses_progress::unused-unpacked-variable::Unpacked variable `tail` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/test_remux_job_model.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -29929,33 +28768,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_remux_revert.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 49
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `errors` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_remux_revert.test_missing_output_is_not_fatal::unused-unpacked-variable::Unpacked variable `errors` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/test_roster_autoselect.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -30064,87 +28876,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_roster_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 15,
-                  "startLine": 60
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_roster_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 60
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_roster_delegate.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 91
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `delegate` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_roster_delegate.RosterDelegateTests.test_header_click_emits_group::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/test_scan_improvements.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -30165,60 +28896,6 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_scan_improvements.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 19,
-                  "startLine": 599
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `states` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_top_level_specials_folder_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_scan_improvements.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 19,
-                  "startLine": 615
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `states` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_show_named_specials_child_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -31067,33 +29744,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 9,
-                  "startLine": 2585
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `runner` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_scan_improvements.ScanImprovementTests.test_score_results_prefers_exact_year_over_adjacent_year::unused-unpacked-variable::Unpacked variable `runner` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_scan_improvements.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 14,
                   "startLine": 2639
                 }
@@ -31164,33 +29814,6 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_scan_improvements.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 9,
-                  "startLine": 2809
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `items` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_scan_improvements.TestTableDrivenScan.test_same_named_specials_in_two_seasons_resolve_as_duplicate_copies::unused-unpacked-variable::Unpacked variable `items` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -31677,33 +30300,6 @@
           },
           "ruleId": "pyright/reportAttributeAccessIssue",
           "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_settings_tab_cache.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 18,
-                  "startLine": 25
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `settings` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_settings_tab_cache.CacheSizeComboTests.test_combo_lists_sizes_and_selects_current::unused-unpacked-variable::Unpacked variable `settings` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -32270,34 +30866,7 @@
             "qualifiedSymbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tiebreak_discrimination.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 11,
-                  "startLine": 30
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `score` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_tiebreak_discrimination.test_unique_episode_count_discriminates::unused-unpacked-variable::Unpacked variable `score` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -32310,7 +30879,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 31
+                  "startLine": 34
                 }
               }
             }
@@ -32337,7 +30906,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 44
+                  "startLine": 51
                 }
               }
             }
@@ -32364,7 +30933,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 54
+                  "startLine": 65
                 }
               }
             }
@@ -32648,7 +31217,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -32675,7 +31244,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -32702,7 +31271,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -32729,7 +31298,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 19
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -33485,7 +32054,7 @@
             "qualifiedSymbol": "tests.test_workspace_automux._dispose_coordinator::suppressible-exception::Use `contextlib.suppress(RuntimeError)` instead of `try`-`except`-`pass`#1"
           },
           "ruleId": "ruff/SIM105",
-          "ruleIndex": 26
+          "ruleIndex": 24
         },
         {
           "level": "warning",
@@ -33513,33 +32082,6 @@
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 22,
-                  "startLine": 176
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `roster` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_automux.WorkspaceAutoMuxTests.test_plan_edited_stores_on_state::unused-unpacked-variable::Unpacked variable `roster` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -33632,33 +32174,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 16,
-                  "startLine": 86
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `guide` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_expansion.HeaderFollowsEpisodeTests.test_no_tmdb_overview_uses_single_display_path::unused-unpacked-variable::Unpacked variable `guide` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_expansion.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 27,
                   "startLine": 177
                 }
@@ -33702,33 +32217,6 @@
           },
           "ruleId": "pyright/reportAttributeAccessIssue",
           "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_expansion.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 192
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `view` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_expansion.MissingFileRowExpansionTests.test_missing_file_row_never_expands::unused-unpacked-variable::Unpacked variable `view` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         },
         {
           "level": "warning",
@@ -34091,60 +32579,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 33,
-                  "startLine": 135
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `model` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_poster_warmup.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 40,
-                  "startLine": 135
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `pending` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_switches_to_ready_on_timeout_even_if_posters_never_settle::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_poster_warmup.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 19,
                   "startLine": 203
                 }
@@ -34242,87 +32676,6 @@
           },
           "ruleId": "pyright/reportAttributeAccessIssue",
           "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_poster_warmup.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 40,
-                  "startLine": 210
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `pending` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_pushes_loaded_posters_on_signal::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_poster_warmup.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 40,
-                  "startLine": 220
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `pending` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_scan_feed_disconnects_after_show_ready::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_workspace_poster_warmup.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 40,
-                  "startLine": 230
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Unpacked variable `pending` is never used"
-          },
-          "properties": {
-            "analyzer": "ruff",
-            "category": "lint",
-            "qualifiedSymbol": "tests.test_workspace_poster_warmup.PosterWarmupTests.test_start_scan_poster_feed_reentrant_no_double_delivery::unused-unpacked-variable::Unpacked variable `pending` is never used#1"
-          },
-          "ruleId": "ruff/RUF059",
-          "ruleIndex": 23
         }
       ],
       "tool": {
@@ -34407,13 +32760,6 @@
               }
             },
             {
-              "id": "ruff/B007",
-              "name": "ruff-B007",
-              "shortDescription": {
-                "text": "ruff/B007"
-              }
-            },
-            {
               "id": "ruff/B905",
               "name": "ruff-B905",
               "shortDescription": {
@@ -34488,13 +32834,6 @@
               "name": "ruff-RUF043",
               "shortDescription": {
                 "text": "ruff/RUF043"
-              }
-            },
-            {
-              "id": "ruff/RUF059",
-              "name": "ruff-RUF059",
-              "shortDescription": {
-                "text": "ruff/RUF059"
               }
             },
             {

@@ -22,7 +22,7 @@ class CacheSizeComboTests(QtSmokeBase):
 
     def test_combo_lists_sizes_and_selects_current(self):
         with TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            tab, settings, _ = self._tab(Path(tmp))
+            tab, _settings, _ = self._tab(Path(tmp))
             from plex_renamer.gui_qt.widgets._settings_tab_sections import CACHE_SIZE_CHOICES
 
             self.assertEqual(tab._cache_size_combo.count(), len(CACHE_SIZE_CHOICES))

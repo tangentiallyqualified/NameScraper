@@ -5,7 +5,7 @@ from plex_renamer.parsing import extract_episode
 
 class TestMultiEpisodeRuns:
     def test_three_episode_e_run(self):
-        eps, title, rel = extract_episode("Show S01E01E02E03.mkv")
+        eps, _title, rel = extract_episode("Show S01E01E02E03.mkv")
         assert eps == [1, 2, 3]
         assert rel is True
 
@@ -35,7 +35,7 @@ class TestMultiEpisodeRuns:
         assert eps == [1, 80]
 
     def test_two_episode_format_unchanged(self):
-        eps, title, rel = extract_episode("Show S01E01E02 - Pilot.mkv")
+        eps, _title, rel = extract_episode("Show S01E01E02 - Pilot.mkv")
         assert eps == [1, 2]
         assert rel is True
 
@@ -1079,7 +1079,7 @@ class TestConflictResolution:
         assert (2, 10) not in table.conflicts()
 
     def test_title_agree_also_wins(self):
-        table, title_file, num_file = self._two_claimants(
+        table, _title_file, num_file = self._two_claimants(
             title_ev={"number", "title-agree"},
             num_ev={"number", "season-relative"},
         )
@@ -1088,7 +1088,7 @@ class TestConflictResolution:
         assert (2, 10) not in table.conflicts()
 
     def test_two_number_only_stays_conflict(self):
-        table, title_file, num_file = self._two_claimants(
+        table, _title_file, _num_file = self._two_claimants(
             title_ev={"number", "season-relative"},
             num_ev={"number", "season-relative"},
         )
@@ -1096,7 +1096,7 @@ class TestConflictResolution:
         assert (2, 10) in table.conflicts()
 
     def test_inexact_title_does_not_evict(self):
-        table, title_file, num_file = self._two_claimants(
+        table, _title_file, _num_file = self._two_claimants(
             title_ev={"title-strong-inexact", "number-disagree"},
             num_ev={"number", "season-relative"},
         )
@@ -1104,7 +1104,7 @@ class TestConflictResolution:
         assert (2, 10) in table.conflicts()
 
     def test_manual_claim_not_evicted(self):
-        table, title_file, num_file = self._two_claimants(
+        table, _title_file, _num_file = self._two_claimants(
             title_ev={"title-strong", "number-disagree"},
             num_ev={"number"},
             num_origin=ORIGIN_MANUAL,

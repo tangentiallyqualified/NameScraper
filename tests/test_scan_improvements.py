@@ -596,7 +596,7 @@ class GenericCandidateTitleInheritanceTests(unittest.TestCase):
             for name in ("A.avi", "B.avi", "C.avi"):
                 (specials / name).write_text("x")
 
-            tmdb, states = self._discover(root)
+            tmdb, _states = self._discover(root)
 
             queries = [name for name, _year in tmdb.queries]
             self.assertEqual(queries, ["Specials"])
@@ -612,7 +612,7 @@ class GenericCandidateTitleInheritanceTests(unittest.TestCase):
             for name in ("01.mkv", "02.mkv", "03.mkv"):
                 (specials / name).write_text("x")
 
-            tmdb, states = self._discover(root)
+            tmdb, _states = self._discover(root)
 
             queries = [name for name, _year in tmdb.queries]
             self.assertEqual(queries, ["Yuru Camp Specials"])
@@ -2582,7 +2582,7 @@ class ScanImprovementTests(unittest.TestCase):
 
         scored = score_results(results, "Battlestar Galactica", "2004", title_key="name")
         best, best_score = scored[0]
-        runner, runner_score = scored[1]
+        _runner, runner_score = scored[1]
 
         self.assertEqual(best["year"], "2004", "Exact year match must rank first")
         self.assertGreater(
@@ -2806,7 +2806,7 @@ class TestTableDrivenScan:
             tmp_path,
             {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
         )
-        items, _ = scanner.scan()
+        _items, _ = scanner.scan()
         table = scanner.assignment_table
         assert not table.conflicts()
         assigned = [

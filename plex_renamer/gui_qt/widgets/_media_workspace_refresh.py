@@ -105,7 +105,7 @@ class MediaWorkspaceRefreshCoordinator:
 
     def ensure_check_bindings(self, state: ScanState) -> None:
         workspace = self._workspace
-        for index, item in enumerate(state.preview_items):
+        for index, _item in enumerate(state.preview_items):
             key = str(index)
             if key not in state.check_vars:
                 state.check_vars[key] = _CheckBinding(
@@ -122,7 +122,7 @@ class MediaWorkspaceRefreshCoordinator:
             if _is_state_queue_approvable(state, media_type=workspace._media_type):
                 self.ensure_check_bindings(state)
                 actionable_values: list[bool] = []
-                for index, item in enumerate(state.preview_items):
+                for index, _item in enumerate(state.preview_items):
                     if not CommandGatingService.is_queue_relevant(state, index):
                         continue
                     key = str(index)

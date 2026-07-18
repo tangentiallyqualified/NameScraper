@@ -47,8 +47,12 @@ class TestSeasonHintFloorGuard:
             folder_season=3,
         )
         table.assign(
-            entry.file_id, 1, [6],
-            origin=ORIGIN_AUTO, confidence=0.50, evidence=frozenset({"number"}),
+            entry.file_id,
+            1,
+            [6],
+            origin=ORIGIN_AUTO,
+            confidence=0.50,
+            evidence=frozenset({"number"}),
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assignment = table.assignment_for(entry.file_id)
@@ -65,8 +69,12 @@ class TestSeasonHintFloorGuard:
             folder_season=3,
         )
         table.assign(
-            entry.file_id, 3, [6],
-            origin=ORIGIN_AUTO, confidence=0.50, evidence=frozenset({"number"}),
+            entry.file_id,
+            3,
+            [6],
+            origin=ORIGIN_AUTO,
+            confidence=0.50,
+            evidence=frozenset({"number"}),
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assignment = table.assignment_for(entry.file_id)
@@ -87,8 +95,11 @@ def _anchored_table() -> tuple[EpisodeAssignmentTable, list]:
             folder_season=3,
         )
         table.assign(
-            entry.file_id, 1, [target],
-            origin=ORIGIN_AUTO, confidence=0.70,
+            entry.file_id,
+            1,
+            [target],
+            origin=ORIGIN_AUTO,
+            confidence=0.70,
             evidence=frozenset({"title-strong-inexact", "number-disagree"}),
         )
         entries.append(entry)
@@ -106,8 +117,11 @@ class TestUniformOffsetRescue:
             folder_season=3,
         )
         table.assign(
-            cog.file_id, 1, [6],
-            origin=ORIGIN_AUTO, confidence=0.88,
+            cog.file_id,
+            1,
+            [6],
+            origin=ORIGIN_AUTO,
+            confidence=0.88,
             evidence=frozenset({"number", "season-relative"}),
         )
         apply_uniform_offset_rescue(table)
@@ -145,8 +159,11 @@ class TestUniformOffsetRescue:
                 folder_season=5,
             )
             table.assign(
-                entry.file_id, 5, [parsed + 1],
-                origin=ORIGIN_AUTO, confidence=0.92,
+                entry.file_id,
+                5,
+                [parsed + 1],
+                origin=ORIGIN_AUTO,
+                confidence=0.92,
                 evidence=frozenset({"title-strong", "number-disagree"}),
             )
             anchors.append(entry)
@@ -159,8 +176,11 @@ class TestUniformOffsetRescue:
             folder_season=5,
         )
         table.assign(
-            e15.file_id, 5, [15],
-            origin=ORIGIN_AUTO, confidence=0.88,
+            e15.file_id,
+            5,
+            [15],
+            origin=ORIGIN_AUTO,
+            confidence=0.88,
             evidence=frozenset({"number", "season-relative"}),
         )
         # e14 lost the conflict for E15 against a title anchor... simulate as
@@ -183,7 +203,7 @@ class TestUniformOffsetRescue:
         assert moved.episodes == (15,)
 
     def test_no_rescue_when_offsets_disagree(self):
-        table, entries = _anchored_table()
+        table, _entries = _anchored_table()
         # Add a conflicting anchor at a different offset.
         odd = table.add_file(
             ROOT / "Demo S03E03 Odd.mkv",
@@ -193,8 +213,11 @@ class TestUniformOffsetRescue:
             folder_season=3,
         )
         table.assign(
-            odd.file_id, 1, [20],
-            origin=ORIGIN_AUTO, confidence=0.70,
+            odd.file_id,
+            1,
+            [20],
+            origin=ORIGIN_AUTO,
+            confidence=0.70,
             evidence=frozenset({"title-strong", "number-disagree"}),
         )
         mover = table.add_file(
@@ -205,8 +228,11 @@ class TestUniformOffsetRescue:
             folder_season=3,
         )
         table.assign(
-            mover.file_id, 1, [6],
-            origin=ORIGIN_AUTO, confidence=0.88,
+            mover.file_id,
+            1,
+            [6],
+            origin=ORIGIN_AUTO,
+            confidence=0.88,
             evidence=frozenset({"number", "season-relative"}),
         )
         apply_uniform_offset_rescue(table)
@@ -217,22 +243,32 @@ class TestUniformOffsetRescue:
         _slots(table, 1, {i: f"Ep {i}" for i in range(1, 20)})
         anchor = table.add_file(
             ROOT / "Demo S02E01 A.mkv",
-            parsed_episodes=(1,), is_season_relative=True,
-            season_hint=2, folder_season=2,
+            parsed_episodes=(1,),
+            is_season_relative=True,
+            season_hint=2,
+            folder_season=2,
         )
         table.assign(
-            anchor.file_id, 1, [11],
-            origin=ORIGIN_AUTO, confidence=0.9,
+            anchor.file_id,
+            1,
+            [11],
+            origin=ORIGIN_AUTO,
+            confidence=0.9,
             evidence=frozenset({"title-strong", "number-disagree"}),
         )
         mover = table.add_file(
             ROOT / "Demo S02E02 B.mkv",
-            parsed_episodes=(2,), is_season_relative=True,
-            season_hint=2, folder_season=2,
+            parsed_episodes=(2,),
+            is_season_relative=True,
+            season_hint=2,
+            folder_season=2,
         )
         table.assign(
-            mover.file_id, 1, [2],
-            origin=ORIGIN_AUTO, confidence=0.88,
+            mover.file_id,
+            1,
+            [2],
+            origin=ORIGIN_AUTO,
+            confidence=0.88,
             evidence=frozenset({"number", "season-relative"}),
         )
         apply_uniform_offset_rescue(table)

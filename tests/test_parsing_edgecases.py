@@ -62,7 +62,7 @@ def test_extract_year_uses_range_start(name, expected):
     ],
 )
 def test_extract_episode_recognizes_bracketed_episode_number(name, expected_episode):
-    episodes, title, is_season_relative = extract_episode(name)
+    episodes, _title, is_season_relative = extract_episode(name)
     assert episodes == [expected_episode]
     # absolute numbering (anime convention) -> not season-relative
     assert is_season_relative is False

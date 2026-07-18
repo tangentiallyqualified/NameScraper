@@ -1,4 +1,5 @@
 """RC27: E##.Title / ##.Title filenames must keep their title evidence."""
+
 from plex_renamer.parsing import extract_episode
 
 
@@ -30,5 +31,5 @@ def test_no_title_still_none():
 
 
 def test_sxe_still_wins():
-    eps, title, rel = extract_episode("Show S02E03 Some Title.mkv")
+    eps, _title, rel = extract_episode("Show S02E03 Some Title.mkv")
     assert eps == [3] and rel is True
