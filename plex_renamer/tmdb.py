@@ -24,13 +24,6 @@ from typing import Any
 
 from PIL import Image
 
-from ._tmdb_transport import (
-    TMDBAPIError as TMDBAPIError,
-    TMDBError,
-    TMDBNetworkError,
-    TMDBRateLimitError as TMDBRateLimitError,
-    TMDBTransport,
-)
 from ._tmdb_batch_search import (
     resolve_movie_batch_query,
     resolve_tv_batch_query,
@@ -44,8 +37,17 @@ from ._tmdb_metadata_builder import (
     build_tv_search_results,
 )
 from ._tmdb_metadata_cache import _TMDBMetadataCacheStore
-from ._tmdb_search_helpers import extract_alternative_titles, search_with_fallback as run_search_with_fallback
-
+from ._tmdb_search_helpers import (
+    extract_alternative_titles,
+    search_with_fallback as run_search_with_fallback,
+)
+from ._tmdb_transport import (
+    TMDBAPIError as TMDBAPIError,
+    TMDBError,
+    TMDBNetworkError,
+    TMDBRateLimitError as TMDBRateLimitError,
+    TMDBTransport,
+)
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
@@ -56,6 +58,7 @@ _HTTP_POOL_MAXSIZE = 32
 
 log = logging.getLogger(__name__)
 # ─── Client ──────────────────────────────────────────────────────────────────
+
 
 class TMDBClient:
     """
@@ -71,11 +74,16 @@ class TMDBClient:
     network again.
     """
 
-    def __init__(self, api_key: str, rate_limit: float = 35.0,
-                 max_retries: int = 2, image_cache_size: int = 200,
-                 language: str = "en-US",
-                 cache_service: Any | None = None,
-                 refresh_policy: Any | None = None):
+    def __init__(
+        self,
+        api_key: str,
+        rate_limit: float = 35.0,
+        max_retries: int = 2,
+        image_cache_size: int = 200,
+        language: str = "en-US",
+        cache_service: Any | None = None,
+        refresh_policy: Any | None = None,
+    ):
         self.api_key = api_key
         self.language = language
         self._cache_service = cache_service
@@ -255,7 +263,9 @@ class TMDBClient:
         return data
 
     def get_alternative_titles(
-        self, media_id: int, media_type: str = "movie",
+        self,
+        media_id: int,
+        media_type: str = "movie",
     ) -> list[tuple[str, str]]:
         """
         Fetch alternative/AKA titles for a movie or TV show. Cached.
@@ -274,20 +284,23 @@ class TMDBClient:
 
         data = self._get_safe(f"/{media_type}/{media_id}/alternative_titles")
         if not data:
-            log.warning(
-                "Alt titles: no data returned for %s/%s", media_type, media_id)
+            log.warning("Alt titles: no data returned for %s/%s", media_type, media_id)
             self._alt_titles_cache[cache_key] = []
             return []
 
         entries = data.get("titles") or data.get("results") or []
         log.debug(
             "Alt titles for %s/%s: %d entries in response",
-            media_type, media_id, len(entries),
+            media_type,
+            media_id,
+            len(entries),
         )
         titles = extract_alternative_titles(data)
         log.info(
             "Alt titles for %s/%s: %d unique titles — %s",
-            media_type, media_id, len(titles),
+            media_type,
+            media_id,
+            len(titles),
             [(t, c) for t, c in titles[:5]],
         )
         self._alt_titles_cache[cache_key] = titles
@@ -527,16 +540,14 @@ class TMDBClient:
         cache_key = f"{size}::{normalized}"
 
         if self._cache_service is not None:
-            lookup = self._cache_service.get(
-                _EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
+            lookup = self._cache_service.get(_EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
             if lookup.is_hit and lookup.value:
                 encoded = lookup.value.get("bytes_base64")
                 if encoded:
                     try:
                         return base64.b64decode(encoded)
                     except (ValueError, TypeError):
-                        self._cache_service.invalidate(
-                            _EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
+                        self._cache_service.invalidate(_EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
 
         url = ORIGINAL_IMAGE_URL_TEMPLATE.format(size=size, path=normalized)
         try:

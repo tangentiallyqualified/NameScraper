@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 
+from ..models import TVDirectoryRole, TVDiscoveryCandidate
 from ._tv_library_classification import (
     ClassifiedDirectory as _ClassifiedDirectory,
     TVDirectoryClassifier,
 )
-from ..models import TVDirectoryRole, TVDiscoveryCandidate
-
 
 _IGNORED_SYSTEM_NAMES = {
     "@eadir",
@@ -26,6 +25,7 @@ _IGNORED_SYSTEM_NAMES = {
     ".hg",
     ".svn",
 }
+
 
 class TVLibraryDiscoveryService:
     """Discover nested TV show roots without misclassifying container folders."""
@@ -73,12 +73,9 @@ class TVLibraryDiscoveryService:
             #      where a few folders happen to contain "S##").
             #   b) It has direct episode files but NO season subdirs — a
             #      flat show folder like "[FLE] Solo Leveling - S01 (…)/".
-            is_season_root = (
-                root_classified.has_direct_season_subdirs
-                and (
-                    self._season_children_are_majority(library_root)
-                    or self._classifier.year_season_children_are_majority(library_root)
-                )
+            is_season_root = root_classified.has_direct_season_subdirs and (
+                self._season_children_are_majority(library_root)
+                or self._classifier.year_season_children_are_majority(library_root)
             )
             is_flat_episode_root = (
                 not root_classified.has_direct_season_subdirs
@@ -105,7 +102,9 @@ class TVLibraryDiscoveryService:
         for child in self._iter_child_dirs(library_root):
             self._walk_directory(child, library_root, visited_paths, candidates)
 
-        candidates.sort(key=lambda candidate: self.normalize_relative_path(candidate.relative_folder))
+        candidates.sort(
+            key=lambda candidate: self.normalize_relative_path(candidate.relative_folder)
+        )
         return candidates
 
     def classify_directory(self, directory: Path) -> TVDirectoryRole:

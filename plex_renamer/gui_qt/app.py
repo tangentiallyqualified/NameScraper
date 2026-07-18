@@ -19,10 +19,7 @@ _DEBUG_TRANSIENT_WINDOWS = os.environ.get(
 ).strip().lower() not in {"", "0", "false", "no"}
 
 # Window flags that identify transient platform helper windows.
-_TRANSIENT_FLAGS = (
-    Qt.WindowType.SplashScreen
-    | Qt.WindowType.Tool
-)
+_TRANSIENT_FLAGS = Qt.WindowType.SplashScreen | Qt.WindowType.Tool
 _DIAGNOSTIC_FLAGS = _TRANSIENT_FLAGS | Qt.WindowType.Popup
 
 
@@ -78,10 +75,12 @@ class _SuppressTransientPopups(QObject):
 
         if event.type() == QEvent.Type.Show:
             from PySide6.QtWidgets import QWidget
+
             if not isinstance(obj, QWidget) or not obj.isWindow():
                 return False
             # Never suppress real dialogs, menus, or our own widgets.
-            from PySide6.QtWidgets import QDialog, QMenu, QMainWindow
+            from PySide6.QtWidgets import QDialog, QMainWindow, QMenu
+
             if isinstance(obj, (QDialog, QMenu, QMainWindow)):
                 return False
             name = obj.objectName()
@@ -140,6 +139,7 @@ def run() -> None:
 
     # Load the global theme stylesheet (rendered from theme.qss.tmpl)
     from . import theme as _theme
+
     try:
         app.setStyleSheet(_theme.load_stylesheet())
     except (OSError, KeyError) as exc:

@@ -199,7 +199,8 @@ class MediaWorkspaceActionCoordinator:
             answer = box.exec()
         else:
             answer = warning_box.question(
-                workspace, "Unassign All",
+                workspace,
+                "Unassign All",
                 f"Unassign all {count} assigned file(s) for {state.display_name}?",
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.YesToAll
@@ -257,7 +258,9 @@ class MediaWorkspaceActionCoordinator:
             return
         with busy_scope(workspace._work_panel, "Applying assignments…", immediate=True):
             applied, skipped = EpisodeMappingService().apply_bulk(
-                state, assign_pairs=pairs, unassign_file_ids=unassign_file_ids,
+                state,
+                assign_pairs=pairs,
+                unassign_file_ids=unassign_file_ids,
             )
             _refresh_episode_projection(workspace, state)
             workspace.refresh_from_controller()
@@ -305,7 +308,8 @@ class MediaWorkspaceActionCoordinator:
         workspace = self._workspace
         if state.queued or state.scanning:
             workspace.status_message.emit(
-                "Finish or cancel the queued/scanning state first.", 3000,
+                "Finish or cancel the queued/scanning state first.",
+                3000,
             )
             return
         service = EpisodeMappingService()
@@ -346,7 +350,8 @@ class MediaWorkspaceActionCoordinator:
         workspace = self._workspace
         if state.queued or state.scanning:
             workspace.status_message.emit(
-                "Finish or cancel the queued/scanning state first.", 3000,
+                "Finish or cancel the queued/scanning state first.",
+                3000,
             )
             return
         service = EpisodeMappingService()
@@ -392,13 +397,15 @@ class MediaWorkspaceActionCoordinator:
                 run = sorted(preview.episodes)
                 relevant = set(run) | {run[0] - 1, run[-1] + 1}
                 slots = [
-                    choice for choice in service.episode_slot_choices(state)
+                    choice
+                    for choice in service.episode_slot_choices(state)
                     if choice.season == season and choice.episode in relevant
                 ]
                 # slots always includes the run itself; need a neighbor to extend into.
                 if len(slots) <= len(run):
                     workspace.status_message.emit(
-                        "No adjacent episode to extend into.", 4000,
+                        "No adjacent episode to extend into.",
+                        4000,
                     )
                     return
                 current_keys = {(season, episode) for episode in run}
@@ -419,7 +426,9 @@ class MediaWorkspaceActionCoordinator:
                 unassigned = service.unassigned_file_choices(state)
                 unassigned_ids = {fid for fid, _label in unassigned}
                 shareable = service.shareable_file_choices(
-                    state, season=row.season, episode=row.episode,
+                    state,
+                    season=row.season,
+                    episode=row.episode,
                 )
                 shareable_ids = {fid for fid, _label in shareable}
                 assigned = [
@@ -446,7 +455,10 @@ class MediaWorkspaceActionCoordinator:
                 if target is None:
                     return
                 service.assign_or_extend_file(
-                    state, target, season=row.season, episode=row.episode,
+                    state,
+                    target,
+                    season=row.season,
+                    episode=row.episode,
                 )
                 message = "File assigned."
             else:
@@ -468,7 +480,8 @@ class MediaWorkspaceActionCoordinator:
         workspace = self._workspace
         if state.queued or state.scanning:
             workspace.status_message.emit(
-                "Finish or cancel the queued/scanning state first.", 3000,
+                "Finish or cancel the queued/scanning state first.",
+                3000,
             )
             return
         if preview_index in state.mux_opt_outs:

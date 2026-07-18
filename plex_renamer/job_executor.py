@@ -30,20 +30,20 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ._job_execution_metadata import execute_metadata_plan, materialized_extras
-from ._job_execution_remux import execute_remux_op
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
-    apply_top_dir_remap,
     apply_rename_plan,
+    apply_top_dir_remap,
     cleanup_source_directories,
     normalize_season_directories,
     output_target_collision_remap,
     remap_target_into_final_root,
 )
+from ._job_execution_metadata import execute_metadata_plan, materialized_extras
+from ._job_execution_remux import execute_remux_op
 from .constants import JobKind, JobStatus, MediaType
-from .job_store import JobStore, RenameJob
 from .engine import RenameResult
+from .job_store import JobStore, RenameJob
 
 _log = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ _UNMATCHED_FILES_DIR = UNMATCHED_FILES_DIR
 
 
 # ─── Pre-execution validation ────────────────────────────────────────────────
+
 
 def _validate_sources(job: RenameJob) -> list[str]:
     """
@@ -66,8 +67,7 @@ def _validate_sources(job: RenameJob) -> list[str]:
     missing: list[str] = []
 
     if not root_folder.exists():
-        missing.append(
-            f"Source folder no longer exists: {job.source_folder}")
+        missing.append(f"Source folder no longer exists: {job.source_folder}")
         return missing  # No point checking individual files
 
     for op in job.rename_ops:
@@ -101,6 +101,7 @@ def _remap_target_into_final_root(
 
 
 # ─── Job kind executor registry ──────────────────────────────────────────────
+
 
 def _execute_output_rename(job: RenameJob, progress_cb=None) -> RenameResult:
     """Execute a destination-aware rename job into its output root."""
@@ -148,7 +149,9 @@ def _execute_output_rename(job: RenameJob, progress_cb=None) -> RenameResult:
             resolved_target_dir = target_dir.resolve(strict=False)
             resolved_target_dir.relative_to(output_boundary)
         except (OSError, ValueError):
-            result.errors.append(f"Target path is outside the output root: {op.target_dir_relative}")
+            result.errors.append(
+                f"Target path is outside the output root: {op.target_dir_relative}"
+            )
             continue
         dst = target_dir / op.new_name
         try:
@@ -233,9 +236,7 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
 
     library_root = Path(job.library_root)
     root_folder = library_root / job.source_folder
-    root_is_library = (
-        os.path.normcase(str(root_folder)) == os.path.normcase(str(library_root))
-    )
+    root_is_library = os.path.normcase(str(root_folder)) == os.path.normcase(str(library_root))
     final_root: Path | None = None
     if (
         job.show_folder_rename
@@ -252,10 +253,7 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
         else:
             candidate_parent = root_folder.parent
         candidate_root = candidate_parent / job.show_folder_rename
-        same_dir = (
-            os.path.normcase(str(root_folder))
-            == os.path.normcase(str(candidate_root))
-        )
+        same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(candidate_root))
         if not same_dir:
             final_root = candidate_root
 
@@ -354,21 +352,24 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
             # vs "GoodFellas (1990)".  Allow the rename when the paths
             # resolve to the same directory (case correction) but block it
             # when new_root is a genuinely different existing directory.
-            same_dir = (
-                os.path.normcase(str(root_folder)) ==
-                os.path.normcase(str(new_root))
-            )
+            same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
             if same_dir or not new_root.exists():
                 try:
                     root_folder.rename(new_root)
-                    result.log_entry["renamed_dirs"].append({
-                        "old": str(root_folder), "new": str(new_root),
-                    })
+                    result.log_entry["renamed_dirs"].append(
+                        {
+                            "old": str(root_folder),
+                            "new": str(new_root),
+                        }
+                    )
                     result.new_root = new_root
                 except OSError as e:
                     _log.warning(
                         "Could not rename show folder %s → %s: %s",
-                        root_folder.name, job.show_folder_rename, e)
+                        root_folder.name,
+                        job.show_folder_rename,
+                        e,
+                    )
 
     return result
 
@@ -386,25 +387,24 @@ def _execute_remux(
     result.log_entry.setdefault("remux_outputs", [])
     result.log_entry["job_id"] = job.job_id
 
-    mux_ops = [op for op in job.rename_ops if op.mux and op.selected
-               and op.status == "OK" and op.new_name]
+    mux_ops = [
+        op for op in job.rename_ops if op.mux and op.selected and op.status == "OK" and op.new_name
+    ]
     total = len(mux_ops)
-    embed_title = bool(
-        job.metadata_plan and job.metadata_plan.get("embed_title"))
-    extras_by_op = {
-        e.get("op"): e
-        for e in ((job.metadata_plan or {}).get("embed_extras") or [])
-    }
+    embed_title = bool(job.metadata_plan and job.metadata_plan.get("embed_title"))
+    extras_by_op = {e.get("op"): e for e in ((job.metadata_plan or {}).get("embed_extras") or [])}
     for index, op in enumerate(mux_ops):
+
         def _on_percent(percent, _index=index):
             if progress_cb is not None:
                 progress_cb(_index, total, percent)
 
         title = Path(op.new_name).stem if embed_title else None
         entry = extras_by_op.get(op.original_relative)
-        with materialized_extras(
-                entry, fetch_image_bytes, result, op.new_name) as (
-                tags_path, cover_path):
+        with materialized_extras(entry, fetch_image_bytes, result, op.new_name) as (
+            tags_path,
+            cover_path,
+        ):
             execute_remux_op(
                 op,
                 source_root=Path(job.library_root),
@@ -427,6 +427,7 @@ _EXECUTORS: dict[str, Callable[..., RenameResult]] = {
 
 
 # ─── Per-job revert ──────────────────────────────────────────────────────────
+
 
 def _cleanup_empty_output_dirs(
     *,
@@ -496,10 +497,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         return False, ["No undo data stored for this job."]
 
     if job.undo_data.get("irreversible"):
-        return False, [
-            "This job replaced its source files (No Fear mode) "
-            "and cannot be reverted."
-        ]
+        return False, ["This job replaced its source files (No Fear mode) and cannot be reverted."]
 
     undo = job.undo_data
     library_root = Path(job.library_root)
@@ -507,10 +505,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
     moved_from_paths: list[Path] = []
-    output_boundary = (
-        Path(job.output_root).resolve(strict=False)
-        if job.output_root else None
-    )
+    output_boundary = Path(job.output_root).resolve(strict=False) if job.output_root else None
     source_boundary = library_root.resolve(strict=False)
 
     # Delete remux outputs first — a remuxed file has no "old path" to move
@@ -521,8 +516,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
             try:
                 output_path.resolve(strict=False).relative_to(output_boundary)
             except (OSError, ValueError):
-                errors.append(
-                    f"Remux output is outside the output root: {output_path}")
+                errors.append(f"Remux output is outside the output root: {output_path}")
                 continue
         try:
             if output_path.exists():
@@ -538,8 +532,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
             try:
                 created_path.resolve(strict=False).relative_to(output_boundary)
             except (OSError, ValueError):
-                errors.append(
-                    f"Created file is outside the output root: {created_path}")
+                errors.append(f"Created file is outside the output root: {created_path}")
                 continue
         try:
             if created_path.exists():
@@ -577,15 +570,12 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
             try:
                 dir_path.resolve(strict=False).relative_to(source_boundary)
             except (OSError, ValueError):
-                errors.append(
-                    f"Removed directory is outside the source root: {dir_path}"
-                )
+                errors.append(f"Removed directory is outside the source root: {dir_path}")
                 continue
         try:
             dir_path.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            errors.append(
-                f"Could not recreate folder {dir_path.name}: {e}")
+            errors.append(f"Could not recreate folder {dir_path.name}: {e}")
 
     # Move files back
     for entry in reversed(undo.get("renames", [])):
@@ -649,11 +639,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
 
     for dir_path_str in list(cleaned_dirs):
         parent = Path(dir_path_str).parent
-        while (
-            parent.exists()
-            and parent != parent.parent
-            and parent != cleanup_boundary
-        ):
+        while parent.exists() and parent != parent.parent and parent != cleanup_boundary:
             try:
                 if not list(parent.iterdir()):
                     parent.rmdir()
@@ -667,6 +653,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
 
 
 # ─── Queue executor ──────────────────────────────────────────────────────────
+
 
 class QueueExecutor:
     """
@@ -697,7 +684,8 @@ class QueueExecutor:
         self._listeners: list[dict[str, Callable | None]] = []
 
     def set_image_fetcher(
-        self, fetcher: Callable[[str], bytes | None] | None,
+        self,
+        fetcher: Callable[[str], bytes | None] | None,
     ) -> None:
         """Inject the artwork downloader (wired to TMDBClient at app
         bootstrap). The executor itself stays network-agnostic."""
@@ -712,13 +700,15 @@ class QueueExecutor:
         on_progress: Callable[[RenameJob, int, int, int], None] | None = None,
     ) -> int:
         """Register a callback listener.  Returns listener index."""
-        self._listeners.append({
-            "started": on_started,
-            "completed": on_completed,
-            "failed": on_failed,
-            "finished": on_finished,
-            "progress": on_progress,
-        })
+        self._listeners.append(
+            {
+                "started": on_started,
+                "completed": on_completed,
+                "failed": on_failed,
+                "finished": on_finished,
+                "progress": on_progress,
+            }
+        )
         return len(self._listeners) - 1
 
     def clear_listeners(self) -> None:
@@ -746,8 +736,7 @@ class QueueExecutor:
             return
         self._stop_event.clear()
         self._running = True
-        self._thread = threading.Thread(
-            target=self._worker, daemon=True, name="QueueExecutor")
+        self._thread = threading.Thread(target=self._worker, daemon=True, name="QueueExecutor")
         self._thread.start()
 
     def stop(self) -> None:
@@ -788,6 +777,7 @@ class QueueExecutor:
     def _make_progress_cb(self, job: RenameJob):
         def _cb(op_index: int, op_count: int, percent: int) -> None:
             self._notify("progress", job, op_index, op_count, percent)
+
         return _cb
 
     def _execute_one(self, job: RenameJob) -> None:
@@ -802,8 +792,7 @@ class QueueExecutor:
             all_missing = all(
                 not (Path(job.library_root) / op.original_relative).exists()
                 for op in job.rename_ops
-                if op.selected and op.new_name
-                and (op.status == "OK" or "UNMATCHED" in op.status)
+                if op.selected and op.new_name and (op.status == "OK" or "UNMATCHED" in op.status)
             )
             if all_missing:
                 # Every source file is gone — fail immediately
@@ -812,8 +801,7 @@ class QueueExecutor:
                     f"Files may have been moved or deleted externally."
                 )
                 _log.error("Job %s: %s", job.job_id[:8], error_msg)
-                self.store.update_status(
-                    job.job_id, JobStatus.FAILED, error_message=error_msg)
+                self.store.update_status(job.job_id, JobStatus.FAILED, error_message=error_msg)
                 job.status = JobStatus.FAILED
                 job.error_message = error_msg
                 self._notify("failed", job, error_msg)
@@ -822,8 +810,7 @@ class QueueExecutor:
                 # Partial — log warnings but proceed (executor handles
                 # per-file "source not found" gracefully)
                 for msg in missing:
-                    _log.warning("Job %s pre-check: %s",
-                                 job.job_id[:8], msg)
+                    _log.warning("Job %s pre-check: %s", job.job_id[:8], msg)
 
         # ── Execute ───────────────────────────────────────────────
         self.store.update_status(job.job_id, JobStatus.RUNNING)
@@ -840,9 +827,11 @@ class QueueExecutor:
 
             if job.job_kind == JobKind.REMUX:
                 result = executor_fn(
-                    job, self._make_progress_cb(job),
+                    job,
+                    self._make_progress_cb(job),
                     set_active_temp=lambda p: self.store.set_active_temp(job.job_id, p),
-                    fetch_image_bytes=self._image_fetcher)
+                    fetch_image_bytes=self._image_fetcher,
+                )
             else:
                 result = executor_fn(job, self._make_progress_cb(job))
 
@@ -864,8 +853,7 @@ class QueueExecutor:
 
             if result.errors and result.renamed_count == 0:
                 error_msg = "; ".join(result.errors[:5])
-                self.store.update_status(
-                    job.job_id, JobStatus.FAILED, error_message=error_msg)
+                self.store.update_status(job.job_id, JobStatus.FAILED, error_message=error_msg)
                 job.status = JobStatus.FAILED
                 job.error_message = error_msg
                 self._notify("failed", job, error_msg)
@@ -876,32 +864,31 @@ class QueueExecutor:
                 if result.errors:
                     error_msg = "; ".join(result.errors[:5])
                     self.store.update_status(
-                        job.job_id, JobStatus.COMPLETED,
-                        error_message=error_msg)
+                        job.job_id, JobStatus.COMPLETED, error_message=error_msg
+                    )
                     job.error_message = error_msg
                 else:
-                    self.store.update_status(
-                        job.job_id, JobStatus.COMPLETED)
+                    self.store.update_status(job.job_id, JobStatus.COMPLETED)
 
                 job.status = JobStatus.COMPLETED
 
                 # Path propagation
                 renamed_dirs = result.log_entry.get("renamed_dirs", [])
                 if renamed_dirs:
-                    propagated = self.store.propagate_path_changes(
-                        job.job_id, renamed_dirs)
+                    propagated = self.store.propagate_path_changes(job.job_id, renamed_dirs)
                     if propagated:
                         _log.info(
-                            "Updated %d pending job(s) after path changes "
-                            "from %s", propagated, job.media_name)
+                            "Updated %d pending job(s) after path changes from %s",
+                            propagated,
+                            job.media_name,
+                        )
 
                 self._notify("completed", job, result)
 
         except Exception as e:
             _log.exception("Job %s failed: %s", job.job_id[:8], e)
             error_msg = str(e)
-            self.store.update_status(
-                job.job_id, JobStatus.FAILED, error_message=error_msg)
+            self.store.update_status(job.job_id, JobStatus.FAILED, error_message=error_msg)
             job.status = JobStatus.FAILED
             job.error_message = error_msg
             self._notify("failed", job, error_msg)

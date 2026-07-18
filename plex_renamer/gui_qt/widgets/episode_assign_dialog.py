@@ -10,6 +10,8 @@ gui_qt._scale (HiDPI requirement); long rows elide (no horizontal scrollbar).
 
 from __future__ import annotations
 
+import itertools
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
@@ -21,8 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .. import _scale
 from ...app.models.state_models import EpisodeSlotChoice
+from .. import _scale
 
 _SLOT_ROLE = Qt.ItemDataRole.UserRole
 _MIN_W = 460
@@ -89,9 +91,7 @@ class EpisodeAssignDialog(QDialog):
         layout.setContentsMargins(_scale.margins(12))
         layout.setSpacing(_scale.px(6))
 
-        instruction = QLabel(
-            "Assign this file to one or more contiguous episodes:", self
-        )
+        instruction = QLabel("Assign this file to one or more contiguous episodes:", self)
         instruction.setWordWrap(True)
         layout.addWidget(instruction)
         self._file_label: QLabel | None = None
@@ -139,9 +139,7 @@ class EpisodeAssignDialog(QDialog):
                 leaf.setToolTip(0, text)
                 leaf.setCheckState(
                     0,
-                    Qt.CheckState.Checked
-                    if key in preselect
-                    else Qt.CheckState.Unchecked,
+                    Qt.CheckState.Checked if key in preselect else Qt.CheckState.Unchecked,
                 )
                 parent_item.addChild(leaf)
                 self._leaf_items.append(leaf)
@@ -183,9 +181,7 @@ class EpisodeAssignDialog(QDialog):
                 continue
             leaf.setCheckState(
                 0,
-                Qt.CheckState.Checked
-                if tuple(key) in wanted
-                else Qt.CheckState.Unchecked,
+                Qt.CheckState.Checked if tuple(key) in wanted else Qt.CheckState.Unchecked,
             )
         self._revalidate()
 
@@ -201,7 +197,7 @@ class EpisodeAssignDialog(QDialog):
         if len(seasons) > 1:
             return "All selected episodes must be in the same season."
         episodes = [episode for _season, episode in keys]
-        if any(b - a != 1 for a, b in zip(episodes, episodes[1:])):
+        if any(b - a != 1 for a, b in itertools.pairwise(episodes)):
             return "Selected episodes must be a contiguous run."
         return ""
 
@@ -283,9 +279,7 @@ class EpisodeAssignDialog(QDialog):
             group.setExpanded(True)
             for file_id, label in entries:
                 leaf = QTreeWidgetItem([label])
-                leaf.setFlags(
-                    Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-                )
+                leaf.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 leaf.setData(0, _SLOT_ROLE, file_id)
                 leaf.setToolTip(0, label)
                 group.addChild(leaf)

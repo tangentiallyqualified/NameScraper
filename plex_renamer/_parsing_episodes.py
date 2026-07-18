@@ -5,16 +5,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
 from ._parsing_titles import clean_name, clean_title_evidence, strip_release_junk_title
+from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
 
 _MAX_RANGE_SPAN = 12
 
 # Words that turn an adjacent number into a quantity/volume label rather than an
 # episode: "No.6" / "Number 6" / "Vol 2" / "Part 3" — not episode numbers.
-_NUMBER_WORD_PREFIXES = frozenset(
-    {"no", "number", "vol", "volume", "part", "pt", "chapter", "ch"}
-)
+_NUMBER_WORD_PREFIXES = frozenset({"no", "number", "vol", "volume", "part", "pt", "chapter", "ch"})
 
 
 def _is_titleish_bare_number(name: str, digit_start: int, digit_end: int) -> bool:
@@ -68,7 +66,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     if sxe:
         points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
         initial_count = len(points)
-        rest = name[sxe.end():]
+        rest = name[sxe.end() :]
         segment_re = re.compile(
             r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
             re.IGNORECASE,
@@ -78,7 +76,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             if not seg:
                 break
             points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
-            rest = rest[seg.end():]
+            rest = rest[seg.end() :]
         # Expand only a lone *dash-introduced* gapped endpoint (e.g.
         # S01E01-E04) as a range. Concatenated explicit episodes
         # (S01E03E05 -> [3, 5]) and 3+ chained points (incl. a multi-ep
@@ -99,7 +97,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     if nxn:
         season_prefix = nxn.group(1)
         points = [int(nxn.group(2))]
-        rest = name[nxn.end():]
+        rest = name[nxn.end() :]
         segment_re = re.compile(
             rf"^(?:-(?:{season_prefix}x)?(\d{{2,3}})(?![a-zA-Z])"
             rf"|\s+-\s+{season_prefix}x(\d{{2,3}})(?![a-zA-Z]))",
@@ -110,7 +108,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             if not seg:
                 break
             points.append(int(seg.group(1) or seg.group(2)))
-            rest = rest[seg.end():]
+            rest = rest[seg.end() :]
         if len(points) == 2 and points[1] - points[0] > 1:
             episodes = _expand_range(points[0], points[1])
         else:
@@ -142,15 +140,12 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         re.IGNORECASE,
     )
     if echain:
-        points = [
-            int(num)
-            for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)
-        ]
+        points = [int(num) for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)]
         if len(points) == 2 and points[1] - points[0] > 1:
             episodes = _expand_range(points[0], points[1])
         else:
             episodes = points
-        rest = name[echain.end():]
+        rest = name[echain.end() :]
         title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
         return episodes, title, False
 
@@ -204,9 +199,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         # A bare (unparenthesized) release year in the remainder marks a
         # scene-style movie name whose title leads with a number
         # ("300.2006.1080p..."); "01. Pilot (2005)" keeps its episode.
-        scene_year_follows = re.search(
-            r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2)
-        )
+        scene_year_follows = re.search(r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2))
         if (
             num not in RESOLUTION_NUMBERS
             and not (YEAR_MIN <= num <= YEAR_MAX)
@@ -241,7 +234,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
         if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
             start = match.start()
             if start > 0:
-                prefix = name[max(0, start - 1):start]
+                prefix = name[max(0, start - 1) : start]
                 if prefix.lower() in ("x", "h"):
                     return [], None, False
             if _is_titleish_bare_number(name, match.start(1), match.end(1)):
@@ -250,7 +243,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             # a movie-style title ("21 Jump Street 2012 ..."), not an
             # episode; episode-first files ("100 - Title") carry no year.
             if match.start(1) == 0 and re.search(
-                r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1):]
+                r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1) :]
             ):
                 return [], None, False
             title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
@@ -281,7 +274,9 @@ def extract_season_number(filename: str) -> int | None:
     if match:
         return int(match.group(1))
 
-    match = re.search(r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE)
+    match = re.search(
+        r"\b(\d{1,2})x\d{2,3}(?:\s*-\s*(?:\d{1,2}x)?\d{2,3})?(?!\d)", name, re.IGNORECASE
+    )
     if match:
         return int(match.group(1))
 

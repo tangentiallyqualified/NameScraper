@@ -18,7 +18,6 @@ from ..tmdb import TMDBClient
 from ._state import get_auto_accept_threshold
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
 
-
 _log = logging.getLogger(__name__)
 
 
@@ -180,10 +179,26 @@ def _country_from_language(language_tag: str) -> str | None:
     if "-" in language_tag:
         return language_tag.split("-", 1)[1].upper()
     _LANG_TO_COUNTRY = {
-        "en": "US", "fr": "FR", "es": "ES", "de": "DE", "it": "IT",
-        "pt": "BR", "ja": "JP", "ko": "KR", "zh": "CN", "ru": "RU",
-        "nl": "NL", "sv": "SE", "da": "DK", "no": "NO", "fi": "FI",
-        "pl": "PL", "tr": "TR", "ar": "SA", "hi": "IN", "th": "TH",
+        "en": "US",
+        "fr": "FR",
+        "es": "ES",
+        "de": "DE",
+        "it": "IT",
+        "pt": "BR",
+        "ja": "JP",
+        "ko": "KR",
+        "zh": "CN",
+        "ru": "RU",
+        "nl": "NL",
+        "sv": "SE",
+        "da": "DK",
+        "no": "NO",
+        "fi": "FI",
+        "pl": "PL",
+        "tr": "TR",
+        "ar": "SA",
+        "hi": "IN",
+        "th": "TH",
     }
     return _LANG_TO_COUNTRY.get(language_tag.lower())
 
@@ -226,16 +241,20 @@ def boost_scores_with_alt_titles(
     best_score = scored[0][1]
     if best_score >= get_auto_accept_threshold() and not force:
         _log.debug(
-            "Alt title boost skipped — top result already at %.2f "
-            "(threshold %.2f) for %r",
-            best_score, get_auto_accept_threshold(), raw_name,
+            "Alt title boost skipped — top result already at %.2f (threshold %.2f) for %r",
+            best_score,
+            get_auto_accept_threshold(),
+            raw_name,
         )
         return scored
 
     _log.info(
         "Alt title boost: top score %.2f for %r — checking alt titles "
         "(preferred_country=%s, force=%s)",
-        best_score, raw_name, preferred_country, force,
+        best_score,
+        raw_name,
+        preferred_country,
+        force,
     )
 
     query_norm = normalize_for_match(raw_name)
@@ -245,12 +264,15 @@ def boost_scores_with_alt_titles(
     for i, (result, original_score) in enumerate(scored):
         if i < _ALT_TITLE_CANDIDATES and result.get("id") is not None:
             raw_alts = tmdb.get_alternative_titles(
-                result["id"], media_type,
+                result["id"],
+                media_type,
             )
             _log.debug(
                 "  [%s] id=%s %r: %d alt titles fetched",
-                media_type, result["id"],
-                result.get(title_key, "?"), len(raw_alts),
+                media_type,
+                result["id"],
+                result.get(title_key, "?"),
+                len(raw_alts),
             )
 
             preferred: list[str] = []
@@ -293,7 +315,9 @@ def boost_scores_with_alt_titles(
             if best_alt_title:
                 _log.info(
                     "  Boosted id=%s from %.2f → %.2f via alt title %r",
-                    result["id"], original_score, best_alt_score,
+                    result["id"],
+                    original_score,
+                    best_alt_score,
                     best_alt_title,
                 )
             updated.append((result, best_alt_score))
@@ -356,9 +380,7 @@ def _tv_episode_evidence_adjustment(
             season_titles = season_data.get("titles", {})
             if item.episode_num in season_titles:
                 exact_episode_hits += 1
-            title_scores.append(
-                _best_episode_title_similarity(item.raw_title, season_titles)
-            )
+            title_scores.append(_best_episode_title_similarity(item.raw_title, season_titles))
             continue
         # The hinted season is missing from TMDB (consolidated shows): match
         # the title evidence against every season instead of skipping, so
@@ -368,9 +390,7 @@ def _tv_episode_evidence_adjustment(
             for data in tmdb_seasons.values():
                 for title in data.get("titles", {}).values():
                     merged_titles[len(merged_titles)] = title
-        title_scores.append(
-            _best_episode_title_similarity(item.raw_title, merged_titles)
-        )
+        title_scores.append(_best_episode_title_similarity(item.raw_title, merged_titles))
 
     if limited_evidence:
         adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10
@@ -408,12 +428,28 @@ def boost_tv_scores_with_episode_evidence(
 
 
 _ROMAN_NUMERAL_MAP = {
-    "i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5,
-    "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10,
+    "i": 1,
+    "ii": 2,
+    "iii": 3,
+    "iv": 4,
+    "v": 5,
+    "vi": 6,
+    "vii": 7,
+    "viii": 8,
+    "ix": 9,
+    "x": 10,
 }
 _WORD_NUMERAL_MAP = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
 }
 
 # Match trailing sequel tokens:
@@ -488,9 +524,7 @@ def _collect_movie_evidence(
     filename_norm = normalize_for_match(raw_filename_no_year)
     folder_norm = normalize_for_match(folder_clean)
 
-    exact_title_match = bool(tmdb_norm) and (
-        filename_norm == tmdb_norm or folder_norm == tmdb_norm
-    )
+    exact_title_match = bool(tmdb_norm) and (filename_norm == tmdb_norm or folder_norm == tmdb_norm)
 
     filename_year = extract_year(stem) or extract_year(file_path.parent.name)
     year_exact_match = False
@@ -498,22 +532,19 @@ def _collect_movie_evidence(
     if filename_year and tmdb_year:
         try:
             diff = abs(int(filename_year) - int(tmdb_year))
-            year_exact_match = (diff == 0)
-            year_severely_off = (diff >= 3)
+            year_exact_match = diff == 0
+            year_severely_off = diff >= 3
         except (ValueError, TypeError):
             pass
 
-    folder_corroborates_title = (
-        bool(folder_norm) and bool(tmdb_norm) and folder_norm == tmdb_norm
-    )
+    folder_corroborates_title = bool(folder_norm) and bool(tmdb_norm) and folder_norm == tmdb_norm
 
     raw_filename = clean_folder_name(stem)
     filename_sequel = _extract_sequel_number(raw_filename)
     tmdb_sequel = _extract_sequel_number(tmdb_title)
     sequel_mismatch = (
-        (filename_sequel is not None or tmdb_sequel is not None)
-        and filename_sequel != tmdb_sequel
-    )
+        filename_sequel is not None or tmdb_sequel is not None
+    ) and filename_sequel != tmdb_sequel
 
     return _MovieEvidence(
         exact_title_match=exact_title_match,
@@ -591,8 +622,7 @@ def score_tv_results(
         folder_scored = score_results(results, folder_score_name, year_hint, title_key="name")
         folder_map = {result.get("id"): score for result, score in folder_scored}
         scored = [
-            (result, max(score, folder_map.get(result.get("id"), 0.0)))
-            for result, score in scored
+            (result, max(score, folder_map.get(result.get("id"), 0.0))) for result, score in scored
         ]
         scored.sort(key=lambda item: item[1], reverse=True)
 

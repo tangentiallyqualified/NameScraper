@@ -32,8 +32,18 @@ def paint_check_indicator(painter: QPainter, rect: QRectF, state: Qt.CheckState)
     size = rect.width()
     left, top = rect.x(), rect.y()
     if state == Qt.CheckState.Checked:
-        painter.drawLine(int(left + size * 0.25), int(top + size * 0.50), int(left + size * 0.43), int(top + size * 0.68))
-        painter.drawLine(int(left + size * 0.43), int(top + size * 0.68), int(left + size * 0.75), int(top + size * 0.32))
+        painter.drawLine(
+            int(left + size * 0.25),
+            int(top + size * 0.50),
+            int(left + size * 0.43),
+            int(top + size * 0.68),
+        )
+        painter.drawLine(
+            int(left + size * 0.43),
+            int(top + size * 0.68),
+            int(left + size * 0.75),
+            int(top + size * 0.32),
+        )
     elif state == Qt.CheckState.PartiallyChecked:
         y = int(top + size / 2)
         painter.drawLine(int(left + size * 0.28), y, int(left + size * 0.72), y)
@@ -80,7 +90,7 @@ class MasterCheckBox(QCheckBox):
     _RADIUS = 4
 
     @property
-    def _INDICATOR_SIZE(self) -> int:  # noqa: N802 — preserves original API
+    def _INDICATOR_SIZE(self) -> int:
         return _scale.px(self._INDICATOR_GRID_UNITS)
 
     def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
@@ -100,7 +110,7 @@ class MasterCheckBox(QCheckBox):
         text_width = self.fontMetrics().horizontalAdvance(self.text())
         return QSize(self._INDICATOR_SIZE + 12 + text_width, max(24, self._INDICATOR_SIZE + 6))
 
-    def paintEvent(self, _event) -> None:  # noqa: N802
+    def paintEvent(self, _event) -> None:
         painter = QPainter(self)
 
         state = self.checkState()
@@ -110,7 +120,9 @@ class MasterCheckBox(QCheckBox):
 
         text_rect = self.rect().adjusted(self._INDICATOR_SIZE + 8, 0, 0, 0)
         painter.setPen(theme.qcolor("text_dim") if not self.isEnabled() else theme.qcolor("text"))
-        painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
+        painter.drawText(
+            text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text()
+        )
         painter.end()
 
 
@@ -130,18 +142,18 @@ class ElidedLabel(QLabel):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._apply_elision()
 
-    def setText(self, text: str) -> None:  # noqa: N802
+    def setText(self, text: str) -> None:
         self._full_text = text
         self._apply_elision()
 
-    def text(self) -> str:  # noqa: N802
+    def text(self) -> str:
         return self._full_text
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._apply_elision()
 
-    def showEvent(self, event) -> None:  # noqa: N802
+    def showEvent(self, event) -> None:
         super().showEvent(event)
         self._apply_elision()
 

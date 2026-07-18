@@ -1,5 +1,6 @@
 # plex_renamer/gui_qt/widgets/_roster_delegate.py
 """Painted roster rows: RosterDelegate + RosterListView (GUI V4 §7)."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QModelIndex, QRect, QSize, Qt, Signal
@@ -18,7 +19,10 @@ from ._image_utils import build_placeholder_pixmap, scale_pixmap_for_device
 from ._roster_model import GROUP_ROLE, KIND_ROLE, POSTER_ROLE, ROW_DATA_ROLE, RosterRowData
 from ._workspace_widget_primitives import paint_check_indicator, paint_mini_progress
 from .status_chip import (
-    chip_font_metrics, chip_rects_wrapped, chip_wrapped_height, paint_chip_row_wrapped,
+    chip_font_metrics,
+    chip_rects_wrapped,
+    chip_wrapped_height,
+    paint_chip_row_wrapped,
 )
 
 _MARGIN_U = 8
@@ -28,8 +32,8 @@ _ROW_NORMAL_U, _ROW_HEADER_U = 110, 34
 _BAR_W_U = 110
 _HEADER_PAD_LEFT_U = 12
 _CHIP_TOP_GAP_U = 6
-_CONF_BLOCK_U = 18   # confidence bar (4u) + pct baseline padding
-_CARD_GAP_U = 2      # vertical gap separating consecutive roster cards (R2 L2)
+_CONF_BLOCK_U = 18  # confidence bar (4u) + pct baseline padding
+_CARD_GAP_U = 2  # vertical gap separating consecutive roster cards (R2 L2)
 _CARD_HMARGIN_U = 6  # left/right inset so cards clear the panel edges (R2 L1)
 _ROW_COMPACT_U = 64  # compact base height: no poster to accommodate (R2 L3)
 
@@ -85,7 +89,12 @@ class RosterDelegate(QStyledItemDelegate):
             poster_rect = self._poster_rect(card_rect)
             body_x = poster_rect.right() + margin + 1
         body_right = card_rect.right() - margin
-        return QRect(body_x, card_rect.y() + margin, max(0, body_right - body_x), card_rect.height() - 2 * margin)
+        return QRect(
+            body_x,
+            card_rect.y() + margin,
+            max(0, body_right - body_x),
+            card_rect.height() - 2 * margin,
+        )
 
     # -- Painting ------------------------------------------------------------
 
@@ -97,7 +106,7 @@ class RosterDelegate(QStyledItemDelegate):
         body_x = margin + toggle + margin + poster
         return max(_scale.px(80), view_w - body_x - margin - 2 * _scale.px(_CARD_HMARGIN_U))
 
-    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
         del option
         kind = index.data(KIND_ROLE)
         if kind == "header":
@@ -111,7 +120,9 @@ class RosterDelegate(QStyledItemDelegate):
             chip_h = _scale.px(_CHIP_TOP_GAP_U) + chip_wrapped_height(
                 row_data.chips, chip_font_metrics(), self._body_width()
             )
-        content = gap2 + 2 * _scale.px(_MARGIN_U) + 2 * line_height + _scale.px(_CONF_BLOCK_U) + chip_h
+        content = (
+            gap2 + 2 * _scale.px(_MARGIN_U) + 2 * line_height + _scale.px(_CONF_BLOCK_U) + chip_h
+        )
         if self._compact:
             return QSize(0, max(_scale.px(_ROW_COMPACT_U) + gap2, content))
         return QSize(0, max(_scale.px(_ROW_NORMAL_U) + gap2, content))
@@ -139,7 +150,11 @@ class RosterDelegate(QStyledItemDelegate):
         painter.restore()
 
     def _paint_background(
-        self, painter: QPainter, option: QStyleOptionViewItem, card_rect: QRect, row_data: RosterRowData
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        card_rect: QRect,
+        row_data: RosterRowData,
     ) -> None:
         del row_data  # band tint removed (R2 L6); band stays in the model for other consumers
         radius = theme.radius("md")
@@ -162,7 +177,9 @@ class RosterDelegate(QStyledItemDelegate):
             painter.setBrush(theme.qcolor("card_hover"))
             painter.drawRoundedRect(card_rect, radius, radius)
 
-    def _paint_header(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+    def _paint_header(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+    ) -> None:
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.qcolor("section_header_bg"))
@@ -173,14 +190,20 @@ class RosterDelegate(QStyledItemDelegate):
         painter.setFont(font)
         painter.setPen(theme.qcolor("accent"))
         text_rect = option.rect.adjusted(_scale.px(_HEADER_PAD_LEFT_U), 0, 0, 0)
-        painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text.upper())
+        painter.drawText(
+            text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text.upper()
+        )
         painter.restore()
 
-    def _paint_poster(self, painter: QPainter, poster, row_data: RosterRowData, card_rect: QRect) -> None:
+    def _paint_poster(
+        self, painter: QPainter, poster, row_data: RosterRowData, card_rect: QRect
+    ) -> None:
         rect = self._poster_rect(card_rect)
         device_pixel_ratio = self._view.devicePixelRatioF() if self._view is not None else 1.0
         if poster is not None and not poster.isNull():
-            scaled = scale_pixmap_for_device(poster, rect.size(), device_pixel_ratio=device_pixel_ratio)
+            scaled = scale_pixmap_for_device(
+                poster, rect.size(), device_pixel_ratio=device_pixel_ratio
+            )
         else:
             scaled = build_placeholder_pixmap(
                 rect.size(),
@@ -197,31 +220,59 @@ class RosterDelegate(QStyledItemDelegate):
         line_height = metrics.lineSpacing()
 
         first_line_rect = QRect(body_rect.x(), body_rect.y(), body_rect.width(), line_height)
-        second_line_rect = QRect(body_rect.x(), body_rect.y() + line_height, body_rect.width(), line_height)
+        second_line_rect = QRect(
+            body_rect.x(), body_rect.y() + line_height, body_rect.width(), line_height
+        )
 
         painter.setPen(theme.qcolor("text"))
         title = row_data.title
         first_line, remainder = self._split_title(title, metrics, first_line_rect.width())
-        first_line = metrics.elidedText(first_line, Qt.TextElideMode.ElideRight, first_line_rect.width())
-        painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), first_line)
+        first_line = metrics.elidedText(
+            first_line, Qt.TextElideMode.ElideRight, first_line_rect.width()
+        )
+        painter.drawText(
+            first_line_rect,
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            first_line,
+        )
         if remainder:
-            elided = metrics.elidedText(remainder, Qt.TextElideMode.ElideMiddle, second_line_rect.width())
-            painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), elided)
+            elided = metrics.elidedText(
+                remainder, Qt.TextElideMode.ElideMiddle, second_line_rect.width()
+            )
+            painter.drawText(
+                second_line_rect,
+                int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                elided,
+            )
 
         confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
         bar_rect = QRect(body_rect.x(), confidence_y, _scale.px(_BAR_W_U), _scale.px(4))
         painter.save()
-        paint_mini_progress(painter, bar_rect, value=row_data.confidence_pct, color=QColor(row_data.confidence_color))
+        paint_mini_progress(
+            painter,
+            bar_rect,
+            value=row_data.confidence_pct,
+            color=QColor(row_data.confidence_color),
+        )
         painter.restore()
         pct_text = f"{row_data.confidence_pct}%"
-        pct_rect = QRect(bar_rect.right() + _scale.px(8), bar_rect.y() - _scale.px(6), _scale.px(48), _scale.px(16))
+        pct_rect = QRect(
+            bar_rect.right() + _scale.px(8),
+            bar_rect.y() - _scale.px(6),
+            _scale.px(48),
+            _scale.px(16),
+        )
         painter.setPen(theme.qcolor("text_dim"))
-        painter.drawText(pct_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), pct_text)
+        painter.drawText(
+            pct_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), pct_text
+        )
 
         if row_data.chips:
             chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
             painter.setPen(theme.qcolor("text"))
-            paint_chip_row_wrapped(painter, body_rect.x(), chip_y, row_data.chips, body_rect.width())
+            paint_chip_row_wrapped(
+                painter, body_rect.x(), chip_y, row_data.chips, body_rect.width()
+            )
 
     def _split_title(self, title: str, metrics: QFontMetrics, width: int) -> tuple[str, str]:
         if width <= 0:
@@ -237,7 +288,7 @@ class RosterDelegate(QStyledItemDelegate):
 
     # -- Tooltips --------------------------------------------------------
 
-    def helpEvent(  # noqa: N802
+    def helpEvent(
         self,
         event: QHelpEvent,
         view,
@@ -254,10 +305,14 @@ class RosterDelegate(QStyledItemDelegate):
 
         body_rect = self._body_rect(self._card_rect(option.rect))
         painter_metrics = QFontMetrics(self._view.font()) if self._view is not None else None
-        line_height = painter_metrics.lineSpacing() if painter_metrics is not None else _scale.px(16)
+        line_height = (
+            painter_metrics.lineSpacing() if painter_metrics is not None else _scale.px(16)
+        )
         confidence_y = body_rect.y() + 2 * line_height + _scale.px(4)
         chip_y = confidence_y + _scale.px(_CONF_BLOCK_U) + _scale.px(_CHIP_TOP_GAP_U)
-        rects = chip_rects_wrapped(body_rect.x(), chip_y, row_data.chips, chip_font_metrics(), body_rect.width())
+        rects = chip_rects_wrapped(
+            body_rect.x(), chip_y, row_data.chips, chip_font_metrics(), body_rect.width()
+        )
         point = event.pos()
         for chip, rect in zip(row_data.chips, rects):
             if rect.contains(point):
@@ -269,8 +324,8 @@ class RosterDelegate(QStyledItemDelegate):
 
 
 class RosterListView(QListView):
-    toggle_clicked = Signal(QModelIndex)      # pressed inside a state row's toggle rect
-    header_clicked = Signal(str)              # group key
+    toggle_clicked = Signal(QModelIndex)  # pressed inside a state row's toggle rect
+    header_clicked = Signal(str)  # group key
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -282,7 +337,7 @@ class RosterListView(QListView):
         self.setProperty("cssClass", "row-host-list")
         self._intercepted_row: int = -1
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
         index = self.indexAt(pos)
         if index.isValid():
@@ -304,7 +359,7 @@ class RosterListView(QListView):
                 return
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
         index = self.indexAt(pos)
         if self._intercepted_row != -1 and index.isValid() and index.row() == self._intercepted_row:

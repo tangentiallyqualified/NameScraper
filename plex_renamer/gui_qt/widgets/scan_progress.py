@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from PySide6.QtCore import QRectF, Qt, QElapsedTimer, QTimer, Signal
+from PySide6.QtCore import QElapsedTimer, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QLinearGradient, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -17,10 +17,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import _scale, theme
 from ...app.models import ScanLifecycle
+from .. import _scale, theme
 from ._workspace_widget_primitives import ElidedLabel
-
 
 _TV_CHECKLIST = [
     ScanLifecycle.DISCOVERING,
@@ -83,7 +82,7 @@ _MOVIE_FILLERS = (
 
 
 _CARD_COUNT = 5
-_CONVEYOR_CYCLE_MS = 5_400      # one slot slide; halved so more cards cross per scan
+_CONVEYOR_CYCLE_MS = 5_400  # one slot slide; halved so more cards cross per scan
 
 
 def conveyor_offset(elapsed_ms: int, slot_w: int, cycle_ms: int = _CONVEYOR_CYCLE_MS) -> float:
@@ -102,7 +101,7 @@ class _ConveyorAnimation(QWidget):
         super().__init__(parent)
         self._clock = QElapsedTimer()
         self._active = False
-        self._posters: list[QPixmap] = []          # arrival-ordered pool
+        self._posters: list[QPixmap] = []  # arrival-ordered pool
         self._seen_keys: set[int] = set()
         self._card_posters: dict[int, QPixmap | None] = {}  # logical card id -> assignment
         self._next_poster = 0
@@ -204,7 +203,8 @@ class _ConveyorAnimation(QWidget):
                     scaled = self._scaled_cache.get(key)
                     if scaled is None:
                         scaled = poster.scaled(
-                            int(card.width() * dpr), int(card.height() * dpr),
+                            int(card.width() * dpr),
+                            int(card.height() * dpr),
                             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                             Qt.TransformationMode.SmoothTransformation,
                         )
@@ -221,15 +221,31 @@ class _ConveyorAnimation(QWidget):
                     painter.setBrush(border)
                     line_w = card_w - _scale.px(12)
                     painter.drawRoundedRect(
-                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(18), line_w, _scale.px(4)), 2, 2
+                        QRectF(
+                            card.left() + _scale.px(6),
+                            card.bottom() - _scale.px(18),
+                            line_w,
+                            _scale.px(4),
+                        ),
+                        2,
+                        2,
                     )
                     painter.drawRoundedRect(
-                        QRectF(card.left() + _scale.px(6), card.bottom() - _scale.px(10), line_w * 0.6, _scale.px(4)), 2, 2
+                        QRectF(
+                            card.left() + _scale.px(6),
+                            card.bottom() - _scale.px(10),
+                            line_w * 0.6,
+                            _scale.px(4),
+                        ),
+                        2,
+                        2,
                     )
             if self._active and abs(center_x - beam_x) <= slot_w * 0.5:
                 sweep = (beam_x - (center_x - slot_w * 0.5)) / slot_w
                 beam_pos = card.left() + card.width() * max(0.0, min(1.0, sweep))
-                gradient = QLinearGradient(beam_pos - _scale.px(10), 0.0, beam_pos + _scale.px(10), 0.0)
+                gradient = QLinearGradient(
+                    beam_pos - _scale.px(10), 0.0, beam_pos + _scale.px(10), 0.0
+                )
                 lead = theme.qcolor("accent")
                 lead.setAlpha(0)
                 core = theme.qcolor("accent")
@@ -240,7 +256,8 @@ class _ConveyorAnimation(QWidget):
                 gradient.setColorAt(0.5, core)
                 gradient.setColorAt(1.0, trail)
                 painter.fillRect(
-                    QRectF(beam_pos - _scale.px(10), card.top(), _scale.px(20), card.height()), gradient
+                    QRectF(beam_pos - _scale.px(10), card.top(), _scale.px(20), card.height()),
+                    gradient,
                 )
 
         if len(self._card_posters) > 64:
@@ -436,7 +453,7 @@ class ScanProgressWidget(QWidget):
             if item_text:
                 self._set_item_text(item_text)
                 if self._elapsed_timer.isActive():
-                    self._filler_timer.start()   # restart the 4s no-change window
+                    self._filler_timer.start()  # restart the 4s no-change window
             self._text_update_timer.restart()
 
         if parsed_lifecycle in _TERMINAL:

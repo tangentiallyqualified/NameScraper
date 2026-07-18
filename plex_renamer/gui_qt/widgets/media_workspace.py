@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, QUrl, Qt, Signal
+from PySide6.QtCore import QModelIndex, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QInputDialog,
@@ -47,7 +47,7 @@ class MediaWorkspace(QWidget):
     folder_selected = Signal(str)
     queue_changed = Signal()
     status_message = Signal(str, int)
-    toast_requested = Signal(str, str, str)   # title, message, tone ("success"/"info"/"error")
+    toast_requested = Signal(str, str, str)  # title, message, tone ("success"/"info"/"error")
 
     def __init__(
         self,
@@ -55,7 +55,7 @@ class MediaWorkspace(QWidget):
         media_controller=None,
         queue_controller=None,
         tmdb_provider=None,
-        settings_service: "SettingsService | None" = None,
+        settings_service: SettingsService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)

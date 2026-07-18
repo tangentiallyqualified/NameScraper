@@ -4,8 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from audit import __main__ as cli
-from audit import _artifacts
+from audit import __main__ as cli, _artifacts
 
 
 def test_quality_check_returns_zero_for_stale_baseline_only(

@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from .._parsing_titles import clean_title_evidence
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import (
     extract_episode,
@@ -14,11 +15,10 @@ from ..parsing import (
     is_extras_folder,
     normalize_for_specials,
 )
-from .._parsing_titles import clean_title_evidence
 from ._episode_resolution import (
+    _TITLE_EXACT,
     CONF_TITLE_WINS_INEXACT,
     STRONG_TITLE_STRENGTH,
-    _TITLE_EXACT,
     Resolution,
     match_title_in_titles,
     resolve_file,
@@ -27,7 +27,8 @@ from .episode_assignments import REASON_AMBIGUOUS_RUN, EpisodeAssignmentTable, E
 from .models import SeasonFolderEntry, iter_season_folder_paths
 
 _SPECIAL_STEM_PREFIX_RE = re.compile(
-    r"^(?:Season|S)\s*\d+\s*[-._]\s*", re.IGNORECASE,
+    r"^(?:Season|S)\s*\d+\s*[-._]\s*",
+    re.IGNORECASE,
 )
 
 
@@ -39,13 +40,15 @@ def _register_season_slots(
 ) -> None:
     for episode_num, title in titles.items():
         meta = (episodes_meta or {}).get(episode_num, {}) or {}
-        table.add_slot(EpisodeSlot(
-            season=season_num,
-            episode=episode_num,
-            title=title,
-            air_date=str(meta.get("air_date", "") or ""),
-            overview=str(meta.get("overview", "") or ""),
-        ))
+        table.add_slot(
+            EpisodeSlot(
+                season=season_num,
+                episode=episode_num,
+                title=title,
+                air_date=str(meta.get("air_date", "") or ""),
+                overview=str(meta.get("overview", "") or ""),
+            )
+        )
 
 
 def _resolve_into_table(
@@ -118,12 +121,7 @@ def _resolve_into_table(
         season=season_num,
         season_hint=season_hint,
     )
-    if (
-        season_num == 0
-        and not resolution.episodes
-        and title_evidence
-        and " - " in title_evidence
-    ):
+    if season_num == 0 and not resolution.episodes and title_evidence and " - " in title_evidence:
         # Extras often name themselves "Parent Title - Extra Title" while
         # TMDB lists "Extra Title (Parent Title Prequel)"; per-segment
         # matching bridges the recombination (RC25).
@@ -132,10 +130,7 @@ def _resolve_into_table(
             if len(segment) < 4:
                 continue
             segment_match = match_title_in_titles(segment, season_titles)
-            if (
-                segment_match is not None
-                and segment_match.strength >= STRONG_TITLE_STRENGTH
-            ):
+            if segment_match is not None and segment_match.strength >= STRONG_TITLE_STRENGTH:
                 resolution = Resolution(
                     episodes=(segment_match.episode,),
                     confidence=CONF_TITLE_WINS_INEXACT,
@@ -173,16 +168,20 @@ def _resolve_into_table(
             and s0_match.strength >= STRONG_TITLE_STRENGTH
             and (own_match is None or s0_match.strength > own_match.strength)
             and (
-                not own_explicit_valid
-                or (s0_match.strength >= _TITLE_EXACT and own_match is None)
+                not own_explicit_valid or (s0_match.strength >= _TITLE_EXACT and own_match is None)
             )
         ):
             if (0, s0_match.episode) not in table.slots:
-                table.add_slot(EpisodeSlot(
-                    season=0, episode=s0_match.episode,
-                    title=specials_titles[s0_match.episode],
-                ))
-            exact_title = "title-strong" if s0_match.strength >= _TITLE_EXACT else "title-strong-inexact"
+                table.add_slot(
+                    EpisodeSlot(
+                        season=0,
+                        episode=s0_match.episode,
+                        title=specials_titles[s0_match.episode],
+                    )
+                )
+            exact_title = (
+                "title-strong" if s0_match.strength >= _TITLE_EXACT else "title-strong-inexact"
+            )
             resolution = Resolution(
                 episodes=(s0_match.episode,),
                 confidence=CONF_TITLE_WINS_INEXACT,
@@ -240,8 +239,10 @@ def build_normal_table(
             season_data = tmdb.get_season(show_info["id"], season_num)
         titles = season_data.get("titles", {})
         store_tmdb_data(
-            season_num, titles,
-            season_data.get("posters", {}), season_data.get("episodes", {}),
+            season_num,
+            titles,
+            season_data.get("posters", {}),
+            season_data.get("episodes", {}),
         )
         if season_num == 0:
             ensure_s0_titles()
@@ -265,27 +266,32 @@ def build_normal_table(
                 for folder_entry in season_folders.values()
                 for folder in iter_season_folder_paths(folder_entry)
             )
-        nested_specials_folder = bool(re.search(
-            r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",
-            season_dir.name, re.IGNORECASE,
-        ))
+        nested_specials_folder = bool(
+            re.search(
+                r"(?:^|[\s._\-])specials?$|(?:^|[\s._\-])season[\s._\-]*0+$",
+                season_dir.name,
+                re.IGNORECASE,
+            )
+        )
         extras_folder = (
             season_num == 0
             and not explicit_season_folder
             and not nested_specials_folder
-            and season_dir.name.lower().strip() not in (
-                "specials", "special", "season 00", "season 0",
-                "season00", "season0",
+            and season_dir.name.lower().strip()
+            not in (
+                "specials",
+                "special",
+                "season 00",
+                "season 0",
+                "season00",
+                "season0",
             )
         )
 
         for entry_path in sorted(season_dir.iterdir()):
             if entry_path.is_file() and entry_path.suffix.lower() in VIDEO_EXTENSIONS:
                 _, _, is_season_relative = extract_episode(entry_path.name)
-                file_season = (
-                    extract_season_number(entry_path.name)
-                    if is_season_relative else None
-                )
+                file_season = extract_season_number(entry_path.name) if is_season_relative else None
                 if season_num == 0 or file_season == 0:
                     _resolve_into_table(
                         table,
@@ -293,7 +299,7 @@ def build_normal_table(
                         season_num=0,
                         season_titles=ensure_s0_titles(),
                         from_extras_folder=extras_folder and season_num == 0,
-                        show_name=show_info.get('name'),
+                        show_name=show_info.get("name"),
                     )
                 else:
                     _resolve_into_table(
@@ -302,7 +308,7 @@ def build_normal_table(
                         season_num=season_num,
                         season_titles=titles,
                         specials_titles=ensure_s0_titles(),
-                        show_name=show_info.get('name'),
+                        show_name=show_info.get("name"),
                     )
             elif (
                 entry_path.is_dir()
@@ -311,34 +317,28 @@ def build_normal_table(
                 and entry_path not in season_dir_paths
             ):
                 for extras_file in sorted(entry_path.iterdir()):
-                    if (
-                        extras_file.is_file()
-                        and extras_file.suffix.lower() in VIDEO_EXTENSIONS
-                    ):
+                    if extras_file.is_file() and extras_file.suffix.lower() in VIDEO_EXTENSIONS:
                         _resolve_into_table(
                             table,
                             file_path=extras_file,
                             season_num=0,
                             season_titles=ensure_s0_titles(),
                             from_extras_folder=True,
-                            show_name=show_info.get('name'),
+                            show_name=show_info.get("name"),
                         )
             elif entry_path.is_dir() and season_num == 0 and extras_folder:
                 # An extras folder may group its bonus videos one level
                 # deeper ("Extras/The Mayfly of Space/…"); scan those files
                 # as specials too so titled OVAs aren't silently dropped.
                 for nested_file in sorted(entry_path.iterdir()):
-                    if (
-                        nested_file.is_file()
-                        and nested_file.suffix.lower() in VIDEO_EXTENSIONS
-                    ):
+                    if nested_file.is_file() and nested_file.suffix.lower() in VIDEO_EXTENSIONS:
                         _resolve_into_table(
                             table,
                             file_path=nested_file,
                             season_num=0,
                             season_titles=ensure_s0_titles(),
                             from_extras_folder=True,
-                            show_name=show_info.get('name'),
+                            show_name=show_info.get("name"),
                         )
 
     # Register slots for every TMDB season the local scan didn't touch —

@@ -32,23 +32,23 @@ from .episode_assignments import (
 
 # ── calibration constants ───────────────────────────────────────────
 STRONG_TITLE_STRENGTH = 0.85
-CONF_AGREE = 0.96            # rule 1: number and title agree
-CONF_TITLE_WINS = 0.90       # rule 2: strong title overrides number
-CONF_WEAK_TITLE_NUMBER_CAP = 0.60   # rule 3: weak title disagreement caps number
+CONF_AGREE = 0.96  # rule 1: number and title agree
+CONF_TITLE_WINS = 0.90  # rule 2: strong title overrides number
+CONF_WEAK_TITLE_NUMBER_CAP = 0.60  # rule 3: weak title disagreement caps number
 CONF_NUMBER_RELATIVE = 0.86  # rule 4: S##E## number only
 CONF_NUMBER_INFERRED = 0.50  # rule 4: bare/absolute number only
 CONF_SPECIAL_NUMBER_ONLY = 0.50  # season-0 number with no title match -> REVIEW
 CONF_TITLE_WINS_INEXACT = 0.70  # strong-but-inexact title overrides number -> REVIEW
-CONF_TITLE_ONLY = 0.88       # rule 5: strong title, no usable number
+CONF_TITLE_ONLY = 0.88  # rule 5: strong title, no usable number
 
 _TITLE_EXACT = 1.0
-_TITLE_NEAR_EXACT = 0.95     # typo-level edit or stopword-only difference (RC46)
+_TITLE_NEAR_EXACT = 0.95  # typo-level edit or stopword-only difference (RC46)
 _TITLE_SUBSTRING = 0.90
-_TITLE_FUZZY = 0.86          # unique bounded-fuzzy title hit (typos, variants)
+_TITLE_FUZZY = 0.86  # unique bounded-fuzzy title hit (typos, variants)
 _TITLE_PART_NUMBER = 0.80
-_MIN_SUBSTRING_LEN = 6       # minimum length of the INPUT to enter substring matching
-_MIN_KEY_SUBSTRING_LEN = 4   # minimum length of a KEY to participate as a candidate
-_MIN_FUZZY_LEN = 6           # minimum compacted length for edit-distance fuzz
+_MIN_SUBSTRING_LEN = 6  # minimum length of the INPUT to enter substring matching
+_MIN_KEY_SUBSTRING_LEN = 4  # minimum length of a KEY to participate as a candidate
+_MIN_FUZZY_LEN = 6  # minimum compacted length for edit-distance fuzz
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +74,7 @@ class Resolution:
 def _strip_part_number(normalized: str) -> tuple[str, str]:
     match = re.search(r"\d{1,2}", normalized)
     if match:
-        base = normalized[: match.start()] + normalized[match.end():]
+        base = normalized[: match.start()] + normalized[match.end() :]
         # 'Heart of Archness Part 1' vs key 'Heart of Archness (1)': the
         # digit is gone but the word 'part' still blocks base equality.
         base = re.sub(r"(?:part|pt)$", "", base)
@@ -176,9 +176,7 @@ def _tokens_prefix_equal(a_spaced: str, b_spaced: str) -> bool:
         if token_a == token_b:
             exact += 1
             continue
-        short, long_ = (
-            (token_a, token_b) if len(token_a) <= len(token_b) else (token_b, token_a)
-        )
+        short, long_ = (token_a, token_b) if len(token_a) <= len(token_b) else (token_b, token_a)
         if len(short) < 3 or not long_.startswith(short):
             return False
     return exact >= 1
@@ -225,7 +223,7 @@ def _acronym_folded_equal(a_spaced: str, b_spaced: str) -> bool:
                 and token.isalpha()
                 and token not in _TITLE_STOPWORDS
                 and j + span <= len(b)
-                and "".join(word[0] for word in b[j:j + span]) == token
+                and "".join(word[0] for word in b[j : j + span]) == token
             ):
                 i += 1
                 j += span
@@ -310,7 +308,10 @@ def match_title_in_titles(
         (episode, title)
         for key, (episode, title) in lookup.items()
         if _near_exact_title_equal(
-            normalized, spaced, key, normalize_for_specials_spaced(title),
+            normalized,
+            spaced,
+            key,
+            normalize_for_specials_spaced(title),
         )
     ]
     if len(near_hits) == 1:
@@ -341,21 +342,24 @@ def match_title_in_titles(
             return TitleMatch(episode=episode, title=title, strength=_TITLE_PART_NUMBER)
         if input_part and len(base_hits) > 1:
             by_part = [
-                (episode, title)
-                for episode, title, key_part in base_hits
-                if key_part == input_part
+                (episode, title) for episode, title, key_part in base_hits if key_part == input_part
             ]
             if len(by_part) == 1:
                 episode, title = by_part[0]
                 return TitleMatch(
-                    episode=episode, title=title, strength=_TITLE_PART_NUMBER,
+                    episode=episode,
+                    title=title,
+                    strength=_TITLE_PART_NUMBER,
                 )
 
     fuzzy_hits = [
         (episode, title)
         for key, (episode, title) in lookup.items()
         if _fuzzy_title_equal(
-            normalized, spaced, key, normalize_for_specials_spaced(title),
+            normalized,
+            spaced,
+            key,
+            normalize_for_specials_spaced(title),
         )
     ]
     if len(fuzzy_hits) == 1:
@@ -471,7 +475,7 @@ def _match_segmented_title_run_scored(
         pieces: list[str] = []
         for group in range(expected_count):
             lo, hi = bounds[group], bounds[group + 1]
-            piece = raw_title[spans[lo][0]:spans[hi - 1][1]]
+            piece = raw_title[spans[lo][0] : spans[hi - 1][1]]
             episode, exact = _match_piece(piece)
             if episode is None and hi - lo > 1:
                 # A merged group's raw span keeps the separator ('&' folds to
@@ -542,7 +546,7 @@ def _match_segmented_title_run_scored(
     if len(matched_runs) != 1:
         return None
     run, (all_exact, direct) = next(iter(matched_runs.items()))
-    if any(b - a != 1 for a, b in zip(run, run[1:])):
+    if any(b - a != 1 for a, b in itertools.pairwise(run)):
         return None
     return run, all_exact, direct
 
@@ -622,9 +626,7 @@ def resolve_file(
     """
     valid_numbers = tuple(e for e in parsed_episodes if e in season_titles)
     title_match = match_title_in_titles(raw_title, season_titles)
-    strong_title = (
-        title_match is not None and title_match.strength >= STRONG_TITLE_STRENGTH
-    )
+    strong_title = title_match is not None and title_match.strength >= STRONG_TITLE_STRENGTH
 
     combined = _resolve_combined_title(
         parsed_episodes=parsed_episodes,
@@ -682,7 +684,9 @@ def _resolve_combined_title(
     # the titles over the (frequently mis-numbered) source episode numbers.
     if len(parsed_episodes) >= 2:
         seg = match_segmented_title_run(
-            raw_title, season_titles, len(parsed_episodes),
+            raw_title,
+            season_titles,
+            len(parsed_episodes),
         )
         if seg is not None:
             seg_run, seg_exact = seg
@@ -721,7 +725,9 @@ def _resolve_combined_title(
         runs: dict[tuple[int, ...], tuple[bool, int]] = {}
         for expected in (2, 3, 4):
             seg = _match_segmented_title_run_scored(
-                raw_title, season_titles, expected,
+                raw_title,
+                season_titles,
+                expected,
             )
             if seg is not None:
                 runs[seg[0]] = (seg[1], seg[2])
@@ -781,13 +787,13 @@ def _resolve_number_and_title(
             # an input that is merely a prefix of a longer TMDB title
             # names nothing extra.
             spans = _segment_atom_spans(raw_title)
-            if (
-                len(spans) > len(valid_numbers)
-                and normalize_for_specials(title_match.title)
-                in normalize_for_specials(raw_title)
-            ):
+            if len(spans) > len(valid_numbers) and normalize_for_specials(
+                title_match.title
+            ) in normalize_for_specials(raw_title):
                 run = _extend_partial_title_run(
-                    raw_title, title_match.episode, season_titles,
+                    raw_title,
+                    title_match.episode,
+                    season_titles,
                     len(parsed_episodes),
                 )
                 if run is not None and set(valid_numbers) <= set(run):
@@ -813,7 +819,9 @@ def _resolve_number_and_title(
         run = None
         if raw_title and len(parsed_episodes) >= 2:
             run = _extend_partial_title_run(
-                raw_title, title_match.episode, season_titles,
+                raw_title,
+                title_match.episode,
+                season_titles,
                 len(parsed_episodes),
             )
         if run is not None and len(run) > 1:
@@ -831,11 +839,11 @@ def _resolve_number_and_title(
         )
     if strong_title:
         run = None
-        if raw_title and (
-            len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2
-        ):
+        if raw_title and (len(parsed_episodes) >= 2 or len(_segment_atom_spans(raw_title)) >= 2):
             run = _extend_partial_title_run(
-                raw_title, title_match.episode, season_titles,
+                raw_title,
+                title_match.episode,
+                season_titles,
                 len(parsed_episodes),
             )
         if run is not None and len(run) > 1:
@@ -1000,10 +1008,14 @@ def _source_prefix_compatible(source_norm: str, show_norm: str) -> bool:
     # spellings aren't treated as a different show.
     source_compact = source_norm.replace(" ", "")
     show_compact = show_norm.replace(" ", "")
-    if source_compact and show_compact and (
-        source_compact == show_compact
-        or source_compact.startswith(show_compact)
-        or show_compact.startswith(source_compact)
+    if (
+        source_compact
+        and show_compact
+        and (
+            source_compact == show_compact
+            or source_compact.startswith(show_compact)
+            or show_compact.startswith(source_compact)
+        )
     ):
         return True
     source_tokens = source_norm.split()
@@ -1013,7 +1025,7 @@ def _source_prefix_compatible(source_norm: str, show_norm: str) -> bool:
     if not show_tokens or len(show_tokens) > len(source_tokens):
         return False
     return (
-        source_tokens[-len(show_tokens):] == show_tokens
+        source_tokens[-len(show_tokens) :] == show_tokens
         or source_tokens[: len(show_tokens)] == show_tokens
     )
 
@@ -1094,7 +1106,9 @@ def _claim_strength(claim) -> int:
     if claim.evidence & _EXACT_TITLE_EVIDENCE:
         return 3
     if claim.evidence & {
-        "title-strong-inexact", "title-segmented", "title-fuzzy",
+        "title-strong-inexact",
+        "title-segmented",
+        "title-fuzzy",
         "title-part-number",
     }:
         return 2
@@ -1124,8 +1138,7 @@ def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) ->
     may sit behind different trailing version tags ('(Color)' vs
     '(Pencil)'; RC51) — numeric tags are part numbers and never fold."""
     titles = [
-        normalize_for_specials(table.files[claim.file_id].raw_title or "")
-        for claim in claims
+        normalize_for_specials(table.files[claim.file_id].raw_title or "") for claim in claims
     ]
     if any(not title for title in titles):
         return False
@@ -1133,9 +1146,7 @@ def _claims_are_duplicate_copies(table: EpisodeAssignmentTable, claims: list) ->
     if all(shortest in title for title in titles):
         return True
     bases = {
-        normalize_for_specials(
-            _strip_variant_tag(table.files[claim.file_id].raw_title or "")
-        )
+        normalize_for_specials(_strip_variant_tag(table.files[claim.file_id].raw_title or ""))
         for claim in claims
     }
     return len(bases) == 1 and bool(next(iter(bases)))
@@ -1153,7 +1164,8 @@ def _trim_run_edge_conflicts(table: EpisodeAssignmentTable) -> None:
         if any(claim.origin == ORIGIN_MANUAL for claim in claims):
             continue
         singles = [
-            claim for claim in claims
+            claim
+            for claim in claims
             if len(claim.episodes) == 1 and claim.evidence & _EXACT_TITLE_EVIDENCE
         ]
         if len(singles) != 1:
@@ -1174,7 +1186,9 @@ def _trim_run_edge_conflicts(table: EpisodeAssignmentTable) -> None:
                 continue
             remaining = tuple(ep for ep in claim.episodes if ep != episode)
             table.assign(
-                claim.file_id, season, list(remaining),
+                claim.file_id,
+                season,
+                list(remaining),
                 origin=claim.origin,
                 confidence=claim.confidence,
                 evidence=claim.evidence | {"run-trimmed"},
@@ -1194,7 +1208,8 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
             continue
         segmented = [c for c in claims if "title-segmented" in c.evidence]
         movable = [
-            c for c in claims
+            c
+            for c in claims
             if "title-segmented" not in c.evidence
             and c.evidence & _EXACT_TITLE_EVIDENCE
             and len(c.episodes) >= 2
@@ -1214,7 +1229,9 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
             if table.slots[(season, ep)].title
         }
         seg = match_segmented_title_run(
-            entry.raw_title, proposed_titles, len(proposed),
+            entry.raw_title,
+            proposed_titles,
+            len(proposed),
         )
         if seg is None or seg[0] != proposed:
             match = match_title_in_titles(entry.raw_title, proposed_titles)
@@ -1229,7 +1246,9 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
         if any((season, ep) in occupied for ep in proposed):
             continue
         table.assign(
-            claim.file_id, season, list(proposed),
+            claim.file_id,
+            season,
+            list(proposed),
             origin=claim.origin,
             confidence=min(claim.confidence, CONF_TITLE_WINS),
             evidence=claim.evidence | {"run-shifted"},
@@ -1269,7 +1288,8 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
             # fall back to the first-registered copy.
             keep = next(
                 (
-                    claim for claim in winners
+                    claim
+                    for claim in winners
                     if episode in table.files[claim.file_id].parsed_episodes
                 ),
                 min(winners, key=lambda claim: claim.file_id),
@@ -1278,7 +1298,8 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
             for claim in winners:
                 if claim.file_id != keep.file_id:
                     table.mark_unassigned(
-                        claim.file_id, duplicate_copy_reason(season, episode),
+                        claim.file_id,
+                        duplicate_copy_reason(season, episode),
                     )
             continue
 
@@ -1313,8 +1334,7 @@ def apply_confidence_adjustments(
     for slot in table.slots.values():
         slots_by_season.setdefault(slot.season, []).append(slot)
     season_slots = {
-        season: _expected_for_season(slots)
-        for season, slots in slots_by_season.items()
+        season: _expected_for_season(slots) for season, slots in slots_by_season.items()
     }
 
     season_has_issue: set[int] = set()
@@ -1325,9 +1345,7 @@ def apply_confidence_adjustments(
         if assignment.file_id in conflicted:
             season_has_issue.add(assignment.season)
             continue
-        matched_by_season.setdefault(assignment.season, set()).update(
-            assignment.episodes
-        )
+        matched_by_season.setdefault(assignment.season, set()).update(assignment.episodes)
 
     contradicted: set[int] = set()
     for assignment in table.assignments():
@@ -1364,8 +1382,7 @@ def apply_confidence_adjustments(
             entry.raw_title
             and first_slot is not None
             and first_slot.title
-            and normalize_for_specials(entry.raw_title)
-            == normalize_for_specials(first_slot.title)
+            and normalize_for_specials(entry.raw_title) == normalize_for_specials(first_slot.title)
         ):
             confidence = max(confidence, EPISODE_TITLE_MATCH_FLOOR)
 
@@ -1386,9 +1403,7 @@ def apply_confidence_adjustments(
 
         table.set_confidence(assignment.file_id, confidence)
 
-    single_regular_season = (
-        sum(1 for season in season_slots if season > 0) == 1
-    )
+    single_regular_season = sum(1 for season in season_slots if season > 0) == 1
     perfect_show = show_match_confidence is not None and show_match_confidence >= 1.0
 
     for season, expected in season_slots.items():
@@ -1400,8 +1415,10 @@ def apply_confidence_adjustments(
             floor = EXACT_COVERAGE_FLOOR
             if single_regular_season and perfect_show:
                 floor = SINGLE_SEASON_PERFECT_SHOW_EXACT_COVERAGE_FLOOR
-        elif matched and matched <= expected and (
-            len(missing) <= 1 or len(matched) / max(len(expected), 1) >= 0.90
+        elif (
+            matched
+            and matched <= expected
+            and (len(missing) <= 1 or len(matched) / max(len(expected), 1) >= 0.90)
         ):
             floor = NEAR_COMPLETE_COVERAGE_FLOOR
         else:
@@ -1420,7 +1437,8 @@ def apply_confidence_adjustments(
                 and assignment.file_id not in conflicted
             ):
                 table.set_confidence(
-                    assignment.file_id, max(assignment.confidence, floor),
+                    assignment.file_id,
+                    max(assignment.confidence, floor),
                 )
 
     # Contradictory source prefixes cap LAST so no floor can lift them
@@ -1429,7 +1447,8 @@ def apply_confidence_adjustments(
         assignment = table.assignment_for(file_id)
         if assignment is not None:
             table.set_confidence(
-                file_id, min(assignment.confidence, CONTRADICTORY_PREFIX_CAP),
+                file_id,
+                min(assignment.confidence, CONTRADICTORY_PREFIX_CAP),
             )
 
     # Review-locked evidence (inexact title override, cross-season special,
@@ -1437,10 +1456,18 @@ def apply_confidence_adjustments(
     # below threshold no matter what floors ran above.
     for assignment in table.assignments():
         if assignment.evidence & {
-            "title-strong-inexact", "cross-season-special", "cross-season-rescue",
-            "offset-inferred", "title-multi-segment", "title-fuzzy", "run-extended",
-            "same-season-rescue", "title-part-number", "air-date-cluster",
-            "title-weak-disagree", "title-ambiguous",
+            "title-strong-inexact",
+            "cross-season-special",
+            "cross-season-rescue",
+            "offset-inferred",
+            "title-multi-segment",
+            "title-fuzzy",
+            "run-extended",
+            "same-season-rescue",
+            "title-part-number",
+            "air-date-cluster",
+            "title-weak-disagree",
+            "title-ambiguous",
         }:
             table.set_confidence(
                 assignment.file_id,
@@ -1448,9 +1475,14 @@ def apply_confidence_adjustments(
             )
 
 
-_ANCHOR_TITLE_EVIDENCE = frozenset({
-    "title-agree", "title-strong", "title-strong-inexact", "title-segmented",
-})
+_ANCHOR_TITLE_EVIDENCE = frozenset(
+    {
+        "title-agree",
+        "title-strong",
+        "title-strong-inexact",
+        "title-segmented",
+    }
+)
 _NUMBER_ONLY_EVIDENCE = frozenset({"number", "season-relative", "special-number-only"})
 
 
@@ -1486,9 +1518,7 @@ def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
         if not assignment.evidence & _ANCHOR_TITLE_EVIDENCE:
             continue
         entry = table.files[file_id]
-        anchors.append(
-            (assignment.season, assignment.episodes[0] - entry.parsed_episodes[0])
-        )
+        anchors.append((assignment.season, assignment.episodes[0] - entry.parsed_episodes[0]))
 
     if len(anchors) < 2:
         return
@@ -1524,9 +1554,7 @@ def _rescue_group(table: EpisodeAssignmentTable, file_ids: list[int]) -> None:
             movers.append((file_id, proposed))
         else:
             reason = table.unassigned_reasons.get(file_id, "")
-            if reason != REASON_NOT_IN_SEASON and not reason.startswith(
-                REASON_LOST_CONFLICT
-            ):
+            if reason != REASON_NOT_IN_SEASON and not reason.startswith(REASON_LOST_CONFLICT):
                 continue
             movers.append((file_id, proposed))
 
@@ -1586,10 +1614,7 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
     claimed = table.claimed_slots()
 
     for file_id, reason in list(table.unassigned_reasons.items()):
-        if not (
-            reason == REASON_NOT_IN_SEASON
-            or reason.startswith(REASON_LOST_CONFLICT)
-        ):
+        if not (reason == REASON_NOT_IN_SEASON or reason.startswith(REASON_LOST_CONFLICT)):
             continue
         entry = table.files.get(file_id)
         if entry is None or not entry.raw_title or len(entry.parsed_episodes) != 1:
@@ -1606,7 +1631,10 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
             continue
         season, episode = candidates[0]
         table.assign(
-            file_id, season, [episode], origin=ORIGIN_AUTO,
+            file_id,
+            season,
+            [episode],
+            origin=ORIGIN_AUTO,
             confidence=CONF_TITLE_WINS_INEXACT,
             evidence=frozenset({"title-strong", "cross-season-rescue"}),
         )
@@ -1646,7 +1674,10 @@ def rescue_cross_season_titles(table: EpisodeAssignmentTable) -> None:
         season, episode = candidates[0]
         claimed -= {(assignment.season, e) for e in assignment.episodes}
         table.assign(
-            assignment.file_id, season, [episode], origin=ORIGIN_AUTO,
+            assignment.file_id,
+            season,
+            [episode],
+            origin=ORIGIN_AUTO,
             confidence=CONF_TITLE_WINS_INEXACT,
             evidence=frozenset({"title-strong", "cross-season-rescue"}),
         )
@@ -1679,7 +1710,9 @@ def rescue_explicit_hint_slots(table: EpisodeAssignmentTable) -> None:
         if any(slot not in table.slots for slot in slots) or slots & claimed:
             continue
         table.assign(
-            file_id, entry.season_hint, list(entry.parsed_episodes),
+            file_id,
+            entry.season_hint,
+            list(entry.parsed_episodes),
             origin=ORIGIN_AUTO,
             confidence=CONF_TITLE_WINS_INEXACT,
             evidence=frozenset({"number", "season-relative", "hint-rescue"}),
@@ -1697,9 +1730,7 @@ def _scattered_atom_seasons(
     spans = _segment_atom_spans(raw_title)
     if len(spans) < 2:
         return set()
-    atom_norms = [
-        normalize_for_specials(raw_title[lo:hi]) for lo, hi in spans
-    ]
+    atom_norms = [normalize_for_specials(raw_title[lo:hi]) for lo, hi in spans]
     seasons: set[int] = set()
     for season, titles in titles_by_season.items():
         if season == current_season:
@@ -1761,7 +1792,9 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
         if table.assignment_for(file_id) is None:
             continue
         scattered = _scattered_atom_seasons(
-            entry.raw_title or "", titles_by_season, current_season,
+            entry.raw_title or "",
+            titles_by_season,
+            current_season,
         )
         if len(scattered) == 1:
             scattered_unassigns.append((file_id, scattered.pop()))
@@ -1786,14 +1819,18 @@ def rescue_cross_season_segmented(table: EpisodeAssignmentTable) -> None:
             assignment = table.assignment_for(file_id)
             own = (
                 {(assignment.season, e) for e in assignment.episodes}
-                if assignment is not None else set()
+                if assignment is not None
+                else set()
             )
             run_slots = {(season, episode) for episode in run}
             if run_slots & (claimed - own):
                 remaining.append((file_id, season, run))
                 continue
             table.assign(
-                file_id, season, list(run), origin=ORIGIN_AUTO,
+                file_id,
+                season,
+                list(run),
+                origin=ORIGIN_AUTO,
                 confidence=CONF_TITLE_WINS_INEXACT,
                 evidence=frozenset({"title-segmented", "cross-season-rescue"}),
             )
@@ -1833,9 +1870,7 @@ def _scattered_same_season_episodes(
             lo, hi = spans[start][0], spans[start + size - 1][1]
             pieces = [raw_title[lo:hi]]
             if size > 1:
-                pieces.append(
-                    " ".join(raw_title[a:b] for a, b in spans[start:start + size])
-                )
+                pieces.append(" ".join(raw_title[a:b] for a, b in spans[start : start + size]))
             for piece in pieces:
                 episode = norm_to_episode.get(normalize_for_specials(piece))
                 if episode is not None:
@@ -1872,10 +1907,7 @@ def unassign_same_season_scattered_titles(table: EpisodeAssignmentTable) -> None
         ):
             continue
         entry = table.files[file_id]
-        season = (
-            entry.season_hint if entry.season_hint is not None
-            else entry.folder_season
-        )
+        season = entry.season_hint if entry.season_hint is not None else entry.folder_season
         candidates.append((file_id, season))
 
     titles_by_season: dict[int, dict[int, str]] = {}
@@ -1893,7 +1925,7 @@ def unassign_same_season_scattered_titles(table: EpisodeAssignmentTable) -> None
         matched = _scattered_same_season_episodes(entry.raw_title, titles)
         if len(matched) < 2:
             continue
-        if all(b - a == 1 for a, b in zip(matched, matched[1:])):
+        if all(b - a == 1 for a, b in itertools.pairwise(matched)):
             continue
         table.mark_unassigned(
             file_id,
@@ -1915,23 +1947,22 @@ def rescue_same_season_fuzzy_titles(table: EpisodeAssignmentTable) -> None:
         entry = table.files.get(file_id)
         if entry is None or not entry.raw_title:
             continue
-        season = (
-            entry.season_hint if entry.season_hint is not None
-            else entry.folder_season
-        )
+        season = entry.season_hint if entry.season_hint is not None else entry.folder_season
         if season is None or season == 0:
             continue
         unclaimed_titles = {
             episode: slot.title
             for (slot_season, episode), slot in table.slots.items()
-            if slot_season == season and slot.title
-            and (slot_season, episode) not in claimed
+            if slot_season == season and slot.title and (slot_season, episode) not in claimed
         }
         match = match_title_in_titles(entry.raw_title, unclaimed_titles)
         if match is None or match.strength < STRONG_TITLE_STRENGTH:
             continue
         table.assign(
-            file_id, season, [match.episode], origin=ORIGIN_AUTO,
+            file_id,
+            season,
+            [match.episode],
+            origin=ORIGIN_AUTO,
             confidence=CONF_TITLE_WINS_INEXACT,
             evidence=frozenset({"title-fuzzy", "same-season-rescue"}),
         )

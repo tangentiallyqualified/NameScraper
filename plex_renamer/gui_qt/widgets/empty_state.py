@@ -36,7 +36,7 @@ class EmptyStateWidget(QWidget):
     def __init__(
         self,
         media_type: str = "tv",
-        settings_service: "SettingsService | None" = None,
+        settings_service: SettingsService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -134,7 +134,7 @@ class _DropZone(QFrame):
             folder_icon = style.standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
             icon_label.setPixmap(folder_icon.pixmap(_scale.icon("xl")))
         else:
-            icon_label.setText("\U0001F4C2")
+            icon_label.setText("\U0001f4c2")
         layout.addWidget(icon_label)
 
         title = "Select TV Library Folder" if media_type == "tv" else "Select Movie Folder"

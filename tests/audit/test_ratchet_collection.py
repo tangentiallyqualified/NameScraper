@@ -6,8 +6,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from audit import __main__ as cli
-from audit import _coverage, _ratchets
+from audit import __main__ as cli, _coverage, _ratchets
 
 
 def _finding(

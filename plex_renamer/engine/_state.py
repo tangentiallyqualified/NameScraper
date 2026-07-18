@@ -7,7 +7,6 @@ current threshold without a circular import, and runtime updates via
 
 from __future__ import annotations
 
-
 DEFAULT_AUTO_ACCEPT_THRESHOLD = 0.55
 AUTO_ACCEPT_THRESHOLD = DEFAULT_AUTO_ACCEPT_THRESHOLD
 

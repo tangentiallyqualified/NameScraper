@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.audit import __main__ as cli
-from scripts.audit import _artifacts, _decisions, _ratchets
+from scripts.audit import __main__ as cli, _artifacts, _decisions, _ratchets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_LINE_LENGTH = 100

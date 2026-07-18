@@ -7,6 +7,7 @@ Replaces the old three-panel roster/preview/detail split for the "middle"
 work surface. The expansion card (Task 3) is wired to the table's persistent
 editor in Task 5; this task only assembles the surrounding chrome.
 """
+
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -47,7 +48,7 @@ _OVERVIEW_CLAMP_PAD_U = 6
 
 
 class _OverviewBridge(QObject):
-    overview_ready = Signal(str, str)   # text, token
+    overview_ready = Signal(str, str)  # text, token
 
 
 def _overview_token(state: ScanState, media_type: str) -> str:
@@ -55,15 +56,17 @@ def _overview_token(state: ScanState, media_type: str) -> str:
 
 
 class MediaWorkPanel(QFrame):
-    filter_changed = Signal(str)          # "all"|"problems"
+    filter_changed = Signal(str)  # "all"|"problems"
     search_changed = Signal(str)
     episode_search_changed = Signal(str)
     approve_all_clicked = Signal()
     unassign_all_clicked = Signal()
-    season_chip_clicked = Signal(int)     # season number (0 = specials)
+    season_chip_clicked = Signal(int)  # season number (0 = specials)
     overview_toggled = Signal(bool)
-    bulk_assign_requested = Signal()      # overflow menu action (and Task 5 hint forward)
-    inline_row_action = Signal(QModelIndex, str)  # inline row action (e.g. missing-file "assign_file")
+    bulk_assign_requested = Signal()  # overflow menu action (and Task 5 hint forward)
+    inline_row_action = Signal(
+        QModelIndex, str
+    )  # inline row action (e.g. missing-file "assign_file")
 
     def __init__(
         self,
@@ -84,7 +87,7 @@ class MediaWorkPanel(QFrame):
         self._guide_provider = guide_provider
         self._state: ScanState | None = None
         self._current_token: str = ""
-        self._overview_cache: "OrderedDict[str, str]" = OrderedDict()
+        self._overview_cache: OrderedDict[str, str] = OrderedDict()
         self._loading_tokens: set[str] = set()
         self._overview_expanded = False
         self._overview_token_applied: str | None = None
@@ -184,7 +187,9 @@ class MediaWorkPanel(QFrame):
 
     # -- UI scaffold ---------------------------------------------------------
 
-    def _build_ui(self, *, cached_guide_provider=None, guide_builder=None, guide_store=None) -> None:
+    def _build_ui(
+        self, *, cached_guide_provider=None, guide_builder=None, guide_store=None
+    ) -> None:
         outer = QVBoxLayout(self)
         margin = _scale.px(12)
         outer.setContentsMargins(margin, margin, margin, margin)
@@ -255,7 +260,7 @@ class MediaWorkPanel(QFrame):
         self._overview_toggle.hide()
         self._overview_toggle.clicked.connect(self._on_overview_toggle_clicked)
         toggle_policy = self._overview_toggle.sizePolicy()
-        toggle_policy.setRetainSizeWhenHidden(True)   # R2 M8: no width shift between series
+        toggle_policy.setRetainSizeWhenHidden(True)  # R2 M8: no width shift between series
         self._overview_toggle.setSizePolicy(toggle_policy)
         # Task 7: pin the width so it doesn't jump when the label flips
         # between "more" and "less" (their sizeHints differ once real font
@@ -395,7 +400,9 @@ class MediaWorkPanel(QFrame):
         folder_preview: tuple[str, str] | None = None,
     ) -> None:
         self._state = state
-        self._model.show_state(state, collapsed_sections=collapsed_sections, folder_preview=folder_preview)
+        self._model.show_state(
+            state, collapsed_sections=collapsed_sections, folder_preview=folder_preview
+        )
         # Re-populating the table always collapses any expanded episode row
         # (EpisodeTableModel.show_state() unconditionally resets
         # _expanded_row), so the header must return to series mode too --
@@ -635,7 +642,7 @@ class MediaWorkPanel(QFrame):
             (season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs
         )
         if key == self._strip_key:
-            return                                   # same chips: no widget churn
+            return  # same chips: no widget churn
         self._clear_strip()
         self._strip_key = key
         if not specs and not unmapped_count:
@@ -669,7 +676,9 @@ class MediaWorkPanel(QFrame):
             button.setProperty("tone", chip.tone)
             button.setToolTip(chip.tooltip)
             button.setFlat(True)
-            button.clicked.connect(lambda _checked=False, s=season_num: self._on_season_chip_clicked(s))
+            button.clicked.connect(
+                lambda _checked=False, s=season_num: self._on_season_chip_clicked(s)
+            )
             self._strip_layout.insertWidget(insert_at, button)
             insert_at += 1
             self._strip_buttons.append(button)
@@ -702,8 +711,12 @@ class MediaWorkPanel(QFrame):
         if width <= 0:
             return False
         bounding = fm.boundingRect(
-            0, 0, width, 0,
-            int(Qt.TextFlag.TextWordWrap), text,
+            0,
+            0,
+            width,
+            0,
+            int(Qt.TextFlag.TextWordWrap),
+            text,
         )
         collapsed_max = 2 * fm.lineSpacing() + _scale.px(_OVERVIEW_CLAMP_PAD_U)
         return bounding.height() > collapsed_max

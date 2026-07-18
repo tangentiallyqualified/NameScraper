@@ -19,7 +19,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, wait
 _log = logging.getLogger(__name__)
 
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="ScraperWorker")
-_inflight: "weakref.WeakSet[Future]" = weakref.WeakSet()
+_inflight: weakref.WeakSet[Future] = weakref.WeakSet()
 _inflight_lock = threading.Lock()
 
 
@@ -43,11 +43,12 @@ def drain(timeout: float = 3.0) -> bool:
     with _inflight_lock:
         pending = [f for f in _inflight if not f.done()]
     for future in pending:
-        future.cancel()                      # no-op for already-running work
+        future.cancel()  # no-op for already-running work
     not_done = wait(pending, timeout=timeout).not_done
     if not_done:
-        _log.warning("thread_pool.drain: %d worker(s) still running after %.1fs",
-                     len(not_done), timeout)
+        _log.warning(
+            "thread_pool.drain: %d worker(s) still running after %.1fs", len(not_done), timeout
+        )
     return not not_done
 
 

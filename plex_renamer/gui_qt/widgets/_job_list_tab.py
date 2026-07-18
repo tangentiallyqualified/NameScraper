@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QStyle,
+    QStyledItemDelegate,
     QStyleOptionButton,
     QStyleOptionViewItem,
-    QStyledItemDelegate,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -144,13 +144,11 @@ class _HoverRowDelegate(QStyledItemDelegate):
             self._paint_status_pill(painter, paint_option, index)
             return
         if index.column() == _NAME_COLUMN and index.row() == highlight_row:
-            paint_option.palette.setColor(
-                QPalette.ColorRole.Text, theme.qcolor("accent")
-            )
+            paint_option.palette.setColor(QPalette.ColorRole.Text, theme.qcolor("accent"))
 
         super().paint(painter, paint_option, index)
 
-    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
         hint = super().sizeHint(option, index)
         if index.column() != _STATUS_COLUMN:
             return hint
@@ -324,9 +322,7 @@ class _JobListTab(QWidget):
             self._empty_heading = "Queue is empty"
             self._empty_hint = "Approve items in the TV or Movies tab, then queue them here."
         self._current_filter_label = "All"
-        self._table_empty = _TableEmptyState(
-            heading=self._empty_heading, hint=self._empty_hint
-        )
+        self._table_empty = _TableEmptyState(heading=self._empty_heading, hint=self._empty_hint)
         self._table_stack = QStackedWidget()
         self._table_stack.addWidget(self._table)
         self._table_stack.addWidget(self._table_empty)
@@ -416,7 +412,8 @@ class _JobListTab(QWidget):
                 continue
             self._table.selectionModel().setCurrentIndex(
                 proxy_index,
-                QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect
+                | QItemSelectionModel.SelectionFlag.Rows,
             )
             self._table.scrollTo(proxy_index)
             return
@@ -449,9 +446,7 @@ class _JobListTab(QWidget):
                 hint=f"No jobs match the {self._current_filter_label} filter.",
             )
         else:
-            self._table_empty.set_texts(
-                heading=self._empty_heading, hint=self._empty_hint
-            )
+            self._table_empty.set_texts(heading=self._empty_heading, hint=self._empty_hint)
         self._table_stack.setCurrentWidget(self._table_empty)
 
     def _select_all(self) -> None:
@@ -525,7 +520,9 @@ class _JobListTab(QWidget):
         self._table.viewport().update()
         self._update_job_controls()
 
-    def _on_checked_jobs_changed(self, top_left: QModelIndex, _bottom_right: QModelIndex, roles: list[int]) -> None:
+    def _on_checked_jobs_changed(
+        self, top_left: QModelIndex, _bottom_right: QModelIndex, roles: list[int]
+    ) -> None:
         if roles and Qt.ItemDataRole.CheckStateRole not in roles:
             return
         if top_left.column() != 0:
@@ -540,7 +537,9 @@ class _JobListTab(QWidget):
         total_checked = len(checked_ids)
 
         if total_checked and total_checked != checked_visible:
-            self._selection_status.setText(f"{checked_visible} visible checked ({total_checked} total)")
+            self._selection_status.setText(
+                f"{checked_visible} visible checked ({total_checked} total)"
+            )
         else:
             noun = "job" if total_checked == 1 else "jobs"
             self._selection_status.setText(f"{total_checked} {noun} checked")
@@ -562,7 +561,8 @@ class _JobListTab(QWidget):
             current_index = self._proxy.index(index.row(), 0)
             self._table.selectionModel().setCurrentIndex(
                 current_index,
-                QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect
+                | QItemSelectionModel.SelectionFlag.Rows,
             )
         focused = self._focused_job()
         if focused is None:
@@ -583,7 +583,9 @@ class _JobListTab(QWidget):
             open_target.setEnabled(self._detail.can_open_target_folder())
             open_target.triggered.connect(self._detail.open_target_folder)
 
-    def _populate_context_menu(self, menu: QMenu, focused_job: RenameJob, checked_jobs: list[RenameJob]) -> None:
+    def _populate_context_menu(
+        self, menu: QMenu, focused_job: RenameJob, checked_jobs: list[RenameJob]
+    ) -> None:
         del menu, focused_job, checked_jobs
 
     def _update_job_controls(self) -> None:

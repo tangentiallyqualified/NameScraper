@@ -7,6 +7,7 @@ unassign file ids). Nothing here calls into ``EpisodeMappingService`` —
 staging is panel-local; the owner applies the staged pairs and unassigns via
 ``apply_requested``.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import (
@@ -30,16 +31,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import theme
-from .. import _scale
+from .. import _scale, theme
 from .segmented_control import SegmentedControl
 
-FILE_ID_ROLE = Qt.ItemDataRole.UserRole + 1     # int (files model)
-SLOT_KEY_ROLE = Qt.ItemDataRole.UserRole + 1    # tuple[int, int] | None (slots model)
+FILE_ID_ROLE = Qt.ItemDataRole.UserRole + 1  # int (files model)
+SLOT_KEY_ROLE = Qt.ItemDataRole.UserRole + 1  # tuple[int, int] | None (slots model)
 _MIME_FILE_ID = "application/x-namescraper-file-id"
 
 
 # ── files pane ───────────────────────────────────────────────────────────
+
 
 class BulkFilesModel(QAbstractListModel):
     """All-file rows: stageable pool files, read-only assigned files, staged
@@ -47,8 +48,8 @@ class BulkFilesModel(QAbstractListModel):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self._previews: list = []            # all previews, sorted
-        self._visible: list = []              # filtered by mode + search
+        self._previews: list = []  # all previews, sorted
+        self._visible: list = []  # filtered by mode + search
         self._search_text: str = ""
         self._filter_mode: str = "problems"
         self._assigned_key_by_file: dict[int, list[tuple[int, int]]] = {}
@@ -108,10 +109,7 @@ class BulkFilesModel(QAbstractListModel):
         regardless of whether the Problems/All toggle or search box happens
         to be hiding it right now — the files pane defaults to a Problems
         filter, which would otherwise silently shrink what Auto-map maps."""
-        return [
-            preview.file_id for preview in self._previews
-            if self._stageable(preview.file_id)
-        ]
+        return [preview.file_id for preview in self._previews if self._stageable(preview.file_id)]
 
     def file_id_at(self, row: int) -> int | None:
         if 0 <= row < len(self._visible):
@@ -142,7 +140,7 @@ class BulkFilesModel(QAbstractListModel):
 
     # -- QAbstractListModel overrides ------------------------------------
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
         return len(self._visible)
@@ -151,9 +149,7 @@ class BulkFilesModel(QAbstractListModel):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         return (
-            Qt.ItemFlag.ItemIsEnabled
-            | Qt.ItemFlag.ItemIsSelectable
-            | Qt.ItemFlag.ItemIsDragEnabled
+            Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled
         )
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
@@ -198,10 +194,10 @@ class BulkFilesModel(QAbstractListModel):
             return file_id
         return None
 
-    def mimeTypes(self) -> list[str]:  # noqa: N802
+    def mimeTypes(self) -> list[str]:
         return [_MIME_FILE_ID]
 
-    def mimeData(self, indexes) -> QMimeData:  # noqa: N802
+    def mimeData(self, indexes) -> QMimeData:
         mime = QMimeData()
         for index in indexes:
             if not index.isValid():
@@ -224,7 +220,7 @@ class BulkFilesView(QListView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollMode(QListView.ScrollMode.ScrollPerPixel)
 
-    def startDrag(self, supportedActions) -> None:  # noqa: N802
+    def startDrag(self, supportedActions) -> None:
         index = self.currentIndex()
         model = self.model()
         if model is None or not index.isValid():
@@ -238,6 +234,7 @@ class BulkFilesView(QListView):
 
 
 # ── slots pane ───────────────────────────────────────────────────────────
+
 
 class BulkSlotsModel(QAbstractListModel):
     """Season-grouped slot rows: header rows + claim/staged/missing slot rows."""
@@ -262,8 +259,7 @@ class BulkSlotsModel(QAbstractListModel):
         self._rows = []
         self._season_by_header_row = {}
         self._claimed_keys = {
-            (choice.season, choice.episode)
-            for choice in choices if choice.claimed_by
+            (choice.season, choice.episode) for choice in choices if choice.claimed_by
         }
         collapsed_seasons = collapsed_seasons or set()
         needle = search.casefold()
@@ -304,7 +300,8 @@ class BulkSlotsModel(QAbstractListModel):
             if not child_rows:
                 continue
             assigned = sum(
-                1 for choice in season_choices
+                1
+                for choice in season_choices
                 if len(choice.claimants) == 1 and choice.claimed_file_id not in unassign_file_ids
             )
             header_label = "Specials" if season == 0 else f"Season {season:02d}"
@@ -337,7 +334,7 @@ class BulkSlotsModel(QAbstractListModel):
 
     # -- QAbstractListModel overrides ------------------------------------
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
         return len(self._rows)
@@ -392,19 +389,19 @@ class BulkSlotsView(QListView):
             return None
         return model.slot_key_at(index.row())
 
-    def dragEnterEvent(self, event) -> None:  # noqa: N802
+    def dragEnterEvent(self, event) -> None:
         if event.mimeData().hasFormat(_MIME_FILE_ID):
             event.acceptProposedAction()
             return
         event.ignore()
 
-    def dragMoveEvent(self, event) -> None:  # noqa: N802
+    def dragMoveEvent(self, event) -> None:
         if event.mimeData().hasFormat(_MIME_FILE_ID):
             event.acceptProposedAction()
             return
         event.ignore()
 
-    def dropEvent(self, event) -> None:  # noqa: N802
+    def dropEvent(self, event) -> None:
         mime = event.mimeData()
         if not mime.hasFormat(_MIME_FILE_ID):
             event.ignore()
@@ -426,10 +423,11 @@ class BulkSlotsView(QListView):
 
 # ── panel ────────────────────────────────────────────────────────────────
 
+
 class BulkAssignPanel(QFrame):
     """Files/slots two-pane staging surface for GUI V4 Plan 4 Bulk Assign."""
 
-    apply_requested = Signal(list, list)   # assign_pairs, unassign_file_ids
+    apply_requested = Signal(list, list)  # assign_pairs, unassign_file_ids
     cancelled = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -545,7 +543,8 @@ class BulkAssignPanel(QFrame):
         self._previews = service.all_primary_file_previews(state)
         self._claims_by_key = {
             (choice.season, choice.episode): list(choice.claimants)
-            for choice in self._choices if choice.claimants
+            for choice in self._choices
+            if choice.claimants
         }
         self._claimed_file_by_key = {
             key: claimants[0][0]
@@ -619,7 +618,9 @@ class BulkAssignPanel(QFrame):
 
     def _handle_drop(self, file_id: int, key: tuple[int, int]) -> None:
         if not self._key_is_free(key):
-            self._status_label.setText("That episode is taken — click its slot to unassign it first")
+            self._status_label.setText(
+                "That episode is taken — click its slot to unassign it first"
+            )
             return
         if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
             self._status_label.setText("Unassign this file first (click its slot)")
@@ -666,8 +667,7 @@ class BulkAssignPanel(QFrame):
                 # silently move the file on Apply.
                 vacated = set(self._assigned_key_by_file.get(file_id, []))
                 self._staged_pairs = [
-                    (fid, k) for fid, k in self._staged_pairs
-                    if k not in vacated and fid != file_id
+                    (fid, k) for fid, k in self._staged_pairs if k not in vacated and fid != file_id
                 ]
         else:
             for file_id in claimant_ids:
@@ -686,7 +686,9 @@ class BulkAssignPanel(QFrame):
         file_id = self._files_model.file_id_at(current.row()) if current.isValid() else None
         if file_id is None:
             return
-        keys = set(self._staged_keys_for(file_id)) | set(self._assigned_key_by_file.get(file_id, []))
+        keys = set(self._staged_keys_for(file_id)) | set(
+            self._assigned_key_by_file.get(file_id, [])
+        )
         selection_model = self._slots_view.selectionModel()
         selection_model.clearSelection()
         first_row = -1
@@ -697,7 +699,8 @@ class BulkAssignPanel(QFrame):
             if first_row < 0:
                 first_row = row
             selection_model.select(
-                self._slots_model.index(row, 0), QItemSelectionModel.SelectionFlag.Select,
+                self._slots_model.index(row, 0),
+                QItemSelectionModel.SelectionFlag.Select,
             )
         if first_row >= 0:
             self._slots_view.scrollTo(self._slots_model.index(first_row, 0))
@@ -739,10 +742,7 @@ class BulkAssignPanel(QFrame):
 
     def _refresh_views(self) -> None:
         self._files_model.set_staging(list(self._staged_pairs), set(self._staged_unassign))
-        staged_names = {
-            key: self._file_name(file_id)
-            for file_id, key in self._staged_pairs
-        }
+        staged_names = {key: self._file_name(file_id) for file_id, key in self._staged_pairs}
         self._slots_model.set_slots(
             self._choices,
             staged_names,

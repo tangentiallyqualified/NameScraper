@@ -6,7 +6,7 @@ import ast
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import _artifacts
@@ -117,9 +117,7 @@ def _doc_record(repo_root: Path, path: Path, rel: Path) -> dict:
     broken = [r for r in refs if not (repo_root / r).exists()]
     last = "generated" if _is_generated_audit_doc(rel) else _git_last_touched(repo_root, rel)
     if last is None:
-        last = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat(
-            timespec="seconds"
-        )
+        last = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat(timespec="seconds")
     return {
         "path": rel.as_posix(),
         "last_touched": last,

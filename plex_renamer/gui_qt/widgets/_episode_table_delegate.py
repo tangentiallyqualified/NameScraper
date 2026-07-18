@@ -1,5 +1,6 @@
 # plex_renamer/gui_qt/widgets/_episode_table_delegate.py
 """Painted episode-table rows: EpisodeTableDelegate + EpisodeTableView (GUI V4 Plan 3)."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -116,7 +117,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         if model is not None:
             model.dataChanged.connect(self._on_model_data_changed)
 
-    def _on_model_data_changed(self, top_left: QModelIndex, bottom_right: QModelIndex, roles: list[int] | None = None) -> None:
+    def _on_model_data_changed(
+        self, top_left: QModelIndex, bottom_right: QModelIndex, roles: list[int] | None = None
+    ) -> None:
         if roles and EXPANDED_ROLE not in roles:
             return
         for row in range(top_left.row(), bottom_right.row() + 1):
@@ -139,7 +142,11 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return x
 
     def pill_text(self, row_data: EpisodeRowData) -> str:
-        if row_data.confidence_pct is not None and row_data.status_text in ("Review", "Matched", "Mapped"):
+        if row_data.confidence_pct is not None and row_data.status_text in (
+            "Review",
+            "Matched",
+            "Mapped",
+        ):
             return f"{row_data.status_text} {row_data.confidence_pct}%"
         return row_data.status_text
 
@@ -195,8 +202,13 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         return QRect(x, pill.y(), width, pill.height())
 
     def _action_column_rects(
-        self, option_rect: QRect, row_data: EpisodeRowData, metrics,
-        *, pill: QRect, actions: tuple[tuple[str, str], ...],
+        self,
+        option_rect: QRect,
+        row_data: EpisodeRowData,
+        metrics,
+        *,
+        pill: QRect,
+        actions: tuple[tuple[str, str], ...],
     ) -> list[tuple[str, QRect]]:
         """Geometry contract v2 (Task 5): a right-aligned vertical column of
         buttons under the pill -- one per line, uniform width (the widest
@@ -223,7 +235,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             y += height + gap
         return rects
 
-    def inline_action_rects(self, option_rect: QRect, row_data: EpisodeRowData) -> list[tuple[str, QRect]]:
+    def inline_action_rects(
+        self, option_rect: QRect, row_data: EpisodeRowData
+    ) -> list[tuple[str, QRect]]:
         """Hit/paint rects for the row's inline action button(s).
 
         Legacy rows (Missing File / unmapped / duplicate) get a single rect
@@ -274,7 +288,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             return False
         return metrics.horizontalAdvance(text) > width
 
-    def helpEvent(self, event, view, option, index):  # noqa: N802
+    def helpEvent(self, event, view, option, index):
         if event.type() != QHelpEvent.Type.ToolTip or index.data(EXPANDED_ROLE):
             QToolTip.hideText()
             return False
@@ -286,7 +300,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         # their own `tooltip` string (rename preview, unmapped/duplicate
         # reason), so this gate has no episode-specific logic.
         title_x = self._title_x(option.rect, row_data)
-        width = max(0, self.text_right_edge(option.rect, row_data, self._view.fontMetrics()) - title_x)
+        width = max(
+            0, self.text_right_edge(option.rect, row_data, self._view.fontMetrics()) - title_x
+        )
         if self._preview_is_truncated(row_data.tooltip, width):
             QToolTip.showText(event.globalPos(), row_data.tooltip, view)
             return True
@@ -295,7 +311,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
     # -- Sizing --------------------------------------------------------------
 
-    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:  # noqa: N802
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
         del option
         self._connect_to_view_model()
         if index.data(EXPANDED_ROLE):
@@ -333,7 +349,7 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
     # -- Editor (expansion card; wired fully in Task 5) ----------------------
 
-    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex):  # noqa: N802
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex):
         del option
         if self.expansion_card_provider is None or not index.data(EXPANDED_ROLE):
             return None
@@ -345,7 +361,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             editor.setParent(parent)
         return editor
 
-    def updateEditorGeometry(self, editor: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> None:  # noqa: N802
+    def updateEditorGeometry(
+        self, editor: QWidget, option: QStyleOptionViewItem, index: QModelIndex
+    ) -> None:
         del index
         editor.setGeometry(option.rect)
 
@@ -381,8 +399,11 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             painter.fillRect(option.rect, fill)
             painter.setPen(theme.qcolor("accent"))
             text_rect = option.rect.adjusted(_scale.px(8), 0, -_scale.px(8), 0)
-            painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
-                             index.data() or "")
+            painter.drawText(
+                text_rect,
+                int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                index.data() or "",
+            )
             painter.restore()
             return
         if kind in _HEADER_KINDS:
@@ -405,7 +426,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         self._paint_body(painter, option, row_data, ghost=is_ghost)
         painter.restore()
 
-    def _paint_background(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex, *, ghost: bool) -> None:
+    def _paint_background(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex, *, ghost: bool
+    ) -> None:
         rect = option.rect
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.qcolor("surface"))
@@ -449,7 +472,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             radius = theme.radius("sm")
             painter.drawRoundedRect(rect.adjusted(2, 2, -2, -2), radius, radius)
 
-    def _paint_header(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+    def _paint_header(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+    ) -> None:
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.qcolor("section_header_bg"))
@@ -460,10 +485,14 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.setFont(font)
         painter.setPen(theme.qcolor("accent"))
         text_rect = option.rect.adjusted(_scale.px(_MARGIN_U), 0, -_scale.px(_MARGIN_U), 0)
-        painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text)
+        painter.drawText(
+            text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text
+        )
         painter.restore()
 
-    def _paint_chevron(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+    def _paint_chevron(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+    ) -> None:
         del index
         rect = self.chevron_rect(option.rect)
         painter.save()
@@ -490,7 +519,14 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.drawRoundedRect(bar, radius, radius)
         painter.restore()
 
-    def _paint_body(self, painter: QPainter, option: QStyleOptionViewItem, row_data: EpisodeRowData, *, ghost: bool) -> None:
+    def _paint_body(
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        row_data: EpisodeRowData,
+        *,
+        ghost: bool,
+    ) -> None:
         metrics = painter.fontMetrics()
         title_x = self._title_x(option.rect, row_data)
         pill_rect = self._pill_rect(option.rect, row_data, metrics)
@@ -513,20 +549,38 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
         painter.setPen(theme.qcolor("text_muted") if ghost else theme.qcolor("text"))
         title_text = metrics.elidedText(row_data.title, Qt.TextElideMode.ElideRight, title_width)
-        painter.drawText(first_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), title_text)
+        painter.drawText(
+            first_line_rect,
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            title_text,
+        )
 
         if has_second_line:
             second_line_rect = QRect(title_x, first_line_y + line_height, title_width, line_height)
-            second_text = metrics.elidedText(second_source, Qt.TextElideMode.ElideMiddle, title_width)
+            second_text = metrics.elidedText(
+                second_source, Qt.TextElideMode.ElideMiddle, title_width
+            )
             painter.setPen(theme.qcolor("text_dim"))
-            painter.drawText(second_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), second_text)
+            painter.drawText(
+                second_line_rect,
+                int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                second_text,
+            )
             if row_data.subtitle_name:
-                third_line_rect = QRect(title_x, first_line_y + 2 * line_height, title_width, line_height)
+                third_line_rect = QRect(
+                    title_x, first_line_y + 2 * line_height, title_width, line_height
+                )
                 sub_text = metrics.elidedText(
-                    f"Subtitles: {row_data.subtitle_name}", Qt.TextElideMode.ElideMiddle, title_width,
+                    f"Subtitles: {row_data.subtitle_name}",
+                    Qt.TextElideMode.ElideMiddle,
+                    title_width,
                 )
                 painter.setPen(theme.qcolor("text_muted"))
-                painter.drawText(third_line_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), sub_text)
+                painter.drawText(
+                    third_line_rect,
+                    int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                    sub_text,
+                )
 
         self._paint_pill(painter, pill_rect, row_data, ghost=ghost)
         self._paint_mux_chip(painter, self.mux_chip_rect(option.rect, row_data, metrics))
@@ -536,7 +590,11 @@ class EpisodeTableDelegate(QStyledItemDelegate):
             self._paint_action_button(painter, rect, action_id, labels.get(action_id, ""))
 
     def _paint_action_button(
-        self, painter: QPainter, rect: QRect, action_id: str, label: str,
+        self,
+        painter: QPainter,
+        rect: QRect,
+        action_id: str,
+        label: str,
     ) -> None:
         if not rect.isValid():
             return
@@ -561,7 +619,9 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         painter.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), label)
         painter.restore()
 
-    def _paint_pill(self, painter: QPainter, pill_rect: QRect, row_data: EpisodeRowData, *, ghost: bool) -> None:
+    def _paint_pill(
+        self, painter: QPainter, pill_rect: QRect, row_data: EpisodeRowData, *, ghost: bool
+    ) -> None:
         text = self.pill_text(row_data)
         if not text:
             return
@@ -596,10 +656,12 @@ class EpisodeTableDelegate(QStyledItemDelegate):
 
 class EpisodeTableView(QListView):
     chevron_clicked = Signal(QModelIndex)
-    header_clicked = Signal(str)                  # section_key of a collapsible header
-    expand_key_pressed = Signal(QModelIndex)      # Enter/Return on current row
-    bulk_hint_clicked = Signal()                  # problems-filter empty-state hint row
-    inline_action_clicked = Signal(QModelIndex, str)  # missing-file row inline action (e.g. "assign_file")
+    header_clicked = Signal(str)  # section_key of a collapsible header
+    expand_key_pressed = Signal(QModelIndex)  # Enter/Return on current row
+    bulk_hint_clicked = Signal()  # problems-filter empty-state hint row
+    inline_action_clicked = Signal(
+        QModelIndex, str
+    )  # missing-file row inline action (e.g. "assign_file")
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -612,13 +674,15 @@ class EpisodeTableView(QListView):
         self._intercepted_row: int = -1
         self.clicked.connect(self._on_clicked)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
         index = self.indexAt(pos)
         if index.isValid():
             kind = index.data(ROW_KIND_ROLE)
             delegate = self.itemDelegateForIndex(index)
-            if isinstance(delegate, EpisodeTableDelegate) and kind in (_CHEVRON_KINDS | _INLINE_ASSIGN_KINDS):
+            if isinstance(delegate, EpisodeTableDelegate) and kind in (
+                _CHEVRON_KINDS | _INLINE_ASSIGN_KINDS
+            ):
                 rect = self.visualRect(index)
                 row_data = index.data(ROW_DATA_ROLE)
                 rects = delegate.inline_action_rects(rect, row_data) if row_data is not None else []
@@ -627,7 +691,9 @@ class EpisodeTableView(QListView):
                         self._intercepted_row = index.row()
                         self.inline_action_clicked.emit(index, action_id)
                         return
-                if kind in _CHEVRON_KINDS and (row_data is None or row_data.status_text != "Missing File"):
+                if kind in _CHEVRON_KINDS and (
+                    row_data is None or row_data.status_text != "Missing File"
+                ):
                     chevron_rect = delegate.chevron_rect(rect)
                     if chevron_rect.contains(pos):
                         self._intercepted_row = index.row()
@@ -635,7 +701,7 @@ class EpisodeTableView(QListView):
                         return
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
         index = self.indexAt(pos)
         if self._intercepted_row != -1 and index.isValid() and index.row() == self._intercepted_row:
@@ -653,7 +719,7 @@ class EpisodeTableView(QListView):
         elif kind == "bulk-hint":
             self.bulk_hint_clicked.emit()
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             index = self.currentIndex()
             if index.isValid() and index.data(ROW_KIND_ROLE) in _CHEVRON_KINDS:

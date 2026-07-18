@@ -9,8 +9,8 @@ from typing import Any
 from ...constants import MediaType
 from ...engine import ScanState, set_auto_accept_threshold, set_episode_auto_accept_threshold
 from ...engine._tv_scanner_postprocess import apply_episode_review_threshold
-from ..services.episode_mapping_service import EpisodeMappingService
 from ..models import ScanLifecycle, ScanProgress
+from ..services.episode_mapping_service import EpisodeMappingService
 
 ListenerEntry = dict[str, Callable[..., Any] | None]
 
@@ -24,12 +24,14 @@ def add_controller_listener(
     on_scan_complete: Callable[[ScanState | None], None] | None = None,
     on_mode_changed: Callable[[MediaType, MediaType | None], None] | None = None,
 ) -> int:
-    listeners.append({
-        "library_changed": on_library_changed,
-        "progress": on_progress,
-        "scan_complete": on_scan_complete,
-        "mode_changed": on_mode_changed,
-    })
+    listeners.append(
+        {
+            "library_changed": on_library_changed,
+            "progress": on_progress,
+            "scan_complete": on_scan_complete,
+            "mode_changed": on_mode_changed,
+        }
+    )
     return len(listeners) - 1
 
 

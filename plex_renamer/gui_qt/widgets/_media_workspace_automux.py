@@ -17,7 +17,7 @@ from ._automux_tracks import AutoMuxTracksWidget
 
 
 class _PlanBridge(QObject):
-    plan_ready = Signal(object, int, object, str)   # state, index, plan|None, error
+    plan_ready = Signal(object, int, object, str)  # state, index, plan|None, error
 
 
 class MediaWorkspaceAutoMuxCoordinator:
@@ -29,7 +29,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         parent = workspace if isinstance(workspace, QObject) else None
         self._bridge = _PlanBridge(parent)
         self._bridge.plan_ready.connect(self._on_plan_ready)
-        self._inflight: set[tuple[int, int]] = set()             # (id(state), index)
+        self._inflight: set[tuple[int, int]] = set()  # (id(state), index)
         self._widgets: dict[tuple[int, int], AutoMuxTracksWidget] = {}
 
     # ── Availability ──────────────────────────────────────────────────
@@ -56,8 +56,7 @@ class MediaWorkspaceAutoMuxCoordinator:
             return None
         widget = AutoMuxTracksWidget()
         self._widgets[(id(state), index)] = widget
-        widget.plan_edited.connect(
-            lambda plan, s=state, i=index: self._on_plan_edited(s, i, plan))
+        widget.plan_edited.connect(lambda plan, s=state, i=index: self._on_plan_edited(s, i, plan))
         self._populate(widget, state, index)
         return widget
 
@@ -121,21 +120,25 @@ class MediaWorkspaceAutoMuxCoordinator:
             item = state.preview_items[index]
             probe = automux_service.probe_file(mkvmerge, item.original)
             if not probe.ok:
-                bridge.plan_ready.emit(
-                    state, index, None, probe.error or "Unreadable file")
+                bridge.plan_ready.emit(state, index, None, probe.error or "Unreadable file")
                 return
             plan = automux_service.plan_for_item(
-                state, index, probe=probe, settings=settings,
-                mkvmerge_path=str(mkvmerge), source_root=source_root)
+                state,
+                index,
+                probe=probe,
+                settings=settings,
+                mkvmerge_path=str(mkvmerge),
+                source_root=source_root,
+            )
             bridge.plan_ready.emit(state, index, plan, "")
         except RuntimeError:
-            pass                       # bridge deleted during shutdown
+            pass  # bridge deleted during shutdown
         finally:
             self._inflight.discard(key)
 
     def _on_plan_ready(self, state, index: int, plan, error: str) -> None:
         if state not in self._workspace._current_states():
-            return                          # stale: library was reloaded
+            return  # stale: library was reloaded
         if error:
             state.mux_probe_errors[index] = error
             state.mux_plans.pop(index, None)
@@ -165,7 +168,7 @@ class MediaWorkspaceAutoMuxCoordinator:
             else:
                 widget.show_no_actions()
         except RuntimeError:
-            self._widgets.pop(key, None)    # widget already deleted by Qt
+            self._widgets.pop(key, None)  # widget already deleted by Qt
             return
         # The widget just repopulated (Task 8): if it belongs to the row
         # currently expanded in the TV table, its editor's cached sizeHint()
@@ -250,7 +253,7 @@ class MediaWorkspaceAutoMuxCoordinator:
                 mkvmerge, source_root, settings = prepared
                 try:
                     self._run_probe(state, index, mkvmerge, source_root, settings)
-                except Exception:                             # noqa: BLE001
+                except Exception:
                     # One item's probe failure (unexpected mkvmerge error,
                     # racing preview rebuild, ...) must not abort warming
                     # for every remaining item/state in this sweep.
@@ -277,11 +280,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         still be re-enabled from the button. Locked with a tooltip while
         the entry is queued."""
         button = self._workspace._work_panel.automux_button
-        if (
-            state is None
-            or not self.available()
-            or not automux_service.state_mux_eligible(state)
-        ):
+        if state is None or not self.available() or not automux_service.state_mux_eligible(state):
             button.hide()
             return
         button.show()
@@ -294,8 +293,7 @@ class MediaWorkspaceAutoMuxCoordinator:
             style.polish(button)
         if state.queued:
             button.setEnabled(False)
-            button.setToolTip(
-                "Unqueue this item to change its AutoMux configuration.")
+            button.setToolTip("Unqueue this item to change its AutoMux configuration.")
         else:
             button.setEnabled(True)
             button.setToolTip("")

@@ -21,41 +21,19 @@ from typing import Any
 from ...constants import MediaType
 from ...engine import (
     BatchTVOrchestrator,
-    check_duplicates,
     MovieScanner,
     PreviewItem,
     ScanState,
-    set_auto_accept_threshold,
-    set_episode_auto_accept_threshold,
+    TVScanner,
+    check_duplicates,
     pick_alternate_matches,
     score_results,
     score_tv_results,
-    TVScanner,
+    set_auto_accept_threshold,
+    set_episode_auto_accept_threshold,
 )
-from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ...job_store import JobStore
-from ._controller_lifecycle_workflow import MediaControllerLifecycleWorkflow
-from ._controller_match_helpers import (
-    approve_controller_match,
-)
-from ._controller_projection_workflow import MediaControllerProjectionWorkflow
-from ._controller_movie_workflows import MediaControllerMovieWorkflow
-from ._controller_session_models import (
-    ControllerModeState,
-    MovieControllerSession,
-    TVControllerSession,
-)
-from ._controller_tv_workflows import MediaControllerTVWorkflow
-from ._controller_state_helpers import (
-    routed_library_states,
-    select_library_show,
-)
-from ._controller_event_helpers import (
-    ListenerEntry,
-    add_controller_listener,
-    apply_runtime_settings_to_states,
-    notify_controller_listeners,
-)
+from ...parsing import best_tv_match_title, clean_folder_name, extract_year
 from ..models import EpisodeGuide, ScanLifecycle, ScanProgress
 from ..services.cache_service import PersistentCacheService
 from ..services.command_gating_service import CommandGatingService
@@ -63,6 +41,28 @@ from ..services.episode_projection_cache import EpisodeProjectionCacheService
 from ..services.refresh_policy_service import RefreshPolicyService
 from ..services.settings_service import SettingsService
 from ..services.tv_library_discovery_service import TVLibraryDiscoveryService
+from ._controller_event_helpers import (
+    ListenerEntry,
+    add_controller_listener,
+    apply_runtime_settings_to_states,
+    notify_controller_listeners,
+)
+from ._controller_lifecycle_workflow import MediaControllerLifecycleWorkflow
+from ._controller_match_helpers import (
+    approve_controller_match,
+)
+from ._controller_movie_workflows import MediaControllerMovieWorkflow
+from ._controller_projection_workflow import MediaControllerProjectionWorkflow
+from ._controller_session_models import (
+    ControllerModeState,
+    MovieControllerSession,
+    TVControllerSession,
+)
+from ._controller_state_helpers import (
+    routed_library_states,
+    select_library_show,
+)
+from ._controller_tv_workflows import MediaControllerTVWorkflow
 
 
 class MediaController:
@@ -434,6 +434,7 @@ class MediaController:
         """
         factory = scanner_factory
         if factory is None:
+
             def factory(client: Any, root: Path) -> MovieScanner:
                 return MovieScanner(
                     client,
@@ -466,7 +467,9 @@ class MediaController:
         """
         return self._tv_workflow.assign_season(state, season_num)
 
-    def rematch_tv_state(self, state: ScanState, new_match: dict, tmdb: Any | None = None) -> ScanState:
+    def rematch_tv_state(
+        self, state: ScanState, new_match: dict, tmdb: Any | None = None
+    ) -> ScanState:
         """Apply a new TMDB match to a TV scan state and clear stale scan data."""
         return self._tv_workflow.rematch_state(
             state,
@@ -530,9 +533,7 @@ class MediaController:
     def build_episode_guide_snapshot(self, state: ScanState) -> tuple[EpisodeGuide, tuple]:
         return self._episode_projection_cache.build_guide_with_signature(state)
 
-    def store_episode_guide(
-        self, state: ScanState, guide: EpisodeGuide, signature: tuple
-    ) -> None:
+    def store_episode_guide(self, state: ScanState, guide: EpisodeGuide, signature: tuple) -> None:
         self._episode_projection_cache.store_guide(state, guide, signature)
 
     def refresh_episode_guide(self, state: ScanState) -> EpisodeGuide:

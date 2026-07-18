@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import re
 
 from .constants import (
@@ -145,6 +146,7 @@ def _strip_quality_parens(text: str) -> str:
     Noise check is done per-token (via ``_is_release_noise_token``) so the
     special case that treats "it" (the English word) as non-noise is respected.
     """
+
     def repl(match: re.Match) -> str:
         inner = match.group(1)
         # Check each whitespace-delimited token for release noise
@@ -184,7 +186,7 @@ def clean_title_evidence(name: str) -> str:
     if name.count(".") >= 3 and 1 <= name.count("_") <= 3:
         parts = name.split("_")
         rebuilt = parts[0]
-        for prev, part in zip(parts, parts[1:]):
+        for prev, part in itertools.pairwise(parts):
             sep = " & " if "." in prev and "." in part else " "
             rebuilt += sep + part
         name = rebuilt
@@ -218,7 +220,7 @@ def sanitize_filename(name: str) -> str:
     Windows and potentially problematic on other operating systems.
     """
     name = name.replace(":", " -")
-    name = name.replace("*", "\uFF0A")
+    name = name.replace("*", "\uff0a")
     name = name.replace("/", " ")
     name = UNSAFE_FILENAME_CHARS.sub("", name)
     name = re.sub(r"\s+", " ", name).strip()
@@ -256,7 +258,8 @@ def extract_year(text: str) -> str | None:
         )
     }
     all_years = [
-        match for match in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
+        match
+        for match in re.finditer(r"(?:^|[.\s(\-])(\d{4})(?=[.\s)\-]|$)", text)
         if YEAR_MIN_EXTRACT <= int(match.group(1)) <= YEAR_MAX
         and match.start(1) not in range_end_starts
     ]

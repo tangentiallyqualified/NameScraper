@@ -16,7 +16,6 @@ except ImportError:  # pragma: no cover - depends on local environment
 
 from .constants import LOG_DIR, ensure_log_dir
 
-
 SERVICE_NAME = "PlexRenamer"
 KEYS_FILE = LOG_DIR / "api_keys.json"
 

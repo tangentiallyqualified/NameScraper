@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -11,7 +11,7 @@ from typing import Any
 
 def utc_now_iso() -> str:
     """Return the current UTC time as an ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class ScanLifecycle(StrEnum):
@@ -81,6 +81,7 @@ class ScanProgress:
             return 0.0
         return min(100.0, (self.done / self.total) * 100.0)
 
+
 @dataclass(slots=True)
 class CacheEntry:
     """A persisted cache entry with freshness and eviction metadata."""
@@ -112,6 +113,7 @@ class CacheLookup:
     @property
     def is_hit(self) -> bool:
         return self.entry is not None
+
 
 @dataclass(slots=True)
 class QueueEligibility:
@@ -178,7 +180,7 @@ class EpisodeSlotChoice:
     title: str = ""
     claimed_by: str | None = None
     claimed_file_id: int | None = None
-    claimants: tuple[tuple[int, str], ...] = ()   # (file_id, filename) for every claim
+    claimants: tuple[tuple[int, str], ...] = ()  # (file_id, filename) for every claim
 
     @property
     def label(self) -> str:

@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QMenu,
+    QMessageBox,
     QPushButton,
     QWidget,
 )
@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
 from ...constants import JobStatus
 from .. import _scale
 from ._history_tab_banner import hide_revert_banner, show_revert_banner
-from ._job_list_tab import _JobListTab
 from ._history_tab_state import (
     begin_revert_banner_state,
     build_history_toolbar_state,
@@ -28,6 +27,7 @@ from ._history_tab_state import (
     revert_jobs,
     sync_pending_revert_job_ids,
 )
+from ._job_list_tab import _JobListTab
 
 _HISTORY_FILTERS: dict[str, set[str] | None] = {
     "All": None,
@@ -66,9 +66,7 @@ class HistoryTab(_JobListTab):
         self._revert_banner = QFrame()
         self._revert_banner.setProperty("cssClass", "revert-banner")
         banner_layout = QHBoxLayout(self._revert_banner)
-        banner_layout.setContentsMargins(
-            _scale.px(12), _scale.px(8), _scale.px(12), _scale.px(8)
-        )
+        banner_layout.setContentsMargins(_scale.px(12), _scale.px(8), _scale.px(12), _scale.px(8))
         banner_layout.setSpacing(_scale.px(8))
 
         self._revert_info = QLabel("")
@@ -90,9 +88,7 @@ class HistoryTab(_JobListTab):
 
         self._finish_toolbar(_HISTORY_FILTERS, position="bottom")
         self._finish_list_pane()
-        self._list_layout.insertWidget(
-            self._list_layout.count() - 1, self._revert_banner
-        )
+        self._list_layout.insertWidget(self._list_layout.count() - 1, self._revert_banner)
         self.refresh()
 
     def refresh(self) -> None:
@@ -106,7 +102,9 @@ class HistoryTab(_JobListTab):
         )
         self._status.setText(toolbar_state.status_text)
         if self._pending_revert_job_ids:
-            self._pending_revert_job_ids = sync_pending_revert_job_ids(self._pending_revert_job_ids, jobs)
+            self._pending_revert_job_ids = sync_pending_revert_job_ids(
+                self._pending_revert_job_ids, jobs
+            )
             if not self._pending_revert_job_ids:
                 self._cancel_revert()
         self._sync_selection_widgets()
@@ -139,7 +137,11 @@ class HistoryTab(_JobListTab):
     def _revert_selected(self) -> None:
         banner_state = begin_revert_banner_state(self._selected_jobs())
         if banner_state is None:
-            QMessageBox.information(self, "Cannot Revert", "Only selected completed jobs with undo data can be reverted.")
+            QMessageBox.information(
+                self,
+                "Cannot Revert",
+                "Only selected completed jobs with undo data can be reverted.",
+            )
             return
         self._pending_revert_job_ids = banner_state.pending_job_ids
         show_revert_banner(
@@ -154,10 +156,14 @@ class HistoryTab(_JobListTab):
             self._cancel_revert()
             return
 
-        jobs = collect_confirm_revert_jobs(self._queue_ctrl.get_history(), self._pending_revert_job_ids)
+        jobs = collect_confirm_revert_jobs(
+            self._queue_ctrl.get_history(), self._pending_revert_job_ids
+        )
         if not jobs:
             self._cancel_revert()
-            QMessageBox.information(self, "Cannot Revert", "The selected jobs are no longer revertible.")
+            QMessageBox.information(
+                self, "Cannot Revert", "The selected jobs are no longer revertible."
+            )
             return
 
         errors = revert_jobs(self._queue_ctrl, jobs)

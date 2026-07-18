@@ -6,8 +6,8 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QMessageBox,
     QMenu,
+    QMessageBox,
     QPushButton,
     QWidget,
 )
@@ -135,8 +135,11 @@ class QueueTab(_JobListTab):
     def _toggle_queue(self) -> None:
         if not self._queue_ctrl.is_running:
             message = remux_confirmation_message(self._queue_ctrl.get_pending_jobs())
-            if message and QMessageBox.question(
-                    self, "Start Queue", message) != QMessageBox.StandardButton.Yes:
+            if (
+                message
+                and QMessageBox.question(self, "Start Queue", message)
+                != QMessageBox.StandardButton.Yes
+            ):
                 return
         toggle_queue_running(self._queue_ctrl)
         self.refresh()
@@ -147,8 +150,11 @@ class QueueTab(_JobListTab):
         if not jobs:
             return
         message = remux_confirmation_message(jobs)
-        if message and QMessageBox.question(
-                self, "Run Selected", message) != QMessageBox.StandardButton.Yes:
+        if (
+            message
+            and QMessageBox.question(self, "Run Selected", message)
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         failed = execute_pending_jobs(self._queue_ctrl, jobs)
         self.refresh()
@@ -157,14 +163,17 @@ class QueueTab(_JobListTab):
             QMessageBox.warning(
                 self,
                 "Cannot Run Job",
-                "The following checked jobs could not be executed right now:\n\n" + "\n".join(failed[:8]),
+                "The following checked jobs could not be executed right now:\n\n"
+                + "\n".join(failed[:8]),
             )
 
     def _remove_selected(self) -> None:
         jobs = self._selected_jobs()
         pending = checked_pending_jobs(jobs)
         if not pending:
-            QMessageBox.information(self, "Cannot Remove", "Only checked pending jobs can be removed.")
+            QMessageBox.information(
+                self, "Cannot Remove", "Only checked pending jobs can be removed."
+            )
             return
         message = build_remove_confirmation_message(pending)
         if QMessageBox.question(self, "Remove Jobs", message) != QMessageBox.StandardButton.Yes:
@@ -185,14 +194,19 @@ class QueueTab(_JobListTab):
         """Execute the currently focused pending job (Enter shortcut)."""
         focused = self._focused_job()
         message = remux_confirmation_message([focused] if focused else [])
-        if message and QMessageBox.question(
-                self, "Run This Job", message) != QMessageBox.StandardButton.Yes:
+        if (
+            message
+            and QMessageBox.question(self, "Run This Job", message)
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         success = execute_focused_pending_job(self._queue_ctrl, focused)
         if success is None:
             return
         if not success:
-            QMessageBox.warning(self, "Cannot Run Job", "The focused job could not be executed right now.")
+            QMessageBox.warning(
+                self, "Cannot Run Job", "The focused job could not be executed right now."
+            )
         self.refresh()
         self.queue_changed.emit()
 

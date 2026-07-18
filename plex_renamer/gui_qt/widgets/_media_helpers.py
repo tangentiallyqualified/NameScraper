@@ -9,11 +9,10 @@ from __future__ import annotations
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget
 
+from ...app.services.command_gating_service import CommandGatingService
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
-from ...app.services.command_gating_service import CommandGatingService
 from .. import theme
-
 
 # ── State classification ────────────────────────────────────────────
 
@@ -32,7 +31,9 @@ def confidence_band(score: float, *, state: ScanState | None = None, media_type:
     return "low"
 
 
-def confidence_fill_color(score: float, *, state: ScanState | None = None, media_type: str = "tv") -> str:
+def confidence_fill_color(
+    score: float, *, state: ScanState | None = None, media_type: str = "tv"
+) -> str:
     return band_color(confidence_band(score, state=state, media_type=media_type))
 
 
@@ -146,8 +147,10 @@ def is_specials_unmapped_only_state(state: ScanState) -> bool:
     if table is not None and any(season >= 1 for (season, _episode) in table.conflicts()):
         return False
     for item in state.preview_items:
-        if item.season is not None and item.season >= 1 and (
-            item.is_conflict or item.is_episode_review or item.is_unmatched
+        if (
+            item.season is not None
+            and item.season >= 1
+            and (item.is_conflict or item.is_episode_review or item.is_unmatched)
         ):
             return False
     return True

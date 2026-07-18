@@ -1,9 +1,9 @@
 """Validate deterministic analyzer versions against checked-in constraints."""
+
 from __future__ import annotations
 
 from importlib import metadata
 from pathlib import Path
-
 
 CONSTRAINTS_REL = Path("scripts") / "audit" / "constraints.txt"
 REQUIRED_ANALYZERS = ("coverage", "radon", "ruff", "vulture")
@@ -45,7 +45,5 @@ def validate(repo_root: Path) -> list[str]:
             errors.append(f"analyzer not installed: {name}=={required}")
             continue
         if installed != required:
-            errors.append(
-                f"{name} version mismatch: installed {installed}, required {required}"
-            )
+            errors.append(f"{name} version mismatch: installed {installed}, required {required}")
     return sorted(errors)

@@ -8,6 +8,7 @@ vocabulary it returns is consumed by the frozen
 ``MediaWorkspaceActionCoordinator.handle_episode_row_action`` contract, so
 the ids/order must not change.
 """
+
 from __future__ import annotations
 
 import html
@@ -58,7 +59,7 @@ def _percent_from_label(value: str) -> int | None:
     if not text.endswith("%"):
         return None
     try:
-        return max(0, min(100, int(round(float(text[:-1])))))
+        return max(0, min(100, round(float(text[:-1]))))
     except ValueError:
         return None
 
@@ -134,7 +135,7 @@ class _ChipStrip(QWidget):
         self.setFixedHeight(height)
         self.setMinimumWidth(width)
 
-    def paintEvent(self, _event) -> None:  # noqa: N802
+    def paintEvent(self, _event) -> None:
         painter = QPainter(self)
         paint_chip_row(painter, 0, 0, self._specs)
         painter.end()
@@ -160,7 +161,7 @@ class EpisodeExpansionCard(QFrame):
         self._status_pill: QLabel | None = None
         self._build_ui()
 
-    def sizeHint(self) -> QSize:  # noqa: N802
+    def sizeHint(self) -> QSize:
         """QWidget.sizeHint() normally forwards to layout().totalSizeHint(),
         but Qt caches that independently of layout().sizeHint() and does
         not reliably invalidate it when a child already living inside this
@@ -189,13 +190,13 @@ class EpisodeExpansionCard(QFrame):
         outer.setSpacing(_scale.px(8))
 
         class _CollapseHeader(QWidget):
-            def __init__(self, card: "EpisodeExpansionCard") -> None:
+            def __init__(self, card: EpisodeExpansionCard) -> None:
                 super().__init__(card)
                 self._card = card
                 self.setCursor(Qt.CursorShape.PointingHandCursor)
                 self.setToolTip("Collapse")
 
-            def mousePressEvent(self, event) -> None:  # noqa: N802
+            def mousePressEvent(self, event) -> None:
                 # Final-review fix: only a left click should collapse the
                 # card -- right/middle clicks used to collapse it too
                 # because the button wasn't checked.
@@ -301,12 +302,8 @@ class EpisodeExpansionCard(QFrame):
                     note="(merged into the video by AutoMux)",
                 )
             else:
-                self._build_labeled_path(
-                    "Subtitle Source", str(subtitle.original), open_dir=True
-                )
-                self._build_labeled_path(
-                    "Subtitle Output", subtitle.new_name or "", open_dir=False
-                )
+                self._build_labeled_path("Subtitle Source", str(subtitle.original), open_dir=True)
+                self._build_labeled_path("Subtitle Output", subtitle.new_name or "", open_dir=False)
         self._build_actions_row(
             episode_row_actions(row),
             above_fold_ids=above_fold_ids,
@@ -366,12 +363,11 @@ class EpisodeExpansionCard(QFrame):
         button.setProperty("tone", "primary" if action_id == "approve" else "secondary")
         button.setFixedHeight(_scale.px(_PILL_HEIGHT_U))
         button.clicked.connect(
-            lambda _checked=False, aid=action_id: self.action_requested.emit(aid))
+            lambda _checked=False, aid=action_id: self.action_requested.emit(aid)
+        )
         return button
 
-    def _build_header_actions(
-        self, row: EpisodeGuideRow, above_fold_ids: tuple[str, ...]
-    ) -> None:
+    def _build_header_actions(self, row: EpisodeGuideRow, above_fold_ids: tuple[str, ...]) -> None:
         """Promote the collapsed row's inline-strip actions into a
         right-aligned column stacked directly under the status pill (mirrors
         the delegate's action column, geometry contract v2). Labels come from
@@ -404,7 +400,9 @@ class EpisodeExpansionCard(QFrame):
         button.clicked.connect(lambda _checked=False, d=directory: self.open_dir_requested.emit(d))
         return button
 
-    def _build_labeled_path(self, label_text: str, path: str, *, open_dir: bool, note: str = "") -> None:
+    def _build_labeled_path(
+        self, label_text: str, path: str, *, open_dir: bool, note: str = ""
+    ) -> None:
         row_widget = QWidget(self)
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
@@ -434,10 +432,7 @@ class EpisodeExpansionCard(QFrame):
         non_conflict = [claim for claim in claims if claim.file_id not in conflicted]
         if len(non_conflict) <= 1:
             return []
-        return [
-            ChipSpec(f"Part {index}", "muted")
-            for index in range(1, len(non_conflict) + 1)
-        ]
+        return [ChipSpec(f"Part {index}", "muted") for index in range(1, len(non_conflict) + 1)]
 
     def _build_actions_row(
         self,
@@ -450,7 +445,7 @@ class EpisodeExpansionCard(QFrame):
     ) -> None:
         for action_id, label in actions:
             if action_id in above_fold_ids:
-                continue    # already hosted in the header row
+                continue  # already hosted in the header row
             button = self._make_action_button(action_id, label)
             self._actions_row.addWidget(button)
             self._action_buttons.append(button)
@@ -471,9 +466,7 @@ class EpisodeExpansionCard(QFrame):
         if not (has_actions or opted_out):
             return
         label = (
-            "Enable AutoMux for this episode"
-            if opted_out
-            else "Disable AutoMux for this episode"
+            "Enable AutoMux for this episode" if opted_out else "Disable AutoMux for this episode"
         )
         button = QPushButton(label)
         button.setProperty("actionId", "mux_optout")

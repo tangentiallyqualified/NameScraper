@@ -7,39 +7,9 @@ while letting internals live in focused submodules.
 
 from __future__ import annotations
 
-from ._state import (
-    AUTO_ACCEPT_THRESHOLD,
-    DEFAULT_AUTO_ACCEPT_THRESHOLD,
-    DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD,
-    EPISODE_AUTO_ACCEPT_THRESHOLD,
-    get_auto_accept_threshold,
-    get_episode_auto_accept_threshold,
-    set_auto_accept_threshold,
-    set_episode_auto_accept_threshold,
-)
-from .models import (
-    CompanionFile,
-    CompletenessReport,
-    DirectEpisodeEvidence,
-    PreviewItem,
-    RenameResult,
-    ScanState,
-    SeasonCompleteness,
-    collect_direct_episode_evidence,
-    infer_explicit_season_assignment,
-)
 from ._batch_orchestrators import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
-)
-from .matching import (
-    apply_movie_confidence_adjustments,
-    boost_scores_with_alt_titles,
-    boost_tv_scores_with_episode_evidence,
-    pick_alternate_matches,
-    score_results,
-    score_tv_results,
-    title_similarity,
 )
 from ._movie_scanner import MovieScanner
 from ._queue_bridge import (
@@ -55,19 +25,49 @@ from ._scan_runtime import (
     CANCEL_SCAN,
     ScanCancelledError,
 )
+from ._state import (
+    AUTO_ACCEPT_THRESHOLD,
+    DEFAULT_AUTO_ACCEPT_THRESHOLD,
+    DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD,
+    EPISODE_AUTO_ACCEPT_THRESHOLD,
+    get_auto_accept_threshold,
+    get_episode_auto_accept_threshold,
+    set_auto_accept_threshold,
+    set_episode_auto_accept_threshold,
+)
 from ._tv_scanner import TVScanner
+from .matching import (
+    apply_movie_confidence_adjustments,
+    boost_scores_with_alt_titles,
+    boost_tv_scores_with_episode_evidence,
+    pick_alternate_matches,
+    score_results,
+    score_tv_results,
+    title_similarity,
+)
+from .models import (
+    CompanionFile,
+    CompletenessReport,
+    DirectEpisodeEvidence,
+    PreviewItem,
+    RenameResult,
+    ScanState,
+    SeasonCompleteness,
+    collect_direct_episode_evidence,
+    infer_explicit_season_assignment,
+)
 
 __all__ = [
     "AUTO_ACCEPT_THRESHOLD",
-    "BatchMovieOrchestrator",
-    "BatchTVOrchestrator",
     "CANCEL_SCAN",
-    "CompanionFile",
-    "CompletenessReport",
     "DEFAULT_AUTO_ACCEPT_THRESHOLD",
     "DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD",
-    "DirectEpisodeEvidence",
     "EPISODE_AUTO_ACCEPT_THRESHOLD",
+    "BatchMovieOrchestrator",
+    "BatchTVOrchestrator",
+    "CompanionFile",
+    "CompletenessReport",
+    "DirectEpisodeEvidence",
     "MovieScanner",
     "PreviewItem",
     "RenameResult",
@@ -84,8 +84,8 @@ __all__ = [
     "collect_direct_episode_evidence",
     "execute_rename",
     "get_auto_accept_threshold",
-    "get_episode_auto_accept_threshold",
     "get_checked_indices_from_state",
+    "get_episode_auto_accept_threshold",
     "infer_explicit_season_assignment",
     "pick_alternate_matches",
     "score_results",

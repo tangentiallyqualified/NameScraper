@@ -32,9 +32,9 @@ from .matching import (
 )
 
 __all__ = [
+    "CANCEL_SCAN",
     "BatchMovieOrchestrator",
     "BatchTVOrchestrator",
-    "CANCEL_SCAN",
     "MovieScanner",
     "ScanCancelledError",
     "TVScanner",

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from ...constants import CACHE_DB_FILE, ensure_log_dir
 from ..models import CacheEntry, CacheLookup, RefreshState
@@ -15,7 +16,7 @@ from .refresh_policy_service import RefreshPolicyService
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class PersistentCacheService:
@@ -25,8 +26,8 @@ class PersistentCacheService:
         self,
         db_path: Path | None = None,
         *,
-        max_size_bytes: int = 1024 ** 3,          # 1 GiB default (S2, was 64 MiB)
-        max_items: int = 200_000,                 # relaxed: size is the user knob
+        max_size_bytes: int = 1024**3,  # 1 GiB default (S2, was 64 MiB)
+        max_items: int = 200_000,  # relaxed: size is the user knob
         refresh_policy: RefreshPolicyService | None = None,
     ):
         self._db_path = db_path or CACHE_DB_FILE

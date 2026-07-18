@@ -12,6 +12,7 @@ conflict; a future duplicates policy may treat extra claims as library
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -133,15 +134,11 @@ class EpisodeAssignmentTable:
         episode_run = tuple(sorted(int(episode) for episode in episodes))
         if not episode_run:
             raise ValueError("An assignment needs at least one episode")
-        if any(b - a != 1 for a, b in zip(episode_run, episode_run[1:])):
-            raise ValueError(
-                f"Episodes {list(episode_run)} are not a contiguous run"
-            )
+        if any(b - a != 1 for a, b in itertools.pairwise(episode_run)):
+            raise ValueError(f"Episodes {list(episode_run)} are not a contiguous run")
         missing = [e for e in episode_run if (season, e) not in self.slots]
         if missing:
-            raise ValueError(
-                f"Season {season} has no episode(s) {missing} in TMDB"
-            )
+            raise ValueError(f"Season {season} has no episode(s) {missing} in TMDB")
 
         if displace:
             for other_id in [
@@ -179,13 +176,12 @@ class EpisodeAssignmentTable:
     def resolve_conflict(self, season: int, episode: int, *, winner_file_id: int) -> None:
         claimants = self.claims(season, episode)
         if all(claim.file_id != winner_file_id for claim in claimants):
-            raise ValueError(
-                f"File {winner_file_id} does not claim S{season:02d}E{episode:02d}"
-            )
+            raise ValueError(f"File {winner_file_id} does not claim S{season:02d}E{episode:02d}")
         for claim in claimants:
             if claim.file_id != winner_file_id:
                 self.mark_unassigned(
-                    claim.file_id, lost_conflict_reason(season, episode),
+                    claim.file_id,
+                    lost_conflict_reason(season, episode),
                 )
 
     def set_approved(self, file_id: int, approved: bool = True) -> None:
@@ -232,11 +228,7 @@ class EpisodeAssignmentTable:
         return {key: claims for key, claims in by_slot.items() if len(claims) > 1}
 
     def conflicted_file_ids(self) -> set[int]:
-        return {
-            claim.file_id
-            for claims in self.conflicts().values()
-            for claim in claims
-        }
+        return {claim.file_id for claims in self.conflicts().values() for claim in claims}
 
     def claimant(self, season: int, episode: int) -> FileEntry | None:
         claims = self.claims(season, episode)
@@ -256,9 +248,8 @@ class EpisodeAssignmentTable:
         for assignment in self._assignments.values():
             for episode in assignment.episodes:
                 claimed.add((assignment.season, episode))
-        return [
-            slot for key, slot in sorted(self.slots.items()) if key not in claimed
-        ]
+        return [slot for key, slot in sorted(self.slots.items()) if key not in claimed]
+
 
 def merge_tables(
     primary: EpisodeAssignmentTable,
@@ -293,13 +284,15 @@ def merge_tables(
             )
             if assignment.role != new_assignment.role:
                 primary._assignments[new_entry.file_id] = replace(
-                    new_assignment, role=assignment.role,
+                    new_assignment,
+                    role=assignment.role,
                 )
             if assignment.approved:
                 primary.set_approved(new_entry.file_id)
         else:
             primary.mark_unassigned(
-                new_entry.file_id, other.unassigned_reasons.get(old_id, ""),
+                new_entry.file_id,
+                other.unassigned_reasons.get(old_id, ""),
             )
     return id_map
 

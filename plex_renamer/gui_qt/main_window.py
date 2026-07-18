@@ -19,20 +19,19 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ..app.controllers.media_controller import MediaController
+from ..app.controllers.queue_controller import QueueController
 from ..app.models import ScanProgress
 from ..app.services.cache_service import PersistentCacheService
 from ..app.services.command_gating_service import CommandGatingService
 from ..app.services.refresh_policy_service import RefreshPolicyService
 from ..app.services.settings_service import SettingsService
-from ..app.controllers.queue_controller import QueueController
-from ..app.controllers.media_controller import MediaController
 from ..engine import RenameResult
-from ..job_store import JobStore
-from ..job_store import RenameJob
-from ..tmdb import TMDBClient
+from ..job_store import JobStore, RenameJob
 from ..keys import get_api_key
 from ..thread_pool import submit as _submit_bg
-
+from ..tmdb import TMDBClient
+from . import _scale
 from ._main_window_bootstrap import MainWindowBootstrapCoordinator
 from ._main_window_bridges import install_controller_bridge, install_queue_bridge
 from ._main_window_chrome import MainWindowChromeCoordinator
@@ -43,7 +42,6 @@ from ._main_window_shortcuts import MainWindowShortcutCoordinator
 from ._main_window_state import MainWindowStateCoordinator
 from ._main_window_tabs import MainWindowTabsCoordinator
 from ._main_window_tmdb import MainWindowTmdbCoordinator
-from . import _scale
 from .widgets.toast_manager import ToastManager
 
 _log = logging.getLogger(__name__)
@@ -302,9 +300,7 @@ class MainWindow(QMainWindow):
     def _on_job_failed(self, job: RenameJob, error: str) -> None:
         self._feedback_coordinator.on_job_failed(job, error)
 
-    def _on_job_progress(
-        self, job: RenameJob, op_index: int, op_count: int, percent: int
-    ) -> None:
+    def _on_job_progress(self, job: RenameJob, op_index: int, op_count: int, percent: int) -> None:
         self._queue_tab.update_job_progress(job, op_index, op_count, percent)
 
     def _on_queue_finished(self) -> None:

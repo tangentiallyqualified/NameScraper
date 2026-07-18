@@ -48,11 +48,11 @@ class _ElidedNoticeLabel(QLabel):
         self.setWordWrap(False)
         self.setMinimumWidth(0)
 
-    def setText(self, text: str) -> None:  # noqa: N802
+    def setText(self, text: str) -> None:
         self._source_text = text
         self._sync_display_text()
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._sync_display_text()
 
@@ -118,8 +118,8 @@ class AutoMuxTracksWidget(QFrame):
         self._plan = None
         self._clear_rows()
         self._set_notice(
-            f"Tracks unavailable — {error}. "
-            "This file will be renamed without remuxing.")
+            f"Tracks unavailable — {error}. This file will be renamed without remuxing."
+        )
         self.updateGeometry()
 
     def show_no_actions(self) -> None:
@@ -138,7 +138,8 @@ class AutoMuxTracksWidget(QFrame):
             box.setEnabled(decision["track_type"] != "video" and not locked)
             box.setMinimumHeight(_scale.px(20))
             box.toggled.connect(
-                lambda checked, p=pos, b=box: self._on_embedded_toggled(p, checked, b))
+                lambda checked, p=pos, b=box: self._on_embedded_toggled(p, checked, b)
+            )
             self._rows.addWidget(box)
             # A widget added to an already-visible ancestor (this card is a
             # persistent editor, already shown, when a late plan repopulates
@@ -157,8 +158,7 @@ class AutoMuxTracksWidget(QFrame):
             box.setChecked(merge["action"] == "merge")
             box.setEnabled(not locked)
             box.setMinimumHeight(_scale.px(20))
-            box.toggled.connect(
-                lambda checked, p=pos: self._on_merge_toggled(p, checked))
+            box.toggled.connect(lambda checked, p=pos: self._on_merge_toggled(p, checked))
             self._rows.addWidget(box)
             box.show()  # see the comment above -- same visibility/sizeHint gap
         self.updateGeometry()
@@ -189,7 +189,7 @@ class AutoMuxTracksWidget(QFrame):
 
     # ── Sizing ────────────────────────────────────────────────────────
 
-    def sizeHint(self) -> QSize:  # noqa: N802
+    def sizeHint(self) -> QSize:
         """QScrollArea.sizeHint() caches its contents widget's ideal size
         the first time it is queried and never invalidates that cache on
         its own (a long-standing Qt quirk) -- once this widget is measured
@@ -204,7 +204,7 @@ class AutoMuxTracksWidget(QFrame):
         the panel's free space."""
         return self._hint_with_rows_cap(self._rows_scroll.maximumHeight())
 
-    def minimumSizeHint(self) -> QSize:  # noqa: N802
+    def minimumSizeHint(self) -> QSize:
         """Qt's default minimumSizeHint() forwards to
         ``layout().totalMinimumSize()``, which walks this widget's OWN
         internal layout independently of the sizeHint() override above --
@@ -242,7 +242,13 @@ class AutoMuxTracksWidget(QFrame):
         # accounts for the notice's reserved height -- it's no longer a
         # separate bottom row, so there is no second notice contribution
         # to add here.
-        total = margins.top() + margins.bottom() + self._heading_row.sizeHint().height() + spacing + rows_height
+        total = (
+            margins.top()
+            + margins.bottom()
+            + self._heading_row.sizeHint().height()
+            + spacing
+            + rows_height
+        )
         return QSize(base.width(), total)
 
     # ── Internals ─────────────────────────────────────────────────────
@@ -288,8 +294,8 @@ class AutoMuxTracksWidget(QFrame):
         decision = self._plan["track_decisions"][pos]
         if decision["track_type"] == "audio" and not checked:
             kept_audio = sum(
-                1 for d in self._plan["track_decisions"]
-                if d["track_type"] == "audio" and d["keep"])
+                1 for d in self._plan["track_decisions"] if d["track_type"] == "audio" and d["keep"]
+            )
             if kept_audio <= 1:
                 # Safety floor (spec §3.2): never strip the last audio track.
                 box.blockSignals(True)
@@ -302,8 +308,7 @@ class AutoMuxTracksWidget(QFrame):
     def _on_merge_toggled(self, pos: int, checked: bool) -> None:
         if self._plan is None:
             return
-        self._plan["subtitle_merges"][pos]["action"] = (
-            "merge" if checked else "rename")
+        self._plan["subtitle_merges"][pos]["action"] = "merge" if checked else "rename"
         self._emit_edited()
 
     def _emit_edited(self) -> None:

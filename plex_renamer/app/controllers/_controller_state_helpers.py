@@ -8,8 +8,8 @@ from typing import Any, Protocol
 
 from ...constants import MediaType
 from ...engine import ScanState
-from ._tv_state_helpers import build_accepted_tv_state
 from ..models import ScanLifecycle
+from ._tv_state_helpers import build_accepted_tv_state
 
 
 class _ControllerSessionState(Protocol):
@@ -67,7 +67,9 @@ def accept_tv_show_session(
         phase="Scanning TV files...",
         message="Scanning TV files...",
     )
-    controller._notify("mode_changed", controller._active_content_mode, controller._active_library_mode)
+    controller._notify(
+        "mode_changed", controller._active_content_mode, controller._active_library_mode
+    )
     controller._notify("library_changed", controller._batch_states)
     return state
 

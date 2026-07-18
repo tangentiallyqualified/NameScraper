@@ -7,7 +7,6 @@ from typing import Any
 
 from PySide6.QtWidgets import QWidget
 
-
 _TMDB_CACHE_NAMESPACE_PREFIX = "tmdb"
 
 
@@ -19,11 +18,7 @@ class SettingsTabActionsCoordinator:
         tab = self._tab
         if tab._clear_history_callback is None:
             return
-        pending = (
-            tab._history_count_callback()
-            if tab._history_count_callback is not None
-            else None
-        )
+        pending = tab._history_count_callback() if tab._history_count_callback is not None else None
         if pending == 0:
             tab._history_confirm.setProperty("tone", "success")
             tab._history_confirm.setText("History is already empty.")
@@ -34,11 +29,14 @@ class SettingsTabActionsCoordinator:
         else:
             noun = "entry" if pending == 1 else "entries"
             prompt = f"Delete {pending} job history {noun}?"
-        if message_box_api.question(
-            tab,
-            "Clear Job History",
-            prompt + "\n\nStored undo data for revertible jobs will be lost.",
-        ) != message_box_api.StandardButton.Yes:
+        if (
+            message_box_api.question(
+                tab,
+                "Clear Job History",
+                prompt + "\n\nStored undo data for revertible jobs will be lost.",
+            )
+            != message_box_api.StandardButton.Yes
+        ):
             tab._history_confirm.setText("")
             return
 
@@ -118,12 +116,15 @@ class SettingsTabActionsCoordinator:
             repolish_widget(tab._cache_confirm)
             return
         noun = "entry" if pending == 1 else "entries"
-        if message_box_api.question(
-            tab,
-            "Clear TMDB Cache",
-            f"Delete {pending} cached TMDB {noun}?\n\n"
-            "Posters and show details will be re-fetched on the next scan.",
-        ) != message_box_api.StandardButton.Yes:
+        if (
+            message_box_api.question(
+                tab,
+                "Clear TMDB Cache",
+                f"Delete {pending} cached TMDB {noun}?\n\n"
+                "Posters and show details will be re-fetched on the next scan.",
+            )
+            != message_box_api.StandardButton.Yes
+        ):
             tab._cache_confirm.setText("")
             return
 
@@ -160,9 +161,9 @@ def format_bytes(size_bytes: int) -> str:
         return f"{size_bytes} B"
     if size_bytes < 1024 * 1024:
         return f"{size_bytes / 1024:.1f} KB"
-    if size_bytes < 1024 ** 3:
+    if size_bytes < 1024**3:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
-    return f"{size_bytes / (1024 ** 3):.1f} GB"
+    return f"{size_bytes / (1024**3):.1f} GB"
 
 
 def repolish_widget(widget: QWidget) -> None:

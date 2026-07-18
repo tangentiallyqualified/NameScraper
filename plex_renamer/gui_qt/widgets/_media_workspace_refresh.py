@@ -42,7 +42,11 @@ class MediaWorkspaceRefreshCoordinator:
         selection_is_auto = workspace._roster_selection_is_auto
         if selected_state_key is not None:
             matched_index = next(
-                (index for index, state in enumerate(states) if _roster_selection_key(state) == selected_state_key),
+                (
+                    index
+                    for index, state in enumerate(states)
+                    if _roster_selection_key(state) == selected_state_key
+                ),
                 None,
             )
             if matched_index is not None:
@@ -60,7 +64,8 @@ class MediaWorkspaceRefreshCoordinator:
                 and _roster_group(
                     states[selected_index],
                     media_type=workspace._media_type,
-                ) not in {"matched", "review-match", "review-episodes", "specials-unmapped"}
+                )
+                not in {"matched", "review-match", "review-episodes", "specials-unmapped"}
             ):
                 selected_index = preferred_focus_index
                 selection_is_auto = True

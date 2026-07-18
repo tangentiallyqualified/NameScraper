@@ -5,8 +5,8 @@ from __future__ import annotations
 import threading
 from typing import Any, Protocol
 
-from ._scan_operation_helpers import ScanOperationTracker, update_scan_progress
 from ..models import ScanLifecycle, ScanProgress
+from ._scan_operation_helpers import ScanOperationTracker, update_scan_progress
 
 
 class _LifecycleController(Protocol):
