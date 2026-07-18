@@ -143,17 +143,23 @@ def _apply_default_language(
     decisions: list[TrackDecision],
     default_language: str,
 ) -> None:
-    """First kept match gets the default flag; other tracks lose it."""
+    """Best kept match gets the default flag; other kept tracks lose it.
+
+    Ranking among kept tracks in the target language: full (non-forced,
+    non-commentary) first, then forced (non-commentary). Commentary
+    tracks are never default-eligible; when only commentary tracks
+    match, existing flags are left untouched.
+    """
     lang = normalize_lang(default_language)
     if not lang:
         return
     kept = [d for d in decisions if d.keep]
-    if not any(d.language == lang for d in kept):
+    eligible = [d for d in kept if d.language == lang and not d.is_commentary]
+    if not eligible:
         return
-    found = False
+    winner = next((d for d in eligible if not d.is_forced), eligible[0])
     for d in kept:
-        d.make_default = (not found) and d.language == lang
-        found = found or d.language == lang
+        d.make_default = d is winner
 
 
 def build_mux_plan(

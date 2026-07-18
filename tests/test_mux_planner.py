@@ -210,3 +210,90 @@ def test_from_dict_accepts_legacy_plan_without_new_keys():
     assert plan.track_decisions[0].is_forced is False
     assert plan.track_decisions[0].is_commentary is False
     assert plan.subtitle_merges[0].forced is False
+
+
+def test_default_sub_prefers_full_over_forced():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "eng", forced=True, default=True),
+        _track(3, "subtitles", "eng"),
+        _track(4, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             default_sub_language="eng"),
+        new_name="X.mkv")
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "subtitles"}
+    assert defaults[2] is False
+    assert defaults[3] is True
+
+
+def test_default_audio_prefers_full_over_forced():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", forced=True, default=True),
+        _track(2, "audio", "eng"),
+        _track(3, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             default_audio_language="eng"),
+        new_name="X.mkv")
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "audio"}
+    assert defaults == {1: False, 2: True}
+
+
+def test_forced_only_match_still_gets_default():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "eng", forced=True),
+        _track(3, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             default_sub_language="eng"),
+        new_name="X.mkv")
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "subtitles"}
+    assert defaults[2] is True
+
+
+def test_default_audio_skips_commentary():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", name="Commentary with director", default=True),
+        _track(2, "audio", "eng"),
+        _track(3, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             default_audio_language="eng"),
+        new_name="X.mkv")
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "audio"}
+    assert defaults == {1: False, 2: True}
+
+
+def test_only_commentary_match_leaves_flags_untouched():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", name="Commentary", default=True),
+        _track(2, "audio", "jpn"),
+        _track(3, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             default_audio_language="eng"),
+        new_name="X.mkv")
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "audio"}
+    assert defaults == {1: True, 2: False}
