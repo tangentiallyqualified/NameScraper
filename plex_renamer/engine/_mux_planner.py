@@ -106,6 +106,11 @@ def _companion_language(raw_tag: str) -> str | None:
     return None
 
 
+def _companion_is_forced(raw_tag: str) -> bool:
+    """True when any dotted component of the tag is "forced" (spec)."""
+    return any(part.lower() == "forced" for part in raw_tag.split("."))
+
+
 def _decide_embedded(
     tracks: list[MediaTrack],
     *,
@@ -229,6 +234,7 @@ def build_mux_plan(
                             action="merge",
                             language=merged_lang,
                             set_default=False,
+                            forced=_companion_is_forced(raw_tag),
                         ),
                     )
                 )
@@ -241,6 +247,7 @@ def build_mux_plan(
                             action="merge",
                             language=lang,
                             set_default=False,
+                            forced=_companion_is_forced(raw_tag),
                         ),
                     )
                 )
@@ -253,6 +260,7 @@ def build_mux_plan(
                             action="rename",
                             language=lang,
                             set_default=False,
+                            forced=_companion_is_forced(raw_tag),
                         ),
                     )
                 )
@@ -265,24 +273,34 @@ def build_mux_plan(
                 action="rename",
                 language=_companion_language(raw_tag) or "und",
                 set_default=False,
+                forced=_companion_is_forced(raw_tag),
             )
             for rel_path, raw_tag in companion_subs
         ]
 
-    # Default subtitle flag: a merged match wins over embedded matches.
+    # Default subtitle flag precedence (spec): full merged match →
+    # full embedded → forced embedded → forced merged. Forced merges
+    # never steal the default from a full track.
     sub_decisions = [d for d in decisions if d.track_type == "subtitles"]
-    merged_default = False
     if default_sub:
-        for m in merges:
-            if m.action == "merge" and m.language == default_sub:
-                m.set_default = True
-                merged_default = True
-                break
-        if merged_default:
+        merged_matches = [
+            m for m in merges if m.action == "merge" and m.language == default_sub
+        ]
+        full_merge = next((m for m in merged_matches if not m.forced), None)
+        embedded_eligible = [
+            d for d in sub_decisions
+            if d.keep and d.language == default_sub and not d.is_commentary
+        ]
+        if full_merge is not None:
+            full_merge.set_default = True
             for d in sub_decisions:
                 d.make_default = False
-        else:
+        elif embedded_eligible:
             _apply_default_language(sub_decisions, default_sub)
+        elif merged_matches:
+            merged_matches[0].set_default = True
+            for d in sub_decisions:
+                d.make_default = False
 
     plan = MuxPlan(
         output_name=str(PurePath(new_name).with_suffix(".mkv")),

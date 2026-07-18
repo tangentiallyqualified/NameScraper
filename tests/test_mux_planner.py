@@ -297,3 +297,56 @@ def test_only_commentary_match_leaves_flags_untouched():
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "audio"}
     assert defaults == {1: True, 2: False}
+
+
+def test_forced_companion_gets_flag_but_not_default():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "eng"),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[("a.en.forced.srt", ".en.forced")],
+        settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
+                             default_sub_language="eng"),
+        new_name="X.mkv")
+    merge = plan.subtitle_merges[0]
+    assert merge.action == "merge"
+    assert merge.forced is True
+    assert merge.set_default is False
+    defaults = {d.track_id: d.make_default for d in plan.track_decisions
+                if d.track_type == "subtitles"}
+    assert defaults == {2: True}
+
+
+def test_forced_companion_default_when_only_match():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[("a.en.forced.srt", ".en.forced")],
+        settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
+                             default_sub_language="eng"),
+        new_name="X.mkv")
+    assert plan.subtitle_merges[0].forced is True
+    assert plan.subtitle_merges[0].set_default is True
+
+
+def test_full_merge_beats_forced_merge_for_default():
+    probe = _probe(_track(0, "video", "und"), _track(1, "audio", "eng"))
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[
+            ("a.en.forced.srt", ".en.forced"),
+            ("a.eng.srt", ".eng"),
+        ],
+        settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
+                             default_sub_language="eng"),
+        new_name="X.mkv")
+    by_src = {m.source_relative: m for m in plan.subtitle_merges}
+    assert by_src["a.eng.srt"].set_default is True
+    assert by_src["a.en.forced.srt"].set_default is False
