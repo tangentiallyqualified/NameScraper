@@ -1,7 +1,9 @@
-<!-- Generated from audit input a74d9b12c50b; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cac629f7ebb9; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
+
+> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code-index/gui_qt.md, code-index/root.md
 
@@ -57,14 +59,14 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/engine/_batch_tv_episode_claims.py` — Episode-claim reconciliation for scanned batch TV siblings. [pub 2 | in 1 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_match_policy.py` — Match-selection helpers for batch TV discovery. [pub 4 | in 1 | out 3] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_season_merge.py` — Season-merge helpers for batch TV orchestration. [pub 7 | in 1 | out 4] [⚠ complexity]
-- `plex_renamer/engine/_core.py` — Compatibility re-export layer for the old engine monolith. [pub 0 | in 0 | out 7] [◌ cov 0%]
+- `plex_renamer/engine/_core.py` — Compatibility re-export layer for the old engine monolith. [pub 0 | in 0 | out 7]
 - `plex_renamer/engine/_discovery_ports.py` — Structural ports for application-owned library discovery. [pub 4 | in 2 | out 0]
 - `plex_renamer/engine/_episode_projection.py` — Project an EpisodeAssignmentTable into PreviewItem rows. [pub 1 | in 4 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_episode_resolution.py` — Shared episode resolution policy and confidence calibration. [pub 13 | in 4 | out 2] [⚠ complexity]
 - `plex_renamer/engine/_movie_scanner.py` — Movie scanning helpers and scanner implementation. [pub 1 | in 5 | out 8] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/engine/_mux_planner.py` — Pure mux planning: (probe, companion subs, settings) → MuxPlan. [pub 5 | in 3 | out 2] [⚠ complexity | † dead protected/ambiguous x2]
 - `plex_renamer/engine/_queue_bridge.py` — Helpers for converting scan preview state into persistent queue jobs. [pub 3 | in 2 | out 4] [⚠ complexity]
-- `plex_renamer/engine/_rename_execution.py` — Rename execution helpers shared by the direct-rename and queue flows. [pub 2 | in 3 | out 2] [⚠ complexity | ◌ cov 16%]
+- `plex_renamer/engine/_rename_execution.py` — Rename execution helpers shared by the direct-rename and queue flows. [pub 2 | in 3 | out 2] [⚠ complexity]
 - `plex_renamer/engine/_scan_runtime.py` — Shared scan-control primitives for long-running engine operations. [pub 1 | in 4 | out 0]
 - `plex_renamer/engine/_state.py` — Mutable engine state shared across submodules. [pub 4 | in 7 | out 0]
 - `plex_renamer/engine/_tv_scanner.py` — TV scanning implementation for episode preview and completeness logic. [pub 1 | in 3 | out 11] [⚠ complexity]
@@ -161,7 +163,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 ## root
 
 - `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format. [pub 0 | in 0 | out 0]
-- `plex_renamer/__main__.py` — Entry point for NameScraper. [pub 1 | in 0 | out 1] [◌ cov 0%]
+- `plex_renamer/__main__.py` — Entry point for NameScraper. [pub 1 | in 0 | out 1]
 - `plex_renamer/_job_execution_filesystem.py` — Filesystem helpers for queued rename execution. [pub 6 | in 2 | out 3] [⚠ complexity]
 - `plex_renamer/_job_execution_metadata.py` — Decorate phase: write metadata sidecars and embed titles after a [pub 3 | in 1 | out 4] [⚠ complexity]
 - `plex_renamer/_job_execution_remux.py` — mkvmerge execution for REMUX job ops (spec §7). [pub 2 | in 1 | out 4] [⚠ complexity]
@@ -190,7 +192,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/constants.py` — Shared constants and configuration for NameScraper. [pub 4 | in 49 | out 0] [† dead protected/ambiguous x1]
 - `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue. [pub 2 | in 2 | out 6] [⚠ complexity]
 - `plex_renamer/job_store.py` — Persistent job queue backed by SQLite. [pub 4 | in 16 | out 5] [† dead protected/ambiguous x1]
-- `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback. [pub 2 | in 4 | out 1] [◌ cov 44%]
+- `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback. [pub 2 | in 4 | out 1]
 - `plex_renamer/parsing.py` — Filename parsing and name-building utilities. [pub 0 | in 24 | out 6]
 - `plex_renamer/thread_pool.py` — Shared thread pool for background work. [pub 3 | in 12 | out 0]
 - `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client. [pub 1 | in 7 | out 6] [⚠ complexity]

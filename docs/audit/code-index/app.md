@@ -1,7 +1,9 @@
-<!-- Generated from audit input a74d9b12c50b; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cac629f7ebb9; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
+
+> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 
 ### `plex_renamer/app/__init__.py` — UI-neutral application-layer services and models for NameScraper.

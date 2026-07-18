@@ -1,7 +1,9 @@
-<!-- Generated from audit input a74d9b12c50b; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cac629f7ebb9; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
+
+> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 
 ### `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format.

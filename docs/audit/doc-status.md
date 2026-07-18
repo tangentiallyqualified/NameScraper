@@ -119,5 +119,6 @@
 | `docs/superpowers/plans/2026-07-17-ruff-debt-burndown.md` | 2026-07-18 | - |
 | `docs/superpowers/plans/2026-07-17-coverage-floors.md` | 2026-07-18 | `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.keys`, `tests/conftest_qt.QtSm`, `tests/test_keys.py`, `tests/test_qt_app_bootstrap.py`, `tests/test_rename_execution.py` |
 | `docs/superpowers/plans/2026-07-17-extract-episode-seam.md` | 2026-07-18 | `plex_renamer.pars` |
+| `docs/audit/deferred-issues.md` | 2026-07-18 | - |
 
-_Generated from audit input a74d9b12c50b by scripts\audit.cmd._
+_Generated from audit input cac629f7ebb9 by scripts\audit.cmd._
