@@ -246,7 +246,7 @@ def test_verify_rejects_preexisting_symlink_before_pipeline_without_mutation(tmp
         invoked = True
         return 0
 
-    with pytest.raises(_verify.UnsafeGeneratedTreeError, match="preexisting.md"):
+    with pytest.raises(_verify.UnsafeGeneratedTreeError, match=r"preexisting\.md"):
         _verify.verify(tmp_path, pipeline)
 
     assert invoked is False

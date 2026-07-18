@@ -49,7 +49,7 @@ class CacheServiceTests(unittest.TestCase):
         self.assertTrue(conn.closed)
 
     def test_put_get_round_trip(self):
-        entry = self.cache.put("ns", "key1", {"title": "Arrival"})
+        self.cache.put("ns", "key1", {"title": "Arrival"})
         lookup = self.cache.get("ns", "key1")
         self.assertTrue(lookup.is_hit)
         self.assertEqual(lookup.value, {"title": "Arrival"})

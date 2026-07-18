@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtWidgets import QMessageBox
@@ -34,7 +35,9 @@ def fix_match(
     if state is None or workspace._media_ctrl is None or workspace._tmdb_provider is None:
         return
     if state.queued:
-        workspace.status_message.emit("Remove the item from the queue before changing its match.", 4000)
+        workspace.status_message.emit(
+            "Remove the item from the queue before changing its match.", 4000
+        )
         return
 
     tmdb = workspace._tmdb_provider()
@@ -42,12 +45,14 @@ def fix_match(
         workspace.status_message.emit("TMDB is unavailable.", 4000)
         return
 
+    score_results_callback: Callable[[Any], list[tuple[dict, float]]] | None = None
     if workspace._media_type == "movie":
-        query_source = state.preview_items[0].original.stem if state.preview_items else state.folder.name
+        query_source = (
+            state.preview_items[0].original.stem if state.preview_items else state.folder.name
+        )
         title_key = "title"
         search_callback = tmdb.search_movie
         dialog_title = f"{fix_match_label(workspace, state)}: {query_source}"
-        score_results_callback = None
     else:
         query_source = state.folder.name
         title_key = "name"
@@ -60,14 +65,18 @@ def fix_match(
         else clean_folder_name(query_source, include_year=False)
     )
     year_hint = extract_year(query_source)
-    if workspace._media_type == "tv":
-        score_results_callback = lambda results: score_tv_results(
+
+    def _score_tv_results(results):
+        return score_tv_results(
             results,
             query,
             year_hint,
             tmdb,
             folder=state.folder,
         )
+
+    if workspace._media_type == "tv":
+        score_results_callback = _score_tv_results
 
     chosen = match_picker_dialog.pick(
         title=dialog_title,
@@ -110,7 +119,7 @@ def prompt_assign_season(
     season_num, ok = input_dialog.getInt(
         workspace,
         "Assign Season",
-        f"Season number for \"{state.display_name}\":",
+        f'Season number for "{state.display_name}":',
         current,
         0,
         99,
@@ -124,11 +133,7 @@ def prompt_assign_season(
     workspace.refresh_from_controller()
     follow_up_state = effective_state if effective_state is not None else state
     workspace._restore_roster_selection_by_key(_roster_selection_key(follow_up_state))
-    if (
-        workspace._media_type == "tv"
-        and season_num > 0
-        and follow_up_state.show_id is not None
-    ):
+    if workspace._media_type == "tv" and season_num > 0 and follow_up_state.show_id is not None:
         tmdb = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
         if tmdb is not None:
             try:

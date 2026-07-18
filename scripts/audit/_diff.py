@@ -1,4 +1,5 @@
 """Stage 7: diff current metrics against committed baseline; write CHANGES.md."""
+
 from __future__ import annotations
 
 import json
@@ -58,15 +59,18 @@ def _dead_snapshot(record: dict) -> list[dict] | None:
     for item in symbols:
         if not isinstance(item, dict) or not isinstance(item.get("symbol"), str):
             continue
-        snapshot.append({
-            "symbol": item["symbol"],
-            "line": item.get("line"),
-            "assessment": item.get("assessment"),
-            "confidence": item.get("confidence"),
-        })
-    return sorted(snapshot, key=lambda item: (
-        item["symbol"], item["line"] if isinstance(item["line"], int) else -1
-    ))
+        snapshot.append(
+            {
+                "symbol": item["symbol"],
+                "line": item.get("line"),
+                "assessment": item.get("assessment"),
+                "confidence": item.get("confidence"),
+            }
+        )
+    return sorted(
+        snapshot,
+        key=lambda item: (item["symbol"], item["line"] if isinstance(item["line"], int) else -1),
+    )
 
 
 def _dead_label(symbol: dict) -> str:
@@ -107,8 +111,10 @@ def _dead_movements(path: str, was: dict, now: dict) -> list[str] | None:
     ]
     for key in sorted(set(old) & set(new), key=lambda value: (value[0], value[1] or -1)):
         before, after = old[key], new[key]
-        if ((before.get("assessment"), before.get("confidence"))
-                != (after.get("assessment"), after.get("confidence"))):
+        if (before.get("assessment"), before.get("confidence")) != (
+            after.get("assessment"),
+            after.get("confidence"),
+        ):
             movements.append(
                 f"`{path}`: dead symbol `{_name(key)} confidence "
                 f"{_dead_label(before)} -> {_dead_label(after)}"
@@ -120,9 +126,7 @@ def _dead_evidence_usable(snapshot: dict, record: dict | None = None) -> bool:
     provenance = snapshot.get("dead_code")
     if isinstance(provenance, dict) and provenance.get("usable") is False:
         return False
-    if record is not None and record.get("dead_evidence_usable") is False:
-        return False
-    return True
+    return not (record is not None and record.get("dead_evidence_usable") is False)
 
 
 def _doc_snapshot(repo_root: Path) -> dict[str, dict]:
@@ -211,8 +215,13 @@ def _baseline_snapshot(metrics: dict, docs: dict[str, dict]) -> dict:
 def compare(baseline: dict | None, metrics: dict) -> dict:
     current = metrics["modules"]
     if baseline is None:
-        return {"added": sorted(current), "removed": [], "renamed": [],
-                "movements": [], "first_run": True}
+        return {
+            "added": sorted(current),
+            "removed": [],
+            "renamed": [],
+            "movements": [],
+            "first_run": True,
+        }
     old = baseline["modules"]
     added = sorted(set(current) - set(old))
     removed = sorted(set(old) - set(current))
@@ -234,53 +243,66 @@ def compare(baseline: dict | None, metrics: dict) -> dict:
     old_scope_id = _coverage_scope_id(baseline)
     new_scope_id = _coverage_scope_id(metrics)
     coverage_comparable = (
-        coverage_evidence_usable
-        and old_scope_id is not None
-        and old_scope_id == new_scope_id
+        coverage_evidence_usable and old_scope_id is not None and old_scope_id == new_scope_id
     )
     if coverage_evidence_usable and not coverage_comparable:
         movements.append(
-            "coverage methodology changed or is unknown; "
-            "per-module coverage movements suppressed"
+            "coverage methodology changed or is unknown; per-module coverage movements suppressed"
         )
     for path in sorted(set(current) & set(old)):
         now, was = current[path], old[path]
         if was["loc"] and now["loc"] / was["loc"] >= LOC_RATIO:
             movements.append(f"`{path}`: loc {was['loc']} -> {now['loc']}")
-        if (now.get("max_complexity") is not None and was.get("max_complexity") is not None
-                and now["max_complexity"] - was["max_complexity"] >= CC_DELTA):
-            movements.append(f"`{path}`: max_complexity {was['max_complexity']} -> {now['max_complexity']}")
-        if (coverage_comparable
-                and was.get("coverage_percent") is not None and now.get("coverage_percent") is not None
-                and abs(now["coverage_percent"] - was["coverage_percent"]) >= COVERAGE_DELTA):
-            movements.append(f"`{path}`: coverage {was['coverage_percent']} -> {now['coverage_percent']}")
-        if (_dead_evidence_usable(baseline, was)
-                and _dead_evidence_usable(metrics, now)):
+        if (
+            now.get("max_complexity") is not None
+            and was.get("max_complexity") is not None
+            and now["max_complexity"] - was["max_complexity"] >= CC_DELTA
+        ):
+            movements.append(
+                f"`{path}`: max_complexity {was['max_complexity']} -> {now['max_complexity']}"
+            )
+        if (
+            coverage_comparable
+            and was.get("coverage_percent") is not None
+            and now.get("coverage_percent") is not None
+            and abs(now["coverage_percent"] - was["coverage_percent"]) >= COVERAGE_DELTA
+        ):
+            movements.append(
+                f"`{path}`: coverage {was['coverage_percent']} -> {now['coverage_percent']}"
+            )
+        if _dead_evidence_usable(baseline, was) and _dead_evidence_usable(metrics, now):
             dead_movements = _dead_movements(path, was, now)
             if dead_movements is not None:
                 movements.extend(dead_movements)
-            elif (isinstance(now.get("dead_candidates"), (int, float))
-                  and isinstance(was.get("dead_candidates"), (int, float))
-                  and now["dead_candidates"] > was["dead_candidates"]):
+            elif (
+                isinstance(now.get("dead_candidates"), (int, float))
+                and isinstance(was.get("dead_candidates"), (int, float))
+                and now["dead_candidates"] > was["dead_candidates"]
+            ):
                 movements.append(
                     f"`{path}`: dead candidates "
                     f"{was['dead_candidates']} -> {now['dead_candidates']}"
                 )
-    return {"added": added, "removed": removed, "renamed": renamed,
-            "movements": movements, "first_run": False}
+    return {
+        "added": added,
+        "removed": removed,
+        "renamed": renamed,
+        "movements": movements,
+        "first_run": False,
+    }
 
 
 def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict) -> str:
     digest = metrics.get("input_digest") or "unknown"
     base_digest = (
-        (baseline.get("input_digest") or "unknown")[:12]
-        if baseline else "none (first run)"
+        (baseline.get("input_digest") or "unknown")[:12] if baseline else "none (first run)"
     )
     h = metrics["headline"]
     lines = [f"## Audit {digest[:12]} vs baseline ({base_digest})", ""]
     dead_summary = (
         f"{h['dead_high_confidence']} high-confidence dead symbols"
-        if _dead_evidence_usable(metrics, h) else "dead-code analysis unavailable"
+        if _dead_evidence_usable(metrics, h)
+        else "dead-code analysis unavailable"
     )
     lines.append(
         f"- Headline: {h['files']} modules, {h['total_loc']} LOC, "
@@ -301,8 +323,15 @@ def _section(repo_root: Path, result: dict, baseline: dict | None, metrics: dict
         if result.get("doc_transitions"):
             lines.append("- Documentation status changes:")
             lines += [f"  - {transition}" for transition in result["doc_transitions"]]
-        if not any((result["added"], result["removed"], result["renamed"], result["movements"],
-                    result.get("doc_transitions"))):
+        if not any(
+            (
+                result["added"],
+                result["removed"],
+                result["renamed"],
+                result["movements"],
+                result.get("doc_transitions"),
+            )
+        ):
             lines.append("- No notable changes since baseline.")
     return "\n".join(lines)
 
@@ -311,12 +340,10 @@ def run(repo_root: Path, options) -> int:
     metrics = _artifacts.read_artifact(repo_root, "metrics")
     baseline_path = repo_root / BASELINE_REL
     existing = (
-        json.loads(baseline_path.read_text(encoding="utf-8"))
-        if baseline_path.exists() else None
+        json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else None
     )
-    same_input = (
-        isinstance(existing, dict)
-        and existing.get("input_digest") == metrics.get("input_digest")
+    same_input = isinstance(existing, dict) and existing.get("input_digest") == metrics.get(
+        "input_digest"
     )
     if same_input:
         previous = _committed_snapshot(existing.get("previous_baseline"))
@@ -332,26 +359,27 @@ def run(repo_root: Path, options) -> int:
     changes_path = repo_root / CHANGES_REL
     current_digest = metrics.get("input_digest") or "unknown"
     previous_digest = (
-        previous.get("input_digest") or "unknown"
-        if isinstance(previous, dict) else "none"
+        previous.get("input_digest") or "unknown" if isinstance(previous, dict) else "none"
     )
-    body = "\n".join([
-        "# Audit Change Log",
-        "",
-        f"<!-- audit:input-digest: {current_digest} -->",
-        f"<!-- audit:baseline-input-digest: {previous_digest} -->",
-        "",
-        _section(repo_root, result, previous, metrics).strip(),
-        "",
-    ])
+    body = "\n".join(
+        [
+            "# Audit Change Log",
+            "",
+            f"<!-- audit:input-digest: {current_digest} -->",
+            f"<!-- audit:baseline-input-digest: {previous_digest} -->",
+            "",
+            _section(repo_root, result, previous, metrics).strip(),
+            "",
+        ]
+    )
     changes_path.parent.mkdir(parents=True, exist_ok=True)
     _artifacts.write_text_lf(changes_path, body)
 
     new_baseline = _baseline_snapshot(metrics, docs)
     new_baseline["previous_baseline"] = previous
-    _artifacts.write_text_lf(
-        baseline_path, json.dumps(new_baseline, indent=1, sort_keys=True)
-    )
+    _artifacts.write_text_lf(baseline_path, json.dumps(new_baseline, indent=1, sort_keys=True))
     n = len(result["movements"])
-    print(f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed")
+    print(
+        f"diff: {len(result['added'])} added, {len(result['removed'])} removed, {n} movements; baseline refreshed"
+    )
     return 0

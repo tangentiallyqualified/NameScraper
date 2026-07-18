@@ -43,10 +43,13 @@ def reconcile_scanned_episode_claims(
         if len(group) < 2:
             continue
         primary = min(group, key=_primary_priority)
-        ordered = [primary] + sorted(
-            (state for state in group if state is not primary),
-            key=_primary_priority,
-        )
+        ordered = [
+            primary,
+            *sorted(
+                (state for state in group if state is not primary),
+                key=_primary_priority,
+            ),
+        ]
 
         if all(state.assignments is not None for state in ordered):
             for state in ordered:

@@ -4,7 +4,7 @@
    "loc": 546
   },
   "plex_renamer/app/services/settings_service.py": {
-   "loc": 521
+   "loc": 516
   },
   "plex_renamer/engine/_batch_orchestrators.py": {
    "loc": 1064
@@ -19,7 +19,7 @@
    "loc": 641
   },
   "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py": {
-   "loc": 760
+   "loc": 758
   },
   "plex_renamer/gui_qt/widgets/_episode_table_delegate.py": {
    "loc": 730
@@ -34,7 +34,7 @@
    "loc": 550
   },
   "plex_renamer/gui_qt/widgets/_work_panel.py": {
-   "loc": 864
+   "loc": 863
   },
   "plex_renamer/gui_qt/widgets/job_detail_panel.py": {
    "loc": 629
@@ -61,16 +61,16 @@
    "loc": 619
   },
   "tests/test_bulk_assign_panel.py": {
-   "loc": 718
+   "loc": 717
   },
   "tests/test_episode_expansion.py": {
    "loc": 649
   },
   "tests/test_episode_mapping_projection.py": {
-   "loc": 554
+   "loc": 551
   },
   "tests/test_episode_resolution.py": {
-   "loc": 1111
+   "loc": 1105
   },
   "tests/test_episode_table_delegate.py": {
    "loc": 979
@@ -5553,8 +5553,8 @@
     "sha256:0d098bee766785ee745608b0139c8c1ff3518deae09cc1509c994398afee8ea0#1",
     "sha256:629aa3e0910993abfbb40a03c03ccf664332b28d4b143eb929e51a0b9bcdcef4#1",
     "sha256:3d51cd6ad1ef826dc7619a22e34b5953ec452c311ca2c28a17e0d9403da75b45#1",
-    "sha256:c7506e4ee85a37c46fbf3958d8746cccb47854c6740e28e5dc540d9084f78995#1",
-    "sha256:3e72d7c35b1855ae548c35a65717932c6b29a3e469dcddc2e1052feb51ebc51d#1",
+    "sha256:2b7ce0ce5c58c2d0efe4b723afb07dcf6f6e4bc67d6146ee05240fd0bd8f963b#1",
+    "sha256:a36faf1c282bdce1d444f88dc2ae135e9f949ab5c173f4348a6fe78bbfdea037#1",
     "sha256:f1287ba41cdbea91a2faa8cd1a8e095c6c537c8580b933a1c96933ef18baf6e5#1",
     "sha256:8283aec6603e92b185281e0458d4e4ae6fd861d14a2e894a3f85c88571fc0bf8#1",
     "sha256:520bd7e8b785e6ed815dc178d2fff0f36b0cd7492bd260f14b5119006f9c5ba6#1",
@@ -5625,7 +5625,7 @@
     "sha256:4398bb16b38eb056110fca5584309b6751d96139e3a562957f9aa8c9efb0bc4b#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#9",
     "sha256:d961811c8b4664b23f4c7bc05ac765725f6f196dc6e0648ba2a35fcc1aa51956#1",
-    "sha256:7b3f57abe413c6526abac8ec3463e105af4a9e55c4e0545c94628426b50f445b#1",
+    "sha256:85745efc0a105a4e9f7a4165d4f52a09bf9e2ee9f28c84e828d832e6231da2b5#1",
     "sha256:c70962bc75fe069da8a12df03d23f61ed82cd5b5a4bc1f373eddd19786b52943#1",
     "sha256:824f6571eb8073cc2dd247dbaf404429e7bc69c51c522273f1b1835e7a01c4fd#1",
     "sha256:aa1e861a1522308a0be888d9bd5fd49c18af6268a19db8a8a7182ebb63f2027c#1",
@@ -5823,7 +5823,7 @@
     "sha256:588d75d7bbc554f6835120c96e493d2ed08868d41d6a0136b39d9085d7517b91#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#40",
     "sha256:17f745ce364be644bc6d3c1280d099033cd2c877b931861ce654bd45a2bbfee6#1",
-    "sha256:c02618aaf9b5952481451ddda6dcaef21129e76e99cda2ff0b753858043baed1#1",
+    "sha256:2729e0b2279de5dcc85721b29ec1ad8e9b10bd0a296b14a1a3e1fd99e30d9b4b#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#41",
     "sha256:e0284120e253276cf926b08f627b7c13faf6efd7ef73826c4b2653d6ade2194d#1",
     "sha256:a7daddb533815a3cd4e1ecb8cfc2f0483f33f84f6e38865d33794ab9c00e8c8c#1",
@@ -5875,14 +5875,14 @@
     "sha256:12f3b95099d65f77ddbe5ddbf6863548cf489edfc37c304f3e4c9363be89cd01#1",
     "sha256:634ebf81fd1abdb1ab84337b85108a2b12648980b11148fba6e29bb2d9ca10b0#1",
     "sha256:8492f19026a45338b9e2e51f706df07674cd4be0825365209ab320a439f6668a#1",
-    "sha256:fcf3347467251837f09acb8bf82868059dc7807b92eafb874f6d79b83a3e7e1f#1",
+    "sha256:d21b44e37be9779c2f085e4f21cf010298bda02f66286b6aac63056346810627#1",
     "sha256:89fb20b49b5a7a0801f236b8272f128322f5b052f801067d728712bf3861ac65#1",
     "sha256:1e8a6627d0a0ac8d564fb4ccc89c8b02d15700ae0f10505fbd9979b7c8ccf404#1",
     "sha256:6e202edfef165ce12f2987d579186ecb3811ba6e4fc5e7ec8d0c2014a3ced421#1",
     "sha256:2df560db24bb30e85bf6d090c207f7514d35b3428e272f46dea2f6a8ad63a3cb#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#1",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#3",
-    "sha256:c0cc239be40933ec96535484779820037be095a053392502c5fe227718f3b4c6#1",
+    "sha256:8d3f6cf2aaeb2e434f09f31529674d1c8c800a93fe5df63f3c4c3c2f3ac35c08#1",
     "sha256:02b306dec2b80f58b6370bdfa92435c59d45fd811d2f69375715ef125cff6943#1",
     "sha256:0c6fc0ed83667cc5c93f3ea7b0b35b431ddb605458b1c91a66e50417029c27ed#1",
     "sha256:092260758704ef0fddc4f8c941947c296246620d0dabf8c01b8ad2bdfbb19af5#1",
@@ -6578,7 +6578,7 @@
     "sha256:bc28e2b72829b37d0347495e1364c063b202f8d7516381d98e57d14cdf7a4984#1",
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#3",
     "sha256:94647645f71de49059ae0202c1cd33cc4749acea0f280a2f92ad0de8ff40f05f#1",
-    "sha256:eabbef231aad4d571e1d4a629dfce604b13654cfd3011fd1d8d07dfafe4c8a06#1",
+    "sha256:f7f6de6a309c4fa826e19d7d05337ae041658f42206ec779c717bdf951c92b5e#1",
     "sha256:2c923dae4b52c7adc1251da91579f449220afd7868fbe3cd4ed7ee84f06517ad#1",
     "sha256:6f528563b76913ec1e99ccc40c9274ec1d581194830ceff5bf02b4e95fe965b2#1",
     "sha256:768f25e3f3d466c4806365a06f7cd40515e7cf99b24ea640cf93b27a47d2f7da#1",
@@ -11584,9 +11584,7 @@
     "sha256:ac7f7d711fe7aafb041469ea86ab9f16750fc72f5f1f8db592796b23084c61be#1",
     "sha256:86be9b5a8078c1b58e1213395e9b39dc166990e5d6163cf6ba60c436967353fb#1",
     "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#1",
-    "sha256:e458be68660488116f4fa47fb659e4edece32705fd5ec004c4016f9ebebb7021#1",
-    "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#2",
-    "sha256:280905649a09d42a1071b42c7e39244950c22a4736fb5223fab243b304b64557#1",
+    "sha256:2040cbf77de7c0337e3f069079dab39f9087dcaa4ea7bbdd294a2f11248696e4#1",
     "sha256:902efe9b495e0fcf899e184c969d3ff6b086c18da25cd575c5edc83974cabdb8#1",
     "sha256:47e23559aab40397ebdab7f88178d54232cd5253cf592b64f0bc9c70f68846f7#1",
     "sha256:37f7c4c9fc4d796188039a60acb04bf0b951dde3e65c9e453f2810f8d0c4f748#1",
@@ -11598,7 +11596,7 @@
     "sha256:2f9b3e822a91bc686bc3cb19934b5b91e2fd39b7d226d372ff700d21f844761f#1",
     "sha256:8d35979f479b2875da103bb23f9af06067afc67ca18bb947bcbd67a323f3b898#1",
     "sha256:86be9b5a8078c1b58e1213395e9b39dc166990e5d6163cf6ba60c436967353fb#2",
-    "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#3",
+    "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#2",
     "sha256:3e3ef44f92e2edfd4e647908d72727c12157c9d4f5494b1d5d30de5cf51bb4b2#1",
     "sha256:54611baaa4f4f326cd7f6d04a495816d8ca8944d14fbdbc968d9c712a75050b4#1",
     "sha256:93e90a3fa9b116fe9adbd71ca5daccbeb2338c199877406dbe0e82c73b3f5967#1",
@@ -11961,7 +11959,7 @@
     "sha256:78526fe95b89880c6cb7a11e2887d30905619d29fbbbccd2e7442e2621f1c971#1",
     "sha256:cb83f49869867d1ada6d1ac504855d185adc25421283671b10393c05df0e760f#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#9",
-    "sha256:e458be68660488116f4fa47fb659e4edece32705fd5ec004c4016f9ebebb7021#2",
+    "sha256:e458be68660488116f4fa47fb659e4edece32705fd5ec004c4016f9ebebb7021#1",
     "sha256:3da520649d098b27421f46d5b108b5eeea5221f53dac3c82189b418608ef7391#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#10",
     "sha256:65a7638169110e28d1e3b7cb24d0bf3b905b01b170e56e8c647a6643837a827f#1",
@@ -12041,7 +12039,7 @@
     "sha256:668dcbe5c14c56dad732bc7f3899e89246345facf3a54750aadcc983102e0f4b#1",
     "sha256:389c38bc24b86837b974559187bc3d1c6647cef81a4f4475bcb189df1cb76da9#1",
     "sha256:8a088f438a2bdeea7b29960ef3f2793b114c53fa1f57a9d97516dc62f5b34a53#1",
-    "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#4",
+    "sha256:2bb72f3cc19a27eaa692feca99ce2b21406aaa4a869d62b6c1ba00e55d8f80ea#3",
     "sha256:598a409d1969327dc2061f4e6587297db6c17696981a2a34bbcaccabc56661c4#1",
     "sha256:3d50c591086b8924bfa9f4541d73ded96b717e7c0162488b796c0f380a7ce5b0#2",
     "sha256:8d35979f479b2875da103bb23f9af06067afc67ca18bb947bcbd67a323f3b898#2",
@@ -15320,6 +15318,7 @@
    ],
    "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": [
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
+    "sha256:912d2f5acee45c48ddd5a513990435e7b3dcc1ea7eed171d0b0b72b0734d87bb#1",
     "sha256:063e3d97fbe5c7382df417aae2453be61a01861561f37741b5ce484cfd6551d0#1",
     "sha256:be4134bc9804fa6a71e65b1fd2938c112c509a0fd1efebf2657faec0d8832405#1",
     "sha256:7935ef8a693544c83d5930621e82eda63a45ecfc1ce60c0eeb0b878ad44fefaa#1",
@@ -15339,26 +15338,28 @@
     "sha256:ac33dcba0bf71c5af5068156ec2289ebb131d12e279b46e09e44aa058d25945f#1",
     "sha256:075da1329bf98305ddcc57e5c54ff9464a19fba45924fd3dcdaeec84bf84cdea#1",
     "sha256:ce8968f95bf20f55c97fa9de8caa2e3ec0f4fea457aa3774c49ceeaac419a96f#1",
-    "sha256:9eba5760bb9f8681cb94e87a9f0afe99df63eb2d38f4cb0087fd479d50168eb9#1",
+    "sha256:953fd6ed96368762e0ad1a49890121aabd9afea6973227250c9900bddaac997d#1",
     "sha256:075da1329bf98305ddcc57e5c54ff9464a19fba45924fd3dcdaeec84bf84cdea#2",
     "sha256:e9baeeb6d30cc683672eff45ccdeada30512692c4cfca5f432db55e63fe89ae0#1",
     "sha256:8e0da716861d016d87792acddd630c9e9db193121e58908661d2cd33f8987f6b#1",
     "sha256:6e4e2f14e5b64bdba685d41a6751e4ba1e007c4355fa9264e515674bc493e09a#1",
     "sha256:075da1329bf98305ddcc57e5c54ff9464a19fba45924fd3dcdaeec84bf84cdea#3",
+    "sha256:e4480889ec1fc6f0d63b2665b8ac978bc03b3b3cbdd8e6af260dd070f1c0efff#1",
     "sha256:c9834c70efbfcbdad6b98688f89f54f6007aa36d07c2cce042628ba62ee4f4db#1",
-    "sha256:aaaa603e2113e182e9a0aa9152842707d3fc6572da1798206bf79eaf3548d76d#1",
+    "sha256:fb7cf211664524cd9f805769c9ab6b53a4a4cea585cebf1fc0f5ba4766002aeb#1",
     "sha256:2652c9ff47302b84f00c5109d6455de2aba9c7ca99440dc1c0f992c549cef9e0#1",
     "sha256:e514d2e990a69b9d5f10051df82c65915f4907f5539886480de4b7ae04d19d0f#1",
     "sha256:dd80d5e8a6f956da4e4287420b13977f3c80c767e5ef7aebd0d0bf2e546cb780#1",
-    "sha256:bd5fb8431a6f171a53f7d6c981d444d56d93ff32ef411bfda395f81e09f4bb29#1",
     "sha256:41ccc914ca96a1238faeb142705ff936dbed34e06aa0d5a0c618faba680fbde1#1",
     "sha256:5a42b42da025a90c57627560dee6b1c3f81abed594a06cf51f3e7dba1ca37ace#1",
     "sha256:acf990941ed9e66bbbf51eb55944f8f69ca58c12a2a7d660ef6d734707341111#1",
     "sha256:fcaa8af3edefc1a56955ac75bf37461ce53a012b78d933966877e1b9ad906743#1",
     "sha256:4e9fe43347dec0627417ccc662d8ce21691aed5b19f9a6d9cf6ffed586754840#1",
     "sha256:c4b733e987b1771b26031189954c1959198ec2dd6c0dce484ef312dbd8bde927#1",
+    "sha256:258250554ce10bd25b40a86012f131f0709523b7737df1d2ce522e8e0b584dad#1",
+    "sha256:0935d221d1c4ac61a222f8d6b978ab94698922a853c57b5689da43ffc8e2c513#1",
     "sha256:44640734f7bbf537d97ee1c876291622b8e779ace4db52a12464801003510301#1",
-    "sha256:316cbcb00d65e73335e1235ab0827de0aec2cead323c9be04a6cc35a17bfe18b#1",
+    "sha256:d08d136135636f61c51c12155ce41014166231f15876745fb88c282685bcbb16#1",
     "sha256:bbf5ce5cc9996413ea152c69ce374dba59e46c2b713dfd37b494e8642d3b887a#1",
     "sha256:e8c7d6ba65819de743b483f81435f4ac9471d3468acc0f395757575e7119767f#1",
     "sha256:075da1329bf98305ddcc57e5c54ff9464a19fba45924fd3dcdaeec84bf84cdea#4",
@@ -15383,7 +15384,7 @@
     "sha256:2078e579562853509f11468c0bf1ca08ef011529aa03f7c7385008ca8ab67fa5#2",
     "sha256:5d8be6dc9ccb845fa3b8db54971979f5cf37ea478ea5081252109e607a7048ad#1",
     "sha256:193633192cbd1b8cc81300d482967253f9896f372370278af4f700eca799ed37#1",
-    "sha256:07bd013be7d5713edc702ac908deac85a0375eb32147b04deb5153a63315f4b7#1",
+    "sha256:28ee9b17b5c3107ea173c39d7b6532158450fd6641c0b8cd559c59074de52b43#1",
     "sha256:98aeea76ed31d77b59ae9e9ae9ee2d8fe349d459ed9ebaabb8877c57b2935e0a#1",
     "sha256:d8c03febadfc7842009e7710fdc06ff42adf3fdf1c4b8e74c42edc29a31b34ed#1",
     "sha256:501dcc82b6eb2d4d41341dd979587a167c3e2bae1bfb51c4b6e78e90c8783fad#1",
@@ -16734,7 +16735,7 @@
     "sha256:31c7e3140e7c16749fe1c9303b321d549cdd17930b8c6319a8b2a6b43190285e#1",
     "sha256:9ee77f7fe83f0832f773ba7459a5d6ca6c131bb5d4992367d5e1919a33e47912#1",
     "sha256:d07a13b914f4328f15d8616c0c95de5653e2832fb622b9b4da10b6dc8c62da73#1",
-    "sha256:735858ac5d1bbabaf0cb880dbe00eb154e910d228ce28c69b6778cd7c85aabda#1",
+    "sha256:f63eead7540cdf1b0e565dc0d186edb23ddcd1df1cca83e27062c64e3620d50e#1",
     "sha256:563b841de14f6de4be7c3092a3c8e36690e0e4d37ec1833477f3f6dbadfc75b5#1",
     "sha256:31d565565bb2044f74aa0d8052517a2b1c5c2e49b1dee34a29f7d742028a0589#1",
     "sha256:53461c935fca676519764d7fdbf22cd5463b95efd2551bfb6359db6bd27c481a#1",
@@ -18004,7 +18005,8 @@
     "sha256:ee2a29b7d0fccaa6b748802e333998f9a74b93c25674f9825edd85b1daa70641#1",
     "sha256:053c7ea54148ec5c39cf6404537b4e41c90de1ea1b267ae7ab1a7583da9c5423#3",
     "sha256:01659dc646b40b3968300e62e7b11ac0e90a9b5b82397c62b9ed011d051c464a#1",
-    "sha256:91f100175dfff3bacc8b56029885f45e0ac75ef4a084b38b0d01e5646b35a60f#1",
+    "sha256:e4ceb06c802e22ccf0dd3515e519b17577519e9749e3b11e011fe2f3431b2fde#1",
+    "sha256:45911036331680a0689e367dba3c49320d6e224ca21033416e2c4d35be198050#1",
     "sha256:dad15bdd0875d3e5c85d1ff4fdaa2fb0de541667c993c937480a0a3617363cbf#1",
     "sha256:38fb6dc2d7d592a3c4caae9353363956d21243c4708f9ded8ee949b1f633fca5#1",
     "sha256:e26a0408a277b4675ebb722b217b68360600990ff94c8884e888dd0ed0a57c63#2",
@@ -21830,9 +21832,9 @@
     "statements": 244
    },
    "plex_renamer/gui_qt/widgets": {
-    "covered": 8183,
+    "covered": 8185,
     "percent": 88.6,
-    "statements": 9233
+    "statements": 9235
    }
   },
   "scope_id": "8b742b57ed68d18ae6c5d9bcf6aa6f890fcc68ba1c03d945cacbc9a44ebc0cd0",
@@ -21862,54 +21864,6 @@
    "path": "plex_renamer/_mkv_probe.py",
    "rule": "unused-variable",
    "symbol": "plex_renamer._mkv_probe.ProbeResult.container_type#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_episodes.py",
-   "rule": "RUF003",
-   "symbol": "plex_renamer._parsing_episodes.extract_episode::ambiguous-unicode-character-comment::Comment contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_names.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_names.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_names.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_seasons.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_titles.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_titles.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_tv.py",
-   "rule": "SIM103",
-   "symbol": "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
   },
   {
    "analyzer": "pyright",
@@ -22188,12 +22142,6 @@
    "symbol": "plex_renamer.app.services.settings_service.SettingsService.automux_retain_sub_languages::reportGeneralTypeIssues::\"object\" is not iterable \"__iter__\" method not defined#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/app/services/settings_service.py",
-   "rule": "UP015",
-   "symbol": "plex_renamer.app.services.settings_service.SettingsService._load::redundant-open-modes::Unnecessary mode argument#1"
-  },
-  {
    "analyzer": "vulture",
    "path": "plex_renamer/app/services/settings_service.py",
    "rule": "unused-property",
@@ -22398,12 +22346,6 @@
    "symbol": "plex_renamer.engine._batch_tv_episode_claims.reconcile_scanned_episode_claims::reportOptionalMemberAccess::\"files\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_batch_tv_episode_claims.py",
-   "rule": "RUF005",
-   "symbol": "plex_renamer.engine._batch_tv_episode_claims.reconcile_scanned_episode_claims::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "plex_renamer/engine/_batch_tv_match_policy.py",
    "rule": "reportArgumentType",
@@ -22462,12 +22404,6 @@
    "path": "plex_renamer/engine/_queue_bridge.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.engine._queue_bridge._build_rename_ops::reportArgumentType::Argument of type \"Unknown | str | None\" cannot be assigned to parameter \"new_name\" of type \"str\" in function \"__init__\" Type \"Unknown | str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_tv_scanner_consolidated.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
   },
   {
    "analyzer": "pyright",
@@ -22630,12 +22566,6 @@
    "path": "plex_renamer/gui_qt/widgets/_automux_tracks.py",
    "rule": "unused-method",
    "symbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_bulk_assign_panel.py",
-   "rule": "SIM103",
-   "symbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel._stageable::needless-bool::Return the negated condition directly#1"
   },
   {
    "analyzer": "vulture",
@@ -22872,22 +22802,10 @@
    "symbol": "plex_renamer.gui_qt.widgets._match_picker_selection.MatchPickerSelectionCoordinator.apply_current_item::reportOptionalMemberAccess::\"get\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py",
-   "rule": "E731",
-   "symbol": "plex_renamer.gui_qt.widgets._media_workspace_match_actions.fix_match::lambda-assignment::Do not assign a `lambda` expression, use a `def`#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.paint::reportArgumentType::Argument of type \"QRect\" cannot be assigned to parameter \"rect\" of type \"QRectF\" in function \"paint_check_indicator\" \"QRect\" is not assignable to \"QRectF\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
-   "rule": "RUF005",
-   "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel._build_row_data::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
   },
   {
    "analyzer": "vulture",
@@ -22948,12 +22866,6 @@
    "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.set_automux_tracks::reportOptionalMemberAccess::\"widget\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_work_panel.py",
-   "rule": "RUF005",
-   "symbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel._refresh_strip::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
   },
   {
    "analyzer": "vulture",
@@ -23160,18 +23072,6 @@
    "symbol": "plex_renamer.gui_qt.widgets.scan_progress.ScanProgressWidget.update_progress::reportArgumentType::Argument of type \"ScanLifecycle | None\" cannot be assigned to parameter \"value\" of type \"ScanLifecycle\" in function \"index\" Type \"ScanLifecycle | None\" is not assignable to type \"ScanLifecycle\" \"None\" is not assignable to \"ScanLifecycle\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
-   "rule": "RUF001",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
-  },
-  {
    "analyzer": "vulture",
    "path": "plex_renamer/gui_qt/widgets/tab_badge.py",
    "rule": "unused-method",
@@ -23254,18 +23154,6 @@
    "path": "scripts/audit/_diff.py",
    "rule": "reportReturnType",
    "symbol": "scripts.audit._diff._baseline_snapshot::reportReturnType::Type \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown | dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | dict[Unknown, Unknown]\" is not assignable to return type \"dict[Unknown, Unknown]\" Type \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown | dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | dict[Unknown, Unknown]\" is not assignable to type \"dict[Unknown, Unknown]\" \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown]\" is not assignable to \"dict[Unknown, Unknown]\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "scripts/audit/_diff.py",
-   "rule": "SIM103",
-   "symbol": "scripts.audit._diff._dead_evidence_usable::needless-bool::Return the negated condition directly#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "scripts/audit/_metrics.py",
-   "rule": "C420",
-   "symbol": "scripts.audit._metrics._dead_counts::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
   },
   {
    "analyzer": "pyright",
@@ -23646,12 +23534,6 @@
    "symbol": "tests.audit.test_verify::reportAttributeAccessIssue::\"_verify\" is unknown import symbol#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/audit/test_verify.py",
-   "rule": "RUF043",
-   "symbol": "tests.audit.test_verify.test_verify_rejects_preexisting_symlink_before_pipeline_without_mutation::pytest-raises-ambiguous-pattern::Pattern passed to `match=` contains metacharacters but is neither escaped nor raw#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/conftest_qt.py",
    "rule": "reportAttributeAccessIssue",
@@ -23724,18 +23606,6 @@
    "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_files_pane_lists_assigned_files::reportOperatorIssue::Operator \"in\" not supported for types \"Literal['S01E02']\" and \"str | Unknown | QColor | None\" Operator \"in\" not supported for types \"Literal['S01E02']\" and \"None\" Operator \"in\" not supported for types \"Literal['S01E02']\" and \"QColor\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_bulk_assign_panel.py",
-   "rule": "C416",
-   "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_auto_map_uses_evidence_not_position::unnecessary-comprehension::Unnecessary dict comprehension (rewrite using `dict()`)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_bulk_assign_panel.py",
-   "rule": "F841",
-   "symbol": "tests.test_bulk_assign_panel.BulkAssignPanelTests.test_toggling_unassign_off_drops_dependent_stage::unused-variable::Local variable `claimed_fid` is assigned to but never used#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_cache_service.py",
    "rule": "reportOptionalMemberAccess",
@@ -23752,12 +23622,6 @@
    "path": "tests/test_cache_service.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::reportOptionalMemberAccess::\"namespace\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_cache_service.py",
-   "rule": "F841",
-   "symbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::unused-variable::Local variable `entry` is assigned to but never used#1"
   },
   {
    "analyzer": "pyright",
@@ -23826,12 +23690,6 @@
    "symbol": "tests.test_consolidated_two_phase.test_regular_season_shadows_s0_duplicate_title::reportOptionalSubscript::Object of type \"None\" is not subscriptable#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_consolidated_two_phase.py",
-   "rule": "E402",
-   "symbol": "tests.test_consolidated_two_phase::module-import-not-at-top-of-file::Module level import not at top of file#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_assignments.py",
    "rule": "reportOptionalMemberAccess",
@@ -23854,12 +23712,6 @@
    "path": "tests/test_episode_assignments.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_episode_assignments.TestManualCarryOver.test_manual_assignments_survive_rescan_of_same_show::reportOptionalMemberAccess::\"origin\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_assignments.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_assignments::module-import-not-at-top-of-file::Module level import not at top of file#1"
   },
   {
    "analyzer": "pyright",
@@ -24186,36 +24038,6 @@
    "symbol": "tests.test_episode_mapping_projection.TestTableBackedService.test_approve_file::reportOptionalMemberAccess::\"assign\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "C416",
-   "symbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_does_not_double_claim_one_slot::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "C416",
-   "symbol": "tests.test_episode_mapping_projection.SuggestAssignmentsTests.test_suggest_assignments_follows_parse_evidence::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#3"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_projection.py",
    "rule": "reportOperatorIssue",
@@ -24282,64 +24104,10 @@
    "symbol": "tests.test_episode_resolution.TestSingleNumberSegmentedRun.test_multi_segment_number_claim_not_floored_to_auto_accept::reportOptionalMemberAccess::\"confidence\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#3"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#4"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#5"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#6"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#7"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "E402",
-   "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#8"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_table_delegate.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_episode_table_delegate.EpisodeTableDelegateTests.test_persistent_editor_parents_into_viewport.provider::reportArgumentType::Argument of type \"EpisodeGuideRow | None\" cannot be assigned to parameter \"row\" of type \"EpisodeGuideRow\" in function \"show_episode\" Type \"EpisodeGuideRow | None\" is not assignable to type \"EpisodeGuideRow\" \"None\" is not assignable to \"EpisodeGuideRow\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_table_delegate.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
   },
   {
    "analyzer": "pyright",
@@ -24606,24 +24374,6 @@
    "symbol": "tests.test_jojo_matching.MovieScannerCompanionVideoTests.test_movie_scanner_skips_ncop_and_only_searches_real_movie_files::reportArgumentType::Argument of type \"_FakeMovieTMDB\" cannot be assigned to parameter \"tmdb\" of type \"TMDBClient\" in function \"__init__\" \"_FakeMovieTMDB\" is not assignable to \"TMDBClient\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_jojo_matching.py",
-   "rule": "C420",
-   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_jojo_matching.py",
-   "rule": "C420",
-   "symbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_jojo_matching.py",
-   "rule": "C420",
-   "symbol": "tests.test_jojo_matching._FakeTMDBForOVAScan::unnecessary-dict-comprehension-for-iterable::Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead#2"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_media_controller.py",
    "rule": "reportArgumentType",
@@ -24688,12 +24438,6 @@
    "path": "tests/test_metadata_local_inventory.py",
    "rule": "reportOptionalSubscript",
    "symbol": "tests.test_metadata_local_inventory.test_prefer_local_carries_and_removes_plan_entries::reportOptionalSubscript::Object of type \"None\" is not subscriptable#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_local_inventory.py",
-   "rule": "C416",
-   "symbol": "tests.test_metadata_local_inventory.test_inventory_maps_slots::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
   },
   {
    "analyzer": "pyright",
@@ -25066,12 +24810,6 @@
    "path": "tests/test_qt_async_guide.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_qt_async_guide.AsyncGuideModelTests.test_mid_flight_mutation_orphans_stale_build::reportOptionalMemberAccess::\"unassign\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_busy_overlay.py",
-   "rule": "SIM117",
-   "symbol": "tests.test_qt_busy_overlay.BusyOverlayTests.test_exception_inside_scope_still_removes_overlay::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
   },
   {
    "analyzer": "pyright",
@@ -26562,12 +26300,6 @@
    "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_settings_destructive_buttons_are_danger_outline_on_the_data_page::reportOptionalMemberAccess::\"findChildren\" is not a known attribute of \"None\"#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "SIM117",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_media_workspace.py",
    "rule": "reportArgumentType",
@@ -27558,12 +27290,6 @@
    "symbol": "tests.test_qt_media_workspace.TestEpisodeAssignDialog.test_assign_dialog_shows_full_filename_unelided::reportOptionalMemberAccess::\"wordWrap\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_media_workspace.py",
-   "rule": "RUF005",
-   "symbol": "tests.test_qt_media_workspace.BulkAssignWorkspaceTests.test_apply_with_skipped_pair_reports_error_tone_and_reason::collection-literal-concatenation::Consider `[*staged[:-1], (staged[-1][0], 1, 99)]` instead of concatenation#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_queue_history.py",
    "rule": "reportArgumentType",
@@ -28422,12 +28148,6 @@
    "symbol": "tests.test_specials_guards.test_exact_s0_title_still_loses_to_valid_own_number_with_own_match::reportOptionalMemberAccess::\"season\" is not a known attribute of \"None\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_status_chip.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_tiebreak_discrimination.py",
    "rule": "reportArgumentType",
@@ -28498,30 +28218,6 @@
    "path": "tests/test_tmdb.py",
    "rule": "reportOptionalSubscript",
    "symbol": "tests.test_tmdb.TMDBClientTests.test_get_tv_details_reuses_persisted_details_across_client_instances::reportOptionalSubscript::Object of type \"None\" is not subscriptable#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_token_aligned_substring.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_token_aligned_substring.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_token_aligned_substring.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_token_aligned_substring.py",
-   "rule": "RUF001",
-   "symbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
   },
   {
    "analyzer": "pyright",
@@ -28852,7 +28548,6 @@
   "plex_renamer/app/services/_settings_schema.py": "sha256:e98b38e67b8dfa0a9543ea34b3ee56fd5d03f0f996a50de0b4a6a7d74353fe15",
   "plex_renamer/app/services/movie_library_discovery_service.py": "sha256:ca806fe7e9c53015765bd32cb2796498ddf08e8f79418a343ee9cbc04ad9eada",
   "plex_renamer/app/services/output_destination_service.py": "sha256:dfba590c6b6276590b138e28ccdb8aa826b7dd46579ea9da8f85818b42c57e56",
-  "plex_renamer/app/services/settings_service.py": "sha256:aa2f5035ffc40e0b5e0dd2ce7f98fe1e2e260693ffadbc6ce5ee153083c21800",
   "plex_renamer/constants.py": "sha256:90334ff4a08538e2b957c0cc0ee476c6e443a6395ca036095c896010af5eeeca",
   "plex_renamer/engine/_batch_tv_duplicates.py": "sha256:7c33b82bca0fa22fabd6475d7b849abd0dabe659515a81dc8441753e3e5a1843",
   "plex_renamer/engine/_batch_tv_match_policy.py": "sha256:09959015b68b6babb9ad78f9855e276c177258b70221f52d2ce37df4c0bf1a48",
@@ -28867,7 +28562,6 @@
   "plex_renamer/gui_qt/widgets/_history_tab_state.py": "sha256:673b78c61fea2e5ab2744db60504738c6808ddb438d52ce6eb6cdfcc49ca5e5b",
   "plex_renamer/gui_qt/widgets/_job_detail_data.py": "sha256:fc4f12698f853625f68952be4ba21c0da7f3857075fa127649afe7d4ebe824a4",
   "plex_renamer/gui_qt/widgets/_media_workspace_action_state.py": "sha256:42b5fe55692584ec5199e0731257bf2045a0bd02c1662c88441e60054011427b",
-  "plex_renamer/gui_qt/widgets/_media_workspace_match_actions.py": "sha256:4be888757a1072dd01576ebefb6b6223332e1645a20d73abb1b9f187e5f8968e",
   "plex_renamer/gui_qt/widgets/_media_workspace_state.py": "sha256:719e43a495405378523ef909aa812506caca44c6341ad60d93e99cf251340e11",
   "plex_renamer/gui_qt/widgets/_media_workspace_sync.py": "sha256:396cda3e807b5ee39daa9045d7519a51c9ba5171c054b6b3556389f089c9f25e",
   "plex_renamer/gui_qt/widgets/_queue_tab_actions.py": "sha256:c96a3fb116c6a38b25690e32b7d7945bccd61e849015e8e068b0c33b799cc9b4",
@@ -28875,9 +28569,7 @@
   "plex_renamer/gui_qt/widgets/busy_overlay.py": "sha256:cfb569529987597bf55028f6720ba2732886e99f6ef3c3c9ff80a52c34431a8c",
   "plex_renamer/gui_qt/widgets/match_picker_dialog.py": "sha256:8e2a8f46e277d9f96995ad7f0270da292f87841131efc1941066dacf987f879d",
   "plex_renamer/gui_qt/widgets/segmented_control.py": "sha256:4ab6c1bd7ea5759f943216c8d5d1bab523c8731d38d1a68fc8d5bf5ce37ec635",
-  "scripts/audit/_diff.py": "sha256:8e9bc3cb77c47be5dfc82ebee625a2d9a63a9f47092a2e9b709a76c1c5d1a8b5",
   "scripts/audit/_docs_ledger.py": "sha256:b2809587abbef0cbe929a80d383e0204042098cc32524d4c3932a683a30c573f",
-  "scripts/audit/_metrics.py": "sha256:7d5f92780b57114aa85c77eeb4c599e7ce5b59fff3a4f30699cb5621c51bb028",
   "scripts/test_smoke_runner.py": "sha256:0b8fd6dd0238b46222e0c6de8146120d26cd5cf0ea1c2b879540f0b9fbb08af5",
   "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
   "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
@@ -28891,7 +28583,6 @@
   "tests/test_confidence_adjustment_guards.py": "sha256:2058d45f5b8d2989ae4bacf29ac8b30c5073396e90ead498d48d7703965d12a9",
   "tests/test_conflict_queue_protection.py": "sha256:b793c6d2f1bee73a6d77bb46671cd5970cc66150f671b55044e0ad726be71d09",
   "tests/test_conflict_snapshot_staleness.py": "sha256:375ba75463ac11f743f5380863a83fe886ea4f4765946b8d92aff94b70e6a2c8",
-  "tests/test_consolidated_two_phase.py": "sha256:9c9cfb8e88cad3034e5e1524230fc9cc63e9af221df64986721a2fa50afea8c3",
   "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
   "tests/test_disc_grouped_run_ambiguity.py": "sha256:72c1aa3f23f20e7fe06862bb406c1d569c5b79bf40c7db706e3ed0ba6ba288b5",
   "tests/test_filename_formatting.py": "sha256:3227f2720c996563d34dcd322bc4771624f976d84a610eeb3d63fe5a0725713c",
@@ -28915,7 +28606,6 @@
   "tests/test_positional_fill_overlap.py": "sha256:70d484419b07093cd085f6f888b487ca45202d501e47028b066969fe79221b59",
   "tests/test_qt_app_popup_filter.py": "sha256:e8e7c0fcee9ae0f0969b3f0684c0d6cbeb220080901b58ac0ee92910032def42",
   "tests/test_qt_async_guide.py": "sha256:6c402bad3d4083f2d0d0cbbdd62a1847cb7641f9ab82f72dcd3657459ffaf33a",
-  "tests/test_qt_busy_overlay.py": "sha256:2b982601e9c277a9d01f37dad1f898f461ec2fe9cdb499201a974d9a60df37b4",
   "tests/test_qt_perf_guards.py": "sha256:000fd6f38aad4dc80808b762ce5716dfd8e1cf2768b4c8ff1da0ce13088cc663",
   "tests/test_queue_bridge_mux.py": "sha256:a7fa1c3446ab98d12ffc3057cb8a4b4aa81e8a375ebadc25337405c9e59c8afb",
   "tests/test_queue_executor_progress.py": "sha256:7e7ed95f85bbf109712f7c2aa53b88e50bbeca45b28b8a15e8724c9bc3b9098b",

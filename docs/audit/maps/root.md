@@ -8,7 +8,7 @@
 - `plex_renamer/_mkv_locate.py` — fan-in 6, fan-out 0, LOC 65
 - `plex_renamer/_parsing_titles.py` — fan-in 6, fan-out 1, LOC 275
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
-- `plex_renamer/job_store.py` — fan-in 16, fan-out 5, LOC 645
+- `plex_renamer/job_store.py` — fan-in 16, fan-out 5, LOC 644
 - `plex_renamer/keys.py` — fan-in 4, fan-out 1, LOC 78
 - `plex_renamer/parsing.py` — fan-in 24, fan-out 6, LOC 60
 - `plex_renamer/thread_pool.py` — fan-in 12, fan-out 0, LOC 66
@@ -37,7 +37,7 @@
 - `plex_renamer/_tmdb_metadata_cache.py` — fan-in 1, fan-out 0, LOC 218
 - `plex_renamer/_tmdb_search_helpers.py` — fan-in 1, fan-out 0, LOC 36
 - `plex_renamer/_tmdb_transport.py` — fan-in 1, fan-out 0, LOC 166
-- `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 894
+- `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 891
 
-_Generated from audit input 9d520dbfafe1 by scripts\audit.cmd._
+_Generated from audit input a74d9b12c50b by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

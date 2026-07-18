@@ -1,5 +1,37 @@
 """Tests for episode parsing extensions and the resolution policy."""
 
+from pathlib import Path
+
+from plex_renamer._parsing_titles import _strip_quality_parens, clean_title_evidence
+from plex_renamer.engine._episode_resolution import (
+    CONF_AGREE,
+    CONF_NUMBER_INFERRED,
+    CONF_NUMBER_RELATIVE,
+    CONF_SPECIAL_NUMBER_ONLY,
+    CONF_TITLE_ONLY,
+    CONF_TITLE_WINS,
+    CONF_TITLE_WINS_INEXACT,
+    CONF_WEAK_TITLE_NUMBER_CAP,
+    CONTRADICTORY_PREFIX_CAP,
+    EPISODE_TITLE_MATCH_FLOOR,
+    EXACT_COVERAGE_FLOOR,
+    EXPLICIT_EPISODE_FLOOR,
+    STRONG_TITLE_STRENGTH,
+    apply_confidence_adjustments,
+    match_title_in_titles,
+    rescue_cross_season_titles,
+    resolve_file,
+)
+from plex_renamer.engine._state import DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    ORIGIN_MANUAL,
+    REASON_LOST_CONFLICT,
+    REASON_NO_TITLE_MATCH,
+    REASON_NOT_IN_SEASON,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
 from plex_renamer.parsing import extract_episode
 
 
@@ -166,8 +198,6 @@ class TestDescriptiveParentheticals:
 
 # ─── Direct unit tests for _strip_quality_parens / clean_title_evidence ───────
 
-from plex_renamer._parsing_titles import _strip_quality_parens, clean_title_evidence
-
 
 class TestStripQualityParens:
     """Unit tests for Finding 1 (year stripping) and Finding 2 (noise via token)."""
@@ -224,21 +254,6 @@ class TestStripQualityParens:
         result = clean_title_evidence("Show (1080p BluRay x265 ImE)")
         assert "1080p" not in result
 
-
-from plex_renamer.engine._episode_resolution import (
-    CONF_AGREE,
-    CONF_NUMBER_INFERRED,
-    CONF_NUMBER_RELATIVE,
-    CONF_SPECIAL_NUMBER_ONLY,
-    CONF_TITLE_ONLY,
-    CONF_TITLE_WINS,
-    CONF_TITLE_WINS_INEXACT,
-    CONF_WEAK_TITLE_NUMBER_CAP,
-    STRONG_TITLE_STRENGTH,
-    match_title_in_titles,
-    resolve_file,
-)
-from plex_renamer.engine._state import DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
 
 S0_TITLES = {1: "Inauguration Part 1", 2: "Special A", 3: "Special C"}
 S1_TITLES = {1: "Pilot", 2: "The Heist", 3: "Endgame", 4: "Coda"}
@@ -744,23 +759,6 @@ class TestSpecialsTrust:
         assert res.confidence == CONF_NUMBER_RELATIVE
 
 
-from pathlib import Path
-
-from plex_renamer.engine._episode_resolution import (
-    CONTRADICTORY_PREFIX_CAP,
-    EPISODE_TITLE_MATCH_FLOOR,
-    EXACT_COVERAGE_FLOOR,
-    EXPLICIT_EPISODE_FLOOR,
-    apply_confidence_adjustments,
-)
-from plex_renamer.engine.episode_assignments import (
-    ORIGIN_AUTO,
-    ORIGIN_MANUAL,
-    REASON_LOST_CONFLICT,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
-
 SHOW = {"id": 7, "name": "Demo Show", "year": "2020"}
 
 
@@ -926,10 +924,6 @@ class TestConfidenceAdjustments:
         # exactly CONF_TITLE_WINS_INEXACT.
         assert capped == CONF_TITLE_WINS_INEXACT
         assert capped < DEFAULT_EPISODE_AUTO_ACCEPT_THRESHOLD
-
-
-from plex_renamer.engine._episode_resolution import rescue_cross_season_titles
-from plex_renamer.engine.episode_assignments import REASON_NO_TITLE_MATCH, REASON_NOT_IN_SEASON
 
 
 class TestCrossSeasonTitleRescue:

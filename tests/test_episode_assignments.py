@@ -10,8 +10,10 @@ from plex_renamer.engine.episode_assignments import (
     REASON_DISPLACED,
     REASON_LOST_CONFLICT,
     ROLE_PRIMARY,
+    ROLE_VERSION,
     EpisodeAssignmentTable,
     EpisodeSlot,
+    merge_tables,
 )
 
 
@@ -193,9 +195,6 @@ class TestContractPins:
         assert kept is not None and kept.episodes == (2, 3)
         assert table.assignment_for(loser.file_id) is None
         assert table.conflicts() == {}
-
-
-from plex_renamer.engine.episode_assignments import ROLE_VERSION, merge_tables
 
 
 class TestMergeTables:

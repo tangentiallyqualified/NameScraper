@@ -639,9 +639,8 @@ class MediaWorkPanel(QFrame):
         specs = season_strip_specs(state.completeness)
         guide = self._model.guide()
         unmapped_count = len(guide.unmapped_primary_files) if guide is not None else 0
-        key = (unmapped_count,) + tuple(
-            (season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs
-        )
+        chip_key = ((season_num, chip.text, chip.tone, chip.tooltip) for season_num, chip in specs)
+        key = (unmapped_count, *chip_key)
         if key == self._strip_key:
             return  # same chips: no widget churn
         self._clear_strip()

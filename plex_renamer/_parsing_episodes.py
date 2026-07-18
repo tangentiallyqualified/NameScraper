@@ -91,7 +91,7 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
 
     # NxNN range-end rules (mirrors S##E## logic):
     #   -1x04  or  -04  (no spaces)             → range, bare end not followed by letter
-    #   ' - 1x04'       (spaced, N×NN prefix)   → range
+    #   ' - 1x04'       (spaced, NxNN prefix)   → range
     #   ' - 04 …'       (spaced, bare digits)   → NOT a range (title)
     nxn = re.search(r"\b(\d{1,2})x(\d{2,3})", name, re.IGNORECASE)
     if nxn:

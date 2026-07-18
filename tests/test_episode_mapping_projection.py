@@ -11,6 +11,13 @@ from plex_renamer.engine import (
     ScanState,
     SeasonCompleteness,
 )
+from plex_renamer.engine._episode_projection import project_preview_items
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    REASON_MANUAL_UNASSIGN,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
 
 
 def _preview(
@@ -157,13 +164,6 @@ if __name__ == "__main__":
     unittest.main()
 
 
-from plex_renamer.engine._episode_projection import project_preview_items
-from plex_renamer.engine.episode_assignments import (
-    ORIGIN_AUTO,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
-
 ROOT = Path("C:/lib/Demo Show (2020)")
 SHOW = {"id": 9, "name": "Demo Show", "year": "2020"}
 
@@ -291,9 +291,6 @@ class TestTableBackedService:
         service = EpisodeMappingService()
         choices = service.shareable_file_choices(state, season=1, episode=4)
         assert choices == []
-
-
-from plex_renamer.engine.episode_assignments import REASON_MANUAL_UNASSIGN
 
 
 def _table_state(*, slots: int = 4, files: tuple[str, ...] = ("a.mkv", "b.mkv", "c.mkv")):
@@ -488,7 +485,7 @@ class SuggestAssignmentsTests(unittest.TestCase):
             }
         )
         table = state.assignments
-        file_ids = [fid for fid in table.files]
+        file_ids = list(table.files)
         pairs = service.suggest_assignments(state, file_ids, taken=set())
         by_file: dict[int, list[tuple[int, int]]] = {}
         for fid, season, episode in pairs:
@@ -530,7 +527,7 @@ class SuggestAssignmentsTests(unittest.TestCase):
             }
         )
         table = state.assignments
-        file_ids = [fid for fid in table.files]
+        file_ids = list(table.files)
         pairs = service.suggest_assignments(state, file_ids, taken=set())
         self.assertEqual(len(pairs), 1)  # only the first-seen claims the slot
 

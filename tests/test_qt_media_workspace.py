@@ -5391,7 +5391,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
         toasts: list[tuple] = []
         workspace.toast_requested.connect(lambda *a: toasts.append(a))
         staged = panel.staged_pairs()
-        pairs = staged[:-1] + [(staged[-1][0], 1, 99)]
+        pairs = [*staged[:-1], (staged[-1][0], 1, 99)]
         workspace._on_bulk_apply(pairs)
         self.assertFalse(workspace._work_panel.bulk_assign_active())
         self.assertEqual(len(toasts), 1)

@@ -119,9 +119,7 @@ class BulkFilesModel(QAbstractListModel):
     def _stageable(self, file_id: int) -> bool:
         if file_id in self._staged_by_file:
             return False
-        if file_id in self._assigned_key_by_file and file_id not in self._staged_unassign:
-            return False
-        return True
+        return not (file_id in self._assigned_key_by_file and file_id not in self._staged_unassign)
 
     def _apply_filter(self) -> None:
         visible = list(self._previews)

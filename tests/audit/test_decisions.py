@@ -80,6 +80,7 @@ def test_decision_does_not_match_a_partial_identity(field: str, value: str) -> N
         "public-api",
         "test-seam",
         "intentional-reservation",
+        "intentional-literal",
         "accepted-debt",
     ],
 )

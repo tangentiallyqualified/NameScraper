@@ -34,7 +34,7 @@ def _make_source_tree(tmp_path: Path) -> Path:
 def test_inventory_maps_slots(tmp_path):
     src = _make_source_tree(tmp_path)
     job = tv_job(library_root=str(tmp_path / "src"))
-    ops = [op for op in job.rename_ops]
+    ops = list(job.rename_ops)
     found = inventory_local_metadata(src, ops, MediaType.TV, tmp_path / "src")
     assert found["poster"].name == "cover.png"
     assert found["fanart"].name == "fanart.jpg"

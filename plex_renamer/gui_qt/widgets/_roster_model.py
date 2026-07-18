@@ -284,7 +284,8 @@ class RosterModel(QAbstractListModel):
         if self._media_type == "tv":
             chips = tuple(season_chip_specs(state.completeness, drop_empty=True))
         if state_has_mux_actions(state):
-            chips = chips + (
+            chips = (
+                *chips,
                 ChipSpec(
                     "AutoMux", "info", "AutoMux: this item's current plan merges or strips tracks"
                 ),

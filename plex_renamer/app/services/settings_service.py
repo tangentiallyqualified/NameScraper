@@ -32,8 +32,8 @@ _log = logging.getLogger(__name__)
 
 _SETTINGS_FILE = LOG_DIR / "settings.json"
 
-_CACHE_MIN_BYTES = 64 * 1024 * 1024        # 64 MiB floor
-_CACHE_MAX_BYTES = 8 * 1024 ** 3           # 8 GiB ceiling (S2)
+_CACHE_MIN_BYTES = 64 * 1024 * 1024  # 64 MiB floor
+_CACHE_MAX_BYTES = 8 * 1024**3  # 8 GiB ceiling (S2)
 
 
 class SettingsService:
@@ -147,7 +147,7 @@ class SettingsService:
     @property
     def cache_max_size_bytes(self) -> int:
         """On-disk metadata cache byte cap, clamped to [64 MiB, 8 GiB]."""
-        raw = int(self.get("cache_max_size_bytes") or (1024 ** 3))
+        raw = int(self.get("cache_max_size_bytes") or (1024**3))
         return max(_CACHE_MIN_BYTES, min(_CACHE_MAX_BYTES, raw))
 
     @cache_max_size_bytes.setter
@@ -419,11 +419,7 @@ class SettingsService:
     @property
     def automux_any_enabled(self) -> bool:
         """True when at least one AutoMux action toggle is on (spec §8.1)."""
-        return (
-            self.automux_merge_subs
-            or self.automux_strip_subs
-            or self.automux_strip_audio
-        )
+        return self.automux_merge_subs or self.automux_strip_subs or self.automux_strip_audio
 
     # ── Window state ───────────────────────────────────────────────────
 
@@ -495,8 +491,7 @@ class SettingsService:
         current = [str(v) for v in (self.get(key) or [])]  # type: ignore[union-attr]
         # Remove duplicates of this path (case-insensitive on Windows).
         normalized = path.replace("\\", "/").lower()
-        current = [p for p in current
-                   if p.replace("\\", "/").lower() != normalized]
+        current = [p for p in current if p.replace("\\", "/").lower() != normalized]
         current.insert(0, path)
         self.set(key, current[:MAX_RECENT_FOLDERS])
 
@@ -506,7 +501,7 @@ class SettingsService:
         if not self._path.exists():
             return
         try:
-            with open(self._path, "r", encoding="utf-8") as f:
+            with open(self._path, encoding="utf-8") as f:
                 stored = json.load(f)
             if isinstance(stored, dict):
                 self._data = build_valid_settings_data(stored, logger=_log)

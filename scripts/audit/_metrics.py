@@ -1,4 +1,5 @@
 """Stage 5: merge graph + analysis + coverage into per-module metrics."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,14 +52,17 @@ def _dead_tier(finding: dict) -> str:
         return "allowlisted"
     assessment = finding.get("assessment")
     if assessment in {
-        "high-confidence", "medium-confidence", "low-confidence", "test-referenced",
+        "high-confidence",
+        "medium-confidence",
+        "low-confidence",
+        "test-referenced",
     }:
         return assessment
     return "protected-or-ambiguous"
 
 
 def _dead_counts(findings: list[dict]) -> dict:
-    tiers = {key: 0 for key in DEAD_TIER_KEYS}
+    tiers: dict[str, int] = dict.fromkeys(DEAD_TIER_KEYS, 0)
     for finding in findings:
         tiers[_dead_tier(finding)] += 1
     candidates = sum(value for key, value in tiers.items() if key != "allowlisted")
@@ -145,13 +149,18 @@ def build_metrics(
                 }
                 for f in dead
                 if not f.get("allowlisted")
-            ] if vulture_ok else None,
+            ]
+            if vulture_ok
+            else None,
             "public_symbols": sum(1 for s in mod.get("symbols", []) if s["public"]),
         }
         flags = []
         if record["max_complexity"] is not None and record["max_complexity"] > COMPLEXITY_FLAG:
             flags.append("complexity")
-        if record["coverage_percent"] is not None and record["coverage_percent"] < LOW_COVERAGE_FLAG:
+        if (
+            record["coverage_percent"] is not None
+            and record["coverage_percent"] < LOW_COVERAGE_FLAG
+        ):
             flags.append("low-coverage")
         if record["dead_candidates"]:
             flags.append("dead-code")
@@ -162,15 +171,10 @@ def build_metrics(
     covered_statements = sum(m["coverage_covered"] or 0 for m in modules.values())
     total_statements = sum(m["coverage_statements"] or 0 for m in modules.values())
     statement_coverage = (
-        round(100.0 * covered_statements / total_statements, 1)
-        if total_statements else None
+        round(100.0 * covered_statements / total_statements, 1) if total_statements else None
     )
     module_avg_coverage = round(sum(covered) / len(covered), 1) if covered else None
-    all_dead = [
-        finding
-        for findings in dead_by_path.values()
-        for finding in findings
-    ]
+    all_dead = [finding for findings in dead_by_path.values() for finding in findings]
     dead_headline = _dead_counts(all_dead) if vulture_ok else _unavailable_dead_counts()
     headline = {
         "files": len(modules),
@@ -182,8 +186,7 @@ def build_metrics(
         "dead_evidence_usable": vulture_ok,
         "cycles": len(graph.get("cycles", [])),
         "modules_over_complexity": (
-            sum(1 for m in modules.values() if "complexity" in m["flags"])
-            if radon_ok else None
+            sum(1 for m in modules.values() if "complexity" in m["flags"]) if radon_ok else None
         ),
         "coverage_stale": coverage.get("stale") if coverage.get("available") else None,
         "coverage_partial": coverage.get("partial") if coverage.get("available") else None,
@@ -193,7 +196,8 @@ def build_metrics(
     return {
         "input_digest": (
             _artifacts.input_digest(repo_root)
-            if repo_root is not None else coverage.get("input_digest")
+            if repo_root is not None
+            else coverage.get("input_digest")
         ),
         "modules": modules,
         "headline": headline,
@@ -202,10 +206,12 @@ def build_metrics(
             "usable": vulture_ok,
             "source": "vulture",
             "reason": (
-                None if vulture_ok
+                None
+                if vulture_ok
                 else (
                     vulture_status.get("reason")
-                    if isinstance(vulture_status, dict) else "status missing"
+                    if isinstance(vulture_status, dict)
+                    else "status missing"
                 )
             ),
             "observed_findings": len(all_dead),
@@ -226,7 +232,8 @@ def run(repo_root: Path, options) -> int:
     h = metrics["headline"]
     dead_summary = (
         f"{h['dead_high_confidence']} high-confidence dead symbols"
-        if h.get("dead_evidence_usable") else "dead-code analysis unavailable"
+        if h.get("dead_evidence_usable")
+        else "dead-code analysis unavailable"
     )
     print(f"metrics: {h['files']} modules, {h['total_loc']} LOC, {dead_summary}")
     return 0

@@ -507,13 +507,13 @@ class _FakeTMDBForOVAScan:
     _SEASON_MAP = {
         1: {
             "titles": _S1_TITLES,
-            "posters": {i: None for i in range(1, 7)},
+            "posters": dict.fromkeys(range(1, 7)),
             "episodes": {},
             "count": 6,
         },
         2: {
             "titles": _S2_TITLES,
-            "posters": {i: None for i in range(1, 8)},
+            "posters": dict.fromkeys(range(1, 8)),
             "episodes": {},
             "count": 7,
         },
@@ -636,7 +636,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
         single_season_map = {
             1: {
                 "titles": {i: f"Episode {i}" for i in range(1, 14)},
-                "posters": {i: None for i in range(1, 14)},
+                "posters": dict.fromkeys(range(1, 14)),
                 "episodes": {},
                 "count": 13,
             },

@@ -291,7 +291,6 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_toggling_unassign_off_drops_dependent_stage(self):
         panel = self._panel()
-        claimed_fid = panel._claimed_file_by_key[(1, 2)]
         row = panel._slots_model.row_for_key((1, 2))
         index = panel._slots_model.index(row, 0)
         panel._on_slot_clicked(index)  # stage unassign of E02
@@ -377,7 +376,7 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_auto_map_uses_evidence_not_position(self):
         panel = self._panel_with_parsed_files()  # b.mkv parses to S01E03, a.mkv unparsable
         panel.auto_map_remaining()
-        staged = {fid: key for fid, key in panel._staged_pairs}
+        staged = dict(panel._staged_pairs)
         parsed_fid = _fid_by_name(panel, "b - S01E03.mkv")
         unparsed_fid = _fid_by_name(panel, "a.mkv")
         self.assertEqual(staged[parsed_fid], (1, 3))  # NOT the first free slot

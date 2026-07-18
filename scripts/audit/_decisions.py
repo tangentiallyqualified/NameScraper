@@ -15,6 +15,7 @@ ALLOWED_REASON_CODES = frozenset(
     {
         "accepted-debt",
         "framework-callback",
+        "intentional-literal",
         "intentional-reservation",
         "public-api",
         "serialized-field",
