@@ -39,32 +39,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 31
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "unused variable 'is_forced'"
-          },
-          "properties": {
-            "analyzer": "vulture",
-            "category": "dead-code",
-            "qualifiedSymbol": "plex_renamer._mkv_probe.MediaTrack.is_forced#1"
-          },
-          "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/_mkv_probe.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startLine": 39
                 }
               }
@@ -2736,7 +2710,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 57
+                  "startLine": 66
                 }
               }
             }
@@ -2762,7 +2736,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 64
+                  "startLine": 73
                 }
               }
             }
@@ -3543,7 +3517,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 315
+                  "startLine": 317
                 }
               }
             }
@@ -4791,7 +4765,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 129
+                  "startLine": 135
                 }
               }
             }
@@ -12828,7 +12802,7 @@
                 },
                 "region": {
                   "startColumn": 21,
-                  "startLine": 104
+                  "startLine": 114
                 }
               }
             }

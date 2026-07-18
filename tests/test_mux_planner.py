@@ -186,6 +186,7 @@ def test_decisions_carry_forced_and_commentary_metadata():
         probe=probe, companion_subs=[("a.eng.srt", ".eng")],
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"]),
         new_name="X.mkv")
+    assert plan is not None
     by_id = {d.track_id: d for d in plan.track_decisions}
     assert by_id[1].is_commentary is True
     assert by_id[1].is_forced is False
@@ -225,6 +226,7 @@ def test_default_sub_prefers_full_over_forced():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              default_sub_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "subtitles"}
     assert defaults[2] is False
@@ -243,6 +245,7 @@ def test_default_audio_prefers_full_over_forced():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              default_audio_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "audio"}
     assert defaults == {1: False, 2: True}
@@ -260,6 +263,7 @@ def test_forced_only_match_still_gets_default():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              default_sub_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "subtitles"}
     assert defaults[2] is True
@@ -277,6 +281,7 @@ def test_default_audio_skips_commentary():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              default_audio_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "audio"}
     assert defaults == {1: False, 2: True}
@@ -294,6 +299,7 @@ def test_only_commentary_match_leaves_flags_untouched():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              default_audio_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     defaults = {d.track_id: d.make_default for d in plan.track_decisions
                 if d.track_type == "audio"}
     assert defaults == {1: True, 2: False}
@@ -311,6 +317,7 @@ def test_forced_companion_gets_flag_but_not_default():
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
                              default_sub_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     merge = plan.subtitle_merges[0]
     assert merge.action == "merge"
     assert merge.forced is True
@@ -332,6 +339,7 @@ def test_forced_companion_default_when_only_match():
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
                              default_sub_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     assert plan.subtitle_merges[0].forced is True
     assert plan.subtitle_merges[0].set_default is True
 
@@ -347,6 +355,7 @@ def test_full_merge_beats_forced_merge_for_default():
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
                              default_sub_language="eng"),
         new_name="X.mkv")
+    assert plan is not None
     by_src = {m.source_relative: m for m in plan.subtitle_merges}
     assert by_src["a.eng.srt"].set_default is True
     assert by_src["a.en.forced.srt"].set_default is False
@@ -365,6 +374,7 @@ def test_commentary_excluded_when_stripping():
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
                              exclude_commentary=True),
         new_name="X.mkv")
+    assert plan is not None
     keep = {d.track_id: d.keep for d in plan.track_decisions}
     assert keep == {0: True, 1: True, 2: True, 3: False, 4: False}
     reasons = {d.track_id: d.reason for d in plan.track_decisions}
@@ -383,6 +393,7 @@ def test_commentary_kept_when_toggle_or_strip_off():
         probe=probe, companion_subs=[],
         settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"]),
         new_name="X.mkv")
+    assert toggle_off is not None
     assert {d.track_id: d.keep for d in toggle_off.track_decisions}[2] is True
     # Strip off: the toggle alone does nothing (refinement only).
     strip_off = build_mux_plan(
@@ -391,6 +402,7 @@ def test_commentary_kept_when_toggle_or_strip_off():
         settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
                              exclude_commentary=True),
         new_name="X.mkv")
+    assert strip_off is not None
     assert {d.track_id: d.keep for d in strip_off.track_decisions}[2] is True
 
 
@@ -406,6 +418,7 @@ def test_commentary_exclusion_respects_audio_floor():
                              exclude_commentary=True,
                              strip_subs=True, retain_sub_languages=["eng"]),
         new_name="X.mkv")
+    assert plan is not None
     audio = [d for d in plan.track_decisions if d.track_type == "audio"]
     assert all(d.keep for d in audio)
     assert any("every audio track" in w for w in plan.warnings)

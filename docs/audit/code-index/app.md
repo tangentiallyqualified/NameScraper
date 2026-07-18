@@ -1,9 +1,7 @@
-<!-- Generated from audit input cac629f7ebb9; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input b216c1ec5575; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
-
-> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 
 ### `plex_renamer/app/__init__.py` — UI-neutral application-layer services and models for NameScraper.
@@ -170,7 +168,7 @@
 - `state_has_mux_actions(state) -> bool` — (no docstring) (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `state_mux_eligible(state) -> bool` — True when any cached plan carries actions, regardless of the
 - `effective_mux_plans(state) -> dict[int, dict] | None` — Plans to bake into a queue job — None when AutoMux contributes (used by: plex_renamer.app.controllers._queue_submission_helpers)
-- Tests: tests/test_automux_service.py
+- Tests: tests/test_automux_service.py, tests/test_automux_settings.py
 
 ### `plex_renamer/app/services/cache_service.py` — Persistent metadata cache with freshness tracking and bounded eviction.
 - `PersistentCacheService` — SQLite-backed cache for persisted metadata and scan-related state. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window)

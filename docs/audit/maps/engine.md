@@ -12,7 +12,7 @@ _No internal cycle edges._
 - `plex_renamer/engine/_episode_projection.py` — fan-in 4, fan-out 5, LOC 180
 - `plex_renamer/engine/_episode_resolution.py` — fan-in 4, fan-out 2, LOC 1969
 - `plex_renamer/engine/_movie_scanner.py` — fan-in 5, fan-out 8, LOC 441
-- `plex_renamer/engine/_mux_planner.py` — fan-in 3, fan-out 2, LOC 279
+- `plex_renamer/engine/_mux_planner.py` — fan-in 3, fan-out 2, LOC 328
 - `plex_renamer/engine/_rename_execution.py` — fan-in 3, fan-out 2, LOC 153
 - `plex_renamer/engine/_scan_runtime.py` — fan-in 4, fan-out 0, LOC 17
 - `plex_renamer/engine/_state.py` — fan-in 7, fan-out 0, LOC 44
@@ -34,5 +34,5 @@ _No internal cycle edges._
 - `plex_renamer/engine/_tv_scanner_seasons.py` — fan-in 1, fan-out 3, LOC 253
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 59
 
-_Generated from audit input cac629f7ebb9 by scripts\audit.cmd._
+_Generated from audit input b216c1ec5575 by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->

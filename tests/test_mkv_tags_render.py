@@ -103,7 +103,9 @@ def test_malformed_release_date_omits_date_tag():
     # Players compose "TITLE (DATE_RELEASED)" for display; a partial date
     # fragment would be worse than no date at all.
     root = _root(render_movie_tags({"title": "Bare", "release_date": "20"}))
-    simples = _simples(root.find("Tag"))
+    tag = root.find("Tag")
+    assert tag is not None
+    simples = _simples(tag)
     assert "DATE_RELEASED" not in simples
 
 

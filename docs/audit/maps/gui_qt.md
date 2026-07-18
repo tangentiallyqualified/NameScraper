@@ -33,7 +33,7 @@
 - `plex_renamer/gui_qt/models/__init__.py` — fan-in 1, fan-out 2, LOC 6
 - `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py` — fan-in 1, fan-out 1, LOC 35
 - `plex_renamer/gui_qt/models/job_table_model.py` — fan-in 2, fan-out 3, LOC 302
-- `plex_renamer/gui_qt/widgets/_automux_tracks.py` — fan-in 1, fan-out 1, LOC 316
+- `plex_renamer/gui_qt/widgets/_automux_tracks.py` — fan-in 1, fan-out 1, LOC 318
 - `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` — fan-in 1, fan-out 3, LOC 758
 - `plex_renamer/gui_qt/widgets/_episode_expansion.py` — fan-in 1, fan-out 5, LOC 478
 - `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` — fan-in 1, fan-out 3, LOC 730
@@ -64,7 +64,7 @@
 - `plex_renamer/gui_qt/widgets/_queue_tab_state.py` — fan-in 2, fan-out 1, LOC 58
 - `plex_renamer/gui_qt/widgets/_roster_delegate.py` — fan-in 1, fan-out 6, LOC 369
 - `plex_renamer/gui_qt/widgets/_roster_model.py` — fan-in 2, fan-out 9, LOC 384
-- `plex_renamer/gui_qt/widgets/_settings_automux_page.py` — fan-in 1, fan-out 4, LOC 204
+- `plex_renamer/gui_qt/widgets/_settings_automux_page.py` — fan-in 1, fan-out 4, LOC 210
 - `plex_renamer/gui_qt/widgets/_settings_metadata_page.py` — fan-in 1, fan-out 3, LOC 163
 - `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — fan-in 1, fan-out 1, LOC 174
 - `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — fan-in 1, fan-out 5, LOC 341
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input cac629f7ebb9 by scripts\audit.cmd._
+_Generated from audit input b216c1ec5575 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->
