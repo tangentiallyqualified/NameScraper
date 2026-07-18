@@ -20,6 +20,7 @@ def test_automux_defaults(tmp_path):
     assert svc.automux_default_audio_language == ""
     assert svc.automux_strip_track_names is False
     assert svc.automux_no_fear is False
+    assert svc.automux_exclude_commentary is False
     assert svc.automux_any_enabled is False
 
 
@@ -46,3 +47,12 @@ def test_bad_type_resets_to_default(tmp_path):
     path.write_text(json.dumps(data), encoding="utf-8")
     reloaded = _svc(tmp_path)
     assert reloaded.automux_merge_sub_languages == []
+
+
+def test_exclude_commentary_persists_and_maps(tmp_path):
+    from plex_renamer.app.services.automux_service import mux_settings_from_service
+    svc = _svc(tmp_path)
+    svc.automux_exclude_commentary = True
+    reloaded = _svc(tmp_path)
+    assert reloaded.automux_exclude_commentary is True
+    assert mux_settings_from_service(reloaded).exclude_commentary is True

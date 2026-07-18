@@ -310,6 +310,14 @@ class SettingsService:
     def automux_no_fear(self, value: bool) -> None:
         self.set("automux_no_fear", bool(value))
 
+    @property
+    def automux_exclude_commentary(self) -> bool:
+        return bool(self.get("automux_exclude_commentary"))
+
+    @automux_exclude_commentary.setter
+    def automux_exclude_commentary(self, value: bool) -> None:
+        self.set("automux_exclude_commentary", bool(value))
+
     # ── Metadata export ───────────────────────────────────────────────────
 
     @property

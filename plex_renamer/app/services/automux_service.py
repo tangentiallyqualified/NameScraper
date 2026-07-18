@@ -35,6 +35,7 @@ def mux_settings_from_service(svc: SettingsService) -> MuxSettings:
         default_audio_language=svc.automux_default_audio_language,
         strip_track_names=svc.automux_strip_track_names,
         no_fear=svc.automux_no_fear,
+        exclude_commentary=svc.automux_exclude_commentary,
     )
 
 
