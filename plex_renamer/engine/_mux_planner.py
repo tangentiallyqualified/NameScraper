@@ -13,6 +13,11 @@ from .._lang_normalize import normalize_lang, normalize_lang_list
 from .._mkv_probe import MediaTrack, ProbeResult
 
 _AUDIO_FLOOR_WARNING = "Audio retain filter would strip every audio track — keeping all audio"
+_COMMENTARY_MARKER = "commentary"
+
+
+def _is_commentary(name: str) -> bool:
+    return _COMMENTARY_MARKER in name.lower()
 
 
 @dataclass
@@ -30,6 +35,7 @@ class MuxSettings:
     default_audio_language: str = ""
     strip_track_names: bool = False
     no_fear: bool = False
+    exclude_commentary: bool = False
 
 
 @dataclass
@@ -42,6 +48,8 @@ class TrackDecision:
     keep: bool
     make_default: bool
     reason: str
+    is_forced: bool = False
+    is_commentary: bool = False
 
 
 @dataclass
@@ -50,6 +58,7 @@ class SubtitleMergeDecision:
     action: str  # "merge" | "rename"
     language: str
     set_default: bool
+    forced: bool = False
 
 
 @dataclass
@@ -123,6 +132,8 @@ def _decide_embedded(
                 keep=keep,
                 make_default=track.is_default,
                 reason=reason,
+                is_forced=track.is_forced,
+                is_commentary=_is_commentary(track.name),
             )
         )
     return decisions

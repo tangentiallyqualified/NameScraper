@@ -7,10 +7,10 @@ from plex_renamer.engine._mux_planner import (
 )
 
 
-def _track(tid, ttype, lang, *, default=False, name="", codec="c"):
+def _track(tid, ttype, lang, *, default=False, forced=False, name="", codec="c"):
     return MediaTrack(
         track_id=tid, track_type=ttype, codec=codec, language=lang,
-        name=name, is_default=default, is_forced=False)
+        name=name, is_default=default, is_forced=forced)
 
 
 def _probe(*tracks):
@@ -174,3 +174,39 @@ def test_plan_round_trips_through_dict():
     assert restored == plan
     assert restored.no_fear is True
     assert restored.mkvmerge_path == "C:/t/mkvmerge.exe"
+
+
+def test_decisions_carry_forced_and_commentary_metadata():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", name="Director Commentary"),
+        _track(2, "subtitles", "eng", forced=True),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[("a.eng.srt", ".eng")],
+        settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"]),
+        new_name="X.mkv")
+    by_id = {d.track_id: d for d in plan.track_decisions}
+    assert by_id[1].is_commentary is True
+    assert by_id[1].is_forced is False
+    assert by_id[2].is_forced is True
+    assert by_id[2].is_commentary is False
+
+
+def test_from_dict_accepts_legacy_plan_without_new_keys():
+    # Plans serialized before the forced/commentary fields existed
+    # (baked queue jobs) must still deserialize with default values.
+    legacy = {
+        "output_name": "X.mkv",
+        "track_decisions": [{
+            "track_id": 1, "track_type": "audio", "codec": "c",
+            "language": "eng", "name": "", "keep": True,
+            "make_default": True, "reason": "retained"}],
+        "subtitle_merges": [{
+            "source_relative": "a.eng.srt", "action": "merge",
+            "language": "eng", "set_default": False}],
+    }
+    plan = MuxPlan.from_dict(legacy)
+    assert plan.track_decisions[0].is_forced is False
+    assert plan.track_decisions[0].is_commentary is False
+    assert plan.subtitle_merges[0].forced is False
