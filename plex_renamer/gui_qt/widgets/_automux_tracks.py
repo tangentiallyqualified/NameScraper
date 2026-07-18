@@ -278,6 +278,8 @@ class AutoMuxTracksWidget(QFrame):
         parts = [
             _TYPE_LABEL.get(decision["track_type"], "?"),
             decision.get("language", ""),
+            "forced" if decision.get("is_forced") else "",
+            "commentary" if decision.get("is_commentary") else "",
             decision.get("codec", ""),
             decision.get("name", ""),
         ]

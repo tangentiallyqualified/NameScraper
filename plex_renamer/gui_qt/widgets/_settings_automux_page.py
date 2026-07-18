@@ -124,6 +124,12 @@ class AutoMuxSettingsPage(SettingsSectionCard):
             body, "Default audio language", "automux_default_audio_language"
         )
 
+        self._toggle(
+            body,
+            "When stripping, also drop commentary tracks (audio & subtitles)",
+            "automux_exclude_commentary",
+        )
+
         body.addWidget(self._group_label("General"))
         self._toggle(body, "Strip track names from remuxed files", "automux_strip_track_names")
         self._no_fear_cb = self._toggle(body, "No Fear mode", "automux_no_fear")

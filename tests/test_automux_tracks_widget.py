@@ -207,3 +207,24 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         plan["warnings"] = [long_error]
         widget.show_plan(plan)
         self.assertIn(long_error, widget._notice.toolTip())
+
+    def test_embedded_label_marks_forced_and_commentary(self):
+        from plex_renamer.gui_qt.widgets._automux_tracks import (
+            AutoMuxTracksWidget,
+        )
+
+        forced = AutoMuxTracksWidget._embedded_label({
+            "track_type": "subtitles", "language": "eng",
+            "codec": "srt", "name": "Signs",
+            "is_forced": True, "is_commentary": False})
+        self.assertIn("forced", forced)
+        commentary = AutoMuxTracksWidget._embedded_label({
+            "track_type": "audio", "language": "eng",
+            "codec": "aac", "name": "Director Commentary",
+            "is_forced": False, "is_commentary": True})
+        self.assertIn("commentary", commentary)
+        plain = AutoMuxTracksWidget._embedded_label({
+            "track_type": "audio", "language": "eng",
+            "codec": "aac", "name": "",
+            "is_forced": False, "is_commentary": False})
+        self.assertNotIn("forced", plain)
