@@ -9,10 +9,11 @@ from plex_renamer.engine._mux_planner import (
 )
 
 
-def _td(tid, ttype, lang, keep=True, default=False, name=""):
+def _td(tid, ttype, lang, keep=True, default=False, name="", forced=False):
     return TrackDecision(
         track_id=tid, track_type=ttype, codec="c", language=lang,
-        name=name, keep=keep, make_default=default, reason="")
+        name=name, keep=keep, make_default=default, reason="",
+        is_forced=forced)
 
 
 def _args(plan):
@@ -120,3 +121,30 @@ def test_rename_action_subs_are_not_inputs():
     )
     args = _args(plan)
     assert not any("a.spa.srt" in a for a in args)
+
+
+def test_forced_display_flags_emitted():
+    plan = MuxPlan(
+        output_name="X.mkv",
+        track_decisions=[
+            _td(0, "video", "und"),
+            _td(1, "audio", "eng", default=True),
+            _td(2, "subtitles", "eng", forced=True),
+            _td(3, "subtitles", "eng", keep=False, forced=True),
+        ],
+        subtitle_merges=[
+            SubtitleMergeDecision(
+                source_relative="Show/a.en.forced.srt", action="merge",
+                language="eng", set_default=False, forced=True),
+            SubtitleMergeDecision(
+                source_relative="Show/a.eng.srt", action="merge",
+                language="eng", set_default=True, forced=False),
+        ],
+    )
+    args = _args(plan)
+    joined = " ".join(args)
+    assert "--forced-display-flag 1:no" in joined
+    assert "--forced-display-flag 2:yes" in joined
+    assert "--forced-display-flag 3:" not in joined  # stripped track
+    forced_idx = args.index(str(Path("C:/lib") / "Show/a.en.forced.srt"))
+    assert "--forced-display-flag 0:yes" in " ".join(args[:forced_idx])

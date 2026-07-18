@@ -54,6 +54,8 @@ def build_mkvmerge_args(
             continue
         flag = "yes" if decision.make_default else "no"
         args += ["--default-track-flag", f"{decision.track_id}:{flag}"]
+        forced = "yes" if decision.is_forced else "no"
+        args += ["--forced-display-flag", f"{decision.track_id}:{forced}"]
 
     if plan.strip_track_names:
         for decision in plan.track_decisions:
@@ -67,8 +69,10 @@ def build_mkvmerge_args(
             continue
         sub_path = resolve_sub(merge.source_relative)
         default = "yes" if merge.set_default else "no"
+        forced = "yes" if merge.forced else "no"
         args += ["--language", f"0:{merge.language}",
-                 "--default-track-flag", f"0:{default}"]
+                 "--default-track-flag", f"0:{default}",
+                 "--forced-display-flag", f"0:{forced}"]
         if plan.strip_track_names:
             args += ["--track-name", "0:"]
         args.append(str(sub_path))
