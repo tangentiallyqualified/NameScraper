@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 from plex_renamer.app.models import RefreshState
 from plex_renamer.app.services.cache_service import PersistentCacheService
-from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 
 
 def _utc(offset_hours: float = 0) -> datetime:

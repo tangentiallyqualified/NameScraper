@@ -8,7 +8,6 @@ from plex_renamer.app.services.metadata_service import (
     inventory_local_metadata,
 )
 from plex_renamer.constants import MediaType
-from plex_renamer.job_store import RenameJob, RenameOp
 from tests.test_metadata_service import (
     SEASONS,
     TV_DETAILS,

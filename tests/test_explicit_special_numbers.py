@@ -3,7 +3,6 @@
 The IT Crowd's 'S00E01.mkv' in a 'season 0' folder parked at 0.50 review —
 and the stem-title fallback minted the useless raw_title 'S00E01'.
 """
-from pathlib import Path
 
 from plex_renamer.engine._episode_resolution import (
     CONF_NUMBER_RELATIVE,

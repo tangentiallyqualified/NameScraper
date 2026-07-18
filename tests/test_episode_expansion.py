@@ -639,7 +639,6 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         )
 
     def test_path_rows_bold_their_labels(self):
-        from PySide6.QtWidgets import QLabel
 
         card = self._card()
         self.addCleanup(card.deleteLater)

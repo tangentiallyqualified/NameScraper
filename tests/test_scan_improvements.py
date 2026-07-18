@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from plex_renamer.app.models import TVDirectoryRole
 from plex_renamer.app.services import TVLibraryDiscoveryService
-from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, TVScanner, score_tv_results
+from plex_renamer.engine import BatchTVOrchestrator, TVScanner, score_tv_results
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 from plex_renamer.parsing import (

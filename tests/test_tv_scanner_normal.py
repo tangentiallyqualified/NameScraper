@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from plex_renamer.engine._tv_scanner import TVScanner
 from plex_renamer.engine._tv_scanner_normal import _resolve_into_table
 from plex_renamer.engine.episode_assignments import (
@@ -95,13 +93,13 @@ def test_cross_season_does_not_pull_normal_episode():
         table,
         file_path=Path("Show S01E02 - Ep 2.mkv"),
         season_num=1,
-        season_titles=SEASON_TITLES,           # {1:"Ep 1", ... 5:"Ep 5"}
+        season_titles=SEASON_TITLES,  # {1:"Ep 1", ... 5:"Ep 5"}
         specials_titles={1: "Ep 2 Behind the Scenes"},
     )
     entry = next(iter(table.files.values()))
     assignment = table.assignment_for(entry.file_id)
     assert assignment is not None
-    assert assignment.season == 1            # own-season title agreement wins
+    assert assignment.season == 1  # own-season title agreement wins
     assert assignment.episodes == (2,)
 
 
@@ -144,10 +142,14 @@ def test_inexact_s0_pull_blocked_for_valid_own_number():
 
 def test_specials_title_evidence_strips_quality_tags():
     table = EpisodeAssignmentTable()
-    table.add_slot(EpisodeSlot(season=0, episode=2, title="The Writers Flipped, They Have No Script"))
+    table.add_slot(
+        EpisodeSlot(season=0, episode=2, title="The Writers Flipped, They Have No Script")
+    )
     _resolve_into_table(
         table,
-        file_path=Path("The Writers Flipped, They Have No Script (480p DVD x265 HEVC 10bit AAC 2.0 Ghost).mkv"),
+        file_path=Path(
+            "The Writers Flipped, They Have No Script (480p DVD x265 HEVC 10bit AAC 2.0 Ghost).mkv"
+        ),
         season_num=0,
         season_titles={2: "The Writers Flipped, They Have No Script"},
     )
@@ -174,7 +176,8 @@ class _SeasonMapTMDB:
 
     def get_season(self, show_id, season_num):
         return self._seasons.get(
-            season_num, {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
         )
 
     def get_tv_details(self, show_id):

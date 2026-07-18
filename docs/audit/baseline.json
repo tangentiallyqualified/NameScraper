@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "3dd38919408ec6592640d1160ff2bbab5b11e7792497f41d30e39ebff54b54cc",
+  "input_digest": "6f569aae46afb3a3db79a312d23a244a2b6e076247bb36c5ac40a12cb3a68d1f",
   "module_count": 177,
   "partial": false,
   "reason": null,
@@ -102,7 +102,7 @@
   "statement_coverage": 87.9,
   "total_loc": 39001
  },
- "input_digest": "3dd38919408ec6592640d1160ff2bbab5b11e7792497f41d30e39ebff54b54cc",
+ "input_digest": "6f569aae46afb3a3db79a312d23a244a2b6e076247bb36c5ac40a12cb3a68d1f",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -4945,7 +4945,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "ffeec7503b65bd8bf05ebe94ca15afa7514a7125482994d7e78987112a72b83b",
+   "input_digest": "d3614d61139a766e6c5daf6e5ad2b57ffb8b64fc884d4a931f73cf617f10ae3b",
    "module_count": 177,
    "partial": false,
    "reason": null,
@@ -5045,7 +5045,7 @@
    "statement_coverage": 87.9,
    "total_loc": 39001
   },
-  "input_digest": "ffeec7503b65bd8bf05ebe94ca15afa7514a7125482994d7e78987112a72b83b",
+  "input_digest": "d3614d61139a766e6c5daf6e5ad2b57ffb8b64fc884d4a931f73cf617f10ae3b",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,

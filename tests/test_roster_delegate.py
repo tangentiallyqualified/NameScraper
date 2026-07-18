@@ -64,7 +64,7 @@ class RosterDelegateTests(QtSmokeBase):
         view.close()
 
     def test_toggle_click_emits_without_moving_selection(self):
-        from PySide6.QtCore import QPoint, Qt
+        from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest
 
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
@@ -272,7 +272,6 @@ class RosterPillRemovalTests(QtSmokeBase):
         confidence bar) and the test is meaningless.
         """
         from PySide6.QtGui import QFontMetrics
-        from PySide6.QtWidgets import QStyleOptionViewItem
 
         state = _make_state("A Fully Ready Show")
         view, model, delegate = self._view([state])
@@ -326,7 +325,7 @@ class RosterCardGapTests(QtSmokeBase):
         from PySide6.QtCore import QRect
 
         from plex_renamer.gui_qt._scale import px
-        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U, RosterDelegate
+        from plex_renamer.gui_qt.widgets._roster_delegate import _CARD_GAP_U
 
         delegate = self._any_delegate()  # helper as in earlier classes
         option_rect = QRect(0, 0, 360, px(120))

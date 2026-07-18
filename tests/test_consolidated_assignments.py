@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from plex_renamer.engine._episode_resolution import CONF_SPECIAL_NUMBER_ONLY
 from plex_renamer.engine._tv_scanner_consolidated import build_consolidated_table
 
@@ -19,11 +17,15 @@ def _seasons():
     return {
         0: {
             "titles": {8: "How to Draw Eddy", 12: "The Grim Adventures of the KND"},
-            "posters": {}, "episodes": {}, "count": 12,
+            "posters": {},
+            "episodes": {},
+            "count": 12,
         },
         1: {
             "titles": {1: "Pilot", 2: "The Heist"},
-            "posters": {}, "episodes": {}, "count": 2,
+            "posters": {},
+            "episodes": {},
+            "count": 2,
         },
     }
 

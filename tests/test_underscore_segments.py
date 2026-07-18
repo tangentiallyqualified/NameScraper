@@ -1,6 +1,6 @@
 """RC21: '_' between segment titles in dot-spaced names is a separator."""
 
-from plex_renamer.engine._episode_resolution import CONF_TITLE_WINS_INEXACT, resolve_file
+from plex_renamer.engine._episode_resolution import resolve_file
 from plex_renamer.parsing import extract_episode
 
 

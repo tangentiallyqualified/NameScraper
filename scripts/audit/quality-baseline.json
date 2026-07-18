@@ -64,13 +64,13 @@
    "loc": 718
   },
   "tests/test_episode_expansion.py": {
-   "loc": 650
+   "loc": 649
   },
   "tests/test_episode_mapping_projection.py": {
    "loc": 558
   },
   "tests/test_episode_resolution.py": {
-   "loc": 1114
+   "loc": 1113
   },
   "tests/test_episode_table_delegate.py": {
    "loc": 979
@@ -85,16 +85,16 @@
    "loc": 1945
   },
   "tests/test_qt_job_detail_panel.py": {
-   "loc": 907
+   "loc": 898
   },
   "tests/test_qt_main_window.py": {
-   "loc": 1057
+   "loc": 1053
   },
   "tests/test_qt_media_workspace.py": {
    "loc": 5662
   },
   "tests/test_qt_queue_history.py": {
-   "loc": 868
+   "loc": 864
   },
   "tests/test_queue_controller.py": {
    "loc": 1106
@@ -24042,12 +24042,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_cache_service.py",
-   "rule": "F401",
-   "symbol": "tests.test_cache_service::unused-import::`plex_renamer.app.services.refresh_policy_service.RefreshPolicyService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_cache_service.py",
    "rule": "F841",
    "symbol": "tests.test_cache_service.CacheServiceTests.test_put_get_round_trip::unused-variable::Local variable `entry` is assigned to but never used#1"
   },
@@ -24104,12 +24098,6 @@
    "path": "tests/test_consolidated_assignments.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_consolidated_assignments.test_multi_episode_run_maps_to_all_episodes::reportOptionalMemberAccess::\"episodes\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_consolidated_assignments.py",
-   "rule": "F401",
-   "symbol": "tests.test_consolidated_assignments::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -24326,12 +24314,6 @@
    "path": "tests/test_episode_expansion.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_title_is_regular_weight::reportOptionalMemberAccess::\"property\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_expansion.py",
-   "rule": "F401",
-   "symbol": "tests.test_episode_expansion.EpisodeExpansionCardTests.test_path_rows_bold_their_labels::unused-import::`PySide6.QtWidgets.QLabel` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -24666,12 +24648,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_episode_resolution.py",
-   "rule": "F401",
-   "symbol": "tests.test_episode_resolution::unused-import::`plex_renamer.engine._episode_resolution.COMPATIBLE_PREFIX_FLOOR` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
    "rule": "F811",
    "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 233: `CONF_TITLE_ONLY` redefined here#1"
   },
@@ -24922,12 +24898,6 @@
    "symbol": "tests.test_executor_metadata_integration.test_execute_decorates_and_revert_restores_pristine_tree::reportOptionalSubscript::Object of type \"None\" is not subscriptable#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_explicit_special_numbers.py",
-   "rule": "F401",
-   "symbol": "tests.test_explicit_special_numbers::unused-import::`pathlib.Path` imported but unused#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "reportArgumentType",
@@ -24956,12 +24926,6 @@
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "RUF059",
    "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::unused-unpacked-variable::Unpacked variable `items` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_fuzzy_title_matching.py",
-   "rule": "F401",
-   "symbol": "tests.test_fuzzy_title_matching::unused-import::`plex_renamer.engine._episode_resolution.CONF_AGREE` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -25204,18 +25168,6 @@
    "symbol": "tests.test_metadata_local_inventory.test_inventory_maps_slots::unnecessary-comprehension::Unnecessary list comprehension (rewrite using `list()`)#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_local_inventory.py",
-   "rule": "F401",
-   "symbol": "tests.test_metadata_local_inventory::unused-import::`plex_renamer.job_store.RenameJob` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_metadata_local_inventory.py",
-   "rule": "F401",
-   "symbol": "tests.test_metadata_local_inventory::unused-import::`plex_renamer.job_store.RenameOp` imported but unused#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_metadata_service.py",
    "rule": "reportOptionalSubscript",
@@ -25328,12 +25280,6 @@
    "path": "tests/test_metadata_service.py",
    "rule": "reportOptionalSubscript",
    "symbol": "tests.test_metadata_service.test_tv_plan_slots_and_targets::reportOptionalSubscript::Object of type \"None\" is not subscriptable#9"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_mkv_locate.py",
-   "rule": "F401",
-   "symbol": "tests.test_mkv_locate::unused-import::`pathlib.Path` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -26204,102 +26150,6 @@
    "path": "tests/test_qt_job_detail_panel.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_video_rows_with_children_keep_arrow_free_text_when_toggled::reportOptionalMemberAccess::\"text\" is not a known attribute of \"None\"#2"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`PySide6.QtCore.QPoint` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`PySide6.QtCore.Qt` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.app.services.settings_service.SettingsService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.PreviewItem` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.engine.ScanState` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_job_detail_panel::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_from_library_root_files::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_inferrs_movie_history_folder_preview_without_show_folder_rename::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_job_detail_panel_recovers_movie_folder_source_name_when_source_folder_is_dot::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_job_detail_panel.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_job_detail_panel.QtJobDetailPanelTests.test_wrapped_fit_label_reserves_wrapped_height_and_shrinks_when_widened::redefined-while-unused::Redefinition of unused `Qt` from line 8: `Qt` redefined here#1"
   },
   {
    "analyzer": "pyright",
@@ -27200,66 +27050,6 @@
    "path": "tests/test_qt_main_window.py",
    "rule": "B905",
    "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_queue_bridge_batches_bursty_queue_changed_refreshes::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.constants.JobStatus` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.engine.RenameResult` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_main_window::unused-import::`plex_renamer.job_store.JobStore` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_queue_events_create_toasts::redefined-while-unused::Redefinition of unused `RenameResult` from line 16: `RenameResult` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `JobStatus` from line 15: `JobStatus` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
-   "rule": "F811",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_updates_one_running_queue_toast_until_finished::redefined-while-unused::Redefinition of unused `RenameResult` from line 16: `RenameResult` redefined here#1"
   },
   {
    "analyzer": "ruff",
@@ -28450,36 +28240,6 @@
    "symbol": "tests.test_qt_queue_history.QtQueueHistoryTests.test_queue_tab_remove_updates_badge_and_tv_requeue_state::reportAttributeAccessIssue::Cannot access attribute \"settings_service\" for class \"MainWindow\" Attribute \"settings_service\" is unknown#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.controllers.queue_controller.BatchQueueResult` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.cache_service.PersistentCacheService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.command_gating_service.CommandGatingService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.app.services.settings_service.SettingsService` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_queue_history.py",
-   "rule": "F401",
-   "symbol": "tests.test_qt_queue_history::unused-import::`plex_renamer.engine.CompanionFile` imported but unused#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_qt_toasts.py",
    "rule": "reportOptionalMemberAccess",
@@ -28685,12 +28445,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_refresh_policy_service.py",
-   "rule": "F401",
-   "symbol": "tests.test_refresh_policy_service::unused-import::`plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_release_junk_titles.py",
    "rule": "RUF059",
    "symbol": "tests.test_release_junk_titles.test_clean_title_untouched::unused-unpacked-variable::Unpacked variable `rel` is never used#1"
@@ -28776,24 +28530,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_roster_delegate.py",
-   "rule": "F401",
-   "symbol": "tests.test_roster_delegate.RosterCardGapTests.test_card_rect_inset_from_option_rect::unused-import::`plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "F401",
-   "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_toggle_click_emits_without_moving_selection::unused-import::`PySide6.QtCore.QPoint` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
-   "rule": "F401",
-   "symbol": "tests.test_roster_delegate.RosterPillRemovalTests.test_pill_not_painted_top_right_corner_matches_background::unused-import::`PySide6.QtWidgets.QStyleOptionViewItem` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_delegate.py",
    "rule": "RUF059",
    "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_header_click_emits_group::unused-unpacked-variable::Unpacked variable `delegate` is never used#1"
   },
@@ -28808,12 +28544,6 @@
    "path": "tests/test_roster_delegate.py",
    "rule": "RUF059",
    "symbol": "tests.test_roster_delegate.RosterDelegateTests.test_render_grab_produces_pixels::unused-unpacked-variable::Unpacked variable `model` is never used#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_roster_model.py",
-   "rule": "F401",
-   "symbol": "tests.test_roster_model.RosterModelTests.test_header_and_state_rows_in_group_order::unused-import::`plex_renamer.gui_qt.widgets._roster_model` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -29052,12 +28782,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_scan_improvements.py",
-   "rule": "F401",
-   "symbol": "tests.test_scan_improvements::unused-import::`plex_renamer.engine.PreviewItem` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_scan_improvements.py",
    "rule": "RUF059",
    "symbol": "tests.test_scan_improvements.GenericCandidateTitleInheritanceTests.test_show_named_specials_child_keeps_own_name::unused-unpacked-variable::Unpacked variable `states` is never used#1"
   },
@@ -29291,12 +29015,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "tests/test_specials_guards.py",
-   "rule": "F401",
-   "symbol": "tests.test_specials_guards::unused-import::`pathlib.Path` imported but unused#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "tests/test_status_chip.py",
    "rule": "RUF001",
    "symbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
@@ -29434,22 +29152,10 @@
    "symbol": "tests.test_tv_scanner_normal.test_all_tmdb_seasons_get_slots_even_without_local_folders::reportOptionalMemberAccess::\"slots\" is not a known attribute of \"None\"#2"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_tv_scanner_normal.py",
-   "rule": "F401",
-   "symbol": "tests.test_tv_scanner_normal::unused-import::`pytest` imported but unused#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_umbrella_season_merge.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.test_umbrella_season_merge._season_folder_state::reportAttributeAccessIssue::Cannot access attribute \"mkdir\" for class \"tuple[Path, ...]\" Attribute \"mkdir\" is unknown#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_underscore_segments.py",
-   "rule": "F401",
-   "symbol": "tests.test_underscore_segments::unused-import::`plex_renamer.engine._episode_resolution.CONF_TITLE_WINS_INEXACT` imported but unused#1"
   },
   {
    "analyzer": "pyright",
@@ -29847,14 +29553,11 @@
   "tests/test_conflict_queue_protection.py": "sha256:b793c6d2f1bee73a6d77bb46671cd5970cc66150f671b55044e0ad726be71d09",
   "tests/test_conflict_resolution.py": "sha256:4b6ae1618c0eb3b4662a0be68970fe1fed79162282c67e74c7ab941444dc645f",
   "tests/test_conflict_snapshot_staleness.py": "sha256:375ba75463ac11f743f5380863a83fe886ea4f4765946b8d92aff94b70e6a2c8",
-  "tests/test_consolidated_assignments.py": "sha256:c5902d82ae1d87046af45cedee1c2251a36b25d26e32751124b725b949480f34",
   "tests/test_consolidated_two_phase.py": "sha256:9c9cfb8e88cad3034e5e1524230fc9cc63e9af221df64986721a2fa50afea8c3",
   "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
   "tests/test_disc_grouped_run_ambiguity.py": "sha256:72c1aa3f23f20e7fe06862bb406c1d569c5b79bf40c7db706e3ed0ba6ba288b5",
-  "tests/test_explicit_special_numbers.py": "sha256:6c3bf7811edc92091ab7b982b716a5686e7c90a5be1046911703d22a608d94f1",
   "tests/test_filename_formatting.py": "sha256:3227f2720c996563d34dcd322bc4771624f976d84a610eeb3d63fe5a0725713c",
   "tests/test_fragment_anchor_guard.py": "sha256:25f5c2d7592313f45593a577fd2e8c165a045b3f87d5654f3737e6fc552e2c2d",
-  "tests/test_fuzzy_title_matching.py": "sha256:40cf2ba71d2cd57e6d9e1cdae6ea4becb366a93ff45a60925aa83b1b4a678066",
   "tests/test_gui_perf_guards.py": "sha256:6ce046618b71b4f43c8096947d189fa56e1486f237f07bf504a5c8174429482a",
   "tests/test_job_execution_metadata.py": "sha256:6357968fb6d9e926ab3032087cb4488bc9a7e60445aecc8c180f7b59eb530d4a",
   "tests/test_job_preview_grouping.py": "sha256:7fd86a330bb4aa3da85854aa1fb9ce90566636fcb7c23316568daacbfdea6c19",
@@ -29863,7 +29566,6 @@
   "tests/test_manual_assign_queueable.py": "sha256:ffa9fded866c1746cb80348874977b20c7854677b93b529994b1090a841c53ab",
   "tests/test_merged_show_checked_gating.py": "sha256:8bf8cb8b7252c52a02ea6c9578e69da79d4b9625871ff3141591cf1e9745eef1",
   "tests/test_mkv_command.py": "sha256:9e6b74f5cf8512a58c63a2b9caa43333666c7ec5dcdb7c771e78efee84276fcc",
-  "tests/test_mkv_locate.py": "sha256:f0e6c0ab2b9cd14e08c0a2625f362a91b8ede24a8dd3c422f5414e269c262141",
   "tests/test_mkv_metadata_helpers.py": "sha256:05a0373028e29e1b3a4a11c5b5450631d5ff93b102c041d4d871671f1d45c42d",
   "tests/test_mkv_probe.py": "sha256:a23f6e523b4bd335b080d1e5f56998731880659f0f813f07e64243376992f618",
   "tests/test_mkv_tags_render.py": "sha256:692633d860aba1e86cb778e48dfd11aa56b0765dfb938f8df5a325b15d917138",
@@ -29890,7 +29592,6 @@
   "tests/test_remux_revert.py": "sha256:0e27cc71557cf5b19d58a67f2288458966a9cf53011f3853b76f551f486bf8f4",
   "tests/test_roster_autoselect.py": "sha256:b1268e21147535ae2bb331bba7d2d089588408391480a0ceb554ae0ac54f35f0",
   "tests/test_roster_classification.py": "sha256:d9bc9bbdd44a6f0f94c76b85d308773529255edda10818600bf09324384d625e",
-  "tests/test_roster_model.py": "sha256:a8bfd5e887f3bdf6dcedad200a61ee67bd21fc7dd243e0131c136ad9816cae48",
   "tests/test_run_extension.py": "sha256:50f12cee195b85945b802b4a7c4ff9cfd4068e92ed9531d1b3aeda837a9320e3",
   "tests/test_run_extension_guards.py": "sha256:b7473272f0e4f4d0676170e36843e30c89ed2ec48b83e450791a8ae15598b505",
   "tests/test_same_season_rescue.py": "sha256:9f9d60e44cb319abb1d606c415b617aa02cab777e79acd6fde7ce68ed2076095",
@@ -29902,14 +29603,12 @@
   "tests/test_show_name_title_and_hint_rescue.py": "sha256:5a5606bee37f24f7b0090d5a70a4f47b5173a40d65a74d329d19463fae29169f",
   "tests/test_show_scoring_no_year.py": "sha256:47c40514986cac88625224767a34e40f0d28e1221cc2708bfba219caff57449f",
   "tests/test_show_scoring_token_subset.py": "sha256:e562d92746f25dfe22d65cb8679d8408b287136278322ebae725467580a8f1f6",
-  "tests/test_specials_guards.py": "sha256:f81bfde9aa592e3891ba7c7e94bac2d07fc239fdbaa69afc8ae61e6d5e421969",
   "tests/test_squatter_chain_rescue.py": "sha256:c53dcad064b5cacecfa76be4437d40629a8393c990ae8891819e248735794c6a",
   "tests/test_status_chip.py": "sha256:da9e458f78e3151c1f816873a7d6f8286591f7131208a73fa473fdf6ebc4523f",
   "tests/test_thread_pool.py": "sha256:1faf070848285de4f9d063fc50e0c4c4f952b5ef9cc9bff54f8a54e4e8278c79",
   "tests/test_tiebreak_discrimination.py": "sha256:aefd2fe038debcf978d68118cdbc9f151d28af0aa4dc4e65df7573b3743ee9ab",
   "tests/test_tmdb_export_assets.py": "sha256:5a20bd46a0fb1fa540b76bad2155b16bacc037dde9e7a9d4db8dd80d552039fc",
-  "tests/test_token_aligned_substring.py": "sha256:095c43cbdbf788a4d72e4453c84ed329e3b8efb85870aefd8f6f8193c9a8e5a7",
-  "tests/test_tv_scanner_normal.py": "sha256:16c9036f3203d206b9a1b28398fd141e2fb8db6cc251ad50ef8d300650a5382b"
+  "tests/test_token_aligned_substring.py": "sha256:095c43cbdbf788a4d72e4453c84ed329e3b8efb85870aefd8f6f8193c9a8e5a7"
  },
  "schema_version": 2,
  "typing": {

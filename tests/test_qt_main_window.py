@@ -8,13 +8,9 @@ from conftest_qt import QtSmokeBase
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
-from plex_renamer.app.controllers.queue_controller import BatchQueueResult
 from plex_renamer.app.services.cache_service import PersistentCacheService
-from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
-from plex_renamer.constants import JobStatus
-from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
-from plex_renamer.job_store import JobStore
+from plex_renamer.engine import PreviewItem, ScanState
 
 
 class QtMainWindowTests(QtSmokeBase):

@@ -9,7 +9,6 @@ from tempfile import TemporaryDirectory
 
 from plex_renamer.app.models import RefreshState
 from plex_renamer.app.services.refresh_policy_service import (
-    ManualRefreshDecision,
     RefreshPolicyService,
 )
 from plex_renamer.constants import MediaType
