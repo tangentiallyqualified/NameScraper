@@ -10,6 +10,7 @@ editor in Task 5; this task only assembles the surrounding chrome.
 
 from __future__ import annotations
 
+import contextlib
 from collections import OrderedDict
 
 from PySide6.QtCore import QModelIndex, QObject, Qt, Signal
@@ -783,10 +784,8 @@ class MediaWorkPanel(QFrame):
                 text = details.get("overview", "") or ""
             except Exception:
                 text = ""
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._bridge.overview_ready.emit(text, token)
-            except RuntimeError:
-                pass
 
         _submit_bg(_worker)
 

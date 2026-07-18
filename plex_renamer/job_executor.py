@@ -248,10 +248,7 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
         # (e.g. "[UDF] Yuru Camp△ + Heya Camp△/Heya Camp△").  Movies keep
         # the historical "rename release folder in place" behavior so a
         # sibling-of-root placement is preserved for release directories.
-        if job.media_type == MediaType.TV:
-            candidate_parent = library_root
-        else:
-            candidate_parent = root_folder.parent
+        candidate_parent = library_root if job.media_type == MediaType.TV else root_folder.parent
         candidate_root = candidate_parent / job.show_folder_rename
         same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(candidate_root))
         if not same_dir:
@@ -344,32 +341,32 @@ def _execute_rename(job: RenameJob, progress_cb=None) -> RenameResult:
         and job.show_folder_rename
         and root_folder.exists()
         and not (job.media_type == MediaType.MOVIE and root_is_library)
+        and root_folder.name != job.show_folder_rename
     ):
-        if root_folder.name != job.show_folder_rename:
-            new_root = root_folder.parent / job.show_folder_rename
-            # On case-insensitive filesystems (NTFS), new_root.exists()
-            # returns True for case-only differences like "Goodfellas (1990)"
-            # vs "GoodFellas (1990)".  Allow the rename when the paths
-            # resolve to the same directory (case correction) but block it
-            # when new_root is a genuinely different existing directory.
-            same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
-            if same_dir or not new_root.exists():
-                try:
-                    root_folder.rename(new_root)
-                    result.log_entry["renamed_dirs"].append(
-                        {
-                            "old": str(root_folder),
-                            "new": str(new_root),
-                        }
-                    )
-                    result.new_root = new_root
-                except OSError as e:
-                    _log.warning(
-                        "Could not rename show folder %s → %s: %s",
-                        root_folder.name,
-                        job.show_folder_rename,
-                        e,
-                    )
+        new_root = root_folder.parent / job.show_folder_rename
+        # On case-insensitive filesystems (NTFS), new_root.exists()
+        # returns True for case-only differences like "Goodfellas (1990)"
+        # vs "GoodFellas (1990)".  Allow the rename when the paths
+        # resolve to the same directory (case correction) but block it
+        # when new_root is a genuinely different existing directory.
+        same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
+        if same_dir or not new_root.exists():
+            try:
+                root_folder.rename(new_root)
+                result.log_entry["renamed_dirs"].append(
+                    {
+                        "old": str(root_folder),
+                        "new": str(new_root),
+                    }
+                )
+                result.new_root = new_root
+            except OSError as e:
+                _log.warning(
+                    "Could not rename show folder %s → %s: %s",
+                    root_folder.name,
+                    job.show_folder_rename,
+                    e,
+                )
 
     return result
 

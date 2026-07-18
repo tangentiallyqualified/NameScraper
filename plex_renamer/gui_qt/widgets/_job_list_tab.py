@@ -120,9 +120,7 @@ class _HoverRowDelegate(QStyledItemDelegate):
         highlight_row = current_row if current_row >= 0 else -1
         background = index.data(Qt.ItemDataRole.BackgroundRole)
 
-        if isinstance(background, QBrush):
-            painter.fillRect(option.rect, background)
-        elif isinstance(background, QColor):
+        if isinstance(background, (QBrush, QColor)):
             painter.fillRect(option.rect, background)
 
         if index.row() == highlight_row:

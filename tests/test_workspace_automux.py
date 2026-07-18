@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -76,10 +77,8 @@ def _dispose_coordinator(coordinator):
     pins it until this runs — otherwise Python 3.14's incremental GC can
     collect the cycle at an arbitrary later point (even mid-event-loop in a
     later test), racing Qt teardown (conftest_qt segfault note)."""
-    try:
+    with contextlib.suppress(RuntimeError):
         coordinator._bridge.plan_ready.disconnect()
-    except RuntimeError:
-        pass
     coordinator._widgets.clear()
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
@@ -87,10 +88,8 @@ class QueueBridge(QObject):
         self.changed.emit(None)
 
     def on_poster_backfill_finished(self, updated: int) -> None:
-        try:
+        with contextlib.suppress(RuntimeError):
             self.poster_backfill_finished.emit(updated)
-        except RuntimeError:
-            pass
 
 
 def install_controller_bridge(window: Any) -> ControllerBridge:

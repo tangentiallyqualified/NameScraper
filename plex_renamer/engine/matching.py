@@ -135,12 +135,9 @@ def score_results(
             except (ValueError, TypeError):
                 pass
 
-        if year_hint:
-            score = (t_score * 0.7) + (year_score * 0.3)
-        else:
-            # No year in the source folder: don't forfeit the year weight —
-            # an exact title must be able to reach auto-accept on its own.
-            score = t_score
+        # No year in the source folder: don't forfeit the year weight — an
+        # exact title must be able to reach auto-accept on its own.
+        score = (t_score * 0.7) + (year_score * 0.3) if year_hint else t_score
 
         if query_norm == title_norm:
             score += 0.15

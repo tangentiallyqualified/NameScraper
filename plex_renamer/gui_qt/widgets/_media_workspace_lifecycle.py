@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from PySide6.QtCore import QTimer
@@ -84,11 +85,10 @@ class MediaWorkspaceLifecycleCoordinator:
             self._scan_poster_timer.stop()
             self._scan_poster_timer = None
         if getattr(self, "_scan_feed_on_poster", None) is not None:
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 self._workspace._roster_panel.model.poster_loaded.disconnect(
-                    self._scan_feed_on_poster)
-            except (RuntimeError, TypeError):
-                pass
+                    self._scan_feed_on_poster
+                )
             self._scan_feed_on_poster = None
 
     def _cancel_warmup(self) -> None:
@@ -128,10 +128,8 @@ class MediaWorkspaceLifecycleCoordinator:
             if finalized[0]:
                 return
             finalized[0] = True
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 model.poster_loaded.disconnect(_on_poster)
-            except (RuntimeError, TypeError):
-                pass
             poll.stop()
             self._warmup_poll = None
             self._warmup_on_poster = None

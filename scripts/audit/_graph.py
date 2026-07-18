@@ -103,9 +103,12 @@ def _effects(tree: ast.Module, external_imports: list[str]) -> list[str]:
                 and len(node.args) == 1
             ):
                 found.add("file-move")
-            elif isinstance(node.func, ast.Name) and node.func.id == "open":
-                if _WRITE_MODE_CHARS & set(_open_mode(node)):
-                    found.add("file-write")
+            elif (
+                isinstance(node.func, ast.Name)
+                and node.func.id == "open"
+                and _WRITE_MODE_CHARS & set(_open_mode(node))
+            ):
+                found.add("file-write")
         elif isinstance(node, ast.Attribute):
             if (
                 node.attr == "environ"

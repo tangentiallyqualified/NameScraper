@@ -128,28 +128,26 @@ def execute_rename(
 
     for src_dir in source_dirs:
         try:
-            if src_dir != root_folder and src_dir.exists():
-                if not list(src_dir.iterdir()):
-                    src_dir.rmdir()
-                    result.log_entry["removed_dirs"].append(str(src_dir))
+            if src_dir != root_folder and src_dir.exists() and not list(src_dir.iterdir()):
+                src_dir.rmdir()
+                result.log_entry["removed_dirs"].append(str(src_dir))
         except OSError:
             pass
 
-    if show_folder_name and root_folder.exists():
-        if root_folder.name != show_folder_name:
-            new_root = root_folder.parent / show_folder_name
-            same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
-            if same_dir or not new_root.exists():
-                try:
-                    root_folder.rename(new_root)
-                    result.log_entry["renamed_dirs"].append(
-                        {
-                            "old": str(root_folder),
-                            "new": str(new_root),
-                        }
-                    )
-                    result.new_root = new_root
-                except OSError:
-                    pass
+    if show_folder_name and root_folder.exists() and root_folder.name != show_folder_name:
+        new_root = root_folder.parent / show_folder_name
+        same_dir = os.path.normcase(str(root_folder)) == os.path.normcase(str(new_root))
+        if same_dir or not new_root.exists():
+            try:
+                root_folder.rename(new_root)
+                result.log_entry["renamed_dirs"].append(
+                    {
+                        "old": str(root_folder),
+                        "new": str(new_root),
+                    }
+                )
+                result.new_root = new_root
+            except OSError:
+                pass
 
     return result

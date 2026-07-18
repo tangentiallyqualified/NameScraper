@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 
 from PySide6.QtCore import QModelIndex, QRect, QSize, Qt, QTimer, Signal
@@ -109,10 +110,8 @@ class EpisodeTableDelegate(QStyledItemDelegate):
         if model is self._watched_model:
             return
         if self._watched_model is not None:
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 self._watched_model.dataChanged.disconnect(self._on_model_data_changed)
-            except (RuntimeError, TypeError):
-                pass
         self._watched_model = model
         if model is not None:
             model.dataChanged.connect(self._on_model_data_changed)

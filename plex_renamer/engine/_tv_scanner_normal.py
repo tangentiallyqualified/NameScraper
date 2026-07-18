@@ -220,10 +220,7 @@ def build_normal_table(
     def ensure_s0_titles() -> dict[int, str]:
         nonlocal s0_titles
         if s0_titles is None:
-            if 0 in tmdb_seasons:
-                data = tmdb_seasons[0]
-            else:
-                data = tmdb.get_season(show_info["id"], 0)
+            data = tmdb_seasons[0] if 0 in tmdb_seasons else tmdb.get_season(show_info["id"], 0)
             s0_titles = data.get("titles", {})
             if s0_titles:
                 store_tmdb_data(0, s0_titles, data.get("posters", {}), data.get("episodes", {}))

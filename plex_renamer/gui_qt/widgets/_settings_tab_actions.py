@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from typing import Any
 
@@ -89,10 +90,8 @@ class SettingsTabActionsCoordinator:
                 ok = False
                 detail = str(exc)
 
-            try:
+            with contextlib.suppress(RuntimeError):
                 bridge.result_ready.emit(ok, detail)
-            except RuntimeError:
-                pass
 
         submit_bg(_test_worker)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -62,10 +63,8 @@ class MatchPickerSearchCoordinator:
                     results = callback(query, None)
             except Exception:
                 results = []
-            try:
+            with contextlib.suppress(RuntimeError):
                 bridge.results_ready.emit(results)
-            except RuntimeError:
-                pass
 
         _submit_bg(_worker)
         return True

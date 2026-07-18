@@ -67,10 +67,7 @@ class RefreshPolicyService:
         show_status: str | None = None,
     ) -> str:
         """Return the cache expiry timestamp for a refreshed metadata record."""
-        if isinstance(refreshed_at, str):
-            base = _parse_dt(refreshed_at)
-        else:
-            base = refreshed_at
+        base = _parse_dt(refreshed_at) if isinstance(refreshed_at, str) else refreshed_at
         base = base or _utc_now()
         return (base + self.get_metadata_ttl(media_type, show_status)).isoformat()
 

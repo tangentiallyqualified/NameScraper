@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import stat
 from collections.abc import Callable
@@ -218,10 +219,8 @@ def restore_generated(repo_root: Path, snapshot: dict[str, bytes]) -> None:
             _remove_link_like(path)
 
     for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
-        try:
+        with contextlib.suppress(OSError):
             directory.rmdir()
-        except OSError:
-            pass
 
     for path, content in validated.values():
         path.parent.mkdir(parents=True, exist_ok=True)

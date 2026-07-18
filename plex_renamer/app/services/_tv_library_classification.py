@@ -134,8 +134,7 @@ class TVDirectoryClassifier:
                 direct_video_files.append(child.path)
 
         direct_episode_file_count = sum(
-            1 for video_path in direct_video_files
-            if looks_like_tv_episode(video_path)
+            1 for video_path in direct_video_files if looks_like_tv_episode(video_path)
         )
 
         if has_regular_season_subdirs or (specials_dirs and direct_episode_file_count > 0):
@@ -248,8 +247,7 @@ class TVDirectoryClassifier:
             return False
 
         return any(
-            grandchild.is_file
-            and grandchild.path.suffix.lower() in VIDEO_EXTENSIONS
+            grandchild.is_file and grandchild.path.suffix.lower() in VIDEO_EXTENSIONS
             for grandchild in child_entries
         )
 
@@ -295,9 +293,9 @@ class TVDirectoryClassifier:
             if season_num is not None and season_num == 0:
                 continue
             if season_num is not None and season_num >= 1:
-                if is_season_only_name(child.path.name):
-                    season_count += 1
-                elif self.child_title_matches_parent(child.path.name, parent_title):
+                if is_season_only_name(child.path.name) or self.child_title_matches_parent(
+                    child.path.name, parent_title
+                ):
                     season_count += 1
                 else:
                     non_season_count += 1

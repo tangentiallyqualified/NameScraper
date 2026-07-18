@@ -53,11 +53,9 @@ class MediaWorkspaceRefreshCoordinator:
                 selected_index = matched_index
 
         preferred_focus_index = self.preferred_batch_focus_index(states)
-        if preferred_focus_index is not None:
-            if selected_state_key is None:
-                selected_index = preferred_focus_index
-                selection_is_auto = True
-            elif (
+        if preferred_focus_index is not None and (
+            selected_state_key is None
+            or (
                 selection_is_auto
                 and selected_index is not None
                 and 0 <= selected_index < len(states)
@@ -66,9 +64,10 @@ class MediaWorkspaceRefreshCoordinator:
                     media_type=workspace._media_type,
                 )
                 not in {"matched", "review-match", "review-episodes", "specials-unmapped"}
-            ):
-                selected_index = preferred_focus_index
-                selection_is_auto = True
+            )
+        ):
+            selected_index = preferred_focus_index
+            selection_is_auto = True
 
         if selected_index is None or not (0 <= selected_index < len(states)):
             selected_index = preferred_focus_index if preferred_focus_index is not None else 0

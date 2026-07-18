@@ -16,6 +16,7 @@ threads.  WAL mode allows concurrent readers.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 import threading
@@ -247,10 +248,8 @@ class JobStore:
         """Close the current thread's connection.  Safe to call multiple times."""
         conn = getattr(self._local, "conn", None)
         if conn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 conn.close()
-            except Exception:
-                pass
             self._local.conn = None
 
     def _init_db(self) -> None:

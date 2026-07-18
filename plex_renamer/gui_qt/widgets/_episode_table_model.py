@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 from dataclasses import dataclass, replace
@@ -472,15 +473,13 @@ class EpisodeTableModel(QAbstractListModel):
                 built, signature = builder(state)
             except Exception:
                 _log.exception("episode guide build failed for %s", state.folder)
-                try:
+                # bridge destroyed during shutdown
+                with contextlib.suppress(RuntimeError):
                     bridge.guide_failed.emit(state, token)
-                except RuntimeError:
-                    pass  # bridge destroyed during shutdown
                 return
-            try:
+            # bridge destroyed during shutdown
+            with contextlib.suppress(RuntimeError):
                 bridge.guide_ready.emit(state, built, signature, token)
-            except RuntimeError:
-                pass  # bridge destroyed during shutdown
 
         _submit_bg(_worker)
         return None
