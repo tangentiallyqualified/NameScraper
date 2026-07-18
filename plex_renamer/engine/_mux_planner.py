@@ -116,11 +116,15 @@ def _decide_embedded(
     *,
     strip: bool,
     retain: list[str],
+    exclude_commentary: bool = False,
 ) -> list[TrackDecision]:
     decisions = []
     for track in tracks:
+        commentary = _is_commentary(track.name)
         if not strip:
             keep, reason = True, "stripping disabled"
+        elif commentary and exclude_commentary:
+            keep, reason = False, "commentary excluded"
         elif track.language == "und":
             keep, reason = True, "und retained"
         elif track.language in retain:
@@ -138,7 +142,7 @@ def _decide_embedded(
                 make_default=track.is_default,
                 reason=reason,
                 is_forced=track.is_forced,
-                is_commentary=_is_commentary(track.name),
+                is_commentary=commentary,
             )
         )
     return decisions
@@ -198,7 +202,12 @@ def build_mux_plan(
             )
         )
 
-    audio = _decide_embedded(probe.audio_tracks, strip=settings.strip_audio, retain=retain_audio)
+    audio = _decide_embedded(
+        probe.audio_tracks,
+        strip=settings.strip_audio,
+        retain=retain_audio,
+        exclude_commentary=settings.exclude_commentary,
+    )
     warnings: list[str] = []
     if settings.strip_audio and audio and not any(d.keep for d in audio):
         for d in audio:
@@ -207,7 +216,12 @@ def build_mux_plan(
         warnings.append(_AUDIO_FLOOR_WARNING)
     decisions.extend(audio)
 
-    subs = _decide_embedded(probe.subtitle_tracks, strip=settings.strip_subs, retain=retain_subs)
+    subs = _decide_embedded(
+        probe.subtitle_tracks,
+        strip=settings.strip_subs,
+        retain=retain_subs,
+        exclude_commentary=settings.exclude_commentary,
+    )
     decisions.extend(subs)
 
     _apply_default_language(

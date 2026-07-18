@@ -350,3 +350,62 @@ def test_full_merge_beats_forced_merge_for_default():
     by_src = {m.source_relative: m for m in plan.subtitle_merges}
     assert by_src["a.eng.srt"].set_default is True
     assert by_src["a.en.forced.srt"].set_default is False
+
+
+def test_commentary_excluded_when_stripping():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "eng"),
+        _track(3, "subtitles", "eng", name="Commentary"),
+        _track(4, "subtitles", "und", name="commentary track"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"],
+                             exclude_commentary=True),
+        new_name="X.mkv")
+    keep = {d.track_id: d.keep for d in plan.track_decisions}
+    assert keep == {0: True, 1: True, 2: True, 3: False, 4: False}
+    reasons = {d.track_id: d.reason for d in plan.track_decisions}
+    assert reasons[3] == "commentary excluded"
+
+
+def test_commentary_kept_when_toggle_or_strip_off():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng"),
+        _track(2, "subtitles", "eng", name="Commentary"),
+        _track(3, "subtitles", "fre"),
+    )
+    # Toggle off: commentary in a retained language stays.
+    toggle_off = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_subs=True, retain_sub_languages=["eng"]),
+        new_name="X.mkv")
+    assert {d.track_id: d.keep for d in toggle_off.track_decisions}[2] is True
+    # Strip off: the toggle alone does nothing (refinement only).
+    strip_off = build_mux_plan(
+        probe=probe,
+        companion_subs=[("a.eng.srt", ".eng")],
+        settings=MuxSettings(merge_subs=True, merge_sub_languages=["eng"],
+                             exclude_commentary=True),
+        new_name="X.mkv")
+    assert {d.track_id: d.keep for d in strip_off.track_decisions}[2] is True
+
+
+def test_commentary_exclusion_respects_audio_floor():
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", name="Commentary"),
+        _track(2, "subtitles", "fre"),
+    )
+    plan = build_mux_plan(
+        probe=probe, companion_subs=[],
+        settings=MuxSettings(strip_audio=True, retain_audio_languages=["eng"],
+                             exclude_commentary=True,
+                             strip_subs=True, retain_sub_languages=["eng"]),
+        new_name="X.mkv")
+    audio = [d for d in plan.track_decisions if d.track_type == "audio"]
+    assert all(d.keep for d in audio)
+    assert any("every audio track" in w for w in plan.warnings)
