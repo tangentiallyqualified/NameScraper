@@ -4,6 +4,7 @@
 Pure spec building is Qt-free so unit tests stay off the GUI stack;
 painting helpers take an explicit QPainter and are used inside delegates.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -21,7 +22,9 @@ _CHIP_SPACING_UNITS = 4
 _CHIP_HEIGHT_UNITS = 18
 
 _TONE_COLORS = {
-    "success": "success", "warning": "warning", "muted": "text_dim",
+    "success": "success",
+    "warning": "warning",
+    "muted": "text_dim",
     "info": "info",
 }
 
@@ -52,18 +55,19 @@ def _specials_tooltip(specials: SeasonCompleteness) -> str:
         return f"Specials: {specials.matched}/{specials.expected}"
     tooltip_parts = []
     if specials.review:
-        tooltip_parts.append(
-            f"Specials: {specials.review} mapping(s) awaiting approval"
-        )
+        tooltip_parts.append(f"Specials: {specials.review} mapping(s) awaiting approval")
     if specials.missing:
-        tooltip_parts.append(_missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1))
+        tooltip_parts.append(
+            _missing_tooltip(specials).replace(f"Season {specials.season}", "Specials", 1)
+        )
     return "\n".join(tooltip_parts)
 
 
 def _season_chip(season: SeasonCompleteness) -> ChipSpec:
     if _season_clean_complete(season):
         return ChipSpec(
-            f"S{season.season} ✓", "success",
+            f"S{season.season} ✓",
+            "success",
             f"Season {season.season}: {season.matched}/{season.expected}",
         )
     shown = season.matched + season.review
@@ -76,7 +80,8 @@ def _season_chip(season: SeasonCompleteness) -> ChipSpec:
     if season.missing:
         tooltip_parts.append(_missing_tooltip(season))
     return ChipSpec(
-        f"S{season.season} {shown}/{season.expected}", tone,
+        f"S{season.season} {shown}/{season.expected}",
+        tone,
         "\n".join(tooltip_parts),
     )
 
@@ -92,7 +97,9 @@ def _collapse_complete_runs(seasons: list[SeasonCompleteness]) -> list[ChipSpec]
             chips.append(_season_chip(run[0]))
         else:
             first, last = run[0].season, run[-1].season
-            chips.append(ChipSpec(f"S{first}–S{last} ✓", "success", f"Seasons {first}–{last} complete"))
+            chips.append(
+                ChipSpec(f"S{first}–S{last} ✓", "success", f"Seasons {first}–{last} complete")
+            )
         run.clear()
 
     for season in seasons:
@@ -125,7 +132,9 @@ def season_chip_specs(
     ):
         tone = "success" if _season_clean_complete(specials) else "warning"
         tooltip = _specials_tooltip(specials)
-        chips.append(ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip))
+        chips.append(
+            ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip)
+        )
     return chips
 
 
@@ -134,7 +143,8 @@ def _strip_season_chip(season: SeasonCompleteness) -> ChipSpec:
     strip chips are uncollapsed and always show ``matched``/``expected``)."""
     if _season_clean_complete(season):
         return ChipSpec(
-            f"S{season.season} ✓{season.expected}", "success",
+            f"S{season.season} ✓{season.expected}",
+            "success",
             f"Season {season.season}: {season.matched}/{season.expected}",
         )
     shown = season.matched + season.review
@@ -147,7 +157,8 @@ def _strip_season_chip(season: SeasonCompleteness) -> ChipSpec:
     if season.missing:
         tooltip_parts.append(_missing_tooltip(season))
     return ChipSpec(
-        f"S{season.season} {shown}/{season.expected}", tone,
+        f"S{season.season} {shown}/{season.expected}",
+        tone,
         "\n".join(tooltip_parts),
     )
 
@@ -166,7 +177,14 @@ def season_strip_specs(report: CompletenessReport | None) -> list[tuple[int, Chi
     if specials is not None and specials.expected > 0:
         tone = "success" if _season_clean_complete(specials) else "warning"
         tooltip = _specials_tooltip(specials)
-        specs.append((0, ChipSpec(f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip)))
+        specs.append(
+            (
+                0,
+                ChipSpec(
+                    f"SP {specials.matched + specials.review}/{specials.expected}", tone, tooltip
+                ),
+            )
+        )
     return specs
 
 
@@ -207,14 +225,16 @@ def chip_rects(
     return rects
 
 
-def paint_chip_row(painter: QPainter, origin_x: int, origin_y: int, chips: Sequence[ChipSpec]) -> None:
+def paint_chip_row(
+    painter: QPainter, origin_x: int, origin_y: int, chips: Sequence[ChipSpec]
+) -> None:
     if not chips:
         return
     painter.save()
     painter.setFont(_chip_font())
     metrics = chip_font_metrics()
     radius = theme.radius("sm")
-    for chip, rect in zip(chips, chip_rects(origin_x, origin_y, chips, metrics)):
+    for chip, rect in zip(chips, chip_rects(origin_x, origin_y, chips, metrics), strict=False):
         tone_token = _TONE_COLORS[chip.tone]
         fill = theme.qcolor(tone_token)
         fill.setAlphaF(0.12)
@@ -275,7 +295,7 @@ def paint_chip_row_wrapped(
     metrics = chip_font_metrics()
     radius = theme.radius("sm")
     rects = chip_rects_wrapped(origin_x, origin_y, chips, metrics, max_width)
-    for chip, rect in zip(chips, rects):
+    for chip, rect in zip(chips, rects, strict=False):
         tone_token = _TONE_COLORS[chip.tone]
         fill = theme.qcolor(tone_token)
         fill.setAlphaF(0.12)

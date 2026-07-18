@@ -172,7 +172,7 @@ def _tokens_prefix_equal(a_spaced: str, b_spaced: str) -> bool:
     if len(a_tokens) != len(b_tokens) or not a_tokens:
         return False
     exact = 0
-    for token_a, token_b in zip(a_tokens, b_tokens):
+    for token_a, token_b in zip(a_tokens, b_tokens, strict=False):
         if token_a == token_b:
             exact += 1
             continue

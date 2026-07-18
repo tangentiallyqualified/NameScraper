@@ -443,7 +443,7 @@ class BatchTVOrchestrator:
             (candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence),
             results,
         ) in enumerate(
-            zip(candidates, all_results),
+            zip(candidates, all_results, strict=False),
             start=1,
         ):
             _raise_if_cancelled(cancel_event)
@@ -865,7 +865,7 @@ class BatchMovieOrchestrator:
 
         states: list[ScanState] = []
         for (candidate, _search_query, year_hint, source_file), results in zip(
-            entries, all_results
+            entries, all_results, strict=False
         ):
             folder = candidate.folder
 

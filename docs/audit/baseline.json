@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
+  "input_digest": "17face2160f0892b461744a3e0fbb1a96f37988496c1b0a7487f03adeb4f6790",
   "module_count": 177,
   "partial": false,
   "reason": null,
@@ -100,9 +100,9 @@
   "module_avg_coverage": 88.1,
   "modules_over_complexity": 62,
   "statement_coverage": 87.9,
-  "total_loc": 39007
+  "total_loc": 39025
  },
- "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
+ "input_digest": "17face2160f0892b461744a3e0fbb1a96f37988496c1b0a7487f03adeb4f6790",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -534,9 +534,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 197,
+   "loc": 195,
    "max_complexity": 13,
-   "sha256": "1789722d5d8fa153"
+   "sha256": "46a039b73ee82b67"
   },
   "plex_renamer/_parsing_seasons.py": {
    "coverage_percent": 96.3,
@@ -1974,7 +1974,7 @@
    },
    "loc": 1064,
    "max_complexity": 25,
-   "sha256": "1000aeb81f71e991"
+   "sha256": "c539dec722d0fdbd"
   },
   "plex_renamer/engine/_batch_tv_duplicates.py": {
    "coverage_percent": 81.2,
@@ -2166,7 +2166,7 @@
    },
    "loc": 1969,
    "max_complexity": 49,
-   "sha256": "89f41ec45fa39bd8"
+   "sha256": "9d3f90e6a836f00e"
   },
   "plex_renamer/engine/_movie_scanner.py": {
    "coverage_percent": 80.1,
@@ -2197,7 +2197,7 @@
    },
    "loc": 441,
    "max_complexity": 15,
-   "sha256": "328e7f5efe1dbe6a"
+   "sha256": "3d648276d7156ae4"
   },
   "plex_renamer/engine/_mux_planner.py": {
    "coverage_percent": 98.6,
@@ -4027,7 +4027,7 @@
    },
    "loc": 369,
    "max_complexity": 10,
-   "sha256": "18e5610d3d961cf4"
+   "sha256": "1064e3992b96ee81"
   },
   "plex_renamer/gui_qt/widgets/_roster_model.py": {
    "coverage_percent": 89.7,
@@ -4724,9 +4724,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 287,
+   "loc": 307,
    "max_complexity": 13,
-   "sha256": "69f3c6e2b75edb23"
+   "sha256": "56587fb9c5d6e6b8"
   },
   "plex_renamer/gui_qt/widgets/tab_badge.py": {
    "coverage_percent": 100.0,
@@ -4945,7 +4945,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "fd88971053f90f414c5d2f39281af508dfe88e2171e9381617a645b96e8a39ac",
+   "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
    "module_count": 177,
    "partial": false,
    "reason": null,
@@ -5045,7 +5045,7 @@
    "statement_coverage": 87.9,
    "total_loc": 39007
   },
-  "input_digest": "fd88971053f90f414c5d2f39281af508dfe88e2171e9381617a645b96e8a39ac",
+  "input_digest": "8b6d50a0f713603ccd9dee3be978192a2d56d5f3ca8459a78544006a8c4e7d72",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,

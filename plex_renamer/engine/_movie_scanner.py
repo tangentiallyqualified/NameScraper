@@ -295,7 +295,7 @@ class MovieScanner:
             progress_callback(0, len(video_files), "Building rename previews...", "")
 
         for index, (file_path, (_search_query, year_hint, raw_name), results) in enumerate(
-            zip(video_files, prepared, all_results),
+            zip(video_files, prepared, all_results, strict=False),
             start=1,
         ):
             _raise_if_cancelled(cancel_event)

@@ -260,7 +260,7 @@ class QtMainWindowTests(QtSmokeBase):
 
         jobs = [object() for _ in range(20)]
         results = [object() for _ in jobs]
-        for job, result in zip(jobs, results):
+        for job, result in zip(jobs, results, strict=False):
             bridge.on_job_started(job)
             bridge.on_job_completed(job, result)
 

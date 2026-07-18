@@ -1573,7 +1573,7 @@
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:66ec018201fb03f10df19f1a56a1264beb2654e8f07c2f163f023ebd53a751e4#1",
     "sha256:7d17c393e7f54c9d6c8961984d017c6e4c30fecc73cbe67150849d3ee7e6556c#1",
-    "sha256:17adbc681587878623d19036eb2464c54d76dace39f31ad4bb26ffb298795a67#1",
+    "sha256:c9117c3724eba93d7d24bfc4a0f2ba86411c1a19062bf6a6a87087315a104f4e#1",
     "sha256:e1725ad3cc4c8389c88b7683f4722ef876fb9ff2f768c638a9aea396040f98e6#1",
     "sha256:f13504a828d647551e688da5b88ec541c7a6067a42216454385cc3c7f12ac99c#1",
     "sha256:3efc38e82e638c0cfab272ba10d7c20a39906f2a7170b6fb543b67fce11f27a2#1",
@@ -1582,7 +1582,7 @@
     "sha256:06f93fd8836bc5141d525662030a4f6967471f5377ee0cd01f5e1a836299dbae#1",
     "sha256:c981258975327b363aa7db4b11f3b9ca4203ad9c5a5ab31d37d7ed51cfa58826#1",
     "sha256:1f2690f857404bab3fa712734f4adcdac8f05b0283edea0948e207b01b34f024#1",
-    "sha256:48da2b4d7f80618284ac809a571d5054cc2a61af2a31ce69b65e0c7080fd8c95#1",
+    "sha256:3572a28408b972fffc5b81634bd708c592fe575ac77687ae642171681778673b#1",
     "sha256:4d78936acc45ca54d303b86f55bfbc6b7384d0cfb1930872559360920f302b5d#1",
     "sha256:5f01bc0a3bbd579ad5b39a1f0e519ad197cda413c9ce7f87e331f69aa484aa99#1",
     "sha256:baab8ada81c6f8e43c97d759ea43cb65083859e3daa84d85127fe0555cfe06a4#1",
@@ -7123,7 +7123,7 @@
     "sha256:edea91bba1798115588ddc5f8ea54ab5751db4c2e926c9ef32579d9ce01a3a19#1",
     "sha256:c5ef33f5e62cb10d72b190d8fda93138332826aac934247a731871129ca66c24#5",
     "sha256:46c35a321255351231ee3297de6d52cef81fdb5bece02170c0d621b8af331982#1",
-    "sha256:671522da8203a9c1c5ef94cc267c6032acfb68f093a2516abfc1fc9fd34e83dc#1",
+    "sha256:b070ac12d873f9f38bd67307bd1f7c86bf4a26e42a180c6a6600bdecc6b7d785#1",
     "sha256:2b7742d7c124c3a31db4662c8a78c30d59ed4c03ef147a6ec2f28298b0b8dae6#1",
     "sha256:390f2357ac136737b674554bd28c6966290c89f8612d12d7b5efdc1775f5e1c0#1",
     "sha256:8c42600c669d37de59f5ec1a0a3adcc9ef2cf7423a67de07bfaa8b04f8d57af8#2",
@@ -16524,7 +16524,7 @@
     "sha256:2bbf6fa4ed4835e3426d5ec7960841f2ff5e487a995200fe6f4cdf5a49be99b0#1",
     "sha256:880e0043c1c8051b03220b8e3e2ff8e32c6f6e9aeab5ec6b6042161262e0f7bd#1",
     "sha256:4bfd5c85b55c5f73c23a30176c557302b173cd92980ff39d9b6746dae8fa1379#1",
-    "sha256:82257519c678444ce61232e1aad7bb38325ba9081bda3f6d5e3d6af12aecbd2e#1",
+    "sha256:42bb6cc5954fb10553ae8e4c09703fc3b717901c200d8428b0280fe92c2ec760#1",
     "sha256:ee85ccd11c5692197137c469d76f2e164ede8b697e1e402bdfb5deb6c1386f77#1",
     "sha256:254a9395ecf4091c0c571223df73c130bc571d9c2daf8508929f055209a1a9ef#1",
     "sha256:fabca34f6463be45795d9a181a9b3c18360dee8b2b07c09cd666e9d060144c8e#1",
@@ -20271,9 +20271,9 @@
     "sha256:9ce0921e4709e000c1bc1fe64b7ab6c93f20b33be1a643a9941c25789d65b98a#1",
     "sha256:4acd46199803986f2a5aa939824ca6cf150fb41e0b85035435869fd181de528a#1",
     "sha256:b8af7a25953f42432f3428b713c682a9d2504524ce7ff63bbe794777903b185b#1",
-    "sha256:5c32418077c53db1332bc4fce2697baeaa47880d7206e3f2a7d16fe216c960cc#1",
+    "sha256:6581547708b2351284e1152196b828b06bf2991c84784a290cfbc5a03b01b2bc#1",
     "sha256:10336b409247125e01ff30da387062b1d167b0a5ca761e8af8df1323a0dfc682#1",
-    "sha256:155b059dc04a88c5a1fcf2bdb5fce3ce526b4d3047219a982c86a356ab154c37#1",
+    "sha256:5c32418077c53db1332bc4fce2697baeaa47880d7206e3f2a7d16fe216c960cc#1",
     "sha256:20b924303cf5e4700b42b5e548204466dda475b710fce7087584974d7ebec5a9#1",
     "sha256:a255aca8cc81d71d49c10ce9855b5e185a459b18d923a7b99a90972c5ef5c878#1",
     "sha256:e0b5a59cd7ed3bc427c6c0486293e63f398182273404a94dbf0965940891f59f#1",
@@ -20295,7 +20295,7 @@
     "sha256:05b6848f7379f4dcb28727a82ebbdc1ca797a5efd82d10e0fd95354cf8d26e38#1",
     "sha256:e59db947a5bb3658b7968466f8e668348173199ba574c61f775c17360f70ed53#1",
     "sha256:5f43fc8dcbcf4b2b9f451b075fe9488ac7b063e76fe4bdc6f8258209b774f974#1",
-    "sha256:250fc380d878d58f08499e376e8a5a7c356ad531cbc44c1da7a63778986a00dc#1",
+    "sha256:0e41f317f4ff130082cba18cfcd06dfc048ea9b926726a4fb3ef5b1687fdba8f#1",
     "sha256:6f37d37f248d03cdb989429624a5ff8badaf27c5210dbfe3222a7130b4d8c8d1#1",
     "sha256:26b2632d100f6e5efbe1c7fee76151eaf11c542d1b4289ce99a7300425174f50#1",
     "sha256:b96c9e3573bfb408cf0e6311ee548da3247513d4846a9127f6ca796371aa3143#1",
@@ -20318,7 +20318,7 @@
     "sha256:07bd013be7d5713edc702ac908deac85a0375eb32147b04deb5153a63315f4b7#1",
     "sha256:95c3abaf1079767a88d0de6a5d85ab1533fa7d847c7ec9cdaa00efca46e0e16a#1",
     "sha256:c59066da3e904ac693cc9e9b56f8d4fff22a050ed3fdabe2179ee92f70c40c69#1",
-    "sha256:514ac6f1add2755c0def4a4f8e293bf645e401206fc9acb951395301807cdf44#1",
+    "sha256:e4d9bd3fe6eed8b94a2279051a7551f7a65824e7158b69ab6273c75e0cac1717#1",
     "sha256:bdb650d9e10b44abceaa70dd1de1a5f6b11a5ac2a2a7707db1a90564d1eabb83#2",
     "sha256:1e3933cee5afa9521e902dfff7205909aa683c0943f1857eda84fd80ebaa0287#1",
     "sha256:e0b5a59cd7ed3bc427c6c0486293e63f398182273404a94dbf0965940891f59f#2",
@@ -20339,7 +20339,7 @@
     "sha256:deef7cb41aab02ae80426cc347a0d216eb0adabc68206072d187b7e69a4772b3#1",
     "sha256:95c3abaf1079767a88d0de6a5d85ab1533fa7d847c7ec9cdaa00efca46e0e16a#2",
     "sha256:c59066da3e904ac693cc9e9b56f8d4fff22a050ed3fdabe2179ee92f70c40c69#2",
-    "sha256:56610f688000478a262999e10711c853c6ad8aedabe7a306bb83a193845b1187#1",
+    "sha256:33559b697b3156387eff671e23cfc8123ef61443f29433d247fc14a26d5929af#1",
     "sha256:62ee38afcfec0c1ce9ba623b2207d270c14259c721113e986367fb9fd4ac7b45#1",
     "sha256:caf3024836bf2ec6df5fdc73c5befb7d6a8323c305dbbdbfdeaaa2ce51b8b57e#1",
     "sha256:b41bd350037f761ed9e648e452cbd5680e54f14048a1ecfe917e456dd15cb28f#1",
@@ -20360,14 +20360,14 @@
     "sha256:89e3bef029167163475f4a28cb8911edad3e638319cdf1a5b9f0de8a55de41c0#1",
     "sha256:d81dc4c0a0f880549976078702a9208dbc48542b885bb6f8f2c459759bddc734#1",
     "sha256:4f448c61749eb7ee6448b996f9e4262140d18bcbd484715686fea33299157766#1",
-    "sha256:32cc509225ff414070fc30e27a2b23bfe131d347317c53f8db60d2b641ff5107#1",
+    "sha256:c16284b2b0599d3b5651ce555d7bcff97250e17907682c6753fafa8a599aad4f#1",
     "sha256:304aae7f3cea08ec73cb3b05a7d08f8a92403b43c978c6db97c31e33247507b5#1",
     "sha256:075da1329bf98305ddcc57e5c54ff9464a19fba45924fd3dcdaeec84bf84cdea#1",
     "sha256:a5f91a62edc28f4be8b1a5048c031cafbf301db0bac9147e4662cefd0f46f8f6#1",
     "sha256:feefb7292d041d5b7412c5bb28d78666bafa2a76738f14d060709182a6cbe251#1",
     "sha256:976042986bbb618d52de49bfe97cfc495d9c314dab445a7a218a78193ba3e88a#1",
     "sha256:db86ab4b2c5c7deaae19e04bf80126c81348a87d745c3f01dce2d2e7ecec319b#1",
-    "sha256:eaa13b85b7d2750c088b9db6997e4f146bbb1dd8acdc7e0cd3284e705f74170c#1",
+    "sha256:357cbc7ee24d83ed8fa852184725d579a1f658b593543e66301300d042263dee#1",
     "sha256:5dba02d79bf96d76555a839a493bbe294a008c0a5950cb68d3a704a11897559e#1",
     "sha256:a9ad108f71c3e2a7e885c77d17d91e7253052adb4be561010734dba7aab96615#1",
     "sha256:9121382948b83a9bcc01e5ce02e64ee5dcfd82252e7cc2aa2ffb7b63045a1fc2#1",
@@ -20405,7 +20405,7 @@
     "sha256:976042986bbb618d52de49bfe97cfc495d9c314dab445a7a218a78193ba3e88a#2",
     "sha256:db86ab4b2c5c7deaae19e04bf80126c81348a87d745c3f01dce2d2e7ecec319b#2",
     "sha256:c945e3b85f32e34da34f396075a95356b855aaf47369021074d8afb8235ca9eb#1",
-    "sha256:cb338cffe40cead93c3cb60f8f532b659ac460d8274f90c56786e5e1edf7ad7b#1",
+    "sha256:4bd642b1a3023e002650e6658157ab2fb06b9c589c825b0d07a1b09d52ea02dc#1",
     "sha256:5dba02d79bf96d76555a839a493bbe294a008c0a5950cb68d3a704a11897559e#2",
     "sha256:a9ad108f71c3e2a7e885c77d17d91e7253052adb4be561010734dba7aab96615#2",
     "sha256:9121382948b83a9bcc01e5ce02e64ee5dcfd82252e7cc2aa2ffb7b63045a1fc2#2",
@@ -21912,12 +21912,6 @@
   {
    "analyzer": "ruff",
    "path": "plex_renamer/_parsing_names.py",
-   "rule": "B905",
-   "symbol": "plex_renamer._parsing_names._common_title_base::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/_parsing_names.py",
    "rule": "RUF001",
    "symbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
   },
@@ -22432,18 +22426,6 @@
    "symbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator._duplicate_priority::reportReturnType::Type \"tuple[Literal[0, 1], float, int, Literal[0, 1], str]\" is not assignable to return type \"tuple[float, int, int, str]\" \"float\" is not assignable to \"int\" Type \"Literal[0, 1]\" is not assignable to type \"str\" \"Literal[0]\" is not assignable to \"str\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_batch_orchestrators.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_batch_orchestrators.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
    "analyzer": "vulture",
    "path": "plex_renamer/engine/_batch_orchestrators.py",
    "rule": "unused-method",
@@ -22522,12 +22504,6 @@
    "symbol": "plex_renamer.engine._episode_resolution._resolve_number_only::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"text\" of type \"str\" in function \"_segment_atom_spans\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
   },
   {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_episode_resolution.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.engine._episode_resolution._tokens_prefix_equal::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "plex_renamer/engine/_movie_scanner.py",
    "rule": "reportArgumentType",
@@ -22538,12 +22514,6 @@
    "path": "plex_renamer/engine/_movie_scanner.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.engine._movie_scanner.MovieScanner.scan::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/engine/_movie_scanner.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.engine._movie_scanner.MovieScanner.scan::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "vulture",
@@ -23075,12 +23045,6 @@
   },
   {
    "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/_roster_delegate.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.gui_qt.widgets._roster_delegate.RosterDelegate.helpEvent::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
    "path": "plex_renamer/gui_qt/widgets/_roster_model.py",
    "rule": "RUF005",
    "symbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel._build_row_data::collection-literal-concatenation::Consider iterable unpacking instead of concatenation#1"
@@ -23366,18 +23330,6 @@
    "path": "plex_renamer/gui_qt/widgets/scan_progress.py",
    "rule": "reportArgumentType",
    "symbol": "plex_renamer.gui_qt.widgets.scan_progress.ScanProgressWidget.update_progress::reportArgumentType::Argument of type \"ScanLifecycle | None\" cannot be assigned to parameter \"value\" of type \"ScanLifecycle\" in function \"index\" Type \"ScanLifecycle | None\" is not assignable to type \"ScanLifecycle\" \"None\" is not assignable to \"ScanLifecycle\"#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "plex_renamer/gui_qt/widgets/status_chip.py",
-   "rule": "B905",
-   "symbol": "plex_renamer.gui_qt.widgets.status_chip.paint_chip_row_wrapped::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
   },
   {
    "analyzer": "ruff",
@@ -26838,12 +26790,6 @@
   {
    "analyzer": "ruff",
    "path": "tests/test_qt_main_window.py",
-   "rule": "B905",
-   "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_queue_bridge_batches_bursty_queue_changed_refreshes::zip-without-explicit-strict::`zip()` without an explicit `strict=` parameter#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_qt_main_window.py",
    "rule": "SIM117",
    "symbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
   },
@@ -29122,7 +29068,6 @@
   "plex_renamer/_lang_normalize.py": "sha256:40ae1c1bac9bf5d45525a9d7c1de2ddacf3d1cf6ea68830b8934705c50b8aec1",
   "plex_renamer/_mkv_command.py": "sha256:a5594b6c912ec705757ed1216869b1bec7e3bff7cbcecf10ebe6c85d00b04475",
   "plex_renamer/_nfo_render.py": "sha256:1037c2aa7c5f6013d8aa3fb277ddfb537aae08ce5108f767e81fe5026517264a",
-  "plex_renamer/_parsing_names.py": "sha256:1789722d5d8fa153ac5477c92e2741e6cf12dadaa120ac6fa5c425b792c90b9c",
   "plex_renamer/_parsing_seasons.py": "sha256:1929f9fd6a7b24d018465b9819a960c8988ee78ab6804bef33182a43f6ebafb4",
   "plex_renamer/_tmdb_image_cache.py": "sha256:135f79298d1b0242591a8ac85bc26dcbe05145c3f317f5af5e0b47b9e22e769e",
   "plex_renamer/_tmdb_metadata_builder.py": "sha256:5951220620b871d56219bb8eabc5dc247253593d46f39495bbee9ebbfa598490",
@@ -29167,7 +29112,6 @@
   "plex_renamer/gui_qt/widgets/busy_overlay.py": "sha256:cfb569529987597bf55028f6720ba2732886e99f6ef3c3c9ff80a52c34431a8c",
   "plex_renamer/gui_qt/widgets/match_picker_dialog.py": "sha256:8e2a8f46e277d9f96995ad7f0270da292f87841131efc1941066dacf987f879d",
   "plex_renamer/gui_qt/widgets/segmented_control.py": "sha256:4ab6c1bd7ea5759f943216c8d5d1bab523c8731d38d1a68fc8d5bf5ce37ec635",
-  "plex_renamer/gui_qt/widgets/status_chip.py": "sha256:69f3c6e2b75edb231e319cb12ff3a77adf0420591b633ae4a3f5f64d789f3f7e",
   "scripts/audit/_diff.py": "sha256:8e9bc3cb77c47be5dfc82ebee625a2d9a63a9f47092a2e9b709a76c1c5d1a8b5",
   "scripts/audit/_docs_ledger.py": "sha256:b2809587abbef0cbe929a80d383e0204042098cc32524d4c3932a683a30c573f",
   "scripts/audit/_metrics.py": "sha256:7d5f92780b57114aa85c77eeb4c599e7ce5b59fff3a4f30699cb5621c51bb028",

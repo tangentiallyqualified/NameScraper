@@ -15,7 +15,7 @@
 - `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — fan-in 6, fan-out 2, LOC 175
 - `plex_renamer/gui_qt/widgets/busy_overlay.py` — fan-in 3, fan-out 2, LOC 143
 - `plex_renamer/gui_qt/widgets/segmented_control.py` — fan-in 3, fan-out 0, LOC 67
-- `plex_renamer/gui_qt/widgets/status_chip.py` — fan-in 4, fan-out 3, LOC 287
+- `plex_renamer/gui_qt/widgets/status_chip.py` — fan-in 4, fan-out 3, LOC 307
 
 ### Support
 - `plex_renamer/gui_qt/_main_window_bootstrap.py` — fan-in 1, fan-out 2, LOC 86
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input 8b6d50a0f713 by scripts\audit.cmd._
+_Generated from audit input 17face2160f0 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

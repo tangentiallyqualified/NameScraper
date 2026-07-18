@@ -314,7 +314,7 @@ class RosterDelegate(QStyledItemDelegate):
             body_rect.x(), chip_y, row_data.chips, chip_font_metrics(), body_rect.width()
         )
         point = event.pos()
-        for chip, rect in zip(row_data.chips, rects):
+        for chip, rect in zip(row_data.chips, rects, strict=False):
             if rect.contains(point):
                 if chip.tooltip:
                     QToolTip.showText(event.globalPos(), chip.tooltip, view)
