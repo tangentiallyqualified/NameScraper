@@ -67,10 +67,10 @@
    "loc": 649
   },
   "tests/test_episode_mapping_projection.py": {
-   "loc": 558
+   "loc": 554
   },
   "tests/test_episode_resolution.py": {
-   "loc": 1113
+   "loc": 1111
   },
   "tests/test_episode_table_delegate.py": {
    "loc": 979
@@ -24418,18 +24418,6 @@
    "symbol": "tests.test_episode_mapping_projection::module-import-not-at-top-of-file::Module level import not at top of file#3"
   },
   {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "F811",
-   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeAssignmentTable` from line 163: `EpisodeAssignmentTable` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_mapping_projection.py",
-   "rule": "F811",
-   "symbol": "tests.test_episode_mapping_projection::redefined-while-unused::Redefinition of unused `EpisodeSlot` from line 164: `EpisodeSlot` redefined here#1"
-  },
-  {
    "analyzer": "pyright",
    "path": "tests/test_episode_projection.py",
    "rule": "reportOperatorIssue",
@@ -24542,18 +24530,6 @@
    "path": "tests/test_episode_resolution.py",
    "rule": "E402",
    "symbol": "tests.test_episode_resolution::module-import-not-at-top-of-file::Module level import not at top of file#8"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "F811",
-   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_ONLY` from line 233: `CONF_TITLE_ONLY` redefined here#1"
-  },
-  {
-   "analyzer": "ruff",
-   "path": "tests/test_episode_resolution.py",
-   "rule": "F811",
-   "symbol": "tests.test_episode_resolution::redefined-while-unused::Redefinition of unused `CONF_TITLE_WINS_INEXACT` from line 235: `CONF_TITLE_WINS_INEXACT` redefined here#1"
   },
   {
    "analyzer": "pyright",

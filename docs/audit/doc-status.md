@@ -120,4 +120,4 @@
 | `docs/superpowers/plans/2026-07-17-coverage-floors.md` | 2026-07-18 | `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.keys`, `tests/conftest_qt.QtSm`, `tests/test_keys.py`, `tests/test_qt_app_bootstrap.py`, `tests/test_rename_execution.py` |
 | `docs/superpowers/plans/2026-07-17-extract-episode-seam.md` | 2026-07-18 | `plex_renamer.pars` |
 
-_Generated from audit input 17face2160f0 by scripts\audit.cmd._
+_Generated from audit input 9d520dbfafe1 by scripts\audit.cmd._

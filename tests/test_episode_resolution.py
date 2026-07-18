@@ -747,8 +747,6 @@ class TestSpecialsTrust:
 from pathlib import Path
 
 from plex_renamer.engine._episode_resolution import (
-    CONF_TITLE_ONLY,
-    CONF_TITLE_WINS_INEXACT,
     CONTRADICTORY_PREFIX_CAP,
     EPISODE_TITLE_MATCH_FLOOR,
     EXACT_COVERAGE_FLOOR,

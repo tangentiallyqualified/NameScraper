@@ -293,11 +293,7 @@ class TestTableBackedService:
         assert choices == []
 
 
-from plex_renamer.engine.episode_assignments import (
-    REASON_MANUAL_UNASSIGN,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
+from plex_renamer.engine.episode_assignments import REASON_MANUAL_UNASSIGN
 
 
 def _table_state(*, slots: int = 4, files: tuple[str, ...] = ("a.mkv", "b.mkv", "c.mkv")):
