@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Any, cast
 
 import requests
 
@@ -47,7 +48,8 @@ class TVDBTransport:
             raise TMDBNetworkError(f"TVDB login failed: {e}") from e
         if resp.status_code != 200:
             raise TMDBError(f"TVDB login failed: HTTP {resp.status_code}")
-        token = (resp.json().get("data") or {}).get("token")
+        data = cast(dict[str, Any], resp.json().get("data") or {})
+        token = data.get("token")
         if not token:
             raise TMDBError("TVDB login response had no token")
         return str(token)
@@ -62,7 +64,7 @@ class TVDBTransport:
         with self._lock:
             self._token = None
 
-    def get_json(self, path: str, params: dict | None = None) -> dict | None:
+    def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """GET *path* → parsed JSON. None on 404. Raises TMDBError family."""
         for attempt in (1, 2):
             token = self._ensure_token()
@@ -85,7 +87,9 @@ class TVDBTransport:
             return resp.json()
         return None
 
-    def get_json_safe(self, path: str, params: dict | None = None) -> dict | None:
+    def get_json_safe(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         try:
             return self.get_json(path, params)
         except TMDBError as e:

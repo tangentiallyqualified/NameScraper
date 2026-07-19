@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 from PIL import Image
 
@@ -29,7 +29,7 @@ class MetadataProvider(Protocol):
     provider_name: str
     language: str
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict]:
+    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
         """[{"id": int, "name": str, "year": str, "poster_path": str|None,
         "overview": str}, ...] — best matches first."""
         ...
@@ -38,22 +38,22 @@ class MetadataProvider(Protocol):
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: Callable | None = None,
-    ) -> list[list[dict]]:
+        progress_callback: Callable[..., Any] | None = None,
+    ) -> list[list[dict[str, Any]]]:
         """One search_tv result list per (query, year_hint) input, same order."""
         ...
 
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable,
+        search_fn: Callable[..., Any],
         min_words: int = 1,
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Progressive word-trimming retry around *search_fn*."""
         ...
 
-    def get_tv_details(self, show_id: int) -> dict | None:
+    def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
         """TMDB-shaped show details or None on fetch failure. Consumed keys:
         id, name, overview, first_air_date ("YYYY-MM-DD" or ""), status
         (TMDB vocabulary: "Ended"/"Returning Series"/"Planned"/...),
@@ -65,7 +65,7 @@ class MetadataProvider(Protocol):
         number_of_seasons, number_of_episodes (specials excluded)."""
         ...
 
-    def get_season(self, show_id: int, season_num: int) -> dict:
+    def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
         """{"titles": {ep: str}, "posters": {ep: str|None},
         "episodes": {ep: meta}, "season_poster_path": str|None}.
         Episode meta keys: name, overview, air_date, runtime,
@@ -73,7 +73,7 @@ class MetadataProvider(Protocol):
         writers [str], guest_stars [{"name", "character"}]."""
         ...
 
-    def get_season_map(self, show_id: int) -> tuple[dict, int]:
+    def get_season_map(self, show_id: int) -> tuple[dict[str, Any], int]:
         """({season_num: {"name", "titles", "posters", "episodes",
         "count", "season_poster_path"}}, total_episodes_excl_specials)."""
         ...
@@ -131,7 +131,7 @@ def _make_tmdb(api_key: str, **kwargs: Any) -> MetadataProvider:
 def _make_tvdb(api_key: str, **kwargs: Any) -> MetadataProvider:
     from .tvdb import TVDBClient  # type: ignore[import-not-found]
 
-    return TVDBClient(api_key, **kwargs)
+    return cast(MetadataProvider, TVDBClient(api_key, **kwargs))
 
 
 TV_PROVIDERS: dict[str, ProviderSpec] = {
