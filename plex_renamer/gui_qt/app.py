@@ -65,7 +65,7 @@ class _SuppressTransientPopups(QObject):
        visible to the user.
     """
 
-    def eventFilter(self, obj, event) -> bool:
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() in {
             QEvent.Type.WhatsThis,
             QEvent.Type.QueryWhatsThis,

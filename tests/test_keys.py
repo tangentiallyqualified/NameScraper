@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -29,14 +30,16 @@ class _BrokenKeyring:
 
 
 @pytest.fixture
-def local_store(tmp_path, monkeypatch):
+def local_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     keys_file = tmp_path / "api_keys.json"
     monkeypatch.setattr(keys, "KEYS_FILE", keys_file)
     monkeypatch.setattr(keys, "ensure_log_dir", lambda: None)
     return keys_file
 
 
-def test_save_and_get_roundtrip_via_keyring(local_store, monkeypatch) -> None:
+def test_save_and_get_roundtrip_via_keyring(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = _FakeKeyring()
     monkeypatch.setattr(keys, "keyring", fake)
 
@@ -47,7 +50,9 @@ def test_save_and_get_roundtrip_via_keyring(local_store, monkeypatch) -> None:
     assert keys.get_api_key("TMDB") == "secret"
 
 
-def test_save_falls_back_to_local_file_without_keyring(local_store, monkeypatch) -> None:
+def test_save_falls_back_to_local_file_without_keyring(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(keys, "keyring", None)
 
     keys.save_api_key("TMDB", "secret")
@@ -56,7 +61,9 @@ def test_save_falls_back_to_local_file_without_keyring(local_store, monkeypatch)
     assert keys.get_api_key("TMDB") == "secret"
 
 
-def test_broken_keyring_backend_uses_local_fallback(local_store, monkeypatch) -> None:
+def test_broken_keyring_backend_uses_local_fallback(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(keys, "keyring", _BrokenKeyring())
 
     keys.save_api_key("TMDB", "secret")
@@ -65,7 +72,9 @@ def test_broken_keyring_backend_uses_local_fallback(local_store, monkeypatch) ->
     assert keys.get_api_key("TMDB") == "secret"
 
 
-def test_save_merges_existing_local_keys(local_store, monkeypatch) -> None:
+def test_save_merges_existing_local_keys(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(keys, "keyring", None)
     local_store.write_text(json.dumps({"OTHER": "kept"}), encoding="utf-8")
 
@@ -77,20 +86,26 @@ def test_save_merges_existing_local_keys(local_store, monkeypatch) -> None:
     }
 
 
-def test_corrupt_local_file_reads_as_empty(local_store, monkeypatch) -> None:
+def test_corrupt_local_file_reads_as_empty(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(keys, "keyring", None)
     local_store.write_text("not json", encoding="utf-8")
 
     assert keys.get_api_key("TMDB") is None
 
 
-def test_get_returns_none_when_nothing_stored(local_store, monkeypatch) -> None:
+def test_get_returns_none_when_nothing_stored(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(keys, "keyring", None)
 
     assert keys.get_api_key("TMDB") is None
 
 
-def test_empty_keyring_value_falls_through_to_local(local_store, monkeypatch) -> None:
+def test_empty_keyring_value_falls_through_to_local(
+    local_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = _FakeKeyring()
     fake.passwords[(keys.SERVICE_NAME, "TMDB")] = ""
     monkeypatch.setattr(keys, "keyring", fake)

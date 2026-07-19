@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from ..constants import VIDEO_EXTENSIONS, MediaType
 from ..parsing import (
@@ -121,7 +121,7 @@ class RenameResult:
 
     renamed_count: int = 0
     errors: list[str] = field(default_factory=list)
-    log_entry: dict = field(default_factory=dict)
+    log_entry: dict[str, Any] = field(default_factory=dict)
     new_root: Path | None = None
 
 
