@@ -79,6 +79,7 @@ def main() -> int:
         str(python),
         "-m",
         "pytest",
+        "tests/test_qt_app_bootstrap.py",
         "tests/test_qt_main_window.py",
         "tests/test_recent_menus.py",
         "tests/test_tab_badge.py",
