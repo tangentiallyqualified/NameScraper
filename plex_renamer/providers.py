@@ -129,7 +129,7 @@ def _make_tmdb(api_key: str, **kwargs: Any) -> MetadataProvider:
 
 
 def _make_tvdb(api_key: str, **kwargs: Any) -> MetadataProvider:
-    from .tvdb import TVDBClient  # type: ignore[import-not-found]
+    from .tvdb import TVDBClient
 
     return cast(MetadataProvider, TVDBClient(api_key, **kwargs))
 
