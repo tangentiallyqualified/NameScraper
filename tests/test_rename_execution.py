@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from plex_renamer.engine import PreviewItem
-from plex_renamer.engine._rename_execution import check_duplicates
+from plex_renamer.engine._rename_execution import check_duplicates, execute_rename
 
 
 def _item(
@@ -54,3 +54,90 @@ def test_check_duplicates_distinct_target_dirs_do_not_conflict(tmp_path: Path) -
 
     assert first.status == "OK"
     assert second.status == "OK"
+
+
+def test_execute_rename_renames_checked_item_in_place(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "show.s01e01.720p.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 1
+    assert result.errors == []
+    assert (season / "Show - S01E01.mkv").exists()
+    assert not src.exists()
+    assert result.log_entry["renames"] == [
+        {"old": str(src), "new": str(season / "Show - S01E01.mkv")}
+    ]
+
+
+def test_execute_rename_moves_into_created_target_and_removes_empty_source(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Show"
+    incoming = root / "incoming"
+    incoming.mkdir(parents=True)
+    src = incoming / "ep1.mkv"
+    src.write_bytes(b"x")
+    target = root / "Season 01"
+    item = _item(src, "Show - S01E01.mkv", target_dir=target)
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 1
+    assert (target / "Show - S01E01.mkv").exists()
+    assert str(target) in result.log_entry["created_dirs"]
+    assert not incoming.exists()
+    assert str(incoming) in result.log_entry["removed_dirs"]
+
+
+def test_execute_rename_normalizes_season_directory_name(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "season 1"
+    season.mkdir(parents=True)
+    src = season / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert (root / "Season 01" / "Show - S01E01.mkv").exists()
+    assert result.log_entry["renamed_dirs"] == [
+        {"old": str(season), "new": str(root / "Season 01")}
+    ]
+
+
+def test_execute_rename_leaves_unmatched_subtree_directories_alone(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Show"
+    unmatched_season = root / "Unmatched" / "season 2"
+    unmatched_season.mkdir(parents=True)
+    src = unmatched_season / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Mystery - S02E01.mkv")
+
+    execute_rename([item], {0}, "Show", root)
+
+    assert (unmatched_season / "Mystery - S02E01.mkv").exists()
+    assert unmatched_season.exists()
+
+
+def test_execute_rename_renames_root_to_show_folder_name(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root, show_folder_name="Show (2020)")
+
+    new_root = tmp_path / "Show (2020)"
+    assert result.new_root == new_root
+    assert (new_root / "Season 01" / "Show - S01E01.mkv").exists()
+    assert {"old": str(root), "new": str(new_root)} in result.log_entry["renamed_dirs"]
