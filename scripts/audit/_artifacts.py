@@ -82,10 +82,10 @@ class MissingArtifactError(RuntimeError):
 def input_files(repo_root: Path) -> list[Path]:
     """Return enrolled audit inputs in stable repository-relative order.
 
-    In a git checkout, enrollment is restricted to git-tracked files so
-    local-only documents (gitignored plans, scratch notes) cannot skew the
-    digest away from what a clean CI checkout computes. Outside git
-    (synthetic test repos), the glob set stands alone.
+    In a git checkout, enrollment is restricted to tracked plus
+    untracked-not-ignored files so gitignored local-only documents (plans,
+    scratch notes) cannot skew the digest away from what a clean CI checkout
+    computes. Outside git (synthetic test repos), the glob set stands alone.
     """
     files: dict[str, Path] = {}
     candidates = [
@@ -107,16 +107,16 @@ def input_files(repo_root: Path) -> list[Path]:
         ):
             continue
         files[relative_posix] = path
-    files = _restrict_to_tracked(repo_root, files)
+    files = _restrict_to_enrolled(repo_root, files)
     return [files[relative] for relative in sorted(files)]
 
 
-def _restrict_to_tracked(repo_root: Path, files: dict[str, Path]) -> dict[str, Path]:
-    tracked = tracked_files(repo_root)
-    if tracked is None:
+def _restrict_to_enrolled(repo_root: Path, files: dict[str, Path]) -> dict[str, Path]:
+    enrolled = enrolled_files(repo_root)
+    if enrolled is None:
         return files
-    tracked_set = set(tracked)
-    return {relative: path for relative, path in files.items() if relative in tracked_set}
+    enrolled_set = set(enrolled)
+    return {relative: path for relative, path in files.items() if relative in enrolled_set}
 
 
 def input_digest(repo_root: Path) -> str:
@@ -211,6 +211,26 @@ def tracked_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
     if out is None:
         return None
     return sorted({entry for entry in out.split("\0") if entry})
+
+
+def enrolled_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
+    """Tracked plus untracked-but-NOT-ignored files, repo-relative posix paths.
+
+    This is the audit enrollment set: a clean CI checkout reproduces exactly
+    the tracked half, while gitignored local-only files (scratch notes, plans)
+    can never enter evidence. Untracked-not-ignored files stay enrolled so
+    in-progress work is visible to the same stages before it is committed.
+    Returns None when git is unavailable or fails, like tracked_files().
+    """
+    tracked = _git(repo_root, "ls-files", "-z", "--", *pathspecs)
+    if tracked is None:
+        return None
+    untracked = _git(
+        repo_root, "ls-files", "-z", "--others", "--exclude-standard", "--", *pathspecs
+    )
+    if untracked is None:
+        return None
+    return sorted({entry for out in (tracked, untracked) for entry in out.split("\0") if entry})
 
 
 def commits_between(repo_root: Path, old_commit: str) -> int | None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -74,16 +75,16 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
     }.issubset(relative_paths)
 
 
-def test_input_files_restrict_to_git_tracked_when_available(
+def test_input_files_restrict_to_git_enrollment_when_available(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     repo = _audit_repo(tmp_path)
-    tracked = ["plex_renamer/example.py", "pyproject.toml"]
-    monkeypatch.setattr(_artifacts, "tracked_files", lambda repo_root, *pathspecs: list(tracked))
+    enrolled = ["plex_renamer/example.py", "pyproject.toml"]
+    monkeypatch.setattr(_artifacts, "enrolled_files", lambda repo_root, *pathspecs: list(enrolled))
 
     relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
 
-    assert relative_paths == sorted(tracked)
+    assert relative_paths == sorted(enrolled)
 
 
 def test_input_files_keep_glob_set_when_git_is_unavailable(
@@ -91,11 +92,30 @@ def test_input_files_keep_glob_set_when_git_is_unavailable(
 ):
     repo = _audit_repo(tmp_path)
     unfiltered = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
-    monkeypatch.setattr(_artifacts, "tracked_files", lambda repo_root, *pathspecs: None)
+    monkeypatch.setattr(_artifacts, "enrolled_files", lambda repo_root, *pathspecs: None)
 
     relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
 
     assert relative_paths == unfiltered
+
+
+def test_enrolled_files_keep_untracked_but_drop_ignored(
+    tmp_path: Path, repo_git: Callable[..., str]
+):
+    repo = _audit_repo(tmp_path)
+    (repo / ".gitignore").write_text("ignored-local.md\n", encoding="utf-8")
+    repo_git(repo, "init")
+    repo_git(repo, "add", "-A")
+    repo_git(repo, "commit", "-m", "initial")
+    (repo / "untracked-note.md").write_text("note\n", encoding="utf-8")
+    (repo / "ignored-local.md").write_text("local only\n", encoding="utf-8")
+
+    enrolled = _artifacts.enrolled_files(repo)
+
+    assert enrolled is not None
+    assert "plex_renamer/example.py" in enrolled
+    assert "untracked-note.md" in enrolled
+    assert "ignored-local.md" not in enrolled
 
 
 def test_input_digest_is_line_ending_independent(tmp_path: Path):

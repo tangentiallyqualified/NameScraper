@@ -42,13 +42,21 @@ _SOURCE_REF = re.compile(r"(?:plex_renamer|scripts|tests)[\w\\/.-]*?\.\w{2,4}")
 
 
 def _iter_files(repo_root: Path):
+    # Enrollment (tracked + untracked-not-ignored) keeps gitignored local-only
+    # docs out of the inventory so CI reproduces it byte-for-byte; when git is
+    # unavailable (non-git dirs) the walk stands alone.
+    enrolled = _artifacts.enrolled_files(repo_root)
+    enrolled_set = set(enrolled) if enrolled is not None else None
     for dirpath, dirnames, filenames in os.walk(repo_root):
         dirnames[:] = sorted(d for d in dirnames if d not in EXCLUDED_DIRS)
         for filename in sorted(filenames):
             if filename in EXCLUDED_DIRS:
                 continue
             path = Path(dirpath) / filename
-            yield path, path.relative_to(repo_root)
+            rel = path.relative_to(repo_root)
+            if enrolled_set is not None and rel.as_posix() not in enrolled_set:
+                continue
+            yield path, rel
 
 
 def _loc(path: Path) -> int:
