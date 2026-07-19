@@ -105,6 +105,16 @@ class QtAppBootstrapTests(QtSmokeBase):
             f"Tool|{hex(int(Qt.WindowType.FramelessWindowHint))}",
         )
 
+    def test_window_flag_names_keeps_unmatched_type_hex_alongside_modifiers(self):
+        # A base type outside the known table (Window=0x1) must not be
+        # silently discarded when modifier bits are present; the resolved
+        # type's hex is reported alongside the modifier hex.
+        combined = Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
+        self.assertEqual(
+            _window_flag_names(combined),
+            f"{hex(int(Qt.WindowType.Window))}|{hex(int(Qt.WindowType.FramelessWindowHint))}",
+        )
+
     def test_window_flag_names_falls_back_to_hex_for_no_known_flags(self):
         self.assertEqual(_window_flag_names(Qt.WindowType.Widget), "0x0")
 

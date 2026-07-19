@@ -38,16 +38,16 @@ def _window_flag_names(flags: Qt.WindowType) -> str:
         (Qt.WindowType.Sheet, "Sheet"),
         (Qt.WindowType.Drawer, "Drawer"),
     )
-    names: list[str] = []
     resolved_type = flags & Qt.WindowType.WindowType_Mask
-    for flag, label in known_types:
-        if resolved_type == flag:
-            names.append(label)
-            break
+    type_label = next(
+        (label for flag, label in known_types if resolved_type == flag),
+        hex(int(resolved_type)),
+    )
+    names = [type_label]
     modifier_bits = int(flags) & ~int(Qt.WindowType.WindowType_Mask)
     if modifier_bits:
         names.append(hex(modifier_bits))
-    return "|".join(names) if names else hex(int(flags))
+    return "|".join(names)
 
 
 class _SuppressTransientPopups(QObject):
