@@ -22,14 +22,14 @@
 - `plex_renamer/gui_qt/_main_window_bridges.py` — fan-in 1, fan-out 1, LOC 124
 - `plex_renamer/gui_qt/_main_window_chrome.py` — fan-in 1, fan-out 0, LOC 113
 - `plex_renamer/gui_qt/_main_window_feedback.py` — fan-in 1, fan-out 2, LOC 232
-- `plex_renamer/gui_qt/_main_window_scan.py` — fan-in 1, fan-out 1, LOC 177
+- `plex_renamer/gui_qt/_main_window_scan.py` — fan-in 1, fan-out 1, LOC 186
 - `plex_renamer/gui_qt/_main_window_shell.py` — fan-in 1, fan-out 2, LOC 73
 - `plex_renamer/gui_qt/_main_window_shortcuts.py` — fan-in 1, fan-out 0, LOC 80
 - `plex_renamer/gui_qt/_main_window_state.py` — fan-in 1, fan-out 1, LOC 166
 - `plex_renamer/gui_qt/_main_window_tabs.py` — fan-in 1, fan-out 5, LOC 135
-- `plex_renamer/gui_qt/_main_window_tmdb.py` — fan-in 1, fan-out 0, LOC 85
+- `plex_renamer/gui_qt/_main_window_tmdb.py` — fan-in 1, fan-out 2, LOC 121
 - `plex_renamer/gui_qt/app.py` — fan-in 1, fan-out 2, LOC 161
-- `plex_renamer/gui_qt/main_window.py` — fan-in 1, fan-out 24, LOC 345
+- `plex_renamer/gui_qt/main_window.py` — fan-in 1, fan-out 24, LOC 350
 - `plex_renamer/gui_qt/models/__init__.py` — fan-in 1, fan-out 2, LOC 6
 - `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py` — fan-in 1, fan-out 1, LOC 35
 - `plex_renamer/gui_qt/models/job_table_model.py` — fan-in 2, fan-out 3, LOC 302
@@ -66,8 +66,8 @@
 - `plex_renamer/gui_qt/widgets/_roster_model.py` — fan-in 2, fan-out 9, LOC 384
 - `plex_renamer/gui_qt/widgets/_settings_automux_page.py` — fan-in 1, fan-out 4, LOC 210
 - `plex_renamer/gui_qt/widgets/_settings_metadata_page.py` — fan-in 1, fan-out 3, LOC 163
-- `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — fan-in 1, fan-out 1, LOC 174
-- `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — fan-in 1, fan-out 5, LOC 341
+- `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — fan-in 1, fan-out 1, LOC 186
+- `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — fan-in 1, fan-out 6, LOC 374
 - `plex_renamer/gui_qt/widgets/_settings_tab_state.py` — fan-in 1, fan-out 2, LOC 177
 - `plex_renamer/gui_qt/widgets/_toast_manager_layout.py` — fan-in 1, fan-out 0, LOC 46
 - `plex_renamer/gui_qt/widgets/_work_panel.py` — fan-in 1, fan-out 11, LOC 863
@@ -75,13 +75,13 @@
 - `plex_renamer/gui_qt/widgets/episode_assign_dialog.py` — fan-in 1, fan-out 2, LOC 322
 - `plex_renamer/gui_qt/widgets/history_tab.py` — fan-in 1, fan-out 5, LOC 178
 - `plex_renamer/gui_qt/widgets/job_detail_panel.py` — fan-in 1, fan-out 6, LOC 629
-- `plex_renamer/gui_qt/widgets/match_picker_dialog.py` — fan-in 1, fan-out 3, LOC 160
+- `plex_renamer/gui_qt/widgets/match_picker_dialog.py` — fan-in 1, fan-out 3, LOC 165
 - `plex_renamer/gui_qt/widgets/media_workspace.py` — fan-in 1, fan-out 12, LOC 361
 - `plex_renamer/gui_qt/widgets/queue_tab.py` — fan-in 1, fan-out 5, LOC 218
 - `plex_renamer/gui_qt/widgets/scan_progress.py` — fan-in 2, fan-out 4, LOC 561
-- `plex_renamer/gui_qt/widgets/settings_tab.py` — fan-in 1, fan-out 6, LOC 258
+- `plex_renamer/gui_qt/widgets/settings_tab.py` — fan-in 1, fan-out 6, LOC 261
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input acb30e68f57a by scripts\audit.cmd._
+_Generated from audit input d11c48ace328 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

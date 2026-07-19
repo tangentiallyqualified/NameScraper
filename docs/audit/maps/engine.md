@@ -22,9 +22,9 @@ _No internal cycle edges._
 - `plex_renamer/engine/models.py` — fan-in 24, fan-out 4, LOC 430
 
 ### Support
-- `plex_renamer/engine/_batch_orchestrators.py` — fan-in 2, fan-out 16, LOC 1064
+- `plex_renamer/engine/_batch_orchestrators.py` — fan-in 2, fan-out 17, LOC 1065
 - `plex_renamer/engine/_batch_tv_episode_claims.py` — fan-in 1, fan-out 5, LOC 174
-- `plex_renamer/engine/_batch_tv_match_policy.py` — fan-in 1, fan-out 3, LOC 158
+- `plex_renamer/engine/_batch_tv_match_policy.py` — fan-in 1, fan-out 3, LOC 154
 - `plex_renamer/engine/_batch_tv_season_merge.py` — fan-in 1, fan-out 4, LOC 340
 - `plex_renamer/engine/_discovery_ports.py` — fan-in 2, fan-out 0, LOC 41
 - `plex_renamer/engine/_queue_bridge.py` — fan-in 2, fan-out 4, LOC 234
@@ -34,5 +34,5 @@ _No internal cycle edges._
 - `plex_renamer/engine/_tv_scanner_seasons.py` — fan-in 1, fan-out 3, LOC 253
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 59
 
-_Generated from audit input acb30e68f57a by scripts\audit.cmd._
+_Generated from audit input d11c48ace328 by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->

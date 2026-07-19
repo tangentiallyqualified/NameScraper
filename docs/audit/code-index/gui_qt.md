@@ -1,4 +1,4 @@
-<!-- Generated from audit input acb30e68f57a; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d11c48ace328; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -41,6 +41,7 @@
 
 ### `plex_renamer/gui_qt/_main_window_tmdb.py` — TMDB client lifecycle helpers for the main window.
 - `MainWindowTmdbCoordinator` — (no docstring) (used by: plex_renamer.gui_qt.main_window)
+- Tests: tests/test_tv_provider_selection.py
 
 ### `plex_renamer/gui_qt/_scale.py` — Centralized scale helpers for the PySide6 GUI.
 - `px(n) -> int` — Convert logical 4px-grid units to physical pixels.

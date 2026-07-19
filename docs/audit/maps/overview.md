@@ -35,19 +35,19 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Modules | 177 |
-| Total LOC | 39082 |
+| Modules | 180 |
+| Total LOC | 39917 |
 | Statement coverage | 88.6% |
 | Module-average coverage | 89.1% |
 | Import cycles | 0 |
-| Modules over complexity threshold | 61 |
+| Modules over complexity threshold | 62 |
 | Dead symbols (high confidence) | 0 |
 
 ## Coverage provenance
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | acb30e68f57a | - |
+| matched | coverage.py | d11c48ace328 | - |
 
 ## Least-covered modules
 
@@ -69,14 +69,14 @@ graph LR
 | Module | LOC |
 |---|---|
 | `plex_renamer/engine/_episode_resolution.py` | 1969 |
-| `plex_renamer/engine/_batch_orchestrators.py` | 1064 |
+| `plex_renamer/engine/_batch_orchestrators.py` | 1065 |
 | `plex_renamer/gui_qt/widgets/_episode_table_model.py` | 922 |
 | `plex_renamer/job_executor.py` | 891 |
 | `plex_renamer/gui_qt/widgets/_work_panel.py` | 863 |
 | `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` | 758 |
 | `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` | 730 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 720 |
-| `plex_renamer/job_store.py` | 644 |
+| `plex_renamer/job_store.py` | 651 |
 | `plex_renamer/engine/matching.py` | 641 |
 
 ## Most complex
@@ -84,6 +84,7 @@ graph LR
 | Module | Max CC |
 |---|---|
 | `plex_renamer/engine/_episode_resolution.py` | 49 |
+| `plex_renamer/tvdb.py` | 45 |
 | `plex_renamer/engine/_tv_scanner_normal.py` | 44 |
 | `plex_renamer/job_executor.py` | 43 |
 | `plex_renamer/app/services/_tv_library_classification.py` | 42 |
@@ -92,7 +93,6 @@ graph LR
 | `plex_renamer/engine/_mux_planner.py` | 37 |
 | `plex_renamer/app/services/metadata_service.py` | 35 |
 | `plex_renamer/gui_qt/models/job_table_model.py` | 35 |
-| `plex_renamer/engine/_batch_tv_episode_claims.py` | 33 |
 
 ## Most depended upon
 
@@ -128,6 +128,7 @@ _No violations._
 | `plex_renamer/_mkv_locate.py` | env |
 | `plex_renamer/_mkv_probe.py` | subprocess |
 | `plex_renamer/_tmdb_transport.py` | network |
+| `plex_renamer/_tvdb_transport.py` | network |
 | `plex_renamer/app/services/settings_service.py` | file-move, file-write |
 | `plex_renamer/constants.py` | file-write |
 | `plex_renamer/gui_qt/app.py` | env |
@@ -172,9 +173,9 @@ _None._
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:99` plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:116` plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.can_manual_refresh#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:139` plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.get_rescan_scope#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/app/services/settings_service.py:81` plex_renamer.app.services.settings_service.SettingsService.match_country#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/app/services/settings_service.py:90` plex_renamer.app.services.settings_service.SettingsService.match_country#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/constants.py:67` plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/engine/_batch_orchestrators.py:827` plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/engine/_batch_orchestrators.py:828` plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/engine/_mux_planner.py:66` plex_renamer.engine._mux_planner.MuxPlan.output_name#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/engine/_mux_planner.py:73` plex_renamer.engine._mux_planner.MuxPlan.user_modified#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/engine/episode_assignments.py:246` plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -228,7 +229,7 @@ _None._
 - [ ] `plex_renamer/gui_qt/widgets/episode_assign_dialog.py:210` plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/tab_badge.py:52` plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/tab_badge.py:64` plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/job_store.py:455` plex_renamer.job_store.JobStore.reorder_job#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/job_store.py:462` plex_renamer.job_store.JobStore.reorder_job#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 
 ### Test referenced
 
@@ -246,5 +247,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:89` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input acb30e68f57a by scripts\audit.cmd._
+_Generated from audit input d11c48ace328 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

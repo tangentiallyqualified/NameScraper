@@ -12,7 +12,7 @@
 - `plex_renamer/app/services/command_gating_service.py` — fan-in 10, fan-out 4, LOC 268
 - `plex_renamer/app/services/episode_mapping_service.py` — fan-in 5, fan-out 5, LOC 500
 - `plex_renamer/app/services/refresh_policy_service.py` — fan-in 4, fan-out 2, LOC 153
-- `plex_renamer/app/services/settings_service.py` — fan-in 8, fan-out 3, LOC 524
+- `plex_renamer/app/services/settings_service.py` — fan-in 8, fan-out 3, LOC 533
 - `plex_renamer/app/services/tv_library_discovery_service.py` — fan-in 3, fan-out 2, LOC 193
 
 ### Support
@@ -29,7 +29,7 @@
 - `plex_renamer/app/controllers/_movie_batch_helpers.py` — fan-in 2, fan-out 4, LOC 198
 - `plex_renamer/app/controllers/_movie_state_helpers.py` — fan-in 2, fan-out 3, LOC 144
 - `plex_renamer/app/controllers/_queue_history_helpers.py` — fan-in 1, fan-out 3, LOC 58
-- `plex_renamer/app/controllers/_queue_submission_helpers.py` — fan-in 1, fan-out 7, LOC 245
+- `plex_renamer/app/controllers/_queue_submission_helpers.py` — fan-in 1, fan-out 7, LOC 247
 - `plex_renamer/app/controllers/_scan_operation_helpers.py` — fan-in 1, fan-out 2, LOC 62
 - `plex_renamer/app/controllers/_single_show_scan_helpers.py` — fan-in 1, fan-out 5, LOC 117
 - `plex_renamer/app/controllers/_tab_session_helpers.py` — fan-in 2, fan-out 2, LOC 128
@@ -38,12 +38,12 @@
 - `plex_renamer/app/controllers/queue_controller.py` — fan-in 2, fan-out 7, LOC 259
 - `plex_renamer/app/services/__init__.py` — fan-in 1, fan-out 7, LOC 19
 - `plex_renamer/app/services/_movie_library_classification.py` — fan-in 1, fan-out 3, LOC 184
-- `plex_renamer/app/services/_settings_schema.py` — fan-in 1, fan-out 0, LOC 128
+- `plex_renamer/app/services/_settings_schema.py` — fan-in 1, fan-out 0, LOC 130
 - `plex_renamer/app/services/_tv_library_classification.py` — fan-in 1, fan-out 3, LOC 343
 - `plex_renamer/app/services/episode_projection_cache.py` — fan-in 1, fan-out 4, LOC 211
 - `plex_renamer/app/services/metadata_service.py` — fan-in 2, fan-out 7, LOC 418
 - `plex_renamer/app/services/movie_library_discovery_service.py` — fan-in 1, fan-out 2, LOC 124
 - `plex_renamer/app/services/output_destination_service.py` — fan-in 2, fan-out 0, LOC 108
 
-_Generated from audit input acb30e68f57a by scripts\audit.cmd._
+_Generated from audit input d11c48ace328 by scripts\audit.cmd._
 <!-- audit:generated:end map-app -->

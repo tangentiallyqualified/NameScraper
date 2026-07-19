@@ -1,4 +1,4 @@
-<!-- Generated from audit input acb30e68f57a; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d11c48ace328; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
@@ -145,7 +145,7 @@
 - `boost_tv_scores_with_episode_evidence(tmdb, scored, evidence) -> list[tuple[dict, float]]` — (no docstring) (used by: plex_renamer.engine, plex_renamer.engine._core)
 - `apply_movie_confidence_adjustments(*, raw_confidence, file_path, tmdb_title, tmdb_year) -> float` — Return *raw_confidence* adjusted by evidence floors and caps. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
 - `score_tv_results(results, raw_name, year_hint, tmdb, *, folder, folder_score_name, episode_evidence) -> list[tuple[dict, float]]` — Score TV search results using the same logic as batch discovery. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.gui_qt.widgets._media_workspace_match_actions)
-- Tests: tests/test_batch_autoaccept_guards.py, tests/test_matching_helpers.py, tests/test_movie_confidence_adjustments.py, tests/test_show_scoring_no_year.py, tests/test_show_scoring_token_subset.py
+- Tests: tests/test_batch_autoaccept_guards.py, tests/test_matching_helpers.py, tests/test_movie_confidence_adjustments.py, tests/test_provider_agnostic_matching.py, tests/test_show_scoring_no_year.py, tests/test_show_scoring_token_subset.py
 
 ### `plex_renamer/engine/models.py` — Engine data structures — pure data classes with no scanning logic.
 - `iter_season_folder_paths(entry) -> tuple[Path, ...]` — (no docstring) (used by: plex_renamer.engine._batch_tv_season_merge, plex_renamer.engine._tv_scanner_normal, plex_renamer.engine._tv_scanner_seasons)
@@ -169,4 +169,4 @@
 - `SeasonSummary` — (no docstring)
 - `ShowDetails` — (no docstring) (used by: plex_renamer.engine._batch_tv_match_policy)
 - `show_details_from_tmdb(raw) -> ShowDetails | None` — Normalize a raw TMDB TV-details payload. (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy)
-- Tests: tests/test_show_details.py
+- Tests: tests/test_show_details.py, tests/test_tvdb.py

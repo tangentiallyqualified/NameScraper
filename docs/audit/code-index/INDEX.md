@@ -1,4 +1,4 @@
-<!-- Generated from audit input acb30e68f57a; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input d11c48ace328; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
@@ -52,7 +52,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 ## engine
 
 - `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module. [pub 0 | in 42 | out 9]
-- `plex_renamer/engine/_batch_orchestrators.py` — Batch orchestration for TV and movie library discovery/scanning. [pub 2 | in 2 | out 16] [⚠ complexity | † dead protected/ambiguous x1]
+- `plex_renamer/engine/_batch_orchestrators.py` — Batch orchestration for TV and movie library discovery/scanning. [pub 2 | in 2 | out 17] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/engine/_batch_tv_duplicates.py` — Duplicate-labeling helpers for batch TV discovery. [pub 3 | in 3 | out 1] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_episode_claims.py` — Episode-claim reconciliation for scanned batch TV siblings. [pub 2 | in 1 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_match_policy.py` — Match-selection helpers for batch TV discovery. [pub 4 | in 1 | out 3] [⚠ complexity]
@@ -89,7 +89,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/gui_qt/_main_window_shortcuts.py` — Shortcut behavior helpers for the main window. [pub 1 | in 1 | out 0]
 - `plex_renamer/gui_qt/_main_window_state.py` — State and settings helpers for the main window. [pub 1 | in 1 | out 1] [⚠ complexity]
 - `plex_renamer/gui_qt/_main_window_tabs.py` — Tab and startup wiring helpers for the main window. [pub 1 | in 1 | out 5]
-- `plex_renamer/gui_qt/_main_window_tmdb.py` — TMDB client lifecycle helpers for the main window. [pub 1 | in 1 | out 0]
+- `plex_renamer/gui_qt/_main_window_tmdb.py` — TMDB client lifecycle helpers for the main window. [pub 1 | in 1 | out 2]
 - `plex_renamer/gui_qt/_scale.py` — Centralized scale helpers for the PySide6 GUI. [pub 4 | in 25 | out 0] [† dead test-referenced x1]
 - `plex_renamer/gui_qt/app.py` — PySide6 application bootstrap. [pub 1 | in 1 | out 2] [⚠ complexity]
 - `plex_renamer/gui_qt/main_window.py` — Main application window — Phase 3 shell. [pub 1 | in 1 | out 24]
@@ -138,7 +138,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/gui_qt/widgets/_settings_metadata_page.py` — Metadata export settings page (spec: local-metadata-artwork). [pub 1 | in 1 | out 3]
 - `plex_renamer/gui_qt/widgets/_settings_page.py` — Shared leaf components for settings pages. [pub 1 | in 3 | out 1]
 - `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — Action and status helpers for the settings tab. [pub 3 | in 1 | out 1]
-- `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — Section-building helpers for the settings tab. [pub 1 | in 1 | out 5] [† dead protected/ambiguous x1]
+- `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — Section-building helpers for the settings tab. [pub 1 | in 1 | out 6] [† dead protected/ambiguous x1]
 - `plex_renamer/gui_qt/widgets/_settings_tab_state.py` — State synchronization helpers for the settings tab. [pub 1 | in 1 | out 2]
 - `plex_renamer/gui_qt/widgets/_toast_manager_layout.py` — Layout and overflow helpers for toast notifications. [pub 4 | in 1 | out 0]
 - `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table [pub 1 | in 1 | out 11] [† dead protected/ambiguous x7]
@@ -181,16 +181,19 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/_parsing_subtitles.py` — Companion subtitle pairing helpers. [pub 1 | in 1 | out 1] [⚠ complexity]
 - `plex_renamer/_parsing_titles.py` — Title cleaning and year-extraction helpers. [pub 6 | in 6 | out 1] [⚠ complexity]
 - `plex_renamer/_parsing_tv.py` — TV/movie classification and title inference helpers. [pub 8 | in 1 | out 3] [⚠ complexity]
-- `plex_renamer/_tmdb_batch_search.py` — Batch search orchestration helpers for the TMDB client. [pub 3 | in 1 | out 0]
-- `plex_renamer/_tmdb_image_cache.py` — Image and poster cache helpers for the TMDB client. [pub 0 | in 1 | out 0]
+- `plex_renamer/_tmdb_batch_search.py` — Batch search orchestration helpers for the TMDB client. [pub 3 | in 2 | out 0]
+- `plex_renamer/_tmdb_image_cache.py` — Image and poster cache helpers for the TMDB client. [pub 0 | in 2 | out 0]
 - `plex_renamer/_tmdb_metadata_builder.py` — Pure metadata shaping helpers for TMDB client responses. [pub 5 | in 2 | out 0] [⚠ complexity]
 - `plex_renamer/_tmdb_metadata_cache.py` — Persistent metadata cache helpers for the TMDB client. [pub 0 | in 1 | out 0]
-- `plex_renamer/_tmdb_search_helpers.py` — Search and alternate-title helpers for the TMDB client. [pub 2 | in 1 | out 0]
-- `plex_renamer/_tmdb_transport.py` — Transport helpers for TMDB client networking and retry behavior. [pub 5 | in 1 | out 0] [⚠ complexity]
+- `plex_renamer/_tmdb_search_helpers.py` — Search and alternate-title helpers for the TMDB client. [pub 2 | in 2 | out 0]
+- `plex_renamer/_tmdb_transport.py` — Transport helpers for TMDB client networking and retry behavior. [pub 5 | in 3 | out 0] [⚠ complexity]
+- `plex_renamer/_tvdb_transport.py` — HTTP transport for TheTVDB v4 API: bearer auth, JSON GETs, image bytes. [pub 1 | in 1 | out 1]
 - `plex_renamer/constants.py` — Shared constants and configuration for NameScraper. [pub 4 | in 49 | out 0] [† dead protected/ambiguous x1]
 - `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue. [pub 2 | in 2 | out 6] [⚠ complexity]
 - `plex_renamer/job_store.py` — Persistent job queue backed by SQLite. [pub 4 | in 16 | out 5] [† dead protected/ambiguous x1]
 - `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback. [pub 2 | in 4 | out 1]
 - `plex_renamer/parsing.py` — Filename parsing and name-building utilities. [pub 0 | in 23 | out 6]
+- `plex_renamer/providers.py` — Metadata-provider protocol and registry. [pub 3 | in 6 | out 2]
 - `plex_renamer/thread_pool.py` — Shared thread pool for background work. [pub 3 | in 12 | out 0]
-- `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client. [pub 1 | in 7 | out 6] [⚠ complexity]
+- `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client. [pub 1 | in 6 | out 6] [⚠ complexity]
+- `plex_renamer/tvdb.py` — TheTVDB v4 API client implementing the MetadataProvider protocol. [pub 3 | in 1 | out 5] [⚠ complexity]
