@@ -70,6 +70,15 @@ class SettingsService:
         self.set("match_language", value)
 
     @property
+    def tv_metadata_source(self) -> str:
+        """Active TV metadata provider name ("tmdb" or "tvdb")."""
+        return str(self.get("tv_metadata_source"))
+
+    @tv_metadata_source.setter
+    def tv_metadata_source(self, value: str) -> None:
+        self.set("tv_metadata_source", value)
+
+    @property
     def hide_already_named(self) -> bool:
         """Whether to hide fully-ready items from the library roster."""
         return bool(self.get("hide_already_named"))

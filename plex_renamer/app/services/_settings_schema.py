@@ -47,6 +47,7 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "metadata_embed_title": (bool,),
     "metadata_embed_cover": (bool,),
     "metadata_embed_tags": (bool,),
+    "tv_metadata_source": (str,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -66,7 +67,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "splitter_positions": None,
     "recent_tv_folders": [],
     "recent_movie_folders": [],
-    "cache_max_size_bytes": 1024 ** 3,   # 1 GiB (GUI-V4 R2, S2)
+    "cache_max_size_bytes": 1024**3,  # 1 GiB (GUI-V4 R2, S2)
     "mkvmerge_path": "",
     "automux_merge_subs": False,
     "automux_merge_sub_languages": [],
@@ -93,6 +94,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "metadata_embed_title": True,
     "metadata_embed_cover": True,
     "metadata_embed_tags": True,
+    "tv_metadata_source": "tmdb",
 }
 
 
