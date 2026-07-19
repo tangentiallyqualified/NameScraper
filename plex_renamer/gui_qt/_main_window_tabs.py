@@ -44,7 +44,7 @@ class MainWindowTabsCoordinator:
             media_type="tv",
             media_controller=window.media_ctrl,
             queue_controller=window.queue_ctrl,
-            tmdb_provider=window._ensure_tmdb,
+            tmdb_provider=window._ensure_tv_provider,
             settings_service=window.settings_service,
         )
         window._movie_workspace = MediaWorkspace(

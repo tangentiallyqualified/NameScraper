@@ -12,6 +12,7 @@ workspace widget.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
 
         # ── TMDB client (lazily created) ─────────────────────────
         self._tmdb: TMDBClient | None = None
+        self._tv_provider: Any | None = None
         self._tv_snapshot: dict | None = None
         self._movie_snapshot: dict | None = None
         self._tmdb_coordinator = MainWindowTmdbCoordinator(
@@ -160,6 +162,9 @@ class MainWindow(QMainWindow):
             api_key_lookup=get_api_key,
             tmdb_client_factory=TMDBClient,
         )
+
+    def _ensure_tv_provider(self) -> Any | None:
+        return self._tmdb_coordinator.ensure_tv_provider(api_key_lookup=get_api_key)
 
     def _persist_tmdb_cache_snapshot(self) -> None:
         self._tmdb_coordinator.persist_tmdb_cache_snapshot()

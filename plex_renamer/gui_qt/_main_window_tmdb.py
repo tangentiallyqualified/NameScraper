@@ -76,10 +76,46 @@ class MainWindowTmdbCoordinator:
             metadata={"kind": "tmdb_cache_snapshot"},
         )
 
+    def ensure_tv_provider(
+        self,
+        *,
+        api_key_lookup: Callable[[str], str | None],
+    ) -> Any | None:
+        """Active TV metadata client per settings; movies keep ensure_tmdb."""
+        from ..providers import get_tv_provider_spec
+        from ..tmdb import TMDBClient
+
+        window = self._window
+        spec = get_tv_provider_spec(window.settings_service.tv_metadata_source)
+        if spec.name == "tmdb":
+            return self.ensure_tmdb(
+                api_key_lookup=api_key_lookup,
+                tmdb_client_factory=TMDBClient,
+            )
+        if window._tv_provider is not None:
+            return window._tv_provider
+        api_key = api_key_lookup(spec.key_service)
+        if not api_key:
+            window.statusBar().showMessage(
+                f"No {spec.label} API key — set one in Settings first.",
+                5000,
+            )
+            return None
+        window._tv_provider = spec.factory(
+            api_key,
+            language=window.settings_service.match_language,
+            cache_service=window._cache_service,
+            refresh_policy=window._refresh_policy,
+        )
+        return window._tv_provider
+
     def invalidate_tmdb(self) -> None:
         window = self._window
         self.persist_tmdb_cache_snapshot()
         window._tmdb = None
+        window._tv_provider = None
 
     def drop_tmdb_client(self) -> None:
-        self._window._tmdb = None
+        window = self._window
+        window._tmdb = None
+        window._tv_provider = None

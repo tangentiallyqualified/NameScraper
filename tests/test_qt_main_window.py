@@ -82,6 +82,9 @@ class QtMainWindowTests(QtSmokeBase):
             def _ensure_tmdb(self):
                 return object()
 
+            def _ensure_tv_provider(self):
+                return object()
+
         window = _FakeWindow()
         coordinator = MainWindowScanCoordinator(window, tv_index=0, movies_index=1)
 
