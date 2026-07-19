@@ -107,11 +107,16 @@ def input_files(repo_root: Path) -> list[Path]:
         ):
             continue
         files[relative_posix] = path
-    tracked = tracked_files(repo_root)
-    if tracked is not None:
-        tracked_set = set(tracked)
-        files = {relative: path for relative, path in files.items() if relative in tracked_set}
+    files = _restrict_to_tracked(repo_root, files)
     return [files[relative] for relative in sorted(files)]
+
+
+def _restrict_to_tracked(repo_root: Path, files: dict[str, Path]) -> dict[str, Path]:
+    tracked = tracked_files(repo_root)
+    if tracked is None:
+        return files
+    tracked_set = set(tracked)
+    return {relative: path for relative, path in files.items() if relative in tracked_set}
 
 
 def input_digest(repo_root: Path) -> str:

@@ -64,12 +64,20 @@ class SettingsPageCompositionTests(QtSmokeBase):
         # keyring holds a real TMDB key.
         from unittest.mock import patch
 
+        from PySide6.QtWidgets import QLineEdit
+
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         settings, _path = self._settings()
         with patch("plex_renamer.keys.get_api_key", return_value="stored-key"):
             tab = SettingsTab(settings_service=settings)
-        self.assertEqual(tab._api_key_input.text(), "stored-key")
+        key_inputs = [
+            line_edit
+            for line_edit in tab.findChildren(QLineEdit)
+            if line_edit.placeholderText() == "Enter TMDB API key..."
+        ]
+        assert len(key_inputs) == 1
+        self.assertEqual(key_inputs[0].text(), "stored-key")
 
     def test_page_edits_persist_when_settings_are_reloaded(self):
         from plex_renamer.app.services.settings_service import SettingsService
