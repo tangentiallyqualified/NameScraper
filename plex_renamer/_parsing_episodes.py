@@ -214,6 +214,97 @@ def _parse_dash_number(name: str) -> _EpisodeParse | None:
     return episodes, title, False
 
 
+def _parse_leading_number_dot(raw_stem: str) -> _EpisodeParse | None:
+    """Leading "NN. Title" numbering; reads the RAW stem on purpose."""
+    bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
+    if not bare_match:
+        return None
+    num = int(bare_match.group(1))
+    # A bare (unparenthesized) release year in the remainder marks a
+    # scene-style movie name whose title leads with a number
+    # ("300.2006.1080p..."); "01. Pilot (2005)" keeps its episode.
+    scene_year_follows = re.search(r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2))
+    if (
+        num not in RESOLUTION_NUMBERS
+        and not (YEAR_MIN <= num <= YEAR_MAX)
+        and not scene_year_follows
+    ):
+        title_text = bare_match.group(2).strip()
+        title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
+        return [num], strip_release_junk_title(title_text or None), False
+    return None
+
+
+def _parse_ep_prefix(name: str) -> _EpisodeParse | None:
+    """Explicit Ep/Episode prefix - unambiguous, so no resolution-value
+    rejection is needed ("Episode 720" is an episode); the year guard stays."""
+    match = re.search(
+        r"\b(?:ep?|episode)\s*(\d{1,4})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
+        name,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    num = int(match.group(1))
+    if YEAR_MIN <= num <= YEAR_MAX:
+        return None
+    title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
+    return [num], title, False
+
+
+def _parse_bare_number(name: str) -> _EpisodeParse | None:
+    """Bare episode numbers with title/quantity/year/codec guards.
+
+    The s/S in the lookbehind rejects season-pack markers ("S01" with no
+    E##) that would otherwise read as episode 1.
+    """
+    match = re.search(
+        r"(?<![xXhHsS\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
+        name,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    num = int(match.group(1))
+    if num in RESOLUTION_NUMBERS or (YEAR_MIN <= num <= YEAR_MAX):
+        return None
+    start = match.start()
+    if start > 0:
+        prefix = name[max(0, start - 1) : start]
+        if prefix.lower() in ("x", "h"):
+            return [], None, False
+    if _is_titleish_bare_number(name, match.start(1), match.end(1)):
+        return [], None, False
+    # A NAME-LEADING number with a release year later in the name is
+    # a movie-style title ("21 Jump Street 2012 ..."), not an
+    # episode; episode-first files ("100 - Title") carry no year.
+    if match.start(1) == 0 and re.search(r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1) :]):
+        return [], None, False
+    title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
+    return [num], title, False
+
+
+def _parse_bracketed_absolute(raw_stem: str) -> _EpisodeParse | None:
+    """Bracketed absolute episode numbers in fansub names, e.g.
+    [DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv
+
+    Only a bracket whose entire content is a bare episode number (optionally a
+    version suffix) qualifies; resolution/quality/version/hash/year brackets
+    are excluded because their content is not pure 1-3 digits. Runs last so it
+    never overrides an S##E##, NxNN, Ep##, or dash-delimited parse. Requires a
+    leading bracket so plain titles like "Apollo 13" are never affected. The
+    number is absolute (anime convention) -> is_season_relative is False.
+    """
+    if not raw_stem.lstrip().startswith("["):
+        return None
+    for bracket in re.finditer(r"\[(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?\]", raw_stem):
+        num = int(bracket.group(1))
+        if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
+            continue
+        return [num], None, False
+    return None
+
+
 def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     """
     Extract episode number(s) and title text from a filename.
@@ -229,100 +320,23 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     raw_stem = Path(filename).stem
     name = clean_title_evidence(raw_stem)
 
-    parsed = _parse_sxe(name)
-    if parsed is not None:
-        return parsed
-
-    parsed = _parse_nxn(name)
-    if parsed is not None:
-        return parsed
-
-    parsed = _parse_air_date(name)
-    if parsed is not None:
-        return parsed
-
-    parsed = _parse_episode_chain(name)
-    if parsed is not None:
-        return parsed
-
-    parsed = _parse_adjacent_range(name)
-    if parsed is not None:
-        return parsed
-
-    parsed = _parse_dash_number(name)
-    if parsed is not None:
-        return parsed
-
-    bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
-    if bare_match:
-        num = int(bare_match.group(1))
-        # A bare (unparenthesized) release year in the remainder marks a
-        # scene-style movie name whose title leads with a number
-        # ("300.2006.1080p..."); "01. Pilot (2005)" keeps its episode.
-        scene_year_follows = re.search(r"(?<![\d(])(?:19|20)\d{2}(?![\d)])", bare_match.group(2))
-        if (
-            num not in RESOLUTION_NUMBERS
-            and not (YEAR_MIN <= num <= YEAR_MAX)
-            and not scene_year_follows
-        ):
-            title_text = bare_match.group(2).strip()
-            title_text = re.sub(r"\s*\(\d{4}\)\s*$", "", title_text).strip()
-            return [num], strip_release_junk_title(title_text or None), False
-
-    # An explicit Ep/Episode prefix is unambiguous — no resolution-value
-    # rejection needed ("Episode 720" is an episode); the year guard stays.
-    match = re.search(
-        r"\b(?:ep?|episode)\s*(\d{1,4})(?!\d)(?:(?:\s*[-._]+\s*|\s+)(.*))?",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        num = int(match.group(1))
-        if not (YEAR_MIN <= num <= YEAR_MAX):
-            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
-            return [num], title, False
-
-    # The s/S in the lookbehind rejects season-pack markers ("S01" with no
-    # E##) that would otherwise read as episode 1.
-    match = re.search(
-        r"(?<![xXhHsS\d])(?:ep?|episode)?\s*(\d{1,3})(?!\d)(?:\s*[-._]+\s*(.*))?",
-        name,
-        re.IGNORECASE,
-    )
-    if match:
-        num = int(match.group(1))
-        if num not in RESOLUTION_NUMBERS and not (YEAR_MIN <= num <= YEAR_MAX):
-            start = match.start()
-            if start > 0:
-                prefix = name[max(0, start - 1) : start]
-                if prefix.lower() in ("x", "h"):
-                    return [], None, False
-            if _is_titleish_bare_number(name, match.start(1), match.end(1)):
-                return [], None, False
-            # A NAME-LEADING number with a release year later in the name is
-            # a movie-style title ("21 Jump Street 2012 ..."), not an
-            # episode; episode-first files ("100 - Title") carry no year.
-            if match.start(1) == 0 and re.search(
-                r"(?<!\d)(?:19|20)\d{2}(?!\d)", name[match.end(1) :]
-            ):
-                return [], None, False
-            title = strip_release_junk_title(match.group(2).strip()) if match.group(2) else None
-            return [num], title, False
-
-    # Bracketed absolute episode numbers in fansub names, e.g.
-    #   [DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv
-    # Only a bracket whose entire content is a bare episode number (optionally a
-    # version suffix) qualifies; resolution/quality/version/hash/year brackets
-    # are excluded because their content is not pure 1-3 digits. Runs last so it
-    # never overrides an S##E##, NxNN, Ep##, or dash-delimited parse. Requires a
-    # leading bracket so plain titles like "Apollo 13" are never affected. The
-    # number is absolute (anime convention) -> is_season_relative is False.
-    if raw_stem.lstrip().startswith("["):
-        for bracket in re.finditer(r"\[(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?\]", raw_stem):
-            num = int(bracket.group(1))
-            if num in RESOLUTION_NUMBERS or YEAR_MIN <= num <= YEAR_MAX:
-                continue
-            return [num], None, False
+    # Branch priority is behavior: each parser either claims the name
+    # (returns a final parse, possibly empty) or defers to the next.
+    for branch, arg in (
+        (_parse_sxe, name),
+        (_parse_nxn, name),
+        (_parse_air_date, name),
+        (_parse_episode_chain, name),
+        (_parse_adjacent_range, name),
+        (_parse_dash_number, name),
+        (_parse_leading_number_dot, raw_stem),
+        (_parse_ep_prefix, name),
+        (_parse_bare_number, name),
+        (_parse_bracketed_absolute, raw_stem),
+    ):
+        parsed = branch(arg)
+        if parsed is not None:
+            return parsed
 
     return [], None, False
 
