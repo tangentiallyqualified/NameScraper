@@ -38,9 +38,9 @@
 - `plex_renamer/_tmdb_metadata_builder.py` — fan-in 2, fan-out 0, LOC 135
 - `plex_renamer/_tmdb_metadata_cache.py` — fan-in 1, fan-out 0, LOC 218
 - `plex_renamer/_tmdb_search_helpers.py` — fan-in 2, fan-out 0, LOC 36
-- `plex_renamer/_tvdb_transport.py` — fan-in 1, fan-out 1, LOC 107
+- `plex_renamer/_tvdb_transport.py` — fan-in 1, fan-out 1, LOC 131
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 891
-- `plex_renamer/tvdb.py` — fan-in 1, fan-out 5, LOC 458
+- `plex_renamer/tvdb.py` — fan-in 1, fan-out 5, LOC 465
 
-_Generated from audit input d11c48ace328 by scripts\audit.cmd._
+_Generated from audit input 476c007b67ee by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

@@ -66,7 +66,7 @@
 - `plex_renamer/gui_qt/widgets/_roster_model.py` — fan-in 2, fan-out 9, LOC 384
 - `plex_renamer/gui_qt/widgets/_settings_automux_page.py` — fan-in 1, fan-out 4, LOC 210
 - `plex_renamer/gui_qt/widgets/_settings_metadata_page.py` — fan-in 1, fan-out 3, LOC 163
-- `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — fan-in 1, fan-out 1, LOC 186
+- `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` — fan-in 1, fan-out 1, LOC 188
 - `plex_renamer/gui_qt/widgets/_settings_tab_sections.py` — fan-in 1, fan-out 6, LOC 374
 - `plex_renamer/gui_qt/widgets/_settings_tab_state.py` — fan-in 1, fan-out 2, LOC 177
 - `plex_renamer/gui_qt/widgets/_toast_manager_layout.py` — fan-in 1, fan-out 0, LOC 46
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input d11c48ace328 by scripts\audit.cmd._
+_Generated from audit input 476c007b67ee by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

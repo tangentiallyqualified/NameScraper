@@ -1,4 +1,4 @@
-<!-- Generated from audit input d11c48ace328; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 476c007b67ee; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
@@ -152,7 +152,7 @@
 ### `plex_renamer/_tmdb_transport.py` — Transport helpers for TMDB client networking and retry behavior.
 - `TMDBError` — Base class for TMDB client errors. (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb, plex_renamer.tvdb)
 - `TMDBNetworkError` — Network or connection failure — transient, may be retried. (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb)
-- `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer.tmdb)
+- `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb)
 - `TMDBAPIError` — Non-retryable API error (4xx other than 429). (used by: plex_renamer.tmdb)
 - `TMDBTransport` — Own the HTTP session, token bucket, and retry policy for TMDB requests. (used by: plex_renamer.tmdb)
 - Tests: tests/test_tmdb_transport.py, tests/test_tvdb.py

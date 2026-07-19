@@ -1,10 +1,9 @@
 # Audit Change Log
 
-<!-- audit:input-digest: d11c48ace3288423ef9ac00fa1a734e68a38b05a1d7a2b71f643ddcbd597cc94 -->
-<!-- audit:baseline-input-digest: 4406be3b638cd70eada07487f2d6a77e6ffce61f924f24e21914b95af62a8790 -->
+<!-- audit:input-digest: 476c007b67ee75491ecacdaa49eba4472b15afbe42ac3085199b39563a64d4bd -->
+<!-- audit:baseline-input-digest: 6be65cd611b5d5c449f49ff2c5b7659fc9348e4a547fa46b23acb1a3067da90f -->
 
-## Audit d11c48ace328 vs baseline (4406be3b638c)
+## Audit 476c007b67ee vs baseline (6be65cd611b5)
 
-- Headline: 180 modules, 39917 LOC, 0 high-confidence dead symbols, 0 cycles
-- Notable movements:
-  - `plex_renamer/tvdb.py`: coverage 74.4 -> 85.3
+- Headline: 180 modules, 39950 LOC, 0 high-confidence dead symbols, 0 cycles
+- No notable changes since baseline.
