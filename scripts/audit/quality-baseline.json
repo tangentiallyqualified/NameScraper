@@ -28566,7 +28566,6 @@
   "scripts/audit/_docs_ledger.py": "sha256:b2809587abbef0cbe929a80d383e0204042098cc32524d4c3932a683a30c573f",
   "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
   "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
-  "tests/audit/test_inventory.py": "sha256:e4c7745f72d92185a54cd67dc9cad6883d5ddde8b1e1b412db94be24ce6d69c1",
   "tests/audit/test_render_extensions.py": "sha256:d45e07382c1738774dadc29efacfffe13b17c26fea12267f8cfbd12f8764d1f0",
   "tests/test_acronym_titles.py": "sha256:4c089fe664313b596883c0bb8c8f6df05aacae149a6833d55651cd58d1fcaf66",
   "tests/test_automux_settings.py": "sha256:ebb2ac406099b29245c1cbdba954b37b3ce74cbd493269bd208e0f3d82b1e60a",

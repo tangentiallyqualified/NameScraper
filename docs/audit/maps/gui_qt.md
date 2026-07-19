@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input 1d7f8c25ed2c by scripts\audit.cmd._
+_Generated from audit input acb30e68f57a by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->
