@@ -19,7 +19,6 @@ from ._queue_bridge import (
 )
 from ._rename_execution import (
     check_duplicates,
-    execute_rename,
 )
 from ._scan_runtime import (
     CANCEL_SCAN,
@@ -82,7 +81,6 @@ __all__ = [
     "build_rename_job_from_state",
     "check_duplicates",
     "collect_direct_episode_evidence",
-    "execute_rename",
     "get_auto_accept_threshold",
     "get_checked_indices_from_state",
     "get_episode_auto_accept_threshold",

@@ -117,7 +117,7 @@ class PreviewItem:
 
 @dataclass
 class RenameResult:
-    """Outcome of an execute_rename call."""
+    """Outcome of a rename-execution pass (see ``job_executor._execute_rename``)."""
 
     renamed_count: int = 0
     errors: list[str] = field(default_factory=list)
