@@ -98,6 +98,15 @@ def test_input_files_keep_glob_set_when_git_is_unavailable(
     assert relative_paths == unfiltered
 
 
+def test_input_digest_is_line_ending_independent(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    target = repo / "plex_renamer" / "example.py"
+    target.write_bytes(b"VALUE = 1\nOTHER = 2\n")
+    lf_digest = _artifacts.input_digest(repo)
+    target.write_bytes(b"VALUE = 1\r\nOTHER = 2\r\n")
+    assert _artifacts.input_digest(repo) == lf_digest
+
+
 def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)

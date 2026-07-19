@@ -120,7 +120,10 @@ def input_digest(repo_root: Path) -> str:
         rel = path.relative_to(repo_root).as_posix().encode("utf-8")
         digest.update(rel)
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        # CRLF-normalize so the digest is independent of the checkout's eol
+        # smudging (autocrlf) — the same committed tree must digest the same
+        # on every machine.
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()
 
