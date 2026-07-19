@@ -677,7 +677,11 @@ class QtQueueHistoryTests(QtSmokeBase):
         window._tv_workspace._roster_collapsed["fully-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
-        self.assertEqual(state.folder, output_root / "Example Show (2024)")
+        # The projection derives state.folder from job.output_root, which the
+        # settings service resolves (validate_output_folder) — on runners whose
+        # temp path contains an 8.3 short component the raw tmp path differs,
+        # so the expectation must be resolved the same way.
+        self.assertEqual(state.folder, output_root.resolve() / "Example Show (2024)")
         self.assertEqual(
             state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv"
         )
