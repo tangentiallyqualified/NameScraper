@@ -10,7 +10,7 @@ from ..parsing import (
     clean_folder_name,
     get_season,
 )
-from ..tmdb import TMDBClient
+from ..providers import MetadataProvider
 from ._tv_scanner_consolidated import (
     collect_absolute_files as _collect_absolute_files,
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
@@ -56,7 +56,7 @@ class TVScanner:
 
     def __init__(
         self,
-        tmdb: TMDBClient,
+        tmdb: MetadataProvider,
         show_info: dict,
         root_folder: Path,
         *,
