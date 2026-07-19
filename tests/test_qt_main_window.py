@@ -781,6 +781,31 @@ class QtMainWindowTests(QtSmokeBase):
         client.import_cache_snapshot.assert_called_once_with(snapshot, clear_existing=True)
         window.close()
 
+    def test_main_window_reuses_existing_tmdb_client(self):
+        # Pins the client-already-built early return deterministically: without
+        # this, that branch only runs on machines whose keyring holds a real
+        # TMDB key, making package coverage differ between dev and CI.
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
+            window = MainWindow()
+        self._reset_main_window_queue(window)
+        window._tmdb = None
+
+        with (
+            patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"),
+            patch("plex_renamer.gui_qt.main_window.TMDBClient") as client_cls,
+        ):
+            client = MagicMock()
+            client.export_cache_snapshot.return_value = {}
+            client_cls.return_value = client
+            first = window._ensure_tmdb()
+            second = window._ensure_tmdb()
+
+        self.assertIs(second, first)
+        client_cls.assert_called_once()
+        window.close()
+
     def test_main_window_persists_tmdb_snapshot_on_invalidate(self):
         from plex_renamer.gui_qt.main_window import (
             TMDB_CACHE_NAMESPACE,
