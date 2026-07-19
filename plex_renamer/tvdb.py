@@ -25,6 +25,135 @@ resolve_tv_batch_query: Callable[..., list[dict[str, Any]]] = _resolve_tv_batch_
 run_batch_search: Callable[..., list[list[dict[str, Any]]]] = _run_batch_search  # type: ignore
 run_search_with_fallback: Callable[..., list[dict[str, Any]]] = _run_search_with_fallback  # type: ignore
 
+# Artwork type ids per TVDB /artwork/types.
+_SERIES_BACKDROP_TYPE = 3
+_SEASON_POSTER_TYPE = 7
+_SERIES_CLEARLOGO_TYPE = 23
+
+# TVDB status names -> TMDB status vocabulary (show_details_from_tmdb
+# treats "Planned"/"In Production" as unaired).
+_STATUS_MAP = {"Continuing": "Returning Series", "Upcoming": "Planned", "Ended": "Ended"}
+
+_LANG3_TO_ISO639_1 = {
+    "eng": "en",
+    "spa": "es",
+    "fra": "fr",
+    "deu": "de",
+    "jpn": "ja",
+    "kor": "ko",
+    "zho": "zh",
+    "por": "pt",
+    "ita": "it",
+    "rus": "ru",
+}
+
+_DETAILS_NAMESPACE = "tvdb.details"
+_EPISODES_NAMESPACE = "tvdb.episodes"
+
+
+def _iso639_1(lang3: str | None) -> str | None:
+    return _LANG3_TO_ISO639_1.get(lang3 or "")
+
+
+def normalize_episode_meta(ep: dict[str, Any]) -> dict[str, Any]:
+    """TVDB episode record -> TMDB-shaped episode meta (protocol contract)."""
+    return {
+        "name": ep.get("name") or "",
+        "overview": ep.get("overview") or "",
+        "air_date": ep.get("aired") or "",
+        "runtime": ep.get("runtime"),
+        "vote_average": 0,
+        "vote_count": 0,
+        "still_path": ep.get("image") or None,
+        "directors": [],
+        "writers": [],
+        "guest_stars": [],
+    }
+
+
+def normalize_series_details(
+    payload: dict[str, Any], episodes: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """TVDB /series/{id}/extended + full episode list -> TMDB-shaped details."""
+    by_season: dict[int, int] = {}
+    for ep in episodes:
+        sn = ep.get("seasonNumber")
+        if isinstance(sn, int):
+            by_season[sn] = by_season.get(sn, 0) + 1
+    seasons: list[dict[str, Any]] = [
+        {
+            "season_number": sn,
+            "episode_count": count,
+            "name": "Specials" if sn == 0 else f"Season {sn}",
+        }
+        for sn, count in sorted(by_season.items())
+    ]
+
+    artworks: list[dict[str, Any]] = payload.get("artworks") or []
+    payload_seasons: list[dict[str, Any]] = payload.get("seasons") or []
+    season_ids: dict[Any, Any] = {}
+    for s in payload_seasons:
+        s_type: dict[str, Any] = s.get("type") or {}
+        if s_type.get("type") == "official":
+            season_ids[s.get("id")] = s.get("number")
+    season_posters: dict[int, str] = {}
+    backdrop: str | None = None
+    logos: list[dict[str, Any]] = []
+    for art in artworks:
+        image = art.get("image")
+        if not image:
+            continue
+        art_type = art.get("type")
+        if art_type == _SERIES_BACKDROP_TYPE and backdrop is None:
+            backdrop = image
+        elif art_type == _SERIES_CLEARLOGO_TYPE:
+            logos.append({"file_path": image, "iso_639_1": _iso639_1(art.get("language"))})
+        elif art_type == _SEASON_POSTER_TYPE:
+            sn = season_ids.get(art.get("seasonId"))
+            if isinstance(sn, int):
+                season_posters.setdefault(sn, image)
+
+    status_obj: dict[str, Any] = payload.get("status") or {}
+    status_name = str(status_obj.get("name") or "")
+    payload_characters: list[dict[str, Any]] = payload.get("characters") or []
+    cast = [
+        {
+            "name": ch.get("personName") or "",
+            "character": ch.get("name") or "",
+            "order": ch.get("sort") if ch.get("sort") is not None else idx,
+        }
+        for idx, ch in enumerate(payload_characters)
+    ]
+    payload_genres: list[dict[str, Any]] = payload.get("genres") or []
+    payload_companies: list[dict[str, Any]] = payload.get("companies") or []
+    payload_aliases: list[dict[str, Any]] = payload.get("aliases") or []
+    networks: list[dict[str, Any]] = []
+    for c in payload_companies:
+        company_type: dict[str, Any] = c.get("companyType") or {}
+        if company_type.get("companyTypeId") == 1:
+            networks.append({"name": c.get("name") or ""})
+    return {
+        "id": payload.get("id"),
+        "name": payload.get("name") or "",
+        "overview": payload.get("overview") or "",
+        "first_air_date": payload.get("firstAired") or "",
+        "status": _STATUS_MAP.get(status_name, status_name),
+        "genres": [{"name": g.get("name") or ""} for g in payload_genres],
+        "networks": networks,
+        "episode_run_time": ([payload["averageRuntime"]] if payload.get("averageRuntime") else []),
+        "vote_average": payload.get("score") or 0,
+        "vote_count": 0,
+        "poster_path": payload.get("image") or None,
+        "backdrop_path": backdrop,
+        "images": {"logos": logos},
+        "credits": {"cast": cast},
+        "seasons": seasons,
+        "number_of_seasons": sum(1 for s in seasons if s["season_number"] > 0),
+        "number_of_episodes": sum(s["episode_count"] for s in seasons if s["season_number"] > 0),
+        "_aliases": [a.get("name") for a in payload_aliases if a.get("name")],
+        "_season_posters": season_posters,
+    }
+
 
 class TVDBClient:
     provider_name = "tvdb"
@@ -42,6 +171,10 @@ class TVDBClient:
         self._cache_service = cache_service
         self._refresh_policy = refresh_policy
         self._transport = transport or TVDBTransport(api_key)
+        self._details_cache: dict[int, dict[str, Any]] = {}
+        self._episodes_cache: dict[int, list[dict[str, Any]]] = {}
+        self._season_map_cache: dict[int, tuple[dict[int, dict[str, Any]], int]] = {}
+        self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
 
     # ─── Search ───────────────────────────────────────────────────────
 
@@ -97,3 +230,123 @@ class TVDBClient:
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         return run_search_with_fallback(query, search_fn, min_words=min_words, **kwargs)
+
+    # ─── Details and seasons ──────────────────────────────────────────
+
+    def _cache_get(self, namespace: str, key: str) -> Any | None:
+        if self._cache_service is None:
+            return None
+        lookup = self._cache_service.get(namespace, key)
+        return lookup.value if lookup.is_hit else None
+
+    def _cache_put(self, namespace: str, key: str, value: Any) -> None:
+        if self._cache_service is not None:
+            self._cache_service.put(namespace, key, value)
+
+    def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
+        cached = self._details_cache.get(show_id)
+        if cached is not None:
+            return cached
+        persisted = self._cache_get(_DETAILS_NAMESPACE, str(show_id))
+        if persisted is not None:
+            self._details_cache[show_id] = persisted
+            return persisted
+        raw = self._transport.get_json_safe(f"/series/{show_id}/extended")
+        payload = (raw or {}).get("data")
+        if not payload:
+            return None
+        details = normalize_series_details(payload, self._fetch_all_episodes(show_id))
+        self._details_cache[show_id] = details
+        self._cache_put(_DETAILS_NAMESPACE, str(show_id), details)
+        return details
+
+    def _fetch_all_episodes(self, show_id: int) -> list[dict[str, Any]]:
+        cached = self._episodes_cache.get(show_id)
+        if cached is not None:
+            return cached
+        persisted = self._cache_get(_EPISODES_NAMESPACE, str(show_id))
+        if persisted is not None:
+            self._episodes_cache[show_id] = persisted
+            return persisted
+        episodes: list[dict[str, Any]] = []
+        page = 0
+        while True:
+            raw = self._transport.get_json_safe(
+                f"/series/{show_id}/episodes/default", {"page": page}
+            )
+            if not raw:
+                break
+            data: dict[str, Any] = raw.get("data") or {}
+            page_episodes: list[dict[str, Any]] = data.get("episodes") or []
+            episodes.extend(page_episodes)
+            links: dict[str, Any] = raw.get("links") or {}
+            if not links.get("next"):
+                break
+            page += 1
+        self._episodes_cache[show_id] = episodes
+        self._cache_put(_EPISODES_NAMESPACE, str(show_id), episodes)
+        return episodes
+
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
+        cached = self._season_map_cache.get(show_id)
+        if cached is not None:
+            return cached
+        details = self.get_tv_details(show_id)
+        if not details:
+            return {}, 0
+        season_posters: dict[int, str] = details.get("_season_posters") or {}
+        seasons: dict[int, dict[str, Any]] = {}
+        for ep in self._fetch_all_episodes(show_id):
+            sn, num = ep.get("seasonNumber"), ep.get("number")
+            if not isinstance(sn, int) or not isinstance(num, int):
+                continue
+            payload = seasons.setdefault(
+                sn,
+                {
+                    "name": "Specials" if sn == 0 else f"Season {sn}",
+                    "titles": {},
+                    "posters": {},
+                    "episodes": {},
+                    "season_poster_path": season_posters.get(sn),
+                },
+            )
+            payload["titles"][num] = ep.get("name") or ""
+            payload["posters"][num] = ep.get("image") or None
+            payload["episodes"][num] = normalize_episode_meta(ep)
+        total = 0
+        for sn, payload in seasons.items():
+            payload["count"] = max(payload["titles"].keys()) if payload["titles"] else 0
+            if sn > 0:
+                total += payload["count"]
+        result = (seasons, total)
+        self._season_map_cache[show_id] = result
+        return result
+
+    def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
+        seasons, _ = self.get_season_map(show_id)
+        payload = seasons.get(season_num)
+        if payload is None:
+            return {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}
+        return payload
+
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie"
+    ) -> list[tuple[str, str]]:
+        """TVDB aliases carry no country info — empty country means no
+        country boost during rescoring, which matching handles fine."""
+        if media_type != "tv":
+            return []
+        cache_key = (media_id, media_type)
+        if cache_key in self._alt_titles_cache:
+            return self._alt_titles_cache[cache_key]
+        details: dict[str, Any] = self.get_tv_details(media_id) or {}
+        aliases: list[str] = details.get("_aliases") or []
+        titles: list[tuple[str, str]] = [(alias, "") for alias in aliases]
+        self._alt_titles_cache[cache_key] = titles
+        return titles
+
+    def clear_cache(self) -> None:
+        self._details_cache.clear()
+        self._episodes_cache.clear()
+        self._season_map_cache.clear()
+        self._alt_titles_cache.clear()

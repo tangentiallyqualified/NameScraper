@@ -166,3 +166,172 @@ def test_search_tv_batch_preserves_order() -> None:
 
 def test_provider_name() -> None:
     assert _client({}).provider_name == "tvdb"
+
+
+_EXTENDED_RESPONSE: dict[str, Any] = {
+    "data": {
+        "id": 81189,
+        "name": "Breaking Bad",
+        "overview": "Crime drama.",
+        "firstAired": "2008-01-20",
+        "image": "https://artworks.thetvdb.com/banners/posters/81189-10.jpg",
+        "status": {"id": 2, "name": "Ended"},
+        "averageRuntime": 47,
+        "score": 8.9,
+        "genres": [{"id": 1, "name": "Drama"}],
+        "companies": [
+            {"name": "AMC", "companyType": {"companyTypeId": 1, "companyTypeName": "Network"}},
+            {"name": "Sony", "companyType": {"companyTypeId": 3, "companyTypeName": "Studio"}},
+        ],
+        "aliases": [{"language": "eng", "name": "BrBa"}],
+        "characters": [
+            {"name": "Walter White", "personName": "Bryan Cranston", "sort": 1},
+        ],
+        "seasons": [
+            {"id": 5001, "number": 1, "type": {"type": "official"}},
+            {"id": 5002, "number": 2, "type": {"type": "official"}},
+            {"id": 6001, "number": 1, "type": {"type": "dvd"}},
+        ],
+        "artworks": [
+            {"image": "https://artworks.thetvdb.com/banners/fanart/bb.jpg", "type": 3},
+            {
+                "image": "https://artworks.thetvdb.com/banners/logos/bb.png",
+                "type": 23,
+                "language": "eng",
+            },
+            {
+                "image": "https://artworks.thetvdb.com/banners/seasons/s1.jpg",
+                "type": 7,
+                "seasonId": 5001,
+            },
+        ],
+    }
+}
+
+_EPISODES_PAGE_0: dict[str, Any] = {
+    "data": {
+        "episodes": [
+            {
+                "seasonNumber": 0,
+                "number": 1,
+                "name": "Pilot outtakes",
+                "aired": "2009-01-01",
+                "runtime": 5,
+                "image": None,
+                "overview": "Special.",
+            },
+            {
+                "seasonNumber": 1,
+                "number": 1,
+                "name": "Pilot",
+                "aired": "2008-01-20",
+                "runtime": 58,
+                "image": "https://artworks.thetvdb.com/banners/ep/1.jpg",
+                "overview": "It begins.",
+            },
+            {
+                "seasonNumber": 1,
+                "number": 2,
+                "name": "Cat's in the Bag...",
+                "aired": "2008-01-27",
+                "runtime": 48,
+                "image": None,
+                "overview": "Cleanup.",
+            },
+            {
+                "seasonNumber": 2,
+                "number": 1,
+                "name": "Seven Thirty-Seven",
+                "aired": "2009-03-08",
+                "runtime": 47,
+                "image": None,
+                "overview": "Money.",
+            },
+        ]
+    },
+    "links": {"next": None},
+}
+
+
+def _detail_client() -> TVDBClient:
+    return _client(
+        {
+            "/series/81189/extended": _EXTENDED_RESPONSE,
+            ("/series/81189/episodes/default", 0): _EPISODES_PAGE_0,
+        }
+    )
+
+
+def test_get_tv_details_normalizes_to_tmdb_shape() -> None:
+    details = _detail_client().get_tv_details(81189)
+    assert details is not None
+    assert details["name"] == "Breaking Bad"
+    assert details["first_air_date"] == "2008-01-20"
+    assert details["status"] == "Ended"
+    assert details["genres"] == [{"name": "Drama"}]
+    assert details["networks"] == [{"name": "AMC"}]
+    assert details["episode_run_time"] == [47]
+    assert details["poster_path"] == "https://artworks.thetvdb.com/banners/posters/81189-10.jpg"
+    assert details["backdrop_path"] == "https://artworks.thetvdb.com/banners/fanart/bb.jpg"
+    assert details["images"]["logos"] == [
+        {"file_path": "https://artworks.thetvdb.com/banners/logos/bb.png", "iso_639_1": "en"}
+    ]
+    assert details["credits"]["cast"] == [
+        {"name": "Bryan Cranston", "character": "Walter White", "order": 1}
+    ]
+    assert {(s["season_number"], s["episode_count"]) for s in details["seasons"]} == {
+        (0, 1),
+        (1, 2),
+        (2, 1),
+    }
+    assert details["number_of_seasons"] == 2
+    assert details["number_of_episodes"] == 3
+    assert details["_aliases"] == ["BrBa"]
+    assert details["_season_posters"] == {1: "https://artworks.thetvdb.com/banners/seasons/s1.jpg"}
+
+
+def test_get_tv_details_works_with_show_details_adapter() -> None:
+    from plex_renamer.engine.show_details import (
+        show_details_from_tmdb,  # type: ignore[reportUnknownVariableType]
+    )
+
+    details = _detail_client().get_tv_details(81189)
+    adapted = show_details_from_tmdb(details)
+    assert adapted is not None
+    assert adapted.number_of_episodes == 3
+    assert adapted.unaired is False
+
+
+def test_get_season_map_builds_payloads_and_total() -> None:
+    seasons, total = _detail_client().get_season_map(81189)
+    assert total == 3  # specials excluded
+    assert seasons[1]["titles"] == {1: "Pilot", 2: "Cat's in the Bag..."}
+    assert seasons[1]["count"] == 2
+    assert seasons[1]["season_poster_path"] == (
+        "https://artworks.thetvdb.com/banners/seasons/s1.jpg"
+    )
+    assert seasons[1]["posters"][1] == "https://artworks.thetvdb.com/banners/ep/1.jpg"
+    meta = seasons[1]["episodes"][1]
+    assert meta["name"] == "Pilot"
+    assert meta["air_date"] == "2008-01-20"
+    assert meta["still_path"] == "https://artworks.thetvdb.com/banners/ep/1.jpg"
+    assert meta["directors"] == [] and meta["writers"] == [] and meta["guest_stars"] == []
+
+
+def test_get_season_returns_empty_payload_for_unknown_season() -> None:
+    payload = _detail_client().get_season(81189, 9)
+    assert payload == {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}
+
+
+def test_get_alternative_titles_uses_aliases() -> None:
+    client = _detail_client()
+    assert client.get_alternative_titles(81189, media_type="tv") == [("BrBa", "")]
+    assert client.get_alternative_titles(81189, media_type="movie") == []
+
+
+def test_details_are_cached_in_memory() -> None:
+    client = _detail_client()
+    client.get_tv_details(81189)
+    calls_before = len(client._transport.calls)  # type: ignore[attr-defined]
+    client.get_tv_details(81189)
+    assert len(client._transport.calls) == calls_before  # type: ignore[attr-defined]
