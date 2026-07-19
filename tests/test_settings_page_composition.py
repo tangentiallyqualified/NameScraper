@@ -169,10 +169,11 @@ class SettingsPageCompositionTests(QtSmokeBase):
         tvdb_key_input.setText("tvdb-only-key")
 
         saved_calls: list[tuple[str, str]] = []
-        with patch(
-            "plex_renamer.keys.save_api_key",
-            side_effect=lambda provider, value: saved_calls.append((provider, value)),
-        ):
+
+        def _record_save(service: str, key: str) -> None:
+            saved_calls.append((service, key))
+
+        with patch("plex_renamer.keys.save_api_key", side_effect=_record_save):
             tab._on_save_key()  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
 
         self.assertEqual(saved_calls, [("TVDB", "tvdb-only-key")])
