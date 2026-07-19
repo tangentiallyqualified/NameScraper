@@ -116,6 +116,104 @@ def _parse_nxn(name: str) -> _EpisodeParse | None:
     return episodes, title, True
 
 
+def _parse_air_date(name: str) -> _EpisodeParse | None:
+    """Air-date naming (daily/talk shows): YYYY.MM.DD / YYYY-MM-DD.
+
+    The month/day digits must never be read as episode numbers, and the dash
+    branch would otherwise eat a dashed date as a range. There is no
+    air-date episode matching downstream yet, so the file carries no
+    episode evidence. S##E##/NxNN branches run first, so a name with both
+    keeps its explicit episode parse.
+    """
+    date_match = re.search(
+        r"(?<!\d)(?:19|20)\d{2}[.\-_ ](?:0?[1-9]|1[0-2])[.\-_ ](?:0?[1-9]|[12]\d|3[01])(?!\d)",
+        name,
+    )
+    if date_match:
+        return [], None, False
+    return None
+
+
+def _parse_episode_chain(name: str) -> _EpisodeParse | None:
+    """Episode-marker chain WITHOUT a season prefix: E01E02, E01-E02, EP01-EP02.
+
+    Two or more E-points are required - a lone "Ep 05 - Title" keeps its
+    dedicated branch (title extraction). No season evidence, so
+    is_season_relative stays False like the other season-less branches.
+    """
+    echain = re.search(
+        r"\b(EP?\d{1,3}(?:(?:\s*-\s*|-)?EP?\d{1,3})+)(?![A-Za-z0-9])",
+        name,
+        re.IGNORECASE,
+    )
+    if not echain:
+        return None
+    points = [int(num) for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)]
+    if len(points) == 2 and points[1] - points[0] > 1:
+        episodes = _expand_range(points[0], points[1])
+    else:
+        episodes = points
+    rest = name[echain.end() :]
+    title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
+    return episodes, title, False
+
+
+def _parse_adjacent_range(name: str) -> _EpisodeParse | None:
+    """Adjacent NN-NN range at a token boundary ("Show 01-02").
+
+    The negative lookbehind keeps spaced-dash forms ("Anime - 01-03") on the
+    dash branch, which owns their title extraction.
+    """
+    adjacent = re.search(
+        r"(?:^|(?<![-\s])[\s._(])(\d{1,3})-(\d{1,3})(?![A-Za-z0-9])",
+        name,
+    )
+    if not adjacent:
+        return None
+    start_num = int(adjacent.group(1))
+    end_num = int(adjacent.group(2))
+    if (
+        start_num not in RESOLUTION_NUMBERS
+        and end_num not in RESOLUTION_NUMBERS
+        and not (YEAR_MIN <= start_num <= YEAR_MAX)
+        and end_num > start_num
+        and end_num - start_num <= 3
+    ):
+        return list(range(start_num, end_num + 1)), None, False
+    return None
+
+
+def _parse_dash_number(name: str) -> _EpisodeParse | None:
+    """Dash-delimited bare numbers ("Anime - 05", "Anime - 05 - Title").
+
+    Resolution values (480/720/1080/2160) are NOT rejected here: the regex
+    already refuses a p/i suffix (the "$"/"- title" structure fails), so a
+    clean dash-delimited bare number is an episode even when it collides
+    with a resolution value - long-running anime reach 720/1080 (P-H2).
+    The 4-digit widening covers 1000+ absolute numbering; the year guard
+    still rejects 1900-2099. A zero-padded 4-digit number (0083, 0080) is a
+    Gundam-style title designation, never a 1000+ absolute episode.
+    """
+    match = re.search(
+        r"-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
+        name,
+    )
+    if not match:
+        return None
+    start_num = int(match.group(1))
+    end_num = int(match.group(2)) if match.group(2) else None
+    if YEAR_MIN <= start_num <= YEAR_MAX:
+        return None
+    episodes = [start_num]
+    if end_num is not None and not (YEAR_MIN <= end_num <= YEAR_MAX):
+        if end_num >= start_num and end_num - start_num <= 3:
+            episodes = list(range(start_num, end_num + 1))
+        else:
+            episodes.append(end_num)
+    title = strip_release_junk_title(match.group(3).strip()) if match.group(3) else None
+    return episodes, title, False
+
+
 def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     """
     Extract episode number(s) and title text from a filename.
@@ -139,82 +237,21 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     if parsed is not None:
         return parsed
 
-    # Air-date naming (daily/talk shows): YYYY.MM.DD / YYYY-MM-DD. The
-    # month/day digits must never be read as episode numbers, and the dash
-    # branch below would otherwise eat a dashed date as a range. There is no
-    # air-date episode matching downstream yet, so the file carries no
-    # episode evidence. S##E##/NxNN branches run first, so a name with both
-    # keeps its explicit episode parse.
-    date_match = re.search(
-        r"(?<!\d)(?:19|20)\d{2}[.\-_ ](?:0?[1-9]|1[0-2])[.\-_ ](?:0?[1-9]|[12]\d|3[01])(?!\d)",
-        name,
-    )
-    if date_match:
-        return [], None, False
+    parsed = _parse_air_date(name)
+    if parsed is not None:
+        return parsed
 
-    # Episode-marker chain WITHOUT a season prefix: "E01E02", "E01-E02",
-    # "EP01-EP02", "E01 - E02". Two or more E-points are required \u2014 a lone
-    # "Ep 05 - Title" keeps its dedicated branch below (title extraction).
-    # No season evidence, so is_season_relative stays False like the other
-    # season-less branches.
-    echain = re.search(
-        r"\b(EP?\d{1,3}(?:(?:\s*-\s*|-)?EP?\d{1,3})+)(?![A-Za-z0-9])",
-        name,
-        re.IGNORECASE,
-    )
-    if echain:
-        points = [int(num) for num in re.findall(r"EP?(\d{1,3})", echain.group(1), re.IGNORECASE)]
-        if len(points) == 2 and points[1] - points[0] > 1:
-            episodes = _expand_range(points[0], points[1])
-        else:
-            episodes = points
-        rest = name[echain.end() :]
-        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
-        return episodes, title, False
+    parsed = _parse_episode_chain(name)
+    if parsed is not None:
+        return parsed
 
-    # Adjacent NN-NN range at a token boundary ("Show 01-02"). The negative
-    # lookbehind keeps spaced-dash forms ("Anime - 01-03") on the dash branch
-    # below, which owns their title extraction.
-    adjacent = re.search(
-        r"(?:^|(?<![-\s])[\s._(])(\d{1,3})-(\d{1,3})(?![A-Za-z0-9])",
-        name,
-    )
-    if adjacent:
-        start_num = int(adjacent.group(1))
-        end_num = int(adjacent.group(2))
-        if (
-            start_num not in RESOLUTION_NUMBERS
-            and end_num not in RESOLUTION_NUMBERS
-            and not (YEAR_MIN <= start_num <= YEAR_MAX)
-            and end_num > start_num
-            and end_num - start_num <= 3
-        ):
-            return list(range(start_num, end_num + 1)), None, False
+    parsed = _parse_adjacent_range(name)
+    if parsed is not None:
+        return parsed
 
-    # Resolution values (480/720/1080/2160) are NOT rejected here: the regex
-    # already refuses a p/i suffix (the "$"/"- title" structure fails), so a
-    # clean dash-delimited bare number is an episode even when it collides
-    # with a resolution value \u2014 long-running anime reach 720/1080 (P-H2).
-    # The 4-digit widening covers 1000+ absolute numbering; the year guard
-    # still rejects 1900-2099.
-    # A zero-padded 4-digit number (0083, 0080) is a Gundam-style title
-    # designation, never a 1000+ absolute episode.
-    match = re.search(
-        r"-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?(?:\s*-\s*(?!0\d{3}(?!\d))(\d{1,4})(?:v\d+)?['\u2032]?)?(?:\s*-\s*(.*))?$",
-        name,
-    )
-    if match:
-        start_num = int(match.group(1))
-        end_num = int(match.group(2)) if match.group(2) else None
-        if not (YEAR_MIN <= start_num <= YEAR_MAX):
-            episodes = [start_num]
-            if end_num is not None and not (YEAR_MIN <= end_num <= YEAR_MAX):
-                if end_num >= start_num and end_num - start_num <= 3:
-                    episodes = list(range(start_num, end_num + 1))
-                else:
-                    episodes.append(end_num)
-            title = strip_release_junk_title(match.group(3).strip()) if match.group(3) else None
-            return episodes, title, False
+    parsed = _parse_dash_number(name)
+    if parsed is not None:
+        return parsed
 
     bare_match = re.match(r"(\d{1,3})\.\s*(.*)", raw_stem)
     if bare_match:
