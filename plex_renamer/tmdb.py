@@ -74,6 +74,8 @@ class TMDBClient:
     network again.
     """
 
+    provider_name = "tmdb"
+
     def __init__(
         self,
         api_key: str,
