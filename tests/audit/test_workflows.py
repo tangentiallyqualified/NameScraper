@@ -66,7 +66,7 @@ def test_pull_requests_verify_generated_audit_docs() -> None:
     assert "runs-on: windows-latest" in job
     assert "permissions:\n      contents: read" in job
     assert "fetch-depth: 0" in checkout
-    assert 'python-version: "3.12"' in setup_python
+    assert 'python-version: "3.14"' in setup_python
 
 
 def test_pull_request_audit_job_creates_and_provisions_venv() -> None:
@@ -156,7 +156,7 @@ def test_manual_audit_update_uploads_generated_outputs() -> None:
     assert "runs-on: windows-latest" in job
     assert "permissions:\n      contents: read" in job
     assert "fetch-depth: 0" in checkout
-    assert 'python-version: "3.12"' in setup_python
+    assert 'python-version: "3.14"' in setup_python
     assert "if: always()" in stage
     assert "run: git add -A -- docs/audit" in stage
     assert "if: always()" in patch
