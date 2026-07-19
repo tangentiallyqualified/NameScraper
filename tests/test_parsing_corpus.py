@@ -35,9 +35,14 @@ def _params():
 @pytest.mark.parametrize("rec", list(_params()))
 def test_parsing_corpus(rec):
     name = rec["name"]
-    if "episodes" in rec:
-        episodes, _title, _relative = extract_episode(name)
-        assert episodes == rec["episodes"]
+    if "episodes" in rec or "ep_title" in rec or "season_relative" in rec:
+        episodes, title, relative = extract_episode(name)
+        if "episodes" in rec:
+            assert episodes == rec["episodes"]
+        if "ep_title" in rec:
+            assert title == rec["ep_title"]
+        if "season_relative" in rec:
+            assert relative is rec["season_relative"]
     if "season" in rec:
         assert extract_season_number(name) == rec["season"]
     if "year" in rec:
