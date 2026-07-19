@@ -42,6 +42,80 @@ def _expand_range(start: int, end: int) -> list[int]:
     return [start, end]
 
 
+_EpisodeParse = tuple[list[int], str | None, bool]
+
+
+def _parse_sxe(name: str) -> _EpisodeParse | None:
+    """S##E## episode chains, with dash-introduced range ends.
+
+    Range-end rules (prevents digit-leading titles from being eaten):
+      -E04   or  -E04 (no spaces, E prefix)  -> range
+      -04        (no spaces, bare digits)     -> range, but only if NOT followed by a letter
+      ' - E04'   (spaced dash, E prefix)      -> range
+      ' - 04 ...' (spaced dash, bare digits)  -> NOT a range (title)
+    """
+    sxe = re.search(r"S(\d+)[\s._-]*((?:E\d+)+)", name, re.IGNORECASE)
+    if not sxe:
+        return None
+    points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
+    initial_count = len(points)
+    rest = name[sxe.end() :]
+    segment_re = re.compile(
+        r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
+        re.IGNORECASE,
+    )
+    while True:
+        seg = segment_re.match(rest)
+        if not seg:
+            break
+        points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
+        rest = rest[seg.end() :]
+    # Expand only a lone *dash-introduced* gapped endpoint (e.g.
+    # S01E01-E04) as a range. Concatenated explicit episodes
+    # (S01E03E05 -> [3, 5]) and 3+ chained points (incl. a multi-ep
+    # prefix + bare end like S01E01E02-04 -> [1, 2, 4]) are kept
+    # verbatim and validated downstream.
+    if initial_count == 1 and len(points) == 2 and points[1] - points[0] > 1:
+        episodes = _expand_range(points[0], points[1])
+    else:
+        episodes = points
+    title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
+    return episodes, title, True
+
+
+def _parse_nxn(name: str) -> _EpisodeParse | None:
+    """N x NN episode chains (mirrors the S##E## range-end rules).
+
+    NxNN range-end rules:
+      -1x04  or  -04  (no spaces)             -> range, bare end not followed by letter
+      ' - 1x04'       (spaced, NxNN prefix)   -> range
+      ' - 04 ...'     (spaced, bare digits)   -> NOT a range (title)
+    """
+    nxn = re.search(r"\b(\d{1,2})x(\d{2,3})", name, re.IGNORECASE)
+    if not nxn:
+        return None
+    season_prefix = nxn.group(1)
+    points = [int(nxn.group(2))]
+    rest = name[nxn.end() :]
+    segment_re = re.compile(
+        rf"^(?:-(?:{season_prefix}x)?(\d{{2,3}})(?![a-zA-Z])"
+        rf"|\s+-\s+{season_prefix}x(\d{{2,3}})(?![a-zA-Z]))",
+        re.IGNORECASE,
+    )
+    while True:
+        seg = segment_re.match(rest)
+        if not seg:
+            break
+        points.append(int(seg.group(1) or seg.group(2)))
+        rest = rest[seg.end() :]
+    if len(points) == 2 and points[1] - points[0] > 1:
+        episodes = _expand_range(points[0], points[1])
+    else:
+        episodes = points
+    title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
+    return episodes, title, True
+
+
 def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     """
     Extract episode number(s) and title text from a filename.
@@ -57,64 +131,13 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
     raw_stem = Path(filename).stem
     name = clean_title_evidence(raw_stem)
 
-    # Range-end rules (prevents digit-leading titles from being eaten):
-    #   -E04   or  -E04 (no spaces, E prefix)  → range
-    #   -04        (no spaces, bare digits)     → range, but only if NOT followed by a letter
-    #   ' - E04'   (spaced dash, E prefix)      → range
-    #   ' - 04 …'  (spaced dash, bare digits)   → NOT a range (title)
-    sxe = re.search(r"S(\d+)[\s._-]*((?:E\d+)+)", name, re.IGNORECASE)
-    if sxe:
-        points = [int(num) for num in re.findall(r"E(\d+)", sxe.group(2), re.IGNORECASE)]
-        initial_count = len(points)
-        rest = name[sxe.end() :]
-        segment_re = re.compile(
-            r"^(?:-E(\d+)\b|-(\d+)\b(?![a-zA-Z])|\s+-\s+E(\d+)\b)",
-            re.IGNORECASE,
-        )
-        while True:
-            seg = segment_re.match(rest)
-            if not seg:
-                break
-            points.append(int(seg.group(1) or seg.group(2) or seg.group(3)))
-            rest = rest[seg.end() :]
-        # Expand only a lone *dash-introduced* gapped endpoint (e.g.
-        # S01E01-E04) as a range. Concatenated explicit episodes
-        # (S01E03E05 -> [3, 5]) and 3+ chained points (incl. a multi-ep
-        # prefix + bare end like S01E01E02-04 -> [1, 2, 4]) are kept
-        # verbatim and validated downstream.
-        if initial_count == 1 and len(points) == 2 and points[1] - points[0] > 1:
-            episodes = _expand_range(points[0], points[1])
-        else:
-            episodes = points
-        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
-        return episodes, title, True
+    parsed = _parse_sxe(name)
+    if parsed is not None:
+        return parsed
 
-    # NxNN range-end rules (mirrors S##E## logic):
-    #   -1x04  or  -04  (no spaces)             → range, bare end not followed by letter
-    #   ' - 1x04'       (spaced, NxNN prefix)   → range
-    #   ' - 04 …'       (spaced, bare digits)   → NOT a range (title)
-    nxn = re.search(r"\b(\d{1,2})x(\d{2,3})", name, re.IGNORECASE)
-    if nxn:
-        season_prefix = nxn.group(1)
-        points = [int(nxn.group(2))]
-        rest = name[nxn.end() :]
-        segment_re = re.compile(
-            rf"^(?:-(?:{season_prefix}x)?(\d{{2,3}})(?![a-zA-Z])"
-            rf"|\s+-\s+{season_prefix}x(\d{{2,3}})(?![a-zA-Z]))",
-            re.IGNORECASE,
-        )
-        while True:
-            seg = segment_re.match(rest)
-            if not seg:
-                break
-            points.append(int(seg.group(1) or seg.group(2)))
-            rest = rest[seg.end() :]
-        if len(points) == 2 and points[1] - points[0] > 1:
-            episodes = _expand_range(points[0], points[1])
-        else:
-            episodes = points
-        title = strip_release_junk_title(re.sub(r"^\s*[-.]?\s*", "", rest).strip() or None)
-        return episodes, title, True
+    parsed = _parse_nxn(name)
+    if parsed is not None:
+        return parsed
 
     # Air-date naming (daily/talk shows): YYYY.MM.DD / YYYY-MM-DD. The
     # month/day digits must never be read as episode numbers, and the dash
