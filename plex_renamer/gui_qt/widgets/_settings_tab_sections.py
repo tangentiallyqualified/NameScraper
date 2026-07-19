@@ -210,6 +210,21 @@ class SettingsTabSectionsBuilder:
         tab = self._tab
         section = SettingsSectionCard.page("API Keys")
 
+        source_row = QHBoxLayout()
+        source_row.addWidget(QLabel("TV metadata source"))
+        tab._tv_source_combo = QComboBox()
+        from ...providers import TV_PROVIDERS
+
+        for spec in TV_PROVIDERS.values():
+            tab._tv_source_combo.addItem(spec.label, spec.name)
+        current_source = tab._settings.tv_metadata_source if tab._settings else "tmdb"
+        source_idx = tab._tv_source_combo.findData(current_source)
+        tab._tv_source_combo.setCurrentIndex(source_idx if source_idx >= 0 else 0)
+        tab._tv_source_combo.currentIndexChanged.connect(tab._on_tv_source_changed)
+        source_row.addWidget(tab._tv_source_combo)
+        source_row.addStretch()
+        section.add_layout(source_row)
+
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
         tab._api_key_input = QLineEdit()
@@ -241,6 +256,24 @@ class SettingsTabSectionsBuilder:
         row.addStretch()
 
         section.add_layout(row)
+
+        tvdb_row = QHBoxLayout()
+        tvdb_row.addWidget(QLabel("TheTVDB API key"))
+        tab._tvdb_key_input = QLineEdit()
+        tab._tvdb_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        tab._tvdb_key_input.setPlaceholderText("Enter TheTVDB API key...")
+        tab._tvdb_key_input.setMinimumWidth(280)
+        try:
+            from ...keys import get_api_key
+
+            existing_tvdb = get_api_key("TVDB")
+            if existing_tvdb:
+                tab._tvdb_key_input.setText(existing_tvdb)
+        except Exception:
+            pass
+        tvdb_row.addWidget(tab._tvdb_key_input)
+        tvdb_row.addStretch()
+        section.add_layout(tvdb_row)
 
         tab._key_status = QLabel("")
         tab._key_status.setProperty("cssClass", "caption")

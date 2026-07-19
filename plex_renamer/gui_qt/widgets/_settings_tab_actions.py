@@ -59,10 +59,22 @@ class SettingsTabActionsCoordinator:
             from ...keys import save_api_key
 
             save_api_key("TMDB", key)
+
+            tvdb_key = tab._tvdb_key_input.text().strip()
+            if tvdb_key:
+                save_api_key("TVDB", tvdb_key)
+
             self.set_key_status("API key saved.", "success")
             tab.api_key_saved.emit()
         except Exception as exc:
             self.set_key_status(f"Save failed: {exc}", "error")
+
+    def on_tv_source_changed(self, index: int) -> None:
+        tab = self._tab
+        if tab._settings is None:
+            return
+        tab._settings.tv_metadata_source = str(tab._tv_source_combo.itemData(index))
+        tab.api_key_saved.emit()  # drops cached clients; next scan uses the new source
 
     def test_key(self, *, submit_bg: Callable[[Callable[[], None]], Any]) -> None:
         tab = self._tab

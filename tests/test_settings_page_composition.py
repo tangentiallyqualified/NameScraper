@@ -107,3 +107,22 @@ class SettingsPageCompositionTests(QtSmokeBase):
         self.assertTrue(reloaded.get("metadata_enabled"))
         self.assertTrue(reloaded.get("metadata_prefer_local"))
         self.assertTrue(reloaded.get("automux_no_fear"))
+
+    def test_api_keys_section_has_source_combo_and_tvdb_key(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        settings, _path = self._settings()
+        tab = SettingsTab(settings_service=settings)
+        combo = tab._tv_source_combo
+        self.assertEqual([combo.itemData(i) for i in range(combo.count())], ["tmdb", "tvdb"])
+        self.assertEqual(combo.currentData(), "tmdb")
+        self.assertEqual(tab._tvdb_key_input.echoMode(), tab._api_key_input.echoMode())
+
+    def test_changing_source_persists_setting(self):
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        settings, _path = self._settings()
+        tab = SettingsTab(settings_service=settings)
+        idx = tab._tv_source_combo.findData("tvdb")
+        tab._tv_source_combo.setCurrentIndex(idx)
+        self.assertEqual(tab._settings.tv_metadata_source, "tvdb")
