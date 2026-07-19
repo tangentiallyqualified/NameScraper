@@ -73,7 +73,7 @@ class MetadataProvider(Protocol):
         writers [str], guest_stars [{"name", "character"}]."""
         ...
 
-    def get_season_map(self, show_id: int) -> tuple[dict[str, Any], int]:
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         """({season_num: {"name", "titles", "posters", "episodes",
         "count", "season_poster_path"}}, total_episodes_excl_specials)."""
         ...

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QCheckBox, QComboBox, QStackedWidget, QWidget
@@ -109,20 +109,38 @@ class SettingsPageCompositionTests(QtSmokeBase):
         self.assertTrue(reloaded.get("automux_no_fear"))
 
     def test_api_keys_section_has_source_combo_and_tvdb_key(self):
+        from PySide6.QtWidgets import QLineEdit
+
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         settings, _path = self._settings()
         tab = SettingsTab(settings_service=settings)
-        combo = tab._tv_source_combo
+        combo = cast(
+            QComboBox,
+            tab._tv_source_combo,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
         self.assertEqual([combo.itemData(i) for i in range(combo.count())], ["tmdb", "tvdb"])
         self.assertEqual(combo.currentData(), "tmdb")
-        self.assertEqual(tab._tvdb_key_input.echoMode(), tab._api_key_input.echoMode())
+        api_key_input = cast(
+            QLineEdit,
+            tab._api_key_input,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        tvdb_key_input = cast(
+            QLineEdit,
+            tab._tvdb_key_input,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        self.assertEqual(tvdb_key_input.echoMode(), api_key_input.echoMode())
 
     def test_changing_source_persists_setting(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         settings, _path = self._settings()
         tab = SettingsTab(settings_service=settings)
-        idx = tab._tv_source_combo.findData("tvdb")
-        tab._tv_source_combo.setCurrentIndex(idx)
-        self.assertEqual(tab._settings.tv_metadata_source, "tvdb")
+        combo = cast(
+            QComboBox,
+            tab._tv_source_combo,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        idx = combo.findData("tvdb")
+        combo.setCurrentIndex(idx)
+        assert tab._settings is not None  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(tab._settings.tv_metadata_source, "tvdb")  # pyright: ignore[reportPrivateUsage]

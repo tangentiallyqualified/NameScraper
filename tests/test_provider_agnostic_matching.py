@@ -53,7 +53,7 @@ class FakeProvider:
     def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
         return {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}
 
-    def get_season_map(self, show_id: int) -> tuple[dict[str, Any], int]:
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         return {}, 0
 
     def get_alternative_titles(

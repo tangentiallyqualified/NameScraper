@@ -101,10 +101,15 @@ def test_login_without_token_raises() -> None:
 class _FakeTVDBTransport:
     """Keyed by (path, page) with a plain-path fallback."""
 
-    def __init__(self, responses: dict[Any, dict[str, Any] | None]) -> None:
+    def __init__(
+        self,
+        responses: dict[Any, dict[str, Any] | None],
+        image_bytes: bytes = b"image-bytes",
+    ) -> None:
         self.responses = responses
         self.calls: list[tuple[str, dict[str, Any] | None]] = []
         self.fetched_urls: list[str] = []
+        self.image_bytes = image_bytes
 
     def get_json_safe(
         self, path: str, params: dict[str, Any] | None = None
@@ -117,7 +122,7 @@ class _FakeTVDBTransport:
 
     def fetch_bytes(self, url: str, *, timeout: int = 10) -> bytes:
         self.fetched_urls.append(url)
-        return b"image-bytes"
+        return self.image_bytes
 
 
 _SEARCH_RESPONSE: dict[str, Any] = {
@@ -135,8 +140,11 @@ _SEARCH_RESPONSE: dict[str, Any] = {
 }
 
 
-def _client(responses: dict[Any, dict[str, Any] | None]) -> TVDBClient:
-    return TVDBClient("k", transport=_FakeTVDBTransport(responses))  # type: ignore[arg-type]
+def _client(
+    responses: dict[Any, dict[str, Any] | None], image_bytes: bytes = b"image-bytes"
+) -> TVDBClient:
+    transport = _FakeTVDBTransport(responses, image_bytes)
+    return TVDBClient("k", transport=transport)  # type: ignore[arg-type]
 
 
 def test_search_tv_normalizes_results_and_skips_bad_ids() -> None:
@@ -253,12 +261,13 @@ _EPISODES_PAGE_0: dict[str, Any] = {
 }
 
 
-def _detail_client() -> TVDBClient:
+def _detail_client(image_bytes: bytes = b"image-bytes") -> TVDBClient:
     return _client(
         {
             "/series/81189/extended": _EXTENDED_RESPONSE,
             ("/series/81189/episodes/default", 0): _EPISODES_PAGE_0,
-        }
+        },
+        image_bytes,
     )
 
 
@@ -366,3 +375,60 @@ def test_get_cached_poster_path_reads_details_cache() -> None:
         "https://artworks.thetvdb.com/banners/posters/81189-10.jpg"
     )
     assert client.get_cached_poster_path(81189, media_type="movie") is None
+
+
+def _png_bytes(width: int = 10, height: int = 15) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (width, height), color=(10, 20, 30)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_fetch_image_returns_none_for_missing_path() -> None:
+    assert _client({}).fetch_image(None) is None
+
+
+def test_fetch_image_returns_scaled_pil_image() -> None:
+    client = _client({}, image_bytes=_png_bytes(width=20, height=30))
+    img = client.fetch_image("/banners/ep/1.jpg", target_width=10)
+    assert img is not None
+    assert img.width == 10
+    assert img.height == 15
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/ep/1.jpg"
+    ]
+
+
+def test_fetch_poster_prefers_ep_still() -> None:
+    client = _client({}, image_bytes=_png_bytes())
+    img = client.fetch_poster(
+        81189, media_type="tv", ep_still="/banners/ep/still.jpg", target_width=10
+    )
+    assert img is not None
+    assert img.width == 10
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/ep/still.jpg"
+    ]
+
+
+def test_fetch_poster_falls_back_to_season_poster() -> None:
+    client = _detail_client(image_bytes=_png_bytes())
+    img = client.fetch_poster(81189, media_type="tv", season=1, target_width=10)
+    assert img is not None
+    assert img.width == 10
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/seasons/s1.jpg"
+    ]
+
+
+def test_fetch_poster_falls_back_to_show_poster_when_no_season_poster() -> None:
+    client = _detail_client(image_bytes=_png_bytes())
+    img = client.fetch_poster(81189, media_type="tv", season=9, target_width=10)
+    assert img is not None
+    assert img.width == 10
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/posters/81189-10.jpg"
+    ]
