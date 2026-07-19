@@ -135,7 +135,7 @@ def _parse_air_date(name: str) -> _EpisodeParse | None:
 
 
 def _parse_episode_chain(name: str) -> _EpisodeParse | None:
-    """Episode-marker chain WITHOUT a season prefix: E01E02, E01-E02, EP01-EP02.
+    """Episode-marker chain WITHOUT a season prefix: E01E02, E01-E02, EP01-EP02, E01 - E02.
 
     Two or more E-points are required - a lone "Ep 05 - Title" keeps its
     dedicated branch (title extraction). No season evidence, so
