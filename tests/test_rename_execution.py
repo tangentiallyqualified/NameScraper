@@ -141,3 +141,105 @@ def test_execute_rename_renames_root_to_show_folder_name(tmp_path: Path) -> None
     assert result.new_root == new_root
     assert (new_root / "Season 01" / "Show - S01E01.mkv").exists()
     assert {"old": str(root), "new": str(new_root)} in result.log_entry["renamed_dirs"]
+
+
+def test_execute_rename_skips_when_target_exists(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "ep1.mkv"
+    src.write_bytes(b"x")
+    (season / "Show - S01E01.mkv").write_bytes(b"y")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 0
+    assert result.errors == ["Target already exists, skipped: Show - S01E01.mkv"]
+    assert src.exists()
+
+
+def test_execute_rename_filters_status_and_out_of_range_indices(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    skipped = season / "skipped.mkv"
+    skipped.write_bytes(b"x")
+    unmatched = season / "unmatched.mkv"
+    unmatched.write_bytes(b"x")
+    items = [
+        _item(skipped, "Skipped.mkv", status="SKIP: no match"),
+        _item(unmatched, "Unmatched - S01E01.mkv", status="UNMATCHED: review"),
+    ]
+
+    result = execute_rename(items, {0, 1, 9}, "Show", root)
+
+    assert result.renamed_count == 1
+    assert skipped.exists()
+    assert (season / "Unmatched - S01E01.mkv").exists()
+
+
+def test_execute_rename_keeps_root_when_target_folder_exists(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    (tmp_path / "Show (2020)").mkdir()
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root, show_folder_name="Show (2020)")
+
+    assert result.new_root is None
+    assert (season / "Show - S01E01.mkv").exists()
+
+
+def test_execute_rename_records_error_when_source_vanishes(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "ghost.mkv"  # never created on disk
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 0
+    assert len(result.errors) == 1
+    assert result.errors[0].startswith("ghost.mkv: ")
+
+
+def test_execute_rename_skips_season_rename_when_proper_name_exists(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Show"
+    improper = root / "season 1"  # single digit; get_season extracts 1
+    proper = root / "Season 01"  # proper format with two digits
+    improper.mkdir(parents=True)
+    proper.mkdir()
+    src = improper / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv", target_dir=proper)
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 1
+    assert not improper.exists()  # improper dir deleted after becoming empty
+    assert (proper / "Show - S01E01.mkv").exists()  # file moved to proper dir
+    assert "Season 01" not in result.log_entry["renamed_dirs"]  # Season 01 not renamed
+
+
+def test_execute_rename_skips_unnamed_items(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    season = root / "Season 01"
+    season.mkdir(parents=True)
+    src = season / "ep1.mkv"
+    src.write_bytes(b"x")
+    item = _item(src, None)  # unnamed item
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 0
+    assert src.exists()
+    assert result.errors == []
