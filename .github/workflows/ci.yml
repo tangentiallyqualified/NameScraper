@@ -70,6 +70,13 @@ jobs:
         shell: pwsh
         run: scripts/test-fast.cmd -Coverage
 
+      - name: Upload pytest logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-fast-logs
+          path: .pytest_cache/fast/
+
       - name: Enforce quality ratchets
         shell: pwsh
         run: scripts/audit.cmd --quality-check
