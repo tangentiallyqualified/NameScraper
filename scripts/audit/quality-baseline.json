@@ -9732,7 +9732,7 @@
     "sha256:635170505dfe604867d862163c30cd71f0fb8fdae9055600333ba9f6c2322df4#1",
     "sha256:e98b1ef8c905ca7881ab778fdd7ac7001d0bb818527b22a1bc7321b3198135da#1",
     "sha256:6d69f2ac09017b8a49d050ab336e953b8fa02ae08c24396916ea7ea42418e627#1",
-    "sha256:2d9938c49884bffa5c178a9c242567580b5e2bb9d50d6de51ff0724979acafac#1",
+    "sha256:159964244f609ddd0f631053bd74b074e05f597c92c4fd223a651fc831e8f311#1",
     "sha256:11f83ebdb4afba817ae9ce26a241de21ab73a6ce1068ba8307d8432f25d0514f#1",
     "sha256:44d0eeece1059e62da3ab94c31798e3b8d5095cde83ef235cf5493181faa2a2b#1",
     "sha256:dbd62266fa46b066522cc96c986ae22ae7b86d062f17490bcd9aa62cf69500bf#1",
@@ -9793,7 +9793,7 @@
     "sha256:26caae88672502d7cae28f8e006deb7b8485506eed332f9fff61634bc6593b5a#1",
     "sha256:af422377cf59582e430c8b7873f89baa95aa32463a810447aac88cf405f59bcd#1",
     "sha256:5bf3946c08f8efb8e3f85922b35ec7ee6e8938ade861238b728b66cfbd0f62be#1",
-    "sha256:06af668d5ea5ab5c398dcb35c51802ae3e1140d4c14df2b74525abacf7e52641#1",
+    "sha256:37a25c5db5cd1818926860759d37f3c0bdcccb0ddc8f988ceae3454bc0956d0c#1",
     "sha256:d448ed7a95724f81c73206a51034e8705b812e36e21884da3be09c395664b0d9#1",
     "sha256:e14f90dd3ff85ddd4d5c1a4f8efbb401fea4b95763c5c6acb98f507e9ad25701#4",
     "sha256:abce513c6273e29b85321b41f5ef9d18db59370a17f45d5ca7e945b941668f29#1",
@@ -10888,7 +10888,7 @@
     "sha256:99d138a3b61bc444fe6e6ed6d0bf3d6c10eaf7c95445749232bf59214b337d44#1",
     "sha256:0aedb2e662bf8d44f71e7ceeadbbb68b2890d8b36bbcf75bd46472e544d1dc3c#1",
     "sha256:06fc75ab84504fb3e884b9eb857bb48b5dd4fdff8c390b49fcb8b42facd90777#1",
-    "sha256:dc5c0d23a210395e65a071da64b091773aad756f955fba850b0891370bd3cec6#1",
+    "sha256:7f3b859a2395392f01640505d310bfa5d0e3a927e2702e05b8afa79b0a9eeed4#1",
     "sha256:37f47ca03bd61d2be34b4fa6a5c211094b5edf56bdd18ea541cef67f165ffc87#1",
     "sha256:8d35979f479b2875da103bb23f9af06067afc67ca18bb947bcbd67a323f3b898#1",
     "sha256:9b1bfe558bb19a27ba12285d657cd56ed9f77b2b7b562cbc76ebe5c2525c56cc#1",
@@ -21821,8 +21821,8 @@
   "full_suite": true,
   "package_floors": {
    "plex_renamer": {
-    "covered": 2561,
-    "percent": 85.2,
+    "covered": 2586,
+    "percent": 86.1,
     "statements": 3005
    },
    "plex_renamer/app": {
@@ -21846,13 +21846,13 @@
     "statements": 1757
    },
    "plex_renamer/engine": {
-    "covered": 3450,
-    "percent": 87.6,
+    "covered": 3525,
+    "percent": 89.5,
     "statements": 3938
    },
    "plex_renamer/gui_qt": {
-    "covered": 924,
-    "percent": 83.8,
+    "covered": 934,
+    "percent": 84.7,
     "statements": 1103
    },
    "plex_renamer/gui_qt/models": {
@@ -24821,6 +24821,18 @@
    "path": "tests/test_offset_inference.py",
    "rule": "reportOptionalMemberAccess",
    "symbol": "tests.test_offset_inference.TestUniformOffsetRescue.test_number_only_file_follows_anchor_offset::reportOptionalMemberAccess::\"evidence\" is not a known attribute of \"None\"#1"
+  },
+  {
+   "analyzer": "pyright",
+   "path": "tests/test_qt_app_bootstrap.py",
+   "rule": "reportPrivateUsage",
+   "symbol": "tests.test_qt_app_bootstrap::reportPrivateUsage::\"_SuppressTransientPopups\" is private and used outside of the module in which it is declared#1"
+  },
+  {
+   "analyzer": "pyright",
+   "path": "tests/test_qt_app_bootstrap.py",
+   "rule": "reportPrivateUsage",
+   "symbol": "tests.test_qt_app_bootstrap::reportPrivateUsage::\"_window_flag_names\" is private and used outside of the module in which it is declared#1"
   },
   {
    "analyzer": "pyright",
@@ -28594,7 +28606,6 @@
   "plex_renamer/gui_qt/widgets/match_picker_dialog.py": "sha256:8e2a8f46e277d9f96995ad7f0270da292f87841131efc1941066dacf987f879d",
   "plex_renamer/gui_qt/widgets/segmented_control.py": "sha256:4ab6c1bd7ea5759f943216c8d5d1bab523c8731d38d1a68fc8d5bf5ce37ec635",
   "scripts/audit/_docs_ledger.py": "sha256:b2809587abbef0cbe929a80d383e0204042098cc32524d4c3932a683a30c573f",
-  "scripts/test_smoke_runner.py": "sha256:0b8fd6dd0238b46222e0c6de8146120d26cd5cf0ea1c2b879540f0b9fbb08af5",
   "tests/audit/test_diff.py": "sha256:876e78dbbd4abe5ed075b03c0e7f21a2e31c053a64644d9edc2265e7c07eea0e",
   "tests/audit/test_docs_ledger.py": "sha256:5ba61514764ca95705852e15ffe2b4efcff1209939b32b42b0a76b4db3648c93",
   "tests/audit/test_inventory.py": "sha256:e4c7745f72d92185a54cd67dc9cad6883d5ddde8b1e1b412db94be24ce6d69c1",

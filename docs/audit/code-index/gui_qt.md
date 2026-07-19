@@ -1,4 +1,4 @@
-<!-- Generated from audit input b216c1ec5575; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input f34954499c2d; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -51,7 +51,7 @@
 
 ### `plex_renamer/gui_qt/app.py` — PySide6 application bootstrap.
 - `run() -> None` — Create the QApplication, main window, and enter the event loop. (used by: plex_renamer.__main__)
-- Tests: tests/test_qt_app_popup_filter.py, tests/test_qt_main_window.py
+- Tests: tests/test_qt_app_bootstrap.py, tests/test_qt_app_popup_filter.py, tests/test_qt_main_window.py
 
 ### `plex_renamer/gui_qt/main_window.py` — Main application window — Phase 3 shell.
 - `MainWindow` — Top-level window with menu bar, tab bar, and status bar. (used by: plex_renamer.gui_qt.app)

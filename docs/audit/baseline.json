@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "b216c1ec55755329a2d2a88a3c306b759d1b6b4c2d7a0dfc74366bfffa367f5d",
+  "input_digest": "f34954499c2d371c7e21c8ef4856d87bfa1cb68c74dce6d95eb9658c29664de0",
   "module_count": 177,
   "partial": false,
   "reason": null,
@@ -73,7 +73,7 @@
   }
  },
  "headline": {
-  "avg_coverage": 88.1,
+  "avg_coverage": 88.6,
   "coverage_failed": false,
   "coverage_partial": false,
   "coverage_stale": false,
@@ -97,12 +97,12 @@
    "test-referenced": 3
   },
   "files": 177,
-  "module_avg_coverage": 88.2,
+  "module_avg_coverage": 89.0,
   "modules_over_complexity": 62,
-  "statement_coverage": 88.1,
+  "statement_coverage": 88.6,
   "total_loc": 39129
  },
- "input_digest": "b216c1ec55755329a2d2a88a3c306b759d1b6b4c2d7a0dfc74366bfffa367f5d",
+ "input_digest": "f34954499c2d371c7e21c8ef4856d87bfa1cb68c74dce6d95eb9658c29664de0",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -2255,7 +2255,7 @@
    "sha256": "c8145b58d67b2a9d"
   },
   "plex_renamer/engine/_rename_execution.py": {
-   "coverage_percent": 15.6,
+   "coverage_percent": 93.8,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2529,7 +2529,7 @@
    },
    "loc": 430,
    "max_complexity": 13,
-   "sha256": "6943055627a51cd8"
+   "sha256": "8aec72bd6475e0c4"
   },
   "plex_renamer/engine/show_details.py": {
    "coverage_percent": 100.0,
@@ -2858,7 +2858,7 @@
    "sha256": "a83d17a54a3616b7"
   },
   "plex_renamer/gui_qt/app.py": {
-   "coverage_percent": 51.6,
+   "coverage_percent": 67.7,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2879,7 +2879,7 @@
    },
    "loc": 151,
    "max_complexity": 12,
-   "sha256": "bf5d0ebffd261c59"
+   "sha256": "ae5688bc67af9f32"
   },
   "plex_renamer/gui_qt/main_window.py": {
    "coverage_percent": 85.2,
@@ -4839,7 +4839,7 @@
    "sha256": "1c0eff768080eb52"
   },
   "plex_renamer/keys.py": {
-   "coverage_percent": 44.4,
+   "coverage_percent": 100.0,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -4939,7 +4939,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "a86d9b08fa41b6f1f9509c257db9018288b7896281efe17dfd739cf0c7ef2769",
+   "input_digest": "45e912a09e60672f2864198aad16c9dfa9914713a0c5d1c807c722805619a1a3",
    "module_count": 177,
    "partial": false,
    "reason": null,
@@ -5010,7 +5010,7 @@
    }
   },
   "headline": {
-   "avg_coverage": 88.1,
+   "avg_coverage": 88.6,
    "coverage_failed": false,
    "coverage_partial": false,
    "coverage_stale": false,
@@ -5034,12 +5034,12 @@
     "test-referenced": 3
    },
    "files": 177,
-   "module_avg_coverage": 88.2,
+   "module_avg_coverage": 89.0,
    "modules_over_complexity": 62,
-   "statement_coverage": 88.1,
+   "statement_coverage": 88.6,
    "total_loc": 39129
   },
-  "input_digest": "a86d9b08fa41b6f1f9509c257db9018288b7896281efe17dfd739cf0c7ef2769",
+  "input_digest": "45e912a09e60672f2864198aad16c9dfa9914713a0c5d1c807c722805619a1a3",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -7192,7 +7192,7 @@
     "sha256": "c8145b58d67b2a9d"
    },
    "plex_renamer/engine/_rename_execution.py": {
-    "coverage_percent": 15.6,
+    "coverage_percent": 93.8,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7795,7 +7795,7 @@
     "sha256": "a83d17a54a3616b7"
    },
    "plex_renamer/gui_qt/app.py": {
-    "coverage_percent": 51.6,
+    "coverage_percent": 67.7,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -9776,7 +9776,7 @@
     "sha256": "1c0eff768080eb52"
    },
    "plex_renamer/keys.py": {
-    "coverage_percent": 44.4,
+    "coverage_percent": 100.0,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,

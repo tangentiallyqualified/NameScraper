@@ -27,7 +27,7 @@
             "qualifiedSymbol": "plex_renamer._job_store_db.connect_job_store.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -53,7 +53,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.ProbeResult.container_type#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -79,7 +79,7 @@
             "qualifiedSymbol": "plex_renamer._mkv_probe.clear_probe_cache#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 15
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -106,7 +106,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: En dash included in the module-level _BASE_TRIM_CHARS trim set alongside the hyphen, because release filenames use either character as a separator; dropping the en dash would leave those filenames untrimmed.",
@@ -139,7 +139,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Curly right single quotation mark in the I\u2019m/I'm contraction pattern that _fold_title_symbols must recognize in real filenames; replacing it would stop matching titles that use the typographic apostrophe.",
@@ -172,7 +172,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `\u2019` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Curly right single quotation mark that normalize_for_match strips (alongside the straight apostrophe) so \"Hell\u2019s\" and \"Hells\" compare equal; this is the specific character real titles carry.",
@@ -205,7 +205,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: En dash included in the _SEASON_RANGE_RE character class alongside the hyphen so \"Season 1\u20138\" folder names (which use an en dash, not a hyphen) are recognized as a season range.",
@@ -238,7 +238,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: En dash included in the strip() char set used to trim leftover separators from a title, matching release filenames that use an en dash rather than a hyphen.",
@@ -271,7 +271,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: En dash included in the module-level _YEAR_RANGE_RE regex alongside the hyphen so year ranges like \"1990\u20131995\" written with an en dash are still matched.",
@@ -304,7 +304,7 @@
             "qualifiedSymbol": "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
           },
           "ruleId": "ruff/SIM103",
-          "ruleIndex": 12,
+          "ruleIndex": 13,
           "suppressions": [
             {
               "justification": "accepted-debt: Collapsing the if/return/return into `return bool(is_extras_folder(parent))` removes two fully-covered statements from the plex_renamer root package's statement pool, which mechanically drags the package-level coverage floor ratchet below its committed baseline even though no code goes uncovered; left as-is rather than trip the coverage/package-floor ratchet for a purely cosmetic simplification.",
@@ -391,7 +391,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers._controller_movie_workflows.MediaControllerMovieWorkflow.snapshot_for_tab_switch::reportReturnType::Type \"MovieTabSnapshot\" is not assignable to return type \"dict[Unknown, Unknown]\" \"MovieTabSnapshot\" is not assignable to \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -418,7 +418,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers._controller_tv_workflows.MediaControllerTVWorkflow.snapshot_for_tab_switch::reportReturnType::Type \"TVTabSnapshot\" is not assignable to return type \"dict[Unknown, Unknown]\" \"TVTabSnapshot\" is not assignable to \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -525,7 +525,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.media_controller.MediaController.accept_tv_show#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -632,7 +632,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.pending_count#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -658,7 +658,7 @@
             "qualifiedSymbol": "plex_renamer.app.controllers.queue_controller.QueueController.add_single_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -684,7 +684,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18,
+          "ruleIndex": 19,
           "suppressions": [
             {
               "justification": "intentional-reservation: Exported ScanLifecycle compatibility value reserved for cache-refresh progress.",
@@ -716,7 +716,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.CacheEntry.last_accessed_at#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -743,7 +743,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.CacheEntry::reportUnknownVariableType::Type of \"metadata\" is partially unknown Type of \"metadata\" is \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -769,7 +769,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.actionable_indices#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -796,7 +796,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility::reportUnknownVariableType::Type of \"actionable_indices\" is partially unknown Type of \"actionable_indices\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -823,7 +823,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility::reportUnknownVariableType::Type of \"selected_indices\" is partially unknown Type of \"selected_indices\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -850,7 +850,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility::reportUnknownVariableType::Type of \"blocked_counts\" is partially unknown Type of \"blocked_counts\" is \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -876,7 +876,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.QueueEligibility.eligible_job_count#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -902,7 +902,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.mapped_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -928,7 +928,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.missing_episodes#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -954,7 +954,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideSummary.review_required#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -981,7 +981,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideRow::reportUnknownVariableType::Type of \"companions\" is partially unknown Type of \"companions\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -1007,7 +1007,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuideRow.episode_key#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -1033,7 +1033,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide.source_label#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -1060,7 +1060,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide::reportUnknownVariableType::Type of \"rows\" is partially unknown Type of \"rows\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -1087,7 +1087,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide::reportUnknownVariableType::Type of \"unmapped_primary_files\" is partially unknown Type of \"unmapped_primary_files\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -1114,7 +1114,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide::reportUnknownVariableType::Type of \"duplicate_files\" is partially unknown Type of \"duplicate_files\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -1141,7 +1141,7 @@
             "qualifiedSymbol": "plex_renamer.app.models.state_models.EpisodeGuide::reportUnknownVariableType::Type of \"orphan_companion_files\" is partially unknown Type of \"orphan_companion_files\" is \"list[Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownVariableType",
-          "ruleIndex": 10
+          "ruleIndex": 11
         },
         {
           "level": "warning",
@@ -1167,7 +1167,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService._connect.row_factory#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -1193,7 +1193,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.make_key#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1219,7 +1219,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1245,7 +1245,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1271,7 +1271,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1297,7 +1297,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1323,7 +1323,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -1349,7 +1349,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -1375,7 +1375,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1401,7 +1401,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.can_manual_refresh#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1427,7 +1427,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.get_rescan_scope#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -1453,7 +1453,7 @@
             "qualifiedSymbol": "plex_renamer.app.services.settings_service.SettingsService.match_country#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -1614,7 +1614,7 @@
             "qualifiedSymbol": "plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -1965,7 +1965,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator._duplicate_priority::reportReturnType::Type \"tuple[Literal[0, 1], float, int, Literal[0, 1], str]\" is not assignable to return type \"tuple[float, int, int, str]\" \"float\" is not assignable to \"int\" Type \"Literal[0, 1]\" is not assignable to type \"str\" \"Literal[0]\" is not assignable to \"str\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -1991,7 +1991,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -2342,7 +2342,7 @@
             "qualifiedSymbol": "plex_renamer.engine._batch_tv_duplicates.duplicate_priority::reportReturnType::Type \"tuple[int, float, int, Literal[0, 1], str]\" is not assignable to return type \"tuple[float, int, int, str]\" \"float\" is not assignable to \"int\" Type \"Literal[0, 1]\" is not assignable to type \"str\" \"Literal[0]\" is not assignable to \"str\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -2638,7 +2638,7 @@
             "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17,
+          "ruleIndex": 18,
           "suppressions": [
             {
               "justification": "public-api: MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression.",
@@ -2724,7 +2724,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.output_name#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -2750,7 +2750,7 @@
             "qualifiedSymbol": "plex_renamer.engine._mux_planner.MuxPlan.user_modified#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -2804,7 +2804,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: En dash included in the module-level _RE_LEADING_ABS_NUM regex alongside the hyphen so leading absolute-number prefixes separated by an en dash still parse.",
@@ -2837,7 +2837,7 @@
             "qualifiedSymbol": "plex_renamer.engine._tv_scanner_normal.build_normal_table.ensure_s0_titles::reportReturnType::Type \"Unknown | dict[int, str] | None\" is not assignable to return type \"dict[int, str]\" Type \"Unknown | dict[int, str] | None\" is not assignable to type \"dict[int, str]\" \"None\" is not assignable to \"dict[int, str]\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -2863,7 +2863,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.ROLE_VERSION#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -2889,7 +2889,7 @@
             "qualifiedSymbol": "plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -2915,7 +2915,7 @@
             "qualifiedSymbol": "plex_renamer.engine.show_details.ShowDetails.first_air_date#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -2941,7 +2941,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt._scale.row_height#1"
           },
           "ruleId": "vulture/unused-function",
-          "ruleIndex": 15
+          "ruleIndex": 16
         },
         {
           "level": "warning",
@@ -3183,7 +3183,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3209,7 +3209,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow.source_parent#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -3262,7 +3262,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.models.job_table_model.JobTableModel.headerData#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3423,7 +3423,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._automux_tracks.AutoMuxTracksWidget.minimumSizeHint#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3557,7 +3557,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesModel.mimeTypes#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3583,7 +3583,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3609,7 +3609,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkFilesView.startDrag.supportedActions#1"
           },
           "ruleId": "vulture/unused-variable",
-          "ruleIndex": 18
+          "ruleIndex": 19
         },
         {
           "level": "warning",
@@ -3635,7 +3635,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsModel.is_claimed#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3661,7 +3661,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3687,7 +3687,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dragMoveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3713,7 +3713,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3739,7 +3739,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel.show_state._claimed_file_by_key#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -3765,7 +3765,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._select_file#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3791,7 +3791,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16,
+          "ruleIndex": 17,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the chip strip.",
@@ -3850,7 +3850,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -3876,7 +3876,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3902,7 +3902,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3928,7 +3928,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -3954,7 +3954,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4196,7 +4196,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4222,7 +4222,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4248,7 +4248,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4274,7 +4274,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.filter_mode#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4300,7 +4300,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.row_for_preview_index#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4435,7 +4435,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_detail_preview._build_video_preview_entries::reportReturnType::Type \"list[JobPreviewRow]\" is not assignable to return type \"list[JobPreviewEntry]\" \"list[JobPreviewRow]\" is not assignable to \"list[JobPreviewEntry]\" Type parameter \"_T@list\" is invariant, but \"JobPreviewRow\" is not the same as \"JobPreviewEntry\" Consider switching from \"list\" to \"Sequence\" which is covariant#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -4515,7 +4515,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._job_list_tab._HoverRowDelegate.paint.backgroundBrush#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4649,7 +4649,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.entry_kind_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4675,7 +4675,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._roster_model.RosterModel.group_at#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -4701,7 +4701,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_subs_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4727,7 +4727,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._merge_langs_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4753,7 +4753,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._default_audio_edit#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4779,7 +4779,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_automux_page.AutoMuxSettingsPage._build_body._no_fear_cb#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4805,7 +4805,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._settings_tab_sections.SettingsTabSectionsBuilder.build_destinations_section._destinations_page#1"
           },
           "ruleId": "vulture/unused-attribute",
-          "ruleIndex": 14
+          "ruleIndex": 15
         },
         {
           "level": "warning",
@@ -4831,7 +4831,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.check_summary#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4857,7 +4857,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4883,7 +4883,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.episode_search_box#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4909,7 +4909,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.segmented_filter#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4935,7 +4935,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.approve_all_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4961,7 +4961,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.summary_label#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -4987,7 +4987,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._work_panel.MediaWorkPanel.overflow_button#1"
           },
           "ruleId": "vulture/unused-property",
-          "ruleIndex": 17
+          "ruleIndex": 18
         },
         {
           "level": "warning",
@@ -5094,7 +5094,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.nextCheckState#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5120,7 +5120,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16,
+          "ruleIndex": 17,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QCheckBox paintEvent override to render the master checkbox.",
@@ -5152,7 +5152,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16,
+          "ruleIndex": 17,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the spinner.",
@@ -5184,7 +5184,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16,
+          "ruleIndex": 17,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the busy overlay.",
@@ -5297,7 +5297,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragEnterEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5323,7 +5323,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dragLeaveEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5349,7 +5349,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.empty_state._DropZone.dropEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5375,7 +5375,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.set_checked#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5401,7 +5401,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_season_expanded#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5427,7 +5427,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.is_selection_valid#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5453,7 +5453,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.validation_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5479,7 +5479,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -5856,7 +5856,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16,
+          "ruleIndex": 17,
           "suppressions": [
             {
               "justification": "framework-callback: Qt invokes this QWidget paintEvent override to render the conveyor animation.",
@@ -5943,7 +5943,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Deliberate user-visible chip copy (e.g. \"S1\u2013S6\") for a collapsed season range, not an accidental paste; test_status_chip.py asserts this exact en-dash string, and switching to a hyphen would just be a different, equally-arbitrary typographic choice with no behavior benefit.",
@@ -5976,7 +5976,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Second en dash on the same line, in the chip's tooltip text (\"Seasons {first}\u2013{last} complete\"); same deliberate user-visible copy as the chip label, kept for consistency with it.",
@@ -6008,7 +6008,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -6034,7 +6034,7 @@
             "qualifiedSymbol": "plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -6168,7 +6168,7 @@
             "qualifiedSymbol": "plex_renamer.job_store.JobStore.reorder_job#1"
           },
           "ruleId": "vulture/unused-method",
-          "ruleIndex": 16
+          "ruleIndex": 17
         },
         {
           "level": "warning",
@@ -6276,7 +6276,7 @@
             "qualifiedSymbol": "scripts.audit._diff._baseline_snapshot::reportReturnType::Type \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown | dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | dict[Unknown, Unknown]\" is not assignable to return type \"dict[Unknown, Unknown]\" Type \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown | dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | dict[Unknown, Unknown]\" is not assignable to type \"dict[Unknown, Unknown]\" \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown]\" is not assignable to \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 9
+          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -10677,7 +10677,7 @@
             "qualifiedSymbol": "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `\u203a` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Regression assertion that the source no longer contains the retired \u203a chevron glyph; the character must stay literal for the substring check to test what it claims to test.",
@@ -13789,6 +13789,60 @@
           },
           "ruleId": "pyright/reportOptionalMemberAccess",
           "ruleIndex": 7
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_qt_app_bootstrap.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 37,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "\"_SuppressTransientPopups\" is private and used outside of the module in which it is declared"
+          },
+          "properties": {
+            "analyzer": "pyright",
+            "category": "typing",
+            "qualifiedSymbol": "tests.test_qt_app_bootstrap::reportPrivateUsage::\"_SuppressTransientPopups\" is private and used outside of the module in which it is declared#1"
+          },
+          "ruleId": "pyright/reportPrivateUsage",
+          "ruleIndex": 9
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_qt_app_bootstrap.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 63,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "\"_window_flag_names\" is private and used outside of the module in which it is declared"
+          },
+          "properties": {
+            "analyzer": "pyright",
+            "category": "typing",
+            "qualifiedSymbol": "tests.test_qt_app_bootstrap::reportPrivateUsage::\"_window_flag_names\" is private and used outside of the module in which it is declared#1"
+          },
+          "ruleId": "pyright/reportPrivateUsage",
+          "ruleIndex": 9
         },
         {
           "level": "warning",
@@ -19836,7 +19890,7 @@
             "qualifiedSymbol": "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
           },
           "ruleId": "ruff/SIM117",
-          "ruleIndex": 13,
+          "ruleIndex": 14,
           "suppressions": [
             {
               "justification": "accepted-debt: Combining the nested `with` statements into the parenthesized multi-context form requires 4 header lines instead of 2, which pushes this already-oversized legacy file 2 lines past its frozen LOC ceiling; left as nested `with` statements rather than trip the inventory/LOC ratchet for a purely cosmetic simplification.",
@@ -28914,7 +28968,7 @@
             "qualifiedSymbol": "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `\u2013` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Asserts the exact en-dash chip text (\"S1\u2013S6 \u2713\") produced by status_chip.py's _collapse_complete_runs; must match the production literal exactly.",
@@ -29271,7 +29325,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Fullwidth vertical line in a second real-world release-title fixture (\"Drugs \uff5c Off The Air \uff5c Adult Swim\") exercising the same token-boundary matching behavior.",
@@ -29304,7 +29358,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Second fullwidth vertical line on the same line, in the same real-world release-title fixture; same rationale as the first occurrence.",
@@ -29337,7 +29391,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Fullwidth vertical line as used in real-world release titles (e.g. \"Sex \uff5c Off the Air \uff5c Adult Swim\") that the token-aligned substring matcher must handle; an ASCII pipe would test a different, less representative input.",
@@ -29370,7 +29424,7 @@
             "qualifiedSymbol": "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `\uff5c` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
           },
           "ruleId": "ruff/RUF001",
-          "ruleIndex": 11,
+          "ruleIndex": 12,
           "suppressions": [
             {
               "justification": "intentional-literal: Second fullwidth vertical line on the same line, in the same real-world release-title fixture; same rationale as the first occurrence.",
@@ -30794,6 +30848,13 @@
               "name": "pyright-reportOptionalSubscript",
               "shortDescription": {
                 "text": "pyright/reportOptionalSubscript"
+              }
+            },
+            {
+              "id": "pyright/reportPrivateUsage",
+              "name": "pyright-reportPrivateUsage",
+              "shortDescription": {
+                "text": "pyright/reportPrivateUsage"
               }
             },
             {

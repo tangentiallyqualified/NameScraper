@@ -37,8 +37,8 @@ graph LR
 |---|---|
 | Modules | 177 |
 | Total LOC | 39129 |
-| Statement coverage | 88.1% |
-| Module-average coverage | 88.2% |
+| Statement coverage | 88.6% |
+| Module-average coverage | 89.0% |
 | Import cycles | 0 |
 | Modules over complexity threshold | 62 |
 | Dead symbols (high confidence) | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | b216c1ec5575 | - |
+| matched | coverage.py | f34954499c2d | - |
 
 ## Least-covered modules
 
@@ -55,14 +55,14 @@ graph LR
 |---|---:|---:|---:|
 | `plex_renamer/__main__.py` | 18 | 0 | 0.0% |
 | `plex_renamer/engine/_core.py` | 9 | 0 | 0.0% |
-| `plex_renamer/engine/_rename_execution.py` | 96 | 15 | 15.6% |
-| `plex_renamer/keys.py` | 45 | 20 | 44.4% |
 | `plex_renamer/gui_qt/_main_window_shortcuts.py` | 58 | 29 | 50.0% |
-| `plex_renamer/gui_qt/app.py` | 62 | 32 | 51.6% |
 | `plex_renamer/gui_qt/widgets/_media_workspace_view.py` | 44 | 26 | 59.1% |
 | `plex_renamer/gui_qt/widgets/_queue_tab_presentation.py` | 10 | 6 | 60.0% |
 | `plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py` | 107 | 65 | 60.7% |
+| `plex_renamer/gui_qt/app.py` | 62 | 42 | 67.7% |
 | `plex_renamer/gui_qt/widgets/_settings_tab_state.py` | 138 | 94 | 68.1% |
+| `plex_renamer/app/controllers/_movie_batch_helpers.py` | 90 | 62 | 68.9% |
+| `plex_renamer/engine/_batch_tv_match_policy.py` | 75 | 53 | 70.7% |
 
 ## Largest modules
 
@@ -247,5 +247,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:89` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input b216c1ec5575 by scripts\audit.cmd._
+_Generated from audit input f34954499c2d by scripts\audit.cmd._
 <!-- audit:generated:end overview -->
