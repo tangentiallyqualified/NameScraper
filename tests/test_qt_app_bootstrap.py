@@ -81,5 +81,33 @@ class QtAppBootstrapTests(QtSmokeBase):
         self.assertFalse(self.popup_filter.eventFilter(child, QEvent(QEvent.Type.Show)))
         self.assertEqual(child.windowOpacity(), 1.0)
 
+    def test_window_flag_names_renders_labels_for_known_flags(self):
+        # Characterization: the window-type flags share bits (Tool=0xB
+        # includes the Dialog/Popup/Window bits, etc.), and the helper uses
+        # a bitwise AND, so any single named type currently matches every
+        # entry in the known-flags table and renders the full joined list.
+        self.assertEqual(
+            _window_flag_names(Qt.WindowType.Tool),
+            "ToolTip|SplashScreen|Tool|Popup|Dialog|Sheet|Drawer",
+        )
+
     def test_window_flag_names_falls_back_to_hex_for_no_known_flags(self):
         self.assertEqual(_window_flag_names(Qt.WindowType.Widget), "0x0")
+
+    def test_debug_mode_logs_transient_candidates_and_still_suppresses(self):
+        from unittest.mock import patch
+
+        from PySide6.QtWidgets import QWidget
+
+        import plex_renamer.gui_qt.app as app_module
+
+        window = QWidget(None, Qt.WindowType.Tool)
+        self.addCleanup(window.deleteLater)
+        with (
+            patch.object(app_module, "_DEBUG_TRANSIENT_WINDOWS", True),
+            self.assertLogs("plex_renamer.gui_qt.app", level="DEBUG") as captured,
+        ):
+            handled = self.popup_filter.eventFilter(window, QEvent(QEvent.Type.Show))
+        self.assertFalse(handled)
+        self.assertEqual(window.windowOpacity(), 0.0)
+        self.assertTrue(any("Qt transient candidate" in message for message in captured.output))
