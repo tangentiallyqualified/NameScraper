@@ -227,7 +227,22 @@ def test_execute_rename_skips_season_rename_when_proper_name_exists(
     assert result.renamed_count == 1
     assert not improper.exists()  # improper dir deleted after becoming empty
     assert (proper / "Show - S01E01.mkv").exists()  # file moved to proper dir
-    assert "Season 01" not in result.log_entry["renamed_dirs"]  # Season 01 not renamed
+    assert result.log_entry["renamed_dirs"] == []  # no directory renames happened
+
+
+def test_execute_rename_renames_file_directly_under_root(tmp_path: Path) -> None:
+    root = tmp_path / "Show"
+    root.mkdir()
+    src = root / "ep1.mkv"  # sits directly under root, no season subdirectory
+    src.write_bytes(b"x")
+    item = _item(src, "Show - S01E01.mkv")
+
+    result = execute_rename([item], {0}, "Show", root)
+
+    assert result.renamed_count == 1
+    assert (root / "Show - S01E01.mkv").exists()
+    assert root.exists()  # root untouched by season normalization
+    assert result.log_entry["renamed_dirs"] == []
 
 
 def test_execute_rename_skips_unnamed_items(tmp_path: Path) -> None:
