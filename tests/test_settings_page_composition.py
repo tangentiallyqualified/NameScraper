@@ -58,6 +58,19 @@ class SettingsPageCompositionTests(QtSmokeBase):
         self.assertGreaterEqual(settings_stack.indexOf(metadata_page), 0)
         self.assertGreaterEqual(settings_stack.indexOf(automux_page), 0)
 
+    def test_api_keys_section_prefills_stored_key(self):
+        # Patch the keyring lookup so the stored-key prefill branch runs on
+        # every machine; unpatched, its coverage depends on whether the dev
+        # keyring holds a real TMDB key.
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        settings, _path = self._settings()
+        with patch("plex_renamer.keys.get_api_key", return_value="stored-key"):
+            tab = SettingsTab(settings_service=settings)
+        self.assertEqual(tab._api_key_input.text(), "stored-key")
+
     def test_page_edits_persist_when_settings_are_reloaded(self):
         from plex_renamer.app.services.settings_service import SettingsService
         from plex_renamer.gui_qt.widgets._settings_automux_page import AutoMuxSettingsPage

@@ -224,6 +224,22 @@ class FillerRotationTests(QtSmokeBase):
         self.assertEqual(len(set(seen)), len(w._fillers))
         w.stop()
 
+    def test_filler_rotation_wraps_with_fresh_shuffle(self):
+        # Pins the exhausted-order reshuffle branch deterministically; left to
+        # the rotation timer alone, its coverage depends on how long a scan
+        # happens to run on the measuring machine.
+        from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
+
+        w = ScanProgressWidget(media_type="tv")
+        w.start()
+        for _ in range(len(w._fillers)):
+            w._rotate_filler()
+        last_before_wrap = w._item_label.text()
+        w._rotate_filler()
+        self.assertEqual(w._filler_pos, 1)
+        self.assertNotEqual(w._item_label.text(), last_before_wrap)
+        w.stop()
+
     def test_filler_order_is_shuffled_per_start(self):
         import plex_renamer.gui_qt.widgets.scan_progress as mod
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget

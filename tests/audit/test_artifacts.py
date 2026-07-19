@@ -74,6 +74,30 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
     }.issubset(relative_paths)
 
 
+def test_input_files_restrict_to_git_tracked_when_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = _audit_repo(tmp_path)
+    tracked = ["plex_renamer/example.py", "pyproject.toml"]
+    monkeypatch.setattr(_artifacts, "tracked_files", lambda repo_root, *pathspecs: list(tracked))
+
+    relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+
+    assert relative_paths == sorted(tracked)
+
+
+def test_input_files_keep_glob_set_when_git_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = _audit_repo(tmp_path)
+    unfiltered = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+    monkeypatch.setattr(_artifacts, "tracked_files", lambda repo_root, *pathspecs: None)
+
+    relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+
+    assert relative_paths == unfiltered
+
+
 def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
     repo = _audit_repo(tmp_path)
     first = _artifacts.input_digest(repo)
