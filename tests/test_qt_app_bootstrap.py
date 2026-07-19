@@ -82,13 +82,27 @@ class QtAppBootstrapTests(QtSmokeBase):
         self.assertEqual(child.windowOpacity(), 1.0)
 
     def test_window_flag_names_renders_labels_for_known_flags(self):
-        # Characterization: the window-type flags share bits (Tool=0xB
-        # includes the Dialog/Popup/Window bits, etc.), and the helper uses
-        # a bitwise AND, so any single named type currently matches every
-        # entry in the known-flags table and renders the full joined list.
+        # The window-type flags share bits (Tool=0xb includes the
+        # Dialog/Popup/Window bits, etc.), so the helper must compare the
+        # resolved type exactly rather than bitwise-AND against each named
+        # flag. Distinct window types resolve to distinct, correct labels.
+        for flag, expected in (
+            (Qt.WindowType.ToolTip, "ToolTip"),
+            (Qt.WindowType.SplashScreen, "SplashScreen"),
+            (Qt.WindowType.Tool, "Tool"),
+            (Qt.WindowType.Popup, "Popup"),
+            (Qt.WindowType.Dialog, "Dialog"),
+            (Qt.WindowType.Sheet, "Sheet"),
+            (Qt.WindowType.Drawer, "Drawer"),
+        ):
+            with self.subTest(flag=flag):
+                self.assertEqual(_window_flag_names(flag), expected)
+
+    def test_window_flag_names_appends_modifier_flags_outside_the_type_mask(self):
+        combined = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
         self.assertEqual(
-            _window_flag_names(Qt.WindowType.Tool),
-            "ToolTip|SplashScreen|Tool|Popup|Dialog|Sheet|Drawer",
+            _window_flag_names(combined),
+            f"Tool|{hex(int(Qt.WindowType.FramelessWindowHint))}",
         )
 
     def test_window_flag_names_falls_back_to_hex_for_no_known_flags(self):
