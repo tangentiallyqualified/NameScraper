@@ -34,9 +34,7 @@ def test_test_files_map_direct_aliases_and_module_alias_attributes(synthetic_rep
     )
 
     inv = _inventory.build_inventory(synthetic_repo)
-    record = next(
-        f for f in inv["test_files"] if f["path"] == "tests/test_symbol_imports.py"
-    )
+    record = next(f for f in inv["test_files"] if f["path"] == "tests/test_symbol_imports.py")
 
     assert record["imports_modules"] == ["plex_renamer", "plex_renamer.alpha", "plex_renamer.beta"]
     assert "plex_renamer.alpha.dead_function" in record["imports_symbols"]
@@ -52,8 +50,20 @@ def test_docs_flag_broken_refs(synthetic_repo: Path):
     assert guide["last_touched"]  # git commit date
 
 
-def test_generated_audit_docs_are_excluded_from_content_inventory(
-        synthetic_repo: Path, repo_git):
+def test_doc_refs_to_gitignored_files_count_as_broken(synthetic_repo: Path):
+    (synthetic_repo / ".gitignore").write_text("plex_renamer/local_only.py\n", encoding="utf-8")
+    (synthetic_repo / "plex_renamer" / "local_only.py").write_text("X = 1\n", encoding="utf-8")
+    (synthetic_repo / "docs" / "local.md").write_text(
+        "See plex_renamer/local_only.py and plex_renamer/alpha.py.\n", encoding="utf-8"
+    )
+
+    inv = _inventory.build_inventory(synthetic_repo)
+    doc = next(d for d in inv["docs"] if d["path"] == "docs/local.md")
+
+    assert doc["broken_refs"] == ["plex_renamer/local_only.py"]
+
+
+def test_generated_audit_docs_are_excluded_from_content_inventory(synthetic_repo: Path, repo_git):
     generated_paths = (
         "docs/audit/CHANGES.md",
         "docs/audit/code-index/INDEX.md",
