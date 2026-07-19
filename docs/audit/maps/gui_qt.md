@@ -28,7 +28,7 @@
 - `plex_renamer/gui_qt/_main_window_state.py` — fan-in 1, fan-out 1, LOC 166
 - `plex_renamer/gui_qt/_main_window_tabs.py` — fan-in 1, fan-out 5, LOC 135
 - `plex_renamer/gui_qt/_main_window_tmdb.py` — fan-in 1, fan-out 0, LOC 85
-- `plex_renamer/gui_qt/app.py` — fan-in 1, fan-out 2, LOC 151
+- `plex_renamer/gui_qt/app.py` — fan-in 1, fan-out 2, LOC 161
 - `plex_renamer/gui_qt/main_window.py` — fan-in 1, fan-out 24, LOC 345
 - `plex_renamer/gui_qt/models/__init__.py` — fan-in 1, fan-out 2, LOC 6
 - `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py` — fan-in 1, fan-out 1, LOC 35
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input f34954499c2d by scripts\audit.cmd._
+_Generated from audit input 5b7780090472 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

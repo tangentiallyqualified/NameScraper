@@ -10,7 +10,7 @@
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
 - `plex_renamer/job_store.py` — fan-in 16, fan-out 5, LOC 644
 - `plex_renamer/keys.py` — fan-in 4, fan-out 1, LOC 78
-- `plex_renamer/parsing.py` — fan-in 24, fan-out 6, LOC 60
+- `plex_renamer/parsing.py` — fan-in 23, fan-out 6, LOC 60
 - `plex_renamer/thread_pool.py` — fan-in 12, fan-out 0, LOC 66
 - `plex_renamer/tmdb.py` — fan-in 7, fan-out 6, LOC 591
 
@@ -26,7 +26,7 @@
 - `plex_renamer/_mkv_probe.py` — fan-in 2, fan-out 1, LOC 131
 - `plex_renamer/_mkv_tags_render.py` — fan-in 1, fan-out 0, LOC 99
 - `plex_renamer/_nfo_render.py` — fan-in 1, fan-out 0, LOC 134
-- `plex_renamer/_parsing_episodes.py` — fan-in 1, fan-out 2, LOC 289
+- `plex_renamer/_parsing_episodes.py` — fan-in 1, fan-out 2, LOC 363
 - `plex_renamer/_parsing_names.py` — fan-in 1, fan-out 1, LOC 195
 - `plex_renamer/_parsing_seasons.py` — fan-in 2, fan-out 1, LOC 153
 - `plex_renamer/_parsing_subtitles.py` — fan-in 1, fan-out 1, LOC 88
@@ -39,5 +39,5 @@
 - `plex_renamer/_tmdb_transport.py` — fan-in 1, fan-out 0, LOC 166
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 891
 
-_Generated from audit input f34954499c2d by scripts\audit.cmd._
+_Generated from audit input 5b7780090472 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

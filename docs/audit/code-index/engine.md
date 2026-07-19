@@ -1,4 +1,4 @@
-<!-- Generated from audit input f34954499c2d; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 5b7780090472; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
@@ -85,9 +85,8 @@
 - `build_rename_job_from_items(items, checked_indices, media_type, tmdb_id, media_name, library_root, output_root, source_folder, show_folder_rename, poster_path, mux_plans) -> RenameJob` — Create a RenameJob from raw preview items. (used by: plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.engine, plex_renamer.engine._core)
 - Tests: tests/test_episode_projection.py, tests/test_queue_output_targets.py, tests/test_queue_submission_automux.py
 
-### `plex_renamer/engine/_rename_execution.py` — Rename execution helpers shared by the direct-rename and queue flows.
+### `plex_renamer/engine/_rename_execution.py` — Preview duplicate-detection helper used by the batch scan flows.
 - `check_duplicates(items) -> None` — Flag items that would collide on the same target path. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core)
-- `execute_rename(items, checked_indices, show_name, root_folder, show_folder_name) -> RenameResult` — Perform the actual file renames and moves for checked preview items. (used by: plex_renamer.engine, plex_renamer.engine._core)
 - Tests: tests/test_rename_execution.py
 
 ### `plex_renamer/engine/_scan_runtime.py` — Shared scan-control primitives for long-running engine operations.
@@ -152,7 +151,7 @@
 - `iter_season_folder_paths(entry) -> tuple[Path, ...]` — (no docstring) (used by: plex_renamer.engine._batch_tv_season_merge, plex_renamer.engine._tv_scanner_normal, plex_renamer.engine._tv_scanner_seasons)
 - `CompanionFile` — A non-video file renamed alongside its parent media file. (used by: plex_renamer.app.controllers._job_projection_helpers, plex_renamer.engine, plex_renamer.engine._movie_scanner)
 - `PreviewItem` — One file's rename plan.  The GUI reads these to build the preview. (used by: plex_renamer.app.controllers, plex_renamer.app.controllers._controller_match_helpers, plex_renamer.app.controllers._controller_movie_workflows, plex_renamer.app.controllers._controller_projection_workflow, plex_renamer.app.controllers._controller_session_models, plex_renamer.app.controllers._job_projection_helpers, plex_renamer.app.controllers._match_state_helpers, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers._tab_session_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.app.services.automux_service, plex_renamer.app.services.command_gating_service, plex_renamer.app.services.episode_mapping_service, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_episode_claims, plex_renamer.engine._episode_projection, plex_renamer.engine._movie_scanner, plex_renamer.engine._queue_bridge, plex_renamer.engine._rename_execution, plex_renamer.engine._tv_scanner, plex_renamer.engine._tv_scanner_consolidated, plex_renamer.engine._tv_scanner_postprocess, plex_renamer.gui_qt.widgets._media_helpers)
-- `RenameResult` — Outcome of an execute_rename call. (used by: plex_renamer._job_execution_filesystem, plex_renamer._job_execution_metadata, plex_renamer._job_execution_remux, plex_renamer.app.controllers.queue_controller, plex_renamer.engine, plex_renamer.engine._rename_execution, plex_renamer.gui_qt._main_window_feedback, plex_renamer.gui_qt.main_window, plex_renamer.job_executor)
+- `RenameResult` — Outcome of a rename-execution pass (see ``job_executor._execute_rename``). (used by: plex_renamer._job_execution_filesystem, plex_renamer._job_execution_metadata, plex_renamer._job_execution_remux, plex_renamer.app.controllers.queue_controller, plex_renamer.engine, plex_renamer.gui_qt._main_window_feedback, plex_renamer.gui_qt.main_window, plex_renamer.job_executor)
 - `SeasonCompleteness` — Completeness info for a single season. (used by: plex_renamer.engine, plex_renamer.engine._tv_scanner_postprocess, plex_renamer.gui_qt.widgets.status_chip)
 - `CompletenessReport` — Full completeness report for a TV series. (used by: plex_renamer.app.controllers, plex_renamer.engine, plex_renamer.engine._tv_scanner, plex_renamer.engine._tv_scanner_postprocess, plex_renamer.gui_qt.widgets.status_chip)
 - `TVScanStateScanner` — Episode metadata capability retained by a TV ``ScanState``. (used by: plex_renamer.app.services.episode_mapping_service, plex_renamer.app.services.episode_projection_cache)
