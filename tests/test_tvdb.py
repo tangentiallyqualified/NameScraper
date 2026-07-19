@@ -335,3 +335,34 @@ def test_details_are_cached_in_memory() -> None:
     calls_before = len(client._transport.calls)  # type: ignore[attr-defined]
     client.get_tv_details(81189)
     assert len(client._transport.calls) == calls_before  # type: ignore[attr-defined]
+
+
+def test_fetch_image_bytes_fetches_absolute_url() -> None:
+    client = _client({})
+    payload = client.fetch_image_bytes("https://artworks.thetvdb.com/banners/x.jpg")
+    assert payload == b"image-bytes"
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/x.jpg"
+    ]
+
+
+def test_fetch_image_bytes_prefixes_relative_banner_path() -> None:
+    client = _client({})
+    client.fetch_image_bytes("/banners/x.jpg")
+    assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
+        "https://artworks.thetvdb.com/banners/x.jpg"
+    ]
+
+
+def test_fetch_image_bytes_none_for_missing_path() -> None:
+    assert _client({}).fetch_image_bytes(None) is None
+
+
+def test_get_cached_poster_path_reads_details_cache() -> None:
+    client = _detail_client()
+    assert client.get_cached_poster_path(81189) is None  # nothing fetched yet
+    client.get_tv_details(81189)
+    assert client.get_cached_poster_path(81189) == (
+        "https://artworks.thetvdb.com/banners/posters/81189-10.jpg"
+    )
+    assert client.get_cached_poster_path(81189, media_type="movie") is None

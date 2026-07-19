@@ -27,3 +27,11 @@ def test_registry_has_tmdb_and_tvdb() -> None:
 def test_unknown_source_falls_back_to_tmdb() -> None:
     assert get_tv_provider_spec("garbage").name == "tmdb"
     assert get_tv_provider_spec("tvdb").name == "tvdb"
+
+
+def test_tvdb_client_satisfies_protocol() -> None:
+    from plex_renamer.tvdb import TVDBClient
+
+    client = TVDBClient("fake-key")
+    assert isinstance(client, MetadataProvider)
+    assert client.provider_name == "tvdb"

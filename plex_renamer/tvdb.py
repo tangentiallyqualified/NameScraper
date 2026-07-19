@@ -8,15 +8,21 @@ the same poster_path/still_path fields; image helpers detect "http".
 
 from __future__ import annotations
 
+import base64
+import io
 import logging
 from collections.abc import Callable
 from typing import Any
+
+from PIL import Image
 
 from ._tmdb_batch_search import (
     resolve_tv_batch_query as _resolve_tv_batch_query,  # type: ignore
     run_batch_search as _run_batch_search,  # type: ignore
 )
+from ._tmdb_image_cache import _TMDBImageCacheStore  # pyright: ignore[reportPrivateUsage]
 from ._tmdb_search_helpers import search_with_fallback as _run_search_with_fallback  # type: ignore
+from ._tmdb_transport import TMDBError
 from ._tvdb_transport import TVDBTransport
 
 log = logging.getLogger(__name__)
@@ -49,6 +55,9 @@ _LANG3_TO_ISO639_1 = {
 
 _DETAILS_NAMESPACE = "tvdb.details"
 _EPISODES_NAMESPACE = "tvdb.episodes"
+
+ARTWORK_BASE_URL = "https://artworks.thetvdb.com"
+_EXPORT_IMAGE_NAMESPACE = "tvdb.export_image"
 
 
 def _iso639_1(lang3: str | None) -> str | None:
@@ -175,6 +184,9 @@ class TVDBClient:
         self._episodes_cache: dict[int, list[dict[str, Any]]] = {}
         self._season_map_cache: dict[int, tuple[dict[int, dict[str, Any]], int]] = {}
         self._alt_titles_cache: dict[tuple[int, str], list[tuple[str, str]]] = {}
+        self._image_cache_store = _TMDBImageCacheStore(
+            image_cache_size=200, cache_service=cache_service
+        )
 
     # ─── Search ───────────────────────────────────────────────────────
 
@@ -350,3 +362,97 @@ class TVDBClient:
         self._episodes_cache.clear()
         self._season_map_cache.clear()
         self._alt_titles_cache.clear()
+        self._image_cache_store.clear_runtime_caches()
+
+    # ─── Images ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _absolute_url(image_path: str) -> str:
+        path = str(image_path).strip()
+        return path if path.startswith("http") else ARTWORK_BASE_URL + path
+
+    def fetch_image(self, image_path: str | None, target_width: int = 300) -> Image.Image | None:
+        if not image_path:
+            return None
+        cached = self._image_cache_store.get_image(image_path, target_width)
+        if cached is not None:
+            return cached
+        source = self._image_cache_store.get_source_image(image_path)
+        if source is None:
+            try:
+                payload = self._transport.fetch_bytes(self._absolute_url(image_path))
+                source = Image.open(io.BytesIO(payload))
+                source.load()
+                self._image_cache_store.store_source_image(image_path, source)
+            except (TMDBError, OSError, ValueError) as e:
+                log.debug("Failed to fetch TVDB image %s: %s", image_path, e)
+                return None
+        try:
+            scale = target_width / source.width
+            img = source.resize(  # pyright: ignore[reportUnknownMemberType]
+                (target_width, int(source.height * scale)), Image.Resampling.LANCZOS
+            )
+            self._image_cache_store.store_image(image_path, target_width, img)
+            return img
+        except (OSError, ValueError) as e:
+            log.debug("Failed to scale TVDB image %s: %s", image_path, e)
+            return None
+
+    def fetch_poster(
+        self,
+        media_id: int,
+        media_type: str = "tv",
+        season: int | None = None,
+        ep_still: str | None = None,
+        target_width: int = 300,
+    ) -> Image.Image | None:
+        if ep_still:
+            img = self.fetch_image(ep_still, target_width)
+            if img is not None:
+                return img
+        if media_type == "tv" and season is not None:
+            season_poster = self.get_season(media_id, season).get("season_poster_path")
+            if season_poster:
+                img = self.fetch_image(season_poster, target_width)
+                if img is not None:
+                    return img
+        poster = self.get_cached_poster_path(media_id, media_type)
+        if poster is None and media_type == "tv":
+            poster = (self.get_tv_details(media_id) or {}).get("poster_path")
+        return self.fetch_image(poster, target_width) if poster else None
+
+    def fetch_image_bytes(self, image_path: str | None, size: str = "original") -> bytes | None:
+        if not image_path:
+            return None
+        url = self._absolute_url(image_path)
+        cache_key = f"{size}::{url}"
+        if self._cache_service is not None:
+            lookup = self._cache_service.get(_EXPORT_IMAGE_NAMESPACE, cache_key)
+            if lookup.is_hit and lookup.value:
+                encoded = lookup.value.get("bytes_base64")
+                if encoded:
+                    try:
+                        return base64.b64decode(encoded)
+                    except (ValueError, TypeError):
+                        self._cache_service.invalidate(_EXPORT_IMAGE_NAMESPACE, cache_key)
+        try:
+            payload = self._transport.fetch_bytes(url)
+        except (TMDBError, OSError) as e:
+            log.debug("Failed to fetch TVDB export image %s: %s", url, e)
+            return None
+        if self._cache_service is not None and payload:
+            self._cache_service.put(
+                _EXPORT_IMAGE_NAMESPACE,
+                cache_key,
+                {"bytes_base64": base64.b64encode(payload).decode("ascii")},
+                metadata={"kind": "tvdb_export_image", "image_path": url, "size": size},
+            )
+        return payload or None
+
+    def get_cached_poster_path(self, media_id: int, media_type: str = "tv") -> str | None:
+        if media_type != "tv":
+            return None
+        details = self._details_cache.get(media_id)
+        if details is None:
+            details = self._cache_get(_DETAILS_NAMESPACE, str(media_id))
+        return (details or {}).get("poster_path")
