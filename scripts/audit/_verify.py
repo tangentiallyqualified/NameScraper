@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import stat
 from collections.abc import Callable
@@ -9,7 +10,10 @@ from pathlib import Path, PurePosixPath
 
 GENERATED_ROOT = Path("docs") / "audit"
 GENERATED_FILES = {Path("audit.sarif")}
-POLICY_INPUTS = {GENERATED_ROOT / "doc-ledger.toml"}
+POLICY_INPUTS = {
+    GENERATED_ROOT / "doc-ledger.toml",
+    GENERATED_ROOT / "engine-cycle-edges.toml",
+}
 _REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
 
@@ -215,10 +219,8 @@ def restore_generated(repo_root: Path, snapshot: dict[str, bytes]) -> None:
             _remove_link_like(path)
 
     for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
-        try:
+        with contextlib.suppress(OSError):
             directory.rmdir()
-        except OSError:
-            pass
 
     for path, content in validated.values():
         path.parent.mkdir(parents=True, exist_ok=True)

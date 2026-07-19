@@ -19,7 +19,7 @@ from ._queue_bridge import (
     build_rename_job_from_state,
     get_checked_indices_from_state,
 )
-from ._rename_execution import check_duplicates, execute_rename
+from ._rename_execution import check_duplicates
 from ._scan_runtime import CANCEL_SCAN, ScanCancelledError, _raise_if_cancelled
 from ._tv_scanner import TVScanner
 from .matching import (
@@ -32,9 +32,9 @@ from .matching import (
 )
 
 __all__ = [
+    "CANCEL_SCAN",
     "BatchMovieOrchestrator",
     "BatchTVOrchestrator",
-    "CANCEL_SCAN",
     "MovieScanner",
     "ScanCancelledError",
     "TVScanner",
@@ -47,7 +47,6 @@ __all__ = [
     "build_rename_job_from_items",
     "build_rename_job_from_state",
     "check_duplicates",
-    "execute_rename",
     "get_checked_indices_from_state",
     "pick_alternate_matches",
     "score_results",

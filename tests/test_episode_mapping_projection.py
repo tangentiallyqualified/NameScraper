@@ -11,6 +11,13 @@ from plex_renamer.engine import (
     ScanState,
     SeasonCompleteness,
 )
+from plex_renamer.engine._episode_projection import project_preview_items
+from plex_renamer.engine.episode_assignments import (
+    ORIGIN_AUTO,
+    REASON_MANUAL_UNASSIGN,
+    EpisodeAssignmentTable,
+    EpisodeSlot,
+)
 
 
 def _preview(
@@ -146,26 +153,16 @@ class EpisodeMappingProjectionTests(unittest.TestCase):
         guide = self.service.build_episode_guide(state)
 
         missing_keys = {
-            (row.season, row.episode)
-            for row in guide.rows
-            if row.status == "Missing File"
+            (row.season, row.episode) for row in guide.rows if row.status == "Missing File"
         }
         self.assertIn((1, 2), missing_keys)
         self.assertIn((0, 2), missing_keys)
         self.assertEqual(guide.summary.missing_episodes, 2)
 
 
-
 if __name__ == "__main__":
     unittest.main()
 
-
-from plex_renamer.engine.episode_assignments import (
-    ORIGIN_AUTO,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
-from plex_renamer.engine._episode_projection import project_preview_items
 
 ROOT = Path("C:/lib/Demo Show (2020)")
 SHOW = {"id": 9, "name": "Demo Show", "year": "2020"}
@@ -182,7 +179,9 @@ def table_state() -> ScanState:
     state = ScanState(folder=ROOT, media_info=SHOW)
     state.assignments = table
     state.preview_items = project_preview_items(
-        table, show_info=SHOW, root=ROOT,
+        table,
+        show_info=SHOW,
+        root=ROOT,
         media_fields={"media_id": 9, "media_name": "Demo Show"},
     )
     state.scanned = True
@@ -195,9 +194,7 @@ class TestTableBackedService:
         service = EpisodeMappingService()
         stray = next(p for p in state.preview_items if p.new_name is None)
         service.assign_file(state, stray, season=1, episodes=[2, 3])
-        updated = next(
-            p for p in state.preview_items if p.original.name == "stray.mkv"
-        )
+        updated = next(p for p in state.preview_items if p.original.name == "stray.mkv")
         assert updated.episodes == [2, 3]
         assert updated.status == "OK"
         assert updated.episode_confidence == 1.0
@@ -207,9 +204,7 @@ class TestTableBackedService:
         service = EpisodeMappingService()
         stray = next(p for p in state.preview_items if p.new_name is None)
         service.assign_file(state, stray, season=1, episodes=[1])
-        displaced = next(
-            p for p in state.preview_items if p.original.name == "e1.mkv"
-        )
+        displaced = next(p for p in state.preview_items if p.original.name == "e1.mkv")
         assert displaced.new_name is None  # back to unassigned
 
     def test_assign_or_extend_extends_contiguous(self):
@@ -234,10 +229,7 @@ class TestTableBackedService:
         service = EpisodeMappingService()
         mapped = next(p for p in state.preview_items if p.status == "OK")
         service.unassign_file(state, mapped)
-        assert all(
-            p.new_name is None
-            for p in state.preview_items if p.original.name == "e1.mkv"
-        )
+        assert all(p.new_name is None for p in state.preview_items if p.original.name == "e1.mkv")
 
     def test_approve_file(self):
         state = table_state()
@@ -248,9 +240,7 @@ class TestTableBackedService:
         service.reproject(state)
         review = next(p for p in state.preview_items if p.is_episode_review)
         service.approve_file(state, review)
-        approved = next(
-            p for p in state.preview_items if p.original.name == "low.mkv"
-        )
+        approved = next(p for p in state.preview_items if p.original.name == "low.mkv")
         assert approved.status == "OK"
 
     def test_slot_choices_show_claim_state(self):
@@ -276,19 +266,18 @@ class TestTableBackedService:
 
     def test_slot_choices_expose_all_claimants(self):
         state, service = self._state_with_conflict_on(season=1, episode=2)
-        choice = next(c for c in service.episode_slot_choices(state)
-                      if (c.season, c.episode) == (1, 2))
+        choice = next(
+            c for c in service.episode_slot_choices(state) if (c.season, c.episode) == (1, 2)
+        )
         assert len(choice.claimants) == 2
-        assert choice.claimed_file_id is None   # single-claim contract preserved
+        assert choice.claimed_file_id is None  # single-claim contract preserved
 
     def test_guide_lists_unassigned_with_reason(self):
         state = table_state()
         service = EpisodeMappingService()
         guide = service.build_episode_guide(state)
         assert guide.summary.unmapped_primary_files == 1
-        assert guide.unmapped_primary_files[0].reason == (
-            "could not parse episode number"
-        )
+        assert guide.unmapped_primary_files[0].reason == ("could not parse episode number")
 
     def test_shareable_file_choices_lists_adjacent_assigned(self):
         state = table_state()  # e1.mkv -> [1]; slots 1-4 exist
@@ -304,13 +293,6 @@ class TestTableBackedService:
         assert choices == []
 
 
-from plex_renamer.engine.episode_assignments import (
-    REASON_MANUAL_UNASSIGN,
-    EpisodeAssignmentTable,
-    EpisodeSlot,
-)
-
-
 def _table_state(*, slots: int = 4, files: tuple[str, ...] = ("a.mkv", "b.mkv", "c.mkv")):
     """ScanState backed by a real assignment table; all files start unassigned."""
     table = EpisodeAssignmentTable()
@@ -321,7 +303,9 @@ def _table_state(*, slots: int = 4, files: tuple[str, ...] = ("a.mkv", "b.mkv", 
         entry = table.add_file(Path(f"C:/lib/Show/{name}"))
         table.mark_unassigned(entry.file_id, "no episode parsed")
         file_ids.append(entry.file_id)
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
     state.assignments = table
     EpisodeMappingService().reproject(state)
@@ -344,7 +328,8 @@ class BulkMutationTests(unittest.TestCase):
         EpisodeMappingService.reproject = counting
         try:
             applied, skipped = self.service.apply_assignments(
-                state, [(file_ids[0], 1, 2), (file_ids[1], 1, 3)],
+                state,
+                [(file_ids[0], 1, 2), (file_ids[1], 1, 3)],
             )
         finally:
             EpisodeMappingService.reproject = original
@@ -357,7 +342,8 @@ class BulkMutationTests(unittest.TestCase):
     def test_apply_assignments_skips_invalid_pairs(self):
         state, file_ids = _table_state()
         applied, skipped = self.service.apply_assignments(
-            state, [(file_ids[0], 1, 1), (file_ids[1], 1, 99)],  # E99 has no slot
+            state,
+            [(file_ids[0], 1, 1), (file_ids[1], 1, 99)],  # E99 has no slot
         )
         self.assertEqual((applied, skipped), (1, 1))
         self.assertIsNotNone(state.assignments.assignment_for(file_ids[0]))
@@ -434,7 +420,7 @@ class BulkMutationTests(unittest.TestCase):
 
         EpisodeMappingService.reproject = counting
         try:
-            applied, skipped = self.service.apply_bulk(
+            applied, _skipped = self.service.apply_bulk(
                 state,
                 assign_pairs=[(file_ids[1], 1, 2), (file_ids[2], 1, 99)],
                 unassign_file_ids=[file_ids[0]],
@@ -448,13 +434,15 @@ class BulkMutationTests(unittest.TestCase):
     def test_apply_assignments_delegates_to_apply_bulk(self):
         state, file_ids = _table_state()
         applied, skipped = self.service.apply_assignments(
-            state, [(file_ids[0], 1, 1)],
+            state,
+            [(file_ids[0], 1, 1)],
         )
         self.assertEqual((applied, skipped), (1, 0))
         self.assertEqual(state.assignments.assignment_for(file_ids[0]).episodes, (1,))
 
 
 # ── Task 14: suggest_assignments (evidence-based auto-map) ──────────────
+
 
 class SuggestAssignmentsTests(unittest.TestCase):
     """auto_map_remaining must follow scan-time parse evidence, never a
@@ -472,7 +460,9 @@ class SuggestAssignmentsTests(unittest.TestCase):
             table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
         for name, (season_hint, episodes) in specs.items():
             entry = table.add_file(
-                ROOT / name, parsed_episodes=tuple(episodes), season_hint=season_hint,
+                ROOT / name,
+                parsed_episodes=tuple(episodes),
+                season_hint=season_hint,
             )
             table.mark_unassigned(entry.file_id, "could not parse episode number")
         state = ScanState(folder=ROOT, media_info=SHOW)
@@ -487,13 +477,15 @@ class SuggestAssignmentsTests(unittest.TestCase):
         return next(fid for fid, entry in table.files.items() if entry.path.name == name)
 
     def test_suggest_assignments_follows_parse_evidence(self):
-        state, service = self._state_with_parsed_files({
-            "Show - S01E03.mkv": (1, (3,)),
-            "Show - S01E01E02.mkv": (1, (1, 2)),
-            "randomname.mkv": (None, ()),
-        })
+        state, service = self._state_with_parsed_files(
+            {
+                "Show - S01E03.mkv": (1, (3,)),
+                "Show - S01E01E02.mkv": (1, (1, 2)),
+                "randomname.mkv": (None, ()),
+            }
+        )
         table = state.assignments
-        file_ids = [fid for fid in table.files]
+        file_ids = list(table.files)
         pairs = service.suggest_assignments(state, file_ids, taken=set())
         by_file: dict[int, list[tuple[int, int]]] = {}
         for fid, season, episode in pairs:
@@ -503,35 +495,41 @@ class SuggestAssignmentsTests(unittest.TestCase):
         unparsed = self._fid_by_name(table, "randomname.mkv")
         self.assertEqual(by_file[parsed3], [(1, 3)])
         self.assertEqual(sorted(by_file[multi]), [(1, 1), (1, 2)])
-        self.assertNotIn(unparsed, by_file)   # never positional-filled
+        self.assertNotIn(unparsed, by_file)  # never positional-filled
 
     def test_suggest_assignments_skips_when_target_slot_missing(self):
-        state, service = self._state_with_parsed_files({
-            "Show - S01E99.mkv": (1, (99,)),   # no S01E99 slot in the table
-        })
+        state, service = self._state_with_parsed_files(
+            {
+                "Show - S01E99.mkv": (1, (99,)),  # no S01E99 slot in the table
+            }
+        )
         table = state.assignments
         fid = self._fid_by_name(table, "Show - S01E99.mkv")
         pairs = service.suggest_assignments(state, [fid], taken=set())
         self.assertEqual(pairs, [])
 
     def test_suggest_assignments_skips_keys_already_in_taken(self):
-        state, service = self._state_with_parsed_files({
-            "Show - S01E01.mkv": (1, (1,)),
-        })
+        state, service = self._state_with_parsed_files(
+            {
+                "Show - S01E01.mkv": (1, (1,)),
+            }
+        )
         table = state.assignments
         fid = self._fid_by_name(table, "Show - S01E01.mkv")
         pairs = service.suggest_assignments(state, [fid], taken={(1, 1)})
         self.assertEqual(pairs, [])
 
     def test_suggest_assignments_does_not_double_claim_one_slot(self):
-        state, service = self._state_with_parsed_files({
-            "Show - S01E01.mkv": (1, (1,)),
-            "Show - S01E01 (dup).mkv": (1, (1,)),
-        })
+        state, service = self._state_with_parsed_files(
+            {
+                "Show - S01E01.mkv": (1, (1,)),
+                "Show - S01E01 (dup).mkv": (1, (1,)),
+            }
+        )
         table = state.assignments
-        file_ids = [fid for fid in table.files]
+        file_ids = list(table.files)
         pairs = service.suggest_assignments(state, file_ids, taken=set())
-        self.assertEqual(len(pairs), 1)   # only the first-seen claims the slot
+        self.assertEqual(len(pairs), 1)  # only the first-seen claims the slot
 
     def test_suggest_assignments_uses_taken_as_sole_source_not_claimed_slots(self):
         """Regression: the caller (panel) owns availability. A file that is
@@ -540,12 +538,14 @@ class SuggestAssignmentsTests(unittest.TestCase):
         must be able to re-map onto its OWN parsed slot. If the service also
         consulted table.claimed_slots(), this would wrongly stay blocked,
         breaking the Unassign-all -> Auto-map-remaining round trip."""
-        state, service = self._state_with_parsed_files({
-            "Show - S01E01.mkv": (1, (1,)),
-        })
+        state, service = self._state_with_parsed_files(
+            {
+                "Show - S01E01.mkv": (1, (1,)),
+            }
+        )
         table = state.assignments
         fid = self._fid_by_name(table, "Show - S01E01.mkv")
         table.assign(fid, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
-        self.assertIn((1, 1), table.claimed_slots())   # table itself still shows it claimed
+        self.assertIn((1, 1), table.claimed_slots())  # table itself still shows it claimed
         pairs = service.suggest_assignments(state, [fid], taken=set())
         self.assertEqual(pairs, [(fid, 1, 1)])

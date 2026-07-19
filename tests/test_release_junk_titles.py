@@ -1,12 +1,12 @@
 """RC17: release junk must not survive in extracted episode titles."""
-from plex_renamer.parsing import extract_episode
+
 from plex_renamer._parsing_titles import strip_release_junk_title
+from plex_renamer.parsing import extract_episode
 
 
 def test_strip_helper_truncates_at_first_noise_token():
     assert (
-        strip_release_junk_title("Execution 1080p CR WEB-DL DUAL AAC2 0 H 264-VARYG")
-        == "Execution"
+        strip_release_junk_title("Execution 1080p CR WEB-DL DUAL AAC2 0 H 264-VARYG") == "Execution"
     )
     assert (
         strip_release_junk_title("De-Zanitized, The Monkey Song & Nighty-Night Toon REPACK")
@@ -41,5 +41,5 @@ def test_part_title_survives_junk_strip():
 
 
 def test_clean_title_untouched():
-    eps, title, rel = extract_episode("Show - S01E05 - Armed and Dangerous.mkv")
+    eps, title, _rel = extract_episode("Show - S01E05 - Armed and Dangerous.mkv")
     assert eps == [5] and title == "Armed and Dangerous"

@@ -33,8 +33,8 @@ def scale_pixmap_for_device(
         return QPixmap()
     ratio = max(1.0, float(device_pixel_ratio or 1.0))
     pixel_size = QSize(
-        max(1, int(round(size.width() * ratio))),
-        max(1, int(round(size.height() * ratio))),
+        max(1, round(size.width() * ratio)),
+        max(1, round(size.height() * ratio)),
     )
     scaled = pixmap.scaled(
         pixel_size,
@@ -56,8 +56,8 @@ def build_placeholder_pixmap(
     """Create a styled placeholder artwork card for empty poster slots."""
     accent = accent or theme.color("accent")
     ratio = max(1.0, float(device_pixel_ratio or 1.0))
-    width = max(1, int(round(size.width() * ratio)))
-    height = max(1, int(round(size.height() * ratio)))
+    width = max(1, round(size.width() * ratio))
+    height = max(1, round(size.height() * ratio))
     pixmap = QPixmap(width, height)
     pixmap.fill(Qt.GlobalColor.transparent)
 
@@ -86,14 +86,27 @@ def build_placeholder_pixmap(
     title_font.setBold(True)
     painter.setFont(title_font)
     text_rect = QRectF(rect.left() + 20, rect.top() + 16, rect.width() - 28, rect.height() - 32)
-    painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), title)
+    painter.drawText(
+        text_rect,
+        int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+        title,
+    )
 
     if subtitle:
         subtitle_font = QFont("Segoe UI", max(7, min(11, height // 11)))
         painter.setFont(subtitle_font)
         painter.setPen(theme.qcolor("text_dim"))
-        subtitle_rect = QRectF(text_rect.left(), text_rect.top() + max(18.0, rect.height() * 0.28), text_rect.width(), text_rect.height() - 18)
-        painter.drawText(subtitle_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap), subtitle)
+        subtitle_rect = QRectF(
+            text_rect.left(),
+            text_rect.top() + max(18.0, rect.height() * 0.28),
+            text_rect.width(),
+            text_rect.height() - 18,
+        )
+        painter.drawText(
+            subtitle_rect,
+            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+            subtitle,
+        )
 
     painter.end()
     pixmap.setDevicePixelRatio(ratio)

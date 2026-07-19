@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import (
     _analyze,
+    _artifacts,
     _coverage,
     _graph,
     _inventory,
@@ -46,12 +47,7 @@ def _identity_sort_key(identity: tuple[str, str, str, str | None]) -> tuple[str,
     return path, analyzer, rule, symbol or ""
 
 
-def _normalized_python_files(records: object) -> list[str]:
-    if not isinstance(records, list):
-        return []
-    return sorted(
-        {str(record).replace("\\", "/") for record in records if isinstance(record, str) and record}
-    )
+_normalized_python_files = _quality_static.normalized_python_files
 
 
 def _build_baseline(current: dict, legacy_python_files: list[str]) -> dict:
@@ -109,9 +105,9 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
     return _build_baseline(current, _normalized_python_files(current.get("python_files")))
 
 
-def build_baseline(current: dict, previous_baseline: dict) -> dict:
+def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
     """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
-    if isinstance(previous_baseline.get("coverage"), dict):
+    if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")
         result = _coverage.evaluate_quality_coverage(
@@ -280,85 +276,25 @@ def _run_policy_ruff(repo_root: Path) -> list[dict]:
 
 
 _run_policy_format = _quality_static.run_policy_format
+_run_policy_pyright = _quality_static.run_policy_pyright
 _quality_complexity = _quality_static.quality_complexity
 
 
-def _effective_pyright_config(
-    repo_root: Path,
-    python_files: list[str],
-    legacy_python_files: list[str],
-) -> Path:
-    config = json.loads((repo_root / "pyrightconfig.json").read_text(encoding="utf-8"))
-    configured_strict = _normalized_python_files(config.get("strict"))
-    strict = sorted(
-        set(configured_strict)
-        | (set(_normalized_python_files(python_files)) - set(legacy_python_files))
-    )
-    config["strict"] = strict
-    path = repo_root / ".pyrightconfig.effective.json"
-    path.write_text(
-        json.dumps(config, indent=1, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    return path
+def _git_tracked_files(repo_root: Path) -> set[str]:
+    """Repo-relative paths git tracks under the quality roots.
 
-
-def _run_policy_pyright(
-    repo_root: Path,
-    python_files: list[str],
-    legacy_python_files: list[str],
-) -> list[dict]:
-    effective_config = _effective_pyright_config(repo_root, python_files, legacy_python_files)
-    project = effective_config.relative_to(repo_root).as_posix()
-    result = subprocess.run(
-        [sys.executable, "-m", "pyright", "--outputjson", "--project", project],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="strict",
-        timeout=300,
-    )
-    if result.returncode not in (0, 1):
-        raise QualityEvidenceError(f"pyright failed: {result.stderr.strip()[:200]}")
-    if result.returncode == 1 and not result.stdout.strip():
-        raise QualityEvidenceError(
-            f"pyright exited 1 with no output: {result.stderr.strip()[:200]}"
-        )
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        raise QualityEvidenceError("pyright emitted invalid JSON evidence") from exc
-    findings = []
-    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
-    for item in payload.get("generalDiagnostics", []):
-        path = _analyze._rel_to_repo(repo_root, item["file"])
-        start = item.get("range", {}).get("start", {})
-        line = int(start.get("line", 0)) + 1
-        column = int(start.get("character", 0)) + 1
-        rule = str(item.get("rule") or "diagnostic")
-        message = " ".join(str(item.get("message") or rule).split())
-        scope = _ratchet_identity.qualified_scope(repo_root, path, line, scope_cache)
-        findings.append(
-            {
-                "source": "pyright",
-                "rule": rule,
-                "path": path,
-                "line": line,
-                "column": column,
-                "symbol": f"{scope}::{rule}::{message}",
-                "message": message,
-                "confidence": 100,
-                "category": "typing",
-                "allowlisted": False,
-                "allowlist_reason": None,
-            }
-        )
-    return _ratchet_identity.suffix_occurrences(findings)
+    Quality-ratchet evidence must reflect only checked-in state: a
+    gitignored/untracked local file (e.g. a developer scratch script) must
+    not produce findings that a clean CI checkout would never see.
+    """
+    tracked = _artifacts.tracked_files(repo_root, *sorted(_QUALITY_PYTHON_ROOTS))
+    if tracked is None:
+        raise QualityEvidenceError("git ls-files failed; quality evidence needs tracked files")
+    return set(tracked)
 
 
 def _repository_python_records(repo_root: Path) -> list[dict]:
+    tracked = _git_tracked_files(repo_root)
     records = []
     for root_name in sorted(_QUALITY_PYTHON_ROOTS):
         quality_root = repo_root / root_name
@@ -367,12 +303,15 @@ def _repository_python_records(repo_root: Path) -> list[dict]:
         for path, relative_to_root in _inventory._iter_files(quality_root):
             if relative_to_root.suffix != ".py":
                 continue
+            relative = Path(root_name) / relative_to_root
+            relative_posix = relative.as_posix()
+            if relative_posix not in tracked:
+                continue
             try:
                 loc = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
             except OSError:
                 continue
-            relative = Path(root_name) / relative_to_root
-            records.append({"path": relative.as_posix(), "loc": loc})
+            records.append({"path": relative_posix, "loc": loc})
     return records
 
 
@@ -437,12 +376,20 @@ def _quality_modules(
     }
 
 
+def _is_untracked_quality_python(path: object, tracked: set[str]) -> bool:
+    normalized = str(path or "").replace("\\", "/")
+    if not normalized.endswith(".py") or normalized in tracked:
+        return False
+    return normalized.split("/", 1)[0] in _QUALITY_PYTHON_ROOTS
+
+
 def collect_current(repo_root: Path, baseline: dict | None = None) -> dict:
     """Collect fresh expanded-policy finding, complexity, and LOC evidence."""
     inventory = _inventory.build_inventory(repo_root)
     graph = _graph.build_graph(repo_root, inventory)
     analysis = _analyze.run_analysis(repo_root, inventory, graph)
     policy_ruff = _run_policy_ruff(repo_root)
+    tracked = _git_tracked_files(repo_root)
     python_records = _repository_python_records(repo_root)
     python_files = sorted(record["path"] for record in python_records)
     formatting = _run_policy_format(repo_root, python_files)
@@ -453,8 +400,13 @@ def collect_current(repo_root: Path, baseline: dict | None = None) -> dict:
     failed = _failed_analyzers(analysis)
     if failed:
         raise QualityEvidenceError("quality evidence unavailable from: " + ", ".join(failed))
+    findings = [
+        finding
+        for finding in _quality_findings(repo_root, analysis, policy_ruff, policy_pyright)
+        if not _is_untracked_quality_python(finding.get("path"), tracked)
+    ]
     return {
-        "findings": _quality_findings(repo_root, analysis, policy_ruff, policy_pyright),
+        "findings": findings,
         "modules": _quality_modules(repo_root, inventory, analysis, python_records),
         "complexity": _quality_complexity(repo_root, python_records),
         "formatting": formatting,
@@ -492,14 +444,14 @@ def _load_baseline(repo_root: Path) -> dict:
     return baseline
 
 
-def run_quality_baseline_update(repo_root: Path) -> int:
+def run_quality_baseline_update(repo_root: Path, accept_enlarged: bool = False) -> int:
     """Refresh a supported baseline without ever seeding newly discovered Python files."""
     try:
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
-        _quality_refresh.reject_new_debt(evaluate_ratchets(current, previous))
-        baseline = build_baseline(current, previous)
+        _quality_refresh.gate_refresh_debt(evaluate_ratchets(current, previous), accept_enlarged)
+        baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
         path.write_text(
             json.dumps(baseline, indent=1, sort_keys=True) + "\n",

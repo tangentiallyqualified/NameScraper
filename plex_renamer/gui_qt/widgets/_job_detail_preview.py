@@ -21,7 +21,7 @@ class JobPreviewRow:
     before_label: str = "Original"
     after_label: str = "New"
     badge: str = ""
-    children: tuple["JobPreviewRow", ...] = ()
+    children: tuple[JobPreviewRow, ...] = ()
 
 
 @dataclass(frozen=True)

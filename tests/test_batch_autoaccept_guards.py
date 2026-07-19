@@ -17,15 +17,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from plex_renamer.app.services import (
+    MovieLibraryDiscoveryService,
+    TVLibraryDiscoveryService,
+)
 from plex_renamer.engine._batch_orchestrators import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
 )
 from plex_renamer.engine.matching import MOVIE_CAP_SEQUEL_MISMATCH
-from plex_renamer.app.services import (
-    MovieLibraryDiscoveryService,
-    TVLibraryDiscoveryService,
-)
 
 
 class _FakeTMDBSameNameShows:
@@ -88,7 +88,8 @@ class SameNameShowTieDetectionTests(unittest.TestCase):
             self.assertEqual(len(states), 1)
             state = states[0]
             self.assertLessEqual(
-                state.confidence, 1.0,
+                state.confidence,
+                1.0,
                 f"confidence must stay on the [0,1] scale, got {state.confidence}",
             )
             self.assertTrue(
@@ -146,7 +147,8 @@ class BatchMovieConfidenceCapTests(unittest.TestCase):
             self.assertEqual(len(states), 1)
             state = states[0]
             self.assertLessEqual(
-                state.confidence, MOVIE_CAP_SEQUEL_MISMATCH,
+                state.confidence,
+                MOVIE_CAP_SEQUEL_MISMATCH,
                 "sequel-number mismatch must cap batch confidence to "
                 f"{MOVIE_CAP_SEQUEL_MISMATCH}, got {state.confidence}",
             )

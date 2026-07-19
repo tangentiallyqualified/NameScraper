@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
-
-from conftest_qt import QtSmokeBase
 
 
 class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
@@ -60,9 +59,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
     def test_empty_state_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/widgets/empty_state.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/widgets/empty_state.py").read_text(encoding="utf-8")
         self.assertIn("_scale", source)
         self.assertNotIn("setFixedSize(360, 220)", source)
         self.assertNotIn("QSize(48, 48)", source)
@@ -70,9 +67,7 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
     def test_scan_progress_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/widgets/scan_progress.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/widgets/scan_progress.py").read_text(encoding="utf-8")
         self.assertIn("_scale", source)
         for literal in (
             "setFixedWidth(480)",
@@ -186,7 +181,9 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         widget.update_progress(
             lifecycle="matching", phase="Matching", done=1, total=10, current_item=long_item
         )
-        self.assertEqual(widget._item_label.text(), long_item)     # ElidedLabel.text() returns full text
+        self.assertEqual(
+            widget._item_label.text(), long_item
+        )  # ElidedLabel.text() returns full text
         self.assertEqual(widget._item_label.toolTip(), long_item)
         widget.stop()
 
@@ -202,9 +199,9 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         first_quip = widget._item_label.text()
         self.assertNotEqual(first_quip, "a.mkv")
         widget._rotate_filler()
-        self.assertNotEqual(widget._item_label.text(), first_quip)   # rotates through the list
+        self.assertNotEqual(widget._item_label.text(), first_quip)  # rotates through the list
         widget.update_progress(lifecycle="matching", phase="Matching", current_item="b.mkv")
-        self.assertEqual(widget._item_label.text(), "b.mkv")         # honest item resets the line
+        self.assertEqual(widget._item_label.text(), "b.mkv")  # honest item resets the line
         widget.stop()
         self.assertFalse(widget._filler_timer.isActive())
 
@@ -244,22 +241,22 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
 
         animation.set_active(True)
         self.assertTrue(animation._clock.isValid())
-        update_calls.clear()   # drop the set_active(True) repaint
+        update_calls.clear()  # drop the set_active(True) repaint
         for _ in range(10):
             animation.advance()
-        self.assertEqual(len(update_calls), 10)   # active: every advance() repaints
+        self.assertEqual(len(update_calls), 10)  # active: every advance() repaints
 
         animation.set_active(False)
-        update_calls.clear()   # drop the set_active(False) repaint
+        update_calls.clear()  # drop the set_active(False) repaint
         animation.advance()
-        self.assertEqual(len(update_calls), 0)   # inactive: advance() is a no-op
+        self.assertEqual(len(update_calls), 0)  # inactive: advance() is a no-op
 
     def test_workspace_widget_primitives_use_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("_scale", source)
         # No bare integer class constants for pixel sizes
         self.assertNotIn("_INDICATOR_SIZE = 18", source)
@@ -277,34 +274,33 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         # only the DPI-unaware literal negative assertions remain here.
         from pathlib import Path
 
-        lifecycle = Path(
-            "plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py"
-        ).read_text(encoding="utf-8")
+        lifecycle = Path("plex_renamer/gui_qt/widgets/_media_workspace_lifecycle.py").read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn("QSize(32, 46)", lifecycle)
         self.assertNotIn("QSize(42, 60)", lifecycle)
 
-        delegate = Path(
-            "plex_renamer/gui_qt/widgets/_roster_delegate.py"
-        ).read_text(encoding="utf-8")
+        delegate = Path("plex_renamer/gui_qt/widgets/_roster_delegate.py").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("_scale", delegate)
 
-        ui = Path(
-            "plex_renamer/gui_qt/widgets/_media_workspace_ui.py"
-        ).read_text(encoding="utf-8")
+        ui = Path("plex_renamer/gui_qt/widgets/_media_workspace_ui.py").read_text(encoding="utf-8")
         self.assertNotIn("setMinimumWidth(340)", ui)
 
     def test_match_picker_dialog_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/widgets/match_picker_dialog.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/widgets/match_picker_dialog.py").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("_scale", source)
         self.assertNotIn("resize(520, 520)", source)
 
     def test_paint_statics_render_without_error(self):
         from PySide6.QtCore import QRect, QRectF, Qt
         from PySide6.QtGui import QImage, QPainter
+
         from plex_renamer.gui_qt import theme
         from plex_renamer.gui_qt.widgets._workspace_widget_primitives import (
             paint_check_indicator,
@@ -314,7 +310,11 @@ class WorkspaceWidgetPrimitiveTests(QtSmokeBase):
         image = QImage(64, 64, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(0)
         painter = QPainter(image)
-        for state in (Qt.CheckState.Unchecked, Qt.CheckState.PartiallyChecked, Qt.CheckState.Checked):
+        for state in (
+            Qt.CheckState.Unchecked,
+            Qt.CheckState.PartiallyChecked,
+            Qt.CheckState.Checked,
+        ):
             paint_check_indicator(painter, QRectF(2, 2, 20, 20), state)
         paint_mini_progress(painter, QRect(2, 40, 60, 4), value=55, color=theme.qcolor("success"))
         painter.end()

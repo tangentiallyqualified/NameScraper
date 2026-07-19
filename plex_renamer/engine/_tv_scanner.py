@@ -112,8 +112,7 @@ class TVScanner:
             return self._tmdb_seasons
         raw_tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
         self._tmdb_seasons = {
-            int(season_num): season_data
-            for season_num, season_data in raw_tmdb_seasons.items()
+            int(season_num): season_data for season_num, season_data in raw_tmdb_seasons.items()
         }
         return self._tmdb_seasons
 

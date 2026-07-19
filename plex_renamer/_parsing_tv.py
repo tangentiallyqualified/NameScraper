@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .constants import TRAILING_GROUP, VIDEO_EXTENSIONS
 from ._parsing_seasons import is_season_only_name
 from ._parsing_titles import clean_folder_name, extract_year
-
+from .constants import TRAILING_GROUP, VIDEO_EXTENSIONS
 
 _TV_EPISODE_PATTERNS = [
     re.compile(r"S\d{1,2}E\d{1,3}", re.IGNORECASE),

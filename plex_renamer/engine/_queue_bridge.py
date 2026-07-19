@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..constants import JobKind, MediaType
-from .models import PreviewItem, ScanState, file_mux_active
+from .models import MediaInfoValue, PreviewItem, ScanState, file_mux_active
+
+if TYPE_CHECKING:
+    from ..job_store import RenameJob
 
 
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
     """Return indices of checked, actionable preview items from a scan state."""
     return {
-        index for index, item in enumerate(state.preview_items)
+        index
+        for index, item in enumerate(state.preview_items)
         if state.check_vars.get(str(index)) is not None
         and state.check_vars[str(index)].get()
         and (_is_queue_actionable(item) or file_mux_active(state, index))
@@ -73,22 +78,25 @@ def _build_rename_ops(
         if plan:
             new_name = plan.get("output_name") or item.new_name
             merged_paths = {
-                m["source_relative"] for m in plan.get("subtitle_merges", [])
+                m["source_relative"]
+                for m in plan.get("subtitle_merges", [])
                 if m.get("action") == "merge"
             }
 
         is_selected = index in checked_indices
-        ops.append(RenameOp(
-            original_relative=original_rel,
-            new_name=new_name,
-            target_dir_relative=target_rel,
-            status=item.status,
-            season=item.season,
-            episodes=list(item.episodes),
-            selected=is_selected,
-            file_type="video",
-            mux=plan,
-        ))
+        ops.append(
+            RenameOp(
+                original_relative=original_rel,
+                new_name=new_name,
+                target_dir_relative=target_rel,
+                status=item.status,
+                season=item.season,
+                episodes=list(item.episodes),
+                selected=is_selected,
+                file_type="video",
+                mux=plan,
+            )
+        )
 
         merged_paths_normalized = {p.replace("\\", "/") for p in merged_paths}
         for companion in item.companions:
@@ -100,18 +108,30 @@ def _build_rename_ops(
             if companion_rel.replace("\\", "/") in merged_paths_normalized:
                 continue  # consumed by the mux — no rename op
 
-            ops.append(RenameOp(
-                original_relative=companion_rel,
-                new_name=companion.new_name,
-                target_dir_relative=target_rel,
-                status="OK",
-                season=item.season,
-                episodes=list(item.episodes),
-                selected=is_selected,
-                file_type=companion.file_type,
-            ))
+            ops.append(
+                RenameOp(
+                    original_relative=companion_rel,
+                    new_name=companion.new_name,
+                    target_dir_relative=target_rel,
+                    status="OK",
+                    season=item.season,
+                    episodes=list(item.episodes),
+                    selected=is_selected,
+                    file_type=companion.file_type,
+                )
+            )
 
     return ops
+
+
+def _narrowed_media_fields(
+    media_info: dict[str, MediaInfoValue],
+) -> tuple[str, str, str | None]:
+    """Narrow the ``MediaInfoValue`` fields a rename job needs to concrete types."""
+    name = str(media_info.get("name") or "")
+    year = str(media_info.get("year") or "")
+    poster_path = media_info.get("poster_path")
+    return name, year, poster_path if isinstance(poster_path, str) else None
 
 
 def build_rename_job_from_state(
@@ -121,17 +141,14 @@ def build_rename_job_from_state(
     show_folder_rename: str | None = None,
     checked_indices: set[int] | None = None,
     mux_plans: dict[int, dict] | None = None,
-) -> "RenameJob":
+) -> RenameJob:
     """Create a RenameJob from a TV batch scan state."""
     from ..job_store import RenameJob
-
     from ..parsing import build_show_folder_name
 
     checked_indices = checked_indices or get_checked_indices_from_state(state)
-    fallback_folder = show_folder_rename or build_show_folder_name(
-        state.media_info.get("name", ""),
-        state.media_info.get("year", ""),
-    )
+    name, year, poster_path = _narrowed_media_fields(state.media_info)
+    fallback_folder = show_folder_rename or build_show_folder_name(name, year)
     ops = _build_rename_ops(
         state.preview_items,
         checked_indices,
@@ -154,7 +171,7 @@ def build_rename_job_from_state(
         media_type=MediaType.TV,
         tmdb_id=state.show_id or 0,
         media_name=state.display_name,
-        poster_path=state.media_info.get("poster_path"),
+        poster_path=poster_path,
         library_root=str(library_root),
         output_root=str(output_root),
         source_folder=source_folder,
@@ -176,7 +193,7 @@ def build_rename_job_from_items(
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
     mux_plans: dict[int, dict] | None = None,
-) -> "RenameJob":
+) -> RenameJob:
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob
 

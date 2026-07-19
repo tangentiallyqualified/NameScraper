@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import threading
 
-
 # Sentinel value returned by the pick callback to cancel the entire scan.
 CANCEL_SCAN = object()
 

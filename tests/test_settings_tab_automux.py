@@ -1,4 +1,5 @@
 """AutoMux settings page: nav visibility, binary gating, persistence."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,12 +29,12 @@ class AutoMuxSettingsPageTests(QtSmokeBase):
         return AutoMuxSettingsPage(settings_service=svc)
 
     def test_nav_shows_automux_and_no_tools(self):
-        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
         from PySide6.QtCore import Qt
 
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
         tab = SettingsTab(settings_service=self._svc())
-        labels = [tab._settings_nav.item(i).text()
-                  for i in range(tab._settings_nav.count())]
+        labels = [tab._settings_nav.item(i).text() for i in range(tab._settings_nav.count())]
         self.assertIn("AutoMux", labels)
         self.assertNotIn("Tools", labels)
         item = tab._settings_nav.item(labels.index("AutoMux"))
@@ -41,8 +42,7 @@ class AutoMuxSettingsPageTests(QtSmokeBase):
         self.assertTrue(item.flags() & Qt.ItemFlag.ItemIsEnabled)
 
     def test_body_disabled_without_mkvmerge(self):
-        svc = self._svc(mkvmerge_path=str(
-            Path(self._main_window_tmp.name) / "missing.exe"))
+        svc = self._svc(mkvmerge_path=str(Path(self._main_window_tmp.name) / "missing.exe"))
         page = self._page(svc)
         self.assertFalse(page._body.isEnabled())
         self.assertIn("not found", page._binary_status.text().lower())

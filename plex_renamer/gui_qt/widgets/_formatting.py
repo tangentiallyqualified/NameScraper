@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def clamped_percent(score: float) -> int:
-    return max(0, min(100, int(round(score * 100))))
+    return max(0, min(100, round(score * 100)))
 
 
 def percent_text(score: float) -> str:

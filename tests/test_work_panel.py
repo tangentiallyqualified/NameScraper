@@ -1,5 +1,6 @@
 # tests/test_work_panel.py
 """Work panel assembly: header, strip, toolbar rules, scroll-to-season."""
+
 from __future__ import annotations
 
 from conftest_qt import QtSmokeBase
@@ -82,7 +83,7 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         self.assertTrue(panel.approve_all_button.isVisible() or not panel.isVisible())
         panel.show()
-        self.assertTrue(panel.approve_all_button.isVisible())   # guide has a Review row
+        self.assertTrue(panel.approve_all_button.isVisible())  # guide has a Review row
         panel.close()
 
     def test_filter_and_search_signals(self):
@@ -123,7 +124,9 @@ class WorkPanelTests(QtSmokeBase):
 
         state, guide = _guide_state()
         guide.unmapped_primary_files = [
-            UnmappedFileRow(original=Path(f"C:/lib/Show/unassigned{i}.mkv"), reason="no episode parsed")
+            UnmappedFileRow(
+                original=Path(f"C:/lib/Show/unassigned{i}.mkv"), reason="no episode parsed"
+            )
             for i in range(count)
         ]
         panel = self._panel(state, guide)
@@ -172,10 +175,14 @@ class WorkPanelTests(QtSmokeBase):
 
     def test_movie_mode_hides_tv_toolbar(self):
         from pathlib import Path
+
         from plex_renamer.engine.models import ScanState
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
         panel = MediaWorkPanel(media_type="movie")
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
@@ -183,7 +190,9 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(panel.segmented_filter.isVisible())
         self.assertFalse(panel.search_box.isVisible())
         self.assertFalse(panel.episode_search_box.isVisible())
-        self.assertIsNotNone(panel.master_check)   # shown/hidden by update_master_state (Task 5 wiring)
+        self.assertIsNotNone(
+            panel.master_check
+        )  # shown/hidden by update_master_state (Task 5 wiring)
         self.assertEqual(len(panel._strip_buttons), 0)
         panel.close()
 
@@ -289,7 +298,9 @@ class WorkPanelTests(QtSmokeBase):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         fired: list[tuple] = []
-        panel.inline_row_action.connect(lambda index, action_id: fired.append((index.row(), action_id)))
+        panel.inline_row_action.connect(
+            lambda index, action_id: fired.append((index.row(), action_id))
+        )
         index = panel.model.index(3, 0)
         panel.table_view.inline_action_clicked.emit(index, "assign_file")
         self.assertEqual(fired, [(3, "assign_file")])
@@ -302,10 +313,14 @@ class WorkPanelTests(QtSmokeBase):
 
     def test_movie_mode_hides_overflow(self):
         from pathlib import Path
+
         from plex_renamer.engine.models import ScanState
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
         panel = MediaWorkPanel(media_type="movie")
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
@@ -315,6 +330,7 @@ class WorkPanelTests(QtSmokeBase):
 
     def _movie_state_actionable(self):
         from pathlib import Path
+
         from plex_renamer.engine.models import PreviewItem, ScanState
 
         state = ScanState(
@@ -322,7 +338,7 @@ class WorkPanelTests(QtSmokeBase):
             media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
         )
         state.scanned = True
-        state.match_origin = "manual"   # avoid needs_review gating on default confidence=0.0
+        state.match_origin = "manual"  # avoid needs_review gating on default confidence=0.0
         state.preview_items = [
             PreviewItem(
                 original=Path("C:/lib/Movie/movie.mkv"),
@@ -353,11 +369,14 @@ class WorkPanelTests(QtSmokeBase):
         # table sits ABOVE the AutoMux tracks section, sized to its own
         # content, while the tracks host takes the remaining vertical space.
         from PySide6.QtWidgets import QWidget
+
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
         panel = MediaWorkPanel(media_type="movie")
         state = self._movie_state_actionable()
-        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.show_state(
+            state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)")
+        )
         panel.show()
 
         tracks = QWidget()
@@ -405,11 +424,14 @@ class WorkPanelTests(QtSmokeBase):
         # tracks host, creating a dead gap INSIDE stack_host instead of
         # routing that space to the tracks section (spec 2a).
         from PySide6.QtWidgets import QWidget
+
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
         panel = MediaWorkPanel(media_type="movie")
         state = self._movie_state_actionable()
-        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.show_state(
+            state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)")
+        )
         panel.resize(760, 900)
         panel.show()
 
@@ -429,7 +451,8 @@ class WorkPanelTests(QtSmokeBase):
         # compact table needs -- otherwise the excess becomes a dead gap
         # inside the host that never reaches the tracks section below it.
         self.assertLessEqual(
-            stack_host.height(), table_cap + 20,
+            stack_host.height(),
+            table_cap + 20,
             f"stack_host got {stack_host.height()}px but the table only needs "
             f"{table_cap}px -- freed space is trapped as a dead gap instead "
             f"of going to the tracks section",
@@ -438,7 +461,8 @@ class WorkPanelTests(QtSmokeBase):
         # The freed space must instead go to the tracks section, not
         # disappear as blank space between the folder block and the tracks.
         self.assertGreater(
-            tracks.height(), panel.height() - table_cap - 200,
+            tracks.height(),
+            panel.height() - table_cap - 200,
             "tracks section did not receive the freed panel space",
         )
         panel.close()
@@ -455,21 +479,33 @@ class WorkPanelTests(QtSmokeBase):
 
         panel = MediaWorkPanel(media_type="movie")
         state = self._movie_state_actionable()
-        panel.show_state(state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)"))
+        panel.show_state(
+            state, collapsed_sections=set(), folder_preview=("Movie.2021.1080p", "Movie (2021)")
+        )
         panel.resize(760, 900)
         panel.show()
 
         plan = {
             "output_name": "Movie.mkv",
             "track_decisions": [
-                {"track_id": i, "track_type": "audio", "codec": "aac",
-                 "language": "eng", "name": f"Track {i}", "keep": True,
-                 "make_default": i == 0, "reason": "retained"}
+                {
+                    "track_id": i,
+                    "track_type": "audio",
+                    "codec": "aac",
+                    "language": "eng",
+                    "name": f"Track {i}",
+                    "keep": True,
+                    "make_default": i == 0,
+                    "reason": "retained",
+                }
                 for i in range(20)
             ],
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
         tracks = AutoMuxTracksWidget()
         tracks.show_plan(plan)
@@ -481,9 +517,9 @@ class WorkPanelTests(QtSmokeBase):
         self._app.processEvents()
 
         self.assertGreater(
-            tracks._rows_scroll.height(), _scale.px(8 * 24),
-            "the movie host must lift the 8-row cap so a 20-track plan's "
-            "viewport can grow past it",
+            tracks._rows_scroll.height(),
+            _scale.px(8 * 24),
+            "the movie host must lift the 8-row cap so a 20-track plan's viewport can grow past it",
         )
 
         # The gap between the tracks widget's bottom and the panel's bottom
@@ -493,7 +529,8 @@ class WorkPanelTests(QtSmokeBase):
         tracks_bottom = tracks.mapTo(panel, tracks.rect().bottomLeft()).y()
         margin = panel.layout().contentsMargins().bottom()
         self.assertLessEqual(
-            panel_bottom - tracks_bottom, margin + _scale.px(8),
+            panel_bottom - tracks_bottom,
+            margin + _scale.px(8),
             f"{panel_bottom - tracks_bottom}px gap below the tracks widget "
             f"exceeds the panel's own {margin}px margin",
         )
@@ -503,8 +540,8 @@ class WorkPanelTests(QtSmokeBase):
         state, guide = _guide_state()
         panel = self._panel(state, guide)
         before = [id(button) for button in panel._strip_buttons]
-        self.assertTrue(before)                       # fixture renders at least one chip
-        panel.refresh_header(state)                   # action-bar sync repeats this constantly
+        self.assertTrue(before)  # fixture renders at least one chip
+        panel.refresh_header(state)  # action-bar sync repeats this constantly
         panel.refresh_header(state)
         self.assertEqual([id(button) for button in panel._strip_buttons], before)
         panel.close()
@@ -514,7 +551,7 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         before = [id(button) for button in panel._strip_buttons]
         season = next(iter(state.completeness.seasons.values()))
-        season.matched += 1                           # chip text/tone derives from this
+        season.matched += 1  # chip text/tone derives from this
         panel.refresh_header(state)
         after = [id(button) for button in panel._strip_buttons]
         self.assertNotEqual(after, before)
@@ -591,7 +628,7 @@ class WorkPanelTests(QtSmokeBase):
         # real (here: wide-enough-to-fit) width.
         state, guide = _guide_state()
         panel = self._panel_unshown(state, guide)
-        panel._overview_label.setFixedWidth(0)   # never-laid-out cache-hit condition
+        panel._overview_label.setFixedWidth(0)  # never-laid-out cache-hit condition
         short_overview = "A brief show synopsis in a single short sentence."
         panel._apply_overview_text(short_overview, "tok")
 
@@ -636,7 +673,7 @@ class WorkPanelTests(QtSmokeBase):
         panel._overview_label.setText("stubbed overview text")
 
         line_spacing = 20
-        gap_height = 2 * line_spacing + 3   # strictly between 41 and 46
+        gap_height = 2 * line_spacing + 3  # strictly between 41 and 46
 
         class _StubMetrics:
             def lineSpacing(self):
@@ -651,7 +688,8 @@ class WorkPanelTests(QtSmokeBase):
         panel._apply_overview_clamp()
         clamp_max = panel._overview_label.maximumHeight()
         self.assertGreaterEqual(
-            clamp_max, gap_height,
+            clamp_max,
+            gap_height,
             "sanity check: the clamp must not actually clip this height",
         )
         self.assertFalse(
@@ -681,7 +719,8 @@ class WorkPanelTests(QtSmokeBase):
 
         self.assertGreater(toggle.minimumWidth(), 0)
         self.assertEqual(
-            toggle.minimumWidth(), toggle.maximumWidth(),
+            toggle.minimumWidth(),
+            toggle.maximumWidth(),
             "toggle width must be fixed so 'more'/'less' can't resize it",
         )
 
@@ -719,7 +758,7 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         panel.show()
         fm = panel._overview_label.fontMetrics()
-        two_lines = 2 * fm.lineSpacing() + _scale.px(6)   # _OVERVIEW_CLAMP_PAD_U
+        two_lines = 2 * fm.lineSpacing() + _scale.px(6)  # _OVERVIEW_CLAMP_PAD_U
 
         panel._apply_overview_text("A short one-line overview.", "tok-a")
         self._app.processEvents()
@@ -729,7 +768,9 @@ class WorkPanelTests(QtSmokeBase):
         panel._apply_overview_text(("Long overview. " * 60).strip(), "tok-b")
         self._app.processEvents()
         self.assertEqual(panel._overview_label.minimumHeight(), two_lines)
-        self.assertEqual(panel._overview_label.maximumHeight(), two_lines)   # still clamped collapsed
+        self.assertEqual(
+            panel._overview_label.maximumHeight(), two_lines
+        )  # still clamped collapsed
         panel.close()
 
     def test_series_chip_present_in_strip(self):
@@ -741,10 +782,14 @@ class WorkPanelTests(QtSmokeBase):
 
     def test_series_chip_hidden_in_movie_mode(self):
         from pathlib import Path
+
         from plex_renamer.engine.models import ScanState
         from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 
-        state = ScanState(folder=Path("C:/lib/Movie"), media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"})
+        state = ScanState(
+            folder=Path("C:/lib/Movie"),
+            media_info={"id": 9, "title": "Movie", "year": "2021", "_media_type": "movie"},
+        )
         state.scanned = True
         panel = MediaWorkPanel(media_type="movie")
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
@@ -809,7 +854,8 @@ class WorkPanelTests(QtSmokeBase):
         self.assertFalse(hasattr(panel, "_queue_preflight_label"))
         outer = panel.layout()
         sub_layouts = [
-            item.layout() for item in (outer.itemAt(i) for i in range(outer.count()))
+            item.layout()
+            for item in (outer.itemAt(i) for i in range(outer.count()))
             if item.layout() is not None
         ]
         toolbar = next(lay for lay in sub_layouts if lay.indexOf(panel.approve_all_button) != -1)
@@ -832,7 +878,8 @@ class WorkPanelTests(QtSmokeBase):
         panel = self._panel(state, guide)
         outer = panel.layout()
         sub_layouts = [
-            item.layout() for item in (outer.itemAt(i) for i in range(outer.count()))
+            item.layout()
+            for item in (outer.itemAt(i) for i in range(outer.count()))
             if item.layout() is not None
         ]
         title_row = next(lay for lay in sub_layouts if lay.indexOf(panel._title_label) != -1)

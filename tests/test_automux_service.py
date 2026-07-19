@@ -1,4 +1,5 @@
 """Session AutoMux planning: settings snapshot, probing, plan attachment."""
+
 from pathlib import Path
 
 from plex_renamer._mkv_probe import MediaTrack, ProbeResult
@@ -34,7 +35,10 @@ def _item(tmp_path, *, companions=()):
         original=tmp_path / "lib" / "Show" / "a.mkv",
         new_name="Show - S01E01 - Pilot.mkv",
         target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
-        season=1, episodes=[1], status="OK", media_type="tv",
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
         companions=list(companions),
     )
 
@@ -49,12 +53,30 @@ def _state(tmp_path, item):
 
 
 def _probe_ok():
-    return ProbeResult(path="a.mkv", ok=True, tracks=[
-        MediaTrack(track_id=0, track_type="video", codec="h264",
-                   language="und", name="", is_default=True, is_forced=False),
-        MediaTrack(track_id=1, track_type="audio", codec="aac",
-                   language="eng", name="", is_default=True, is_forced=False),
-    ])
+    return ProbeResult(
+        path="a.mkv",
+        ok=True,
+        tracks=[
+            MediaTrack(
+                track_id=0,
+                track_type="video",
+                codec="h264",
+                language="und",
+                name="",
+                is_default=True,
+                is_forced=False,
+            ),
+            MediaTrack(
+                track_id=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                name="",
+                is_default=True,
+                is_forced=False,
+            ),
+        ],
+    )
 
 
 def test_mux_settings_snapshot(tmp_path):
@@ -77,12 +99,16 @@ def test_automux_active_requires_toggle_and_binary(tmp_path):
 
 def test_companion_subs_derive_raw_tags(tmp_path):
     comps = [
-        CompanionFile(original=tmp_path / "lib" / "Show" / "a.eng.srt",
-                      new_name="Show - S01E01 - Pilot.eng.srt",
-                      file_type="subtitle"),
-        CompanionFile(original=tmp_path / "lib" / "Show" / "a.srt",
-                      new_name="Show - S01E01 - Pilot.srt",
-                      file_type="subtitle"),
+        CompanionFile(
+            original=tmp_path / "lib" / "Show" / "a.eng.srt",
+            new_name="Show - S01E01 - Pilot.eng.srt",
+            file_type="subtitle",
+        ),
+        CompanionFile(
+            original=tmp_path / "lib" / "Show" / "a.srt",
+            new_name="Show - S01E01 - Pilot.srt",
+            file_type="subtitle",
+        ),
     ]
     item = _item(tmp_path, companions=comps)
     pairs = companion_subs_for_item(item, tmp_path / "lib")
@@ -94,9 +120,11 @@ def test_companion_subs_derive_raw_tags(tmp_path):
 
 def test_ensure_state_plans_attaches_plan(tmp_path, monkeypatch):
     svc = _settings(tmp_path)
-    comp = CompanionFile(original=tmp_path / "lib" / "Show" / "a.eng.srt",
-                         new_name="Show - S01E01 - Pilot.eng.srt",
-                         file_type="subtitle")
+    comp = CompanionFile(
+        original=tmp_path / "lib" / "Show" / "a.eng.srt",
+        new_name="Show - S01E01 - Pilot.eng.srt",
+        file_type="subtitle",
+    )
     state = _state(tmp_path, _item(tmp_path, companions=[comp]))
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     ensure_state_plans(state, svc, tmp_path / "lib")
@@ -108,22 +136,28 @@ def test_ensure_state_plans_attaches_plan(tmp_path, monkeypatch):
 
 def test_ensure_skips_user_modified_and_disabled(tmp_path, monkeypatch):
     svc = _settings(tmp_path)
-    comp = CompanionFile(original=tmp_path / "lib" / "Show" / "a.eng.srt",
-                         new_name="Show - S01E01 - Pilot.eng.srt",
-                         file_type="subtitle")
+    comp = CompanionFile(
+        original=tmp_path / "lib" / "Show" / "a.eng.srt",
+        new_name="Show - S01E01 - Pilot.eng.srt",
+        file_type="subtitle",
+    )
     state = _state(tmp_path, _item(tmp_path, companions=[comp]))
-    sentinel = {"output_name": "X.mkv", "track_decisions": [],
-                "subtitle_merges": [], "strip_track_names": False,
-                "no_fear": False, "mkvmerge_path": "", "warnings": [],
-                "user_modified": True}
+    sentinel = {
+        "output_name": "X.mkv",
+        "track_decisions": [],
+        "subtitle_merges": [],
+        "strip_track_names": False,
+        "no_fear": False,
+        "mkvmerge_path": "",
+        "warnings": [],
+        "user_modified": True,
+    }
     state.mux_plans[0] = dict(sentinel)
     calls = []
-    monkeypatch.setattr(
-        svc_mod, "probe_file",
-        lambda mkv, path: calls.append(path) or _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: calls.append(path) or _probe_ok())
     ensure_state_plans(state, svc, tmp_path / "lib")
-    assert state.mux_plans[0] == sentinel        # untouched (spec §5.1)
-    assert calls == []                           # not even probed
+    assert state.mux_plans[0] == sentinel  # untouched (spec §5.1)
+    assert calls == []  # not even probed
 
     state.automux_disabled = True
     assert effective_mux_plans(state) is None
@@ -132,13 +166,15 @@ def test_ensure_skips_user_modified_and_disabled(tmp_path, monkeypatch):
 
 def test_probe_failure_records_error_and_no_plan(tmp_path, monkeypatch):
     svc = _settings(tmp_path)
-    comp = CompanionFile(original=tmp_path / "lib" / "Show" / "a.eng.srt",
-                         new_name="Show - S01E01 - Pilot.eng.srt",
-                         file_type="subtitle")
+    comp = CompanionFile(
+        original=tmp_path / "lib" / "Show" / "a.eng.srt",
+        new_name="Show - S01E01 - Pilot.eng.srt",
+        file_type="subtitle",
+    )
     state = _state(tmp_path, _item(tmp_path, companions=[comp]))
     monkeypatch.setattr(
-        svc_mod, "probe_file",
-        lambda mkv, path: ProbeResult(path=str(path), ok=False, error="boom"))
+        svc_mod, "probe_file", lambda mkv, path: ProbeResult(path=str(path), ok=False, error="boom")
+    )
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert state.mux_plans == {}
     assert state.mux_probe_errors[0] == "boom"
@@ -146,7 +182,7 @@ def test_probe_failure_records_error_and_no_plan(tmp_path, monkeypatch):
 
 def test_no_action_plan_not_stored(tmp_path, monkeypatch):
     svc = _settings(tmp_path)
-    state = _state(tmp_path, _item(tmp_path))     # no companions → no merge
+    state = _state(tmp_path, _item(tmp_path))  # no companions → no merge
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert state.mux_plans == {}
@@ -165,8 +201,7 @@ def test_reset_gui_state_clears_automux_session(tmp_path):
 
 
 def test_mux_opt_outs_excluded_from_state_has_mux_actions(tmp_path):
-    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
-                   "subtitle_merges": []}
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}], "subtitle_merges": []}
     state = _state(tmp_path, _item(tmp_path))
     state.mux_plans[0] = action_plan
     assert state_has_mux_actions(state) is True
@@ -177,8 +212,7 @@ def test_mux_opt_outs_excluded_from_state_has_mux_actions(tmp_path):
 
 
 def test_effective_mux_plans_drops_opted_out_indices(tmp_path):
-    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
-                   "subtitle_merges": []}
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}], "subtitle_merges": []}
     state = _state(tmp_path, _item(tmp_path))
     state.mux_plans[0] = action_plan
     state.mux_plans[1] = dict(action_plan)
@@ -188,12 +222,11 @@ def test_effective_mux_plans_drops_opted_out_indices(tmp_path):
 
 
 def test_file_mux_active(tmp_path):
-    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}],
-                   "subtitle_merges": []}
+    action_plan = {"track_decisions": [{"track_id": 1, "keep": False}], "subtitle_merges": []}
     state = _state(tmp_path, _item(tmp_path))
     state.mux_plans[0] = action_plan
     assert file_mux_active(state, 0) is True
-    assert file_mux_active(state, 1) is False   # no plan
+    assert file_mux_active(state, 1) is False  # no plan
     state.mux_opt_outs.add(0)
     assert file_mux_active(state, 0) is False
     state.mux_opt_outs.discard(0)
@@ -216,32 +249,43 @@ def test_item_mux_probe_eligible_covers_correctly_named_files(tmp_path):
         original=tmp_path / "lib" / "Show" / "Show - S01E01 - Pilot.mkv",
         new_name="Show - S01E01 - Pilot.mkv",
         target_dir=tmp_path / "lib" / "Show",
-        season=1, episodes=[1], status="OK", media_type="tv",
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
     )
     assert item.is_actionable is False
     assert svc_mod.item_mux_probe_eligible(item) is True
 
 
 def test_item_mux_probe_eligible_excludes_unmatched_and_nameless(tmp_path):
-    base = dict(
-        target_dir=tmp_path / "lib" / "Show", season=1, episodes=[1],
-        media_type="tv",
-    )
+    base = {
+        "target_dir": tmp_path / "lib" / "Show",
+        "season": 1,
+        "episodes": [1],
+        "media_type": "tv",
+    }
     nameless = PreviewItem(
-        original=tmp_path / "lib" / "Show" / "a.mkv", new_name=None,
-        status="OK", **base,
+        original=tmp_path / "lib" / "Show" / "a.mkv",
+        new_name=None,
+        status="OK",
+        **base,
     )
     assert svc_mod.item_mux_probe_eligible(nameless) is False
 
     unmatched = PreviewItem(
-        original=tmp_path / "lib" / "Show" / "a.mkv", new_name="a.mkv",
-        status="UNMATCHED", **base,
+        original=tmp_path / "lib" / "Show" / "a.mkv",
+        new_name="a.mkv",
+        status="UNMATCHED",
+        **base,
     )
     assert svc_mod.item_mux_probe_eligible(unmatched) is False
 
     skipped = PreviewItem(
-        original=tmp_path / "lib" / "Show" / "a.mkv", new_name="a.mkv",
-        status="SKIP: reason", **base,
+        original=tmp_path / "lib" / "Show" / "a.mkv",
+        new_name="a.mkv",
+        status="SKIP: reason",
+        **base,
     )
     assert svc_mod.item_mux_probe_eligible(skipped) is False
 

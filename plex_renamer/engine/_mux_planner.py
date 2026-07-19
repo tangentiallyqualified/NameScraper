@@ -12,13 +12,18 @@ from pathlib import PurePath
 from .._lang_normalize import normalize_lang, normalize_lang_list
 from .._mkv_probe import MediaTrack, ProbeResult
 
-_AUDIO_FLOOR_WARNING = (
-    "Audio retain filter would strip every audio track — keeping all audio")
+_AUDIO_FLOOR_WARNING = "Audio retain filter would strip every audio track — keeping all audio"
+_COMMENTARY_MARKER = "commentary"
+
+
+def _is_commentary(name: str) -> bool:
+    return _COMMENTARY_MARKER in name.lower()
 
 
 @dataclass
 class MuxSettings:
     """Snapshot of the automux_* settings relevant to planning."""
+
     merge_subs: bool = False
     merge_sub_languages: list[str] = field(default_factory=list)
     default_sub_language: str = ""
@@ -30,6 +35,7 @@ class MuxSettings:
     default_audio_language: str = ""
     strip_track_names: bool = False
     no_fear: bool = False
+    exclude_commentary: bool = False
 
 
 @dataclass
@@ -42,19 +48,22 @@ class TrackDecision:
     keep: bool
     make_default: bool
     reason: str
+    is_forced: bool = False
+    is_commentary: bool = False
 
 
 @dataclass
 class SubtitleMergeDecision:
     source_relative: str
-    action: str              # "merge" | "rename"
+    action: str  # "merge" | "rename"
     language: str
     set_default: bool
+    forced: bool = False
 
 
 @dataclass
 class MuxPlan:
-    output_name: str         # library-format name, always .mkv
+    output_name: str  # library-format name, always .mkv
     track_decisions: list[TrackDecision] = field(default_factory=list)
     subtitle_merges: list[SubtitleMergeDecision] = field(default_factory=list)
     strip_track_names: bool = False
@@ -65,26 +74,22 @@ class MuxPlan:
 
     @property
     def has_actions(self) -> bool:
-        return (
-            any(not d.keep for d in self.track_decisions)
-            or any(m.action == "merge" for m in self.subtitle_merges)
+        return any(not d.keep for d in self.track_decisions) or any(
+            m.action == "merge" for m in self.subtitle_merges
         )
 
     @property
     def merged_sub_paths(self) -> list[str]:
-        return [m.source_relative for m in self.subtitle_merges
-                if m.action == "merge"]
+        return [m.source_relative for m in self.subtitle_merges if m.action == "merge"]
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "MuxPlan":
+    def from_dict(cls, d: dict) -> MuxPlan:
         d = dict(d)
-        d["track_decisions"] = [
-            TrackDecision(**t) for t in d.get("track_decisions", [])]
-        d["subtitle_merges"] = [
-            SubtitleMergeDecision(**m) for m in d.get("subtitle_merges", [])]
+        d["track_decisions"] = [TrackDecision(**t) for t in d.get("track_decisions", [])]
+        d["subtitle_merges"] = [SubtitleMergeDecision(**m) for m in d.get("subtitle_merges", [])]
         return cls(**d)
 
 
@@ -101,26 +106,45 @@ def _companion_language(raw_tag: str) -> str | None:
     return None
 
 
+def _companion_is_forced(raw_tag: str) -> bool:
+    """True when any dotted component of the tag is "forced" (spec)."""
+    return any(part.lower() == "forced" for part in raw_tag.split("."))
+
+
 def _decide_embedded(
     tracks: list[MediaTrack],
     *,
     strip: bool,
     retain: list[str],
+    exclude_commentary: bool = False,
 ) -> list[TrackDecision]:
     decisions = []
     for track in tracks:
+        commentary = _is_commentary(track.name)
         if not strip:
             keep, reason = True, "stripping disabled"
+        elif commentary and exclude_commentary:
+            keep, reason = False, "commentary excluded"
         elif track.language == "und":
             keep, reason = True, "und retained"
         elif track.language in retain:
             keep, reason = True, "retained"
         else:
             keep, reason = False, "not in retain list"
-        decisions.append(TrackDecision(
-            track_id=track.track_id, track_type=track.track_type,
-            codec=track.codec, language=track.language, name=track.name,
-            keep=keep, make_default=track.is_default, reason=reason))
+        decisions.append(
+            TrackDecision(
+                track_id=track.track_id,
+                track_type=track.track_type,
+                codec=track.codec,
+                language=track.language,
+                name=track.name,
+                keep=keep,
+                make_default=track.is_default,
+                reason=reason,
+                is_forced=track.is_forced,
+                is_commentary=commentary,
+            )
+        )
     return decisions
 
 
@@ -128,17 +152,23 @@ def _apply_default_language(
     decisions: list[TrackDecision],
     default_language: str,
 ) -> None:
-    """First kept match gets the default flag; other tracks lose it."""
+    """Best kept match gets the default flag; other kept tracks lose it.
+
+    Ranking among kept tracks in the target language: full (non-forced,
+    non-commentary) first, then forced (non-commentary). Commentary
+    tracks are never default-eligible; when only commentary tracks
+    match, existing flags are left untouched.
+    """
     lang = normalize_lang(default_language)
     if not lang:
         return
     kept = [d for d in decisions if d.keep]
-    if not any(d.language == lang for d in kept):
+    eligible = [d for d in kept if d.language == lang and not d.is_commentary]
+    if not eligible:
         return
-    found = False
+    winner = next((d for d in eligible if not d.is_forced), eligible[0])
     for d in kept:
-        d.make_default = (not found) and d.language == lang
-        found = found or d.language == lang
+        d.make_default = d is winner
 
 
 def build_mux_plan(
@@ -159,13 +189,25 @@ def build_mux_plan(
 
     decisions: list[TrackDecision] = []
     for track in probe.video_tracks:
-        decisions.append(TrackDecision(
-            track_id=track.track_id, track_type="video", codec=track.codec,
-            language=track.language, name=track.name,
-            keep=True, make_default=track.is_default, reason="video"))
+        decisions.append(
+            TrackDecision(
+                track_id=track.track_id,
+                track_type="video",
+                codec=track.codec,
+                language=track.language,
+                name=track.name,
+                keep=True,
+                make_default=track.is_default,
+                reason="video",
+            )
+        )
 
     audio = _decide_embedded(
-        probe.audio_tracks, strip=settings.strip_audio, retain=retain_audio)
+        probe.audio_tracks,
+        strip=settings.strip_audio,
+        retain=retain_audio,
+        exclude_commentary=settings.exclude_commentary,
+    )
     warnings: list[str] = []
     if settings.strip_audio and audio and not any(d.keep for d in audio):
         for d in audio:
@@ -175,12 +217,16 @@ def build_mux_plan(
     decisions.extend(audio)
 
     subs = _decide_embedded(
-        probe.subtitle_tracks, strip=settings.strip_subs, retain=retain_subs)
+        probe.subtitle_tracks,
+        strip=settings.strip_subs,
+        retain=retain_subs,
+        exclude_commentary=settings.exclude_commentary,
+    )
     decisions.extend(subs)
 
     _apply_default_language(
-        [d for d in decisions if d.track_type == "audio"],
-        settings.default_audio_language)
+        [d for d in decisions if d.track_type == "audio"], settings.default_audio_language
+    )
 
     # External subtitle decisions.
     merges: list[SubtitleMergeDecision] = []
@@ -194,42 +240,81 @@ def build_mux_plan(
                 # Untagged external subs always merge (spec §3.1):
                 # substitute language when configured, else "und".
                 merged_lang = substitute or "und"
-                candidates.append((len(merge_langs), SubtitleMergeDecision(
-                    source_relative=rel_path, action="merge",
-                    language=merged_lang, set_default=False)))
+                candidates.append(
+                    (
+                        len(merge_langs),
+                        SubtitleMergeDecision(
+                            source_relative=rel_path,
+                            action="merge",
+                            language=merged_lang,
+                            set_default=False,
+                            forced=_companion_is_forced(raw_tag),
+                        ),
+                    )
+                )
             elif lang in merge_langs:
-                candidates.append((merge_langs.index(lang), SubtitleMergeDecision(
-                    source_relative=rel_path, action="merge",
-                    language=lang, set_default=False)))
+                candidates.append(
+                    (
+                        merge_langs.index(lang),
+                        SubtitleMergeDecision(
+                            source_relative=rel_path,
+                            action="merge",
+                            language=lang,
+                            set_default=False,
+                            forced=_companion_is_forced(raw_tag),
+                        ),
+                    )
+                )
             else:
-                candidates.append((len(merge_langs) + 1, SubtitleMergeDecision(
-                    source_relative=rel_path, action="rename",
-                    language=lang, set_default=False)))
+                candidates.append(
+                    (
+                        len(merge_langs) + 1,
+                        SubtitleMergeDecision(
+                            source_relative=rel_path,
+                            action="rename",
+                            language=lang,
+                            set_default=False,
+                            forced=_companion_is_forced(raw_tag),
+                        ),
+                    )
+                )
         candidates.sort(key=lambda pair: pair[0])
         merges = [decision for _, decision in candidates]
     else:
         merges = [
             SubtitleMergeDecision(
-                source_relative=rel_path, action="rename",
+                source_relative=rel_path,
+                action="rename",
                 language=_companion_language(raw_tag) or "und",
-                set_default=False)
+                set_default=False,
+                forced=_companion_is_forced(raw_tag),
+            )
             for rel_path, raw_tag in companion_subs
         ]
 
-    # Default subtitle flag: a merged match wins over embedded matches.
+    # Default subtitle flag precedence (spec): full merged match →
+    # full embedded → forced embedded → forced merged. Forced merges
+    # never steal the default from a full track.
     sub_decisions = [d for d in decisions if d.track_type == "subtitles"]
-    merged_default = False
     if default_sub:
-        for m in merges:
-            if m.action == "merge" and m.language == default_sub:
-                m.set_default = True
-                merged_default = True
-                break
-        if merged_default:
+        merged_matches = [
+            m for m in merges if m.action == "merge" and m.language == default_sub
+        ]
+        full_merge = next((m for m in merged_matches if not m.forced), None)
+        embedded_eligible = [
+            d for d in sub_decisions
+            if d.keep and d.language == default_sub and not d.is_commentary
+        ]
+        if full_merge is not None:
+            full_merge.set_default = True
             for d in sub_decisions:
                 d.make_default = False
-        else:
+        elif embedded_eligible:
             _apply_default_language(sub_decisions, default_sub)
+        elif merged_matches:
+            merged_matches[0].set_default = True
+            for d in sub_decisions:
+                d.make_default = False
 
     plan = MuxPlan(
         output_name=str(PurePath(new_name).with_suffix(".mkv")),

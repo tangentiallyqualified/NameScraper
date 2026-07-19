@@ -6,30 +6,43 @@ from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 
 
 def _job(**overrides) -> RenameJob:
-    defaults = dict(
-        media_type="tv",
-        tmdb_id=42,
-        media_name="Show",
-        library_root="C:/src",
-        output_root="C:/out",
-        source_folder="Show",
-        rename_ops=[RenameOp(
-            original_relative="Show/a.mkv",
-            new_name="Show (2019) - S01E01 - Pilot.mkv",
-            target_dir_relative="Show (2019)/Season 01",
-            status="OK", season=1, episodes=[1],
-        )],
-    )
+    defaults = {
+        "media_type": "tv",
+        "tmdb_id": 42,
+        "media_name": "Show",
+        "library_root": "C:/src",
+        "output_root": "C:/out",
+        "source_folder": "Show",
+        "rename_ops": [
+            RenameOp(
+                original_relative="Show/a.mkv",
+                new_name="Show (2019) - S01E01 - Pilot.mkv",
+                target_dir_relative="Show (2019)/Season 01",
+                status="OK",
+                season=1,
+                episodes=[1],
+            )
+        ],
+    }
     defaults.update(overrides)
     return RenameJob(**defaults)
 
 
 def test_metadata_plan_round_trip(tmp_path):
     store = JobStore(db_path=tmp_path / "jobs.db")
-    plan = {"nfo_files": [{"target_relative": "Show (2019)/tvshow.nfo",
-                           "content": "<tvshow/>", "slot": "nfo:show"}],
-            "artwork": [], "embed_title": True,
-            "prefer_local": False, "plex_naming": False}
+    plan = {
+        "nfo_files": [
+            {
+                "target_relative": "Show (2019)/tvshow.nfo",
+                "content": "<tvshow/>",
+                "slot": "nfo:show",
+            }
+        ],
+        "artwork": [],
+        "embed_title": True,
+        "prefer_local": False,
+        "plex_naming": False,
+    }
     store.add_job(_job(metadata_plan=plan))
 
     reloaded = store.get_all()[0]
@@ -65,8 +78,16 @@ def test_v4_database_migrates(tmp_path):
     conn.commit()
     conn.close()
 
-    store = JobStore(db_path=db)          # triggers migration
-    store.add_job(_job(metadata_plan={"embed_title": True, "nfo_files": [],
-                                      "artwork": [], "prefer_local": False,
-                                      "plex_naming": False}))
+    store = JobStore(db_path=db)  # triggers migration
+    store.add_job(
+        _job(
+            metadata_plan={
+                "embed_title": True,
+                "nfo_files": [],
+                "artwork": [],
+                "prefer_local": False,
+                "plex_naming": False,
+            }
+        )
+    )
     assert store.get_all()[0].metadata_plan["embed_title"] is True

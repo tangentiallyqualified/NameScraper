@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .constants import SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS
 
-
 _LANG_TAG_RE = re.compile(
     r"(\.[a-z]{2,3}(?:\.(?:forced|sdh|cc|hi|default|full))*)$",
     re.IGNORECASE,
@@ -58,7 +57,8 @@ def find_companion_subtitles(video_path: Path) -> list[tuple[Path, str]]:
         return []
 
     all_subs = [
-        entry for entry in all_entries
+        entry
+        for entry in all_entries
         if entry.is_file() and entry.suffix.lower() in SUBTITLE_EXTENSIONS
     ]
     if not all_subs:
@@ -69,14 +69,15 @@ def find_companion_subtitles(video_path: Path) -> list[tuple[Path, str]]:
 
     for sub in all_subs:
         if sub.stem.lower().startswith(video_stem_lower):
-            raw_tag = sub.stem[len(video_stem):]
+            raw_tag = sub.stem[len(video_stem) :]
             paired.append((sub, _subtitle_tag(raw_tag)))
         else:
             unpaired.append(sub)
 
     if unpaired:
         video_count = sum(
-            1 for entry in all_entries
+            1
+            for entry in all_entries
             if entry.is_file() and entry.suffix.lower() in VIDEO_EXTENSIONS
         )
         if video_count == 1:

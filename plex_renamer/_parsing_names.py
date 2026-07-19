@@ -8,9 +8,7 @@ from ._parsing_titles import sanitize_filename
 
 # Trailing words trimmed from a common title base so multi-part runs collapse
 # cleanly ("Sozin's Comet - The Phoenix King"/"...Part 1:..." -> "Sozin's Comet").
-_BASE_TRIM_WORDS = frozenset(
-    {"part", "pt", "vol", "volume", "chapter", "the", "a", "an"}
-)
+_BASE_TRIM_WORDS = frozenset({"part", "pt", "vol", "volume", "chapter", "the", "a", "an"})
 # A base ENDING in a conjunction ("Tigtone and") is a fragment of the episode
 # titles, not a shared name — such runs keep their full joined titles.
 _DANGLING_CONJUNCTIONS = frozenset({"and", "or", "&"})
@@ -32,7 +30,7 @@ def _common_title_base(unique_titles: list[str]) -> str | None:
         return None
     word_lists = [title.split() for title in unique_titles]
     prefix: list[str] = []
-    for column in zip(*word_lists):
+    for column in zip(*word_lists, strict=False):
         head = column[0]
         if all(word.casefold() == head.casefold() for word in column):
             prefix.append(head)

@@ -106,3 +106,7 @@ Each candidate was checked in its defining source and with repository-wide searc
 - **Coordinator extraction left stale forwarding APIs.** Six `MediaWorkspace` wrappers plus `SettingsTab._set_key_status` are bypassed by the active coordinator paths; `MediaWorkspace.splitter` is likewise unconsumed.
 - **Repeated field writes can multiply one defect.** The three `_poster_pixmap` records are one write-only field lifecycle, while the two `QPointF` records are a true Ruff/Vulture duplicate and require only one source edit.
 - No assigned record depended on unresolved reflection, generated UI names, package re-export, dataclass/model implicit field consumption, or undocumented external API intent; therefore no `UNCERTAIN` verdict was needed.
+
+## 2026-07-17 postscript
+
+This partition's 42 `CONFIRMED` records are part of the review's 108-record total remediated on `dev/audit-debt3` (PRs #20-#23); see [findings-review.md](findings-review.md) for the full outcome (including the two confirmed layer-contract violations, both in the Non-GUI partition). The generated checklist ([maps/overview.md](maps/overview.md)) has been regenerated since; these verdicts remain the unmodified historical record of the original triage and are not rewritten.

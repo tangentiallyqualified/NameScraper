@@ -6,12 +6,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.app.models import TVDirectoryRole
-from plex_renamer.engine import BatchTVOrchestrator, PreviewItem, score_tv_results, TVScanner
+from plex_renamer.app.services import TVLibraryDiscoveryService
+from plex_renamer.engine import BatchTVOrchestrator, TVScanner, score_tv_results
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
-from plex_renamer.parsing import best_tv_match_title, clean_folder_name, extract_episode, extract_season_number
+from plex_renamer.parsing import (
+    best_tv_match_title,
+    clean_folder_name,
+    extract_episode,
+    extract_season_number,
+)
 
 
 class _FakeTMDB:
@@ -23,17 +28,19 @@ class _FakeTMDB:
         for index, (_name, _year) in enumerate(queries, start=1):
             if progress_callback:
                 progress_callback(index, total)
-            results.append([
-                {
-                    "id": 100,
-                    "name": "Naruto",
-                    "year": "2002",
-                    "poster_path": None,
-                    "overview": "",
-                    "number_of_seasons": 1,
-                    "number_of_episodes": 220,
-                }
-            ])
+            results.append(
+                [
+                    {
+                        "id": 100,
+                        "name": "Naruto",
+                        "year": "2002",
+                        "poster_path": None,
+                        "overview": "",
+                        "number_of_seasons": 1,
+                        "number_of_episodes": 220,
+                    }
+                ]
+            )
         return results
 
     def get_alternative_titles(self, media_id, media_type="tv"):
@@ -64,29 +71,31 @@ class _RecordingTVTMDB(_FakeTMDB):
         for index, (_name, _year) in enumerate(queries, start=1):
             if progress_callback:
                 progress_callback(index, total)
-            results.append([
-                {
-                    "id": 87108,
-                    "name": "Chernobyl",
-                    "year": "2019",
-                    "poster_path": None,
-                    "overview": "",
-                },
-                {
-                    "id": 85716,
-                    "name": "Chernobyl, la serie",
-                    "year": "2018",
-                    "poster_path": None,
-                    "overview": "",
-                },
-                {
-                    "id": 102179,
-                    "name": "Chornobyl: Aftermath",
-                    "year": "2016",
-                    "poster_path": None,
-                    "overview": "",
-                },
-            ])
+            results.append(
+                [
+                    {
+                        "id": 87108,
+                        "name": "Chernobyl",
+                        "year": "2019",
+                        "poster_path": None,
+                        "overview": "",
+                    },
+                    {
+                        "id": 85716,
+                        "name": "Chernobyl, la serie",
+                        "year": "2018",
+                        "poster_path": None,
+                        "overview": "",
+                    },
+                    {
+                        "id": 102179,
+                        "name": "Chornobyl: Aftermath",
+                        "year": "2016",
+                        "poster_path": None,
+                        "overview": "",
+                    },
+                ]
+            )
         return results
 
     def get_tv_details(self, show_id):
@@ -119,7 +128,12 @@ class _FakeYuruCampTMDB(_FakeTMDB):
     _SEASON_MAPS = {
         101: {
             0: {"titles": {1: "Heya Camp"}, "posters": {}, "episodes": {}, "count": 1},
-            1: {"titles": {1: "Mount Fuji and Curry Noodles"}, "posters": {}, "episodes": {}, "count": 1},
+            1: {
+                "titles": {1: "Mount Fuji and Curry Noodles"},
+                "posters": {},
+                "episodes": {},
+                "count": 1,
+            },
             2: {
                 "titles": {
                     1: "Curry Noodles Are the Best Travel Companion",
@@ -137,13 +151,38 @@ class _FakeYuruCampTMDB(_FakeTMDB):
             },
         },
         202: {
-            1: {"titles": {1: "First Day Camping", 2: "Club Meeting"}, "posters": {}, "episodes": {}, "count": 2},
-            2: {"titles": {1: "A New Semester", 2: "Rainy Camp"}, "posters": {}, "episodes": {}, "count": 2},
+            1: {
+                "titles": {1: "First Day Camping", 2: "Club Meeting"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+            2: {
+                "titles": {1: "A New Semester", 2: "Rainy Camp"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
         },
         303: {
-            1: {"titles": {1: "Episode One", 2: "Episode Two"}, "posters": {}, "episodes": {}, "count": 2},
-            2: {"titles": {1: "Episode Three", 2: "Episode Four"}, "posters": {}, "episodes": {}, "count": 2},
-            3: {"titles": {1: "Episode Five", 2: "Episode Six"}, "posters": {}, "episodes": {}, "count": 2},
+            1: {
+                "titles": {1: "Episode One", 2: "Episode Two"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+            2: {
+                "titles": {1: "Episode Three", 2: "Episode Four"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
+            3: {
+                "titles": {1: "Episode Five", 2: "Episode Six"},
+                "posters": {},
+                "episodes": {},
+                "count": 2,
+            },
         },
     }
 
@@ -230,10 +269,30 @@ class _FakeSuccessionTMDB(_FakeTMDB):
     }
 
     _SEASONS = {
-        1: {"titles": {episode: f"Season 1 Episode {episode}" for episode in range(1, 11)}, "posters": {}, "episodes": {}, "count": 10},
-        2: {"titles": {episode: f"Season 2 Episode {episode}" for episode in range(1, 11)}, "posters": {}, "episodes": {}, "count": 10},
-        3: {"titles": {episode: f"Season 3 Episode {episode}" for episode in range(1, 10)}, "posters": {}, "episodes": {}, "count": 9},
-        4: {"titles": {episode: f"Season 4 Episode {episode}" for episode in range(1, 10)}, "posters": {}, "episodes": {}, "count": 10},
+        1: {
+            "titles": {episode: f"Season 1 Episode {episode}" for episode in range(1, 11)},
+            "posters": {},
+            "episodes": {},
+            "count": 10,
+        },
+        2: {
+            "titles": {episode: f"Season 2 Episode {episode}" for episode in range(1, 11)},
+            "posters": {},
+            "episodes": {},
+            "count": 10,
+        },
+        3: {
+            "titles": {episode: f"Season 3 Episode {episode}" for episode in range(1, 10)},
+            "posters": {},
+            "episodes": {},
+            "count": 9,
+        },
+        4: {
+            "titles": {episode: f"Season 4 Episode {episode}" for episode in range(1, 10)},
+            "posters": {},
+            "episodes": {},
+            "count": 10,
+        },
     }
 
     def search_tv_batch(self, queries, progress_callback=None):
@@ -250,7 +309,11 @@ class _FakeSuccessionTMDB(_FakeTMDB):
             "number_of_seasons": 4,
             "number_of_episodes": 39,
             "seasons": [
-                {"season_number": season, "name": f"Season {season}", "episode_count": data["count"]}
+                {
+                    "season_number": season,
+                    "name": f"Season {season}",
+                    "episode_count": data["count"],
+                }
                 for season, data in sorted(self._SEASONS.items())
             ],
         }
@@ -338,10 +401,14 @@ class _FakeWatchmenTMDB(_FakeTMDB):
     1.0, so tie detection must fall back to identity evidence.
     """
 
-    REAL = {"id": 79788, "name": "Watchmen", "year": "2019",
-            "poster_path": None, "overview": ""}
-    SPINOFF = {"id": 18096, "name": "Watchmen: Motion Comic", "year": "2008",
-               "poster_path": None, "overview": ""}
+    REAL = {"id": 79788, "name": "Watchmen", "year": "2019", "poster_path": None, "overview": ""}
+    SPINOFF = {
+        "id": 18096,
+        "name": "Watchmen: Motion Comic",
+        "year": "2008",
+        "poster_path": None,
+        "overview": "",
+    }
 
     def __init__(self, spinoff_name: str = "Watchmen: Motion Comic"):
         self._spinoff = dict(self.SPINOFF, name=spinoff_name)
@@ -375,7 +442,8 @@ class _FakeWatchmenTMDB(_FakeTMDB):
     def get_season(self, show_id, season_num):
         seasons, _total = self.get_season_map(show_id)
         return seasons.get(
-            season_num, {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}, "count": 0},
         )
 
 
@@ -389,12 +457,17 @@ class SaturatedTieBreakTests(unittest.TestCase):
             show = root / "Watchmen.S01.2160p.MAX.WEB-DL.x265.10bit.HDR.DTS-HD.MA.5.1-NTb[rartv]"
             show.mkdir()
             for episode in range(1, 10):
-                (show / (
-                    f"Watchmen.S01E{episode:02d}.2160p.MAX.WEB-DL"
-                    ".DTS-HD.MA.5.1.HDR.DV.HEVC-NTb.mkv"
-                )).write_text("x")
+                (
+                    show
+                    / (
+                        f"Watchmen.S01E{episode:02d}.2160p.MAX.WEB-DL"
+                        ".DTS-HD.MA.5.1.HDR.DV.HEVC-NTb.mkv"
+                    )
+                ).write_text("x")
             orchestrator = BatchTVOrchestrator(
-                tmdb, root, discovery_service=TVLibraryDiscoveryService(),
+                tmdb,
+                root,
+                discovery_service=TVLibraryDiscoveryService(),
             )
             return orchestrator.discover_shows()
 
@@ -472,7 +545,9 @@ class GenericCandidateTitleInheritanceTests(unittest.TestCase):
     def _discover(self, root: Path):
         tmdb = _RecordingTVTMDB()
         orchestrator = BatchTVOrchestrator(
-            tmdb, root, discovery_service=TVLibraryDiscoveryService(),
+            tmdb,
+            root,
+            discovery_service=TVLibraryDiscoveryService(),
         )
         states = orchestrator.discover_shows()
         return tmdb, states
@@ -521,7 +596,7 @@ class GenericCandidateTitleInheritanceTests(unittest.TestCase):
             for name in ("A.avi", "B.avi", "C.avi"):
                 (specials / name).write_text("x")
 
-            tmdb, states = self._discover(root)
+            tmdb, _states = self._discover(root)
 
             queries = [name for name, _year in tmdb.queries]
             self.assertEqual(queries, ["Specials"])
@@ -537,7 +612,7 @@ class GenericCandidateTitleInheritanceTests(unittest.TestCase):
             for name in ("01.mkv", "02.mkv", "03.mkv"):
                 (specials / name).write_text("x")
 
-            tmdb, states = self._discover(root)
+            tmdb, _states = self._discover(root)
 
             queries = [name for name, _year in tmdb.queries]
             self.assertEqual(queries, ["Yuru Camp Specials"])
@@ -570,7 +645,8 @@ class ScanImprovementTests(unittest.TestCase):
 
             filenames = [
                 season_one / "It's Always Sunny in Philadelphia - 1x01 - The Gang Gets Racist.mkv",
-                season_one / "It's Always Sunny in Philadelphia - 1x02 - Charlie Wants an Abortion.mkv",
+                season_one
+                / "It's Always Sunny in Philadelphia - 1x02 - Charlie Wants an Abortion.mkv",
                 season_one / "It's Always Sunny in Philadelphia - 1x05 - Gun Fever.mkv",
                 season_two / "It's Always Sunny in Philadelphia - 2x01 - Charlie Gets Crippled.mkv",
                 season_two / "It's Always Sunny in Philadelphia - 2x02 - The Gang Goes Jihad.mkv",
@@ -599,6 +675,7 @@ class ScanImprovementTests(unittest.TestCase):
 
     def test_get_year_season_recognizes_year_folders(self):
         from plex_renamer.parsing import get_year_season
+
         self.assertEqual(get_year_season("S2014"), 2014)
         self.assertEqual(get_year_season("s2020"), 2020)
         self.assertIsNone(get_year_season("S01"))
@@ -620,7 +697,8 @@ class ScanImprovementTests(unittest.TestCase):
 
             service = TVLibraryDiscoveryService()
             self.assertEqual(
-                service.classify_directory(umbrella), TVDirectoryRole.SHOW_ROOT,
+                service.classify_directory(umbrella),
+                TVDirectoryRole.SHOW_ROOT,
             )
 
     def test_year_season_umbrella_discovered_as_one_candidate(self):
@@ -657,17 +735,21 @@ class ScanImprovementTests(unittest.TestCase):
     def test_year_folders_resolve_to_tmdb_season_by_air_year(self):
         seasons = {
             0: {
-                "titles": {1: "Yule Log"}, "posters": {},
+                "titles": {1: "Yule Log"},
+                "posters": {},
                 "episodes": {1: {"air_date": "2014-12-25"}},
-                "count": 1, "name": "Specials",
+                "count": 1,
+                "name": "Specials",
             },
             1: {
-                "titles": {1: "Fartcopter", 2: "Too Many Cooks"}, "posters": {},
+                "titles": {1: "Fartcopter", 2: "Too Many Cooks"},
+                "posters": {},
                 "episodes": {
                     1: {"air_date": "2014-05-01"},
                     2: {"air_date": "2016-06-01"},
                 },
-                "count": 2, "name": "Season 1",
+                "count": 2,
+                "name": "Season 1",
             },
         }
         with TemporaryDirectory() as tmp:
@@ -1240,7 +1322,9 @@ class ScanImprovementTests(unittest.TestCase):
                 "episodes": {
                     episode: {
                         "name": f"Episode {episode}",
-                        "air_date": f"2026-01-{episode:02d}" if episode <= 4 else f"2026-12-{episode:02d}",
+                        "air_date": f"2026-01-{episode:02d}"
+                        if episode <= 4
+                        else f"2026-12-{episode:02d}",
                     }
                     for episode in range(1, 14)
                 },
@@ -1296,7 +1380,9 @@ class ScanImprovementTests(unittest.TestCase):
             root = Path(tmp) / "Bartender"
             root.mkdir()
             video = root / "[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].mkv"
-            sidecar = root / "[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng.[BD].sup.mks"
+            sidecar = (
+                root / "[Kawaiika-Raws] Bartender 03 [BDRip 1920x1080 HEVC FLAC].eng.[BD].sup.mks"
+            )
             video.write_text("video")
             sidecar.write_text("subtitle")
 
@@ -1389,10 +1475,7 @@ class ScanImprovementTests(unittest.TestCase):
         Real case: "Lucy, The Daughter of The Devil The Complete Series[...]"
         previously cleaned to "Lucy, The Daughter of The Devil The".
         """
-        name = (
-            "Lucy, The Daughter of The Devil The Complete Series"
-            "[DVDRip 480p AC3][AtaraxiaPrime]"
-        )
+        name = "Lucy, The Daughter of The Devil The Complete Series[DVDRip 480p AC3][AtaraxiaPrime]"
         self.assertEqual(
             clean_folder_name(name, include_year=False),
             "Lucy, The Daughter of The Devil",
@@ -1408,9 +1491,12 @@ class ScanImprovementTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             season_folders = {
-                1: root / "Succession.S01.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
-                2: root / "Succession.S02.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
-                3: root / "Succession.S03.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                1: root
+                / "Succession.S01.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                2: root
+                / "Succession.S02.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
+                3: root
+                / "Succession.S03.2160p.MAX.WEB-DL.x265.10bit.HDR.DDP5.1.Atmos-SPAMKiNGS[rartv]",
                 4: root / "succession season 04",
             }
             for season, folder in season_folders.items():
@@ -1432,7 +1518,9 @@ class ScanImprovementTests(unittest.TestCase):
             )
 
             states = orchestrator.discover_shows()
-            succession_states = [state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]]
+            succession_states = [
+                state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]
+            ]
             merged = [state for state in succession_states if state.season_folders]
 
             self.assertEqual(len(merged), 1)
@@ -1445,9 +1533,7 @@ class ScanImprovementTests(unittest.TestCase):
             orchestrator.scan_show(merged[0])
 
             season_four_items = [
-                item
-                for item in merged[0].preview_items
-                if item.season == 4 and item.status == "OK"
+                item for item in merged[0].preview_items if item.season == 4 and item.status == "OK"
             ]
             self.assertEqual(
                 sorted(item.episodes[0] for item in season_four_items),
@@ -1473,7 +1559,9 @@ class ScanImprovementTests(unittest.TestCase):
             )
 
             states = orchestrator.discover_shows()
-            succession_states = [state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]]
+            succession_states = [
+                state for state in states if state.show_id == _FakeSuccessionTMDB.SUCCESSION["id"]
+            ]
             primaries = [state for state in succession_states if state.duplicate_of is None]
             duplicates = [state for state in succession_states if state.duplicate_of is not None]
 
@@ -1526,16 +1614,17 @@ class ScanImprovementTests(unittest.TestCase):
             # claimants surfaced, neither wins silently.
             self.assertEqual(len(conflict_items), 2)
             self.assertTrue(all(item.episodes == [9] for item in conflict_items))
-            self.assertTrue(all(
-                "duplicate episode claim S04E09" in item.status
-                for item in conflict_items
-            ))
+            self.assertTrue(
+                all("duplicate episode claim S04E09" in item.status for item in conflict_items)
+            )
             self.assertEqual(
                 sorted(item.source_relative_folder for item in conflict_items),
-                sorted([
-                    season_folder.relative_to(root).as_posix(),
-                    overlapping_folder.relative_to(root).as_posix(),
-                ]),
+                sorted(
+                    [
+                        season_folder.relative_to(root).as_posix(),
+                        overlapping_folder.relative_to(root).as_posix(),
+                    ]
+                ),
             )
 
     def test_fully_redundant_same_show_sibling_becomes_conflict_evidence(self):
@@ -1700,7 +1789,10 @@ class ScanImprovementTests(unittest.TestCase):
     def test_folder_named_with_s01_and_nested_season_dir_is_discovered_as_show(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            show = root / "[CW] Akiba Maid War S01 [Dual Audio][BD 1080p][FLAC + AAC][AVC] - Akiba Meido Sensou S01"
+            show = (
+                root
+                / "[CW] Akiba Maid War S01 [Dual Audio][BD 1080p][FLAC + AAC][AVC] - Akiba Meido Sensou S01"
+            )
             (show / "season 1").mkdir(parents=True)
             (show / "season 1" / "Akiba.Maid.War.S01E01.mkv").write_text("x")
             (show / "extra").mkdir()
@@ -1730,9 +1822,12 @@ class ScanImprovementTests(unittest.TestCase):
                 ({"id": 3, "name": "Dok Ngew", "year": "2017"}, 0.18),
             ]
 
-            with patch("plex_renamer.engine.matching.score_results", return_value=scored), patch(
-                "plex_renamer.engine.matching.boost_scores_with_alt_titles",
-                side_effect=lambda scored, *args, **kwargs: scored,
+            with (
+                patch("plex_renamer.engine.matching.score_results", return_value=scored),
+                patch(
+                    "plex_renamer.engine.matching.boost_scores_with_alt_titles",
+                    side_effect=lambda scored, *args, **kwargs: scored,
+                ),
             ):
                 states = orchestrator.discover_shows()
 
@@ -1827,14 +1922,7 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue((final_root / "Season 01" / "Bleach (2004) - S01E02.mkv").exists())
             self.assertFalse((final_root / "Disc 01").exists())
             self.assertFalse((final_root / "Disc 02").exists())
-            self.assertTrue(
-                (
-                    final_root
-                    / "Season 01"
-                    / "Unmatched Files"
-                    / "notes.txt"
-                ).exists()
-            )
+            self.assertTrue((final_root / "Season 01" / "Unmatched Files" / "notes.txt").exists())
             self.assertNotIn(
                 {"old": str(source_root), "new": str(final_root)},
                 result.log_entry["renamed_dirs"],
@@ -1938,11 +2026,17 @@ class ScanImprovementTests(unittest.TestCase):
 
             self.assertEqual(result.errors, [])
             self.assertEqual(result.renamed_count, 1)
-            self.assertTrue((output_root / "Bleach (2004)" / "Season 01" / "Bleach (2004) - S01E01.mkv").exists())
+            self.assertTrue(
+                (
+                    output_root / "Bleach (2004)" / "Season 01" / "Bleach (2004) - S01E01.mkv"
+                ).exists()
+            )
             self.assertFalse(episode.exists())
             self.assertTrue(source_dir.exists())
             self.assertTrue(note.exists())
-            self.assertFalse((output_root / "Bleach (2004)" / "Season 01" / "Unmatched Files").exists())
+            self.assertFalse(
+                (output_root / "Bleach (2004)" / "Season 01" / "Unmatched Files").exists()
+            )
 
     def test_revert_destination_job_restores_files_and_removes_empty_output_dirs_only(self):
         from plex_renamer.job_executor import _execute_rename, revert_job
@@ -2394,18 +2488,18 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertFalse(movie_file.exists())
 
             # Sibling content must be untouched
-            self.assertTrue(tv_ep.exists(),
-                            "TV episode was errantly moved")
-            self.assertTrue(other_movie.exists(),
-                            "Sibling movie file was errantly moved")
-            self.assertFalse((target / "Unmatched Files").exists(),
-                             "Unmatched Files dir should not exist for root-level movies")
+            self.assertTrue(tv_ep.exists(), "TV episode was errantly moved")
+            self.assertTrue(other_movie.exists(), "Sibling movie file was errantly moved")
+            self.assertFalse(
+                (target / "Unmatched Files").exists(),
+                "Unmatched Files dir should not exist for root-level movies",
+            )
 
     def test_movie_at_library_root_ignores_folder_rename_and_stays_inside_root(self):
         """Malformed or legacy root-level movie jobs must not rename the library root
         to a sibling folder outside the selected directory."""
         from plex_renamer.job_executor import _execute_rename
-        from plex_renamer.job_store import RenameOp, RenameJob
+        from plex_renamer.job_store import RenameJob, RenameOp
 
         with TemporaryDirectory() as tmp:
             library_root = Path(tmp) / "Quarantine"
@@ -2435,7 +2529,9 @@ class ScanImprovementTests(unittest.TestCase):
 
             self.assertEqual(result.renamed_count, 1)
             self.assertTrue((library_root / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists())
-            self.assertFalse((library_root.parent / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists())
+            self.assertFalse(
+                (library_root.parent / "Spaceballs (1987)" / "Spaceballs (1987).mkv").exists()
+            )
             self.assertTrue(library_root.exists(), "Library root should not be renamed")
 
     def test_queue_execute_normalizes_season_folder_case_only_names(self):
@@ -2473,7 +2569,6 @@ class ScanImprovementTests(unittest.TestCase):
             self.assertTrue((source_root / "Season 01" / "Show - S01E01.mkv").exists())
             self.assertEqual(sorted(child.name for child in source_root.iterdir()), ["Season 01"])
 
-
     def test_score_results_prefers_exact_year_over_adjacent_year(self):
         """When two TMDB results share an identical title, the one whose
         year exactly matches the hint must outscore the ±1 neighbour —
@@ -2485,15 +2580,14 @@ class ScanImprovementTests(unittest.TestCase):
             {"name": "Battlestar Galactica", "year": "2004", "id": 73545},
         ]
 
-        scored = score_results(results, "Battlestar Galactica", "2004",
-                               title_key="name")
+        scored = score_results(results, "Battlestar Galactica", "2004", title_key="name")
         best, best_score = scored[0]
-        runner, runner_score = scored[1]
+        _runner, runner_score = scored[1]
 
-        self.assertEqual(best["year"], "2004",
-                         "Exact year match must rank first")
-        self.assertGreater(best_score, runner_score,
-                           "Exact year must score strictly higher, not tie")
+        self.assertEqual(best["year"], "2004", "Exact year match must rank first")
+        self.assertGreater(
+            best_score, runner_score, "Exact year must score strictly higher, not tie"
+        )
 
     def test_score_results_both_bsg_coexist_correctly(self):
         """Two BSG folders with different years must each match correctly."""
@@ -2505,20 +2599,18 @@ class ScanImprovementTests(unittest.TestCase):
         ]
 
         # Folder says 2003 → should match the miniseries
-        scored_2003 = score_results(results, "Battlestar Galactica", "2003",
-                                    title_key="name")
+        scored_2003 = score_results(results, "Battlestar Galactica", "2003", title_key="name")
         self.assertEqual(scored_2003[0][0]["year"], "2003")
 
         # Folder says 2004 → should match the main series
-        scored_2004 = score_results(results, "Battlestar Galactica", "2004",
-                                    title_key="name")
+        scored_2004 = score_results(results, "Battlestar Galactica", "2004", title_key="name")
         self.assertEqual(scored_2004[0][0]["year"], "2004")
 
     def test_season_count_tiebreaker_overrides_wrong_year(self):
         """When a folder says 2003 but has 4 season subdirs, the tiebreaker
         must prefer the 4-season series over the miniseries, even though
         the miniseries has a better year match."""
-        from plex_renamer.engine import score_results, BatchTVOrchestrator
+        from plex_renamer.engine import BatchTVOrchestrator, score_results
 
         results = [
             {"name": "Battlestar Galactica", "year": "2003", "id": 1001},
@@ -2526,15 +2618,16 @@ class ScanImprovementTests(unittest.TestCase):
         ]
 
         # Folder says 2003 → miniseries scores higher by year alone
-        scored = score_results(results, "Battlestar Galactica", "2003",
-                               title_key="name")
+        scored = score_results(results, "Battlestar Galactica", "2003", title_key="name")
         self.assertEqual(scored[0][0]["id"], 1001, "Year scoring should favour 2003")
-        self.assertLessEqual(scored[0][1] - scored[1][1], 0.10,
-                             "Scores must be close enough for tiebreaker")
+        self.assertLessEqual(
+            scored[0][1] - scored[1][1], 0.10, "Scores must be close enough for tiebreaker"
+        )
 
         # Now simulate the tiebreaker with 4 season subdirs on disk
         class _FakeTMDB:
             language = "en-US"
+
             def get_tv_details(self, show_id):
                 if show_id == 1001:
                     return {"number_of_seasons": 1, "number_of_episodes": 2}
@@ -2546,10 +2639,12 @@ class ScanImprovementTests(unittest.TestCase):
         orch.tmdb = _FakeTMDB()
 
         best, _, _ = orch._episode_count_tiebreak(
-            scored, file_count=4, threshold=0.10, compare_seasons=True,
+            scored,
+            file_count=4,
+            threshold=0.10,
+            compare_seasons=True,
         )
-        self.assertEqual(best["id"], 1002,
-                         "4 season subdirs must pick the 4-season series")
+        self.assertEqual(best["id"], 1002, "4 season subdirs must pick the 4-season series")
 
     def test_episode_tiebreak_uses_per_season_count_for_single_season_evidence(self):
         """Euphoria S01 regression: a single-season folder (8 files, all S01)
@@ -2560,7 +2655,7 @@ class ScanImprovementTests(unittest.TestCase):
         count than the correct HBO show (24 total eps, S1=8). Comparing the
         right season makes HBO (|8-8|=0) win over 2012 (|10-8|=2).
         """
-        from plex_renamer.engine import score_results, BatchTVOrchestrator
+        from plex_renamer.engine import BatchTVOrchestrator, score_results
 
         results = [
             {"name": "Euphoria", "year": "2019", "id": 85552},
@@ -2572,6 +2667,7 @@ class ScanImprovementTests(unittest.TestCase):
 
         class _FakeTMDB:
             language = "en-US"
+
             def get_tv_details(self, show_id):
                 if show_id == 85552:  # HBO 2019
                     return {
@@ -2602,10 +2698,14 @@ class ScanImprovementTests(unittest.TestCase):
 
         # Without season context the old behaviour picks the wrong show.
         best, _, _ = orch._episode_count_tiebreak(
-            scored, file_count=8, threshold=0.10, explicit_seasons={1},
+            scored,
+            file_count=8,
+            threshold=0.10,
+            explicit_seasons={1},
         )
         self.assertEqual(
-            best["id"], 85552,
+            best["id"],
+            85552,
             "Single-season evidence must compare against S1 ep count, picking HBO",
         )
 
@@ -2627,7 +2727,8 @@ class FakeTMDB:
 
     def get_season(self, show_id, season_num):
         return self._seasons.get(
-            season_num, {"titles": {}, "posters": {}, "episodes": {}},
+            season_num,
+            {"titles": {}, "posters": {}, "episodes": {}},
         )
 
     def get_tv_details(self, show_id):
@@ -2675,8 +2776,7 @@ class TestTableDrivenScan:
         (specials / "S00E03 - Special A.mkv").touch()
         scanner = make_scanner(
             tmp_path,
-            {0: {1: "Opening", 2: "Special A", 3: "Special C"},
-             1: {1: "Pilot"}},
+            {0: {1: "Opening", 2: "Special A", 3: "Special C"}, 1: {1: "Pilot"}},
         )
         items, _ = scanner.scan()
         special = next(item for item in items if item.season == 0)
@@ -2688,7 +2788,8 @@ class TestTableDrivenScan:
         specials.mkdir()
         (specials / "random home video.mkv").touch()
         scanner = make_scanner(
-            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+            tmp_path,
+            {0: {1: "Opening"}, 1: {1: "Pilot"}},
         )
         items, _ = scanner.scan()
         special = next(item for item in items if item.season == 0)
@@ -2702,19 +2803,20 @@ class TestTableDrivenScan:
             directory.mkdir()
             (directory / "S00E01 - Opening.mkv").touch()
         scanner = make_scanner(
-            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
+            tmp_path,
+            {0: {1: "Opening"}, 1: {1: "Pilot"}, 2: {1: "Reboot"}},
         )
-        items, _ = scanner.scan()
+        _items, _ = scanner.scan()
         table = scanner.assignment_table
         assert not table.conflicts()
         assigned = [
-            entry for entry in table.files.values()
+            entry
+            for entry in table.files.values()
             if table.assignment_for(entry.file_id) is not None
         ]
         assert len(assigned) == 1
         duplicate_reasons = [
-            reason for reason in table.unassigned_reasons.values()
-            if "duplicate copy" in reason
+            reason for reason in table.unassigned_reasons.values() if "duplicate copy" in reason
         ]
         assert len(duplicate_reasons) == 1
 
@@ -2723,7 +2825,8 @@ class TestTableDrivenScan:
         specials.mkdir()
         (specials / "S00E01.mkv").touch()  # number only, no title
         scanner = make_scanner(
-            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+            tmp_path,
+            {0: {1: "Opening"}, 1: {1: "Pilot"}},
         )
         items, _ = scanner.scan()
         special = next(item for item in items if item.season == 0)
@@ -2736,7 +2839,8 @@ class TestSpecialsOnlyShow:
         specials.mkdir()
         (specials / "S00E01 - Opening.mkv").touch()
         scanner = make_scanner(
-            tmp_path, {0: {1: "Opening"}, 1: {1: "Pilot"}},
+            tmp_path,
+            {0: {1: "Opening"}, 1: {1: "Pilot"}},
         )
         items, _ = scanner.scan()
         assert all(item.season == 0 for item in items)
@@ -2746,16 +2850,22 @@ class TestSpecialsOnlyShow:
             DirectEpisodeEvidence,
             infer_explicit_season_assignment,
         )
+
         evidence = [
             DirectEpisodeEvidence(0, 1, "Opening"),
             DirectEpisodeEvidence(0, 2, "Recap"),
         ]
-        assert infer_explicit_season_assignment(
-            Path("Some Show"), evidence,
-        ) == 0
+        assert (
+            infer_explicit_season_assignment(
+                Path("Some Show"),
+                evidence,
+            )
+            == 0
+        )
 
     def test_collect_evidence_descends_specials_folder(self, tmp_path):
         from plex_renamer.engine.models import collect_direct_episode_evidence
+
         specials = tmp_path / "Specials"
         specials.mkdir()
         (specials / "S00E01 - Opening.mkv").touch()

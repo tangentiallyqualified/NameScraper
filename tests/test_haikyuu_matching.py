@@ -6,6 +6,7 @@ Validates that:
     as a single show root (not split into multiple shows)
   - TVScanner matches non-standard season folders against TMDB season names
 """
+
 from __future__ import annotations
 
 import unittest
@@ -16,7 +17,6 @@ from plex_renamer.app.services.tv_library_discovery_service import (
     TVLibraryDiscoveryService,
 )
 from plex_renamer.parsing import get_season
-
 
 # ── get_season ordinal recognition ─────────────────────────────────────
 
@@ -40,8 +40,14 @@ class OrdinalSeasonTests(unittest.TestCase):
         self.assertEqual(self._season("Show Fourth Season 1080p"), 4)
 
     def test_fifth_through_tenth(self):
-        for word, num in [("Fifth", 5), ("Sixth", 6), ("Seventh", 7),
-                          ("Eighth", 8), ("Ninth", 9), ("Tenth", 10)]:
+        for word, num in [
+            ("Fifth", 5),
+            ("Sixth", 6),
+            ("Seventh", 7),
+            ("Eighth", 8),
+            ("Ninth", 9),
+            ("Tenth", 10),
+        ]:
             with self.subTest(word=word):
                 self.assertEqual(self._season(f"Show {word} Season"), num)
 
@@ -103,7 +109,10 @@ class HaikyuuDiscoveryTests(unittest.TestCase):
         (s2 / "[sam] Haikyuu!! Second Season - 02 [BD 1080p FLAC].mkv").write_text("x")
 
         # Named season — no standard season indicator
-        s3 = self.root / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        s3 = (
+            self.root
+            / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        )
         s3.mkdir()
         (s3 / "[sam] Haikyuu!! S3 - 01 [BD 1080p FLAC].mkv").write_text("x")
         (s3 / "[sam] Haikyuu!! S3 - 02 [BD 1080p FLAC].mkv").write_text("x")
@@ -122,9 +131,12 @@ class HaikyuuDiscoveryTests(unittest.TestCase):
         service = TVLibraryDiscoveryService()
         candidates = service.discover_show_roots(self.root)
 
-        self.assertEqual(len(candidates), 1,
-                         f"Expected 1 candidate, got {len(candidates)}: "
-                         f"{[c.relative_folder for c in candidates]}")
+        self.assertEqual(
+            len(candidates),
+            1,
+            f"Expected 1 candidate, got {len(candidates)}: "
+            f"{[c.relative_folder for c in candidates]}",
+        )
         self.assertEqual(candidates[0].folder, self.root)
         self.assertTrue(candidates[0].has_direct_season_subdirs)
 
@@ -140,7 +152,10 @@ class HaikyuuDiscoveryTests(unittest.TestCase):
 
     def test_karasuno_folder_not_detected_by_get_season(self):
         """The named-season folder has no season indicator in its name."""
-        s3 = self.root / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        s3 = (
+            self.root
+            / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        )
         # This is expected to return None — the TMDB name matching in
         # TVScanner handles this case, not get_season().
         self.assertIsNone(get_season(s3))
@@ -219,14 +234,21 @@ class BatchModeRegressionTests(unittest.TestCase):
         service = TVLibraryDiscoveryService()
         candidates = service.discover_show_roots(self.quarantine)
 
-        self.assertGreaterEqual(len(candidates), 2,
-                                f"Expected >= 2 candidates, got {len(candidates)}: "
-                                f"{[c.relative_folder for c in candidates]}")
+        self.assertGreaterEqual(
+            len(candidates),
+            2,
+            f"Expected >= 2 candidates, got {len(candidates)}: "
+            f"{[c.relative_folder for c in candidates]}",
+        )
         show_names = [c.folder.name for c in candidates]
-        self.assertTrue(any("Haikyuu" in name for name in show_names),
-                        f"Haikyuu not found in candidates: {show_names}")
-        self.assertTrue(any("Solo Leveling" in name for name in show_names),
-                        f"Solo Leveling not found in candidates: {show_names}")
+        self.assertTrue(
+            any("Haikyuu" in name for name in show_names),
+            f"Haikyuu not found in candidates: {show_names}",
+        )
+        self.assertTrue(
+            any("Solo Leveling" in name for name in show_names),
+            f"Solo Leveling not found in candidates: {show_names}",
+        )
 
     def test_batch_library_not_treated_as_single_show(self):
         """Quarantine/ must not be returned as the sole show root."""
@@ -236,8 +258,11 @@ class BatchModeRegressionTests(unittest.TestCase):
         # If the library itself was returned as a show, folder == quarantine
         # and relative_folder == "."
         if len(candidates) == 1:
-            self.assertNotEqual(candidates[0].relative_folder, ".",
-                                "Batch library was incorrectly treated as a single show root")
+            self.assertNotEqual(
+                candidates[0].relative_folder,
+                ".",
+                "Batch library was incorrectly treated as a single show root",
+            )
 
 
 # ── TVScanner TMDB season name matching ────────────────────────────────
@@ -254,7 +279,10 @@ class TMDBSeasonNameMatchingTests(unittest.TestCase):
         self.root.mkdir()
 
         # Create the non-standard season folder
-        self.karasuno = self.root / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        self.karasuno = (
+            self.root
+            / "[sam] Haikyuu!! Karasuno High School vs. Shiratorizawa Academy [BD 1080p FLAC]"
+        )
         self.karasuno.mkdir()
         (self.karasuno / "[sam] Haikyuu!! S3 - 01.mkv").write_text("x")
 
@@ -394,6 +422,7 @@ class SpecialsSeasonHintRegressionTests(unittest.TestCase):
 
 class _FakeTMDB:
     """Minimal TMDB client stub with Haikyuu!! season data."""
+
     language = "en-US"
 
     _SHOW_DATA = {
@@ -403,7 +432,11 @@ class _FakeTMDB:
             {"season_number": 0, "name": "Specials", "episode_count": 9},
             {"season_number": 1, "name": "Haikyu!!", "episode_count": 25},
             {"season_number": 2, "name": "Haikyu!! 2nd Season", "episode_count": 25},
-            {"season_number": 3, "name": "Haikyu!! Karasuno High School vs. Shiratorizawa Academy", "episode_count": 10},
+            {
+                "season_number": 3,
+                "name": "Haikyu!! Karasuno High School vs. Shiratorizawa Academy",
+                "episode_count": 10,
+            },
             {"season_number": 4, "name": "Haikyu!! TO THE TOP", "episode_count": 25},
         ],
     }

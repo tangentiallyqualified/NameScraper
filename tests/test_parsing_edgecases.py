@@ -12,6 +12,8 @@ All offline and deterministic (no TMDB / network).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from plex_renamer.parsing import (
@@ -20,10 +22,9 @@ from plex_renamer.parsing import (
     extract_year,
     looks_like_tv_episode,
 )
-from pathlib import Path
-
 
 # ── Year hints from run-range folder names ──────────────────────────
+
 
 @pytest.mark.parametrize(
     "name, expected",
@@ -51,6 +52,7 @@ def test_extract_year_uses_range_start(name, expected):
 
 # ── Item 1: bracketed [NN] episode numbers ──────────────────────────
 
+
 @pytest.mark.parametrize(
     "name, expected_episode",
     [
@@ -60,7 +62,7 @@ def test_extract_year_uses_range_start(name, expected):
     ],
 )
 def test_extract_episode_recognizes_bracketed_episode_number(name, expected_episode):
-    episodes, title, is_season_relative = extract_episode(name)
+    episodes, _title, is_season_relative = extract_episode(name)
     assert episodes == [expected_episode]
     # absolute numbering (anime convention) -> not season-relative
     assert is_season_relative is False
@@ -85,17 +87,13 @@ def test_extract_episode_ignores_non_episode_brackets(name):
 
 def test_extract_episode_bracket_does_not_override_explicit_sxxeyy():
     # An explicit S##E## still wins; the bracket fallback must not fire.
-    episodes, _title, is_season_relative = extract_episode(
-        "Show S02E05 [720p].mkv"
-    )
+    episodes, _title, is_season_relative = extract_episode("Show S02E05 [720p].mkv")
     assert episodes == [5]
     assert is_season_relative is True
 
 
 def test_looks_like_tv_episode_recognizes_fansub_bracket_files():
-    path = Path(
-        "[DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv"
-    )
+    path = Path("[DBD-Raws][Wolf's Rain][01][1080P][BDRip][HEVC-10bit][FLACx2].mkv")
     assert looks_like_tv_episode(path) is True
 
 
@@ -110,6 +108,7 @@ def test_extract_source_title_prefix_reads_bracket_show_title():
 # are title designations and must survive in the show-title prefix
 # (real-library regression: the 0083 folder matched the 1979 series when
 # the prefix truncated at "0083").
+
 
 @pytest.mark.parametrize(
     "name, expected_fragment",
@@ -135,6 +134,7 @@ def test_zero_padded_4digit_is_not_an_episode():
 
 
 # ── Item 2: numeric-in-title false-positive guards ──────────────────
+
 
 @pytest.mark.parametrize(
     "name",
@@ -180,6 +180,7 @@ def test_extract_episode_keeps_legit_bare_numbers(name, expected):
 # that behavior in offline (synthetic titles), so a future change can't
 # regress it. No production code changes for Item 3.
 
+
 def _make_table_with_slots(slots):
     from plex_renamer.engine.episode_assignments import (
         EpisodeAssignmentTable,
@@ -198,9 +199,7 @@ def test_wrong_file_season_marker_resolves_against_folder_season():
     from plex_renamer.engine._tv_scanner_normal import _resolve_into_table
 
     season_titles = {1: "Jurassic Lark", 2: "Suspended Animation"}
-    table = _make_table_with_slots(
-        [(1, 1, "Jurassic Lark"), (1, 2, "Suspended Animation")]
-    )
+    table = _make_table_with_slots([(1, 1, "Jurassic Lark"), (1, 2, "Suspended Animation")])
     _resolve_into_table(
         table,
         file_path=Path("Animaniacs (1993) - S06E01 - Jurassic Lark.mkv"),

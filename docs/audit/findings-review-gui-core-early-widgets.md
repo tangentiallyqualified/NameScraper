@@ -84,3 +84,7 @@ Each raw record was checked at its exact source line and then against repository
 - The confirmed findings cluster into seven unused `MainWindow` forwarding wrappers, ten orphaned `_media_helpers` presentation functions, stale getters/signals/helpers, and write-only legacy fields.
 - Duplicate attribute findings need write-level treatment: the constructor writes at `_bulk_assign_panel.py:442`, `_episode_expansion.py:158`, and `_episode_expansion.py:162` are overwritten before observation, while their later assignments are test-observed and therefore separate false positives.
 - `ShimmerOverlay` is dead as a class, but its `paintEvent` is still a genuine Qt override if the class were retained; remove the method only as part of removing the class.
+
+## 2026-07-17 postscript
+
+This partition's 30 `CONFIRMED` records are part of the review's 108-record total remediated on `dev/audit-debt3` (PRs #20-#23); see [findings-review.md](findings-review.md) for the full outcome (including the two confirmed layer-contract violations, both in the Non-GUI partition). The generated checklist ([maps/overview.md](maps/overview.md)) has been regenerated since; these verdicts remain the unmodified historical record of the original triage and are not rewritten.

@@ -1,10 +1,11 @@
 # plex_renamer/gui_qt/widgets/_episode_table_model.py
 """Read-model over ScanState + EpisodeGuide for the work-panel episode table (GUI V4 Plan 3)."""
+
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
-
 from dataclasses import dataclass, replace
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Signal
@@ -35,8 +36,8 @@ _SKELETON_MIN_ROWS, _SKELETON_MAX_ROWS = 6, 20
 class _GuideBridge(QObject):
     """Worker → GUI-thread hop for built guides (mirrors the overview bridge)."""
 
-    guide_ready = Signal(object, object, object, int)   # state, guide, signature, token
-    guide_failed = Signal(object, int)                  # state, token
+    guide_ready = Signal(object, object, object, int)  # state, guide, signature, token
+    guide_failed = Signal(object, int)  # state, token
 
 
 _SECTION_COLLAPSED_PREFIX = "▸ "
@@ -54,7 +55,9 @@ def _subtitle_companion_name(row: EpisodeGuideRow) -> str:
     return ""
 
 
-def _inline_actions_for(row: EpisodeGuideRow, season_has_missing: bool) -> tuple[tuple[str, str], ...]:
+def _inline_actions_for(
+    row: EpisodeGuideRow, season_has_missing: bool
+) -> tuple[tuple[str, str], ...]:
     """Collapsed-row action-strip buttons for an episode row (Task 6).
 
     Review rows always get approve/reassign/unassign; when the row sits
@@ -79,7 +82,7 @@ def _percent_from_label(value: str) -> int | None:
     if not text.endswith("%"):
         return None
     try:
-        return max(0, min(100, int(round(float(text[:-1])))))
+        return max(0, min(100, round(float(text[:-1]))))
     except ValueError:
         return None
 
@@ -97,19 +100,19 @@ class EpisodeRowData:
     kind: str
     title: str
     status_text: str = ""
-    status_tone: str = ""          # success|warning|error|muted
-    filename: str = ""             # inline filename line ("" hides it)
-    detail: str = ""               # second-line override (e.g. unassignment reason); "" falls back to filename
+    status_tone: str = ""  # success|warning|error|muted
+    filename: str = ""  # inline filename line ("" hides it)
+    detail: str = ""  # second-line override (e.g. unassignment reason); "" falls back to filename
     target: str = ""
     confidence_pct: int | None = None
-    checked: bool | None = None    # movie-file rows only
+    checked: bool | None = None  # movie-file rows only
     checkable: bool = False
-    collapsed: bool = False        # section-header rows
+    collapsed: bool = False  # section-header rows
     companion_count: int = 0
-    subtitle_name: str = ""        # real path of a matched external subtitle companion
+    subtitle_name: str = ""  # real path of a matched external subtitle companion
     tooltip: str = ""
-    inline_actions: tuple[tuple[str, str], ...] = ()   # (action_id, short label)
-    mux_active: bool = False   # this file's plan will actually mux (round5 §1b)
+    inline_actions: tuple[tuple[str, str], ...] = ()  # (action_id, short label)
+    mux_active: bool = False  # this file's plan will actually mux (round5 §1b)
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +163,7 @@ class EpisodeTableModel(QAbstractListModel):
 
     # -- QAbstractListModel overrides ------------------------------------
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
         return len(self._entries)
@@ -225,9 +228,7 @@ class EpisodeTableModel(QAbstractListModel):
             if self._guide is None:
                 self._entries = list(self._build_skeleton_entries(state))
             else:
-                self._entries = list(
-                    self._build_tv_entries(state, self._guide, folder_preview)
-                )
+                self._entries = list(self._build_tv_entries(state, self._guide, folder_preview))
         self.endResetModel()
 
     def state(self) -> ScanState | None:
@@ -409,7 +410,9 @@ class EpisodeTableModel(QAbstractListModel):
             mux_active = file_mux_active(state, entry.preview_index)
             if entry.row_data.mux_active == mux_active:
                 continue
-            self._entries[row] = replace(entry, row_data=replace(entry.row_data, mux_active=mux_active))
+            self._entries[row] = replace(
+                entry, row_data=replace(entry.row_data, mux_active=mux_active)
+            )
             index = self.index(row, 0)
             self.dataChanged.emit(index, index, [ROW_DATA_ROLE])
 
@@ -418,7 +421,7 @@ class EpisodeTableModel(QAbstractListModel):
     def _rebuild(self) -> None:
         state = self._state
         self.beginResetModel()
-        self._expanded_row = None   # editors are dropped on reset; keep the sentinel honest
+        self._expanded_row = None  # editors are dropped on reset; keep the sentinel honest
         if state is None:
             self._entries = []
         elif state.scan_error:
@@ -430,7 +433,9 @@ class EpisodeTableModel(QAbstractListModel):
             if self._guide is None:
                 self._entries = list(self._build_skeleton_entries(state))
             else:
-                self._entries = list(self._build_tv_entries(state, self._guide, self._folder_preview))
+                self._entries = list(
+                    self._build_tv_entries(state, self._guide, self._folder_preview)
+                )
         self.endResetModel()
 
     def _guide_for_state(self, state: ScanState) -> EpisodeGuide:
@@ -468,22 +473,20 @@ class EpisodeTableModel(QAbstractListModel):
                 built, signature = builder(state)
             except Exception:
                 _log.exception("episode guide build failed for %s", state.folder)
-                try:
+                # bridge destroyed during shutdown
+                with contextlib.suppress(RuntimeError):
                     bridge.guide_failed.emit(state, token)
-                except RuntimeError:
-                    pass    # bridge destroyed during shutdown
                 return
-            try:
+            # bridge destroyed during shutdown
+            with contextlib.suppress(RuntimeError):
                 bridge.guide_ready.emit(state, built, signature, token)
-            except RuntimeError:
-                pass    # bridge destroyed during shutdown
 
         _submit_bg(_worker)
         return None
 
     def _on_guide_ready(self, state, guide, signature, token: int) -> None:
         if token != self._guide_token or state is not self._state:
-            return    # stale build: a newer show_state/_rebuild superseded it
+            return  # stale build: a newer show_state/_rebuild superseded it
         if self._guide_store is not None:
             self._guide_store(state, guide, signature)
         self.beginResetModel()
@@ -494,12 +497,12 @@ class EpisodeTableModel(QAbstractListModel):
 
     def _on_guide_failed(self, state, token: int) -> None:
         if token != self._guide_token or state is not self._state:
-            return    # stale failure: a newer resolve superseded it
+            return  # stale failure: a newer resolve superseded it
         self._guide_error = True
         self.beginResetModel()
         self._entries = [self._guide_error_entry()]
         self.endResetModel()
-        self.guide_loaded.emit()    # footer/toolbar refresh path (guide stays None)
+        self.guide_loaded.emit()  # footer/toolbar refresh path (guide stays None)
 
     def _guide_error_entry(self) -> _Entry:
         title = "Episode guide failed to load — select the show again to retry"
@@ -524,8 +527,10 @@ class EpisodeTableModel(QAbstractListModel):
             min(len(state.preview_items) or _SKELETON_MIN_ROWS, _SKELETON_MAX_ROWS),
         )
         header = EpisodeRowData(
-            kind="section-label", title="Loading episodes…",
-            status_text="", status_tone="muted",
+            kind="section-label",
+            title="Loading episodes…",
+            status_text="",
+            status_tone="muted",
         )
         yield _Entry("section-label", None, "Loading episodes…", None, None, header)
         for _ in range(count):
@@ -753,7 +758,9 @@ class EpisodeTableModel(QAbstractListModel):
                 text=prefix + season_title,
                 preview_index=None,
                 guide_row=None,
-                row_data=EpisodeRowData(kind="section-header", title=season_title, collapsed=is_collapsed),
+                row_data=EpisodeRowData(
+                    kind="section-header", title=season_title, collapsed=is_collapsed
+                ),
             )
             if is_collapsed:
                 continue
@@ -762,15 +769,18 @@ class EpisodeTableModel(QAbstractListModel):
             # row's ±1 check is an O(1) membership test.
             missing_episode_numbers = {r.episode for r in season_rows if r.status == "Missing File"}
             for row in rows:
-                season_has_missing = (
-                    (row.episode - 1) in missing_episode_numbers
-                    or (row.episode + 1) in missing_episode_numbers
+                season_has_missing = (row.episode - 1) in missing_episode_numbers or (
+                    row.episode + 1
+                ) in missing_episode_numbers
+                entry = self._episode_entry(
+                    state, row, section_key, season_has_missing=season_has_missing
                 )
-                entry = self._episode_entry(state, row, section_key, season_has_missing=season_has_missing)
                 if entry is not None:
                     yield entry
 
-    def _season_ratio_text(self, state: ScanState, season_num: int, rows: list[EpisodeGuideRow]) -> str:
+    def _season_ratio_text(
+        self, state: ScanState, season_num: int, rows: list[EpisodeGuideRow]
+    ) -> str:
         completeness = state.completeness
         if completeness is None:
             return ""
@@ -826,8 +836,7 @@ class EpisodeTableModel(QAbstractListModel):
             subtitle_name=_subtitle_companion_name(row),
             tooltip=row.target_rename or "",
             inline_actions=_inline_actions_for(row, season_has_missing),
-            mux_active=(preview_index is not None
-                        and file_mux_active(state, preview_index)),
+            mux_active=(preview_index is not None and file_mux_active(state, preview_index)),
         )
         if not self._passes_search(row_data) or not self._passes_episode_search(row):
             return None
@@ -883,13 +892,15 @@ class EpisodeTableModel(QAbstractListModel):
         haystacks = (row_data.title, row_data.filename, row_data.target)
         return any(self._search_text in haystack.casefold() for haystack in haystacks if haystack)
 
-    _EPISODE_CODE_RE = re.compile(r"^(?:s(?P<s1>\d{1,2})(?:e(?P<e1>\d{1,3}))?|(?P<s2>\d{1,2})x(?P<e2>\d{1,3}))$")
+    _EPISODE_CODE_RE = re.compile(
+        r"^(?:s(?P<s1>\d{1,2})(?:e(?P<e1>\d{1,3}))?|(?P<s2>\d{1,2})x(?P<e2>\d{1,3}))$"
+    )
 
     def _passes_episode_search(self, guide_row: EpisodeGuideRow | None) -> bool:
         if not self._episode_search:
             return True
         if guide_row is None:
-            return True                     # non-episode entries ignore this filter
+            return True  # non-episode entries ignore this filter
         match = self._EPISODE_CODE_RE.match(self._episode_search)
         if match:
             season = int(match.group("s1") or match.group("s2"))

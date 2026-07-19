@@ -13,7 +13,6 @@ from pathlib import Path
 from plex_renamer.engine._queue_bridge import build_rename_job_from_state
 from plex_renamer.engine.models import PreviewItem, ScanState
 
-
 SHOW_INFO = {"id": 42, "name": "Demo Show", "year": "2020", "poster_path": None}
 
 
@@ -57,9 +56,7 @@ class TestQueueBuildTargetFallback:
 
     def test_target_already_under_output_root_is_kept(self, tmp_path):
         state, library_root, output_root = _make_state(tmp_path)
-        state.preview_items[0].target_dir = (
-            output_root / "Demo Show (2020)" / "Season 01"
-        )
+        state.preview_items[0].target_dir = output_root / "Demo Show (2020)" / "Season 01"
         job = build_rename_job_from_state(
             state,
             library_root,
@@ -75,7 +72,7 @@ class TestSingleShowScanRetarget:
     def test_single_show_scan_retargets_items_to_output_root(self, tmp_path, monkeypatch):
         from plex_renamer.app.controllers import _single_show_scan_helpers as helpers
 
-        state, library_root, output_root = _make_state(tmp_path)
+        state, _library_root, output_root = _make_state(tmp_path)
         state.scanned = False
 
         class _Settings:

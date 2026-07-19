@@ -114,7 +114,9 @@ def _update_checked_queue_button(workspace, checked: list[ScanState]) -> None:
         eligibility = _queue_eligibility(workspace, checked)
         set_roster_queue_button_text(workspace, f"Queue {len(checked)} Checked")
         workspace._roster_queue_btn.setEnabled(eligibility.enabled)
-        workspace._roster_queue_btn.setToolTip("" if eligibility.enabled else (eligibility.reason or ""))
+        workspace._roster_queue_btn.setToolTip(
+            "" if eligibility.enabled else (eligibility.reason or "")
+        )
         return
 
     set_roster_queue_button_text(workspace, "Queue Checked")

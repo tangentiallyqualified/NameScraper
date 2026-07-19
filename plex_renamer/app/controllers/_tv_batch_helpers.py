@@ -82,7 +82,9 @@ def start_tv_batch_session(
         phase="Discovering shows...",
         message="Discovering shows...",
     )
-    controller._notify("mode_changed", controller._active_content_mode, controller._active_library_mode)
+    controller._notify(
+        "mode_changed", controller._active_content_mode, controller._active_library_mode
+    )
 
     orchestrator = controller._batch_orchestrator
     cancel_event = controller._begin_scan_operation()
@@ -100,7 +102,9 @@ def start_tv_batch_session(
         suffix = (
             f" - {current_item}"
             if current_item and preparing_matches
-            else f" - last matched: {current_item}" if current_item else ""
+            else f" - last matched: {current_item}"
+            if current_item
+            else ""
         )
         controller._set_progress(
             ScanLifecycle.BUILDING_PREVIEWS if preparing_matches else ScanLifecycle.MATCHING,
@@ -108,9 +112,7 @@ def start_tv_batch_session(
             done=done,
             total=total,
             current_item=current_item or None,
-            message=(
-                f"{phase_text} {done}/{total}" if total else phase_text
-            ) + suffix,
+            message=(f"{phase_text} {done}/{total}" if total else phase_text) + suffix,
         )
 
     def _worker() -> None:
@@ -300,8 +302,7 @@ def _complete_tv_bulk_scan(
     _clear_fully_ready_checks(controller)
     scanned, total_files = _summarize_scanned_batch_states(controller._batch_states)
     prepared_states = [
-        state for state in controller._batch_states
-        if state.scanned and state.preview_items
+        state for state in controller._batch_states if state.scanned and state.preview_items
     ]
     total_prepared = len(prepared_states)
     if total_prepared:
@@ -344,8 +345,8 @@ def retarget_tv_state_to_output(state: ScanState, output_root: Path) -> None:
     resolved_output = output_root.resolve()
     state.output_root = resolved_output
     show_folder = build_show_folder_name(
-        state.media_info.get("name", ""),
-        state.media_info.get("year", ""),
+        str(state.media_info.get("name", "")),
+        str(state.media_info.get("year", "")),
     )
     if not show_folder:
         show_folder = state.display_name
@@ -365,10 +366,7 @@ def _clear_fully_ready_checks(controller: _TVBatchController) -> None:
 
 
 def _collect_unscanned_batch_states(states: list[ScanState]) -> list[ScanState]:
-    return [
-        state for state in states
-        if not state.scanned and state.show_id is not None
-    ]
+    return [state for state in states if not state.scanned and state.show_id is not None]
 
 
 def _current_batch_scan_name(states: list[ScanState], done: int) -> str:

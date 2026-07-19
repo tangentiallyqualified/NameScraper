@@ -8,7 +8,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 
-from ..constants import VIDEO_EXTENSIONS, YEAR_MIN, YEAR_MAX, MediaType
+from ..constants import VIDEO_EXTENSIONS, YEAR_MAX, YEAR_MIN, MediaType
 from ..parsing import (
     build_movie_name,
     clean_folder_name,
@@ -116,7 +116,8 @@ class MovieScanner:
         if self._explicit_files:
             return sorted(self._explicit_files)
         return sorted(
-            file_path for file_path in self.root.rglob("*")
+            file_path
+            for file_path in self.root.rglob("*")
             if file_path.is_file() and file_path.suffix.lower() in VIDEO_EXTENSIONS
         )
 
@@ -129,9 +130,7 @@ class MovieScanner:
             return files, []
 
         if self._tv_discovery_service is None:
-            raise RuntimeError(
-                "folder-mode MovieScanner requires a TV library discoverer"
-            )
+            raise RuntimeError("folder-mode MovieScanner requires a TV library discoverer")
 
         show_roots = self._tv_discovery_service.discover_show_roots(self.root)
         if not show_roots:
@@ -153,15 +152,17 @@ class MovieScanner:
                 tv_root == file_path.parent or tv_root in file_path.parents
                 for tv_root in tv_root_paths
             ):
-                skipped.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="SKIP: inside detected TV show folder",
-                    media_type=MediaType.OTHER,
-                ))
+                skipped.append(
+                    PreviewItem(
+                        original=file_path,
+                        new_name=None,
+                        target_dir=None,
+                        season=None,
+                        episodes=[],
+                        status="SKIP: inside detected TV show folder",
+                        media_type=MediaType.OTHER,
+                    )
+                )
                 continue
             remaining.append(file_path)
 
@@ -206,15 +207,17 @@ class MovieScanner:
         skipped = []
         for file_path in files:
             if file_path in skip_set:
-                skipped.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="SKIP: looks like a TV episode (sequential batch)",
-                    media_type=MediaType.OTHER,
-                ))
+                skipped.append(
+                    PreviewItem(
+                        original=file_path,
+                        new_name=None,
+                        target_dir=None,
+                        season=None,
+                        episodes=[],
+                        status="SKIP: looks like a TV episode (sequential batch)",
+                        media_type=MediaType.OTHER,
+                    )
+                )
             else:
                 remaining.append(file_path)
 
@@ -238,25 +241,29 @@ class MovieScanner:
         for file_path in all_video_files:
             _raise_if_cancelled(cancel_event)
             if is_sample_file(file_path):
-                items.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="SKIP: release sample clip",
-                    media_type=MediaType.OTHER,
-                ))
+                items.append(
+                    PreviewItem(
+                        original=file_path,
+                        new_name=None,
+                        target_dir=None,
+                        season=None,
+                        episodes=[],
+                        status="SKIP: release sample clip",
+                        media_type=MediaType.OTHER,
+                    )
+                )
             elif looks_like_tv_episode(file_path):
-                items.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="SKIP: looks like a TV episode",
-                    media_type=MediaType.OTHER,
-                ))
+                items.append(
+                    PreviewItem(
+                        original=file_path,
+                        new_name=None,
+                        target_dir=None,
+                        season=None,
+                        episodes=[],
+                        status="SKIP: looks like a TV episode",
+                        media_type=MediaType.OTHER,
+                    )
+                )
             else:
                 video_files.append(file_path)
 
@@ -288,25 +295,29 @@ class MovieScanner:
             progress_callback(0, len(video_files), "Building rename previews...", "")
 
         for index, (file_path, (_search_query, year_hint, raw_name), results) in enumerate(
-            zip(video_files, prepared, all_results),
+            zip(video_files, prepared, all_results, strict=False),
             start=1,
         ):
             _raise_if_cancelled(cancel_event)
             self._search_cache[file_path] = results
 
             if not results:
-                items.append(PreviewItem(
-                    original=file_path,
-                    new_name=None,
-                    target_dir=None,
-                    season=None,
-                    episodes=[],
-                    status="REVIEW: no TMDB results — click to search manually",
-                    media_type=MediaType.MOVIE,
-                    episode_confidence=0.0,
-                ))
+                items.append(
+                    PreviewItem(
+                        original=file_path,
+                        new_name=None,
+                        target_dir=None,
+                        season=None,
+                        episodes=[],
+                        status="REVIEW: no TMDB results — click to search manually",
+                        media_type=MediaType.MOVIE,
+                        episode_confidence=0.0,
+                    )
+                )
                 if progress_callback:
-                    progress_callback(index, len(video_files), "Building rename previews...", file_path.name)
+                    progress_callback(
+                        index, len(video_files), "Building rename previews...", file_path.name
+                    )
                 continue
 
             chosen, raw_confidence = self._best_match(results, raw_name, year_hint)
@@ -324,12 +335,14 @@ class MovieScanner:
             item.companions = _build_subtitle_companions(file_path, item.new_name)
             if confidence < get_auto_accept_threshold():
                 item.status = (
-                    f"REVIEW: best match \"{chosen['title']}\" "
+                    f'REVIEW: best match "{chosen["title"]}" '
                     f"(confidence {confidence:.0%}) — click to verify"
                 )
             items.append(item)
             if progress_callback:
-                progress_callback(index, len(video_files), "Building rename previews...", file_path.name)
+                progress_callback(
+                    index, len(video_files), "Building rename previews...", file_path.name
+                )
 
         return items
 
@@ -361,16 +374,20 @@ class MovieScanner:
             chosen = results[0] if results else None
 
         if not chosen:
-            return [PreviewItem(
-                original=file_path,
-                new_name=None,
-                target_dir=None,
-                season=None,
-                episodes=[],
-                status="SKIP: no movie selected" if results else "REVIEW: no TMDB results — click to search manually",
-                media_type=MediaType.MOVIE,
-                episode_confidence=0.0,
-            )]
+            return [
+                PreviewItem(
+                    original=file_path,
+                    new_name=None,
+                    target_dir=None,
+                    season=None,
+                    episodes=[],
+                    status="SKIP: no movie selected"
+                    if results
+                    else "REVIEW: no TMDB results — click to search manually",
+                    media_type=MediaType.MOVIE,
+                    episode_confidence=0.0,
+                )
+            ]
 
         self.movie_info[file_path] = chosen
         item = _build_movie_preview_item(file_path, chosen, self.root)

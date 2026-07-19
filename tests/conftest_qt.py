@@ -1,10 +1,11 @@
 """Shared Qt smoke-test base class and helpers."""
+
 from __future__ import annotations
 
-from contextlib import ExitStack
 import importlib.util
 import os
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -35,6 +36,18 @@ class QtSmokeBase(unittest.TestCase):
         from plex_renamer import thread_pool
 
         wait([thread_pool.submit(lambda: None) for _ in range(8)], timeout=30)
+        # Destroy every leaked top-level widget through Qt's own deferred
+        # deletion BEFORE the GC sweep below: when the sweep itself
+        # finalizes Qt wrappers, the C++ destructors run inside garbage
+        # collection and corrupt the native heap (0xC0000374 — observed on
+        # CI at whichever class teardown first accumulates enough trees).
+        # After deleteLater+processEvents the wrappers are dead shells and
+        # the sweep frees pure-Python garbage only. No close(): leaked
+        # windows from earlier classes may have dead backing services (see
+        # _dispose_top_level_widgets below).
+        for widget in list(cls._app.topLevelWidgets()):
+            widget.deleteLater()
+        cls._app.processEvents()
         # Drain pending DeferredDeletes and collect Python↔Qt reference
         # cycles at a safe point while the QApplication is alive. Left to
         # its own schedule, Python 3.14's incremental GC can finalize
@@ -63,7 +76,10 @@ class QtSmokeBase(unittest.TestCase):
             patch("plex_renamer.gui_qt.main_window.SettingsService", return_value=isolated_settings)
         )
         self._main_window_stack.enter_context(
-            patch("plex_renamer.gui_qt.main_window.PersistentCacheService", return_value=isolated_cache)
+            patch(
+                "plex_renamer.gui_qt.main_window.PersistentCacheService",
+                return_value=isolated_cache,
+            )
         )
         self._main_window_stack.enter_context(
             patch("plex_renamer.gui_qt.main_window.JobStore", return_value=isolated_store)

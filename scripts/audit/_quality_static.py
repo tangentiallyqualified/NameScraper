@@ -1,8 +1,9 @@
-"""Formatter and qualified-block complexity evidence for quality ratchets."""
+"""Formatter, typing, and qualified-block complexity evidence for quality ratchets."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import sys
 from collections.abc import Callable
@@ -10,10 +11,25 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
-from . import _ratchet_identity
+from . import _analyze, _ratchet_identity
 
 Finding = dict[str, Any]
 MetricMap = dict[str, dict[str, Any]]
+
+_rel_to_repo = _analyze._rel_to_repo  # pyright: ignore[reportPrivateUsage]
+_suffix_occurrences = cast(
+    Callable[[list[Finding]], list[Finding]],
+    _ratchet_identity.suffix_occurrences,  # pyright: ignore[reportUnknownMemberType]
+)
+
+
+def normalized_python_files(records: object) -> list[str]:
+    if not isinstance(records, list):
+        return []
+    items = cast(list[object], records)
+    return sorted(
+        {str(record).replace("\\", "/") for record in items if isinstance(record, str) and record}
+    )
 
 
 def _normalized_map(records: object) -> MetricMap:
@@ -210,6 +226,79 @@ def formatting_violations(current: dict[str, Any], baseline: dict[str, Any]) -> 
         for path in sorted(set(baseline_debt) - set(current_debt))
     )
     return violations
+
+
+def _effective_pyright_config(
+    repo_root: Path,
+    python_files: list[str],
+    legacy_python_files: list[str],
+) -> Path:
+    config = json.loads((repo_root / "pyrightconfig.json").read_text(encoding="utf-8"))
+    configured_strict = normalized_python_files(config.get("strict"))
+    strict = sorted(
+        set(configured_strict)
+        | (set(normalized_python_files(python_files)) - set(legacy_python_files))
+    )
+    config["strict"] = strict
+    path = repo_root / ".pyrightconfig.effective.json"
+    path.write_text(
+        json.dumps(config, indent=1, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
+
+
+def run_policy_pyright(
+    repo_root: Path,
+    python_files: list[str],
+    legacy_python_files: list[str],
+) -> list[dict[str, Any]]:
+    effective_config = _effective_pyright_config(repo_root, python_files, legacy_python_files)
+    project = effective_config.relative_to(repo_root).as_posix()
+    result = subprocess.run(
+        [sys.executable, "-m", "pyright", "--outputjson", "--project", project],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+        timeout=300,
+    )
+    if result.returncode not in (0, 1):
+        raise ValueError(f"pyright failed: {result.stderr.strip()[:200]}")
+    if result.returncode == 1 and not result.stdout.strip():
+        raise ValueError(f"pyright exited 1 with no output: {result.stderr.strip()[:200]}")
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise ValueError("pyright emitted invalid JSON evidence") from exc
+    findings: list[Finding] = []
+    scope_cache: dict[str, list[tuple[int, int, int, str]]] = {}
+    for item in payload.get("generalDiagnostics", []):
+        path = _rel_to_repo(repo_root, item["file"])
+        start = item.get("range", {}).get("start", {})
+        line = int(start.get("line", 0)) + 1
+        column = int(start.get("character", 0)) + 1
+        rule = str(item.get("rule") or "diagnostic")
+        message = " ".join(str(item.get("message") or rule).split())
+        scope = _ratchet_identity.qualified_scope(repo_root, path, line, scope_cache)
+        findings.append(
+            {
+                "source": "pyright",
+                "rule": rule,
+                "path": path,
+                "line": line,
+                "column": column,
+                "symbol": f"{scope}::{rule}::{message}",
+                "message": message,
+                "confidence": 100,
+                "category": "typing",
+                "allowlisted": False,
+                "allowlist_reason": None,
+            }
+        )
+    return _suffix_occurrences(findings)
 
 
 def run_policy_format(repo_root: Path, python_files: list[str]) -> dict[str, str]:

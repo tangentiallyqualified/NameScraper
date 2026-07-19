@@ -1,4 +1,5 @@
 """Tests for QueueController — UI-neutral job queue management."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -13,7 +14,7 @@ from plex_renamer.app.controllers.queue_controller import (
 )
 from plex_renamer.constants import JobStatus, MediaType
 from plex_renamer.engine import CompanionFile, PreviewItem, ScanState
-from plex_renamer.job_store import JobStore, RenameJob, RenameOp, DuplicateJobError
+from plex_renamer.job_store import DuplicateJobError, JobStore, RenameJob, RenameOp
 
 
 class QueueControllerTests(unittest.TestCase):
@@ -135,7 +136,9 @@ class QueueControllerTests(unittest.TestCase):
         try:
             row = migrated._get_conn().execute("PRAGMA table_info(jobs)").fetchall()
             columns = {entry[1] for entry in row}
-            version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            version = (
+                migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            )
             self.assertIn("poster_path", columns)
             self.assertIn("active_temp", columns)
             self.assertIn("metadata_plan", columns)
@@ -179,7 +182,9 @@ class QueueControllerTests(unittest.TestCase):
         try:
             row = migrated._get_conn().execute("PRAGMA table_info(jobs)").fetchall()
             columns = {entry[1] for entry in row}
-            version = migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            version = (
+                migrated._get_conn().execute("SELECT version FROM schema_version").fetchone()[0]
+            )
             self.assertIn("output_root", columns)
             self.assertIn("active_temp", columns)
             self.assertIn("metadata_plan", columns)
@@ -205,16 +210,16 @@ class QueueControllerTests(unittest.TestCase):
             media_name="Show",
         )
 
-        kwargs = dict(
-            items=[item],
-            checked_indices={0},
-            media_type=MediaType.TV,
-            tmdb_id=100,
-            media_name="Show",
-            library_root=lib_root,
-            output_root=lib_root,
-            source_folder=source,
-        )
+        kwargs = {
+            "items": [item],
+            "checked_indices": {0},
+            "media_type": MediaType.TV,
+            "tmdb_id": 100,
+            "media_name": "Show",
+            "library_root": lib_root,
+            "output_root": lib_root,
+            "source_folder": source,
+        }
 
         self.ctrl.add_single_job(**kwargs)
         with self.assertRaises(DuplicateJobError):
@@ -459,7 +464,8 @@ class QueueControllerTests(unittest.TestCase):
             self.store.add_job(job)
 
         self.store.update_status(
-            self.store.get_pending()[0].job_id, JobStatus.COMPLETED,
+            self.store.get_pending()[0].job_id,
+            JobStatus.COMPLETED,
         )
 
         counts = self.ctrl.count_by_status()
@@ -606,10 +612,12 @@ class JobStorePathPropagationTests(unittest.TestCase):
 
         updated = self.store.propagate_path_changes(
             completed.job_id,
-            [{
-                "old": str(lib_root / "Show"),
-                "new": str(lib_root / "Show (2020)"),
-            }],
+            [
+                {
+                    "old": str(lib_root / "Show"),
+                    "new": str(lib_root / "Show (2020)"),
+                }
+            ],
         )
 
         self.assertEqual(updated, 1)
@@ -654,10 +662,12 @@ class JobStorePathPropagationTests(unittest.TestCase):
 
         updated = self.store.propagate_path_changes(
             completed.job_id,
-            [{
-                "old": str(lib_root / "Show"),
-                "new": str(lib_root / "Show (2020)"),
-            }],
+            [
+                {
+                    "old": str(lib_root / "Show"),
+                    "new": str(lib_root / "Show (2020)"),
+                }
+            ],
         )
 
         self.assertEqual(updated, 0)
@@ -698,7 +708,10 @@ class JobStoreOrderingTests(unittest.TestCase):
         self.store.reorder_job(jobs[3].job_id, 1)
 
         queue = self.store.get_pending()
-        self.assertEqual([job.job_id for job in queue], [jobs[3].job_id, jobs[0].job_id, jobs[1].job_id, jobs[2].job_id])
+        self.assertEqual(
+            [job.job_id for job in queue],
+            [jobs[3].job_id, jobs[0].job_id, jobs[1].job_id, jobs[2].job_id],
+        )
         self.assertEqual([job.position for job in queue], [1, 2, 3, 4])
 
     def test_move_jobs_moves_block_down_preserving_relative_order(self):
@@ -707,7 +720,10 @@ class JobStoreOrderingTests(unittest.TestCase):
         self.store.move_jobs([jobs[1].job_id, jobs[2].job_id], 1)
 
         queue = self.store.get_pending()
-        self.assertEqual([job.job_id for job in queue], [jobs[0].job_id, jobs[3].job_id, jobs[1].job_id, jobs[2].job_id])
+        self.assertEqual(
+            [job.job_id for job in queue],
+            [jobs[0].job_id, jobs[3].job_id, jobs[1].job_id, jobs[2].job_id],
+        )
 
     def test_move_jobs_to_top_preserves_selected_order(self):
         jobs = self._seed_jobs()
@@ -715,7 +731,10 @@ class JobStoreOrderingTests(unittest.TestCase):
         self.store.move_jobs_to_top([jobs[2].job_id, jobs[3].job_id])
 
         queue = self.store.get_pending()
-        self.assertEqual([job.job_id for job in queue], [jobs[2].job_id, jobs[3].job_id, jobs[0].job_id, jobs[1].job_id])
+        self.assertEqual(
+            [job.job_id for job in queue],
+            [jobs[2].job_id, jobs[3].job_id, jobs[0].job_id, jobs[1].job_id],
+        )
 
 
 class MovieBatchCheckboxTests(unittest.TestCase):
@@ -977,7 +996,9 @@ class TVBatchShowLevelQueueTests(unittest.TestCase):
         self.assertEqual(len(jobs), 1)
         self.assertEqual(len(jobs[0].rename_ops), 3)
         self.assertTrue(all(op.selected for op in jobs[0].rename_ops))
-        self.assertEqual([op.file_type for op in jobs[0].rename_ops], ["video", "subtitle", "video"])
+        self.assertEqual(
+            [op.file_type for op in jobs[0].rename_ops], ["video", "subtitle", "video"]
+        )
 
     def test_tv_batch_job_uses_output_root_relative_targets(self):
         from plex_renamer.app.services.command_gating_service import CommandGatingService

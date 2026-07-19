@@ -1,4 +1,5 @@
 """Unit tests for CommandGatingService — queue eligibility logic."""
+
 from __future__ import annotations
 
 import unittest
@@ -8,11 +9,16 @@ from plex_renamer.app.models import QueueCommandState
 from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.engine import PreviewItem, ScanState, build_rename_job_from_state
 
-
 _ACTION_PLAN = {
     "track_decisions": [],
-    "subtitle_merges": [{"source_relative": "Show/a.eng.srt", "action": "merge",
-                          "language": "eng", "set_default": False}],
+    "subtitle_merges": [
+        {
+            "source_relative": "Show/a.eng.srt",
+            "action": "merge",
+            "language": "eng",
+            "set_default": False,
+        }
+    ],
 }
 
 
@@ -110,7 +116,34 @@ class CommandGatingServiceTests(unittest.TestCase):
         self.assertFalse(item.is_actionable)
         self.assertTrue(self.svc.is_fully_ready_state(state))
 
+    def test_plex_ready_without_show_name_skips_folder_check(self):
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show (2024)/Season 01/Show (2024) - S01E01.mkv"),
+            new_name="Show (2024) - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show (2024)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = ScanState(
+            folder=Path("C:/library/tv/Whatever Name"),
+            media_info={"id": 1},
+            preview_items=[item],
+            scanned=True,
+        )
+        self.assertTrue(self.svc.is_fully_ready_state(state))
+
     # -- evaluate_preview_items ----------------------------------------------
+
+    def test_selected_review_rows_block_queueing(self):
+        items = [_item(status="REVIEW: episode confidence below threshold"), _item()]
+        result = self.svc.evaluate_preview_items(
+            items,
+            selected_indices={0, 1},
+            require_resolved_review=True,
+        )
+        self.assertEqual(result.command_state, QueueCommandState.DISABLED_UNRESOLVED_REVIEW)
+        self.assertEqual(result.selected_indices, [0])
 
     def test_disabled_when_scanning(self):
         result = self.svc.evaluate_preview_items([_item()], is_scanning=True)

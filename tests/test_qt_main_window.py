@@ -4,18 +4,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
-from plex_renamer.app.controllers.queue_controller import BatchQueueResult
 from plex_renamer.app.services.cache_service import PersistentCacheService
-from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.settings_service import SettingsService
-from plex_renamer.constants import JobStatus
-from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
-from plex_renamer.job_store import JobStore
-
-from conftest_qt import QtSmokeBase
+from plex_renamer.engine import PreviewItem, ScanState
 
 
 class QtMainWindowTests(QtSmokeBase):
@@ -177,6 +172,7 @@ class QtMainWindowTests(QtSmokeBase):
     def test_transient_popup_filter_hides_tool_windows(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QWidget
+
         from plex_renamer.gui_qt.app import _SuppressTransientPopups
 
         popup_filter = _SuppressTransientPopups(self._app)
@@ -192,6 +188,7 @@ class QtMainWindowTests(QtSmokeBase):
     def test_transient_popup_filter_keeps_real_menus_visible(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QMenu
+
         from plex_renamer.gui_qt.app import _SuppressTransientPopups
 
         popup_filter = _SuppressTransientPopups(self._app)
@@ -206,6 +203,7 @@ class QtMainWindowTests(QtSmokeBase):
     def test_transient_popup_filter_allows_tooltip_events_and_windows(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QWidget
+
         from plex_renamer.gui_qt.app import _SuppressTransientPopups
 
         popup_filter = _SuppressTransientPopups(self._app)
@@ -262,7 +260,7 @@ class QtMainWindowTests(QtSmokeBase):
 
         jobs = [object() for _ in range(20)]
         results = [object() for _ in jobs]
-        for job, result in zip(jobs, results):
+        for job, result in zip(jobs, results, strict=False):
             bridge.on_job_started(job)
             bridge.on_job_completed(job, result)
 
@@ -444,6 +442,7 @@ class QtMainWindowTests(QtSmokeBase):
 
     def test_settings_tab_category_page_controls_stay_top_aligned(self):
         from PySide6.QtWidgets import QLabel
+
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
@@ -460,12 +459,15 @@ class QtMainWindowTests(QtSmokeBase):
             page = tab._settings_stack.currentWidget()
             labels = {label.text(): label for label in page.findChildren(QLabel)}
 
-            self.assertLess(labels["Default view mode"].mapTo(page, QPoint(0, 0)).y(), _scale.px(120))
+            self.assertLess(
+                labels["Default view mode"].mapTo(page, QPoint(0, 0)).y(), _scale.px(120)
+            )
             self.assertLess(labels["Display"].height(), _scale.px(80))
             tab.close()
 
     def test_settings_section_cards_use_title_header_rows(self):
         from PySide6.QtWidgets import QFrame
+
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
 
         with TemporaryDirectory() as tmp:
@@ -476,7 +478,8 @@ class QtMainWindowTests(QtSmokeBase):
             self.assertFalse(hasattr(page, "_header_icon"))
             # Spec §12: header row replaces the heading+separator hairline.
             separators = [
-                child for child in page.findChildren(QFrame)
+                child
+                for child in page.findChildren(QFrame)
                 if child.property("cssClass") == "separator"
             ]
             self.assertEqual(separators, [])
@@ -566,7 +569,9 @@ class QtMainWindowTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
@@ -661,7 +666,9 @@ class QtMainWindowTests(QtSmokeBase):
         window.media_ctrl.scan_all_shows.assert_called_once_with()
         window.close()
 
-    def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes_for_queued_states(self):
+    def test_main_window_keeps_tv_loading_workspace_until_bulk_scan_finishes_for_queued_states(
+        self,
+    ):
         from plex_renamer.app.models import ScanLifecycle
         from plex_renamer.gui_qt.main_window import MainWindow
 
@@ -774,8 +781,37 @@ class QtMainWindowTests(QtSmokeBase):
         client.import_cache_snapshot.assert_called_once_with(snapshot, clear_existing=True)
         window.close()
 
+    def test_main_window_reuses_existing_tmdb_client(self):
+        # Pins the client-already-built early return deterministically: without
+        # this, that branch only runs on machines whose keyring holds a real
+        # TMDB key, making package coverage differ between dev and CI.
+        from plex_renamer.gui_qt.main_window import MainWindow
+
+        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
+            window = MainWindow()
+        self._reset_main_window_queue(window)
+        window._tmdb = None
+
+        with (
+            patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"),
+            patch("plex_renamer.gui_qt.main_window.TMDBClient") as client_cls,
+        ):
+            client = MagicMock()
+            client.export_cache_snapshot.return_value = {}
+            client_cls.return_value = client
+            first = window._ensure_tmdb()
+            second = window._ensure_tmdb()
+
+        self.assertIs(second, first)
+        client_cls.assert_called_once()
+        window.close()
+
     def test_main_window_persists_tmdb_snapshot_on_invalidate(self):
-        from plex_renamer.gui_qt.main_window import MainWindow, TMDB_CACHE_NAMESPACE, TMDB_CACHE_SNAPSHOT_KEY
+        from plex_renamer.gui_qt.main_window import (
+            TMDB_CACHE_NAMESPACE,
+            TMDB_CACHE_SNAPSHOT_KEY,
+            MainWindow,
+        )
 
         window = MainWindow()
         tmdb = MagicMock()
@@ -872,16 +908,17 @@ class QtMainWindowTests(QtSmokeBase):
 
         self.assertEqual(window._toast_manager.toast_count(), 4)
         self.assertIsNotNone(window._toast_manager._summary_toast)
-        self.assertEqual(window._toast_manager._summary_toast._message_label.text(), "3 more notifications collapsed.")
+        self.assertEqual(
+            window._toast_manager._summary_toast._message_label.text(),
+            "3 more notifications collapsed.",
+        )
 
         window.close()
 
     def test_main_window_minimum_size_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/main_window.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/main_window.py").read_text(encoding="utf-8")
         self.assertIn("_scale.px(960)", source)
         self.assertIn("_scale.px(600)", source)
         self.assertNotIn("setMinimumSize(960, 600)", source)
@@ -889,9 +926,7 @@ class QtMainWindowTests(QtSmokeBase):
     def test_main_window_shell_resize_uses_scale_helper(self):
         from pathlib import Path
 
-        source = Path(
-            "plex_renamer/gui_qt/_main_window_shell.py"
-        ).read_text(encoding="utf-8")
+        source = Path("plex_renamer/gui_qt/_main_window_shell.py").read_text(encoding="utf-8")
         self.assertIn("_scale.px(1440)", source)
         self.assertIn("_scale.px(900)", source)
         self.assertNotIn("window.resize(1440, 900)", source)
@@ -909,7 +944,9 @@ class QtMainWindowTests(QtSmokeBase):
         # Stats + both destructive actions live on the same (Data) page.
         data_page = tab._settings_stack.widget(nav_texts.index("Data"))
         self.assertTrue(tab._cache_stats in data_page.findChildren(type(tab._cache_stats)))
-        self.assertTrue(tab._clear_history_btn in data_page.findChildren(type(tab._clear_history_btn)))
+        self.assertTrue(
+            tab._clear_history_btn in data_page.findChildren(type(tab._clear_history_btn))
+        )
         tab.close()
 
     def test_clear_cache_confirm_declined_leaves_cache_intact(self):
@@ -920,6 +957,7 @@ class QtMainWindowTests(QtSmokeBase):
             cache.put("tmdb.tv_details", "1", {"name": "Bleach"})
             tab = SettingsTab(cache_service=cache)
             try:
+
                 class _NoBox:
                     class StandardButton:
                         Yes = "yes"
@@ -979,8 +1017,7 @@ class QtMainWindowTests(QtSmokeBase):
         automux_row = nav.count() - 1
         self.assertEqual(nav.item(automux_row).text(), "AutoMux")
         self.assertFalse(nav.item(automux_row).isHidden())
-        self.assertTrue(
-            nav.item(automux_row).flags() & Qt.ItemFlag.ItemIsSelectable)
+        self.assertTrue(nav.item(automux_row).flags() & Qt.ItemFlag.ItemIsSelectable)
         nav.setCurrentRow(automux_row)
         self.assertIs(tab._settings_stack.currentWidget(), tab._automux_page)
         self.assertEqual(tab._automux_page._heading.text(), "AutoMux")
@@ -998,9 +1035,7 @@ class QtMainWindowTests(QtSmokeBase):
             "history_count_callback",
             "parent",
         ):
-            self.assertEqual(
-                params[name].kind, inspect.Parameter.KEYWORD_ONLY, name
-            )
+            self.assertEqual(params[name].kind, inspect.Parameter.KEYWORD_ONLY, name)
 
     def test_settings_pages_have_no_header_icon(self):
         from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab

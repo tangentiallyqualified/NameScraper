@@ -1,5 +1,4 @@
 """mkvmerge binary discovery."""
-from pathlib import Path
 
 from plex_renamer import _mkv_locate
 from plex_renamer._mkv_locate import find_mkvmerge
@@ -26,8 +25,7 @@ def test_explicit_directory_resolves_exe(tmp_path, monkeypatch):
 
 def test_bad_explicit_path_returns_none_without_fallback(tmp_path, monkeypatch):
     # An explicit setting that doesn't resolve is an error, not a fallback.
-    monkeypatch.setattr(
-        _mkv_locate.shutil, "which", lambda name: str(tmp_path / "other.exe"))
+    monkeypatch.setattr(_mkv_locate.shutil, "which", lambda name: str(tmp_path / "other.exe"))
     assert find_mkvmerge(str(tmp_path / "missing.exe")) is None
 
 

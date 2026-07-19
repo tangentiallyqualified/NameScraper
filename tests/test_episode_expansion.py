@@ -1,5 +1,6 @@
 # tests/test_episode_expansion.py
 """Expansion card content, actions, copy behavior."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,10 +12,12 @@ from test_episode_table_model import _guide_state
 class EpisodeExpansionCardTests(QtSmokeBase):
     def _card(self):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
         return EpisodeExpansionCard()
 
     def _card_with_episode(self):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
+
         state, guide = _guide_state()
         card = EpisodeExpansionCard()
         card.show_episode(state, guide.rows[0])
@@ -27,6 +30,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
     def test_click_anywhere_on_header_collapses(self):
         from PySide6.QtCore import QPoint, Qt
         from PySide6.QtTest import QTest
+
         card = self._card_with_episode()
         card.resize(600, 300)
         card.show()
@@ -34,9 +38,12 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         fired = []
         card.collapse_requested.connect(lambda: fired.append(True))
         header = card._header_widget
-        QTest.mouseClick(header, Qt.MouseButton.LeftButton,
-                         Qt.KeyboardModifier.NoModifier,
-                         QPoint(header.width() - 10, header.height() // 2))
+        QTest.mouseClick(
+            header,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            QPoint(header.width() - 10, header.height() // 2),
+        )
         self.assertTrue(fired)
 
     def test_right_click_on_header_does_not_collapse(self):
@@ -45,6 +52,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # would also collapse the card.
         from PySide6.QtCore import QPoint, Qt
         from PySide6.QtTest import QTest
+
         card = self._card_with_episode()
         card.resize(600, 300)
         card.show()
@@ -52,15 +60,20 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         fired = []
         card.collapse_requested.connect(lambda: fired.append(True))
         header = card._header_widget
-        QTest.mouseClick(header, Qt.MouseButton.RightButton,
-                         Qt.KeyboardModifier.NoModifier,
-                         QPoint(header.width() - 10, header.height() // 2))
+        QTest.mouseClick(
+            header,
+            Qt.MouseButton.RightButton,
+            Qt.KeyboardModifier.NoModifier,
+            QPoint(header.width() - 10, header.height() // 2),
+        )
         self.assertFalse(fired)
 
     def test_episode_content_and_actions(self):
         from PySide6.QtWidgets import QLabel
+
         from plex_renamer.gui_qt.widgets._episode_expansion import (
-            EpisodeExpansionCard, episode_row_actions,
+            EpisodeExpansionCard,
+            episode_row_actions,
         )
 
         state, guide = _guide_state()
@@ -119,7 +132,9 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         card.show_episode(state, row)
         texts = [w.text() for w in card.findChildren(QLabel)]
         self.assertTrue(any("Episode Source" in t and "s01e01.mkv" in t for t in texts))
-        self.assertTrue(any("Episode Output" in t and "Show - S01E01 - One.mkv" in t for t in texts))
+        self.assertTrue(
+            any("Episode Output" in t and "Show - S01E01 - One.mkv" in t for t in texts)
+        )
         # No copy button should remain on the source row.
         self.assertEqual(card._copy_buttons, [])
 
@@ -168,6 +183,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # M9: labeled Subtitle Source/Output rows replace the old badge+copy
         # per-file rows — the label text itself conveys the companion type.
         from PySide6.QtWidgets import QLabel
+
         from plex_renamer.engine import CompanionFile
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 
@@ -204,10 +220,12 @@ class EpisodeExpansionCardTests(QtSmokeBase):
             def claims(self, season, episode):
                 if (season, episode) == (1, 1):
                     return [
-                        Assignment(file_id=1, season=1, episodes=(1,),
-                                   origin="manual", confidence=1.0),
-                        Assignment(file_id=2, season=1, episodes=(1,),
-                                   origin="manual", confidence=1.0),
+                        Assignment(
+                            file_id=1, season=1, episodes=(1,), origin="manual", confidence=1.0
+                        ),
+                        Assignment(
+                            file_id=2, season=1, episodes=(1,), origin="manual", confidence=1.0
+                        ),
                     ]
                 return []
 
@@ -243,15 +261,17 @@ class EpisodeExpansionCardTests(QtSmokeBase):
             def claims(self, season, episode):
                 if (season, episode) == (1, 1):
                     return [
-                        Assignment(file_id=1, season=1, episodes=(1,),
-                                   origin="auto", confidence=0.9),
-                        Assignment(file_id=2, season=1, episodes=(1,),
-                                   origin="auto", confidence=0.8),
+                        Assignment(
+                            file_id=1, season=1, episodes=(1,), origin="auto", confidence=0.9
+                        ),
+                        Assignment(
+                            file_id=2, season=1, episodes=(1,), origin="auto", confidence=0.8
+                        ),
                     ]
                 return []
 
             def conflicted_file_ids(self):
-                return {1, 2}   # today's real policy: both claimants conflicted
+                return {1, 2}  # today's real policy: both claimants conflicted
 
         state.assignments = _ConflictTable()
         card = EpisodeExpansionCard()
@@ -273,11 +293,15 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         state, guide = _guide_state()
         row = guide.rows[0]  # has a subtitle companion in the fixture
         sub = next(c for c in row.companions if c.file_type == "subtitle")
-        plan = {"subtitle_merges": [{
-            "action": "merge",
-            "source_relative": str(sub.original).replace("\\", "/"),
-            "language": "eng",
-        }]}
+        plan = {
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": str(sub.original).replace("\\", "/"),
+                    "language": "eng",
+                }
+            ]
+        }
         card = self._card()
         card.show_episode(state, row, mux_plan=plan)
         texts = [w.text() for w in card.findChildren(QLabel)]
@@ -291,11 +315,15 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         state, guide = _guide_state()
         row = guide.rows[0]  # has a subtitle companion in the fixture
         sub = next(c for c in row.companions if c.file_type == "subtitle")
-        plan = {"subtitle_merges": [{
-            "action": "rename",
-            "source_relative": str(sub.original).replace("\\", "/"),
-            "language": "eng",
-        }]}
+        plan = {
+            "subtitle_merges": [
+                {
+                    "action": "rename",
+                    "source_relative": str(sub.original).replace("\\", "/"),
+                    "language": "eng",
+                }
+            ]
+        }
         card = self._card()
         card.show_episode(state, row, mux_plan=plan)
         texts = [w.text() for w in card.findChildren(QLabel)]
@@ -317,10 +345,13 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 
         state, guide = _guide_state()
-        review_row = guide.rows[1]   # Review, confidence 61%
+        review_row = guide.rows[1]  # Review, confidence 61%
         card = EpisodeExpansionCard()
         card.show_episode(
-            state, review_row, mux_plan=None, preview_index=0,
+            state,
+            review_row,
+            mux_plan=None,
+            preview_index=0,
             above_fold_ids=("approve", "reassign", "unassign"),
         )
         header_buttons = [b.property("actionId") for b in card.header_action_buttons()]
@@ -334,9 +365,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # header row (far right, after the above-fold buttons).
         self.assertEqual(card.status_pill_text(), "REVIEW 61%")
         header_row = card._header_row
-        self.assertIs(
-            header_row.itemAt(header_row.count() - 1).widget(), card._status_pill
-        )
+        self.assertIs(header_row.itemAt(header_row.count() - 1).widget(), card._status_pill)
 
     def test_header_pill_uses_review_confidence_band_tone(self):
         # Delegate parity: a 61% Review row lands in the mid band -> warning,
@@ -355,14 +384,18 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # buttons form a right-aligned vertical column directly under the
         # pill, not siblings in the header row -- "the row grew in place."
         from PySide6.QtTest import QTest
+
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 
         state, guide = _guide_state()
-        review_row = guide.rows[1]   # Review, confidence 61%
+        review_row = guide.rows[1]  # Review, confidence 61%
         card = EpisodeExpansionCard()
         self.addCleanup(card.deleteLater)
         card.show_episode(
-            state, review_row, mux_plan=None, preview_index=0,
+            state,
+            review_row,
+            mux_plan=None,
+            preview_index=0,
             above_fold_ids=("approve", "reassign", "unassign"),
         )
         buttons = card.header_action_buttons()
@@ -395,6 +428,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # paints as a rectangle. The new class fixes the height to the
         # delegate's pill height and uses a radius <= half of it.
         from PySide6.QtTest import QTest
+
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
         from plex_renamer.gui_qt.widgets._episode_table_delegate import _PILL_H_U
@@ -419,9 +453,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         mapped_row = guide.rows[0]
         plan = {
             "track_decisions": [],
-            "subtitle_merges": [
-                {"action": "merge", "source_relative": "x.srt", "language": "eng"}
-            ],
+            "subtitle_merges": [{"action": "merge", "source_relative": "x.srt", "language": "eng"}],
         }
         state.mux_plans[0] = plan
         card = EpisodeExpansionCard()
@@ -445,8 +477,9 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 
         state, guide = _guide_state()
-        plan = {"subtitle_merges": [
-            {"action": "merge", "source_relative": "x.srt", "language": "eng"}]}
+        plan = {
+            "subtitle_merges": [{"action": "merge", "source_relative": "x.srt", "language": "eng"}]
+        }
         state.mux_plans[0] = plan
         card = EpisodeExpansionCard()
         card.show_episode(state, guide.rows[0], mux_plan=plan, preview_index=0)
@@ -457,8 +490,8 @@ class EpisodeExpansionCardTests(QtSmokeBase):
 
     def test_episode_row_actions_vocabulary_is_frozen(self):
         # The frozen contract: ids/order for every status must not change.
-        from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
         from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
 
         def ids(status):
             row = EpisodeGuideRow(season=1, episode=1, title="X", status=status)
@@ -469,9 +502,7 @@ class EpisodeExpansionCardTests(QtSmokeBase):
             ids("Conflict"),
             ["keep_this", "reassign", "assign_to_more", "unassign"],
         )
-        self.assertEqual(
-            ids("Review"), ["approve", "reassign", "assign_to_more", "unassign"]
-        )
+        self.assertEqual(ids("Review"), ["approve", "reassign", "assign_to_more", "unassign"])
         self.assertEqual(ids("Mapped"), ["reassign", "assign_to_more", "unassign"])
 
     # -- Task 7 (spec §4): tracks-widget whitespace diagnosis -------------
@@ -488,8 +519,10 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         margins = outer.contentsMargins()
         header_height = card._header_widget.sizeHint().height()
         return (
-            margins.top() + margins.bottom()
-            + header_height + outer.spacing()
+            margins.top()
+            + margins.bottom()
+            + header_height
+            + outer.spacing()
             + tracks.sizeHint().height()
         )
 
@@ -532,7 +565,8 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         expected = self._expected_card_height(card, tracks)
         actual = card.sizeHint().height()
         self.assertLessEqual(
-            abs(actual - expected), _scale.px(8),
+            abs(actual - expected),
+            _scale.px(8),
             f"card.sizeHint() reports {actual}px but the visible sections "
             f"(header + tracks {tracks.sizeHint().height()}px + "
             f"margins/spacing) only need {expected}px "
@@ -553,14 +587,24 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         plan = {
             "output_name": "X.mkv",
             "track_decisions": [
-                {"track_id": i, "track_type": "audio", "codec": "aac",
-                 "language": "eng", "name": "", "keep": True,
-                 "make_default": i == 0, "reason": "retained"}
+                {
+                    "track_id": i,
+                    "track_type": "audio",
+                    "codec": "aac",
+                    "language": "eng",
+                    "name": "",
+                    "keep": True,
+                    "make_default": i == 0,
+                    "reason": "retained",
+                }
                 for i in range(3)
             ],
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
         card = EpisodeExpansionCard()
         self.addCleanup(card.deleteLater)
@@ -580,20 +624,21 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         # The card must reflect the real plan's content immediately -- not
         # stay pinned at a stale/floor height across the async arrival.
         self.assertEqual(
-            immediate, settled,
+            immediate,
+            settled,
             "card.sizeHint() changed after processEvents() -- the plan's "
             "arrival was not reflected immediately",
         )
         expected = self._expected_card_height(card, tracks)
         self.assertLessEqual(
-            abs(settled - expected), _scale.px(8),
+            abs(settled - expected),
+            _scale.px(8),
             f"card.sizeHint() reports {settled}px but the visible sections "
             f"only need {expected}px ({settled - expected}px of extra "
             "whitespace)",
         )
 
     def test_path_rows_bold_their_labels(self):
-        from PySide6.QtWidgets import QLabel
 
         card = self._card()
         self.addCleanup(card.deleteLater)
@@ -601,4 +646,4 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         row = card._files_section.itemAt(card._files_section.count() - 1).widget()
         label = row.layout().itemAt(0).widget()
         self.assertIn("<b>Episode Source:</b>", label.text())
-        self.assertIn("&lt;b&gt;", label.text())   # path is HTML-escaped
+        self.assertIn("&lt;b&gt;", label.text())  # path is HTML-escaped

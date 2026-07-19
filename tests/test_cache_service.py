@@ -1,19 +1,19 @@
 """Unit tests for PersistentCacheService — round-trip, TTL, eviction, invalidation."""
+
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from plex_renamer.app.models import RefreshState
 from plex_renamer.app.services.cache_service import PersistentCacheService
-from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 
 
 def _utc(offset_hours: float = 0) -> datetime:
-    return datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(hours=offset_hours)
+    return datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=offset_hours)
 
 
 class CacheServiceTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class CacheServiceTests(unittest.TestCase):
         self.assertTrue(conn.closed)
 
     def test_put_get_round_trip(self):
-        entry = self.cache.put("ns", "key1", {"title": "Arrival"})
+        self.cache.put("ns", "key1", {"title": "Arrival"})
         lookup = self.cache.get("ns", "key1")
         self.assertTrue(lookup.is_hit)
         self.assertEqual(lookup.value, {"title": "Arrival"})
@@ -241,13 +241,13 @@ class CacheServiceTests(unittest.TestCase):
 
     def test_default_cache_size_is_one_gib(self):
         cache = PersistentCacheService(db_path=self.db_path)
-        self.assertEqual(cache.stats()["max_size_bytes"], 1024 ** 3)
+        self.assertEqual(cache.stats()["max_size_bytes"], 1024**3)
 
     def test_set_max_size_bytes_updates_and_prunes(self):
-        cache = PersistentCacheService(db_path=self.db_path, max_size_bytes=10 ** 9)
+        cache = PersistentCacheService(db_path=self.db_path, max_size_bytes=10**9)
         for i in range(50):
             cache.put("ns", f"k{i}", {"blob": "x" * 1000})
-        cache.set_max_size_bytes(5000)                    # tiny cap forces eviction
+        cache.set_max_size_bytes(5000)  # tiny cap forces eviction
         self.assertLessEqual(cache.stats()["total_size_bytes"], 5000)
         self.assertEqual(cache.stats()["max_size_bytes"], 5000)
 

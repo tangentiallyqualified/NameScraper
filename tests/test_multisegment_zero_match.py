@@ -1,11 +1,12 @@
 """RC22: zero-title-match multi-segment files must not auto-accept."""
+
 from pathlib import Path
 
 from plex_renamer.engine._episode_resolution import (
-    CONF_WEAK_TITLE_NUMBER_CAP,
     CONF_TITLE_WINS_INEXACT,
-    resolve_file,
+    CONF_WEAK_TITLE_NUMBER_CAP,
     rescue_cross_season_segmented,
+    resolve_file,
 )
 from plex_renamer.engine.episode_assignments import EpisodeAssignmentTable, EpisodeSlot
 
@@ -47,7 +48,10 @@ def test_cross_season_segmented_rescue_moves_file():
         folder_season=3,
     )
     table.assign(
-        entry.file_id, 3, [1, 2], origin="auto",
+        entry.file_id,
+        3,
+        [1, 2],
+        origin="auto",
         confidence=CONF_WEAK_TITLE_NUMBER_CAP,
         evidence=frozenset({"number", "title-no-match", "title-multi-segment"}),
     )

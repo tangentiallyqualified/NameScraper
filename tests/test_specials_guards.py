@@ -1,5 +1,4 @@
 """RC24(b)/RC25/RC26/RC23: specials-path guards."""
-from pathlib import Path
 
 from plex_renamer.engine._episode_resolution import (
     CONF_TITLE_WINS_INEXACT,
@@ -49,8 +48,11 @@ def test_inexact_s0_match_never_overrides_valid_explicit_own_number(tmp_path):
     file_path = tmp_path / "Doctor Who - S02E10 - Love and Monsters.mkv"
     file_path.touch()
     _resolve_into_table(
-        table, file_path=file_path, season_num=2,
-        season_titles=season_titles, specials_titles=s0_titles,
+        table,
+        file_path=file_path,
+        season_num=2,
+        season_titles=season_titles,
+        specials_titles=s0_titles,
         show_name="Doctor Who",
     )
     assignment = table.assignment_for(0)
@@ -66,8 +68,11 @@ def test_exact_s0_title_still_loses_to_valid_own_number_with_own_match(tmp_path)
     file_path = tmp_path / "Doctor Who - S02E10 - Love and Monsters.mkv"
     file_path.touch()
     _resolve_into_table(
-        table, file_path=file_path, season_num=2,
-        season_titles=season_titles, specials_titles=s0_titles,
+        table,
+        file_path=file_path,
+        season_num=2,
+        season_titles=season_titles,
+        specials_titles=s0_titles,
         show_name="Doctor Who",
     )
     assignment = table.assignment_for(0)
@@ -82,13 +87,15 @@ def test_prequel_with_parent_number_does_not_claim_s0_number(tmp_path):
     }
     table = _table_with(0, {}, s0_titles)
     file_path = (
-        tmp_path
-        / "Prequel - S07E13 - The Name of the Doctor - Clarence and the Whispermen.mkv"
+        tmp_path / "Prequel - S07E13 - The Name of the Doctor - Clarence and the Whispermen.mkv"
     )
     file_path.touch()
     _resolve_into_table(
-        table, file_path=file_path, season_num=0,
-        season_titles=s0_titles, from_extras_folder=True,
+        table,
+        file_path=file_path,
+        season_num=0,
+        season_titles=s0_titles,
+        from_extras_folder=True,
         show_name="Doctor Who",
     )
     assignment = table.assignment_for(0)
@@ -104,8 +111,11 @@ def test_root_file_with_no_parse_matches_special_by_stem(tmp_path):
     file_path = tmp_path / "The Henry & June Show (1999).mp4"
     file_path.touch()
     _resolve_into_table(
-        table, file_path=file_path, season_num=1,
-        season_titles=season_titles, specials_titles=s0_titles,
+        table,
+        file_path=file_path,
+        season_num=1,
+        season_titles=season_titles,
+        specials_titles=s0_titles,
         show_name="KaBlam!",
     )
     assignment = table.assignment_for(0)
@@ -120,8 +130,11 @@ def test_offbeats_valentines_stem_substring(tmp_path):
     file_path = tmp_path / "The Off-Beats Valentine's Special (1998).mp4"
     file_path.touch()
     _resolve_into_table(
-        table, file_path=file_path, season_num=1,
-        season_titles=season_titles, specials_titles=s0_titles,
+        table,
+        file_path=file_path,
+        season_num=1,
+        season_titles=season_titles,
+        specials_titles=s0_titles,
         show_name="KaBlam!",
     )
     assignment = table.assignment_for(0)

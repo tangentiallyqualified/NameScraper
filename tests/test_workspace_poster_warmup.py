@@ -1,14 +1,14 @@
 # tests/test_workspace_poster_warmup.py
 """SCANNING→READY waits for poster warmup, with a timeout (LD3)."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QLabel, QStackedWidget, QWidget
-
-from conftest_qt import QtSmokeBase
 
 
 class _StubScanProgress:
@@ -61,10 +61,10 @@ class _FakeWorkspace(QWidget):
 
 class PosterWarmupTests(QtSmokeBase):
     def _coordinator_with_fake(self, pending_seq):
-        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
         from plex_renamer.gui_qt.widgets._media_workspace_lifecycle import (
             MediaWorkspaceLifecycleCoordinator,
         )
+        from plex_renamer.gui_qt.widgets._roster_model import RosterModel
 
         model = RosterModel(media_type="tv")
         pending = list(pending_seq)
@@ -132,7 +132,7 @@ class PosterWarmupTests(QtSmokeBase):
         life._POSTER_WARMUP_MAX_MS = 30
         life._POSTER_WARMUP_POLL_MS = 5
 
-        coordinator, workspace, model, pending = self._coordinator_with_fake([3])
+        coordinator, workspace, _model, _pending = self._coordinator_with_fake([3])
         coordinator.show_ready_when_posters_warm()
 
         self.assertNotEqual(workspace._stack.currentIndex(), 2)
@@ -168,9 +168,9 @@ class PosterWarmupTests(QtSmokeBase):
         pass
 
     def _state(self, *, show_id):
-        from plex_renamer.engine.models import ScanState
+        from plex_renamer.engine.models import MediaInfoValue, ScanState
 
-        media_info = {"name": "Show", "year": "2020"}
+        media_info: dict[str, MediaInfoValue] = {"name": "Show", "year": "2020"}
         if show_id is not None:
             media_info["id"] = show_id
         return ScanState(folder=Path(f"C:/lib/show-{show_id}"), media_info=media_info)
@@ -207,7 +207,7 @@ class PosterWarmupTests(QtSmokeBase):
         self.assertIsNone(workspace._lifecycle_coordinator._scan_poster_timer)
 
     def test_scan_feed_pushes_loaded_posters_on_signal(self):
-        coordinator, workspace, model, pending = self._coordinator_with_fake([1])
+        coordinator, workspace, model, _pending = self._coordinator_with_fake([1])
         coordinator.show_scanning()
 
         before = len(workspace._scan_progress.posters_seen)
@@ -217,7 +217,7 @@ class PosterWarmupTests(QtSmokeBase):
         self.assertEqual(workspace._scan_progress.posters_seen[-1], model.loaded_posters())
 
     def test_scan_feed_disconnects_after_show_ready(self):
-        coordinator, workspace, model, pending = self._coordinator_with_fake([0])
+        coordinator, workspace, model, _pending = self._coordinator_with_fake([0])
         coordinator.show_scanning()
         coordinator.show_ready()
 
@@ -227,7 +227,7 @@ class PosterWarmupTests(QtSmokeBase):
         self.assertEqual(len(workspace._scan_progress.posters_seen), before)
 
     def test_start_scan_poster_feed_reentrant_no_double_delivery(self):
-        coordinator, workspace, model, pending = self._coordinator_with_fake([1])
+        coordinator, workspace, model, _pending = self._coordinator_with_fake([1])
         coordinator.show_scanning()
         # Re-entrant call before any teardown: must not stack a second
         # poster_loaded connection alongside the first.

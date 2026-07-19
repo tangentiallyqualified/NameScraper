@@ -14,7 +14,7 @@ from ._lang_normalize import normalize_lang
 _log = logging.getLogger(__name__)
 
 _CACHE_MAX_ENTRIES = 512
-_cache: dict[tuple[str, int, int], "ProbeResult"] = {}
+_cache: dict[tuple[str, int, int], ProbeResult] = {}
 
 # Hide console windows spawned on Windows.
 _CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -23,9 +23,9 @@ _CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 @dataclass(frozen=True)
 class MediaTrack:
     track_id: int
-    track_type: str          # "video" | "audio" | "subtitles"
+    track_type: str  # "video" | "audio" | "subtitles"
     codec: str
-    language: str            # normalized ISO 639-2/B, "und" fallback
+    language: str  # normalized ISO 639-2/B, "und" fallback
     name: str
     is_default: bool
     is_forced: bool
@@ -62,17 +62,21 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     tracks: list[MediaTrack] = []
     for raw in payload.get("tracks", []):
         props = raw.get("properties", {})
-        tracks.append(MediaTrack(
-            track_id=int(raw.get("id", -1)),
-            track_type=str(raw.get("type", "")),
-            codec=str(raw.get("codec", "")),
-            language=normalize_lang(str(props.get("language", ""))) or "und",
-            name=str(props.get("track_name", "")),
-            is_default=bool(props.get("default_track", False)),
-            is_forced=bool(props.get("forced_track", False)),
-        ))
+        tracks.append(
+            MediaTrack(
+                track_id=int(raw.get("id", -1)),
+                track_type=str(raw.get("type", "")),
+                codec=str(raw.get("codec", "")),
+                language=normalize_lang(str(props.get("language", ""))) or "und",
+                name=str(props.get("track_name", "")),
+                is_default=bool(props.get("default_track", False)),
+                is_forced=bool(props.get("forced_track", False)),
+            )
+        )
     return ProbeResult(
-        path=path, ok=True, tracks=tracks,
+        path=path,
+        ok=True,
+        tracks=tracks,
         container_type=str(container.get("type", "")),
     )
 
@@ -93,9 +97,7 @@ def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
     """Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime)."""
     key = _cache_key(video_path)
     if key is None:
-        return ProbeResult(
-            path=str(video_path), ok=False,
-            error=f"File not found: {video_path}")
+        return ProbeResult(path=str(video_path), ok=False, error=f"File not found: {video_path}")
     cached = _cache.get(key)
     if cached is not None:
         return cached
@@ -103,16 +105,20 @@ def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
     try:
         proc = subprocess.run(
             [str(mkvmerge_path), "-J", str(video_path)],
-            capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=120, creationflags=_CREATION_FLAGS,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            creationflags=_CREATION_FLAGS,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         return ProbeResult(path=str(video_path), ok=False, error=str(e))
 
     if proc.returncode not in (0, 1):  # 1 = identified with warnings
         return ProbeResult(
-            path=str(video_path), ok=False,
-            error=f"mkvmerge exited {proc.returncode}")
+            path=str(video_path), ok=False, error=f"mkvmerge exited {proc.returncode}"
+        )
     try:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError as e:

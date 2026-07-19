@@ -30,10 +30,7 @@ def build_movie_library_states(
             "overview": chosen.get("overview", ""),
             "_media_type": MediaType.MOVIE,
         }
-        if media_id:
-            confidence = item.episode_confidence
-        else:
-            confidence = 0.0
+        confidence = item.episode_confidence if media_id else 0.0
 
         state = ScanState(
             folder=item.original.parent,
@@ -135,7 +132,9 @@ def _movie_duplicate_priority(
     ready_rank = 0 if item is not None and not item.is_actionable else 1
     relative_folder = movie_state_relative_folder(state, movie_folder)
     depth = len(PurePosixPath(relative_folder.replace("\\", "/")).parts)
-    original_name = item.original.name.casefold() if item is not None else state.folder.name.casefold()
+    original_name = (
+        item.original.name.casefold() if item is not None else state.folder.name.casefold()
+    )
     return (
         ready_rank,
         -state.confidence,

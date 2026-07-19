@@ -1,5 +1,6 @@
 # plex_renamer/gui_qt/widgets/_roster_model.py
 """Read-model exposing ScanStates to the roster QListView (GUI V4 §7)."""
+
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -57,18 +58,18 @@ ROSTER_GROUPS: tuple[tuple[str, str], ...] = (
 @dataclass(frozen=True, slots=True)
 class RosterRowData:
     title: str
-    status_text: str          # e.g. "FULLY READY" (upper)
-    status_tone: str          # "success"|"info"|"error"|"muted"|"accent"
-    band: str                 # "high"|"medium"|"low"|"muted"|"error"
-    confidence_pct: int       # 0..100
-    confidence_color: str     # hex str from theme via confidence_fill_color
+    status_text: str  # e.g. "FULLY READY" (upper)
+    status_tone: str  # "success"|"info"|"error"|"muted"|"accent"
+    band: str  # "high"|"medium"|"low"|"muted"|"error"
+    confidence_pct: int  # 0..100
+    confidence_color: str  # hex str from theme via confidence_fill_color
     checked: bool
     checkable: bool
     chips: tuple[ChipSpec, ...]
-    tooltip: str              # "" or duplicate-of note
+    tooltip: str  # "" or duplicate-of note
     poster_key: tuple[str, int] | None
     placeholder_initials: str
-    placeholder_accent: str   # hex str (status color) for placeholder pixmap
+    placeholder_accent: str  # hex str (status color) for placeholder pixmap
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +86,9 @@ class _StateEntry:
 
 
 class RosterModel(QAbstractListModel):
-    poster_loaded = Signal()  # emitted after any poster lands; drives the loading-screen poster warmup gate
+    poster_loaded = (
+        Signal()
+    )  # emitted after any poster lands; drives the loading-screen poster warmup gate
 
     def __init__(
         self,
@@ -109,7 +112,7 @@ class RosterModel(QAbstractListModel):
 
     # -- QAbstractListModel overrides ------------------------------------
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
         return len(self._entries)
@@ -281,9 +284,12 @@ class RosterModel(QAbstractListModel):
         if self._media_type == "tv":
             chips = tuple(season_chip_specs(state.completeness, drop_empty=True))
         if state_has_mux_actions(state):
-            chips = chips + (ChipSpec(
-                "AutoMux", "info",
-                "AutoMux: this item's current plan merges or strips tracks"),)
+            chips = (
+                *chips,
+                ChipSpec(
+                    "AutoMux", "info", "AutoMux: this item's current plan merges or strips tracks"
+                ),
+            )
         tooltip = ""
         if state.duplicate_of is not None:
             tooltip = f"Same match as {state.duplicate_of_relative_folder or state.duplicate_of}"
@@ -294,7 +300,9 @@ class RosterModel(QAbstractListModel):
             status_tone=_state_status_tone(state, media_type=self._media_type),
             band=_confidence_band(state.confidence, state=state, media_type=self._media_type),
             confidence_pct=clamped_percent(state.confidence),
-            confidence_color=_confidence_fill_color(state.confidence, state=state, media_type=self._media_type),
+            confidence_color=_confidence_fill_color(
+                state.confidence, state=state, media_type=self._media_type
+            ),
             checked=bool(state.checked),
             checkable=_is_state_queue_approvable(state, media_type=self._media_type),
             chips=chips,
@@ -340,7 +348,9 @@ class RosterModel(QAbstractListModel):
 
         def _worker() -> None:
             try:
-                image = tmdb.fetch_poster(state.show_id, media_type=self._media_type, target_width=target_width)
+                image = tmdb.fetch_poster(
+                    state.show_id, media_type=self._media_type, target_width=target_width
+                )
                 if image is None:
                     return
                 try:

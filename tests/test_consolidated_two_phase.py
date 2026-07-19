@@ -1,7 +1,11 @@
 """RC18a/b/d: two-phase consolidated title matching."""
+
 from pathlib import Path
 
-from plex_renamer.engine._tv_scanner_consolidated import try_title_based_matching
+from plex_renamer.engine._tv_scanner_consolidated import (
+    build_consolidated_table,
+    try_title_based_matching,
+)
 
 
 def _entry(name, abs_num, raw_title, eps, rel, hint):
@@ -42,10 +46,12 @@ def test_short_titles_participate():
 
 
 def test_s0_titles_available_for_hint_missing_seasons():
-    tmdb = _seasons({
-        1: {1: "The Pilot", 2: "Fireworks"},
-        0: {46: "Space Force", 47: "Weekend at Bernie"},
-    })
+    tmdb = _seasons(
+        {
+            1: {1: "The Pilot", 2: "Fireworks"},
+            0: {46: "Space Force", 47: "Weekend at Bernie"},
+        }
+    )
     files = [
         _entry("S07E01 - Space Force.mkv", 1, "Space Force", [1], True, 7),
         _entry("S01E01 - The Pilot.mkv", 1, "The Pilot", [1], True, 1),
@@ -57,16 +63,15 @@ def test_s0_titles_available_for_hint_missing_seasons():
 
 
 def test_regular_season_shadows_s0_duplicate_title():
-    tmdb = _seasons({
-        1: {1: "The Pilot"},
-        0: {1: "The Pilot"},
-    })
+    tmdb = _seasons(
+        {
+            1: {1: "The Pilot"},
+            0: {1: "The Pilot"},
+        }
+    )
     files = [_entry("x.mkv", 1, "The Pilot", [1], True, 1)]
     matches = try_title_based_matching(files, tmdb)
     assert matches is not None and matches[0][0] == 1
-
-
-from plex_renamer.engine._tv_scanner_consolidated import build_consolidated_table
 
 
 class _NoTmdb:
@@ -106,10 +111,12 @@ def test_root_special_matches_s0_by_stem_in_consolidated_scan(tmp_path):
     (root / "1x01. Your Real Best Friend (1996).mp4").touch()
     (root / "1x02. It's Flavorific (1996).mp4").touch()
     (root / "The Henry & June Show (1999).mp4").touch()
-    tmdb = _seasons({
-        1: {1: "Your Real Best Friend!", 2: "It's Flavorific!"},
-        0: {2: "The Henry & June Show", 3: "An Off-Beats Valentine's"},
-    })
+    tmdb = _seasons(
+        {
+            1: {1: "Your Real Best Friend!", 2: "It's Flavorific!"},
+            0: {2: "The Henry & June Show", 3: "An Off-Beats Valentine's"},
+        }
+    )
     table = build_consolidated_table(
         season_dirs=[(root, 1)],
         tmdb_seasons=tmdb,
@@ -118,9 +125,7 @@ def test_root_special_matches_s0_by_stem_in_consolidated_scan(tmp_path):
         root=root,
         store_tmdb_data=lambda *args: None,
     )
-    special = next(
-        e for e in table.files.values() if e.path.name.startswith("The Henry")
-    )
+    special = next(e for e in table.files.values() if e.path.name.startswith("The Henry"))
     assignment = table.assignment_for(special.file_id)
     assert assignment is not None
     assert assignment.season == 0 and assignment.episodes == (2,)
@@ -133,9 +138,11 @@ def test_consolidated_title_pick_carries_marker_tag(tmp_path):
     tmdb = _seasons({1: {1: "The Pilot", 2: "Fireworks"}, 0: {}})
     table = build_consolidated_table(
         season_dirs=[(tmp_path / "Season 1", 1)],
-        tmdb_seasons=tmdb, tmdb=_NoTmdb(),
+        tmdb_seasons=tmdb,
+        tmdb=_NoTmdb(),
         show_info={"id": 1, "name": "Show", "year": "2020"},
-        root=tmp_path, store_tmdb_data=lambda *args: None,
+        root=tmp_path,
+        store_tmdb_data=lambda *args: None,
     )
     entry = next(iter(table.files.values()))
     assignment = table.assignment_for(entry.file_id)
@@ -146,19 +153,18 @@ def test_leftover_files_re_resolved_against_hinted_season(tmp_path):
     (tmp_path / "Season 3").mkdir()
     # Both segment titles carry a typo so the cross-season title pass cannot
     # whole-match them; only the hinted-season seg-run (fuzzy) can.
-    f = (
-        tmp_path / "Season 3"
-        / "CatDog - S03 E27-E28 - Monster Truk Folly and CatDogs Golf.mkv"
-    )
+    f = tmp_path / "Season 3" / "CatDog - S03 E27-E28 - Monster Truk Folly and CatDogs Golf.mkv"
     anchor = tmp_path / "Season 3" / "CatDog - S03 E29 - Filler 5.mkv"
     f.touch()
     anchor.touch()
-    tmdb = _seasons({
-        3: {1: "Monster Truck Folly", 2: "CatDog's Gold"},
-        # a big season so the anchor keeps the title pass alive at 50%:
-        1: {n: f"Filler {n}" for n in range(1, 30)},
-        0: {},
-    })
+    tmdb = _seasons(
+        {
+            3: {1: "Monster Truck Folly", 2: "CatDog's Gold"},
+            # a big season so the anchor keeps the title pass alive at 50%:
+            1: {n: f"Filler {n}" for n in range(1, 30)},
+            0: {},
+        }
+    )
     table = build_consolidated_table(
         season_dirs=[(tmp_path / "Season 3", 3)],
         tmdb_seasons=tmdb,

@@ -27,7 +27,9 @@ def _write_logs(log_dir: Path, stdout: str, stderr: str) -> None:
         combined_parts.append(stdout.rstrip())
     if stderr:
         combined_parts.append(stderr.rstrip())
-    combined_log.write_text("\n\n".join(combined_parts).strip() + ("\n" if combined_parts else ""), encoding="utf-8")
+    combined_log.write_text(
+        "\n\n".join(combined_parts).strip() + ("\n" if combined_parts else ""), encoding="utf-8"
+    )
 
 
 def _parse_junit_summary(junit_path: Path) -> str | None:
@@ -57,7 +59,10 @@ def _fallback_summary(stdout: str, stderr: str) -> str | None:
         return None
     for line in reversed(candidates):
         lowered = line.lower()
-        if any(token in lowered for token in (" passed", " failed", " skipped", " error", " deselected")):
+        if any(
+            token in lowered
+            for token in (" passed", " failed", " skipped", " error", " deselected")
+        ):
             return line
     return candidates[-1]
 
@@ -79,6 +84,7 @@ def main() -> int:
         str(python),
         "-m",
         "pytest",
+        "tests/test_qt_app_bootstrap.py",
         "tests/test_qt_main_window.py",
         "tests/test_recent_menus.py",
         "tests/test_tab_badge.py",
@@ -124,7 +130,9 @@ def main() -> int:
     _write_logs(log_dir, result.stdout, result.stderr)
 
     summary = _parse_junit_summary(junit_log) or _fallback_summary(result.stdout, result.stderr)
-    combined_nonempty = [line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()]
+    combined_nonempty = [
+        line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()
+    ]
 
     if result.returncode == 0:
         print("Qt smoke suite passed.")

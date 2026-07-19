@@ -1,0 +1,4 @@
+# Machine-readable classifications for every edge in the live engine SCC.
+# There is no live engine SCC after ScanState stopped depending on the concrete TV scanner.
+version = 1
+edges = []

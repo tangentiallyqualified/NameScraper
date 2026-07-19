@@ -1,6 +1,7 @@
 # tests/test_bulk_assign_panel.py
 """BulkAssignPanel staging: auto-map, drag pairs, unassign staging, episode
 filter, and apply payload."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +13,9 @@ def _bulk_state(slots: int = 5, names: tuple[str, ...] = ("b.mkv", "a.mkv", "c.m
     from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
     from plex_renamer.engine import ScanState
     from plex_renamer.engine.episode_assignments import (
-        ORIGIN_MANUAL, EpisodeAssignmentTable, EpisodeSlot,
+        ORIGIN_MANUAL,
+        EpisodeAssignmentTable,
+        EpisodeSlot,
     )
 
     table = EpisodeAssignmentTable()
@@ -27,8 +30,10 @@ def _bulk_state(slots: int = 5, names: tuple[str, ...] = ("b.mkv", "a.mkv", "c.m
         entry = table.add_file(Path(f"C:/lib/Show/{name}"), **evidence)
         table.mark_unassigned(entry.file_id, "no episode parsed")
     claimed = table.add_file(Path("C:/lib/Show/claimed.mkv"))
-    table.assign(claimed.file_id, 1, [2], origin=ORIGIN_MANUAL)   # E02 pre-claimed
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    table.assign(claimed.file_id, 1, [2], origin=ORIGIN_MANUAL)  # E02 pre-claimed
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
     state.assignments = table
     service = EpisodeMappingService()
@@ -52,12 +57,16 @@ def _bulk_state_with_parsed_files():
     for episode in range(1, 5):
         table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
     parsed = table.add_file(
-        Path("C:/lib/Show/b - S01E03.mkv"), parsed_episodes=(3,), season_hint=1,
+        Path("C:/lib/Show/b - S01E03.mkv"),
+        parsed_episodes=(3,),
+        season_hint=1,
     )
     table.mark_unassigned(parsed.file_id, "could not parse episode number")
     unparsed = table.add_file(Path("C:/lib/Show/a.mkv"))
     table.mark_unassigned(unparsed.file_id, "could not parse episode number")
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
     state.assignments = table
     service = EpisodeMappingService()
@@ -74,17 +83,23 @@ def _bulk_state_assigned_with_evidence():
     from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
     from plex_renamer.engine import ScanState
     from plex_renamer.engine.episode_assignments import (
-        ORIGIN_AUTO, EpisodeAssignmentTable, EpisodeSlot,
+        ORIGIN_AUTO,
+        EpisodeAssignmentTable,
+        EpisodeSlot,
     )
 
     table = EpisodeAssignmentTable()
     for episode in range(1, 5):
         table.add_slot(EpisodeSlot(season=1, episode=episode, title=f"Ep {episode}"))
     entry = table.add_file(
-        Path("C:/lib/Show/Show - S01E01.mkv"), parsed_episodes=(1,), season_hint=1,
+        Path("C:/lib/Show/Show - S01E01.mkv"),
+        parsed_episodes=(1,),
+        season_hint=1,
     )
     table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
     state.assignments = table
     service = EpisodeMappingService()
@@ -102,7 +117,9 @@ def _bulk_state_with_conflict(slots: int = 5, names: tuple[str, ...] = ("b.mkv",
     from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
     from plex_renamer.engine import ScanState
     from plex_renamer.engine.episode_assignments import (
-        ORIGIN_AUTO, EpisodeAssignmentTable, EpisodeSlot,
+        ORIGIN_AUTO,
+        EpisodeAssignmentTable,
+        EpisodeSlot,
     )
 
     table = EpisodeAssignmentTable()
@@ -116,7 +133,9 @@ def _bulk_state_with_conflict(slots: int = 5, names: tuple[str, ...] = ("b.mkv",
     claimant_b = table.add_file(Path("C:/lib/Show/conflict_b.mkv"))
     table.assign(claimant_a.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
     table.assign(claimant_b.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.8)
-    state = ScanState(folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"})
+    state = ScanState(
+        folder=Path("C:/lib/Show"), media_info={"id": 5, "name": "Show", "year": "2020"}
+    )
     state.scanned = True
     state.assignments = table
     service = EpisodeMappingService()
@@ -132,6 +151,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel = BulkAssignPanel()
         panel.resize(900, 600)
         panel.show_state(state, service)
+
         # Destroy each panel right after its own test (deleteLater + a
         # flush + an explicit collect) instead of leaving 20+ live panels
         # for QtSmokeBase.tearDownClass's single end-of-class gc.collect()
@@ -214,7 +234,7 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_files_sorted_and_searchable(self):
         panel = self._panel()
-        panel._files_filter.setCurrentText("All")   # all 4 previews, including the assigned one
+        panel._files_filter.setCurrentText("All")  # all 4 previews, including the assigned one
         model = panel._files_model
         names = [model.index(r, 0).data() for r in range(model.rowCount())]
         # all primary files, including the pre-claimed one, sorted by name
@@ -230,12 +250,12 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_files_pane_lists_assigned_files(self):
         panel = self._panel()
-        panel._files_filter.setCurrentText("All")   # assigned files only show under All
+        panel._files_filter.setCurrentText("All")  # assigned files only show under All
         names = [
             panel._files_model.data(panel._files_model.index(r, 0))
             for r in range(panel._files_model.rowCount())
         ]
-        assert any("S01E02" in n for n in names)          # assigned file visible with mapping
+        assert any("S01E02" in n for n in names)  # assigned file visible with mapping
         assert any("(assigned)" in n for n in names)
 
     def test_assigned_file_is_not_stageable_until_unassign_staged(self):
@@ -251,7 +271,8 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_click_claimed_slot_stages_unassign_and_frees_file(self):
         panel = self._panel()
         row = next(
-            r for r in range(panel._slots_model.rowCount())
+            r
+            for r in range(panel._slots_model.rowCount())
             if panel._slots_model.is_claimed(panel._slots_model.slot_key_at(r) or (-1, -1))
         )
         panel._on_slot_clicked(panel._slots_model.index(row, 0))
@@ -270,14 +291,13 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_toggling_unassign_off_drops_dependent_stage(self):
         panel = self._panel()
-        claimed_fid = panel._claimed_file_by_key[(1, 2)]
         row = panel._slots_model.row_for_key((1, 2))
         index = panel._slots_model.index(row, 0)
-        panel._on_slot_clicked(index)                      # stage unassign of E02
+        panel._on_slot_clicked(index)  # stage unassign of E02
         other_fid = self._first_free_file_id(panel)
-        panel._handle_drop(other_fid, (1, 2))               # restage E02 to a different file
+        panel._handle_drop(other_fid, (1, 2))  # restage E02 to a different file
         self.assertIn((other_fid, 1, 2), panel.staged_pairs())
-        panel._on_slot_clicked(index)                       # toggle unassign back off
+        panel._on_slot_clicked(index)  # toggle unassign back off
         self.assertEqual(panel.staged_unassigns(), [])
         self.assertNotIn((other_fid, 1, 2), panel.staged_pairs())
 
@@ -290,13 +310,14 @@ class BulkAssignPanelTests(QtSmokeBase):
         claimed_fid = panel._claimed_file_by_key[(1, 2)]
         row = panel._slots_model.row_for_key((1, 2))
         index = panel._slots_model.index(row, 0)
-        panel._on_slot_clicked(index)                      # stage unassign of X
-        panel._handle_drop(claimed_fid, (1, 5))             # restage X elsewhere
+        panel._on_slot_clicked(index)  # stage unassign of X
+        panel._handle_drop(claimed_fid, (1, 5))  # restage X elsewhere
         self.assertIn((claimed_fid, 1, 5), panel.staged_pairs())
-        panel._on_slot_clicked(index)                       # cancel the unassign
+        panel._on_slot_clicked(index)  # cancel the unassign
         self.assertEqual(panel.staged_unassigns(), [])
         self.assertEqual(
-            [p for p in panel.staged_pairs() if p[0] == claimed_fid], [],
+            [p for p in panel.staged_pairs() if p[0] == claimed_fid],
+            [],
         )
         # nothing else staged → staging is empty and Apply reflects that
         self.assertEqual(panel.staged_pairs(), [])
@@ -305,13 +326,13 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_unassign_all_clears_manual_staging(self):
         panel = self._panel()
         free_fid = self._first_free_file_id(panel)
-        panel._handle_drop(free_fid, (1, 1))          # manual stage
+        panel._handle_drop(free_fid, (1, 1))  # manual stage
         self.assertTrue(panel.staged_pairs())
         panel.unassign_all()
-        self.assertEqual(panel.staged_pairs(), [])     # staging cleared
+        self.assertEqual(panel.staged_pairs(), [])  # staging cleared
         self.assertEqual(
             set(panel.staged_unassigns()),
-            set(panel._assigned_key_by_file),          # all pre-assigned files staged for unassign
+            set(panel._assigned_key_by_file),  # all pre-assigned files staged for unassign
         )
         self.assertTrue(panel._apply_button.isEnabled())
 
@@ -338,7 +359,9 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertFalse(hasattr(panel, "_assign_button"))
         model = panel._files_model
         for row in range(model.rowCount()):
-            self.assertFalse(bool(model.flags(model.index(row, 0)) & Qt.ItemFlag.ItemIsUserCheckable))
+            self.assertFalse(
+                bool(model.flags(model.index(row, 0)) & Qt.ItemFlag.ItemIsUserCheckable)
+            )
 
     def test_auto_map_remaining_uses_evidence_not_positional_fill(self):
         # Task 14 regression: only b.mkv carries scan-time parse evidence
@@ -351,12 +374,12 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertIn("2 file(s) left unstaged", panel._status_label.text())
 
     def test_auto_map_uses_evidence_not_position(self):
-        panel = self._panel_with_parsed_files()   # b.mkv parses to S01E03, a.mkv unparsable
+        panel = self._panel_with_parsed_files()  # b.mkv parses to S01E03, a.mkv unparsable
         panel.auto_map_remaining()
-        staged = {fid: key for fid, key in panel._staged_pairs}
+        staged = dict(panel._staged_pairs)
         parsed_fid = _fid_by_name(panel, "b - S01E03.mkv")
         unparsed_fid = _fid_by_name(panel, "a.mkv")
-        self.assertEqual(staged[parsed_fid], (1, 3))       # NOT the first free slot
+        self.assertEqual(staged[parsed_fid], (1, 3))  # NOT the first free slot
         self.assertNotIn(unparsed_fid, staged)
 
     def test_auto_map_considers_full_pool_not_just_problems_filter(self):
@@ -365,7 +388,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         # (it's unassigned), but this proves the "All" filter or a search
         # box narrowing the visible rows wouldn't silently shrink the pool.
         panel = self._panel()
-        panel._search_box.setText("nonexistent-needle")   # visible rows -> 0
+        panel._search_box.setText("nonexistent-needle")  # visible rows -> 0
         self.assertEqual(panel._files_model.rowCount(), 0)
         panel.auto_map_remaining()
         self.assertEqual(panel.staged_pairs(), [(_fid_by_name(panel, "b.mkv"), 1, 1)])
@@ -389,7 +412,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         file_id = panel._files_model.file_id_at(0)
         panel._handle_drop(file_id, (1, 4))
         self.assertIn((file_id, 1, 4), panel.staged_pairs())
-        panel._handle_drop(file_id, (1, 2))          # claimed → ignored
+        panel._handle_drop(file_id, (1, 2))  # claimed → ignored
         self.assertIn((file_id, 1, 4), panel.staged_pairs())
         self.assertEqual(len(panel.staged_pairs()), 1)
 
@@ -400,7 +423,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel = self._panel()
         file_id = panel._files_model.file_id_at(0)
         panel._status_label.setText("")
-        panel._handle_drop(file_id, (1, 2))          # (1, 2) is pre-claimed
+        panel._handle_drop(file_id, (1, 2))  # (1, 2) is pre-claimed
         self.assertNotIn((file_id, 1, 2), panel.staged_pairs())
         self.assertEqual(panel.staged_pairs(), [])
         self.assertTrue(panel._status_label.text())
@@ -419,7 +442,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel = self._panel()
         fid = self._first_free_file_id(panel)
         panel._handle_drop(fid, (1, 3))
-        panel._handle_drop(fid, (1, 6))              # not contiguous with the staged run
+        panel._handle_drop(fid, (1, 6))  # not contiguous with the staged run
         self.assertEqual(
             [(f, s, e) for f, s, e in panel.staged_pairs() if f == fid],
             [(fid, 1, 3)],
@@ -451,12 +474,9 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_episode_filter_narrows_slots(self):
         panel = self._panel()
         panel._slot_search_box.setText("Pilot")
-        keys = [
-            panel._slots_model.slot_key_at(r)
-            for r in range(panel._slots_model.rowCount())
-        ]
+        keys = [panel._slots_model.slot_key_at(r) for r in range(panel._slots_model.rowCount())]
         non_header_keys = [k for k in keys if k is not None]
-        self.assertEqual(non_header_keys, [(2, 1)])   # only the season-2 Pilot slot matches
+        self.assertEqual(non_header_keys, [(2, 1)])  # only the season-2 Pilot slot matches
         panel._slot_search_box.setText("")
         self.assertGreater(panel._slots_model.rowCount(), len(non_header_keys) + 1)
 
@@ -480,7 +500,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         panel._apply_button.click()
         self.assertEqual(len(fired), 1)
         pairs, unassigns = fired[0]
-        self.assertEqual(len(pairs), 0)      # unassign_all clears manually staged pairs
+        self.assertEqual(len(pairs), 0)  # unassign_all clears manually staged pairs
         self.assertEqual(unassigns, [panel._claimed_file_by_key[(1, 2)]])
         panel.reset_staging()
         self.assertEqual(panel.staged_pairs(), [])
@@ -517,25 +537,29 @@ class BulkAssignPanelTests(QtSmokeBase):
             self.assertNotIn(fid, [f for f, _k in panel._staged_pairs])
 
     def test_selecting_file_highlights_its_slots(self):
-        panel = self._panel()   # has claimed.mkv on S01E02
-        panel._files_filter.setCurrentText("All")   # assigned file only visible under All
+        panel = self._panel()  # has claimed.mkv on S01E02
+        panel._files_filter.setCurrentText("All")  # assigned file only visible under All
         fid = panel._claimed_file_by_key[(1, 2)]
         panel._select_file(fid)
-        selected_keys = [panel._slots_model.slot_key_at(i.row())
-                         for i in panel._slots_view.selectionModel().selectedIndexes()]
+        selected_keys = [
+            panel._slots_model.slot_key_at(i.row())
+            for i in panel._slots_view.selectionModel().selectedIndexes()
+        ]
         self.assertIn((1, 2), selected_keys)
 
     def test_third_file_cannot_drop_onto_an_unresolved_conflicted_slot(self):
         panel = self._panel_with_conflict()
         free_fid = self._first_free_file_id(panel)
-        panel._handle_drop(free_fid, (1, 2))    # (1, 2) is still contested
+        panel._handle_drop(free_fid, (1, 2))  # (1, 2) is still contested
         self.assertNotIn((free_fid, (1, 2)), panel._staged_pairs)
         self.assertTrue(panel._status_label.text())
 
     def test_third_file_can_drop_onto_conflicted_slot_once_fully_unassign_staged(self):
         panel = self._panel_with_conflict()
         row = panel._slots_model.row_for_key((1, 2))
-        panel._on_slot_clicked(panel._slots_model.index(row, 0))   # stage unassign for both claimants
+        panel._on_slot_clicked(
+            panel._slots_model.index(row, 0)
+        )  # stage unassign for both claimants
         free_fid = self._first_free_file_id(panel)
         panel._handle_drop(free_fid, (1, 2))
         self.assertIn((free_fid, (1, 2)), panel._staged_pairs)
@@ -555,12 +579,14 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_files_pane_defaults_to_problems(self):
         panel = self._panel()
         self.assertEqual(panel._files_filter.currentText(), "Problems")
-        names = [panel._files_model.index(r, 0).data()
-                  for r in range(panel._files_model.rowCount())]
+        names = [
+            panel._files_model.index(r, 0).data() for r in range(panel._files_model.rowCount())
+        ]
         self.assertFalse(any("(assigned)" in n for n in names))
         panel._files_filter.setCurrentText("All")
-        names = [panel._files_model.index(r, 0).data()
-                  for r in range(panel._files_model.rowCount())]
+        names = [
+            panel._files_model.index(r, 0).data() for r in range(panel._files_model.rowCount())
+        ]
         self.assertTrue(any("(assigned)" in n for n in names))
 
     def test_files_pane_problems_includes_conflicted_and_drops_staged(self):
@@ -568,8 +594,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         # both conflict claimants show up under the default Problems filter
         conflict_ids = {fid for fid, _name in self._conflict_claimants(panel)}
         visible_ids = {
-            panel._files_model.file_id_at(r)
-            for r in range(panel._files_model.rowCount())
+            panel._files_model.file_id_at(r) for r in range(panel._files_model.rowCount())
         }
         self.assertTrue(conflict_ids.issubset(visible_ids))
         # staging a free file onto a slot drops it out of the Problems view
@@ -577,8 +602,7 @@ class BulkAssignPanelTests(QtSmokeBase):
         self.assertIn(free_fid, visible_ids)
         panel._handle_drop(free_fid, (1, 3))
         visible_ids = {
-            panel._files_model.file_id_at(r)
-            for r in range(panel._files_model.rowCount())
+            panel._files_model.file_id_at(r) for r in range(panel._files_model.rowCount())
         }
         self.assertNotIn(free_fid, visible_ids)
 
@@ -589,22 +613,27 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_slots_problems_filter_shows_only_problem_slots(self):
         panel = self._panel()
         panel._slots_filter.setCurrentText("Problems")
-        rows = [panel._slots_model.index(r, 0).data()
-                for r in range(panel._slots_model.rowCount())
-                if panel._slots_model.slot_key_at(r) is not None]
+        rows = [
+            panel._slots_model.index(r, 0).data()
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is not None
+        ]
         self.assertTrue(rows)
         self.assertTrue(all("missing" in t or "CONFLICT" in t or "unassign" in t for t in rows))
 
     def test_slots_problems_filter_hides_ordinary_assigned_rows(self):
         panel = self._panel()
         panel._slots_filter.setCurrentText("Problems")
-        row = panel._slots_model.row_for_key((1, 2))   # cleanly claimed by claimed.mkv
+        row = panel._slots_model.row_for_key((1, 2))  # cleanly claimed by claimed.mkv
         self.assertEqual(row, -1)
 
     def test_season_headers_show_counts_and_collapse(self):
         panel = self._panel()
-        header_row = next(r for r in range(panel._slots_model.rowCount())
-                          if panel._slots_model.slot_key_at(r) is None)
+        header_row = next(
+            r
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+        )
         text = panel._slots_model.index(header_row, 0).data()
         self.assertRegex(text, r"Season 01 — \d+/\d+ assigned")
         # exact math: 5 season-1 slots, exactly one (E02) single-claimed
@@ -620,9 +649,12 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_unassign_staged_claimant_drops_out_of_header_count(self):
         panel = self._panel()
         row = panel._slots_model.row_for_key((1, 2))
-        panel._on_slot_clicked(panel._slots_model.index(row, 0))   # stage unassign of E02
-        header_row = next(r for r in range(panel._slots_model.rowCount())
-                          if panel._slots_model.slot_key_at(r) is None)
+        panel._on_slot_clicked(panel._slots_model.index(row, 0))  # stage unassign of E02
+        header_row = next(
+            r
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+        )
         self.assertEqual(
             panel._slots_model.index(header_row, 0).data(),
             "▾ Season 01 — 0/5 assigned",
@@ -630,8 +662,11 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_conflicted_slot_does_not_count_as_assigned_in_header(self):
         panel = self._panel_with_conflict()
-        header_row = next(r for r in range(panel._slots_model.rowCount())
-                          if panel._slots_model.slot_key_at(r) is None)
+        header_row = next(
+            r
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+        )
         # (1, 2) is contested by two claimants — a conflicted slot is not
         # "assigned", so season 1's count stays at 0/5.
         self.assertEqual(
@@ -641,8 +676,11 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_season_header_toggle_expands_again(self):
         panel = self._panel()
-        header_row = next(r for r in range(panel._slots_model.rowCount())
-                          if panel._slots_model.slot_key_at(r) is None)
+        header_row = next(
+            r
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+        )
         before = panel._slots_model.rowCount()
         panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
         panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
@@ -651,7 +689,8 @@ class BulkAssignPanelTests(QtSmokeBase):
     def test_season_02_header_shows_counts(self):
         panel = self._panel()
         header_row = next(
-            r for r in range(panel._slots_model.rowCount())
+            r
+            for r in range(panel._slots_model.rowCount())
             if panel._slots_model.slot_key_at(r) is None
             and panel._slots_model.season_for_header_row(r) == 2
         )
@@ -666,8 +705,11 @@ class BulkAssignPanelTests(QtSmokeBase):
 
     def test_collapsed_seasons_reset_on_show_state(self):
         panel = self._panel()
-        header_row = next(r for r in range(panel._slots_model.rowCount())
-                          if panel._slots_model.slot_key_at(r) is None)
+        header_row = next(
+            r
+            for r in range(panel._slots_model.rowCount())
+            if panel._slots_model.slot_key_at(r) is None
+        )
         panel._on_slot_clicked(panel._slots_model.index(header_row, 0))
         self.assertTrue(panel._collapsed_seasons)
         state, service = _bulk_state()

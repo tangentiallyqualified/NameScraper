@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSortFilterProxyModel, QModelIndex
+from PySide6.QtCore import QModelIndex, QSortFilterProxyModel
 
 from .job_table_model import SORT_ROLE
 

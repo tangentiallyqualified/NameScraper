@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 from ._batch_tv_duplicates import normalized_relative_folder
 from ._episode_projection import project_preview_items
 from ._episode_resolution import resolve_table_conflicts
 from .episode_assignments import merge_tables
-from .models import PreviewItem, ScanState
+from .models import PreviewItem, ScanState, TVScannerOperations
 
 
 def assign_preview_source_folders(
@@ -42,10 +43,13 @@ def reconcile_scanned_episode_claims(
         if len(group) < 2:
             continue
         primary = min(group, key=_primary_priority)
-        ordered = [primary] + sorted(
-            (state for state in group if state is not primary),
-            key=_primary_priority,
-        )
+        ordered = [
+            primary,
+            *sorted(
+                (state for state in group if state is not primary),
+                key=_primary_priority,
+            ),
+        ]
 
         if all(state.assignments is not None for state in ordered):
             for state in ordered:
@@ -53,7 +57,8 @@ def reconcile_scanned_episode_claims(
                 for entry in state.assignments.files.values():
                     if not entry.source_relative_folder:
                         entry.source_relative_folder = _relative_folder(
-                            entry.path.parent, library_root,
+                            entry.path.parent,
+                            library_root,
                         )
                 if state is not primary:
                     merge_tables(primary.assignments, state.assignments)
@@ -112,11 +117,11 @@ def reconcile_scanned_episode_claims(
         primary.checked = any(state.checked for state in group)
         primary.reset_gui_state()
         if primary.scanner is not None:
+            scanner = cast(TVScannerOperations, primary.scanner)
             checked = {
-                index for index, item in enumerate(primary.preview_items)
-                if item.status == "OK"
+                index for index, item in enumerate(primary.preview_items) if item.status == "OK"
             }
-            primary.completeness = primary.scanner.get_completeness(
+            primary.completeness = scanner.get_completeness(
                 primary.preview_items,
                 checked_indices=checked,
             )

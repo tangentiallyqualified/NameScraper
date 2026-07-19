@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,6 +22,7 @@ AUDIT_INPUT_PATTERNS: tuple[str, ...] = (
     "docs/**/*.md",
     "docs/**/*.rst",
     "docs/**/*.txt",
+    "docs/audit/engine-cycle-edges.toml",
     "pyproject.toml",
     "pyrightconfig.json",
     "docs/audit/doc-ledger.toml",
@@ -78,7 +80,13 @@ class MissingArtifactError(RuntimeError):
 
 
 def input_files(repo_root: Path) -> list[Path]:
-    """Return enrolled audit inputs in stable repository-relative order."""
+    """Return enrolled audit inputs in stable repository-relative order.
+
+    In a git checkout, enrollment is restricted to tracked plus
+    untracked-not-ignored files so gitignored local-only documents (plans,
+    scratch notes) cannot skew the digest away from what a clean CI checkout
+    computes. Outside git (synthetic test repos), the glob set stands alone.
+    """
     files: dict[str, Path] = {}
     candidates = [
         path
@@ -99,7 +107,16 @@ def input_files(repo_root: Path) -> list[Path]:
         ):
             continue
         files[relative_posix] = path
+    files = _restrict_to_enrolled(repo_root, files)
     return [files[relative] for relative in sorted(files)]
+
+
+def _restrict_to_enrolled(repo_root: Path, files: dict[str, Path]) -> dict[str, Path]:
+    enrolled = enrolled_files(repo_root)
+    if enrolled is None:
+        return files
+    enrolled_set = set(enrolled)
+    return {relative: path for relative, path in files.items() if relative in enrolled_set}
 
 
 def input_digest(repo_root: Path) -> str:
@@ -108,7 +125,10 @@ def input_digest(repo_root: Path) -> str:
         rel = path.relative_to(repo_root).as_posix().encode("utf-8")
         digest.update(rel)
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        # CRLF-normalize so the digest is independent of the checkout's eol
+        # smudging (autocrlf) — the same committed tree must digest the same
+        # on every machine.
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -133,6 +153,14 @@ def package_of(path: str) -> str:
     """Top-level package segment of a repo-relative module path ('root' for top-level files)."""
     parts = Path(path).parts
     return parts[1] if len(parts) > 2 else "root"
+
+
+def required_string(record: Mapping[str, object], field: str, context: str) -> str:
+    """Validate a required non-empty TOML string field; returns the stripped value."""
+    value = record.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} {field} must be a non-empty string")
+    return value.strip()
 
 
 def write_artifact(repo_root: Path, name: str, payload: dict[str, object]) -> Path:
@@ -170,6 +198,39 @@ def _git(repo_root: Path, *args: str) -> str | None:
 
 def current_commit(repo_root: Path) -> str | None:
     return _git(repo_root, "rev-parse", "--short", "HEAD")
+
+
+def tracked_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
+    """Git-tracked files under *pathspecs*, repo-relative with forward slashes.
+
+    Returns None when git is unavailable or fails, mirroring the degrade
+    behavior of the other git helpers here; callers that require complete
+    evidence must treat None as an error.
+    """
+    out = _git(repo_root, "ls-files", "-z", "--", *pathspecs)
+    if out is None:
+        return None
+    return sorted({entry for entry in out.split("\0") if entry})
+
+
+def enrolled_files(repo_root: Path, *pathspecs: str) -> list[str] | None:
+    """Tracked plus untracked-but-NOT-ignored files, repo-relative posix paths.
+
+    This is the audit enrollment set: a clean CI checkout reproduces exactly
+    the tracked half, while gitignored local-only files (scratch notes, plans)
+    can never enter evidence. Untracked-not-ignored files stay enrolled so
+    in-progress work is visible to the same stages before it is committed.
+    Returns None when git is unavailable or fails, like tracked_files().
+    """
+    tracked = _git(repo_root, "ls-files", "-z", "--", *pathspecs)
+    if tracked is None:
+        return None
+    untracked = _git(
+        repo_root, "ls-files", "-z", "--others", "--exclude-standard", "--", *pathspecs
+    )
+    if untracked is None:
+        return None
+    return sorted({entry for out in (tracked, untracked) for entry in out.split("\0") if entry})
 
 
 def commits_between(repo_root: Path, old_commit: str) -> int | None:

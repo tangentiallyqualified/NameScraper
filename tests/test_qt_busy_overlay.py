@@ -1,4 +1,5 @@
 """BusyOverlay + busy_scope behavior (GUI V4 Plan 5, spec §7)."""
+
 from conftest_qt import QtSmokeBase
 
 
@@ -52,9 +53,8 @@ class BusyOverlayTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets.busy_overlay import BusyOverlay, busy_scope
 
         host = self._host()
-        with self.assertRaises(RuntimeError):
-            with busy_scope(host, immediate=True):
-                raise RuntimeError("boom")
+        with self.assertRaises(RuntimeError), busy_scope(host, immediate=True):
+            raise RuntimeError("boom")
         self.assertIsNone(host.findChild(BusyOverlay))
 
     def test_overlay_tracks_host_resize(self):

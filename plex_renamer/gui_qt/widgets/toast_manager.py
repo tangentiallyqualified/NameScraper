@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QProgressBar,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -198,11 +198,11 @@ class _ToastCard(QFrame):
         if self._body.height() != before:
             self.layout_changed.emit()
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._sync_clamp()
 
-    def showEvent(self, event) -> None:  # noqa: N802
+    def showEvent(self, event) -> None:
         super().showEvent(event)
         self._sync_clamp()
 
@@ -225,13 +225,13 @@ class _ToastCard(QFrame):
             return
         self._progress.setValue(self._remaining_ms)
 
-    def enterEvent(self, event) -> None:  # noqa: N802
+    def enterEvent(self, event) -> None:
         timer = getattr(self, "_timer", None)
         if timer is not None:
             timer.stop()
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:  # noqa: N802
+    def leaveEvent(self, event) -> None:
         timer = getattr(self, "_timer", None)
         if timer is not None and self._remaining_ms > 0:
             timer.start()

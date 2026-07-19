@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from plex_renamer.engine._episode_projection import project_preview_items
 from plex_renamer.engine.episode_assignments import (
     ORIGIN_AUTO,
     ORIGIN_MANUAL,
@@ -10,7 +11,6 @@ from plex_renamer.engine.episode_assignments import (
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
-from plex_renamer.engine._episode_projection import project_preview_items
 
 SHOW_INFO = {"id": 99, "name": "Demo Show", "year": "2020"}
 MEDIA_FIELDS = {"media_id": 99, "media_name": "Demo Show"}
@@ -27,7 +27,10 @@ def make_table() -> EpisodeAssignmentTable:
 
 def project(table):
     return project_preview_items(
-        table, show_info=SHOW_INFO, root=ROOT, media_fields=MEDIA_FIELDS,
+        table,
+        show_info=SHOW_INFO,
+        root=ROOT,
+        media_fields=MEDIA_FIELDS,
     )
 
 
@@ -115,7 +118,8 @@ class TestProjection:
     def test_unassigned_special_is_unmatched_not_silent_ok(self):
         table = make_table()
         entry = table.add_file(
-            ROOT / "Specials" / "mystery.mkv", folder_season=0,
+            ROOT / "Specials" / "mystery.mkv",
+            folder_season=0,
         )
         table.mark_unassigned(entry.file_id, REASON_NO_TITLE_MATCH)
         items = project(table)
@@ -126,7 +130,8 @@ class TestProjection:
         table = make_table()
         entry = table.add_file(
             ROOT / "Season 1" / "Extras" / "bts.mkv",
-            folder_season=0, from_extras_folder=True,
+            folder_season=0,
+            from_extras_folder=True,
         )
         table.mark_unassigned(entry.file_id, REASON_NO_TITLE_MATCH)
         items = project(table)
@@ -153,7 +158,9 @@ class TestProjection:
         table.assign(ep1.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
         items = project(table)
         assert [item.file_id for item in items] == [
-            ep1.file_id, ep2.file_id, unparsed.file_id,
+            ep1.file_id,
+            ep2.file_id,
+            unparsed.file_id,
         ]
 
 
@@ -171,11 +178,13 @@ class TestQueueBoundaryParity:
 
         table = make_table()
         first = table.add_file(
-            season / "Demo Show S01E01.mkv", is_season_relative=True,
+            season / "Demo Show S01E01.mkv",
+            is_season_relative=True,
         )
         second = table.add_file(
             season / "Demo Show S01E02 - Heist.mkv",
-            is_season_relative=True, raw_title="Heist",
+            is_season_relative=True,
+            raw_title="Heist",
         )
         table.assign(first.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.96)
         table.assign(second.file_id, 1, [2], origin=ORIGIN_AUTO, confidence=0.96)
@@ -183,13 +192,19 @@ class TestQueueBoundaryParity:
         state = ScanState(folder=root, media_info=SHOW_INFO)
         state.assignments = table
         state.preview_items = project_preview_items(
-            table, show_info=SHOW_INFO, root=root, media_fields=MEDIA_FIELDS,
+            table,
+            show_info=SHOW_INFO,
+            root=root,
+            media_fields=MEDIA_FIELDS,
         )
         state.scanned = True
         # Only check index 1 (second file); first file is unchecked.
         checked_indices = {1}
         job = build_rename_job_from_state(
-            state, tmp_path, tmp_path, checked_indices=checked_indices,
+            state,
+            tmp_path,
+            tmp_path,
+            checked_indices=checked_indices,
         )
         video_ops = [op for op in job.rename_ops if op.file_type == "video"]
         assert len(video_ops) == 2

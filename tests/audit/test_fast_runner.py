@@ -7,9 +7,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from audit import _diff
+
 from scripts import test_fast_runner
+from scripts.audit import _coverage
 
 # Pytest imports this file under the top-level ``test_fast_runner`` name because
 # ``tests/audit`` is not a package.  Keep the existing coverage tests' top-level
@@ -60,6 +61,35 @@ def test_command_has_no_static_test_filename_manifest(tmp_path: Path):
         "--ignore=tests/conftest_qt.py",
     ]
     assert not any("test_qt_media_detail_panel.py" in part for part in command)
+
+
+def test_coverage_command_includes_discovered_qt_tests(tmp_path: Path):
+    args = argparse.Namespace(coverage=True, verbose_pytest=False, pytest_args=[])
+
+    command = test_fast_runner._build_command(
+        tmp_path,
+        args,
+        ["tests/test_qt_workspace.py"],
+    )
+
+    assert "--ignore=tests/test_qt_workspace.py" not in command
+    assert "--ignore=tests/conftest_qt.py" in command
+
+
+def test_expected_coverage_scope_validates_discovery_without_excluding_qt_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        test_fast_runner,
+        "_discover_qt_tests",
+        lambda _root: ["tests/test_qt_workspace.py"],
+    )
+
+    scope = _coverage._expected_full_coverage_scope(tmp_path)
+
+    assert scope["excluded_tests"] == ["tests/conftest_qt.py"]
+    assert scope["method"] == "complete-test-discovery-v1"
 
 
 def test_parse_and_build_preserve_coverage_verbose_and_passthrough(tmp_path: Path):
@@ -140,7 +170,9 @@ def test_main_failure_returns_pytest_code_and_prints_recent_output(
     assert "no tests ran" in output
 
 
-def test_main_coverage_invokes_sidecar_with_result_and_passthrough(tmp_path: Path, monkeypatch):
+def test_main_coverage_invokes_sidecar_with_result_and_passthrough(
+    tmp_path: Path, monkeypatch, capsys
+):
     repo = _make_runner_repo(tmp_path)
     sidecars: list[tuple[Path, int, list[str], list[str]]] = []
 
@@ -159,17 +191,17 @@ def test_main_coverage_invokes_sidecar_with_result_and_passthrough(tmp_path: Pat
 
     assert test_fast_runner.main(["--coverage", "-k", "focused"], repo) == 1
     assert sidecars == [(repo, 1, ["-k", "focused"], [])]
+    assert "Full coverage test suite failed (exit code 1)." in capsys.readouterr().out
 
 
 def test_coverage_scope_id_is_stable_and_methodology_sensitive(tmp_path: Path):
     repo = _make_runner_repo(tmp_path)
-    qt_tests = ["tests/test_z_qt.py", "tests/test_a_qt.py"]
 
-    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "focused"], qt_tests)
+    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "focused"], [])
     first = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
-    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "focused"], list(reversed(qt_tests)))
+    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "focused"], [])
     reordered = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
-    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "other"], qt_tests)
+    test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "other"], [])
     changed_args = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
 
     assert first["scope"]["runner"] == "scripts/test_fast_runner.py"
@@ -177,12 +209,8 @@ def test_coverage_scope_id_is_stable_and_methodology_sensitive(tmp_path: Path):
         first["scope"]["runner_sha256"]
         == hashlib.sha256(Path(test_fast_runner.__file__).read_bytes()).hexdigest()
     )
-    assert first["scope"]["method"] == "ast-qt-exclusion-v1"
-    assert first["scope"]["excluded_tests"] == [
-        "tests/conftest_qt.py",
-        "tests/test_a_qt.py",
-        "tests/test_z_qt.py",
-    ]
+    assert first["scope"]["method"] == "complete-test-discovery-v1"
+    assert first["scope"]["excluded_tests"] == ["tests/conftest_qt.py"]
     assert first["scope"]["coverage_source"] == ["plex_renamer"]
     assert first["scope"]["config_files"] == []
     assert first["scope"]["pytest_args"] == ["-k", "focused"]
@@ -197,7 +225,7 @@ def test_successful_unfiltered_coverage_records_full_suite_provenance(tmp_path: 
     test_fast_runner._write_coverage_sidecar(repo, 0, [], [])
 
     meta = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
-    assert meta["suite"] == "fast"
+    assert meta["suite"] == "full-coverage"
     assert meta["full_suite"] is True
 
 
@@ -207,7 +235,17 @@ def test_filtered_coverage_is_not_full_suite(tmp_path: Path) -> None:
     test_fast_runner._write_coverage_sidecar(repo, 0, ["-k", "focused"], [])
 
     meta = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
-    assert meta["suite"] == "fast"
+    assert meta["suite"] == "full-coverage"
+    assert meta["full_suite"] is False
+
+
+def test_coverage_with_an_excluded_test_is_not_full_suite(tmp_path: Path) -> None:
+    repo = _make_runner_repo(tmp_path)
+
+    test_fast_runner._write_coverage_sidecar(repo, 0, [], ["tests/test_qt_workspace.py"])
+
+    meta = json.loads((repo / ".coverage.meta.json").read_text(encoding="utf-8"))
+    assert meta["suite"] == "full-coverage"
     assert meta["full_suite"] is False
 
 
@@ -408,5 +446,5 @@ def test_launch_error_overwrites_successful_coverage_sidecar(tmp_path: Path, mon
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["failed"] is True
     assert meta["partial"] is True
-    assert "could not launch pytest: caf? executable unavailable" == meta["reason"]
+    assert meta["reason"] == "could not launch pytest: caf? executable unavailable"
     assert capsys.readouterr().err.isascii()

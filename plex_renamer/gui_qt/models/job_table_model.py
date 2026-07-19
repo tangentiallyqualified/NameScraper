@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QTimer, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer
 from PySide6.QtGui import QColor
 
 from ...constants import JobStatus
@@ -98,8 +98,7 @@ class JobTableModel(QAbstractTableModel):
 
         running_ids = {job.job_id for job in jobs if job.status == JobStatus.RUNNING}
         self._progress = {
-            job_id: value for job_id, value in self._progress.items()
-            if job_id in running_ids
+            job_id: value for job_id, value in self._progress.items() if job_id in running_ids
         }
 
         self.beginResetModel()
@@ -190,7 +189,9 @@ class JobTableModel(QAbstractTableModel):
             return 0
         return len(_HEADERS)
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):
+    def headerData(
+        self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
+    ):
         if role != Qt.ItemDataRole.DisplayRole:
             return None
         if orientation == Qt.Orientation.Horizontal and 0 <= section < len(_HEADERS):
@@ -207,7 +208,11 @@ class JobTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.CheckStateRole and column == 0:
             if not self.is_checkable_job(job):
                 return None
-            return Qt.CheckState.Checked if job.job_id in self._checked_job_ids else Qt.CheckState.Unchecked
+            return (
+                Qt.CheckState.Checked
+                if job.job_id in self._checked_job_ids
+                else Qt.CheckState.Unchecked
+            )
 
         if role == Qt.ItemDataRole.DisplayRole:
             if column == 0:

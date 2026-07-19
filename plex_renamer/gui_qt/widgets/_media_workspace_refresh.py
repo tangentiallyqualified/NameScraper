@@ -42,28 +42,32 @@ class MediaWorkspaceRefreshCoordinator:
         selection_is_auto = workspace._roster_selection_is_auto
         if selected_state_key is not None:
             matched_index = next(
-                (index for index, state in enumerate(states) if _roster_selection_key(state) == selected_state_key),
+                (
+                    index
+                    for index, state in enumerate(states)
+                    if _roster_selection_key(state) == selected_state_key
+                ),
                 None,
             )
             if matched_index is not None:
                 selected_index = matched_index
 
         preferred_focus_index = self.preferred_batch_focus_index(states)
-        if preferred_focus_index is not None:
-            if selected_state_key is None:
-                selected_index = preferred_focus_index
-                selection_is_auto = True
-            elif (
+        if preferred_focus_index is not None and (
+            selected_state_key is None
+            or (
                 selection_is_auto
                 and selected_index is not None
                 and 0 <= selected_index < len(states)
                 and _roster_group(
                     states[selected_index],
                     media_type=workspace._media_type,
-                ) not in {"matched", "review-match", "review-episodes", "specials-unmapped"}
-            ):
-                selected_index = preferred_focus_index
-                selection_is_auto = True
+                )
+                not in {"matched", "review-match", "review-episodes", "specials-unmapped"}
+            )
+        ):
+            selected_index = preferred_focus_index
+            selection_is_auto = True
 
         if selected_index is None or not (0 <= selected_index < len(states)):
             selected_index = preferred_focus_index if preferred_focus_index is not None else 0
@@ -100,7 +104,7 @@ class MediaWorkspaceRefreshCoordinator:
 
     def ensure_check_bindings(self, state: ScanState) -> None:
         workspace = self._workspace
-        for index, item in enumerate(state.preview_items):
+        for index, _item in enumerate(state.preview_items):
             key = str(index)
             if key not in state.check_vars:
                 state.check_vars[key] = _CheckBinding(
@@ -117,7 +121,7 @@ class MediaWorkspaceRefreshCoordinator:
             if _is_state_queue_approvable(state, media_type=workspace._media_type):
                 self.ensure_check_bindings(state)
                 actionable_values: list[bool] = []
-                for index, item in enumerate(state.preview_items):
+                for index, _item in enumerate(state.preview_items):
                     if not CommandGatingService.is_queue_relevant(state, index):
                         continue
                     key = str(index)

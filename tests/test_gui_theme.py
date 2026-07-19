@@ -1,4 +1,5 @@
 """Theme token module and stylesheet rendering guards."""
+
 from __future__ import annotations
 
 import ast
@@ -56,8 +57,8 @@ def test_template_contains_no_raw_hex():
 def test_template_renders_without_unresolved_tokens():
     rendered = theme.load_stylesheet()
     assert "${" not in rendered
-    assert theme.color("bg") in rendered          # palette actually applied
-    assert "#e5a00d" not in rendered              # Plex amber is gone
+    assert theme.color("bg") in rendered  # palette actually applied
+    assert "#e5a00d" not in rendered  # Plex amber is gone
 
 
 def test_status_pill_qss_covers_v4_tones():
@@ -89,7 +90,11 @@ def test_no_hex_literals_outside_theme_module():
     assert offenders == [], "\n".join(offenders)
 
 
-_PLEX_ALLOWED_SUBSTRINGS = ("plex_renamer", "PLEX_RENAMER", "plex-renamer")  # package/env names, not UI copy
+_PLEX_ALLOWED_SUBSTRINGS = (
+    "plex_renamer",
+    "PLEX_RENAMER",
+    "plex-renamer",
+)  # package/env names, not UI copy
 
 # Files whose Plex mentions are deliberate third-party-compatibility copy
 # (the Plex media server as an export target), not app branding. The
@@ -123,15 +128,20 @@ def test_no_plex_string_literals_in_gui():
 
 
 _DELETED_GUI_MODULES = (
-    "_media_workspace_preview", "media_detail_panel", "_media_detail_artwork",
-    "_media_detail_payloads", "_media_detail_state", "_media_detail_workflow",
+    "_media_workspace_preview",
+    "media_detail_panel",
+    "_media_detail_artwork",
+    "_media_detail_payloads",
+    "_media_detail_state",
+    "_media_detail_workflow",
     "_workspace_widgets",
 )
 
 
 def test_deleted_panel_modules_stay_deleted():
-    present = [name for name in _DELETED_GUI_MODULES
-               if (_GUI_ROOT / "widgets" / f"{name}.py").exists()]
+    present = [
+        name for name in _DELETED_GUI_MODULES if (_GUI_ROOT / "widgets" / f"{name}.py").exists()
+    ]
     assert present == [], f"GUI V4 deleted these modules; they came back: {present}"
 
 
@@ -175,16 +185,16 @@ def test_combo_popup_child_widgets_have_explicit_background():
     # a frame while the popup is first shown.
     rendered = theme.load_stylesheet()
     assert "QComboBox QAbstractItemView QWidget" in rendered
-    match = re.search(
-        r"QComboBox QAbstractItemView QWidget\s*\{([^}]*)\}", rendered
-    )
+    match = re.search(r"QComboBox QAbstractItemView QWidget\s*\{([^}]*)\}", rendered)
     assert match, "QComboBox QAbstractItemView QWidget rule not found"
     assert f"background-color: {theme.color('card')};" in match.group(1)
 
 
 def test_settings_sections_have_no_header_icons():
     import inspect
+
     from plex_renamer.gui_qt.widgets import _settings_tab_sections as mod
+
     source = inspect.getsource(mod)
     assert "StandardPixmap" not in source
 
@@ -193,10 +203,10 @@ def test_hex_guard_regex_catches_short_and_alpha_forms():
     # User-approved 2026-07-05 (Plan 1's open item): the guard covers all
     # QSS-legal hex literal widths, not just #rrggbb.
     assert _HEX_RE.search("#a1b2c3")
-    assert _HEX_RE.search("#abc")            # 3-digit shorthand
-    assert _HEX_RE.search("#a1b2c3ff")       # 8-digit with alpha
+    assert _HEX_RE.search("#abc")  # 3-digit shorthand
+    assert _HEX_RE.search("#a1b2c3ff")  # 8-digit with alpha
     assert not _HEX_RE.search("# a comment with hex words like abc")
-    assert not _HEX_RE.search("#define")     # 'def' + word char = no boundary
+    assert not _HEX_RE.search("#define")  # 'def' + word char = no boundary
 
 
 def test_expansion_card_qss_is_not_selection_blue():

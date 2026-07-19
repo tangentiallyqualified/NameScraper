@@ -5,18 +5,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from conftest_qt import QtSmokeBase
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
-from plex_renamer.app.controllers.queue_controller import BatchQueueResult
-from plex_renamer.app.services.cache_service import PersistentCacheService
-from plex_renamer.app.services.command_gating_service import CommandGatingService
-from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.constants import JobStatus
-from plex_renamer.engine import CompanionFile, PreviewItem, RenameResult, ScanState
+from plex_renamer.engine import PreviewItem, RenameResult, ScanState
 from plex_renamer.job_store import JobStore
-
-from conftest_qt import QtSmokeBase
 
 
 class QtQueueHistoryTests(QtSmokeBase):
@@ -71,9 +66,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         model.set_jobs([job])
 
         self.assertEqual(model.columnCount(), 7)
-        self.assertEqual(
-            model.headerData(5, Qt.Orientation.Horizontal), "Files"
-        )
+        self.assertEqual(model.headerData(5, Qt.Orientation.Horizontal), "Files")
         self.assertEqual(model.headerData(6, Qt.Orientation.Horizontal), "When")
         # Only the selected pair counts: 1 video + 1 companion.
         self.assertEqual(
@@ -83,9 +76,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         self.assertEqual(model.data(model.index(0, 5), SORT_ROLE), 1)
         self.assertEqual(files_cell_text(job), "1 file (1 comp.)")
         # When column renders a formatted date, not a count.
-        self.assertNotEqual(
-            model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1"
-        )
+        self.assertNotEqual(model.data(model.index(0, 6), Qt.ItemDataRole.DisplayRole), "1")
 
     def test_job_table_files_column_omits_companion_suffix_when_none(self):
         from plex_renamer.gui_qt.models.job_table_model import files_cell_text
@@ -97,19 +88,28 @@ class QtQueueHistoryTests(QtSmokeBase):
             media_name="Example Show",
             rename_ops=[
                 RenameOp(
-                    original_relative="Show/a.mkv", new_name="A.mkv",
-                    target_dir_relative="Show", status="OK",
-                    selected=True, file_type="video",
+                    original_relative="Show/a.mkv",
+                    new_name="A.mkv",
+                    target_dir_relative="Show",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
                 ),
                 RenameOp(
-                    original_relative="Show/b.mkv", new_name="B.mkv",
-                    target_dir_relative="Show", status="OK",
-                    selected=True, file_type="video",
+                    original_relative="Show/b.mkv",
+                    new_name="B.mkv",
+                    target_dir_relative="Show",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
                 ),
                 RenameOp(
-                    original_relative="Show/c.mkv", new_name="C.mkv",
-                    target_dir_relative="Show", status="OK",
-                    selected=True, file_type="video",
+                    original_relative="Show/c.mkv",
+                    new_name="C.mkv",
+                    target_dir_relative="Show",
+                    status="OK",
+                    selected=True,
+                    file_type="video",
                 ),
             ],
         )
@@ -117,6 +117,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
     def test_build_placeholder_pixmap_scales_for_hidpi(self):
         from PySide6.QtCore import QSize
+
         from plex_renamer.gui_qt.widgets._image_utils import build_placeholder_pixmap
 
         pixmap = build_placeholder_pixmap(
@@ -276,6 +277,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
     def test_queue_and_history_tabs_refresh(self):
         from PySide6.QtWidgets import QHeaderView
+
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.gui_qt.widgets.history_tab import HistoryTab
         from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
@@ -324,7 +326,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertFalse(queue_tab._header.stretchLastSection())
             self.assertFalse(history_tab._header.stretchLastSection())
             self.assertEqual(queue_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
-            self.assertEqual(history_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch)
+            self.assertEqual(
+                history_tab._header.sectionResizeMode(2), QHeaderView.ResizeMode.Stretch
+            )
             self.assertEqual(queue_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
             self.assertEqual(history_tab._header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
             self.assertLessEqual(queue_tab._header.sectionSize(6), 92)
@@ -337,7 +341,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertTrue(queue_tab._table.currentIndex().isValid())
             self.assertTrue(history_tab._table.currentIndex().isValid())
             self.assertIs(queue_tab._detail._stack.currentWidget(), queue_tab._detail._detail_page)
-            self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._detail_page)
+            self.assertIs(
+                history_tab._detail._stack.currentWidget(), history_tab._detail._detail_page
+            )
             self.assertEqual(queue_tab._remove_btn.text(), "Remove Selected")
             self.assertFalse(queue_tab._remove_btn.isEnabled())
             self.assertEqual(queue_tab._remove_btn.property("cssClass"), "danger-outline")
@@ -392,7 +398,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             self.assertFalse(queue_tab._table.currentIndex().isValid())
             self.assertFalse(history_tab._table.currentIndex().isValid())
             self.assertIs(queue_tab._detail._stack.currentWidget(), queue_tab._detail._empty_page)
-            self.assertIs(history_tab._detail._stack.currentWidget(), history_tab._detail._empty_page)
+            self.assertIs(
+                history_tab._detail._stack.currentWidget(), history_tab._detail._empty_page
+            )
             self.assertEqual(queue_tab._detail._empty_title.text(), "No Job Selected!")
             self.assertEqual(history_tab._detail._empty_title.text(), "No Job Selected!")
 
@@ -402,6 +410,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
     def test_queue_tab_context_menu_exposes_queue_and_folder_actions(self):
         from PySide6.QtWidgets import QMenu
+
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
         from plex_renamer.job_store import JobStore, RenameJob, RenameOp
@@ -437,7 +446,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             self._app.processEvents()
 
             menu = QMenu()
-            queue_tab._populate_context_menu(menu, queue_tab._focused_job(), queue_tab._selected_jobs())
+            queue_tab._populate_context_menu(
+                menu, queue_tab._focused_job(), queue_tab._selected_jobs()
+            )
             action_text = [action.text() for action in menu.actions() if not action.isSeparator()]
 
             self.assertEqual(
@@ -548,6 +559,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
     def test_queue_tab_remove_updates_badge_and_tv_requeue_state(self):
         from PySide6.QtWidgets import QMessageBox
+
         from plex_renamer.gui_qt.main_window import MainWindow
 
         window = MainWindow()
@@ -561,7 +573,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
@@ -622,7 +636,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
             preview_items=[
                 PreviewItem(
-                    original=Path("C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"),
+                    original=Path(
+                        "C:/library/tv/Example.Show.2024/Season 01/Example.Show.S01E01.mkv"
+                    ),
                     new_name="Example Show (2024) - S01E01 - Pilot.mkv",
                     target_dir=output_root / "Example Show (2024)" / "Season 01",
                     season=1,
@@ -645,7 +661,9 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         job = window.queue_ctrl.get_queue()[0]
         window.queue_ctrl.job_store.update_status(job.job_id, JobStatus.COMPLETED)
-        window.queue_ctrl.job_store.set_undo_data(job.job_id, {"renames": [], "created_dirs": [], "removed_dirs": [], "renamed_dirs": []})
+        window.queue_ctrl.job_store.set_undo_data(
+            job.job_id, {"renames": [], "created_dirs": [], "removed_dirs": [], "renamed_dirs": []}
+        )
         job.status = JobStatus.COMPLETED
 
         window._switch_to_tab(3)
@@ -659,8 +677,14 @@ class QtQueueHistoryTests(QtSmokeBase):
         window._tv_workspace._roster_collapsed["fully-ready"] = False
         window._tv_workspace.refresh_from_controller()
 
-        self.assertEqual(state.folder, output_root / "Example Show (2024)")
-        self.assertEqual(state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv")
+        # The projection derives state.folder from job.output_root, which the
+        # settings service resolves (validate_output_folder) — on runners whose
+        # temp path contains an 8.3 short component the raw tmp path differs,
+        # so the expectation must be resolved the same way.
+        self.assertEqual(state.folder, output_root.resolve() / "Example Show (2024)")
+        self.assertEqual(
+            state.preview_items[0].original.name, "Example Show (2024) - S01E01 - Pilot.mkv"
+        )
         self.assertFalse(state.preview_items[0].is_actionable)
         self._assert_roster_section_title(window._tv_workspace, 0, "FULLY READY")
 
@@ -670,8 +694,12 @@ class QtQueueHistoryTests(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._job_list_tab import _JOB_STATUS_TONE
 
         for status in (
-            JobStatus.PENDING, JobStatus.RUNNING, JobStatus.COMPLETED,
-            JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.REVERTED,
+            JobStatus.PENDING,
+            JobStatus.RUNNING,
+            JobStatus.COMPLETED,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+            JobStatus.REVERTED,
             JobStatus.REVERT_FAILED,
         ):
             self.assertIn(status, _JOB_STATUS_TONE)
@@ -685,9 +713,7 @@ class QtQueueHistoryTests(QtSmokeBase):
             store = JobStore(db_path=Path(tmp) / "jobs.db")
             controller = QueueController(store)
             tab = QueueTab(controller)
-            self.assertEqual(
-                tab._table.verticalHeader().defaultSectionSize(), _scale.px(36)
-            )
+            self.assertEqual(tab._table.verticalHeader().defaultSectionSize(), _scale.px(36))
             self.assertFalse(tab._table.alternatingRowColors())
             tab.close()
             controller.close()
@@ -695,16 +721,20 @@ class QtQueueHistoryTests(QtSmokeBase):
     def test_status_pill_paints_without_error(self):
         from PySide6.QtGui import QPainter, QPixmap
         from PySide6.QtWidgets import QStyleOptionViewItem
+
         from plex_renamer.app.controllers.queue_controller import QueueController
         from plex_renamer.gui_qt.widgets.queue_tab import QueueTab
         from plex_renamer.job_store import RenameJob
 
         with TemporaryDirectory() as tmp:
             store = JobStore(db_path=Path(tmp) / "jobs.db")
-            store.add_job(RenameJob(
-                library_root="C:/library", source_folder="Show",
-                media_name="Example Show",
-            ))
+            store.add_job(
+                RenameJob(
+                    library_root="C:/library",
+                    source_folder="Show",
+                    media_name="Example Show",
+                )
+            )
             controller = QueueController(store)
             tab = QueueTab(controller)
             index = tab._proxy.index(0, 1)
@@ -749,7 +779,7 @@ class QtQueueHistoryTests(QtSmokeBase):
             tab = HistoryTab(controller)
             banner = tab._revert_banner
             self.assertEqual(banner.property("cssClass"), "revert-banner")
-            self.assertFalse(banner.isVisibleTo(tab))          # hidden until armed
+            self.assertFalse(banner.isVisibleTo(tab))  # hidden until armed
             self.assertIs(tab._revert_info.parent(), banner)
             self.assertIs(tab._confirm_revert_btn.parent(), banner)
             self.assertIs(tab._cancel_revert_btn.parent(), banner)
@@ -770,13 +800,9 @@ class QtQueueHistoryTests(QtSmokeBase):
             controller = QueueController(store)
             queue_tab = QueueTab(controller)
             history_tab = HistoryTab(controller)
-            self.assertIs(
-                queue_tab._table_stack.currentWidget(), queue_tab._table_empty
-            )
+            self.assertIs(queue_tab._table_stack.currentWidget(), queue_tab._table_empty)
             self.assertEqual(queue_tab._table_empty._heading.text(), "Queue is empty")
-            self.assertIs(
-                history_tab._table_stack.currentWidget(), history_tab._table_empty
-            )
+            self.assertIs(history_tab._table_stack.currentWidget(), history_tab._table_empty)
             self.assertEqual(history_tab._table_empty._heading.text(), "No history yet")
             queue_tab.close()
             history_tab.close()
@@ -789,10 +815,13 @@ class QtQueueHistoryTests(QtSmokeBase):
 
         with TemporaryDirectory() as tmp:
             store = JobStore(db_path=Path(tmp) / "jobs.db")
-            store.add_job(RenameJob(
-                library_root="C:/library", source_folder="Show",
-                media_name="Example Show",
-            ))
+            store.add_job(
+                RenameJob(
+                    library_root="C:/library",
+                    source_folder="Show",
+                    media_name="Example Show",
+                )
+            )
             controller = QueueController(store)
             tab = QueueTab(controller)
             self.assertIs(tab._table_stack.currentWidget(), tab._table)
@@ -806,6 +835,7 @@ class QtQueueHistoryTests(QtSmokeBase):
 
     def test_status_size_hint_reserves_uppercase_pill_width(self):
         from PySide6.QtWidgets import QStyleOptionViewItem, QTableView
+
         from plex_renamer.gui_qt import _scale
         from plex_renamer.gui_qt.models.job_table_model import JobTableModel
         from plex_renamer.gui_qt.widgets._job_list_tab import _HoverRowDelegate
@@ -829,11 +859,7 @@ class QtQueueHistoryTests(QtSmokeBase):
         option = QStyleOptionViewItem()
         hint = delegate.sizeHint(option, index)
         label = str(model.data(index, Qt.ItemDataRole.DisplayRole)).upper()
-        required = (
-            option.fontMetrics.horizontalAdvance(label)
-            + _scale.px(16)
-            + _scale.px(4)
-        )
+        required = option.fontMetrics.horizontalAdvance(label) + _scale.px(16) + _scale.px(4)
         self.assertGreaterEqual(hint.width(), required)
         table.close()
 

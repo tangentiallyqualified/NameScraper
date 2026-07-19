@@ -72,7 +72,8 @@ def queue_checked(
         workspace.status_message.emit("Select at least one actionable item before queueing.", 4000)
         return
     eligible = [
-        state for state in checked
+        state
+        for state in checked
         if _is_state_queue_approvable(state, media_type=workspace._media_type)
     ]
     skipped = len(checked) - len(eligible)
@@ -143,7 +144,9 @@ def queue_states(
             return
         output_root = workspace._settings.valid_movie_output_folder if workspace._settings else None
         if output_root is None:
-            workspace.status_message.emit("Set a Movies output folder in Settings before queueing.", 4000)
+            workspace.status_message.emit(
+                "Set a Movies output folder in Settings before queueing.", 4000
+            )
             return
         add_batch = workspace._queue_ctrl.add_movie_batch
     else:
@@ -153,7 +156,9 @@ def queue_states(
             return
         output_root = workspace._settings.valid_tv_output_folder if workspace._settings else None
         if output_root is None:
-            workspace.status_message.emit("Set a TV Shows output folder in Settings before queueing.", 4000)
+            workspace.status_message.emit(
+                "Set a TV Shows output folder in Settings before queueing.", 4000
+            )
             return
         add_batch = workspace._queue_ctrl.add_tv_batch
 
@@ -168,14 +173,15 @@ def queue_states(
                 output_root,
                 workspace._media_ctrl.command_gating,
                 settings_service=workspace._settings,
-                tmdb_client=(workspace._tmdb_provider()
-                             if workspace._tmdb_provider is not None else None),
+                tmdb_client=(
+                    workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
+                ),
             )
             try:
                 workspace._media_ctrl.sync_queued_states()
                 workspace.refresh_from_controller()
                 workspace._restore_roster_selection_by_key(selected_key)
-            except Exception as exc:    # batch queued; only the view refresh failed
+            except Exception as exc:  # batch queued; only the view refresh failed
                 sync_error = exc
     except Exception as exc:
         warning_box.warning(workspace, "Queue Failed", str(exc))

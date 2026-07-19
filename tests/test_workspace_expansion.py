@@ -2,16 +2,17 @@
 """Header description follows the expanded episode (M10): the work panel's
 header overview swaps to the expanded episode's overview/air-date and
 reverts to the remembered series overview on collapse."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from plex_renamer.app.services.command_gating_service import CommandGatingService
-from plex_renamer.engine import CompletenessReport, ScanState, SeasonCompleteness
-
 from conftest_qt import QtSmokeBase
 from test_episode_table_model import _guide_state
+
+from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.engine import CompletenessReport, ScanState, SeasonCompleteness
 
 
 class HeaderFollowsEpisodeTests(QtSmokeBase):
@@ -73,9 +74,7 @@ class HeaderFollowsEpisodeTests(QtSmokeBase):
         panel.show_state(state, collapsed_sections=set(), folder_preview=None)
 
         self.assertFalse(panel._episode_overview_active)
-        self.assertNotEqual(
-            panel._overview_label.text(), "Ep plot.\nAir date: 2023-01-01"
-        )
+        self.assertNotEqual(panel._overview_label.text(), "Ep plot.\nAir date: 2023-01-01")
 
     def test_no_tmdb_overview_uses_single_display_path(self):
         """When no TMDB provider is available, _request_overview must use
@@ -84,7 +83,7 @@ class HeaderFollowsEpisodeTests(QtSmokeBase):
         with no TMDB should clear the series overview state, not restore
         previously-captured text."""
         panel = self._panel(media_type="tv", tmdb_provider=lambda: None)
-        state, guide = _guide_state()
+        state, _guide = _guide_state()
         panel.set_episode_overview("Episode text", "2024-01-01")
         self.assertTrue(panel._episode_overview_active)
 
@@ -132,7 +131,9 @@ class MissingFileRowExpansionTests(QtSmokeBase):
             media_fields={"media_id": 101, "media_name": "Example Show"},
         )
         state.completeness = CompletenessReport(
-            seasons={1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Sequel")])},
+            seasons={
+                1: SeasonCompleteness(season=1, expected=2, matched=1, missing=[(2, "Sequel")])
+            },
             specials=None,
             total_expected=2,
             total_matched=1,
@@ -188,7 +189,7 @@ class MissingFileRowExpansionTests(QtSmokeBase):
         raise AssertionError(f"no row with status_text={status_text!r}")
 
     def test_missing_file_row_never_expands(self):
-        workspace, model, view = self._workspace_with_missing_file_row()
+        workspace, model, _view = self._workspace_with_missing_file_row()
         row = self._first_row_with_status(model, "Missing File")
         workspace._on_table_expand_requested(model.index(row, 0))
         self.assertIsNone(model.expanded_row())
@@ -289,7 +290,9 @@ class AsyncPlanReflowTests(QtSmokeBase):
         self.addCleanup(no_probe.stop)
 
         workspace = MediaWorkspace(
-            media_type="tv", media_controller=ctrl, settings_service=settings,
+            media_type="tv",
+            media_controller=ctrl,
+            settings_service=settings,
         )
         workspace.resize(760, 640)
         workspace.show()
@@ -308,17 +311,27 @@ class AsyncPlanReflowTests(QtSmokeBase):
     @staticmethod
     def _deliver_plan(workspace, state, *, tracks: int):
         decisions = [
-            {"track_id": i, "track_type": "audio", "codec": "aac",
-             "language": "eng", "name": f"Track {i}", "keep": True,
-             "make_default": i == 0, "reason": "retained"}
+            {
+                "track_id": i,
+                "track_type": "audio",
+                "codec": "aac",
+                "language": "eng",
+                "name": f"Track {i}",
+                "keep": True,
+                "make_default": i == 0,
+                "reason": "retained",
+            }
             for i in range(tracks)
         ]
         plan = {
             "output_name": "Reflow.mkv",
             "track_decisions": decisions,
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
         workspace._automux._bridge.plan_ready.emit(state, 0, plan, "")
 
@@ -433,7 +446,9 @@ class AsyncPlanLateArrivalFramingTests(QtSmokeBase):
         self.addCleanup(no_probe.stop)
 
         workspace = MediaWorkspace(
-            media_type="tv", media_controller=ctrl, settings_service=settings,
+            media_type="tv",
+            media_controller=ctrl,
+            settings_service=settings,
         )
         # A small viewport relative to 40 rows guarantees the list is
         # scrollable and a mid-list row can sit mid-viewport.
@@ -454,17 +469,27 @@ class AsyncPlanLateArrivalFramingTests(QtSmokeBase):
     @staticmethod
     def _deliver_plan(workspace, state, preview_index: int, *, tracks: int) -> None:
         decisions = [
-            {"track_id": i, "track_type": "audio", "codec": "aac",
-             "language": "eng", "name": f"Track {i}", "keep": True,
-             "make_default": i == 0, "reason": "retained"}
+            {
+                "track_id": i,
+                "track_type": "audio",
+                "codec": "aac",
+                "language": "eng",
+                "name": f"Track {i}",
+                "keep": True,
+                "make_default": i == 0,
+                "reason": "retained",
+            }
             for i in range(tracks)
         ]
         plan = {
             "output_name": "LateSnap.mkv",
             "track_decisions": decisions,
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
         workspace._automux._bridge.plan_ready.emit(state, preview_index, plan, "")
 
@@ -479,7 +504,8 @@ class AsyncPlanLateArrivalFramingTests(QtSmokeBase):
         target_index = model.index(target_row, 0)
         below_index = model.index(target_row + 1, 0)
         preview_index = next(
-            i for i, item in enumerate(state.preview_items)
+            i
+            for i, item in enumerate(state.preview_items)
             if item.episodes == [self._TARGET_EPISODE]
         )
 
@@ -526,22 +552,25 @@ class AsyncPlanLateArrivalFramingTests(QtSmokeBase):
         settled_below = view.visualRect(below_index).top()
 
         self.assertNotEqual(
-            before_below, settled_below,
+            before_below,
+            settled_below,
             "sanity check: the 30-track plan should have grown the row "
             "-- the row below should have moved down from its pre-plan "
             "position",
         )
         self.assertEqual(
-            before_top, after_top,
-            "the late-arriving AutoMux plan moved the expanded row's own "
-            "on-screen top position",
+            before_top,
+            after_top,
+            "the late-arriving AutoMux plan moved the expanded row's own on-screen top position",
         )
         self.assertEqual(
-            before_scroll, after_scroll,
+            before_scroll,
+            after_scroll,
             "the late-arriving AutoMux plan changed the scrollbar value",
         )
         self.assertEqual(
-            immediate_below, settled_below,
+            immediate_below,
+            settled_below,
             "the row below the expanded one moved between the synchronous "
             "plan-arrival return and the event loop settling -- the "
             "delayed viewport snap this test guards against",
@@ -631,16 +660,33 @@ class PerEpisodeMuxOptOutTests(QtSmokeBase):
         return {
             "output_name": "OptOut.S01E01.mkv",
             "track_decisions": [
-                {"track_id": 0, "track_type": "video", "codec": "h264",
-                 "language": "und", "name": "", "keep": True,
-                 "make_default": True, "reason": "kept"},
-                {"track_id": 1, "track_type": "audio", "codec": "aac",
-                 "language": "jpn", "name": "", "keep": False,
-                 "make_default": False, "reason": "stripped"},
+                {
+                    "track_id": 0,
+                    "track_type": "video",
+                    "codec": "h264",
+                    "language": "und",
+                    "name": "",
+                    "keep": True,
+                    "make_default": True,
+                    "reason": "kept",
+                },
+                {
+                    "track_id": 1,
+                    "track_type": "audio",
+                    "codec": "aac",
+                    "language": "jpn",
+                    "name": "",
+                    "keep": False,
+                    "make_default": False,
+                    "reason": "stripped",
+                },
             ],
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
 
     @staticmethod
@@ -672,7 +718,9 @@ class PerEpisodeMuxOptOutTests(QtSmokeBase):
         self.addCleanup(no_probe.stop)
 
         workspace = MediaWorkspace(
-            media_type="tv", media_controller=ctrl, settings_service=settings,
+            media_type="tv",
+            media_controller=ctrl,
+            settings_service=settings,
         )
         workspace.resize(760, 640)
         workspace.show()
@@ -844,7 +892,9 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
         self.addCleanup(no_probe.stop)
 
         workspace = MediaWorkspace(
-            media_type="tv", media_controller=ctrl, settings_service=settings,
+            media_type="tv",
+            media_controller=ctrl,
+            settings_service=settings,
         )
         # A small viewport relative to 40 rows guarantees the list is
         # scrollable and a mid-list row can sit mid-viewport.
@@ -872,17 +922,27 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
         several hundred px expanded), matching the real-world conditions
         where the fallback-vs-actual height gap is large enough to matter."""
         decisions = [
-            {"track_id": i, "track_type": "audio", "codec": "aac",
-             "language": "eng", "name": f"Track {i}", "keep": True,
-             "make_default": i == 0, "reason": "retained"}
+            {
+                "track_id": i,
+                "track_type": "audio",
+                "codec": "aac",
+                "language": "eng",
+                "name": f"Track {i}",
+                "keep": True,
+                "make_default": i == 0,
+                "reason": "retained",
+            }
             for i in range(tracks)
         ]
         plan = {
             "output_name": "Lurch.mkv",
             "track_decisions": decisions,
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
         workspace._automux._bridge.plan_ready.emit(state, preview_index, plan, "")
 
@@ -898,7 +958,8 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
         below_index = model.index(target_row + 1, 0)
 
         preview_index = next(
-            i for i, item in enumerate(state.preview_items)
+            i
+            for i, item in enumerate(state.preview_items)
             if item.episodes == [self._TARGET_EPISODE]
         )
         self._warm_plan(workspace, state, preview_index, tracks=30)
@@ -921,7 +982,8 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
         # unrelated, indirectly-triggered relayout.
         expected_below_top = before_top + view.sizeHintForRow(target_row)
         self.assertEqual(
-            view.visualRect(below_index).top(), expected_below_top,
+            view.visualRect(below_index).top(),
+            expected_below_top,
             "the row below the expanded one used a stale/fallback height "
             "immediately after expansion -- the real correction landed "
             "later (the delayed 'snap' this test guards against)",
@@ -934,15 +996,18 @@ class ExpansionViewportStabilityTests(QtSmokeBase):
         after_scroll = view.verticalScrollBar().value()
 
         self.assertEqual(
-            before_top, after_top,
+            before_top,
+            after_top,
             "expanding the row moved its on-screen top position",
         )
         self.assertEqual(
-            before_scroll, after_scroll,
+            before_scroll,
+            after_scroll,
             "expanding the row changed the scrollbar value",
         )
         self.assertEqual(
-            view.visualRect(below_index).top(), expected_below_top,
+            view.visualRect(below_index).top(),
+            expected_below_top,
             "the row below the expanded one moved after settling -- a "
             "delayed relayout changed the layout further",
         )
@@ -986,11 +1051,13 @@ class OptedOutMuxPlanNotFedToCardTests(QtSmokeBase):
         sub = next(c for c in row.companions if c.file_type == "subtitle")
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": str(sub.original).replace("\\", "/"),
-                "language": "eng",
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": str(sub.original).replace("\\", "/"),
+                    "language": "eng",
+                }
+            ],
         }
         state.mux_opt_outs.add(0)
 
@@ -1017,11 +1084,13 @@ class OptedOutMuxPlanNotFedToCardTests(QtSmokeBase):
         sub = next(c for c in row.companions if c.file_type == "subtitle")
         state.mux_plans[0] = {
             "track_decisions": [],
-            "subtitle_merges": [{
-                "action": "merge",
-                "source_relative": str(sub.original).replace("\\", "/"),
-                "language": "eng",
-            }],
+            "subtitle_merges": [
+                {
+                    "action": "merge",
+                    "source_relative": str(sub.original).replace("\\", "/"),
+                    "language": "eng",
+                }
+            ],
         }
 
         card = self._feed_card(state, row)

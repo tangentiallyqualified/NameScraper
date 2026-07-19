@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...engine import ScanState
 from ...engine._episode_projection import project_preview_items
 from ...engine.episode_assignments import carry_over_manual_assignments
+from ...engine.models import TVScannerOperations
 from ...parsing import get_season
 
 
@@ -16,7 +17,7 @@ def build_accepted_tv_state(
     folder: Path,
     tmdb: Any,
     show_info: dict,
-    scanner_factory: Callable[..., Any],
+    scanner_factory: Callable[..., TVScannerOperations],
 ) -> ScanState:
     season_hint = get_season(folder)
     scanner = scanner_factory(tmdb, show_info, folder, season_hint=season_hint)
@@ -33,8 +34,8 @@ def build_accepted_tv_state(
 def ensure_tv_scanner(
     state: ScanState,
     tmdb: Any,
-    scanner_factory: Callable[..., Any],
-):
+    scanner_factory: Callable[..., TVScannerOperations],
+) -> TVScannerOperations:
     if state.scanner is None:
         state.scanner = scanner_factory(
             tmdb,
@@ -43,13 +44,13 @@ def ensure_tv_scanner(
             season_hint=state.season_assignment,
             season_folders=state.season_folders or None,
         )
-    return state.scanner
+    return cast(TVScannerOperations, state.scanner)
 
 
 def run_tv_scan(
     state: ScanState,
     tmdb: Any,
-    scanner_factory: Callable[..., Any],
+    scanner_factory: Callable[..., TVScannerOperations],
     duplicate_checker: Callable[[list[Any]], None],
 ) -> None:
     scanner = ensure_tv_scanner(state, tmdb, scanner_factory)

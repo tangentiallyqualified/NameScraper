@@ -5,6 +5,7 @@ Covers:
   Bug 2 — episode count tiebreaker in batch discovery
   Bug 3 — episode_confidence field on PreviewItem
 """
+
 from __future__ import annotations
 
 import unittest
@@ -23,8 +24,8 @@ from plex_renamer.parsing import (
     looks_like_tv_episode,
 )
 
-
 # ── Bare-number OVA filenames (Bug 1) ──────────────────────────────────────
+
 
 class BareNumberPatternTests(unittest.TestCase):
     """The ``01. Title Here.mkv`` naming convention should be recognized as TV."""
@@ -112,10 +113,7 @@ class TVCompanionVideoPatternTests(unittest.TestCase):
 class CombinedFansubEpisodeRangeTests(unittest.TestCase):
     """Fansub multi-episode ranges should classify as TV and parse correctly."""
 
-    FILENAME = (
-        "[GHOST][1080p] Inuyasha - 166-167 "
-        "[BD HEVC 10bit Dual Audio AC3][720C96ED].mkv"
-    )
+    FILENAME = "[GHOST][1080p] Inuyasha - 166-167 [BD HEVC 10bit Dual Audio AC3][720C96ED].mkv"
 
     def test_combined_fansub_range_detected_as_tv(self):
         self.assertTrue(
@@ -211,9 +209,17 @@ class _FakeMovieTMDB:
             if progress_callback:
                 progress_callback(index, total)
             if "matrix" in query.lower():
-                results.append([
-                    {"id": 603, "title": "The Matrix", "year": "1999", "poster_path": None, "overview": ""},
-                ])
+                results.append(
+                    [
+                        {
+                            "id": 603,
+                            "title": "The Matrix",
+                            "year": "1999",
+                            "poster_path": None,
+                            "overview": "",
+                        },
+                    ]
+                )
             else:
                 results.append([])
         return results
@@ -222,7 +228,13 @@ class _FakeMovieTMDB:
         self.queries.append((query, year))
         if "matrix" in query.lower():
             return [
-                {"id": 603, "title": "The Matrix", "year": "1999", "poster_path": None, "overview": ""},
+                {
+                    "id": 603,
+                    "title": "The Matrix",
+                    "year": "1999",
+                    "poster_path": None,
+                    "overview": "",
+                },
             ]
         return []
 
@@ -319,6 +331,7 @@ class TVDiscoveryOVATests(unittest.TestCase):
 
 # ── Episode count tiebreaker (Bug 2) ───────────────────────────────────────
 
+
 class _FakeTMDBWithEpisodeCounts:
     """TMDB stub that returns two JoJo series with different episode counts."""
 
@@ -387,8 +400,9 @@ class EpisodeCountTiebreakerTests(unittest.TestCase):
             self.assertEqual(len(states), 1)
             state = states[0]
             # Should pick the 1993 OVA (13 eps) over 2012 (190 eps)
-            self.assertEqual(state.show_id, 29955,
-                             f"Expected 1993 OVA (29955), got {state.show_id}")
+            self.assertEqual(
+                state.show_id, 29955, f"Expected 1993 OVA (29955), got {state.show_id}"
+            )
 
     def test_large_folder_matches_large_series(self):
         """A folder with 48+ S##E## files should prefer the 190-episode 2012
@@ -410,17 +424,20 @@ class EpisodeCountTiebreakerTests(unittest.TestCase):
             self.assertEqual(len(states), 1)
             state = states[0]
             # Should pick the 2012 series (190 eps) over 1993 OVA (13 eps)
-            self.assertEqual(state.show_id, 31911,
-                             f"Expected 2012 series (31911), got {state.show_id}")
+            self.assertEqual(
+                state.show_id, 31911, f"Expected 2012 series (31911), got {state.show_id}"
+            )
 
 
 # ── Episode confidence field (Bug 3) ───────────────────────────────────────
+
 
 class EpisodeConfidenceTests(unittest.TestCase):
     """PreviewItem.episode_confidence should reflect match quality."""
 
     def test_default_confidence_is_1(self):
         from plex_renamer.engine import PreviewItem
+
         item = PreviewItem(
             original=Path("/tmp/test.mkv"),
             new_name="test.mkv",
@@ -433,6 +450,7 @@ class EpisodeConfidenceTests(unittest.TestCase):
 
     def test_confidence_field_accepts_low_values(self):
         from plex_renamer.engine import PreviewItem
+
         item = PreviewItem(
             original=Path("/tmp/test.mkv"),
             new_name="test.mkv",
@@ -446,6 +464,7 @@ class EpisodeConfidenceTests(unittest.TestCase):
 
 
 # ── Flat folder → multi-season distribution ────────────────────────────────
+
 
 class _FakeTMDBForOVAScan:
     """TMDB stub that returns season data for the 1993 JoJo OVA (2 seasons).
@@ -488,13 +507,13 @@ class _FakeTMDBForOVAScan:
     _SEASON_MAP = {
         1: {
             "titles": _S1_TITLES,
-            "posters": {i: None for i in range(1, 7)},
+            "posters": dict.fromkeys(range(1, 7)),
             "episodes": {},
             "count": 6,
         },
         2: {
             "titles": _S2_TITLES,
-            "posters": {i: None for i in range(1, 8)},
+            "posters": dict.fromkeys(range(1, 8)),
             "episodes": {},
             "count": 7,
         },
@@ -546,6 +565,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                 (root / name).write_text("x")
 
             from plex_renamer.engine import TVScanner
+
             tmdb = _FakeTMDBForOVAScan()
             scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
             items, _ = scanner.scan()
@@ -556,10 +576,12 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
             season_1_items = [it for it in items if it.season == 1]
             season_2_items = [it for it in items if it.season == 2]
 
-            self.assertEqual(len(season_1_items), 6,
-                             f"Expected 6 items in Season 1, got {len(season_1_items)}")
-            self.assertEqual(len(season_2_items), 7,
-                             f"Expected 7 items in Season 2, got {len(season_2_items)}")
+            self.assertEqual(
+                len(season_1_items), 6, f"Expected 6 items in Season 1, got {len(season_1_items)}"
+            )
+            self.assertEqual(
+                len(season_2_items), 7, f"Expected 7 items in Season 2, got {len(season_2_items)}"
+            )
 
     def test_title_matching_assigns_correct_files_to_seasons(self):
         """Verify that specific files end up in the correct season based on
@@ -570,6 +592,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                 (root / name).write_text("x")
 
             from plex_renamer.engine import TVScanner
+
             tmdb = _FakeTMDBForOVAScan()
             scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
             items, _ = scanner.scan()
@@ -580,14 +603,12 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
             # Files 01-07 (2000 titles) should be in Season 2
             for name in self._OVA_FILES[:7]:
                 with self.subTest(name=name):
-                    self.assertEqual(season_by_file[name], 2,
-                                     f"{name} should be Season 2")
+                    self.assertEqual(season_by_file[name], 2, f"{name} should be Season 2")
 
             # Files 08-13 (1993/1994 titles) should be in Season 1
             for name in self._OVA_FILES[7:]:
                 with self.subTest(name=name):
-                    self.assertEqual(season_by_file[name], 1,
-                                     f"{name} should be Season 1")
+                    self.assertEqual(season_by_file[name], 1, f"{name} should be Season 1")
 
     def test_sequential_fallback_for_generic_filenames(self):
         """When filenames have no recognizable titles (generic names),
@@ -598,6 +619,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                 (root / f"{i:02d}. Episode Title.mkv").write_text("x")
 
             from plex_renamer.engine import TVScanner
+
             tmdb = _FakeTMDBForOVAScan()
             scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
             items, _ = scanner.scan()
@@ -614,7 +636,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
         single_season_map = {
             1: {
                 "titles": {i: f"Episode {i}" for i in range(1, 14)},
-                "posters": {i: None for i in range(1, 14)},
+                "posters": dict.fromkeys(range(1, 14)),
                 "episodes": {},
                 "count": 13,
             },
@@ -622,10 +644,14 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
 
         class _FakeSingleSeason:
             SHOW_INFO = {"id": 1, "name": "Test Show", "year": "2020"}
+
             def get_season_map(self, show_id):
                 return single_season_map, 13
+
             def get_season(self, show_id, season_num):
-                return single_season_map.get(season_num, {"titles": {}, "posters": {}, "episodes": {}})
+                return single_season_map.get(
+                    season_num, {"titles": {}, "posters": {}, "episodes": {}}
+                )
 
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -633,6 +659,7 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                 (root / f"{i:02d}. Episode Title.mkv").write_text("x")
 
             from plex_renamer.engine import TVScanner
+
             tmdb = _FakeSingleSeason()
             scanner = TVScanner(tmdb, tmdb.SHOW_INFO, root)
             items, _ = scanner.scan()

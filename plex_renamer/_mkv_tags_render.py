@@ -50,11 +50,21 @@ def _serialize(root: ET.Element) -> str:
     return _DECLARATION + ET.tostring(root, encoding="unicode") + "\n"
 
 
+def _release_year(date_text) -> str | None:
+    """Year-only DATE_RELEASED (reduced-precision ISO 8601, allowed by the
+    Matroska spec). Players like MPC-BE compose their display title as
+    "TITLE (DATE_RELEASED)", so a full date renders as
+    "Movie (2003-06-05)" instead of "Movie (2003)". The full release
+    date still lands in the NFO <premiered> element."""
+    text = str(date_text or "")
+    return text[:4] if len(text) >= 4 else None
+
+
 def render_movie_tags(details: dict) -> str:
     root = ET.Element("Tags")
     tag = _tag(root, 50)
     _simple(tag, "TITLE", details.get("title"))
-    _simple(tag, "DATE_RELEASED", details.get("release_date"))
+    _simple(tag, "DATE_RELEASED", _release_year(details.get("release_date")))
     _simple(tag, "SYNOPSIS", details.get("overview"))
     for genre in details.get("genres") or []:
         _simple(tag, "GENRE", genre.get("name"))

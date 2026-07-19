@@ -12,10 +12,10 @@ from unittest.mock import patch
 
 from plex_renamer.app.controllers.media_controller import MediaController
 from plex_renamer.app.models import ScanLifecycle, ScanProgress
-from plex_renamer.app.services.command_gating_service import CommandGatingService
-from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.app.services.cache_service import PersistentCacheService
+from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
+from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.constants import JobStatus, MediaType
 from plex_renamer.engine import (
     BatchTVOrchestrator,
@@ -26,7 +26,6 @@ from plex_renamer.engine import (
     set_auto_accept_threshold,
 )
 from plex_renamer.job_store import JobStore, RenameJob, RenameOp
-
 
 # ── Fake TMDB client ─────────────────────────────────────────────────
 
@@ -931,7 +930,7 @@ class OutputPreviewRetargetingTests(ControllerTestCase):
                     media_name=chosen["title"],
                 )
 
-            def get_search_results(self, path):
+            def get_search_results(self, file_path):
                 return [{"id": 42, "title": "Alien", "year": "1979"}]
 
         scanner = _OutputRematchScanner(self.tmp / "Incoming")
@@ -1059,12 +1058,12 @@ class RematchStateTests(ControllerTestCase):
 
     def test_apply_runtime_settings_table_backed_respects_approved_and_unapproved(self):
         """Table-backed state: approved below-threshold stays OK; unapproved becomes REVIEW."""
+        from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
             ORIGIN_AUTO,
             EpisodeAssignmentTable,
             EpisodeSlot,
         )
-        from plex_renamer.engine._episode_projection import project_preview_items
 
         folder = self.tmp / "Show.2024"
         show_info = {"id": 10, "name": "Show", "year": "2024"}
@@ -1369,8 +1368,8 @@ class RematchStateTests(ControllerTestCase):
                 new_item.episode_confidence = 1.0
                 return new_item
 
-            def get_search_results(self, path):
-                return list(self._results.get(path, []))
+            def get_search_results(self, file_path):
+                return list(self._results.get(file_path, []))
 
         scanner = _RematchScanner(self.tmp)
         state = ScanState(
@@ -1456,8 +1455,8 @@ class RematchStateTests(ControllerTestCase):
                 new_item.episode_confidence = 1.0
                 return new_item
 
-            def get_search_results(self, path):
-                return list(self._results.get(path, []))
+            def get_search_results(self, file_path):
+                return list(self._results.get(file_path, []))
 
         scanner = _ConfidenceRematchScanner(self.tmp)
         state = ScanState(

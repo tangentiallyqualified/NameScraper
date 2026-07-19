@@ -7,13 +7,14 @@ import json
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from audit import _artifacts
 
-
 _COVERAGE_SOURCE = ["plex_renamer"]
+_COVERAGE_SCOPE_METHOD = "complete-test-discovery-v1"
+_COVERAGE_SUITE = "full-coverage"
 _SCOPE_CONFIG_FILES = (
     "pytest.toml",
     ".pytest.toml",
@@ -46,7 +47,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--coverage",
         action="store_true",
-        help="Run under coverage; writes .coverage and .coverage.meta.json at repo root.",
+        help="Run the complete suite under coverage and write root coverage evidence.",
     )
     args, args.pytest_args = parser.parse_known_args(argv)
     return args
@@ -115,7 +116,7 @@ def _build_command(
             "--source=plex_renamer",
         ]
     command += ["-m", "pytest"]
-    command += [f"--ignore={path}" for path in sorted(qt_tests)]
+    command += [f"--ignore={path}" for path in _excluded_qt_tests(args, qt_tests)]
     command += [
         "--ignore=tests/conftest_qt.py",
         "--color=no",
@@ -125,6 +126,10 @@ def _build_command(
         command.append("-q")
     command.extend(args.pytest_args)
     return command
+
+
+def _excluded_qt_tests(args: argparse.Namespace, qt_tests: list[str]) -> list[str]:
+    return [] if args.coverage else sorted(qt_tests)
 
 
 def _write_logs(log_dir: Path, stdout: str, stderr: str) -> None:
@@ -195,14 +200,14 @@ def _config_fingerprints(repo_root: Path) -> list[dict[str, str]]:
 def _coverage_scope(
     repo_root: Path,
     pytest_args: list[str],
-    qt_tests: list[str],
+    excluded_tests: list[str],
 ) -> dict:
     runner = Path(__file__)
     return {
         "runner": "scripts/test_fast_runner.py",
         "runner_sha256": hashlib.sha256(runner.read_bytes()).hexdigest(),
-        "method": "ast-qt-exclusion-v1",
-        "excluded_tests": sorted({str(path) for path in qt_tests} | {"tests/conftest_qt.py"}),
+        "method": _COVERAGE_SCOPE_METHOD,
+        "excluded_tests": sorted({str(path) for path in excluded_tests} | {"tests/conftest_qt.py"}),
         "coverage_source": list(_COVERAGE_SOURCE),
         "config_files": _config_fingerprints(repo_root),
         "pytest_args": [str(arg) for arg in pytest_args],
@@ -214,6 +219,20 @@ def _scope_id(scope: dict) -> str:
         "ascii"
     )
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _coverage_run_is_partial(
+    returncode: int,
+    pytest_args: list[str],
+    excluded_tests: list[str] | None,
+) -> bool:
+    unexpected_exclusions = set(excluded_tests) if excluded_tests is not None else set()
+    unexpected_exclusions.discard("tests/conftest_qt.py")
+    return returncode != 0 or bool(pytest_args) or bool(unexpected_exclusions)
+
+
+def _suite_label(coverage: bool) -> str:
+    return "Full coverage test suite" if coverage else "Fast test suite"
 
 
 def _write_coverage_sidecar(
@@ -244,9 +263,9 @@ def _write_coverage_sidecar(
         pass
 
     normalized_args = [str(arg) for arg in pytest_args]
-    collected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    collected_at = datetime.now(UTC).isoformat(timespec="seconds")
     failed = returncode != 0
-    partial = True if failed else bool(normalized_args)
+    partial = _coverage_run_is_partial(returncode, normalized_args, qt_tests)
     try:
         scope = (
             _coverage_scope(repo_root, normalized_args, qt_tests) if qt_tests is not None else None
@@ -255,7 +274,7 @@ def _write_coverage_sidecar(
             "commit": commit,
             "collected_at": collected_at,
             "input_digest": _artifacts.input_digest(repo_root),
-            "suite": "fast",
+            "suite": _COVERAGE_SUITE,
             "full_suite": not partial and scope is not None,
             "pytest_args": normalized_args,
             "scope": scope,
@@ -273,7 +292,7 @@ def _write_coverage_sidecar(
             "commit": commit,
             "collected_at": collected_at,
             "input_digest": _artifacts.input_digest(repo_root),
-            "suite": "fast",
+            "suite": _COVERAGE_SUITE,
             "full_suite": False,
             "pytest_args": normalized_args,
             "scope": None,
@@ -313,6 +332,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
         return 1
     command = _build_command(repo_root, args, qt_tests)
+    excluded_qt_tests = _excluded_qt_tests(args, qt_tests)
 
     try:
         result = subprocess.run(
@@ -328,7 +348,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         _write_logs(log_dir, "", reason + "\n")
         if args.coverage:
             _write_coverage_sidecar(
-                repo_root, 1, args.pytest_args, list(qt_tests), failure_reason=reason
+                repo_root, 1, args.pytest_args, excluded_qt_tests, failure_reason=reason
             )
         print(reason, file=sys.stderr)
         print("Log: .pytest_cache/fast/latest.log", file=sys.stderr)
@@ -352,11 +372,16 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
                 repo_root,
                 returncode,
                 args.pytest_args,
-                list(qt_tests),
+                excluded_qt_tests,
                 failure_reason=discovery_reason,
             )
         else:
-            sidecar_ok = _write_coverage_sidecar(repo_root, returncode, args.pytest_args, qt_tests)
+            sidecar_ok = _write_coverage_sidecar(
+                repo_root,
+                returncode,
+                args.pytest_args,
+                excluded_qt_tests,
+            )
         if not sidecar_ok:
             returncode = 1
             print(
@@ -369,14 +394,15 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
         line.strip() for line in (result.stdout + "\n" + result.stderr).splitlines() if line.strip()
     ]
 
+    suite_label = _suite_label(args.coverage)
     if returncode == 0:
-        print("Fast test suite passed.")
+        print(f"{suite_label} passed.")
         if summary:
             print(summary)
         print("Log: .pytest_cache/fast/latest.log")
         return 0
 
-    print(f"Fast test suite failed (exit code {returncode}).")
+    print(f"{suite_label} failed (exit code {returncode}).")
     if summary:
         print(summary)
     if combined_nonempty:

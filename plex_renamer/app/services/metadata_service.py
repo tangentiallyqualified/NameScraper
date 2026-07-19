@@ -36,8 +36,11 @@ def _posix(relative: str) -> PurePosixPath:
 
 def _selected_video_ops(job) -> list:
     return [
-        op for op in job.rename_ops
-        if op.selected and op.file_type == "video" and op.new_name
+        op
+        for op in job.rename_ops
+        if op.selected
+        and op.file_type == "video"
+        and op.new_name
         and (op.status == "OK" or op.status.startswith("REVIEW"))
     ]
 
@@ -49,23 +52,28 @@ def _show_root(job, video_ops) -> PurePosixPath:
     return PurePosixPath(first.parts[0]) if first.parts else PurePosixPath(".")
 
 
-def _art(plan: dict, tmdb_path, target: PurePosixPath, kind: str,
-         slot: str, plex_extra: bool = False) -> None:
-    plan["artwork"].append({
-        "tmdb_path": tmdb_path or None,
-        "target_relative": str(target),
-        "kind": kind,
-        "slot": slot,
-        "plex_extra": plex_extra,
-    })
+def _art(
+    plan: dict, tmdb_path, target: PurePosixPath, kind: str, slot: str, plex_extra: bool = False
+) -> None:
+    plan["artwork"].append(
+        {
+            "tmdb_path": tmdb_path or None,
+            "target_relative": str(target),
+            "kind": kind,
+            "slot": slot,
+            "plex_extra": plex_extra,
+        }
+    )
 
 
 def _nfo(plan: dict, content: str, target: PurePosixPath, slot: str) -> None:
-    plan["nfo_files"].append({
-        "target_relative": str(target),
-        "content": content,
-        "slot": slot,
-    })
+    plan["nfo_files"].append(
+        {
+            "target_relative": str(target),
+            "content": content,
+            "slot": slot,
+        }
+    )
 
 
 def build_metadata_plan(job, tmdb_client, svc) -> dict | None:
@@ -104,8 +112,7 @@ def _populate_common_art(plan, details, root, svc, client, poster_hint) -> None:
         poster = poster_hint or details.get("poster_path")
         _art(plan, poster, root / "poster.jpg", "poster", "poster")
     if svc.metadata_write_fanart:
-        _art(plan, details.get("backdrop_path"), root / "fanart.jpg",
-             "fanart", "fanart")
+        _art(plan, details.get("backdrop_path"), root / "fanart.jpg", "fanart", "fanart")
     if svc.metadata_write_clearlogo:
         logo = select_logo_path(details, getattr(client, "language", "en-US"))
         _art(plan, logo, root / "clearlogo.png", "clearlogo", "clearlogo")
@@ -127,15 +134,19 @@ def _populate_tv(plan, job, video_ops, client, svc) -> None:
         for sn in seasons:
             season_poster = payloads[sn].get("season_poster_path")
             slot = f"season_poster:{sn}"
-            name = ("season-specials-poster.jpg" if sn == 0
-                    else f"season{sn:02d}-poster.jpg")
+            name = "season-specials-poster.jpg" if sn == 0 else f"season{sn:02d}-poster.jpg"
             _art(plan, season_poster, root / name, "season_poster", slot)
             if plan["plex_naming"]:
                 season_dir = _season_dir(video_ops, sn)
                 if season_dir is not None:
-                    _art(plan, season_poster,
-                         season_dir / f"Season{sn:02d}.jpg",
-                         "season_poster", slot, plex_extra=True)
+                    _art(
+                        plan,
+                        season_poster,
+                        season_dir / f"Season{sn:02d}.jpg",
+                        "season_poster",
+                        slot,
+                        plex_extra=True,
+                    )
 
     embed_tags = bool(getattr(svc, "metadata_embed_tags", False))
     embed_cover = bool(getattr(svc, "metadata_embed_cover", False))
@@ -149,39 +160,39 @@ def _populate_tv(plan, job, video_ops, client, svc) -> None:
         target_dir = _posix(op.target_dir_relative)
 
         blocks = [
-            {"season": op.season, "episode": ep,
-             "meta": episodes_meta.get(ep) or {}}
+            {"season": op.season, "episode": ep, "meta": episodes_meta.get(ep) or {}}
             for ep in op.episodes
         ]
-        if svc.metadata_write_episode_nfo:
-            if any(block["meta"] for block in blocks):
-                _nfo(plan, render_episode_nfo(blocks),
-                     target_dir / f"{stem}.nfo",
-                     f"nfo:episode:{op.original_relative}")
+        if svc.metadata_write_episode_nfo and any(block["meta"] for block in blocks):
+            _nfo(
+                plan,
+                render_episode_nfo(blocks),
+                target_dir / f"{stem}.nfo",
+                f"nfo:episode:{op.original_relative}",
+            )
 
         if svc.metadata_write_episode_thumbs:
             still = (episodes_meta.get(op.episodes[0]) or {}).get("still_path")
             slot = f"episode_thumb:{op.original_relative}"
-            _art(plan, still, target_dir / f"{stem}-thumb.jpg",
-                 "episode_thumb", slot)
+            _art(plan, still, target_dir / f"{stem}-thumb.jpg", "episode_thumb", slot)
             if plan["plex_naming"]:
-                _art(plan, still, target_dir / f"{stem}.jpg",
-                     "episode_thumb", slot, plex_extra=True)
+                _art(
+                    plan, still, target_dir / f"{stem}.jpg", "episode_thumb", slot, plex_extra=True
+                )
 
-        if ((embed_tags or embed_cover)
-                and _posix(op.new_name).suffix.lower() == ".mkv"):
-            tags_xml = (render_episode_tags(details, blocks)
-                        if embed_tags else None)
+        if (embed_tags or embed_cover) and _posix(op.new_name).suffix.lower() == ".mkv":
+            tags_xml = render_episode_tags(details, blocks) if embed_tags else None
             cover = None
             if embed_cover:
-                cover = (payloads.get(op.season, {}).get("season_poster_path")
-                         or show_poster)
+                cover = payloads.get(op.season, {}).get("season_poster_path") or show_poster
             if tags_xml or cover:
-                plan["embed_extras"].append({
-                    "op": op.original_relative,
-                    "tags_xml": tags_xml,
-                    "cover_tmdb_path": cover or None,
-                })
+                plan["embed_extras"].append(
+                    {
+                        "op": op.original_relative,
+                        "tags_xml": tags_xml,
+                        "cover_tmdb_path": cover or None,
+                    }
+                )
 
 
 def _season_dir(video_ops, season: int) -> PurePosixPath | None:
@@ -204,18 +215,17 @@ def _populate_movie(plan, job, video_ops, client, svc) -> None:
 
     embed_tags = bool(getattr(svc, "metadata_embed_tags", False))
     embed_cover = bool(getattr(svc, "metadata_embed_cover", False))
-    if ((embed_tags or embed_cover)
-            and _posix(op.new_name).suffix.lower() == ".mkv"):
-        tags_xml = (render_movie_tags(details)
-                    if embed_tags and details else None)
-        cover = ((job.poster_path or details.get("poster_path"))
-                 if embed_cover else None)
+    if (embed_tags or embed_cover) and _posix(op.new_name).suffix.lower() == ".mkv":
+        tags_xml = render_movie_tags(details) if embed_tags and details else None
+        cover = (job.poster_path or details.get("poster_path")) if embed_cover else None
         if tags_xml or cover:
-            plan["embed_extras"].append({
-                "op": op.original_relative,
-                "tags_xml": tags_xml,
-                "cover_tmdb_path": cover or None,
-            })
+            plan["embed_extras"].append(
+                {
+                    "op": op.original_relative,
+                    "tags_xml": tags_xml,
+                    "cover_tmdb_path": cover or None,
+                }
+            )
 
 
 def finalize_plan(plan: dict | None) -> dict | None:
@@ -223,8 +233,12 @@ def finalize_plan(plan: dict | None) -> dict | None:
     if not plan:
         return None
     plan["artwork"] = [a for a in plan["artwork"] if a.get("tmdb_path")]
-    if (not plan["nfo_files"] and not plan["artwork"]
-            and not plan["embed_title"] and not plan.get("embed_extras")):
+    if (
+        not plan["nfo_files"]
+        and not plan["artwork"]
+        and not plan["embed_title"]
+        and not plan.get("embed_extras")
+    ):
         return None
     return plan
 
@@ -277,11 +291,11 @@ def inventory_local_metadata(
                 match = _SEASON_IMAGE_RE.match(stem)
                 if match:
                     record(f"season_poster:{int(match.group(1))}", entry)
-        elif ext == ".nfo":
-            if media_type == MediaType.TV and stem == "tvshow":
-                record("nfo:show", entry)
-            elif media_type == MediaType.MOVIE and stem == "movie":
-                record("nfo:show", entry)
+        elif ext == ".nfo" and (
+            (media_type == MediaType.TV and stem == "tvshow")
+            or (media_type == MediaType.MOVIE and stem == "movie")
+        ):
+            record("nfo:show", entry)
 
     for op in video_ops:
         src = Path(library_root) / op.original_relative
@@ -290,7 +304,7 @@ def inventory_local_metadata(
         if nfo.is_file():
             record(f"nfo:episode:{op.original_relative}", nfo)
             if media_type == MediaType.MOVIE:
-                record("nfo:show", nfo)     # movie NFO named after the file
+                record("nfo:show", nfo)  # movie NFO named after the file
         for ext in (".jpg", ".jpeg", ".png"):
             thumb = parent / f"{orig_stem}-thumb{ext}"
             plain = parent / f"{orig_stem}{ext}"
@@ -318,8 +332,7 @@ def apply_prefer_local(job, plan: dict | None, library_root: Path) -> None:
     library_root = Path(library_root)
     video_ops = _selected_video_ops(job)
     source_dir = library_root / job.source_folder
-    inventory = inventory_local_metadata(
-        source_dir, video_ops, job.media_type, library_root)
+    inventory = inventory_local_metadata(source_dir, video_ops, job.media_type, library_root)
     if not inventory:
         return
 
@@ -330,14 +343,16 @@ def apply_prefer_local(job, plan: dict | None, library_root: Path) -> None:
             original_rel = str(local.relative_to(library_root))
         except ValueError:
             original_rel = str(local)
-        job.rename_ops.append(RenameOp(
-            original_relative=original_rel,
-            new_name=new_name,
-            target_dir_relative=str(target.parent),
-            status="OK",
-            selected=True,
-            file_type="nfo" if local.suffix.lower() == ".nfo" else "artwork",
-        ))
+        job.rename_ops.append(
+            RenameOp(
+                original_relative=original_rel,
+                new_name=new_name,
+                target_dir_relative=str(target.parent),
+                status="OK",
+                selected=True,
+                file_type="nfo" if local.suffix.lower() == ".nfo" else "artwork",
+            )
+        )
 
     for key in ("nfo_files", "artwork"):
         kept = []
@@ -395,8 +410,8 @@ def make_image_fetcher(
             if not api_key:
                 return None
             from ...tmdb import TMDBClient
-            client = TMDBClient(
-                api_key, language=language, cache_service=cache_service)
+
+            client = TMDBClient(api_key, language=language, cache_service=cache_service)
             holder["client"] = client
         return client.fetch_image_bytes(image_path)
 

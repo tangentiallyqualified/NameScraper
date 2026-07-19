@@ -19,16 +19,17 @@ _DEBUG_TRANSIENT_WINDOWS = os.environ.get(
 ).strip().lower() not in {"", "0", "false", "no"}
 
 # Window flags that identify transient platform helper windows.
-_TRANSIENT_FLAGS = (
-    Qt.WindowType.SplashScreen
-    | Qt.WindowType.Tool
-)
+_TRANSIENT_FLAGS = Qt.WindowType.SplashScreen | Qt.WindowType.Tool
 _DIAGNOSTIC_FLAGS = _TRANSIENT_FLAGS | Qt.WindowType.Popup
 
 
 def _window_flag_names(flags: Qt.WindowType) -> str:
-    names: list[str] = []
-    known_flags = (
+    # Window-type flags share bits (e.g. Popup=0x9 is a bit-subset of
+    # Tool=0xb and SplashScreen=0xf), so a bitwise AND against each named
+    # type would match every entry for any single flag. Resolve the actual
+    # window type first (mirrors the exact-equality comparison in
+    # eventFilter below) and only report genuine extra bits separately.
+    known_types = (
         (Qt.WindowType.ToolTip, "ToolTip"),
         (Qt.WindowType.SplashScreen, "SplashScreen"),
         (Qt.WindowType.Tool, "Tool"),
@@ -37,10 +38,16 @@ def _window_flag_names(flags: Qt.WindowType) -> str:
         (Qt.WindowType.Sheet, "Sheet"),
         (Qt.WindowType.Drawer, "Drawer"),
     )
-    for flag, label in known_flags:
-        if flags & flag:
-            names.append(label)
-    return "|".join(names) if names else hex(int(flags))
+    resolved_type = flags & Qt.WindowType.WindowType_Mask
+    type_label = next(
+        (label for flag, label in known_types if resolved_type == flag),
+        hex(int(resolved_type)),
+    )
+    names = [type_label]
+    modifier_bits = int(flags) & ~int(Qt.WindowType.WindowType_Mask)
+    if modifier_bits:
+        names.append(hex(modifier_bits))
+    return "|".join(names)
 
 
 class _SuppressTransientPopups(QObject):
@@ -68,7 +75,7 @@ class _SuppressTransientPopups(QObject):
        visible to the user.
     """
 
-    def eventFilter(self, obj, event) -> bool:
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() in {
             QEvent.Type.WhatsThis,
             QEvent.Type.QueryWhatsThis,
@@ -78,10 +85,12 @@ class _SuppressTransientPopups(QObject):
 
         if event.type() == QEvent.Type.Show:
             from PySide6.QtWidgets import QWidget
+
             if not isinstance(obj, QWidget) or not obj.isWindow():
                 return False
             # Never suppress real dialogs, menus, or our own widgets.
-            from PySide6.QtWidgets import QDialog, QMenu, QMainWindow
+            from PySide6.QtWidgets import QDialog, QMainWindow, QMenu
+
             if isinstance(obj, (QDialog, QMenu, QMainWindow)):
                 return False
             name = obj.objectName()
@@ -101,8 +110,8 @@ class _SuppressTransientPopups(QObject):
                     obj.width(),
                     obj.height(),
                 )
-            # Window-type flags share bits (Popup=0x8 is a subset of Tool=0xA
-            # and SplashScreen=0xE), so a bitwise AND also matches combobox
+            # Window-type flags share bits (Popup=0x9 is a subset of Tool=0xb
+            # and SplashScreen=0xf), so a bitwise AND also matches combobox
             # dropdowns. Compare the resolved type exactly.
             if window_type not in (Qt.WindowType.Tool, Qt.WindowType.SplashScreen):
                 return False
@@ -140,6 +149,7 @@ def run() -> None:
 
     # Load the global theme stylesheet (rendered from theme.qss.tmpl)
     from . import theme as _theme
+
     try:
         app.setStyleSheet(_theme.load_stylesheet())
     except (OSError, KeyError) as exc:

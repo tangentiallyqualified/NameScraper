@@ -1,7 +1,7 @@
 """RC20(2): bounded fuzzy matching for titles and segmented-run atoms."""
+
 from plex_renamer.engine._episode_resolution import (
     _TITLE_NEAR_EXACT,
-    CONF_AGREE,
     CONF_TITLE_WINS_INEXACT,
     match_segmented_title_run,
     match_title_in_titles,
@@ -38,7 +38,9 @@ def test_ambiguous_fuzzy_returns_none():
 def test_segmented_run_with_fuzzy_atom():
     titles = {1: "To the Moon", 2: "Bringing Down the Mouse", 3: "Unicorn Club"}
     seg = match_segmented_title_run(
-        "To The Moon & Bringin' Down The Mouse", titles, 2,
+        "To The Moon & Bringin' Down The Mouse",
+        titles,
+        2,
     )
     assert seg is not None
     run, all_exact = seg

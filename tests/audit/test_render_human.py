@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from audit import _render_human
 
 
@@ -75,6 +76,29 @@ def test_rerun_preserves_curated_prose(synthetic_repo: Path):
     overview_path.write_text("CURATED NOTE\n\n" + content, encoding="utf-8")
     _render_human.run(synthetic_repo, None)
     assert overview_path.read_text(encoding="utf-8").startswith("CURATED NOTE")
+
+
+def test_run_fails_when_engine_cycle_classification_file_is_missing(synthetic_repo: Path):
+    _run_all_stages(synthetic_repo)
+    (synthetic_repo / "docs" / "audit" / "engine-cycle-edges.toml").unlink()
+
+    with pytest.raises(ValueError, match="cycle edge classification file is missing"):
+        _render_human.run(synthetic_repo, None)
+
+
+def test_run_renders_explicit_empty_engine_cycle_section(synthetic_repo: Path):
+    engine = synthetic_repo / "plex_renamer" / "engine"
+    engine.mkdir()
+    (engine / "__init__.py").write_text('"""Headless engine."""\n', encoding="utf-8")
+    _run_all_stages(synthetic_repo)
+
+    assert _render_human.run(synthetic_repo, None) == 0
+
+    engine_map = (synthetic_repo / "docs" / "audit" / "maps" / "engine.md").read_text(
+        encoding="utf-8"
+    )
+    assert "### Classified cycle edges" in engine_map
+    assert "No internal cycle edges." in engine_map
 
 
 def test_coverage_digest_flows_through_metrics_to_rendered_provenance(synthetic_repo: Path):

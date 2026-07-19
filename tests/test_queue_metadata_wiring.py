@@ -11,7 +11,6 @@ from plex_renamer.app.services.metadata_service import (
 )
 from plex_renamer.constants import MediaType
 from plex_renamer.engine.models import PreviewItem
-
 from tests.test_metadata_service import (
     SEASONS,
     TV_DETAILS,
@@ -48,14 +47,16 @@ def test_attach_metadata_plan_sets_finalized_plan(tmp_path):
 def test_attach_is_noop_when_disabled_or_clientless(tmp_path):
     job = tv_job(library_root=str(tmp_path))
     attach_metadata_plan(
-        job, tmdb_client=None, settings_service=make_settings(),
-        library_root=tmp_path)
+        job, tmdb_client=None, settings_service=make_settings(), library_root=tmp_path
+    )
     assert job.metadata_plan is None
 
     attach_metadata_plan(
-        job, tmdb_client=FakeTMDB(),
+        job,
+        tmdb_client=FakeTMDB(),
         settings_service=make_settings(metadata_enabled=False),
-        library_root=tmp_path)
+        library_root=tmp_path,
+    )
     assert job.metadata_plan is None
 
 
@@ -71,16 +72,23 @@ def test_add_single_queue_job_attaches_plan(tmp_path):
         original=video,
         new_name="Show (2019) - S01E01 - Pilot.mkv",
         target_dir=out / "Show (2019)" / "Season 01",
-        season=1, episodes=[1], status="OK",
+        season=1,
+        episodes=[1],
+        status="OK",
         media_type=MediaType.TV,
     )
     store = FakeStore()
     job = add_single_queue_job(
         store,
-        items=[item], checked_indices={0},
-        media_type=MediaType.TV, tmdb_id=42, media_name="Show",
-        library_root=tmp_path / "src", output_root=out,
-        source_folder=Path("Show"), show_folder_rename="Show (2019)",
+        items=[item],
+        checked_indices={0},
+        media_type=MediaType.TV,
+        tmdb_id=42,
+        media_name="Show",
+        library_root=tmp_path / "src",
+        output_root=out,
+        source_folder=Path("Show"),
+        show_folder_rename="Show (2019)",
         settings_service=make_settings(),
         tmdb_client=FakeTMDB(details=TV_DETAILS, seasons=SEASONS),
     )
@@ -107,16 +115,23 @@ def test_add_single_queue_job_survives_bake_failure(tmp_path):
         original=video,
         new_name="Show (2019) - S01E01 - Pilot.mkv",
         target_dir=out / "Show (2019)" / "Season 01",
-        season=1, episodes=[1], status="OK",
+        season=1,
+        episodes=[1],
+        status="OK",
         media_type=MediaType.TV,
     )
     store = FakeStore()
     job = add_single_queue_job(
         store,
-        items=[item], checked_indices={0},
-        media_type=MediaType.TV, tmdb_id=42, media_name="Show",
-        library_root=tmp_path / "src", output_root=out,
-        source_folder=Path("Show"), show_folder_rename="Show (2019)",
+        items=[item],
+        checked_indices={0},
+        media_type=MediaType.TV,
+        tmdb_id=42,
+        media_name="Show",
+        library_root=tmp_path / "src",
+        output_root=out,
+        source_folder=Path("Show"),
+        show_folder_rename="Show (2019)",
         settings_service=make_settings(),
         tmdb_client=ExplodingTMDB(details=TV_DETAILS, seasons=SEASONS),
     )

@@ -25,8 +25,18 @@ ROOT = Path("C:/lib/show")
 SHOW_INFO = {"id": 9, "name": "Demo Show", "year": "2001"}
 
 
-def _add(table, name, parsed, season, episodes, evidence, conf=0.7, title=None,
-         season_relative=False, hint=None):
+def _add(
+    table,
+    name,
+    parsed,
+    season,
+    episodes,
+    evidence,
+    conf=0.7,
+    title=None,
+    season_relative=False,
+    hint=None,
+):
     entry = table.add_file(
         ROOT / name,
         parsed_episodes=tuple(parsed),
@@ -36,8 +46,12 @@ def _add(table, name, parsed, season, episodes, evidence, conf=0.7, title=None,
         folder_season=hint,
     )
     table.assign(
-        entry.file_id, season, list(episodes),
-        origin=ORIGIN_AUTO, confidence=conf, evidence=frozenset(evidence),
+        entry.file_id,
+        season,
+        list(episodes),
+        origin=ORIGIN_AUTO,
+        confidence=conf,
+        evidence=frozenset(evidence),
     )
     return entry
 
@@ -52,12 +66,23 @@ class TestConflictLadder:
         table = EpisodeAssignmentTable()
         _slots(table, 0, {1: "Rabbot", 2: "Other"})
         rabbot = _add(
-            table, "S00E10 - Rabbot - The Original Cut.mkv", (10,), 0, [1],
-            {"number-disagree", "title-strong-inexact"}, title="Rabbot - The Original Cut",
+            table,
+            "S00E10 - Rabbot - The Original Cut.mkv",
+            (10,),
+            0,
+            [1],
+            {"number-disagree", "title-strong-inexact"},
+            title="Rabbot - The Original Cut",
         )
         baffler = _add(
-            table, "S00E01 - Baffler Meal.mkv", (1,), 0, [1],
-            {"number", "special-number-only"}, conf=0.5, title="Baffler Meal",
+            table,
+            "S00E01 - Baffler Meal.mkv",
+            (1,),
+            0,
+            [1],
+            {"number", "special-number-only"},
+            conf=0.5,
+            title="Baffler Meal",
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assert table.assignment_for(rabbot.file_id) is not None
@@ -68,14 +93,28 @@ class TestConflictLadder:
         table = EpisodeAssignmentTable()
         _slots(table, 5, {1: "Need for Weed"})
         first = _add(
-            table, "Squidbillies (2004) - S05E01 - Need for Weed.mkv", (1,), 5, [1],
-            {"number", "title-agree"}, conf=0.96, title="Need for Weed",
-            season_relative=True, hint=5,
+            table,
+            "Squidbillies (2004) - S05E01 - Need for Weed.mkv",
+            (1,),
+            5,
+            [1],
+            {"number", "title-agree"},
+            conf=0.96,
+            title="Need for Weed",
+            season_relative=True,
+            hint=5,
         )
         second = _add(
-            table, "Squidbillies (2005) S05E01 - Need for Weed.mkv", (1,), 5, [1],
-            {"number", "title-agree"}, conf=0.96, title="Need for Weed",
-            season_relative=True, hint=5,
+            table,
+            "Squidbillies (2005) S05E01 - Need for Weed.mkv",
+            (1,),
+            5,
+            [1],
+            {"number", "title-agree"},
+            conf=0.96,
+            title="Need for Weed",
+            season_relative=True,
+            hint=5,
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assert table.assignment_for(first.file_id) is not None
@@ -89,8 +128,13 @@ class TestConflictLadder:
         _slots(table, 0, {20: "Answering Machine Messages"})
         entries = [
             _add(
-                table, f"S00E{109 + i} - VOL 3 - Answering Machine Messages - {name}.mkv",
-                (109 + i,), 0, [20], {"title-strong"}, conf=0.88,
+                table,
+                f"S00E{109 + i} - VOL 3 - Answering Machine Messages - {name}.mkv",
+                (109 + i,),
+                0,
+                [20],
+                {"title-strong"},
+                conf=0.88,
                 title=f"VOL 3 - Answering Machine Messages - {name}",
             )
             for i, name in enumerate(["Carl 1", "Carl 2", "Frylock"])
@@ -104,14 +148,26 @@ class TestConflictLadder:
         table = EpisodeAssignmentTable()
         _slots(table, 1, {12: "Taming of the Screwy"})
         exact = _add(
-            table, "S01E05 - Taming of the Screwy.mkv", (5,), 1, [12],
-            {"number-disagree", "title-strong"}, conf=0.9, title="Taming of the Screwy",
+            table,
+            "S01E05 - Taming of the Screwy.mkv",
+            (5,),
+            1,
+            [12],
+            {"number-disagree", "title-strong"},
+            conf=0.9,
+            title="Taming of the Screwy",
         )
         number = _add(
-            table, "S01E12 - Garage Sale & West Side Pigeons.mkv", (12,), 1, [12],
-            {"number", "title-ambiguous"}, conf=0.88,
+            table,
+            "S01E12 - Garage Sale & West Side Pigeons.mkv",
+            (12,),
+            1,
+            [12],
+            {"number", "title-ambiguous"},
+            conf=0.88,
             title="Garage Sale of the Century & West Side Pigeons",
-            season_relative=True, hint=1,
+            season_relative=True,
+            hint=1,
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assert table.assignment_for(exact.file_id) is not None
@@ -124,13 +180,26 @@ class TestRunEdgeTrim:
         table = EpisodeAssignmentTable()
         _slots(table, 1, {1: "Emissary", 2: "Past Prologue", 3: "A Man Alone"})
         emissary = _add(
-            table, "DS9 - S01E01-E02 - Emissary.mkv", (1, 2), 1, [1, 2],
-            {"number", "title-agree"}, conf=0.96, title="Emissary",
-            season_relative=True, hint=1,
+            table,
+            "DS9 - S01E01-E02 - Emissary.mkv",
+            (1, 2),
+            1,
+            [1, 2],
+            {"number", "title-agree"},
+            conf=0.96,
+            title="Emissary",
+            season_relative=True,
+            hint=1,
         )
         prologue = _add(
-            table, "DS9 - S01E03 - Past Prologue.mkv", (3,), 1, [2],
-            {"number-disagree", "title-strong"}, conf=0.9, title="Past Prologue",
+            table,
+            "DS9 - S01E03 - Past Prologue.mkv",
+            (3,),
+            1,
+            [2],
+            {"number-disagree", "title-strong"},
+            conf=0.9,
+            title="Past Prologue",
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assert table.assignment_for(emissary.file_id).episodes == (1,)
@@ -142,23 +211,40 @@ class TestRunShift:
     def test_whole_run_claim_shifts_off_segmented_run(self):
         """Rugrats: seg run E06-E07 vs rule-1 run E07-E08 anchored at E08."""
         table = EpisodeAssignmentTable()
-        _slots(table, 5, {
-            6: "The Wild Wild West", 7: "Angelica for a Day",
-            8: "Word of the Day", 9: "Jonathan Babysits", 10: "Grandpa's Bad Bug",
-        })
+        _slots(
+            table,
+            5,
+            {
+                6: "The Wild Wild West",
+                7: "Angelica for a Day",
+                8: "Word of the Day",
+                9: "Jonathan Babysits",
+                10: "Grandpa's Bad Bug",
+            },
+        )
         segmented = _add(
-            table, "Rugrats - S05E05-E06 - The Wild Wild West & Angelica for a Day.mkv",
-            (5, 6), 5, [6, 7],
-            {"number-disagree", "title-segmented", "title-strong"}, conf=0.9,
+            table,
+            "Rugrats - S05E05-E06 - The Wild Wild West & Angelica for a Day.mkv",
+            (5, 6),
+            5,
+            [6, 7],
+            {"number-disagree", "title-segmented", "title-strong"},
+            conf=0.9,
             title="The Wild Wild West & Angelica for a Day",
-            season_relative=True, hint=5,
+            season_relative=True,
+            hint=5,
         )
         whole = _add(
-            table, "Rugrats - S05E07-E08 - Word of the Day & Jonathan Babysits.mkv",
-            (7, 8), 5, [7, 8],
-            {"number", "title-agree"}, conf=0.96,
+            table,
+            "Rugrats - S05E07-E08 - Word of the Day & Jonathan Babysits.mkv",
+            (7, 8),
+            5,
+            [7, 8],
+            {"number", "title-agree"},
+            conf=0.96,
             title="Word of the Day & Jonathan Babysits",
-            season_relative=True, hint=5,
+            season_relative=True,
+            hint=5,
         )
         apply_confidence_adjustments(table, show_info=SHOW_INFO)
         assert table.assignment_for(segmented.file_id).episodes == (6, 7)
@@ -173,9 +259,13 @@ class TestShowNameTitleGuard:
         table = EpisodeAssignmentTable()
         for episode in range(1, 4):
             table.add_slot(EpisodeSlot(season=10, episode=episode, title=f"Ep {episode}"))
-        table.add_slot(EpisodeSlot(
-            season=0, episode=3, title="Trailer Park Boys Live at the North Pole",
-        ))
+        table.add_slot(
+            EpisodeSlot(
+                season=0,
+                episode=3,
+                title="Trailer Park Boys Live at the North Pole",
+            )
+        )
         for episode in range(1, 4):
             _resolve_into_table(
                 table,
@@ -217,10 +307,9 @@ class TestShowNameTitleGuard:
                 show_name="Trailer Park Boys",
             )
         by_file = {
-            table.files[a.file_id].path.name: (a.season, a.episodes)
-            for a in table.assignments()
+            table.files[a.file_id].path.name: (a.season, a.episodes) for a in table.assignments()
         }
         assert len(by_file) == 2
-        for (season, episodes) in by_file.values():
+        for season, _episodes in by_file.values():
             assert season == 11
         assert not table.conflicts()

@@ -15,6 +15,7 @@ Tokens:
 
 Intended for use across ``plex_renamer.gui_qt.*`` modules only.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -46,7 +47,7 @@ def px(n: int) -> int:
     """Convert logical 4px-grid units to physical pixels."""
     if n == 0:
         return 0
-    return int(round(n * _dpi_scale()))
+    return round(n * _dpi_scale())
 
 
 def row_height(rows: int = 1, padding: int = 0) -> int:

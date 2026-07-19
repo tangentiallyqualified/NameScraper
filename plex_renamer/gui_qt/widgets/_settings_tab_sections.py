@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import _scale
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -20,59 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
-CACHE_SIZE_CHOICES: tuple[tuple[str, int], ...] = (
-    ("256 MB", 256 * 1024 * 1024),
-    ("512 MB", 512 * 1024 * 1024),
-    ("1 GB", 1024 ** 3),
-    ("2 GB", 2 * 1024 ** 3),
-    ("4 GB", 4 * 1024 ** 3),
-    ("8 GB", 8 * 1024 ** 3),
-)
-
-
-class SettingsSectionCard(QFrame):
-    """A settings section card with a title header row and content area."""
-
-    def __init__(
-        self,
-        title: str,
-        *,
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self.setProperty("cssClass", "settings-section")
-
-        self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(
-            _scale.px(16),
-            _scale.px(16),
-            _scale.px(16),
-            _scale.px(16),
-        )
-        self._layout.setSpacing(_scale.px(12))
-        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        header_row = QHBoxLayout()
-        header_row.setSpacing(_scale.px(8))
-
-        self._heading = QLabel(title)
-        self._heading.setProperty("cssClass", "heading")
-        header_row.addWidget(self._heading)
-        header_row.addStretch()
-        self._layout.addLayout(header_row)
-
-    def add_widget(self, widget: QWidget) -> None:
-        self._layout.addWidget(widget)
-
-    def add_layout(self, layout) -> None:
-        self._layout.addLayout(layout)
-
-    @classmethod
-    def page(cls, title: str) -> "SettingsSectionCard":
-        card = cls(title)
-        card.setProperty("sectionRole", "page")
-        return card
+from .. import _scale
+from ._settings_page import CACHE_SIZE_CHOICES, SettingsSectionCard
 
 
 class SettingsTabSectionsBuilder:
@@ -310,7 +257,7 @@ class SettingsTabSectionsBuilder:
         tab._cache_size_combo = QComboBox()
         for label, value in CACHE_SIZE_CHOICES:
             tab._cache_size_combo.addItem(label, value)
-        current = tab._settings.cache_max_size_bytes if tab._settings else 1024 ** 3
+        current = tab._settings.cache_max_size_bytes if tab._settings else 1024**3
         idx = tab._cache_size_combo.findData(current)
         tab._cache_size_combo.setCurrentIndex(idx if idx >= 0 else 2)
         tab._cache_size_combo.currentIndexChanged.connect(tab._on_cache_size)

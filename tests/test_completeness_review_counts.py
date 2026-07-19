@@ -1,8 +1,9 @@
 """SeasonCompleteness.review counts review-status episode mappings (GUI4 R2 M7)."""
+
 from pathlib import Path
 
-from plex_renamer.engine.models import EPISODE_REVIEW_STATUS_PREFIX, PreviewItem
 from plex_renamer.engine._tv_scanner_postprocess import build_completeness_report
+from plex_renamer.engine.models import EPISODE_REVIEW_STATUS_PREFIX, PreviewItem
 
 
 def _item(name: str, season: int, episodes: list[int], status: str) -> PreviewItem:

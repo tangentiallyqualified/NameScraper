@@ -6,8 +6,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from audit import __main__ as cli
-from audit import _coverage, _ratchets
+from audit import __main__ as cli, _coverage, _ratchets
 
 
 def _finding(
@@ -42,7 +41,7 @@ def _coverage_evidence(
     lines = fingerprints or [(f"line-{number}", number < covered) for number in range(statements)]
     return {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {
@@ -73,7 +72,7 @@ def test_changed_line_threshold_is_authoritative_policy() -> None:
 def test_coverage_baseline_schema_strips_line_results_and_records_provenance() -> None:
     current = {
         "input_digest": "a" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
         "full_suite": True,
         "scope_id": "b" * 64,
         "files": {
@@ -99,7 +98,7 @@ def test_coverage_baseline_schema_strips_line_results_and_records_provenance() -
         "full_suite": True,
         "package_floors": current["package_floors"],
         "scope_id": "b" * 64,
-        "suite": "fast",
+        "suite": "full-coverage",
     }
 
 
@@ -239,7 +238,7 @@ def test_quality_check_cli_separates_debt_and_stale_baseline(
 
 
 def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, repo_git
 ) -> None:
     large_test = tmp_path / "tests" / "test_legacy_large.py"
     large_test.parent.mkdir()
@@ -259,6 +258,10 @@ def test_numeric_collection_ratchets_tests_and_scripts_with_safe_exclusions(
         ignored = parent / excluded / "ignored.py"
         ignored.parent.mkdir()
         ignored.write_text("# ignored\n" * 600, encoding="utf-8")
+
+    repo_git(tmp_path, "init")
+    repo_git(tmp_path, "add", "-A")
+    repo_git(tmp_path, "commit", "-m", "fixture")
 
     analysis = {
         "findings": [],

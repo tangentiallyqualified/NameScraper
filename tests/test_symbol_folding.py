@@ -1,6 +1,7 @@
 """RC20(1)/RC24(a)/RC16(c): notation variants must normalize identically."""
-from plex_renamer.parsing import normalize_for_match, normalize_for_specials
+
 from plex_renamer._parsing_names import normalize_for_specials_spaced
+from plex_renamer.parsing import normalize_for_match, normalize_for_specials
 
 
 def test_ampersand_folds_to_and():
@@ -13,9 +14,9 @@ def test_superscript_digits_fold():
 
 
 def test_contraction_and_number_sign_fold():
-    assert normalize_for_specials(
-        "I Am Not an Animal, I'm Scientist #1"
-    ) == normalize_for_specials("I'm Not an Animal... I'm Scientist No. 1")
+    assert normalize_for_specials("I Am Not an Animal, I'm Scientist #1") == normalize_for_specials(
+        "I'm Not an Animal... I'm Scientist No. 1"
+    )
 
 
 def test_apostrophe_folds_in_match_normalization():

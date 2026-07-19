@@ -9,10 +9,13 @@ from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import cast
 
+from . import _artifacts
+
 ALLOWED_REASON_CODES = frozenset(
     {
         "accepted-debt",
         "framework-callback",
+        "intentional-literal",
         "intentional-reservation",
         "public-api",
         "serialized-field",
@@ -58,10 +61,10 @@ def finding_key(finding: Mapping[str, object]) -> DecisionKey:
 
 
 def _required_text(record: Mapping[str, object], field: str, index: int) -> str:
-    value = record.get(field)
-    if not isinstance(value, str) or not value.strip():
-        raise DecisionPolicyError(f"decision {index} requires non-empty {field}")
-    return value.strip()
+    try:
+        return _artifacts.required_string(record, field, f"decision {index}")
+    except ValueError as exc:
+        raise DecisionPolicyError(str(exc)) from exc
 
 
 def _parse_expiry(value: object, index: int) -> Expiry | None:

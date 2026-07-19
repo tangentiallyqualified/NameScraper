@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-
 from audit import _artifacts
 
 
@@ -23,6 +23,7 @@ def _audit_repo(tmp_path: Path) -> Path:
         "tests/audit/test_stage.py": "def test_stage(): pass\n",
         "pyproject.toml": "[tool.audit]\n",
         "docs/audit/doc-ledger.toml": "documents = []\n",
+        "docs/audit/engine-cycle-edges.toml": "version = 1\n\nedges = []\n",
         "docs/audit/maps/overview.md": "generated overview\n",
         "docs/guide.md": "ordinary documentation\n",
         "README.md": "root documentation\n",
@@ -72,6 +73,58 @@ def test_input_files_are_sorted_and_exclude_generated_or_cached_paths(tmp_path: 
         "README.md",
         "scripts/audit/constraints.txt",
     }.issubset(relative_paths)
+
+
+def test_input_files_restrict_to_git_enrollment_when_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = _audit_repo(tmp_path)
+    enrolled = ["plex_renamer/example.py", "pyproject.toml"]
+    monkeypatch.setattr(_artifacts, "enrolled_files", lambda repo_root, *pathspecs: list(enrolled))
+
+    relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+
+    assert relative_paths == sorted(enrolled)
+
+
+def test_input_files_keep_glob_set_when_git_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = _audit_repo(tmp_path)
+    unfiltered = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+    monkeypatch.setattr(_artifacts, "enrolled_files", lambda repo_root, *pathspecs: None)
+
+    relative_paths = [path.relative_to(repo).as_posix() for path in _artifacts.input_files(repo)]
+
+    assert relative_paths == unfiltered
+
+
+def test_enrolled_files_keep_untracked_but_drop_ignored(
+    tmp_path: Path, repo_git: Callable[..., str]
+):
+    repo = _audit_repo(tmp_path)
+    (repo / ".gitignore").write_text("ignored-local.md\n", encoding="utf-8")
+    repo_git(repo, "init")
+    repo_git(repo, "add", "-A")
+    repo_git(repo, "commit", "-m", "initial")
+    (repo / "untracked-note.md").write_text("note\n", encoding="utf-8")
+    (repo / "ignored-local.md").write_text("local only\n", encoding="utf-8")
+
+    enrolled = _artifacts.enrolled_files(repo)
+
+    assert enrolled is not None
+    assert "plex_renamer/example.py" in enrolled
+    assert "untracked-note.md" in enrolled
+    assert "ignored-local.md" not in enrolled
+
+
+def test_input_digest_is_line_ending_independent(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    target = repo / "plex_renamer" / "example.py"
+    target.write_bytes(b"VALUE = 1\nOTHER = 2\n")
+    lf_digest = _artifacts.input_digest(repo)
+    target.write_bytes(b"VALUE = 1\r\nOTHER = 2\r\n")
+    assert _artifacts.input_digest(repo) == lf_digest
 
 
 def test_input_digest_is_stable_and_excludes_generated_docs(tmp_path: Path):
@@ -125,6 +178,18 @@ def test_input_digest_changes_when_ordinary_documentation_changes(tmp_path: Path
     first = _artifacts.input_digest(repo)
 
     (repo / "docs/guide.md").write_text("changed documentation\n", encoding="utf-8")
+
+    assert _artifacts.input_digest(repo) != first
+
+
+def test_input_digest_changes_when_engine_cycle_classifications_change(tmp_path: Path):
+    repo = _audit_repo(tmp_path)
+    first = _artifacts.input_digest(repo)
+
+    (repo / "docs/audit/engine-cycle-edges.toml").write_text(
+        'version = 1\n\n[[edges]]\nsource = "engine.alpha"\n',
+        encoding="utf-8",
+    )
 
     assert _artifacts.input_digest(repo) != first
 

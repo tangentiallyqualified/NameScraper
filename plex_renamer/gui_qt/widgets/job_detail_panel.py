@@ -5,15 +5,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QRect, Qt, Signal, QUrl
+from PySide6.QtCore import QObject, QRect, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
     QAbstractItemView,
+    QFrame,
     QGridLayout,
-    QLabel,
+    QHBoxLayout,
     QHeaderView,
+    QLabel,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -125,15 +125,15 @@ class _WrappedFitLabel(QLabel):
         )
         self.setMinimumHeight(text_rect.height() + 2 * self.margin())
 
-    def setText(self, text: str) -> None:  # noqa: N802
+    def setText(self, text: str) -> None:
         super().setText(text)
         self._repin_wrapped_height()
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._repin_wrapped_height()
 
-    def showEvent(self, event) -> None:  # noqa: N802
+    def showEvent(self, event) -> None:
         super().showEvent(event)
         self._repin_wrapped_height()
 
@@ -178,7 +178,9 @@ class _RenamePreviewWidget(QWidget):
             self._badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._badge_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             layout.addWidget(
-                self._badge_label, 0, 2,
+                self._badge_label,
+                0,
+                2,
                 alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
             )
 
@@ -270,7 +272,9 @@ class JobDetailPanel(QFrame):
         self._empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_message.setWordWrap(True)
         self._empty_message.setMargin(4)
-        self._empty_message.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self._empty_message.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+        )
         empty_card_layout.addWidget(self._empty_message)
 
         empty_layout.addWidget(self._empty_card, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -327,8 +331,8 @@ class JobDetailPanel(QFrame):
         body.addWidget(self._summary)
 
         self._irreversible_note = QLabel(
-            "No Fear remux — source files were deleted; this job cannot "
-            "be reverted.")
+            "No Fear remux — source files were deleted; this job cannot be reverted."
+        )
         self._irreversible_note.setProperty("cssClass", "job-detail-error")
         self._irreversible_note.setWordWrap(True)
         self._irreversible_note.hide()
@@ -475,7 +479,8 @@ class JobDetailPanel(QFrame):
         self._error.setText(job.error_message or "")
         self._progress_bar.hide()
         self._irreversible_note.setVisible(
-            bool(job.undo_data and job.undo_data.get("irreversible")))
+            bool(job.undo_data and job.undo_data.get("irreversible"))
+        )
         self._request_poster(job)
 
     def set_progress(self, job_id: str, op_index: int, op_count: int, percent: int) -> None:
@@ -487,10 +492,16 @@ class JobDetailPanel(QFrame):
         self._progress_bar.show()
 
     def can_open_source_folder(self) -> bool:
-        return self._current_job is not None and self._resolve_openable_path(self._current_job.source_path) is not None
+        return (
+            self._current_job is not None
+            and self._resolve_openable_path(self._current_job.source_path) is not None
+        )
 
     def can_open_target_folder(self) -> bool:
-        return self._current_job is not None and self._primary_target_path(self._current_job) is not None
+        return (
+            self._current_job is not None
+            and self._primary_target_path(self._current_job) is not None
+        )
 
     def open_source_folder(self) -> bool:
         if self._current_job is None:

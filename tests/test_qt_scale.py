@@ -1,4 +1,5 @@
 """Unit tests for the gui_qt scaling helper."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -36,6 +37,7 @@ class ScaleHelperTests(unittest.TestCase):
 
     def test_row_height_uses_font_metrics(self):
         from PySide6.QtGui import QFont, QFontMetrics
+
         from plex_renamer.gui_qt import _scale
 
         expected_single = QFontMetrics(QFont()).lineSpacing()
@@ -54,6 +56,7 @@ class ScaleHelperTests(unittest.TestCase):
 
     def test_icon_tokens_return_qsize(self):
         from PySide6.QtCore import QSize
+
         from plex_renamer.gui_qt import _scale
 
         for token in ("sm", "md", "lg", "xl"):
@@ -75,6 +78,7 @@ class ScaleHelperTests(unittest.TestCase):
 
     def test_margins_scales_each_value(self):
         from PySide6.QtCore import QMargins
+
         from plex_renamer.gui_qt import _scale
 
         m = _scale.margins(8, 12, 8, 12)
@@ -95,6 +99,7 @@ class ScaleHelperTests(unittest.TestCase):
 
     def test_dpi_scale_falls_back_when_no_screen(self):
         from unittest.mock import patch
+
         from plex_renamer.gui_qt import _scale
 
         with patch.object(_scale.QGuiApplication, "primaryScreen", return_value=None):
@@ -104,6 +109,7 @@ class ScaleHelperTests(unittest.TestCase):
         from unittest.mock import patch
 
         from PySide6.QtCore import QSize
+
         from plex_renamer.gui_qt import _scale
 
         with patch.object(_scale, "_dpi_scale", return_value=2.0):

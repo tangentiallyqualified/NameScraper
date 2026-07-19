@@ -30,8 +30,8 @@ class CommandGatingService:
         show_name = state.media_info.get("name")
         if show_name:
             expected_folder = build_show_folder_name(
-                show_name,
-                state.media_info.get("year", ""),
+                str(show_name),
+                str(state.media_info.get("year", "")),
             )
             # Case-insensitive compare for Windows (NTFS is case-preserving
             # but case-insensitive).
@@ -94,9 +94,7 @@ class CommandGatingService:
 
         if require_resolved_review:
             review_selected = sorted(
-                index
-                for index in selected
-                if 0 <= index < len(items) and items[index].is_review
+                index for index in selected if 0 <= index < len(items) and items[index].is_review
             )
             if review_selected:
                 return QueueEligibility(
@@ -144,14 +142,16 @@ class CommandGatingService:
         selected: set[int] = set()
         if allow_show_level_queue and state.checked:
             selected = {
-                index for index in range(len(state.preview_items))
+                index
+                for index in range(len(state.preview_items))
                 if self.is_queue_relevant(state, index)
             }
         elif state.check_vars:
             selected = get_checked_indices_from_state(state)
         elif state.checked:
             selected = {
-                index for index in range(len(state.preview_items))
+                index
+                for index in range(len(state.preview_items))
                 if self.is_queue_relevant(state, index)
             }
 

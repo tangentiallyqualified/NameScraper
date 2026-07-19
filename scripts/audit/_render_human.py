@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from . import _artifacts
+from . import _artifacts, _cycle_edges
 
 _package_of = _artifacts.package_of
 
@@ -368,7 +369,12 @@ def render_overview(repo_root: Path, graph: dict, metrics: dict, analysis: dict)
     )
 
 
-def _render_package_map(package: str, graph: dict, metrics: dict) -> str:
+def _render_package_map(
+    package: str,
+    graph: dict,
+    metrics: dict,
+    cycle_classifications: Sequence[_cycle_edges.CycleEdgeClassification] | None = None,
+) -> str:
     rows = [(path, rec) for path, rec in metrics["modules"].items() if _package_of(path) == package]
     entry, core, support = [], [], []
     for path, rec in sorted(rows):
@@ -379,16 +385,24 @@ def _render_package_map(package: str, graph: dict, metrics: dict) -> str:
             core.append(line)
         else:
             support.append(line)
-    sections = []
-    if entry:
-        sections.append("### Entry points (nothing imports these)\n" + "\n".join(entry))
-    if core:
-        sections.append("### Core (widely depended upon)\n" + "\n".join(core))
-    if support:
-        sections.append("### Support\n" + "\n".join(support))
+    sections = _package_sections(entry, core, support)
+    if package == "engine":
+        sections.insert(0, _cycle_edges.render_classified_cycle_map(cycle_classifications or ()))
     body = "\n\n".join(sections) if sections else "_No modules._"
     digest = metrics.get("input_digest") or "unknown"
     return body + f"\n\n_Generated from audit input {digest[:12]} by scripts\\audit.cmd._"
+
+
+def _package_sections(entry: list[str], core: list[str], support: list[str]) -> list[str]:
+    sections = []
+    for heading, lines in (
+        ("Entry points (nothing imports these)", entry),
+        ("Core (widely depended upon)", core),
+        ("Support", support),
+    ):
+        if lines:
+            sections.append(f"### {heading}\n" + "\n".join(lines))
+    return sections
 
 
 def run(repo_root: Path, options) -> int:
@@ -404,6 +418,8 @@ def run(repo_root: Path, options) -> int:
     if not isinstance(raw_review_findings, list) or not isinstance(modules, dict):
         raise ValueError("audit render artifacts have unsupported schemas")
     review_findings = cast(list[dict], raw_review_findings)
+    cycle_graph = cast(_cycle_edges.CycleGraph, graph)
+    cycle_classifications = _cycle_edges.load_cycle_edge_classifications(repo_root, cycle_graph)
     maps_dir = repo_root / "docs" / "audit" / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 
@@ -426,7 +442,9 @@ def run(repo_root: Path, options) -> int:
         _artifacts.write_text_lf(
             path,
             replace_generated(
-                existing, f"map-{package}", _render_package_map(package, graph, metrics)
+                existing,
+                f"map-{package}",
+                _render_package_map(package, graph, metrics, cycle_classifications),
             ),
         )
     print(f"render-human: overview + {len(packages)} package maps under docs/audit/maps/")

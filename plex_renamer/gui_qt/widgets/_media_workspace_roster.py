@@ -4,12 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, Qt, Signal
+from PySide6.QtCore import QModelIndex, QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView, QFrame, QHBoxLayout, QLabel, QPushButton,
-    QSizePolicy, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import QSize
 
 from ...engine import ScanState
 from ._media_helpers import is_state_queue_approvable as _is_state_queue_approvable
@@ -26,15 +33,23 @@ class MediaWorkspaceRosterPanel(QFrame):
     check_toggled = Signal(int, bool)
     group_toggled = Signal(str)
 
-    def __init__(self, *, media_type: str, settings_service: "SettingsService | None" = None,
-                 tmdb_provider=None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        media_type: str,
+        settings_service: SettingsService | None = None,
+        tmdb_provider=None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._media_type = media_type
         self._settings = settings_service
         self._syncing = False
         self._master_syncing = False
         self._model = RosterModel(
-            media_type=media_type, settings_service=settings_service, tmdb_provider=tmdb_provider,
+            media_type=media_type,
+            settings_service=settings_service,
+            tmdb_provider=tmdb_provider,
         )
         self._build_ui()
 
@@ -105,7 +120,8 @@ class MediaWorkspaceRosterPanel(QFrame):
 
     def update_selection_header(self, states: list[ScanState]) -> None:
         eligible_states = [
-            state for state in states
+            state
+            for state in states
             if _is_state_queue_approvable(state, media_type=self._media_type)
         ]
         checked_count = sum(1 for state in eligible_states if state.checked)

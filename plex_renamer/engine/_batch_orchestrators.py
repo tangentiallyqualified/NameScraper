@@ -54,7 +54,6 @@ from .matching import (
     score_results,
     score_tv_results,
 )
-from .show_details import show_details_from_tmdb
 from .models import (
     DirectEpisodeEvidence,
     PreviewItem,
@@ -62,6 +61,7 @@ from .models import (
     collect_direct_episode_evidence,
     infer_explicit_season_assignment,
 )
+from .show_details import show_details_from_tmdb
 
 _log = logging.getLogger(__name__)
 
@@ -160,16 +160,18 @@ class BatchTVOrchestrator:
             # literally called "Specials". Inherit the parent folder's title
             # (the parent must be inside the library, not the root itself).
             name_fallback = None
-            if (
-                candidate.parent_relative_folder is not None
-                and is_generic_show_folder_name(candidate.folder.name)
+            if candidate.parent_relative_folder is not None and is_generic_show_folder_name(
+                candidate.folder.name
             ):
                 name_fallback = candidate.folder.parent
             cleaned = best_tv_match_title(
-                candidate.folder, include_year=False, name_fallback_folder=name_fallback,
+                candidate.folder,
+                include_year=False,
+                name_fallback_folder=name_fallback,
             )
             score_name = best_tv_match_title(
-                candidate.folder, name_fallback_folder=name_fallback,
+                candidate.folder,
+                name_fallback_folder=name_fallback,
             )
             folder_score_name = clean_folder_name(
                 (name_fallback or candidate.folder).name,
@@ -183,14 +185,16 @@ class BatchTVOrchestrator:
             if year_hint is None:
                 year_hint = extract_year(candidate.folder.name)
             episode_evidence = self._collect_direct_episode_evidence(candidate.folder)
-            candidates.append((
-                candidate,
-                cleaned,
-                score_name,
-                folder_score_name,
-                year_hint,
-                episode_evidence,
-            ))
+            candidates.append(
+                (
+                    candidate,
+                    cleaned,
+                    score_name,
+                    folder_score_name,
+                    year_hint,
+                    episode_evidence,
+                )
+            )
         return candidates
 
     @staticmethod
@@ -204,8 +208,10 @@ class BatchTVOrchestrator:
         return ScanState(
             folder=folder,
             media_info={
-                "id": None, "name": folder.name,
-                "year": year_hint or "", "poster_path": None,
+                "id": None,
+                "name": folder.name,
+                "year": year_hint or "",
+                "poster_path": None,
                 "overview": "",
             },
             confidence=0.0,
@@ -275,7 +281,7 @@ class BatchTVOrchestrator:
         explicit_seasons = {item.season_num for item in episode_evidence} or None
         tie_broken_by_counts = False
         if file_count > 0 and len(scored) >= 2:
-            runner_up, runner_up_score = scored[1]
+            _runner_up, runner_up_score = scored[1]
             if best_score - runner_up_score <= 0.10:
                 best, best_score, tie_broken_by_counts = self._episode_count_tiebreak(
                     scored,
@@ -322,7 +328,10 @@ class BatchTVOrchestrator:
                         raw_best - raw_runner <= SCORE_TIE_MARGIN
                         and best_score >= get_auto_accept_threshold()
                         and not _primary_name_breaks_tie(
-                            best, result, score_name, year_hint,
+                            best,
+                            result,
+                            score_name,
+                            year_hint,
                         )
                         and not _year_hint_breaks_tie(best, result, year_hint)
                     ):
@@ -430,8 +439,11 @@ class BatchTVOrchestrator:
             "Preparing matched shows...",
             "Preparing matched shows...",
         )
-        for index, ((candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence), results) in enumerate(
-            zip(candidates, all_results),
+        for index, (
+            (candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence),
+            results,
+        ) in enumerate(
+            zip(candidates, all_results, strict=False),
             start=1,
         ):
             _raise_if_cancelled(cancel_event)
@@ -530,7 +542,9 @@ class BatchTVOrchestrator:
         target.duplicate_of_relative_folder = None
         target.reset_scan()
 
-        self.states[:] = [member for member in self.states if member not in merge_group or member is target]
+        self.states[:] = [
+            member for member in self.states if member not in merge_group or member is target
+        ]
         self._apply_duplicate_labels()
         return target
 
@@ -619,8 +633,7 @@ class BatchTVOrchestrator:
     ) -> None:
         """Phase 2 bulk: Scan all shows that have a TMDB match."""
         to_scan = [
-            state for state in self.states
-            if not state.scanned and state.show_id is not None
+            state for state in self.states if not state.scanned and state.show_id is not None
         ]
         total = len(to_scan)
 
@@ -670,16 +683,12 @@ class BatchTVOrchestrator:
             return state
         if state.season_folders or state.season_assignment is not None:
             return state
-        detected = {
-            item.season for item in state.preview_items
-            if item.season is not None
-        }
+        detected = {item.season for item in state.preview_items if item.season is not None}
         if len(detected) != 1:
             return state
         season_num = next(iter(detected))
         has_sibling = any(
-            other is not state and other.show_id == state.show_id
-            for other in self.states
+            other is not state and other.show_id == state.show_id for other in self.states
         )
         if not has_sibling:
             return state
@@ -731,6 +740,7 @@ class BatchTVOrchestrator:
         merged_state = self.merge_rematched_state(state)
         self._apply_duplicate_labels()
         return merged_state
+
 
 class BatchMovieOrchestrator:
     """
@@ -827,9 +837,12 @@ class BatchMovieOrchestrator:
         for candidate in discovered:
             if candidate.discovery_reason == "multiple_direct_video_files":
                 video_files = sorted(
-                    file for file in candidate.folder.iterdir()
-                    if file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
-                    and not looks_like_tv_episode(file) and not is_sample_file(file)
+                    file
+                    for file in candidate.folder.iterdir()
+                    if file.is_file()
+                    and file.suffix.lower() in VIDEO_EXTENSIONS
+                    and not looks_like_tv_episode(file)
+                    and not is_sample_file(file)
                 )
                 for video_file in video_files:
                     query, year, _raw = _prepare_movie_query(video_file.stem)
@@ -851,7 +864,9 @@ class BatchMovieOrchestrator:
         )
 
         states: list[ScanState] = []
-        for (candidate, _search_query, year_hint, source_file), results in zip(entries, all_results):
+        for (candidate, _search_query, year_hint, source_file), results in zip(
+            entries, all_results, strict=False
+        ):
             folder = candidate.folder
 
             if not results:
@@ -859,8 +874,10 @@ class BatchMovieOrchestrator:
                 state = ScanState(
                     folder=folder,
                     media_info={
-                        "id": None, "title": display,
-                        "year": year_hint or "", "poster_path": None,
+                        "id": None,
+                        "title": display,
+                        "year": year_hint or "",
+                        "poster_path": None,
                         "overview": "",
                     },
                     confidence=0.0,
@@ -877,7 +894,11 @@ class BatchMovieOrchestrator:
                 states.append(state)
                 continue
 
-            raw_name = clean_folder_name(source_file.stem) if source_file else clean_folder_name(folder.name)
+            raw_name = (
+                clean_folder_name(source_file.stem)
+                if source_file
+                else clean_folder_name(folder.name)
+            )
             scored = score_results(results, raw_name, year_hint, title_key="title")
             scored = boost_scores_with_alt_titles(
                 scored,
@@ -910,9 +931,7 @@ class BatchMovieOrchestrator:
             # (sequel mismatch, year severely off) — the two entry points must
             # agree on the same folder (M-H2). Folder-shaped entries use the
             # folder name as their evidence stem, matching the query source.
-            evidence_path = (
-                source_file if source_file is not None else folder / folder.name
-            )
+            evidence_path = source_file if source_file is not None else folder / folder.name
             best_score = apply_movie_confidence_adjustments(
                 raw_confidence=pre_adjust_best,
                 file_path=evidence_path,
@@ -971,7 +990,11 @@ class BatchMovieOrchestrator:
             _log.warning("Cannot scan %s — no TMDB match", state.folder.name)
             return
 
-        from ._movie_scanner import MovieScanner, _build_movie_preview_item, _build_subtitle_companions
+        from ._movie_scanner import (
+            MovieScanner,
+            _build_movie_preview_item,
+            _build_subtitle_companions,
+        )
 
         state.scanning = True
         _log.info("Scanning movie: %s", state.display_name)
@@ -982,9 +1005,12 @@ class BatchMovieOrchestrator:
                 video_files = [state.source_file] if state.source_file.exists() else []
             else:
                 video_files = sorted(
-                    file for file in state.folder.iterdir()
-                    if file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
-                    and not is_sample_file(file) and not looks_like_tv_episode(file)
+                    file
+                    for file in state.folder.iterdir()
+                    if file.is_file()
+                    and file.suffix.lower() in VIDEO_EXTENSIONS
+                    and not is_sample_file(file)
+                    and not looks_like_tv_episode(file)
                 )
 
             items: list[PreviewItem] = []
@@ -993,7 +1019,7 @@ class BatchMovieOrchestrator:
                 item.companions = _build_subtitle_companions(file, item.new_name)
                 if state.confidence < get_auto_accept_threshold():
                     item.status = (
-                        f"REVIEW: best match \"{chosen.get('title', '')}\" "
+                        f'REVIEW: best match "{chosen.get("title", "")}" '
                         f"(confidence {state.confidence:.0%}) — click to verify"
                     )
                 items.append(item)
@@ -1023,7 +1049,8 @@ class BatchMovieOrchestrator:
     ) -> None:
         """Phase 2 bulk: Scan all movies that have a TMDB match."""
         to_scan = [
-            state for state in self.states
+            state
+            for state in self.states
             if not state.scanned and not state.queued and state.show_id is not None
         ]
         total = len(to_scan)

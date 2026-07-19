@@ -19,6 +19,7 @@ from ...engine import (
 )
 from ...job_executor import QueueExecutor, revert_job
 from ...job_store import JobStore, RenameJob
+from ..services.command_gating_service import CommandGatingService
 from ._queue_history_helpers import (
     backfill_missing_queue_job_poster_paths,
     close_queue_resources,
@@ -30,7 +31,6 @@ from ._queue_submission_helpers import (
     add_single_queue_job,
     add_tv_batch_jobs,
 )
-from ..services.command_gating_service import CommandGatingService
 
 
 class QueueController:

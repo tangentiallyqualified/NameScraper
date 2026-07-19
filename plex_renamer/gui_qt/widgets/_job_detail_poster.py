@@ -22,7 +22,7 @@ def _poster_device_pixel_ratio(poster) -> float:
 def _poster_fetch_width(poster) -> int:
     logical_width = poster.width() or 160
     ratio = _poster_device_pixel_ratio(poster)
-    return max(400, min(900, int(round(logical_width * ratio * 1.6))))
+    return max(400, min(900, round(logical_width * ratio * 1.6)))
 
 
 class _JobDetailPosterPanel(Protocol):
@@ -61,13 +61,17 @@ class JobDetailPosterWorkflow:
             if poster_path:
                 image = tmdb.fetch_image(poster_path, target_width=fetch_width)
             elif job.tmdb_id:
-                image = tmdb.fetch_poster(job.tmdb_id, media_type=job.media_type, target_width=fetch_width)
+                image = tmdb.fetch_poster(
+                    job.tmdb_id, media_type=job.media_type, target_width=fetch_width
+                )
                 poster_path = tmdb.get_cached_poster_path(job.tmdb_id, media_type=job.media_type)
                 if poster_path:
                     self._persist_poster_path(job, poster_path)
 
             try:
-                panel._bridge.poster_ready.emit(None if image is None else pil_to_raw(image), job.job_id)
+                panel._bridge.poster_ready.emit(
+                    None if image is None else pil_to_raw(image), job.job_id
+                )
             except RuntimeError:
                 return
 

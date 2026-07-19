@@ -139,6 +139,11 @@ def check_lines(repo_root: Path) -> list[str]:
     ]
 
 
+def _validate_accept_enlarged(parser: argparse.ArgumentParser, options: argparse.Namespace) -> None:
+    if options.accept_enlarged and not options.update_quality_baseline:
+        parser.error("--accept-enlarged requires --update-quality-baseline")
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="audit", description="Codebase mapping/audit pipeline.")
     parser.add_argument(
@@ -172,6 +177,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--update-quality-baseline",
         action="store_true",
         help="Refresh an existing quality baseline without enrolling new Python files.",
+    )
+    parser.add_argument(
+        "--accept-enlarged",
+        action="store_true",
+        help="With --update-quality-baseline: accept and report new/enlarged debt entries.",
     )
     parser.add_argument(
         "--coverage-max-age",
@@ -212,6 +222,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "--quality-check cannot be combined with --fast, --with-coverage, "
             "--check, --verify, or a stage"
         )
+    _validate_accept_enlarged(parser, options)
     return options
 
 
@@ -258,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = options.repo_root.resolve()
 
     if options.update_quality_baseline:
-        return _ratchets.run_quality_baseline_update(repo_root)
+        return _ratchets.run_quality_baseline_update(repo_root, options.accept_enlarged)
 
     if options.quality_check:
         return _ratchets.run_quality_check(repo_root)

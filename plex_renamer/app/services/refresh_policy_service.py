@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from ...constants import MediaType
@@ -11,7 +11,7 @@ from ..models import RefreshState
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -67,10 +67,7 @@ class RefreshPolicyService:
         show_status: str | None = None,
     ) -> str:
         """Return the cache expiry timestamp for a refreshed metadata record."""
-        if isinstance(refreshed_at, str):
-            base = _parse_dt(refreshed_at)
-        else:
-            base = refreshed_at
+        base = _parse_dt(refreshed_at) if isinstance(refreshed_at, str) else refreshed_at
         base = base or _utc_now()
         return (base + self.get_metadata_ttl(media_type, show_status)).isoformat()
 

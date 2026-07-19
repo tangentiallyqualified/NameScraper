@@ -1,5 +1,6 @@
 # tests/test_roster_model.py
 """RosterModel row composition, roles, and dataChanged granularity."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +11,10 @@ from conftest_qt import QtSmokeBase
 def _make_state(name: str, *, queued=False, checked=True):
     from plex_renamer.engine.models import ScanState
 
-    state = ScanState(folder=Path(f"C:/lib/{name}"), media_info={"id": hash(name) % 100000, "name": name, "year": "2020"})
+    state = ScanState(
+        folder=Path(f"C:/lib/{name}"),
+        media_info={"id": hash(name) % 100000, "name": name, "year": "2020"},
+    )
     state.scanned = True
     state.queued = queued
     state.checked = checked
@@ -45,7 +49,6 @@ class RosterModelTests(QtSmokeBase):
         )
 
     def test_header_and_state_rows_in_group_order(self):
-        from plex_renamer.gui_qt.widgets import _roster_model as rm
 
         queued = _make_state("Queued Show", queued=True)
         matched = _make_state("Matched Show")
@@ -69,15 +72,21 @@ class RosterModelTests(QtSmokeBase):
 
     def test_compact_still_builds_season_chips(self):
         from plex_renamer.engine.models import CompletenessReport, SeasonCompleteness
+
         state = _make_state("Frieren")
         state.completeness = CompletenessReport(
             seasons={1: SeasonCompleteness(season=1, expected=10, matched=10, missing=[])},
-            specials=None, total_expected=10, total_matched=10, total_missing=[])
+            specials=None,
+            total_expected=10,
+            total_matched=10,
+            total_missing=[],
+        )
         model = self._model([state])
         model.set_compact(True)
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
         data = model.index(1, 0).data(ROW_DATA_ROLE)
-        self.assertTrue(data.chips)          # chips present even in compact
+        self.assertTrue(data.chips)  # chips present even in compact
 
     def test_row_data_snapshot_fields(self):
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
@@ -88,7 +97,7 @@ class RosterModelTests(QtSmokeBase):
         self.assertEqual(data.title, "Frieren (2020)")
         self.assertEqual(data.confidence_pct, 90)
         self.assertTrue(data.checked)
-        self.assertEqual(data.chips, ())   # no completeness -> no chips
+        self.assertEqual(data.chips, ())  # no completeness -> no chips
 
     def test_refresh_state_emits_single_row_datachanged(self):
         state = _make_state("Frieren")
@@ -99,6 +108,7 @@ class RosterModelTests(QtSmokeBase):
         model.refresh_state(0)
         self.assertEqual(seen, [(1, 1)])
         from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
         self.assertFalse(model.index(1, 0).data(ROW_DATA_ROLE).checked)
 
     def test_pending_poster_count_zero_without_provider(self):
@@ -163,7 +173,11 @@ class PosterFetchWidthTest(QtSmokeBase):
         from plex_renamer.gui_qt.widgets._roster_model import RosterModel
 
         model = RosterModel(media_type="tv")
-        with patch("plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=2.0):
+        with patch(
+            "plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=2.0
+        ):
             self.assertGreaterEqual(model._poster_fetch_width(), 340)
-        with patch("plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=1.0):
+        with patch(
+            "plex_renamer.gui_qt.widgets._roster_model._device_pixel_ratio", return_value=1.0
+        ):
             self.assertGreaterEqual(model._poster_fetch_width(), 220)

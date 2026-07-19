@@ -47,3 +47,160 @@ path = "plex_renamer/gui_qt/widgets/scan_progress.py"
 symbol = "plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1"
 reason_code = "framework-callback"
 reason = "Qt invokes this QWidget paintEvent override to render the conveyor animation."
+
+[[decision]]
+analyzer = "vulture"
+rule = "unused-property"
+path = "plex_renamer/engine/_movie_scanner.py"
+symbol = "plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1"
+reason_code = "public-api"
+reason = "MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression."
+
+# --- RUF001: ambiguous-unicode literals the parser/GUI must handle ---
+# These are real-world filename/title characters (curly apostrophes in
+# contractions, en dashes in ranges, fullwidth pipes, angle-quote chevrons)
+# that source media filenames and titles actually contain. Replacing them
+# with the ASCII "look-alike" ruff suggests would change parsing/matching
+# behavior and break the fixtures that exercise these exact characters.
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_names.py"
+symbol = "plex_renamer._parsing_names._fold_title_symbols::ambiguous-unicode-character-string::String contains ambiguous `’` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+reason_code = "intentional-literal"
+reason = "Curly right single quotation mark in the I’m/I'm contraction pattern that _fold_title_symbols must recognize in real filenames; replacing it would stop matching titles that use the typographic apostrophe."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_names.py"
+symbol = "plex_renamer._parsing_names.normalize_for_match::ambiguous-unicode-character-string::String contains ambiguous `’` (RIGHT SINGLE QUOTATION MARK). Did you mean ``` (GRAVE ACCENT)?#1"
+reason_code = "intentional-literal"
+reason = "Curly right single quotation mark that normalize_for_match strips (alongside the straight apostrophe) so \"Hell’s\" and \"Hells\" compare equal; this is the specific character real titles carry."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_names.py"
+symbol = "plex_renamer._parsing_names::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "En dash included in the module-level _BASE_TRIM_CHARS trim set alongside the hyphen, because release filenames use either character as a separator; dropping the en dash would leave those filenames untrimmed."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_seasons.py"
+symbol = "plex_renamer._parsing_seasons::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "En dash included in the _SEASON_RANGE_RE character class alongside the hyphen so \"Season 1–8\" folder names (which use an en dash, not a hyphen) are recognized as a season range."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_titles.py"
+symbol = "plex_renamer._parsing_titles.strip_release_junk_title::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "En dash included in the strip() char set used to trim leftover separators from a title, matching release filenames that use an en dash rather than a hyphen."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/_parsing_titles.py"
+symbol = "plex_renamer._parsing_titles::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "En dash included in the module-level _YEAR_RANGE_RE regex alongside the hyphen so year ranges like \"1990–1995\" written with an en dash are still matched."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/engine/_tv_scanner_consolidated.py"
+symbol = "plex_renamer.engine._tv_scanner_consolidated::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "En dash included in the module-level _RE_LEADING_ABS_NUM regex alongside the hyphen so leading absolute-number prefixes separated by an en dash still parse."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/gui_qt/widgets/status_chip.py"
+symbol = "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "Deliberate user-visible chip copy (e.g. \"S1–S6\") for a collapsed season range, not an accidental paste; test_status_chip.py asserts this exact en-dash string, and switching to a hyphen would just be a different, equally-arbitrary typographic choice with no behavior benefit."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "plex_renamer/gui_qt/widgets/status_chip.py"
+symbol = "plex_renamer.gui_qt.widgets.status_chip._collapse_complete_runs.flush_run::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#2"
+reason_code = "intentional-literal"
+reason = "Second en dash on the same line, in the chip's tooltip text (\"Seasons {first}–{last} complete\"); same deliberate user-visible copy as the chip label, kept for consistency with it."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_episode_table_delegate.py"
+symbol = "tests.test_episode_table_delegate.ChevronGlyphTests.test_row_chevron_matches_expansion_collapse_glyph_family::ambiguous-unicode-character-string::String contains ambiguous `›` (SINGLE RIGHT-POINTING ANGLE QUOTATION MARK). Did you mean `>` (GREATER-THAN SIGN)?#1"
+reason_code = "intentional-literal"
+reason = "Regression assertion that the source no longer contains the retired › chevron glyph; the character must stay literal for the substring check to test what it claims to test."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_status_chip.py"
+symbol = "tests.test_status_chip.test_complete_runs_collapse_when_over_max::ambiguous-unicode-character-string::String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?#1"
+reason_code = "intentional-literal"
+reason = "Asserts the exact en-dash chip text (\"S1–S6 ✓\") produced by status_chip.py's _collapse_complete_runs; must match the production literal exactly."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_token_aligned_substring.py"
+symbol = "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `｜` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+reason_code = "intentional-literal"
+reason = "Fullwidth vertical line as used in real-world release titles (e.g. \"Sex ｜ Off the Air ｜ Adult Swim\") that the token-aligned substring matcher must handle; an ASCII pipe would test a different, less representative input."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_token_aligned_substring.py"
+symbol = "tests.test_token_aligned_substring.test_longer_sibling_still_matches::ambiguous-unicode-character-string::String contains ambiguous `｜` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+reason_code = "intentional-literal"
+reason = "Second fullwidth vertical line on the same line, in the same real-world release-title fixture; same rationale as the first occurrence."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_token_aligned_substring.py"
+symbol = "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `｜` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#1"
+reason_code = "intentional-literal"
+reason = "Fullwidth vertical line in a second real-world release-title fixture (\"Drugs ｜ Off The Air ｜ Adult Swim\") exercising the same token-boundary matching behavior."
+
+[[decision]]
+analyzer = "ruff"
+rule = "RUF001"
+path = "tests/test_token_aligned_substring.py"
+symbol = "tests.test_token_aligned_substring.test_short_title_matches_at_token_boundary::ambiguous-unicode-character-string::String contains ambiguous `｜` (FULLWIDTH VERTICAL LINE). Did you mean `|` (VERTICAL LINE)?#2"
+reason_code = "intentional-literal"
+reason = "Second fullwidth vertical line on the same line, in the same real-world release-title fixture; same rationale as the first occurrence."
+
+# --- Tail-rule findings where the documented ruff fix collides with the
+# repo's quality ratchet (LOC ceiling on an already-oversized legacy file, or
+# a package coverage floor) rather than with correctness; fixing the finding
+# would enroll new/enlarged debt for an unrelated reason, so it is adjudicated
+# instead of applied.
+
+[[decision]]
+analyzer = "ruff"
+rule = "SIM103"
+path = "plex_renamer/_parsing_tv.py"
+symbol = "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
+reason_code = "accepted-debt"
+reason = "Collapsing the if/return/return into `return bool(is_extras_folder(parent))` removes two fully-covered statements from the plex_renamer root package's statement pool, which mechanically drags the package-level coverage floor ratchet below its committed baseline even though no code goes uncovered; left as-is rather than trip the coverage/package-floor ratchet for a purely cosmetic simplification."
+
+[[decision]]
+analyzer = "ruff"
+rule = "SIM117"
+path = "tests/test_qt_main_window.py"
+symbol = "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
+reason_code = "accepted-debt"
+reason = "Combining the nested `with` statements into the parenthesized multi-context form requires 4 header lines instead of 2, which pushes this already-oversized legacy file 2 lines past its frozen LOC ceiling; left as nested `with` statements rather than trip the inventory/LOC ratchet for a purely cosmetic simplification."

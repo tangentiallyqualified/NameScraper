@@ -6,7 +6,7 @@ import ast
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import _artifacts
@@ -41,14 +41,26 @@ _GENERATED_AUDIT_DIRS = {
 _SOURCE_REF = re.compile(r"(?:plex_renamer|scripts|tests)[\w\\/.-]*?\.\w{2,4}")
 
 
+def _enrolled_set(repo_root: Path) -> set[str] | None:
+    enrolled = _artifacts.enrolled_files(repo_root)
+    return set(enrolled) if enrolled is not None else None
+
+
 def _iter_files(repo_root: Path):
+    # Enrollment (tracked + untracked-not-ignored) keeps gitignored local-only
+    # docs out of the inventory so CI reproduces it byte-for-byte; when git is
+    # unavailable (non-git dirs) the walk stands alone.
+    enrolled_set = _enrolled_set(repo_root)
     for dirpath, dirnames, filenames in os.walk(repo_root):
         dirnames[:] = sorted(d for d in dirnames if d not in EXCLUDED_DIRS)
         for filename in sorted(filenames):
             if filename in EXCLUDED_DIRS:
                 continue
             path = Path(dirpath) / filename
-            yield path, path.relative_to(repo_root)
+            rel = path.relative_to(repo_root)
+            if enrolled_set is not None and rel.as_posix() not in enrolled_set:
+                continue
+            yield path, rel
 
 
 def _loc(path: Path) -> int:
@@ -111,15 +123,22 @@ def _is_generated_audit_doc(rel: Path) -> bool:
     )
 
 
-def _doc_record(repo_root: Path, path: Path, rel: Path) -> dict:
+def _ref_exists(repo_root: Path, ref: str, enrolled_set: set[str] | None) -> bool:
+    # Enrollment membership, not the filesystem: a gitignored file exists on
+    # this machine but not in a clean CI checkout, and broken_refs must render
+    # identically on both.
+    if enrolled_set is not None:
+        return ref in enrolled_set
+    return (repo_root / ref).exists()
+
+
+def _doc_record(repo_root: Path, path: Path, rel: Path, enrolled_set: set[str] | None) -> dict:
     text = path.read_text(encoding="utf-8", errors="replace")
     refs = sorted({m.group(0).replace("\\", "/") for m in _SOURCE_REF.finditer(text)})
-    broken = [r for r in refs if not (repo_root / r).exists()]
+    broken = [r for r in refs if not _ref_exists(repo_root, r, enrolled_set)]
     last = "generated" if _is_generated_audit_doc(rel) else _git_last_touched(repo_root, rel)
     if last is None:
-        last = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat(
-            timespec="seconds"
-        )
+        last = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat(timespec="seconds")
     return {
         "path": rel.as_posix(),
         "last_touched": last,
@@ -133,6 +152,7 @@ def build_inventory(repo_root: Path) -> dict:
     test_files: list[dict] = []
     docs: list[dict] = []
     scripts: list[dict] = []
+    enrolled_set = _enrolled_set(repo_root)
     for path, rel in _iter_files(repo_root):
         posix = rel.as_posix()
         top = rel.parts[0]
@@ -158,7 +178,7 @@ def build_inventory(repo_root: Path) -> dict:
                 )
             elif rel.suffix in DOC_SUFFIXES and (top == "docs" or len(rel.parts) == 1):
                 if not _is_generated_audit_doc(rel):
-                    docs.append(_doc_record(repo_root, path, rel))
+                    docs.append(_doc_record(repo_root, path, rel, enrolled_set))
             elif top == "scripts":
                 scripts.append({"path": posix})
         except OSError:

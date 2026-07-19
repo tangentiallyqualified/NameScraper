@@ -13,8 +13,12 @@ from pathlib import Path, PurePath
 from ..._mkv_locate import find_mkvmerge
 from ..._mkv_probe import ProbeResult, probe_file
 from ...engine._mux_planner import MuxSettings, build_mux_plan
-from ...engine.models import PreviewItem, ScanState
-from ...engine.models import file_mux_active, plan_has_actions  # noqa: F401  (round6 §1: engine owns these so _queue_bridge can use them)
+from ...engine.models import (
+    PreviewItem,
+    ScanState,
+    file_mux_active,  # noqa: F401  (round6 §1: engine owns these so _queue_bridge can use them)
+    plan_has_actions,
+)
 from .settings_service import SettingsService
 
 
@@ -31,6 +35,7 @@ def mux_settings_from_service(svc: SettingsService) -> MuxSettings:
         default_audio_language=svc.automux_default_audio_language,
         strip_track_names=svc.automux_strip_track_names,
         no_fear=svc.automux_no_fear,
+        exclude_commentary=svc.automux_exclude_commentary,
     )
 
 
@@ -43,15 +48,12 @@ def resolve_mkvmerge(svc: SettingsService | None) -> Path | None:
 def automux_active(svc: SettingsService | None) -> bool:
     """AutoMux UI exists only when a toggle is on AND mkvmerge resolves
     (spec §3.1)."""
-    return (
-        svc is not None
-        and svc.automux_any_enabled
-        and resolve_mkvmerge(svc) is not None
-    )
+    return svc is not None and svc.automux_any_enabled and resolve_mkvmerge(svc) is not None
 
 
 def companion_subs_for_item(
-    item: PreviewItem, source_root: Path,
+    item: PreviewItem,
+    source_root: Path,
 ) -> list[tuple[str, str]]:
     """(source_relative, raw_lang_tag) pairs for the item's subtitle
     companions.
@@ -74,7 +76,7 @@ def companion_subs_for_item(
         comp_stem = PurePath(companion.new_name or "").stem
         raw_tag = ""
         if video_stem and comp_stem.startswith(video_stem):
-            raw_tag = comp_stem[len(video_stem):]
+            raw_tag = comp_stem[len(video_stem) :]
         pairs.append((rel, raw_tag))
     return pairs
 
@@ -124,8 +126,7 @@ def ensure_state_plans(
         indices: list[int] = [only_index]
     else:
         indices = sorted(
-            index for index, item in enumerate(state.preview_items)
-            if item_mux_probe_eligible(item)
+            index for index, item in enumerate(state.preview_items) if item_mux_probe_eligible(item)
         )
     for index in indices:
         if not (0 <= index < len(state.preview_items)):
@@ -143,8 +144,13 @@ def ensure_state_plans(
             continue
         state.mux_probe_errors.pop(index, None)
         plan = plan_for_item(
-            state, index, probe=probe, settings=settings,
-            mkvmerge_path=str(mkvmerge), source_root=source_root)
+            state,
+            index,
+            probe=probe,
+            settings=settings,
+            mkvmerge_path=str(mkvmerge),
+            source_root=source_root,
+        )
         if plan is None:
             state.mux_plans.pop(index, None)
         else:
@@ -184,7 +190,8 @@ def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
     if state.automux_disabled:
         return None
     plans = {
-        index: plan for index, plan in state.mux_plans.items()
+        index: plan
+        for index, plan in state.mux_plans.items()
         if index not in state.mux_opt_outs and plan_has_actions(plan)
     }
     return plans or None

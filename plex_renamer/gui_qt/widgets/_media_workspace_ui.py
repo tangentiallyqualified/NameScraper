@@ -7,8 +7,8 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
-from ._work_panel import MediaWorkPanel
 from ._media_workspace_roster import MediaWorkspaceRosterPanel
+from ._work_panel import MediaWorkPanel
 from .empty_state import EmptyStateWidget
 from .scan_progress import ScanProgressWidget
 
@@ -142,7 +142,9 @@ class MediaWorkspaceUiCoordinator:
         panel.inline_row_action.connect(workspace._on_inline_row_action)
         panel.table_view.header_clicked.connect(workspace._on_table_section_toggled)
         panel.table_view.clicked.connect(workspace._on_table_row_clicked)
-        panel.table_view.selectionModel().currentChanged.connect(workspace._on_table_current_changed)
+        panel.table_view.selectionModel().currentChanged.connect(
+            workspace._on_table_current_changed
+        )
         panel._delegate.expansion_card_provider = workspace._expansion_card_for_index
 
         panel.bulk_assign_requested.connect(workspace._enter_bulk_assign)

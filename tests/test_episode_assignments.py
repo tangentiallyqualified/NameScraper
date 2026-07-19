@@ -10,8 +10,10 @@ from plex_renamer.engine.episode_assignments import (
     REASON_DISPLACED,
     REASON_LOST_CONFLICT,
     ROLE_PRIMARY,
+    ROLE_VERSION,
     EpisodeAssignmentTable,
     EpisodeSlot,
+    merge_tables,
 )
 
 
@@ -42,7 +44,11 @@ class TestAssignValidation:
         table = make_table()
         entry = table.add_file(Path("a.mkv"))
         assignment = table.assign(
-            entry.file_id, 1, [3], origin=ORIGIN_AUTO, confidence=0.9,
+            entry.file_id,
+            1,
+            [3],
+            origin=ORIGIN_AUTO,
+            confidence=0.9,
         )
         assert assignment.episodes == (3,)
         assert assignment.role == ROLE_PRIMARY
@@ -51,7 +57,10 @@ class TestAssignValidation:
         table = make_table()
         entry = table.add_file(Path("a.mkv"))
         assignment = table.assign(
-            entry.file_id, 1, [1, 2, 3], origin=ORIGIN_MANUAL,
+            entry.file_id,
+            1,
+            [1, 2, 3],
+            origin=ORIGIN_MANUAL,
         )
         assert assignment.episodes == (1, 2, 3)
         assert assignment.confidence == 1.0
@@ -187,8 +196,6 @@ class TestContractPins:
         assert table.assignment_for(loser.file_id) is None
         assert table.conflicts() == {}
 
-from plex_renamer.engine.episode_assignments import merge_tables, ROLE_VERSION
-
 
 class TestMergeTables:
     def test_merge_remaps_file_ids_and_detects_cross_state_conflicts(self):
@@ -213,13 +220,15 @@ class TestMergeTables:
     def test_merge_preserves_role(self):
         """role=ROLE_VERSION must round-trip through merge_tables."""
         from dataclasses import replace as dc_replace
+
         primary = make_table()
         sibling = make_table()
         entry = sibling.add_file(Path("version.mkv"))
         sibling.assign(entry.file_id, 0, [1], origin=ORIGIN_AUTO, confidence=0.9)
         # Manually set ROLE_VERSION on the assignment in the sibling table.
         sibling._assignments[entry.file_id] = dc_replace(
-            sibling._assignments[entry.file_id], role=ROLE_VERSION,
+            sibling._assignments[entry.file_id],
+            role=ROLE_VERSION,
         )
         id_map = merge_tables(primary, sibling)
         new_id = id_map[entry.file_id]
@@ -233,6 +242,7 @@ class TestManualCarryOver:
         from plex_renamer.engine.episode_assignments import (
             carry_over_manual_assignments,
         )
+
         old = make_table()
         entry_old = old.add_file(Path("lib/show/e1.mkv"))
         old.assign(entry_old.file_id, 1, [2], origin=ORIGIN_MANUAL)
@@ -250,6 +260,7 @@ class TestManualCarryOver:
         from plex_renamer.engine.episode_assignments import (
             carry_over_manual_assignments,
         )
+
         old = make_table()
         gone = old.add_file(Path("lib/show/deleted.mkv"))
         old.assign(gone.file_id, 1, [1], origin=ORIGIN_MANUAL)

@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from typing import get_args
 
 from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
-from plex_renamer.app.services.episode_projection_cache import EpisodeProjectionCacheService
+from plex_renamer.app.services.episode_projection_cache import (
+    CompanionProjectionSignature,
+    CompletenessProjectionSignature,
+    EpisodeProjectionCacheService,
+    EpisodeProjectionSignature,
+    PreviewProjectionSignature,
+    ScannerMetadataSignature,
+)
 from plex_renamer.engine import PreviewItem, ScanState
 
 
@@ -72,6 +80,22 @@ def test_episode_projection_cache_signature_tracks_match_and_episode_mapping_sta
     assert mapping_signature != match_signature
 
 
+def test_episode_projection_signature_has_no_opaque_object_slots():
+    aliases = (
+        CompanionProjectionSignature,
+        PreviewProjectionSignature,
+        CompletenessProjectionSignature,
+        ScannerMetadataSignature,
+        EpisodeProjectionSignature,
+    )
+
+    def nested_args(alias):
+        args = get_args(alias)
+        return args + tuple(arg for nested in args for arg in nested_args(nested))
+
+    assert all(object not in nested_args(alias) for alias in aliases)
+
+
 class CachedPeekAndStoreTests(unittest.TestCase):
     """Plan 5: Qt-free primitives backing the async guide pipeline."""
 
@@ -92,7 +116,7 @@ class CachedPeekAndStoreTests(unittest.TestCase):
         state = self._state()
         built = service.prepare_state(state)
         self.assertIs(service.cached_guide_for_state(state), built)
-        state.media_info["name"] = "Renamed Show"   # signature-relevant mutation
+        state.media_info["name"] = "Renamed Show"  # signature-relevant mutation
         self.assertIsNone(service.cached_guide_for_state(state))
 
     def test_build_guide_with_signature_matches_prebuild_signature(self):

@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import _scale
 from ...thread_pool import submit as _submit_bg
+from .. import _scale
 from ._settings_tab_actions import SettingsTabActionsCoordinator
 from ._settings_tab_sections import SettingsTabSectionsBuilder
 from ._settings_tab_state import SettingsTabStateCoordinator
@@ -79,7 +79,7 @@ class SettingsTab(QScrollArea):
 
     def __init__(
         self,
-        settings_service: "SettingsService | None" = None,
+        settings_service: SettingsService | None = None,
         cache_service=None,
         *,
         clear_tmdb_callback: Callable[[], None] | None = None,

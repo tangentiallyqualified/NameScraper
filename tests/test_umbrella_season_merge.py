@@ -12,34 +12,40 @@ from pathlib import Path
 
 import pytest
 
-from plex_renamer.parsing import get_season
 from plex_renamer.engine._batch_tv_season_merge import (
     expanded_season_folders,
     merge_umbrella_siblings,
 )
 from plex_renamer.engine.models import ScanState
+from plex_renamer.parsing import get_season
 
 
 class TestGetSeasonRanges:
-    @pytest.mark.parametrize("name", [
-        "Archer.2009.S01-S14.1080p.WEB.DD.AV1-DBMS",
-        "Regular Show (2010) Season 1-8 S01-08 (1080p MiXED x265)",
-        "MASH (1972) Season 01-11 S01-11 (1080p AMZN WEB-DL x265)",
-        "Trailer.Park.Boys.2001.S01-S16.COMPLETE.x264-SURGE",
-        "Buffy the Vampire Slayer (1997) S01-S07 (480p DVD x265)",
-        "Rugrats (1991) Season 1-9 S01-09 (480p AMZN.WEBDL x265)",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Archer.2009.S01-S14.1080p.WEB.DD.AV1-DBMS",
+            "Regular Show (2010) Season 1-8 S01-08 (1080p MiXED x265)",
+            "MASH (1972) Season 01-11 S01-11 (1080p AMZN WEB-DL x265)",
+            "Trailer.Park.Boys.2001.S01-S16.COMPLETE.x264-SURGE",
+            "Buffy the Vampire Slayer (1997) S01-S07 (480p DVD x265)",
+            "Rugrats (1991) Season 1-9 S01-09 (480p AMZN.WEBDL x265)",
+        ],
+    )
     def test_season_range_folders_have_no_single_season(self, name):
         assert get_season(Path(name)) is None
 
-    @pytest.mark.parametrize("name,expected", [
-        ("Archer.2009.S09.1080p.AMZN.WEBRip", 9),
-        ("The.Last.Of.Us.S01.ITA.ENG.2160p", 1),
-        ("Ed, Edd n Eddy (1999) Season 6 S06 + Specials (1080p AI4K)", 6),
-        ("Season 02", 2),
-        ("S05", 5),
-        ("Specials", 0),
-    ])
+    @pytest.mark.parametrize(
+        "name,expected",
+        [
+            ("Archer.2009.S09.1080p.AMZN.WEBRip", 9),
+            ("The.Last.Of.Us.S01.ITA.ENG.2160p", 1),
+            ("Ed, Edd n Eddy (1999) Season 6 S06 + Specials (1080p AI4K)", 6),
+            ("Season 02", 2),
+            ("S05", 5),
+            ("Specials", 0),
+        ],
+    )
     def test_single_season_folders_still_parse(self, name, expected):
         assert get_season(Path(name)) == expected
 
@@ -65,9 +71,7 @@ def _season_folder_state(tmp_path: Path, seasons: list[int]) -> ScanState:
         media_info={"id": 77, "name": "Show", "year": "2001"},
         confidence=1.2,
     )
-    state.season_folders = {
-        season: tmp_path / f"Show.S{season:02d}.1080p" for season in seasons
-    }
+    state.season_folders = {season: tmp_path / f"Show.S{season:02d}.1080p" for season in seasons}
     for folder in state.season_folders.values():
         folder.mkdir(exist_ok=True)
     return state

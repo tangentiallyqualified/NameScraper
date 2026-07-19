@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from ...constants import MediaType
 from ...engine import PreviewItem, ScanState
+from ...engine.models import MovieScanStateScanner
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,12 +33,7 @@ def approve_scan_match(
     resolve_movie_preview_review: Any,
     set_actionable_preview_checks: Any,
 ) -> bool:
-    if (
-        state.show_id is None
-        or state.queued
-        or state.scanning
-        or state.duplicate_of is not None
-    ):
+    if state.show_id is None or state.queued or state.scanning or state.duplicate_of is not None:
         return False
     state.match_origin = "manual"
     resolve_movie_preview_review(state)
@@ -134,7 +130,7 @@ def rematch_tv_scan_state(
 
 def rematch_movie_scan_state(
     state: ScanState,
-    new_match: dict,
+    new_match: dict[str, Any],
     *,
     movie_preview_items: list[PreviewItem],
     movie_scanner: Any,
@@ -143,7 +139,9 @@ def rematch_movie_scan_state(
     score_results: Any,
 ) -> MovieRematchResult:
     preview = state.preview_items[0] if state.preview_items else None
-    scanner = state.scanner or movie_scanner
+    scanner: MovieScanStateScanner | None = (
+        cast(MovieScanStateScanner, state.scanner) if state.scanner is not None else movie_scanner
+    )
     if (
         preview is None
         or scanner is None
