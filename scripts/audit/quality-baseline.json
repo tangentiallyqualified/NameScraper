@@ -91,13 +91,13 @@
    "loc": 898
   },
   "tests/test_qt_main_window.py": {
-   "loc": 1053
+   "loc": 1078
   },
   "tests/test_qt_media_workspace.py": {
    "loc": 5664
   },
   "tests/test_qt_queue_history.py": {
-   "loc": 864
+   "loc": 868
   },
   "tests/test_queue_controller.py": {
    "loc": 1106
@@ -21803,8 +21803,8 @@
     "statements": 3854
    },
    "plex_renamer/gui_qt": {
-    "covered": 936,
-    "percent": 84.7,
+    "covered": 937,
+    "percent": 84.8,
     "statements": 1105
    },
    "plex_renamer/gui_qt/models": {

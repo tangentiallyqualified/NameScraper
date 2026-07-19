@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "f068ab735ebe9c32931ba748b1d6d855daf14fbf16ceb3ab97c068efcdb86986",
+  "input_digest": "c6614506563bcb8c45488b5e75960597c0afd571c776e769515ef48e1c97efb3",
   "module_count": 177,
   "partial": false,
   "reason": null,
@@ -102,7 +102,7 @@
   "statement_coverage": 88.6,
   "total_loc": 39082
  },
- "input_digest": "f068ab735ebe9c32931ba748b1d6d855daf14fbf16ceb3ab97c068efcdb86986",
+ "input_digest": "c6614506563bcb8c45488b5e75960597c0afd571c776e769515ef48e1c97efb3",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -2803,7 +2803,7 @@
    "sha256": "7fb53ed4d9c96e2e"
   },
   "plex_renamer/gui_qt/_main_window_tmdb.py": {
-   "coverage_percent": 88.1,
+   "coverage_percent": 90.5,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -4939,7 +4939,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "5b7780090472145e87e835d721b8a8ce435e5ffdf8aba87d9e66f1ebb10ba9b0",
+   "input_digest": "fc024c7b292ac5117bdd612ae4835b842e7075012acc39708d7cf86d6001d93b",
    "module_count": 177,
    "partial": false,
    "reason": null,
@@ -5039,7 +5039,7 @@
    "statement_coverage": 88.6,
    "total_loc": 39082
   },
-  "input_digest": "5b7780090472145e87e835d721b8a8ce435e5ffdf8aba87d9e66f1ebb10ba9b0",
+  "input_digest": "fc024c7b292ac5117bdd612ae4835b842e7075012acc39708d7cf86d6001d93b",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -8961,7 +8961,7 @@
     "sha256": "1064e3992b96ee81"
    },
    "plex_renamer/gui_qt/widgets/_roster_model.py": {
-    "coverage_percent": 89.7,
+    "coverage_percent": 90.1,
     "dead_allowlisted": 0,
     "dead_candidates": 2,
     "dead_evidence_usable": true,
@@ -9557,7 +9557,7 @@
     "sha256": "763cb1210501df35"
    },
    "plex_renamer/gui_qt/widgets/scan_progress.py": {
-    "coverage_percent": 93.9,
+    "coverage_percent": 94.8,
     "dead_allowlisted": 0,
     "dead_candidates": 1,
     "dead_evidence_usable": true,
