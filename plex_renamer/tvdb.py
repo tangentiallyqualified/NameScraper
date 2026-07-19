@@ -176,6 +176,9 @@ class TVDBClient:
         transport: TVDBTransport | None = None,
     ) -> None:
         self.api_key = api_key
+        # TVDB v4 responses are currently fetched in the default translation;
+        # `language` is kept for protocol parity and image-cache keys but is
+        # not yet sent to TVDB endpoints — wiring translations is deferred.
         self.language = language
         self._cache_service = cache_service
         self._refresh_policy = refresh_policy
@@ -194,6 +197,10 @@ class TVDBClient:
         params: dict[str, Any] = {"query": query, "type": "series"}
         if year:
             params["year"] = year
+        # Deliberately single-page: TVDB's /search results are already
+        # ranked and callers only need the top matches, unlike
+        # `_fetch_all_episodes` below, which must walk every page to build
+        # a complete season map.
         data = self._transport.get_json_safe("/search", params) or {}
         results: list[dict[str, Any]] = []
         entries: list[dict[str, Any]] = data.get("data") or []

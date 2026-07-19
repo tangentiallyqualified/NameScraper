@@ -51,16 +51,18 @@ class SettingsTabActionsCoordinator:
     def save_key(self) -> None:
         tab = self._tab
         key = tab._api_key_input.text().strip()
-        if not key:
+        tvdb_key = tab._tvdb_key_input.text().strip()
+        if not key and not tvdb_key:
             self.set_key_status("Please enter an API key.", "error")
             return
 
         try:
             from ...keys import save_api_key
 
-            save_api_key("TMDB", key)
-
-            tvdb_key = tab._tvdb_key_input.text().strip()
+            # The two saves are independent: a TVDB-only user (empty TMDB
+            # field) must not be blocked by the TMDB branch, and vice versa.
+            if key:
+                save_api_key("TMDB", key)
             if tvdb_key:
                 save_api_key("TVDB", tvdb_key)
 

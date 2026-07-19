@@ -8,13 +8,23 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Any, cast
 
 import requests
 
-from ._tmdb_transport import TMDBError, TMDBNetworkError
+from ._tmdb_transport import (
+    TMDBError,
+    TMDBNetworkError,
+    TMDBRateLimitError,
+    _TokenBucket,  # pyright: ignore[reportPrivateUsage]
+)
 
 API_BASE = "https://api4.thetvdb.com/v4"
+
+# Bound on 429 retries per request (in addition to the initial attempt),
+# mirroring the "raise once exhausted" contract of the TMDB transport.
+_MAX_RATE_LIMIT_RETRIES = 2
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +39,7 @@ class TVDBTransport:
         api_base: str = API_BASE,
         timeout: int = 15,
         session: requests.Session | None = None,
+        rate_limit: float = 8.0,
     ) -> None:
         self._api_key = api_key
         self._api_base = api_base
@@ -36,6 +47,7 @@ class TVDBTransport:
         self._session = session or requests.Session()
         self._token: str | None = None
         self._lock = threading.Lock()
+        self._rate_limiter = _TokenBucket(rate_limit)
 
     def _login(self) -> str:
         try:
@@ -68,23 +80,34 @@ class TVDBTransport:
         """GET *path* → parsed JSON. None on 404. Raises TMDBError family."""
         for attempt in (1, 2):
             token = self._ensure_token()
-            try:
-                resp = self._session.get(
-                    f"{self._api_base}{path}",
-                    params=params,
-                    headers={"Authorization": f"Bearer {token}"},
-                    timeout=self._timeout,
-                )
-            except requests.RequestException as e:
-                raise TMDBNetworkError(f"TVDB request failed: {e}") from e
-            if resp.status_code == 401 and attempt == 1:
-                self._drop_token()
-                continue
-            if resp.status_code == 404:
-                return None
-            if resp.status_code != 200:
-                raise TMDBError(f"TVDB HTTP {resp.status_code} for {path}")
-            return resp.json()
+            rate_limit_retries = 0
+            while True:
+                self._rate_limiter.acquire()
+                try:
+                    resp = self._session.get(
+                        f"{self._api_base}{path}",
+                        params=params,
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=self._timeout,
+                    )
+                except requests.RequestException as e:
+                    raise TMDBNetworkError(f"TVDB request failed: {e}") from e
+                if resp.status_code == 401 and attempt == 1:
+                    self._drop_token()
+                    break
+                if resp.status_code == 404:
+                    return None
+                if resp.status_code == 429:
+                    if rate_limit_retries >= _MAX_RATE_LIMIT_RETRIES:
+                        raise TMDBRateLimitError(f"TVDB rate limited for {path}")
+                    retry_after = float(resp.headers.get("Retry-After", 1.0))
+                    log.warning("TVDB rate limit hit, waiting %.1fs", retry_after)
+                    time.sleep(retry_after)
+                    rate_limit_retries += 1
+                    continue
+                if resp.status_code != 200:
+                    raise TMDBError(f"TVDB HTTP {resp.status_code} for {path}")
+                return resp.json()
         return None
 
     def get_json_safe(
@@ -98,6 +121,7 @@ class TVDBTransport:
 
     def fetch_bytes(self, url: str, *, timeout: int = 10) -> bytes:
         """Raw bytes from an absolute artwork URL (no auth required)."""
+        self._rate_limiter.acquire()
         try:
             resp = self._session.get(url, timeout=timeout)
         except requests.RequestException as e:

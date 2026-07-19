@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from conftest_qt import QtSmokeBase
-from PySide6.QtWidgets import QCheckBox, QComboBox, QStackedWidget, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QLabel, QStackedWidget, QWidget
 
 if TYPE_CHECKING:
     from plex_renamer.app.services.settings_service import SettingsService
@@ -144,3 +144,41 @@ class SettingsPageCompositionTests(QtSmokeBase):
         combo.setCurrentIndex(idx)
         assert tab._settings is not None  # pyright: ignore[reportPrivateUsage]
         self.assertEqual(tab._settings.tv_metadata_source, "tvdb")  # pyright: ignore[reportPrivateUsage]
+
+    def test_save_key_persists_tvdb_only_key_when_tmdb_field_empty(self):
+        # Regression: save_key() used to early-return with "Please enter an
+        # API key" whenever the TMDB field was empty, even if a TVDB key was
+        # entered, discarding it. The two saves must be independent.
+        from unittest.mock import patch
+
+        from PySide6.QtWidgets import QLineEdit
+
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        settings, _path = self._settings()
+        tab = SettingsTab(settings_service=settings)
+        api_key_input = cast(
+            QLineEdit,
+            tab._api_key_input,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        tvdb_key_input = cast(
+            QLineEdit,
+            tab._tvdb_key_input,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        api_key_input.setText("")
+        tvdb_key_input.setText("tvdb-only-key")
+
+        saved_calls: list[tuple[str, str]] = []
+        with patch(
+            "plex_renamer.keys.save_api_key",
+            side_effect=lambda provider, value: saved_calls.append((provider, value)),
+        ):
+            tab._on_save_key()  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+
+        self.assertEqual(saved_calls, [("TVDB", "tvdb-only-key")])
+        key_status = cast(
+            QLabel,
+            tab._key_status,  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]
+        )
+        self.assertEqual(key_status.property("tone"), "success")
+        self.assertNotEqual(key_status.text(), "Please enter an API key.")

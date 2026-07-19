@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
-from plex_renamer._tmdb_transport import TMDBError
+from plex_renamer._tmdb_transport import TMDBError, TMDBRateLimitError
 from plex_renamer._tvdb_transport import TVDBTransport
 from plex_renamer.tvdb import TVDBClient
 
 
 class _Resp:
     def __init__(
-        self, status_code: int, payload: dict[str, Any] | None = None, content: bytes = b""
+        self,
+        status_code: int,
+        payload: dict[str, Any] | None = None,
+        content: bytes = b"",
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.status_code = status_code
         self._payload = payload or {}
         self.content = content
+        self.headers = headers or {}
 
     def json(self) -> dict[str, Any]:
         return self._payload
@@ -96,6 +102,38 @@ def test_login_without_token_raises() -> None:
     session.post_queue = [_Resp(200, {"data": {}})]
     with pytest.raises(TMDBError):
         _transport(session).get_json("/search")
+
+
+def test_429_then_200_succeeds_after_honoring_retry_after() -> None:
+    session = _FakeSession()
+    session.post_queue = [_Resp(200, {"data": {"token": "t"}})]
+    session.get_queue = [
+        _Resp(429, headers={"Retry-After": "3.5"}),
+        _Resp(200, {"data": {"ok": True}}),
+    ]
+    transport = _transport(session)
+
+    with patch("plex_renamer._tvdb_transport.time.sleep") as sleep_mock:
+        assert transport.get_json("/series/1") == {"data": {"ok": True}}
+
+    sleep_mock.assert_called_once_with(3.5)
+    assert len(session.gets) == 2
+
+
+def test_429_exhaustion_raises_rate_limit_error() -> None:
+    session = _FakeSession()
+    session.post_queue = [_Resp(200, {"data": {"token": "t"}})]
+    session.get_queue = [_Resp(429), _Resp(429), _Resp(429)]
+    transport = _transport(session)
+
+    with (
+        patch("plex_renamer._tvdb_transport.time.sleep") as sleep_mock,
+        pytest.raises(TMDBRateLimitError),
+    ):
+        transport.get_json("/series/1")
+
+    assert sleep_mock.call_count == 2
+    assert len(session.gets) == 3
 
 
 class _FakeTVDBTransport:
