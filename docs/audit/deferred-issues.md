@@ -4,20 +4,9 @@ Consolidated backlog of known-but-deferred work. Each entry names its origin so 
 context can be recovered. Remove entries when the work lands; add new entries when a
 campaign defers something instead of fixing it.
 
-Last updated: 2026-07-18 (ruff burndown closeout, `dev/ruff-burndown` at `92823e8`).
+Last updated: 2026-07-18 (extract-episode seam closeout, `dev/extract-episode-seam`).
 
 ## Code debt
-
-### Dead code: `_rename_execution.execute_rename` (and `check_duplicates`)
-
-- `plex_renamer/engine/_rename_execution.py` — `execute_rename` has zero callers
-  anywhere in `plex_renamer/` or `tests/` (verified twice: ruff-burndown Tasks 4 and 7).
-  It is still imported and re-exported via `plex_renamer/engine/_core.py` `__all__`.
-  `check_duplicates` in the same file is also suspected dead.
-- Why it matters: its uncovered lines caused both `--accept-enlarged` coverage
-  acceptances during the ruff burndown; removing it restores changed-lines coverage
-  honesty for that region.
-- Origin: ruff-burndown Task 4; already chip-flagged as a spin-off task (`task_304aef8e`).
 
 ### Accepted-debt SIM residue (decision-covered, revisit when ratchets allow)
 
