@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..parsing import clean_folder_name, extract_year, normalize_for_match
-from ..tmdb import TMDBClient
+from ..providers import MetadataProvider
 from ._state import get_auto_accept_threshold
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
 
@@ -204,7 +204,7 @@ def boost_scores_with_alt_titles(
     scored: list[tuple[dict, float]],
     raw_name: str,
     year_hint: str | None,
-    tmdb: TMDBClient,
+    tmdb: MetadataProvider,
     title_key: str = "title",
     media_type: str = "movie",
     preferred_country: str | None = None,
@@ -352,7 +352,7 @@ def _best_episode_title_similarity(
 
 
 def _tv_episode_evidence_adjustment(
-    tmdb: TMDBClient,
+    tmdb: MetadataProvider,
     show_id: int,
     evidence: list[DirectEpisodeEvidence],
 ) -> float:
@@ -403,7 +403,7 @@ def _tv_episode_evidence_adjustment(
 
 
 def boost_tv_scores_with_episode_evidence(
-    tmdb: TMDBClient,
+    tmdb: MetadataProvider,
     scored: list[tuple[dict, float]],
     evidence: list[DirectEpisodeEvidence],
 ) -> list[tuple[dict, float]]:
@@ -605,7 +605,7 @@ def score_tv_results(
     results: list[dict],
     raw_name: str,
     year_hint: str | None,
-    tmdb: TMDBClient,
+    tmdb: MetadataProvider,
     *,
     folder: Path | None = None,
     folder_score_name: str | None = None,

@@ -17,6 +17,7 @@ from ..parsing import (
     is_sample_file,
     looks_like_tv_episode,
 )
+from ..providers import MetadataProvider
 from ..tmdb import TMDBClient
 from ._batch_tv_duplicates import (
     apply_duplicate_labels as _apply_tv_duplicate_labels,
@@ -98,7 +99,7 @@ class BatchTVOrchestrator:
 
     def __init__(
         self,
-        tmdb: TMDBClient,
+        tmdb: MetadataProvider,
         library_root: Path,
         discovery_service: TVLibraryDiscoverer,
     ):
