@@ -427,7 +427,12 @@ class TMDBClient:
         source = self._image_cache_store.get_source_image(image_path)
         if source is None:
             try:
-                payload = self._transport.fetch_bytes(IMAGE_BASE_URL + image_path)
+                image_url = (
+                    image_path
+                    if str(image_path).startswith("http")
+                    else IMAGE_BASE_URL + image_path
+                )
+                payload = self._transport.fetch_bytes(image_url)
                 source = Image.open(io.BytesIO(payload))
                 source.load()
                 self._image_cache_store.store_source_image(image_path, source)
@@ -551,7 +556,10 @@ class TMDBClient:
                     except (ValueError, TypeError):
                         self._cache_service.invalidate(_EXPORT_IMAGE_CACHE_NAMESPACE, cache_key)
 
-        url = ORIGINAL_IMAGE_URL_TEMPLATE.format(size=size, path=normalized)
+        if normalized.startswith("http"):
+            url = normalized
+        else:
+            url = ORIGINAL_IMAGE_URL_TEMPLATE.format(size=size, path=normalized)
         try:
             payload = self._transport.fetch_bytes(url)
         except (TMDBNetworkError, TMDBError, OSError) as e:

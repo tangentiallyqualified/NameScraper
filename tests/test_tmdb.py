@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
 
+import pytest
 from PIL import Image
 
 from plex_renamer.app.services.cache_service import PersistentCacheService
@@ -467,6 +468,32 @@ class TMDBClientTests(unittest.TestCase):
         self.assertIn("321:1", exported["season_cache"])
         self.assertEqual(exported["movie_cache"][123]["poster_path"], "/movie.jpg")
         client._session.close()
+
+
+def test_fetch_image_bytes_passes_absolute_url_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = TMDBClient("k")
+    seen: list[str] = []
+
+    def fake_fetch(url: str, *, timeout: int = 10) -> bytes:
+        seen.append(url)
+        return b"payload"
+
+    monkeypatch.setattr(client._transport, "fetch_bytes", fake_fetch)
+    assert client.fetch_image_bytes("https://artworks.thetvdb.com/banners/x.jpg") == b"payload"
+    assert seen == ["https://artworks.thetvdb.com/banners/x.jpg"]
+
+
+def test_fetch_image_bytes_still_formats_tmdb_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = TMDBClient("k")
+    seen: list[str] = []
+
+    def fake_fetch(url: str, *, timeout: int = 10) -> bytes:
+        seen.append(url)
+        return b"payload"
+
+    monkeypatch.setattr(client._transport, "fetch_bytes", fake_fetch)
+    client.fetch_image_bytes("/abc.jpg")
+    assert seen == ["https://image.tmdb.org/t/p/original/abc.jpg"]
 
 
 if __name__ == "__main__":
