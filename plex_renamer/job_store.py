@@ -284,7 +284,7 @@ class JobStore:
                     other = conn.execute(
                         "SELECT job_id FROM jobs "
                         "WHERE job_kind IN (?, ?) AND media_type = ? "
-                        "AND tmdb_id = ? AND library_root = ? "
+                        "AND tmdb_id = ? AND library_root = ? AND data_source = ? "
                         "AND status IN ('pending', 'running')",
                         (
                             JobKind.RENAME,
@@ -292,6 +292,7 @@ class JobStore:
                             job.media_type,
                             job.tmdb_id,
                             job.library_root,
+                            job.data_source,
                         ),
                     ).fetchone()
                     if other:
@@ -343,9 +344,15 @@ class JobStore:
                     existing = conn.execute(
                         "SELECT job_id FROM jobs "
                         "WHERE job_kind = ? AND media_type = ? "
-                        "AND tmdb_id = ? AND library_root = ? "
+                        "AND tmdb_id = ? AND library_root = ? AND data_source = ? "
                         "AND status IN ('pending', 'running')",
-                        (job.job_kind, job.media_type, job.tmdb_id, job.library_root),
+                        (
+                            job.job_kind,
+                            job.media_type,
+                            job.tmdb_id,
+                            job.library_root,
+                            job.data_source,
+                        ),
                     ).fetchone()
                     existing_id = existing["job_id"] if existing else "?"
                     raise DuplicateJobError(existing_id, job.media_name) from e

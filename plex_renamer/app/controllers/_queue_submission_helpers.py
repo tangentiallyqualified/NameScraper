@@ -112,6 +112,7 @@ def add_single_queue_job(
     )
     if not job.selected_ops:
         raise ValueError("No actionable rename operations are selected.")
+    job.data_source = getattr(tmdb_client, "provider_name", "tmdb")
     _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
     job_store.add_job(job)
     return job
@@ -165,6 +166,7 @@ def add_tv_batch_jobs(
             checked_indices=checked,
             mux_plans=mux_plans,
         )
+        job.data_source = getattr(tmdb_client, "provider_name", "tmdb")
         _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
 
         try:
