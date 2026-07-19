@@ -21813,8 +21813,8 @@
     "statements": 244
    },
    "plex_renamer/gui_qt/widgets": {
-    "covered": 8186,
-    "percent": 88.6,
+    "covered": 8188,
+    "percent": 88.7,
     "statements": 9236
    }
   },
@@ -23513,6 +23513,12 @@
    "path": "tests/conftest_qt.py",
    "rule": "reportAttributeAccessIssue",
    "symbol": "tests.conftest_qt.QtSmokeBase._dispose_top_level_widgets::reportAttributeAccessIssue::Cannot access attribute \"topLevelWidgets\" for class \"QCoreApplication\" Attribute \"topLevelWidgets\" is unknown#1"
+  },
+  {
+   "analyzer": "pyright",
+   "path": "tests/conftest_qt.py",
+   "rule": "reportAttributeAccessIssue",
+   "symbol": "tests.conftest_qt.QtSmokeBase.tearDownClass::reportAttributeAccessIssue::Cannot access attribute \"topLevelWidgets\" for class \"QCoreApplication\" Attribute \"topLevelWidgets\" is unknown#1"
   },
   {
    "analyzer": "pyright",

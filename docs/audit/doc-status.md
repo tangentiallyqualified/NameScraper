@@ -124,4 +124,4 @@
 | `docs/audit/deferred-issues.md` | 2026-07-18 | - |
 | `docs/ai-audit-cadence.md` | 2026-07-19 | - |
 
-_Generated from audit input a92143369d2d by scripts\audit.cmd._
+_Generated from audit input cc74a16e57b1 by scripts\audit.cmd._

@@ -8070,8 +8070,35 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
+                  "startColumn": 37,
+                  "startLine": 48
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Cannot access attribute \"topLevelWidgets\" for class \"QCoreApplication\" Attribute \"topLevelWidgets\" is unknown"
+          },
+          "properties": {
+            "analyzer": "pyright",
+            "category": "typing",
+            "qualifiedSymbol": "tests.conftest_qt.QtSmokeBase.tearDownClass::reportAttributeAccessIssue::Cannot access attribute \"topLevelWidgets\" for class \"QCoreApplication\" Attribute \"topLevelWidgets\" is unknown#1"
+          },
+          "ruleId": "pyright/reportAttributeAccessIssue",
+          "ruleIndex": 2
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/conftest_qt.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
                   "startColumn": 38,
-                  "startLine": 106
+                  "startLine": 118
                 }
               }
             }
