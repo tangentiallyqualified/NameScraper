@@ -13,6 +13,15 @@ if TYPE_CHECKING:
 
 
 class SettingsPageCompositionTests(QtSmokeBase):
+    def tearDown(self) -> None:
+        # Each test builds a full SettingsTab inline with no disposal;
+        # dispose per test to keep GC cycle counts small (see
+        # QtSmokeBase._dispose_top_level_widgets for the crash this avoids).
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        self._dispose_top_level_widgets(SettingsTab)
+        super().tearDown()
+
     def _settings(self) -> tuple[SettingsService, Path]:
         from plex_renamer.app.services.settings_service import SettingsService
 

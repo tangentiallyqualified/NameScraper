@@ -11,6 +11,15 @@ from conftest_qt import QtSmokeBase
 
 
 class LongPathWarningTests(QtSmokeBase):
+    def tearDown(self):
+        # Each test builds a full SettingsTab inline with no disposal;
+        # dispose per test to keep GC cycle counts small (see
+        # QtSmokeBase._dispose_top_level_widgets for the crash this avoids).
+        from plex_renamer.gui_qt.widgets.settings_tab import SettingsTab
+
+        self._dispose_top_level_widgets(SettingsTab)
+        super().tearDown()
+
     def _tab(self, tmp_path: Path):
         from plex_renamer.app.services.cache_service import PersistentCacheService
         from plex_renamer.app.services.settings_service import SettingsService
