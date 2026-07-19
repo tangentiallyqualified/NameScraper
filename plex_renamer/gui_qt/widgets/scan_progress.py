@@ -38,7 +38,7 @@ _MOVIE_CHECKLIST = [
 
 _LIFECYCLE_LABELS = {
     ScanLifecycle.DISCOVERING: "Discover folders",
-    ScanLifecycle.MATCHING: "Match on TMDB",
+    ScanLifecycle.MATCHING: "Match metadata",
     ScanLifecycle.SCANNING: "Scan files",
     ScanLifecycle.BUILDING_PREVIEWS: "Build previews",
     ScanLifecycle.RECONCILING: "Reconcile scan results",
@@ -54,7 +54,7 @@ _TERMINAL = {
 
 _FILLER_DELAY_MS = 4000
 _TV_FILLERS = (
-    "Politely interrogating TMDB…",
+    "Politely interrogating the metadata source…",
     "Counting specials twice, just in case…",
     "Untangling Season 0…",
     "Cross-checking absolute numbering…",
@@ -68,7 +68,7 @@ _TV_FILLERS = (
     "Convincing subtitles to tag along…",
 )
 _MOVIE_FILLERS = (
-    "Politely interrogating TMDB…",
+    "Politely interrogating the metadata source…",
     "Comparing runtimes and vibes…",
     "Squinting at release years…",
     "Sorting sequels from remakes…",

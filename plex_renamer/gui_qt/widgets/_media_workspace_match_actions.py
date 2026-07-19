@@ -42,7 +42,7 @@ def fix_match(
 
     tmdb = workspace._tmdb_provider()
     if tmdb is None:
-        workspace.status_message.emit("TMDB is unavailable.", 4000)
+        workspace.status_message.emit("Metadata source is unavailable.", 4000)
         return
 
     score_results_callback: Callable[[Any], list[tuple[dict, float]]] | None = None
@@ -180,7 +180,7 @@ def apply_selected_match(
         if active_tmdb is None and workspace._tmdb_provider is not None:
             active_tmdb = workspace._tmdb_provider()
         if active_tmdb is None:
-            workspace.status_message.emit("TMDB is unavailable.", 4000)
+            workspace.status_message.emit("Metadata source is unavailable.", 4000)
             return
 
         _invalidate_episode_projection(workspace, state)
