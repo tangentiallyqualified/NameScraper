@@ -70,13 +70,6 @@ jobs:
         shell: pwsh
         run: scripts/test-fast.cmd -Coverage
 
-      - name: Upload pytest logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-fast-logs
-          path: .pytest_cache/fast/
-
       - name: Enforce quality ratchets
         shell: pwsh
         run: scripts/audit.cmd --quality-check
@@ -96,3 +89,14 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: audit.sarif
+
+      - name: Upload pytest logs and coverage evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-fast-logs
+          include-hidden-files: true
+          path: |
+            .pytest_cache/fast/
+            .coverage
+            .coverage.meta.json
