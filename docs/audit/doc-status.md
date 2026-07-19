@@ -119,9 +119,9 @@
 | `docs/superpowers/plans/2026-07-17-ruff-debt-burndown.md` | 2026-07-18 | - |
 | `docs/superpowers/plans/2026-07-17-coverage-floors.md` | 2026-07-18 | `plex_renamer.engi`, `plex_renamer.gui_`, `plex_renamer.keys`, `tests/conftest_qt.QtSm` |
 | `docs/superpowers/plans/2026-07-17-extract-episode-seam.md` | 2026-07-18 | `plex_renamer.pars` |
-| `docs/audit/deferred-issues.md` | 2026-07-18 | - |
 | `docs/superpowers/specs/2026-07-18-automux-forced-commentary-design.md` | 2026-07-18 | - |
 | `docs/superpowers/plans/2026-07-18-automux-forced-commentary.md` | 2026-07-18 | `plex_renamer.app`, `plex_renamer.gui_` |
+| `docs/audit/deferred-issues.md` | 2026-07-18 | - |
 | `docs/ai-audit-cadence.md` | 2026-07-19 | - |
 
-_Generated from audit input 5b7780090472 by scripts\audit.cmd._
+_Generated from audit input f068ab735ebe by scripts\audit.cmd._
