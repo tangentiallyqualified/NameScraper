@@ -335,6 +335,7 @@ class TVDiscoveryOVATests(unittest.TestCase):
 class _FakeTMDBWithEpisodeCounts:
     """TMDB stub that returns two JoJo series with different episode counts."""
 
+    provider_name = "tmdb"
     language = "en-US"
 
     JOJO_2012 = {

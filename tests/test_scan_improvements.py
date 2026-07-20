@@ -20,6 +20,7 @@ from plex_renamer.parsing import (
 
 
 class _FakeTMDB:
+    provider_name = "tmdb"
     language = "en-US"
 
     def search_tv_batch(self, queries, progress_callback=None):

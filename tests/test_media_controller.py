@@ -31,6 +31,7 @@ from plex_renamer.job_store import JobStore, RenameJob, RenameOp
 
 
 class _FakeTMDB:
+    provider_name = "tmdb"
     language = "en-US"
 
     def search_tv_batch(self, queries, progress_callback=None):
