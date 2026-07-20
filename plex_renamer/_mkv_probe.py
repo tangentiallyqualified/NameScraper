@@ -169,7 +169,28 @@ def probe_file(
     with _inflight_lock:
         cached = _cache.get(key)
         if cached is not None:
-            return cached
+            needs_enrichment = ffprobe_path is not None and any(
+                t.bitrate_bps == 0 for t in cached.audio_tracks
+            )
+        else:
+            needs_enrichment = False
+    if cached is not None and not needs_enrichment:
+        return cached
+    if cached is not None and needs_enrichment:
+        # ffprobe_path became available after this entry was cached
+        # (first-time-setup flow): enrich outside the lock -- the
+        # subprocess call must never run while holding it -- then
+        # rewrite the entry under the lock so later hits see it too.
+        assert ffprobe_path is not None
+        from ._ffprobe import probe_audio_bitrates
+
+        bitrates = probe_audio_bitrates(ffprobe_path, video_path)
+        merge_ffprobe_bitrates(cached, bitrates)
+        with _inflight_lock:
+            if key in _cache:
+                _cache[key] = cached
+        return cached
+    with _inflight_lock:
         slot = _inflight.get(key)
         if slot is None:
             slot = _InflightProbe()

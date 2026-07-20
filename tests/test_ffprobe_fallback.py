@@ -331,6 +331,35 @@ def test_probe_file_cache_stores_the_enriched_result(
     assert second is first  # served straight from cache
 
 
+def test_probe_file_cache_hit_retro_enriches_when_ffprobe_becomes_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """First-time-setup flow: a file probed before ffprobe_path was
+    configured caches with unknown bitrates. Configuring ffprobe_path
+    mid-session must retro-enrich that cache entry on the next cache hit
+    (finding 3) instead of leaving zeros stuck there forever."""
+    clear_probe_cache()
+    video = tmp_path / "e.mp4"
+    video.write_bytes(b"0" * 32)
+    monkeypatch.setattr(
+        _mkv_probe.subprocess, "run", _fake_mkvmerge_run(IDENTIFY_PAYLOAD_ONE_AUDIO_UNKNOWN)
+    )
+
+    first = probe_file(Path("mkvmerge"), video)  # no ffprobe_path -> caches a zero
+    assert first.audio_tracks[0].bitrate_bps == 0
+
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        _ffprobe, "probe_audio_bitrates", _fake_probe_audio_bitrates([640000], calls)
+    )
+    second = probe_file(Path("mkvmerge"), video, ffprobe_path=Path("ffprobe"))  # cache hit + enrich
+    assert second.audio_tracks[0].bitrate_bps == 640000
+    assert calls == [video]
+
+    third = probe_file(Path("mkvmerge"), video)  # no ffprobe_path -> sees enriched cache
+    assert third.audio_tracks[0].bitrate_bps == 640000
+
+
 # ── resolve_ffprobe (automux_service) ─────────────────────────────────────
 
 
