@@ -98,3 +98,16 @@ class TestUmbrellaAbsorbsSeasonFolderSiblings:
         merged = merge_umbrella_siblings([umbrella, sibling])
         assert sibling in merged
         assert set(umbrella.season_folders) == {1, 2, 3}
+
+    def test_same_numeric_id_different_provider_not_absorbed(self, tmp_path: Path) -> None:
+        # Numeric IDs collide between TMDB and TVDB (Task 4 follow-up) — a
+        # disjoint-season sibling from a different provider must never be
+        # folded into the umbrella just because show_id matches by chance.
+        umbrella = _umbrella_state(tmp_path, [1, 2, 3])
+        sibling = _season_folder_state(tmp_path, [8, 9])
+        sibling.provider_name = "tvdb"
+        merged = merge_umbrella_siblings([umbrella, sibling])
+        assert sibling in merged
+        assert umbrella in merged
+        assert umbrella.season_folders == {}
+        assert set(sibling.season_folders) == {8, 9}
