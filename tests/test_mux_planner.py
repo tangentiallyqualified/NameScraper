@@ -649,6 +649,29 @@ def test_default_audio_flag_moves_to_survivor() -> None:
     assert audio[1].make_default is True
 
 
+def test_default_promoted_when_dropped_and_no_language_setting() -> None:
+    # default_audio_language unset ("", the shipped default) means
+    # _apply_default_language returns early and never touches the audio
+    # decisions. Track 2 (ac3, the weaker duplicate) is the probe's only
+    # default track and dedup drops it -- without the finding-2 rescue
+    # the remux would ship with zero default audio tracks.
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", codec="eac3", channels=6, bitrate_bps=640_000),
+        _track(2, "audio", "eng", codec="ac3", channels=6, bitrate_bps=448_000, default=True),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[],
+        settings=MuxSettings(dedupe_audio=True),
+        new_name="X.mkv",
+    )
+    assert plan is not None
+    audio = {d.track_id: d for d in plan.track_decisions if d.track_type == "audio"}
+    assert audio[2].keep is False
+    assert audio[1].make_default is True
+
+
 def test_unknown_bitrate_warning_surfaces_on_plan() -> None:
     # Track 2 has bitrate 0 (unknown) -> dedup can't judge the eng
     # group, exempts it (both kept) and emits a skip warning. Nothing

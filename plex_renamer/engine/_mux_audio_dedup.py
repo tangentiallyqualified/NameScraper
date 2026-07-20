@@ -154,4 +154,26 @@ def dedupe_audio_decisions(
                     winner.decision.reason = (
                         f"duplicate: {winner.label} dropped for higher layout {top.label}"
                     )
+
+        # Post-group default-flag rescue: every drop layer above (space
+        # policy, per-layout, cross-layout) can strip the flag from a
+        # track it dropped. Checked once here -- not per drop-site -- so
+        # a later layer dropping the same track can't leave the flag
+        # stranded on a member a previous layer already promoted.
+        # ``group`` (not ``scored``, which lossless space-policy drops
+        # are spliced out of) is the source of truth for "did anything
+        # in this language group carry the flag when it got dropped".
+        dropped_had_default = any(not d.keep and d.make_default for d in group)
+        already_has_default = any(d.keep and d.make_default for d in decisions)
+        if dropped_had_default and not already_has_default:
+            survivors = [s for s in scored if s.decision.keep]
+            if survivors:
+                # Best surviving member: highest channel count, then
+                # highest effective quality -- lossless tracks have
+                # effective pinned to 0 by design, so the `lossless` flag
+                # is ranked ahead of `effective` to still count them as
+                # best-in-layout, consistent with the layout-winner logic
+                # above (lossless wins its own channel layout outright).
+                best = max(survivors, key=lambda s: (s.channels, s.lossless, s.effective))
+                best.decision.make_default = True
     return warnings

@@ -206,6 +206,44 @@ def test_single_track_language_untouched() -> None:
     assert warnings == []
 
 
+def test_default_flag_promoted_to_survivor_when_dropped() -> None:
+    # ac3 6ch 400kbps carries the source's default flag but loses the
+    # dedup vote outright (gap 51.9% > 15% tolerance, see
+    # test_drop_reasons_are_explanatory); the flag must land on the
+    # surviving eac3 track rather than vanish with the dropped one.
+    ac3_media, ac3_decision = _track(1, "ac3", channels=6, kbps=400)
+    eac3_media, eac3_decision = _track(2, "eac3", channels=6, kbps=640)
+    ac3_decision.make_default = True
+    pairs = [(ac3_media, ac3_decision), (eac3_media, eac3_decision)]
+    warnings = _run(pairs)
+    assert kept(pairs) == {2}
+    assert ac3_decision.make_default is True  # untouched on the loser
+    assert eac3_decision.make_default is True  # promoted onto the survivor
+    assert warnings == []
+
+
+def test_no_promotion_when_another_kept_track_already_default() -> None:
+    # The eng group's default carrier (ac3) is dedup-dropped, but a jpn
+    # track elsewhere in the same file already holds the default flag --
+    # promoting the eng survivor too would mint a second default track.
+    ac3_media, ac3_decision = _track(1, "ac3", lang="eng", channels=6, kbps=400)
+    eac3_media, eac3_decision = _track(2, "eac3", lang="eng", channels=6, kbps=640)
+    ac3_decision.make_default = True
+    jpn_media, jpn_decision = _track(3, "aac", lang="jpn", channels=2, kbps=192)
+    jpn_decision.make_default = True
+    pairs = [
+        (ac3_media, ac3_decision),
+        (eac3_media, eac3_decision),
+        (jpn_media, jpn_decision),
+    ]
+    warnings = _run(pairs)
+    assert kept(pairs) == {2, 3}
+    assert not ac3_decision.keep
+    assert eac3_decision.make_default is False  # no promotion
+    assert jpn_decision.make_default is True  # left alone
+    assert warnings == []
+
+
 def test_drop_reasons_are_explanatory() -> None:
     # ac3 6ch 400kbps: effective 400, per-ch 66.7 -> not transparent
     # eac3 6ch 640kbps: effective 832, per-ch 138.7 -> not transparent
