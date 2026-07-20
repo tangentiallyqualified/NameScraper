@@ -176,3 +176,37 @@ def test_cache_evicts_oldest_instead_of_wiping(tmp_path, monkeypatch):
 
     probe_file(Path("mkvmerge"), videos[0])
     assert len(calls) == 5  # the evicted oldest re-probes
+
+
+def _payload(props: dict[str, object]) -> dict[str, object]:
+    """Helper for audio track probe payloads."""
+    return {
+        "container": {"recognized": True, "supported": True, "type": "Matroska"},
+        "tracks": [
+            {"id": 1, "type": "audio", "codec": "E-AC-3", "properties": props},
+        ],
+    }
+
+
+def test_channels_and_tag_bps_parsed() -> None:
+    """Audio channels and statistics-tag bitrate are parsed from properties."""
+    result = parse_identify_json(
+        "x.mkv", _payload({"language": "eng", "audio_channels": 6, "tag_bps": "768000"})
+    )
+    track = result.audio_tracks[0]
+    assert track.channels == 6
+    assert track.bitrate_bps == 768000
+
+
+def test_missing_fields_default_to_zero() -> None:
+    """Missing channels and bitrate fields default to 0."""
+    result = parse_identify_json("x.mkv", _payload({"language": "eng"}))
+    track = result.audio_tracks[0]
+    assert track.channels == 0
+    assert track.bitrate_bps == 0
+
+
+def test_garbage_tag_bps_is_zero() -> None:
+    """Non-numeric tag_bps values default to 0."""
+    result = parse_identify_json("x.mkv", _payload({"tag_bps": "unknown"}))
+    assert result.audio_tracks[0].bitrate_bps == 0

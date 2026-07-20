@@ -30,6 +30,8 @@ class MediaTrack:
     name: str
     is_default: bool
     is_forced: bool
+    channels: int = 0  # audio only; 0 = unknown
+    bitrate_bps: int = 0  # audio only; 0 = unknown
 
 
 @dataclass
@@ -53,6 +55,14 @@ class ProbeResult:
         return [t for t in self.tracks if t.track_type == "video"]
 
 
+def _as_int(value: object) -> int:
+    """Tolerant int coercion — mkvmerge emits stats-tag values as strings."""
+    try:
+        return max(0, int(str(value)))
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     """Pure parse of a ``mkvmerge -J`` JSON document."""
     container = payload.get("container", {})
@@ -72,6 +82,8 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
                 name=str(props.get("track_name", "")),
                 is_default=bool(props.get("default_track", False)),
                 is_forced=bool(props.get("forced_track", False)),
+                channels=_as_int(props.get("audio_channels")),
+                bitrate_bps=_as_int(props.get("tag_bps")),
             )
         )
     return ProbeResult(
