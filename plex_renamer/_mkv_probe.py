@@ -178,7 +178,10 @@ def _probe_uncoalesced(
 
     result = parse_identify_json(str(video_path), payload)
     with _inflight_lock:
-        if len(_cache) >= _CACHE_MAX_ENTRIES:
-            _cache.clear()
+        # FIFO eviction (dicts preserve insertion order): drop the oldest
+        # entries instead of wiping — a full clear mid-sweep silently
+        # re-probed everything already paid for on >512-file libraries.
+        while len(_cache) >= _CACHE_MAX_ENTRIES:
+            del _cache[next(iter(_cache))]
         _cache[key] = result
     return result

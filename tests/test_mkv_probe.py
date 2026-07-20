@@ -153,3 +153,26 @@ def test_concurrent_probes_of_same_file_share_one_subprocess(tmp_path, monkeypat
     assert len(results) == 2
     assert all(r.ok for r in results)
     assert len(calls) == 1  # the second caller waited for the first's result
+
+
+def test_cache_evicts_oldest_instead_of_wiping(tmp_path, monkeypatch):
+    clear_probe_cache()
+    monkeypatch.setattr(_mkv_probe, "_CACHE_MAX_ENTRIES", 3)
+    calls: list = []
+    monkeypatch.setattr(_mkv_probe.subprocess, "run", _fake_run_factory(calls, IDENTIFY_PAYLOAD))
+
+    videos = []
+    for i in range(4):
+        video = tmp_path / f"v{i}.mkv"
+        video.write_bytes(b"0" * (64 + i))
+        videos.append(video)
+        probe_file(Path("mkvmerge"), video)
+    assert len(calls) == 4
+
+    # v0 (oldest) was evicted by v3's insert; v2 and v3 must still be cached.
+    probe_file(Path("mkvmerge"), videos[2])
+    probe_file(Path("mkvmerge"), videos[3])
+    assert len(calls) == 4  # cache hits — a full wipe would re-probe
+
+    probe_file(Path("mkvmerge"), videos[0])
+    assert len(calls) == 5  # the evicted oldest re-probes
