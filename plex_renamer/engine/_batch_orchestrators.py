@@ -603,6 +603,9 @@ class BatchTVOrchestrator:
                 "Preparing matched shows...",
             )
 
+        if self.fallback_provider is not None:
+            self._apply_fallback_matches(candidates, states, progress_callback, cancel_event)
+
         _emit_scan_progress(
             progress_callback,
             0,
@@ -618,6 +621,90 @@ class BatchTVOrchestrator:
         self._apply_duplicate_labels()
         self.states.sort(key=self._sort_discovered_show_state)
         return states
+
+    def _apply_fallback_matches(
+        self,
+        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]],
+        states: list[ScanState],
+        progress_callback: Callable[..., object] | None = None,
+        cancel_event: threading.Event | None = None,
+    ) -> None:
+        """Second-opinion pass: weak primary matches retry on the fallback
+        provider; adopted only on a strictly better score, always flagged
+        for review (spec: fallback never auto-accepts).
+
+        Only states that already resolved to SOME show on the primary
+        provider are reconsidered here — a folder with no primary
+        candidates at all (``show_id is None``) is a distinct "no match"
+        case (see ``_sort_discovered_show_state``), not a weak match, and
+        must not silently start consulting the fallback provider (id-tag
+        routing relies on zero fallback traffic when a tag is absent or
+        ignored and the primary search comes up empty).
+        """
+        assert self.fallback_provider is not None
+        _raise_if_cancelled(cancel_event)
+        threshold = get_auto_accept_threshold()
+        weak = [
+            index
+            for index, state in enumerate(states)
+            if state.match_origin == "auto"
+            and state.show_id is not None
+            and state.confidence < threshold
+        ]
+        if not weak:
+            return
+        queries = [(candidates[index][1], candidates[index][4]) for index in weak]
+        _emit_scan_progress(
+            progress_callback,
+            0,
+            len(weak),
+            "Trying fallback source...",
+            "Trying fallback source...",
+        )
+        try:
+            all_results = self.fallback_provider.search_tv_batch(
+                queries, progress_callback=progress_callback
+            )
+        except Exception:
+            _log.exception("Fallback provider search failed; keeping primary matches")
+            return
+        for index, results in zip(weak, all_results, strict=False):
+            _raise_if_cancelled(cancel_event)
+            if not results:
+                continue
+            (candidate, _cleaned, score_name, folder_score_name, year_hint, evidence) = candidates[
+                index
+            ]
+            try:
+                best, best_score, alternates, tie_detected, season_names = (
+                    self._select_best_show_match(
+                        candidate,
+                        candidate.folder,
+                        score_name,
+                        folder_score_name,
+                        year_hint,
+                        evidence,
+                        results,
+                        cancel_event=cancel_event,
+                        provider=self.fallback_provider,
+                    )
+                )
+            except ScanCancelledError:
+                raise
+            except Exception:
+                _log.exception("Fallback scoring failed for %s", candidate.folder.name)
+                continue
+            if best_score <= states[index].confidence:
+                continue
+            state = states[index]
+            state.media_info = best
+            state.confidence = best_score
+            state.match_origin = "fallback"
+            state.provider_name = self.fallback_provider.provider_name
+            state.alternate_matches = alternates
+            state.search_results = results
+            state.tie_detected = tie_detected
+            state.season_names = season_names
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
         """Merge a rematched season/special state into existing show siblings."""
