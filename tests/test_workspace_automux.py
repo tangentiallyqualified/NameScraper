@@ -528,6 +528,49 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         for state in states:
             self.assertTrue(state.mux_plans, "every state must still be warmed")
 
+    def test_warm_sweep_worker_count_balances_so_refills_respawn(self):
+        # Regression for the stranded-queue race: a worker's empty-queue
+        # exit must release its active slot atomically, so a later refill
+        # sees active=0 and spawns drainers for the new entries.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        workspace, states = self._workspace_with_states(states=states)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+        probe_patch = patch.object(
+            svc_mod,
+            "probe_file",
+            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+        )
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator = workspace._automux
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(coordinator._warm_sweep_active, 0, "all workers must release their slots")
+
+        # New unwarmed entries after the sweep finished: refill must respawn.
+        fresh = self._make_named_state("c.mkv")
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+        coordinator._refill_warm_queue([fresh])
+        self.assertEqual(len(deferred), 1, "one entry -> one respawned worker")
+
     def test_warm_plans_covers_movie_items_without_file_id(self):
         # Task 1 (spec 1a): the movie scanner never sets file_id, so the old
         # `item.file_id is None` skip condition excluded every movie preview
@@ -610,7 +653,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # skipped the finally and leaked the _inflight key -- a later
         # expansion of that row then dedup-skipped forever, wedging its
         # tracks widget on "Reading tracks...". One bad item also aborted
-        # _warm_rest's whole sweep. Both must now be survivable.
+        # _warm_sweep_worker's whole sweep. Both must now be survivable.
         from unittest.mock import patch
 
         from plex_renamer._mkv_probe import ProbeResult

@@ -274,31 +274,38 @@ class MediaWorkspaceAutoMuxCoordinator:
         each item's skip conditions at execution time so entries warmed or
         invalidated since enqueueing (rescan shrank preview_items, a
         repeat refresh already probed it) are skipped, and one item's
-        failure never aborts the sweep."""
+        failure never aborts the sweep. The empty-queue exit decrements
+        _warm_sweep_active under the SAME lock hold that observed empty —
+        a separately-acquired decrement let a refill see dying workers as
+        active and strand a freshly filled queue with no drainer."""
+        exited = False
         try:
             while True:
                 with self._warm_lock:
                     if not self._warm_queue:
+                        self._warm_sweep_active -= 1
+                        exited = True
                         return
                     state, index = self._warm_queue.popleft()
-                if not (0 <= index < len(state.preview_items)):
-                    continue
-                item = state.preview_items[index]
-                if not automux_service.item_mux_probe_eligible(item):
-                    continue
-                if index in state.mux_plans or index in state.mux_probe_errors:
-                    continue
-                prepared = self._begin_probe(state, index)
-                if prepared is None:
-                    continue
-                mkvmerge, source_root, settings = prepared
                 try:
+                    if not (0 <= index < len(state.preview_items)):
+                        continue
+                    item = state.preview_items[index]
+                    if not automux_service.item_mux_probe_eligible(item):
+                        continue
+                    if index in state.mux_plans or index in state.mux_probe_errors:
+                        continue
+                    prepared = self._begin_probe(state, index)
+                    if prepared is None:
+                        continue
+                    mkvmerge, source_root, settings = prepared
                     self._run_probe(state, index, mkvmerge, source_root, settings)
                 except Exception:
                     continue
         finally:
-            with self._warm_lock:
-                self._warm_sweep_active -= 1
+            if not exited:
+                with self._warm_lock:
+                    self._warm_sweep_active -= 1
 
     def _warm_state_items(self, state) -> None:
         for index, item in enumerate(state.preview_items):
