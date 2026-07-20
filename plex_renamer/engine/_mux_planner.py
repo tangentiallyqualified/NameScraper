@@ -230,6 +230,11 @@ def build_mux_plan(
             d.keep = True
             d.reason = "audio safety floor"
         warnings.append(_AUDIO_FLOOR_WARNING)
+    if settings.dedupe_audio:
+        from ._mux_audio_dedup import dedupe_audio_decisions
+
+        tracks_by_id = {track.track_id: track for track in probe.audio_tracks}
+        warnings.extend(dedupe_audio_decisions(audio, tracks_by_id, settings))
     decisions.extend(audio)
 
     subs = _decide_embedded(

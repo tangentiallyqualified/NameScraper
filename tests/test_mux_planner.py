@@ -8,7 +8,18 @@ from plex_renamer.engine._mux_planner import (
 )
 
 
-def _track(tid, ttype, lang, *, default=False, forced=False, name="", codec="c"):
+def _track(
+    tid,
+    ttype,
+    lang,
+    *,
+    default=False,
+    forced=False,
+    name="",
+    codec="c",
+    channels=0,
+    bitrate_bps=0,
+):
     return MediaTrack(
         track_id=tid,
         track_type=ttype,
@@ -17,6 +28,8 @@ def _track(tid, ttype, lang, *, default=False, forced=False, name="", codec="c")
         name=name,
         is_default=default,
         is_forced=forced,
+        channels=channels,
+        bitrate_bps=bitrate_bps,
     )
 
 
@@ -570,3 +583,90 @@ def test_plan_has_actions_dict_mirror_sees_conversion():
     assert plan_has_actions(plan.to_dict()) is True
     plan.container_conversion = False
     assert plan_has_actions(plan.to_dict()) is False
+
+
+def test_dedupe_disabled_keeps_duplicates() -> None:
+    # Two eng audio tracks that would dedup-collide if the toggle were
+    # on; with dedupe_audio=False neither the floor nor dedup ever
+    # touches them, and nothing else in this settings set produces an
+    # action, so the plan is None.
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", codec="eac3", channels=6, bitrate_bps=640_000),
+        _track(2, "audio", "eng", codec="ac3", channels=6, bitrate_bps=448_000),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[],
+        settings=MuxSettings(dedupe_audio=False),
+        new_name="X.mkv",
+    )
+    assert plan is None
+
+
+def test_dedupe_drop_is_a_mux_action() -> None:
+    # eac3 640kbps/6ch: effective 832, per-ch 138.7 -> not transparent.
+    # ac3 448kbps/6ch: effective 448, per-ch 74.7 -> not transparent.
+    # Gap (832-448)/832 = 46.2% > 15% tolerance -> eac3 wins outright,
+    # ac3 is dropped. A dedup drop alone must flip has_actions True.
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", codec="eac3", channels=6, bitrate_bps=640_000),
+        _track(2, "audio", "eng", codec="ac3", channels=6, bitrate_bps=448_000),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[],
+        settings=MuxSettings(dedupe_audio=True),
+        new_name="X.mkv",
+    )
+    assert plan is not None
+    assert plan.has_actions is True
+    assert plan.warnings == []
+    audio_keep = {d.track_id: d.keep for d in plan.track_decisions if d.track_type == "audio"}
+    assert audio_keep == {1: True, 2: False}
+
+
+def test_default_audio_flag_moves_to_survivor() -> None:
+    # Track 2 (ac3, the weaker duplicate per the scoring above) starts
+    # as the source's default track. Dedup drops it; the default flag
+    # must land on the surviving eac3 track, not stay stuck on a
+    # dropped one.
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", codec="eac3", channels=6, bitrate_bps=640_000),
+        _track(2, "audio", "eng", codec="ac3", channels=6, bitrate_bps=448_000, default=True),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[],
+        settings=MuxSettings(dedupe_audio=True, default_audio_language="eng"),
+        new_name="X.mkv",
+    )
+    assert plan is not None
+    audio = {d.track_id: d for d in plan.track_decisions if d.track_type == "audio"}
+    assert audio[2].keep is False
+    assert audio[1].make_default is True
+
+
+def test_unknown_bitrate_warning_surfaces_on_plan() -> None:
+    # Track 2 has bitrate 0 (unknown) -> dedup can't judge the eng
+    # group, exempts it (both kept) and emits a skip warning. Nothing
+    # about dedup itself would force a plan to exist, so also flip
+    # convert_containers on an .mp4 source to guarantee one.
+    probe = _probe(
+        _track(0, "video", "und"),
+        _track(1, "audio", "eng", codec="ac3", channels=6, bitrate_bps=640_000),
+        _track(2, "audio", "eng", codec="ac3", channels=6, bitrate_bps=0),
+    )
+    plan = build_mux_plan(
+        probe=probe,
+        companion_subs=[],
+        settings=MuxSettings(dedupe_audio=True, convert_containers=True),
+        new_name="X.mkv",
+        source_name="X.mp4",
+    )
+    assert plan is not None
+    audio_keep = {d.track_id: d.keep for d in plan.track_decisions if d.track_type == "audio"}
+    assert audio_keep == {1: True, 2: True}
+    assert any("unknown bitrate" in w for w in plan.warnings)
