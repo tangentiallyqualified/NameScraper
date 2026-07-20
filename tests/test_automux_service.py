@@ -126,7 +126,7 @@ def test_ensure_state_plans_attaches_plan(tmp_path, monkeypatch):
         file_type="subtitle",
     )
     state = _state(tmp_path, _item(tmp_path, companions=[comp]))
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert 0 in state.mux_plans
     assert plan_has_actions(state.mux_plans[0])
@@ -154,7 +154,9 @@ def test_ensure_skips_user_modified_and_disabled(tmp_path, monkeypatch):
     }
     state.mux_plans[0] = dict(sentinel)
     calls = []
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: calls.append(path) or _probe_ok())
+    monkeypatch.setattr(
+        svc_mod, "probe_file", lambda mkv, path, **kwargs: calls.append(path) or _probe_ok()
+    )
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert state.mux_plans[0] == sentinel  # untouched (spec §5.1)
     assert calls == []  # not even probed
@@ -173,7 +175,9 @@ def test_probe_failure_records_error_and_no_plan(tmp_path, monkeypatch):
     )
     state = _state(tmp_path, _item(tmp_path, companions=[comp]))
     monkeypatch.setattr(
-        svc_mod, "probe_file", lambda mkv, path: ProbeResult(path=str(path), ok=False, error="boom")
+        svc_mod,
+        "probe_file",
+        lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=False, error="boom"),
     )
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert state.mux_plans == {}
@@ -183,7 +187,7 @@ def test_probe_failure_records_error_and_no_plan(tmp_path, monkeypatch):
 def test_no_action_plan_not_stored(tmp_path, monkeypatch):
     svc = _settings(tmp_path)
     state = _state(tmp_path, _item(tmp_path))  # no companions → no merge
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     ensure_state_plans(state, svc, tmp_path / "lib")
     assert state.mux_plans == {}
     assert effective_mux_plans(state) is None

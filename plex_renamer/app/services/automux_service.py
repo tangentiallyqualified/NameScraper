@@ -48,6 +48,14 @@ def resolve_mkvmerge(svc: SettingsService | None) -> Path | None:
     return find_mkvmerge(svc.mkvmerge_path)
 
 
+def resolve_ffprobe(svc: SettingsService | None) -> Path | None:
+    if svc is None:
+        return None
+    from ..._ffprobe import find_ffprobe
+
+    return find_ffprobe(svc.ffprobe_path)
+
+
 def automux_active(svc: SettingsService | None) -> bool:
     """AutoMux UI exists only when a toggle is on AND mkvmerge resolves
     (spec §3.1)."""
@@ -125,6 +133,7 @@ def ensure_state_plans(
     # Late-bound so tests can monkeypatch probe_file at module level.
     prober = prober or probe_file
     mkvmerge = resolve_mkvmerge(svc)
+    ffprobe = resolve_ffprobe(svc)
     settings = mux_settings_from_service(svc)
     if only_index is not None:
         indices: list[int] = [only_index]
@@ -141,7 +150,7 @@ def ensure_state_plans(
         item = state.preview_items[index]
         if not item.new_name:
             continue
-        probe = prober(mkvmerge, item.original)
+        probe = prober(mkvmerge, item.original, ffprobe_path=ffprobe)
         if not probe.ok:
             state.mux_probe_errors[index] = probe.error or "Unreadable file"
             state.mux_plans.pop(index, None)

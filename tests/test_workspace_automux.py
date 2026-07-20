@@ -343,7 +343,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -382,7 +382,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed_names: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed_names.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -466,7 +466,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed_names: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed_names.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -508,7 +508,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -548,7 +548,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -595,7 +595,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed_names: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed_names.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -643,7 +643,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.addCleanup(defer_patch.stop)
         probed: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -724,7 +724,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed_names: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed_names.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -829,7 +829,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -878,7 +878,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -937,7 +937,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 

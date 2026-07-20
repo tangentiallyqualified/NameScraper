@@ -90,32 +90,33 @@ class MediaWorkspaceAutoMuxCoordinator:
         prepared = self._begin_probe(state, index)
         if prepared is None:
             return
-        mkvmerge, source_root, settings = prepared
-        _submit_bg(lambda: self._run_probe(state, index, mkvmerge, source_root, settings))
+        mkvmerge, source_root, settings, ffprobe = prepared
+        _submit_bg(lambda: self._run_probe(state, index, mkvmerge, source_root, settings, ffprobe))
 
     def _begin_probe(
         self, state, index: int
-    ) -> tuple[Path, Path, automux_service.MuxSettings] | None:
+    ) -> tuple[Path, Path, automux_service.MuxSettings, Path | None] | None:
         """Validate settings and reserve the (state, index) slot in
-        ``_inflight``. Returns the resolved (mkvmerge, source_root, settings)
-        for the caller to hand to :meth:`_run_probe`, or ``None`` when the
-        probe should not proceed (already in flight, or AutoMux isn't
-        configured). Check-and-reserve is atomic: concurrent sweep workers
-        racing the same slot must not both win it."""
+        ``_inflight``. Returns the resolved (mkvmerge, source_root,
+        settings, ffprobe) for the caller to hand to :meth:`_run_probe`, or
+        ``None`` when the probe should not proceed (already in flight, or
+        AutoMux isn't configured). Check-and-reserve is atomic: concurrent
+        sweep workers racing the same slot must not both win it."""
         key = (id(state), index)
         svc = self._workspace._settings
         source_root = self._source_root()
         mkvmerge = automux_service.resolve_mkvmerge(svc)
         if svc is None or source_root is None or mkvmerge is None:
             return None
+        ffprobe = automux_service.resolve_ffprobe(svc)
         settings = automux_service.mux_settings_from_service(svc)
         with self._inflight_lock:
             if key in self._inflight:
                 return None
             self._inflight.add(key)
-        return mkvmerge, source_root, settings
+        return mkvmerge, source_root, settings, ffprobe
 
-    def _run_probe(self, state, index: int, mkvmerge, source_root, settings) -> None:
+    def _run_probe(self, state, index: int, mkvmerge, source_root, settings, ffprobe=None) -> None:
         """The actual probe→plan work for one item. Safe to call either as
         a standalone pool task (``_request``) or inline from within a pool
         worker that is already fanning out sequentially over several items
@@ -134,7 +135,7 @@ class MediaWorkspaceAutoMuxCoordinator:
             if not (0 <= index < len(state.preview_items)):
                 return
             item = state.preview_items[index]
-            probe = automux_service.probe_file(mkvmerge, item.original)
+            probe = automux_service.probe_file(mkvmerge, item.original, ffprobe_path=ffprobe)
             if not probe.ok:
                 bridge.plan_ready.emit(state, index, None, probe.error or "Unreadable file")
                 return
@@ -352,8 +353,8 @@ class MediaWorkspaceAutoMuxCoordinator:
                     prepared = self._begin_probe(state, index)
                     if prepared is None:
                         continue
-                    mkvmerge, source_root, settings = prepared
-                    self._run_probe(state, index, mkvmerge, source_root, settings)
+                    mkvmerge, source_root, settings, ffprobe = prepared
+                    self._run_probe(state, index, mkvmerge, source_root, settings, ffprobe)
                 except Exception:
                     continue
         finally:

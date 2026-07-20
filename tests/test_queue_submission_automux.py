@@ -141,7 +141,7 @@ def _tv_state_two(tmp_path):
 def test_per_episode_optout_excludes_only_that_file(tmp_path, monkeypatch):
     """Spec §4b end-to-end: with plans for {0, 1} and mux_opt_outs={0}, the
     baked job muxes index 1's file and leaves index 0 on a plain rename op."""
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     state = _tv_state_two(tmp_path)
     state.mux_opt_outs = {0}
     store = _FakeStore()
@@ -171,7 +171,7 @@ def test_per_episode_optout_excludes_only_that_file(tmp_path, monkeypatch):
 
 
 def test_tv_batch_bakes_remux_job(tmp_path, monkeypatch):
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     store = _FakeStore()
     result = add_tv_batch_jobs(
         store,
@@ -204,7 +204,7 @@ def test_tv_batch_without_settings_stays_rename(tmp_path):
 
 
 def test_disabled_state_stays_rename(tmp_path, monkeypatch):
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     state = _tv_state(tmp_path)
     state.automux_disabled = True
     store = _FakeStore()
@@ -254,7 +254,7 @@ def _tv_state_correctly_named(tmp_path):
 def test_mux_only_op_for_correctly_named_file(tmp_path, monkeypatch):
     """A correctly-named file (is_actionable False) with an action-bearing
     mux plan must still be baked into the job as a mux-only op."""
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     state = _tv_state_correctly_named(tmp_path)
     store = _FakeStore()
 
@@ -280,7 +280,7 @@ def test_mux_only_op_for_correctly_named_file(tmp_path, monkeypatch):
 def test_mux_only_file_optout_produces_no_op(tmp_path, monkeypatch):
     """Opting out of the mux for a correctly-named file must leave it with
     no op at all — there is nothing left to bake (no rename, no mux)."""
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     state = _tv_state_correctly_named(tmp_path)
     state.mux_opt_outs = {0}
     store = _FakeStore()
@@ -310,7 +310,7 @@ def test_ensure_state_plans_probes_correctly_named_items(tmp_path):
     svc = _settings(tmp_path)
     probed_paths = []
 
-    def fake_prober(mkv, path):
+    def fake_prober(mkv, path, **kwargs):
         probed_paths.append(path)
         return _probe_ok()
 
@@ -469,7 +469,7 @@ def test_provider_for_state_resolves_bake_client_per_show(tmp_path, monkeypatch)
 
 
 def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     lib = tmp_path / "lib"
     item = PreviewItem(
         original=lib / "Movie" / "m.mkv",
@@ -517,7 +517,7 @@ def test_mux_only_state_queued_through_real_gating(tmp_path, monkeypatch):
     is_actionable_item-only selection and evaluate()'s actionable
     intersection previously stripped mux-only indices before job_executor
     ever saw them."""
-    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
     state = _tv_state_correctly_named(tmp_path)
     # An approved, high-confidence match: require_resolved_review=True (as
     # add_tv_batch_jobs always passes) must not trip on an unrelated

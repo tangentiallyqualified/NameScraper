@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from ._lang_normalize import normalize_lang
@@ -94,6 +94,31 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     )
 
 
+def merge_ffprobe_bitrates(result: ProbeResult, bitrates: list[int]) -> None:
+    """Fill unknown audio bitrates by stream order (audio tracks only).
+
+    ``MediaTrack`` is frozen, so a filled track is rebuilt via
+    ``dataclasses.replace`` rather than mutated in place; the rebuilt list
+    is written back to ``result.tracks``. ``bitrates`` is zipped against
+    the audio tracks in their order of appearance within ``result.tracks``
+    (zip-shortest semantics: extra bitrates or extra audio tracks beyond
+    the shorter list are left untouched). Non-audio tracks and audio
+    tracks whose bitrate is already known both pass through unchanged.
+    """
+    remaining = iter(bitrates)
+    new_tracks: list[MediaTrack] = []
+    for track in result.tracks:
+        if track.track_type != "audio":
+            new_tracks.append(track)
+            continue
+        bitrate = next(remaining, None)
+        if bitrate is not None and track.bitrate_bps == 0 and bitrate > 0:
+            new_tracks.append(replace(track, bitrate_bps=bitrate))
+        else:
+            new_tracks.append(track)
+    result.tracks = new_tracks
+
+
 def clear_probe_cache() -> None:
     with _inflight_lock:
         _cache.clear()
@@ -123,13 +148,20 @@ _inflight_lock = threading.Lock()
 _INFLIGHT_WAIT_SECONDS = 150.0
 
 
-def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
+def probe_file(
+    mkvmerge_path: Path, video_path: Path, *, ffprobe_path: Path | None = None
+) -> ProbeResult:
     """Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime).
 
     Concurrent calls for the same key share one subprocess: the first
     caller probes, the rest block on its result (duplicate ``mkvmerge -J``
     of the same file was observed when the warm sweep and queue submission
     raced).
+
+    When *ffprobe_path* is given, audio tracks whose bitrate mkvmerge
+    couldn't determine are enriched via ffprobe before the result is
+    cached (the cache key does not include ffprobe_path, so enrichment
+    must happen before caching to keep cached and fresh results in sync).
     """
     key = _cache_key(video_path)
     if key is None:
@@ -151,10 +183,10 @@ def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
         if slot.result is not None:
             return slot.result
         # Prober vanished without a result (unexpected): probe directly.
-        return _probe_uncoalesced(mkvmerge_path, video_path, key)
+        return _probe_uncoalesced(mkvmerge_path, video_path, key, ffprobe_path=ffprobe_path)
 
     try:
-        result = _probe_uncoalesced(mkvmerge_path, video_path, key)
+        result = _probe_uncoalesced(mkvmerge_path, video_path, key, ffprobe_path=ffprobe_path)
         slot.result = result
         return result
     finally:
@@ -164,7 +196,11 @@ def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
 
 
 def _probe_uncoalesced(
-    mkvmerge_path: Path, video_path: Path, key: tuple[str, int, int]
+    mkvmerge_path: Path,
+    video_path: Path,
+    key: tuple[str, int, int],
+    *,
+    ffprobe_path: Path | None = None,
 ) -> ProbeResult:
     try:
         proc = subprocess.run(
@@ -189,6 +225,10 @@ def _probe_uncoalesced(
         return ProbeResult(path=str(video_path), ok=False, error=str(e))
 
     result = parse_identify_json(str(video_path), payload)
+    if ffprobe_path is not None and any(t.bitrate_bps == 0 for t in result.audio_tracks):
+        from ._ffprobe import probe_audio_bitrates
+
+        merge_ffprobe_bitrates(result, probe_audio_bitrates(ffprobe_path, video_path))
     with _inflight_lock:
         # FIFO eviction (dicts preserve insertion order): drop the oldest
         # entries instead of wiping — a full clear mid-sweep silently

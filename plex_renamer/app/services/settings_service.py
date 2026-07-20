@@ -260,6 +260,14 @@ class SettingsService:
         self.set("mkvmerge_path", value)
 
     @property
+    def ffprobe_path(self) -> str:
+        return str(self.get("ffprobe_path"))
+
+    @ffprobe_path.setter
+    def ffprobe_path(self, value: str) -> None:
+        self.set("ffprobe_path", value)
+
+    @property
     def automux_merge_subs(self) -> bool:
         return bool(self.get("automux_merge_subs"))
 

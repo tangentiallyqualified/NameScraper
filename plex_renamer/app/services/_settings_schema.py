@@ -22,6 +22,7 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "recent_movie_folders": (list,),
     "cache_max_size_bytes": (int,),
     "mkvmerge_path": (str,),
+    "ffprobe_path": (str,),
     "automux_merge_subs": (bool,),
     "automux_merge_sub_languages": (list,),
     "automux_default_sub_language": (str,),
@@ -73,6 +74,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "recent_movie_folders": [],
     "cache_max_size_bytes": 1024**3,  # 1 GiB (GUI-V4 R2, S2)
     "mkvmerge_path": "",
+    "ffprobe_path": "",
     "automux_merge_subs": False,
     "automux_merge_sub_languages": [],
     "automux_default_sub_language": "",
