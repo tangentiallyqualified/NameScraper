@@ -18,10 +18,7 @@ def duplicate_priority(state: ScanState) -> tuple[float, int, int, str]:
         state.folder,
     )
     depth = len(PurePosixPath(normalized_relative).parts)
-    represented_count = len({
-        season for season in _effective_seasons(state)
-        if season is not None
-    })
+    represented_count = len({season for season in _effective_seasons(state) if season is not None})
     evidence_rank = 0 if state.has_direct_season_subdirs or state.season_folders else 1
     return (-represented_count, -state.confidence, depth, evidence_rank, normalized_relative)
 
@@ -43,7 +40,8 @@ def _effective_seasons(state: ScanState) -> set[int | None]:
     if not state.preview_items:
         return {None}
     detected = {
-        item.season for item in state.preview_items
+        item.season
+        for item in state.preview_items
         if item.status == "OK" and item.season is not None and item.season > 0
     }
     if len(detected) == 1:
@@ -65,12 +63,12 @@ def apply_duplicate_labels(states: list[ScanState]) -> None:
         state.duplicate_of = None
         state.duplicate_of_relative_folder = None
 
-    groups: dict[int, list[ScanState]] = {}
+    groups: dict[tuple[str, int], list[ScanState]] = {}
     for state in states:
-        show_id = state.show_id
-        if show_id is None:
+        key = state.provider_show_key
+        if key is None:
             continue
-        groups.setdefault(show_id, []).append(state)
+        groups.setdefault(key, []).append(state)
 
     for group in groups.values():
         if len(group) < 2:
@@ -82,7 +80,9 @@ def apply_duplicate_labels(states: list[ScanState]) -> None:
             existing = next(
                 (
                     primaries[season]
-                    for season in sorted(effective_seasons, key=lambda value: (value is None, value or 0))
+                    for season in sorted(
+                        effective_seasons, key=lambda value: (value is None, value or 0)
+                    )
                     if season in primaries
                 ),
                 None,

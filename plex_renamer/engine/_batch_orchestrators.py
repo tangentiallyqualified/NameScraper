@@ -485,16 +485,16 @@ class BatchTVOrchestrator:
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
         """Merge a rematched season/special state into existing show siblings."""
-        show_id = state.show_id
+        show_key = state.provider_show_key
         state_seasons = _represented_tv_seasons(state)
-        if show_id is None or not state_seasons:
+        if show_key is None or not state_seasons:
             self._apply_duplicate_labels()
             return state
 
         merge_group: list[ScanState] = [state]
         covered_seasons = set(state_seasons)
         for other in self.states:
-            if other is state or other.show_id != show_id:
+            if other is state or other.provider_show_key != show_key:
                 continue
             other_seasons = _represented_tv_seasons(other)
             if not other_seasons or covered_seasons & other_seasons:
@@ -689,7 +689,8 @@ class BatchTVOrchestrator:
             return state
         season_num = next(iter(detected))
         has_sibling = any(
-            other is not state and other.show_id == state.show_id for other in self.states
+            other is not state and other.provider_show_key == state.provider_show_key
+            for other in self.states
         )
         if not has_sibling:
             return state
@@ -703,11 +704,12 @@ class BatchTVOrchestrator:
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Post-scan pass: merge same-show siblings into multi-season cards."""
-        groups: dict[int, list[ScanState]] = {}
+        groups: dict[tuple[str, int], list[ScanState]] = {}
         for state in self.states:
-            if state.show_id is None:
+            key = state.provider_show_key
+            if key is None:
                 continue
-            groups.setdefault(state.show_id, []).append(state)
+            groups.setdefault(key, []).append(state)
 
         for group in groups.values():
             if len(group) < 2:

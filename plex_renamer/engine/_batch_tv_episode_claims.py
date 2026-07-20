@@ -32,11 +32,11 @@ def reconcile_scanned_episode_claims(
     Returns a mapping from removed state id to the primary state that absorbed it.
     """
     replacements: dict[int, ScanState] = {}
-    groups: dict[int, list[ScanState]] = {}
+    groups: dict[tuple[str, int], list[ScanState]] = {}
     for state in states:
-        if state.show_id is None or not state.scanned or not state.preview_items:
+        if state.provider_show_key is None or not state.scanned or not state.preview_items:
             continue
-        groups.setdefault(state.show_id, []).append(state)
+        groups.setdefault(state.provider_show_key, []).append(state)
 
     removed: set[int] = set()
     for group in groups.values():

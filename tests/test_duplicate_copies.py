@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from plex_renamer.engine._batch_tv_duplicates import apply_duplicate_labels
 from plex_renamer.engine._episode_projection import project_preview_items
 from plex_renamer.engine._episode_resolution import (
     CONF_AGREE,
@@ -14,6 +15,7 @@ from plex_renamer.engine.episode_assignments import (
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
+from plex_renamer.engine.models import ScanState
 
 
 def _dexter_table():
@@ -192,3 +194,16 @@ def test_duplicate_projects_with_duplicate_status(tmp_path):
     assert len(duplicate_items) == 1
     assert duplicate_items[0].is_duplicate
     assert duplicate_items[0].new_name is None
+
+
+def _make_state(folder: Path, *, show_id: int) -> ScanState:
+    return ScanState(folder=folder, media_info={"id": show_id, "name": folder.name})
+
+
+def test_same_numeric_id_different_provider_not_duplicates(tmp_path: Path) -> None:
+    a = _make_state(tmp_path / "Show A", show_id=42)
+    b = _make_state(tmp_path / "Show B", show_id=42)
+    b.provider_name = "tvdb"
+    apply_duplicate_labels([a, b])
+    assert a.duplicate_of is None
+    assert b.duplicate_of is None
