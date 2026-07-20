@@ -534,9 +534,15 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # item from background warming -- roster badges only appeared after
         # the user clicked the row. Movie items must warm via is_actionable
         # just like TV items do.
+        # Observed via the sweep's probe (the old _request hook only fired for
+        # the eagerly-warmed first state, which no longer exists without a
+        # selection).
         from unittest.mock import patch
 
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
         from plex_renamer.engine.models import PreviewItem, ScanState
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
         from plex_renamer.gui_qt.widgets._media_workspace_automux import (
             MediaWorkspaceAutoMuxCoordinator,
         )
@@ -572,18 +578,30 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
         self.addCleanup(_dispose_coordinator, coordinator)
 
-        requested: list[int] = []
-        request_patch = patch.object(
-            MediaWorkspaceAutoMuxCoordinator,
-            "_request",
-            side_effect=lambda state, index: requested.append(index),
-        )
-        request_patch.start()
-        self.addCleanup(request_patch.stop)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
 
         coordinator.warm_plans_for_states([state])
 
-        self.assertEqual(requested, [0], "movie item with file_id=None must still be warmed")
+        self.assertEqual(
+            probed,
+            ["Movie (2020).mkv"],
+            "movie item with file_id=None must still be warmed",
+        )
 
     def test_warm_releases_inflight_when_preview_list_shrinks_midflight(self):
         # Round-4 hardening: _run_probe used to read preview_items[index]
@@ -651,11 +669,14 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # correctly named has is_actionable=False (no rename needed), but
         # it must still be warmed so AutoMux badges/labels appear without
         # requiring an on-demand expansion probe.
+        # Observed via the sweep's probe (the old _request hook only fired for
+        # the eagerly-warmed first state, which no longer exists without a
+        # selection).
         from unittest.mock import patch
 
-        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
-            MediaWorkspaceAutoMuxCoordinator,
-        )
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
 
         state = self._make_state()
         item = state.preview_items[0]
@@ -665,18 +686,30 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         workspace, states = self._workspace_with_states(states=[state])
 
-        requested: list[int] = []
-        request_patch = patch.object(
-            MediaWorkspaceAutoMuxCoordinator,
-            "_request",
-            side_effect=lambda state, index: requested.append(index),
-        )
-        request_patch.start()
-        self.addCleanup(request_patch.stop)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
 
         workspace._automux.warm_plans_for_states(states)
 
-        self.assertEqual(requested, [0], "correctly-named TV item must still be probe-warmed")
+        self.assertEqual(
+            probed,
+            ["a.mkv"],
+            "correctly-named TV item must still be probe-warmed",
+        )
 
     def test_button_hidden_when_no_plan_has_actions(self):
         workspace, state = self._workspace_with_selected_state(plan_actions=False)
