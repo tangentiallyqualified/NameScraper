@@ -12,6 +12,7 @@ from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
 from ..parsing import (
     best_tv_match_title,
     clean_folder_name,
+    extract_provider_id_tag,
     extract_year,
     is_generic_show_folder_name,
     is_sample_file,
@@ -234,7 +235,26 @@ class BatchTVOrchestrator:
         return candidates
 
     @staticmethod
+    def _candidate_state_kwargs(candidate) -> dict:
+        """ScanState fields copied verbatim from a discovery candidate.
+
+        Shared by every path that builds a ``ScanState`` from a
+        ``TVDiscoveryCandidateLike`` (unmatched, TMDB-matched, id-tag
+        routed) so the field list lives in exactly one place.
+        """
+        return {
+            "relative_folder": candidate.relative_folder,
+            "parent_relative_folder": candidate.parent_relative_folder,
+            "discovery_reason": candidate.discovery_reason,
+            "has_direct_season_subdirs": candidate.has_direct_season_subdirs,
+            "direct_episode_file_count": candidate.direct_episode_file_count,
+            "direct_video_file_count": candidate.direct_video_file_count,
+            "discovered_via_symlink": candidate.discovered_via_symlink,
+        }
+
+    @classmethod
     def _build_unmatched_show_state(
+        cls,
         candidate,
         folder: Path,
         year_hint: str | None,
@@ -256,14 +276,8 @@ class BatchTVOrchestrator:
             search_results=results,
             alternate_matches=[],
             checked=False,
-            relative_folder=candidate.relative_folder,
-            parent_relative_folder=candidate.parent_relative_folder,
-            discovery_reason=candidate.discovery_reason,
-            has_direct_season_subdirs=candidate.has_direct_season_subdirs,
-            direct_episode_file_count=candidate.direct_episode_file_count,
-            direct_video_file_count=candidate.direct_video_file_count,
-            discovered_via_symlink=candidate.discovered_via_symlink,
             season_assignment=infer_explicit_season_assignment(folder, episode_evidence),
+            **cls._candidate_state_kwargs(candidate),
         )
 
     def _season_names_for_match(
@@ -426,13 +440,6 @@ class BatchTVOrchestrator:
             search_results=results,
             alternate_matches=alternates,
             checked=False,
-            relative_folder=candidate.relative_folder,
-            parent_relative_folder=candidate.parent_relative_folder,
-            discovery_reason=candidate.discovery_reason,
-            has_direct_season_subdirs=candidate.has_direct_season_subdirs,
-            direct_episode_file_count=candidate.direct_episode_file_count,
-            direct_video_file_count=candidate.direct_video_file_count,
-            discovered_via_symlink=candidate.discovered_via_symlink,
             tie_detected=tie_detected,
             season_names=season_names,
             season_assignment=infer_explicit_season_assignment(
@@ -440,7 +447,66 @@ class BatchTVOrchestrator:
                 episode_evidence,
                 show_name=best.get("name"),
             ),
+            **self._candidate_state_kwargs(candidate),
         )
+
+    def _try_id_tag_state(
+        self,
+        candidate,
+        entry: tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]],
+    ) -> ScanState | None:
+        """Resolve a bracketed provider-ID tag on *candidate* to a state.
+
+        Recognized tags (``{tvdb-81189}``, ``[tmdb-1396]``, ...) on the
+        candidate's own folder name, or on its umbrella parent when the
+        generic-name fallback is active, skip the search/scoring path
+        entirely: the show is resolved by a direct ``get_tv_details`` call
+        on the tag's provider. Returns ``None`` (normal search path applies)
+        when routing is disabled, no tag is present, the tag's provider
+        isn't in the pool, or the direct lookup fails.
+        """
+        if not self.id_tag_routing:
+            return None
+        source_name = candidate.folder.name
+        tag = extract_provider_id_tag(source_name)
+        if tag is None and candidate.parent_relative_folder is not None:
+            tag = extract_provider_id_tag(candidate.folder.parent.name)
+        if tag is None:
+            return None
+        provider = self.provider_named(tag[0])
+        if provider is None:
+            _log.info("ID tag %s on %s: provider unavailable", tag, source_name)
+            return None
+        details = provider.get_tv_details(tag[1])
+        if not details:
+            _log.warning("ID tag %s on %s: lookup failed", tag, source_name)
+            return None
+        (_candidate, _cleaned, _score_name, _folder_score_name, _year_hint, episode_evidence) = (
+            entry
+        )
+        media_info = {
+            "id": details["id"],
+            "name": details.get("name", ""),
+            "year": (details.get("first_air_date") or "")[:4],
+            "poster_path": details.get("poster_path"),
+            "overview": details.get("overview", ""),
+        }
+        state = ScanState(
+            folder=candidate.folder,
+            media_info=media_info,
+            confidence=1.0,
+            match_origin="id_tag",
+            provider_name=provider.provider_name,
+            search_results=[],
+            alternate_matches=[],
+            checked=False,
+            season_assignment=infer_explicit_season_assignment(
+                candidate.folder, episode_evidence, show_name=media_info["name"]
+            ),
+            **self._candidate_state_kwargs(candidate),
+        )
+        state.season_names = self._season_names_for_match(media_info, provider=provider)
+        return state
 
     @staticmethod
     def _sort_discovered_show_state(state: ScanState) -> tuple[int, str, str]:
@@ -460,7 +526,7 @@ class BatchTVOrchestrator:
 
     def discover_shows(
         self,
-        progress_callback: Callable | None = None,
+        progress_callback: Callable[..., object] | None = None,
         cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find show folders and match to TMDB."""
@@ -472,11 +538,26 @@ class BatchTVOrchestrator:
 
         _log.info("Discovered %d candidate show folders", len(candidates))
 
-        queries = [(name, year) for _, name, _, _, year, _ in candidates]
-        all_results = self.tmdb.search_tv_batch(
-            queries,
-            progress_callback=progress_callback,
+        # Candidates whose folder (or umbrella parent) carries a recognized
+        # provider-ID tag skip the batch search entirely — they're resolved
+        # by a direct get_tv_details lookup below instead.
+        id_routed: dict[int, ScanState] = {}
+        searchable: list[int] = []
+        for candidate_index, entry in enumerate(candidates):
+            candidate = entry[0]
+            state = self._try_id_tag_state(candidate, entry)
+            if state is not None:
+                id_routed[candidate_index] = state
+            else:
+                searchable.append(candidate_index)
+
+        queries = [(candidates[i][1], candidates[i][4]) for i in searchable]
+        searched_results = (
+            self.tmdb.search_tv_batch(queries, progress_callback=progress_callback)
+            if queries
+            else []
         )
+        results_by_index = dict(zip(searchable, searched_results, strict=False))
 
         states: list[ScanState] = []
         total_candidates = len(candidates)
@@ -487,28 +568,32 @@ class BatchTVOrchestrator:
             "Preparing matched shows...",
             "Preparing matched shows...",
         )
-        for index, (
-            (candidate, _cleaned_name, score_name, folder_score_name, year_hint, episode_evidence),
-            results,
-        ) in enumerate(
-            zip(candidates, all_results, strict=False),
-            start=1,
-        ):
+        for candidate_index, (
+            candidate,
+            _cleaned_name,
+            score_name,
+            folder_score_name,
+            year_hint,
+            episode_evidence,
+        ) in enumerate(candidates):
             _raise_if_cancelled(cancel_event)
-            states.append(
-                self._build_discovered_show_state(
-                    candidate,
-                    score_name,
-                    folder_score_name,
-                    year_hint,
-                    episode_evidence,
-                    results,
-                    cancel_event=cancel_event,
+            if candidate_index in id_routed:
+                states.append(id_routed[candidate_index])
+            else:
+                states.append(
+                    self._build_discovered_show_state(
+                        candidate,
+                        score_name,
+                        folder_score_name,
+                        year_hint,
+                        episode_evidence,
+                        results_by_index[candidate_index],
+                        cancel_event=cancel_event,
+                    )
                 )
-            )
             _emit_scan_progress(
                 progress_callback,
-                index,
+                candidate_index + 1,
                 total_candidates,
                 candidate.folder.name,
                 "Preparing matched shows...",
