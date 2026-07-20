@@ -104,3 +104,43 @@ def test_failed_id_lookup_falls_through(tmp_path: Path) -> None:
     assert "get_tv_details:81189" in fallback.calls
     # Lookup failed -> falls through to the normal search path, no crash.
     assert "search_tv_batch" in primary.calls
+
+
+def test_specifically_named_child_does_not_inherit_parent_tag(tmp_path: Path) -> None:
+    # A specifically-named child ("Attack on Titan (2013)" is a real show
+    # title, not a generic season/collection label) under a tagged umbrella
+    # container must NOT inherit the container's tag — only a generic-named
+    # child (the umbrella-fallback case) is allowed to do that.
+    container = tmp_path / "Anime Collection {tvdb-999}"
+    show = container / "Attack on Titan (2013)"
+    show.mkdir(parents=True)
+    (show / "Attack.on.Titan.S01E01.mkv").touch()
+    orch, primary, fallback = _orchestrator_with_real_discovery(tmp_path)
+    assert fallback is not None
+    states = orch.discover_shows()
+    assert len(states) == 1
+    assert states[0].match_origin != "id_tag"
+    assert states[0].show_id != 999
+    assert "search_tv_batch" in primary.calls
+    # The parent tag must never be consulted for a specifically-named child.
+    assert fallback.calls == []
+
+
+def test_generic_named_child_inherits_umbrella_parent_tag(tmp_path: Path) -> None:
+    # A generic-named child ("Specials" is a season/collection label, not a
+    # show title) under a tagged umbrella container DOES inherit the
+    # container's tag, matching the title-matching fallback's own gate
+    # (is_generic_show_folder_name).
+    container = tmp_path / "Breaking Bad (2008) {tvdb-81189}"
+    show = container / "Specials"
+    show.mkdir(parents=True)
+    (show / "Breaking.Bad.S00E01.mkv").touch()
+    orch, primary, fallback = _orchestrator_with_real_discovery(tmp_path)
+    assert fallback is not None
+    states = orch.discover_shows()
+    assert len(states) == 1
+    assert states[0].match_origin == "id_tag"
+    assert states[0].show_id == 81189
+    assert states[0].provider_name == "tvdb"
+    assert "get_tv_details:81189" in fallback.calls
+    assert primary.calls == []

@@ -469,7 +469,11 @@ class BatchTVOrchestrator:
             return None
         source_name = candidate.folder.name
         tag = extract_provider_id_tag(source_name)
-        if tag is None and candidate.parent_relative_folder is not None:
+        if (
+            tag is None
+            and candidate.parent_relative_folder is not None
+            and is_generic_show_folder_name(source_name)
+        ):
             tag = extract_provider_id_tag(candidate.folder.parent.name)
         if tag is None:
             return None
