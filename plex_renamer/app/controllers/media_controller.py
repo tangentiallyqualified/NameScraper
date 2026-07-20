@@ -387,15 +387,19 @@ class MediaController:
         self,
         folder: Path,
         tmdb: Any,
+        fallback_provider: Any | None = None,
     ) -> None:
         """Discover TV shows and match to TMDB (Phase 1).
 
         Spawns a background thread.  Fires ``on_progress`` during
         discovery/matching and ``on_library_changed`` when shows are
         populated.  Fires ``on_scan_complete(None)`` when discovery
-        finishes (before episode scanning starts).
+        finishes (before episode scanning starts).  *fallback_provider*
+        (e.g. a TVDB client) is threaded to the orchestrator's provider
+        pool when the caller has one available (see
+        ``MainWindowTmdbCoordinator.ensure_fallback_provider``).
         """
-        self._tv_workflow.start_batch(folder, tmdb)
+        self._tv_workflow.start_batch(folder, tmdb, fallback_provider)
 
     def scan_all_shows(self) -> None:
         """Phase 2: scan episodes for all unscanned shows in batch mode.

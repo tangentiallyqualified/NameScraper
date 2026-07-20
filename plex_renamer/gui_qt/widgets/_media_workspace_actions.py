@@ -32,6 +32,7 @@ from ._media_workspace_match_actions import (
     approve_match as _approve_match,
     fix_match as _fix_match,
     prompt_assign_season as _prompt_assign_season,
+    switch_source as _switch_source,
 )
 from ._media_workspace_queue_actions import (
     queue_checked as _queue_checked,
@@ -124,6 +125,9 @@ class MediaWorkspaceActionCoordinator:
 
     def approve_match(self, state: ScanState) -> None:
         _approve_match(self._workspace, state)
+
+    def switch_source(self, provider_name: str) -> None:
+        _switch_source(self._workspace, provider_name)
 
     def _auto_check_for_queue(self, state: ScanState) -> None:
         """Pre-tick a show for queueing after Approve All.

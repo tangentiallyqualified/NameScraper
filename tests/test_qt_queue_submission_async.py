@@ -107,6 +107,7 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -159,6 +160,7 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.calls += 1
@@ -214,6 +216,7 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 if progress is not None:
@@ -265,6 +268,7 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True

@@ -96,12 +96,18 @@ class RosterModel(QAbstractListModel):
         media_type: str,
         settings_service=None,
         tmdb_provider=None,
+        provider_for_state=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._media_type = media_type
         self._settings = settings_service
         self._tmdb_provider = tmdb_provider
+        # Per-state provider resolver (ScanState -> client), e.g. routing a
+        # pinned/fallback-matched show's poster fetch through ITS provider
+        # instead of always the window's active client. Falls back to
+        # _tmdb_provider() when unset (movies, or no TV batch active).
+        self._provider_for_state = provider_for_state
         self._compact = False
         self._states: list[ScanState] = []
         self._entries: list[_HeaderEntry | _StateEntry] = []
@@ -332,15 +338,20 @@ class RosterModel(QAbstractListModel):
             return
         self._request_poster_for_key(state, row_data.poster_key)
 
+    def _resolve_poster_provider(self, state: ScanState):
+        if self._provider_for_state is not None:
+            return self._provider_for_state(state)
+        return self._tmdb_provider() if self._tmdb_provider is not None else None
+
     def _request_poster_for_key(self, state: ScanState, key: tuple[str, int]) -> None:
-        if self._tmdb_provider is None:
+        if self._provider_for_state is None and self._tmdb_provider is None:
             return
         if key in self._poster_cache:
             self._poster_cache.move_to_end(key)
             return
         if key in self._poster_inflight:
             return
-        tmdb = self._tmdb_provider()
+        tmdb = self._resolve_poster_provider(state)
         if tmdb is None:
             return
         self._poster_inflight.add(key)

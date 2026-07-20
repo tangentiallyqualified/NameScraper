@@ -53,7 +53,7 @@ class QtMainWindowTests(QtSmokeBase):
         class _FakeMediaController:
             active_content_mode = "tv"
 
-            def start_tv_batch(self, folder, tmdb):
+            def start_tv_batch(self, folder, tmdb, fallback_provider=None):
                 return None
 
         class _FakeOutputStatus:
@@ -84,6 +84,9 @@ class QtMainWindowTests(QtSmokeBase):
 
             def _ensure_tv_provider(self):
                 return object()
+
+            def _ensure_fallback_provider(self):
+                return None
 
         window = _FakeWindow()
         coordinator = MainWindowScanCoordinator(window, tv_index=0, movies_index=1)

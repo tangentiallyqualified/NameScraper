@@ -166,6 +166,9 @@ class MainWindow(QMainWindow):
     def _ensure_tv_provider(self) -> Any | None:
         return self._tmdb_coordinator.ensure_tv_provider(api_key_lookup=get_api_key)
 
+    def _ensure_fallback_provider(self) -> Any | None:
+        return self._tmdb_coordinator.ensure_fallback_provider(api_key_lookup=get_api_key)
+
     def _persist_tmdb_cache_snapshot(self) -> None:
         self._tmdb_coordinator.persist_tmdb_cache_snapshot()
 

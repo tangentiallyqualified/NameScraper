@@ -109,6 +109,46 @@ class MainWindowTmdbCoordinator:
         )
         return window._tv_provider
 
+    def ensure_fallback_provider(
+        self,
+        *,
+        api_key_lookup: Callable[[str], str | None],
+    ) -> Any | None:
+        """Client for the NON-active TV provider, when fallback is enabled
+        and a key exists for it — quietly ``None`` otherwise (fallback is
+        optional, no status-bar nag)."""
+        from ..providers import TV_PROVIDERS, get_tv_provider_spec
+        from ..tmdb import TMDBClient
+
+        window = self._window
+        if not window.settings_service.tv_fallback_enabled:
+            return None
+        active = get_tv_provider_spec(window.settings_service.tv_metadata_source).name
+        other = next((spec for name, spec in TV_PROVIDERS.items() if name != active), None)
+        if other is None:
+            return None
+        api_key = api_key_lookup(other.key_service)
+        if not api_key:
+            return None
+        if other.name == "tmdb":
+            return self.ensure_tmdb(
+                api_key_lookup=api_key_lookup,
+                tmdb_client_factory=TMDBClient,
+            )
+        if window._tv_provider is not None:
+            return window._tv_provider
+        # Exactly two providers exist (TMDB, TVDB): _tv_provider caches
+        # whichever one is non-TMDB, regardless of whether it is playing
+        # the active or the fallback role right now — safe only because
+        # there is no third provider slot to collide with.
+        window._tv_provider = other.factory(
+            api_key,
+            language=window.settings_service.match_language,
+            cache_service=window._cache_service,
+            refresh_policy=window._refresh_policy,
+        )
+        return window._tv_provider
+
     def invalidate_tmdb(self) -> None:
         window = self._window
         self.persist_tmdb_cache_snapshot()

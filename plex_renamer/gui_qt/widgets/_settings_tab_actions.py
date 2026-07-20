@@ -68,6 +68,7 @@ class SettingsTabActionsCoordinator:
 
             self.set_key_status("API key saved.", "success")
             tab.api_key_saved.emit()
+            self.refresh_fallback_availability()
         except Exception as exc:
             self.set_key_status(f"Save failed: {exc}", "error")
 
@@ -77,6 +78,40 @@ class SettingsTabActionsCoordinator:
             return
         tab._settings.tv_metadata_source = str(tab._tv_source_combo.itemData(index))
         tab.api_key_saved.emit()  # drops cached clients; next scan uses the new source
+        self.refresh_fallback_availability()
+
+    def on_fallback_toggled(self, checked: bool) -> None:
+        tab = self._tab
+        if tab._settings is None:
+            return
+        tab._settings.tv_fallback_enabled = checked
+
+    def on_id_tag_routing_toggled(self, checked: bool) -> None:
+        tab = self._tab
+        if tab._settings is None:
+            return
+        tab._settings.tv_id_tag_routing_enabled = checked
+
+    def refresh_fallback_availability(self) -> None:
+        """Disable the fallback checkbox (with an explanatory tooltip) when
+        the non-active TV provider has no API key on file."""
+        tab = self._tab
+        if tab._settings is None or not hasattr(tab, "_fallback_cb"):
+            return
+        from ...providers import TV_PROVIDERS, get_tv_provider_spec
+
+        active = get_tv_provider_spec(tab._settings.tv_metadata_source).name
+        other = next((spec for name, spec in TV_PROVIDERS.items() if name != active), None)
+        available = False
+        if other is not None:
+            try:
+                from ...keys import get_api_key
+
+                available = bool(get_api_key(other.key_service))
+            except Exception:
+                available = False
+        tab._fallback_cb.setEnabled(available)
+        tab._fallback_cb.setToolTip("" if available else "Requires an API key for the other source")
 
     def test_key(self, *, submit_bg: Callable[[Callable[[], None]], Any]) -> None:
         tab = self._tab

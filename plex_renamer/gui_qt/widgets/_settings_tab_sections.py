@@ -225,6 +225,18 @@ class SettingsTabSectionsBuilder:
         source_row.addStretch()
         section.add_layout(source_row)
 
+        tab._fallback_cb = QCheckBox("Fall back to the other source on weak matches")
+        if tab._settings:
+            tab._fallback_cb.setChecked(tab._settings.tv_fallback_enabled)
+        tab._fallback_cb.toggled.connect(tab._on_fallback_toggled)
+        section.add_widget(tab._fallback_cb)
+
+        tab._id_tag_routing_cb = QCheckBox("Follow {tmdb-}/{tvdb-} ID tags in folder names")
+        if tab._settings:
+            tab._id_tag_routing_cb.setChecked(tab._settings.tv_id_tag_routing_enabled)
+        tab._id_tag_routing_cb.toggled.connect(tab._on_id_tag_routing_toggled)
+        section.add_widget(tab._id_tag_routing_cb)
+
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
         tab._api_key_input = QLineEdit()
@@ -278,6 +290,8 @@ class SettingsTabSectionsBuilder:
         tab._key_status = QLabel("")
         tab._key_status.setProperty("cssClass", "caption")
         section.add_widget(tab._key_status)
+
+        tab._actions_coordinator.refresh_fallback_availability()
 
         self._add_page(section)
 

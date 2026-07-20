@@ -39,6 +39,7 @@ class MediaWorkspaceRosterPanel(QFrame):
         media_type: str,
         settings_service: SettingsService | None = None,
         tmdb_provider=None,
+        provider_for_state=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -50,6 +51,7 @@ class MediaWorkspaceRosterPanel(QFrame):
             media_type=media_type,
             settings_service=settings_service,
             tmdb_provider=tmdb_provider,
+            provider_for_state=provider_for_state,
         )
         self._build_ui()
 

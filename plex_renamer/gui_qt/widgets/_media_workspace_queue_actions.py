@@ -231,6 +231,11 @@ def _start_submission(
     gating = workspace._media_ctrl.command_gating
     settings = workspace._settings
     tmdb_client = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
+    # A mixed batch can hold shows attributed to different providers (pins,
+    # fallback matches, manual switches) — thread a per-state resolver so
+    # each job's metadata bake uses ITS show's provider, not the single
+    # window-level client. Only meaningful for TV (movies have no pool).
+    provider_for_state = workspace._provider_for_state if workspace._media_type == "tv" else None
 
     bridge = _QueueSubmissionBridge(workspace)
     overlay = BusyOverlay(workspace, "Queueing…")
@@ -245,15 +250,14 @@ def _start_submission(
         result = None
         error: Exception | None = None
         try:
-            result = add_batch(
-                states,
-                root,
-                output_root,
-                gating,
-                settings_service=settings,
-                tmdb_client=tmdb_client,
-                progress=_report_progress,
-            )
+            kwargs: dict[str, Any] = {
+                "settings_service": settings,
+                "tmdb_client": tmdb_client,
+                "progress": _report_progress,
+            }
+            if provider_for_state is not None:
+                kwargs["provider_for_state"] = provider_for_state
+            result = add_batch(states, root, output_root, gating, **kwargs)
         except Exception as exc:
             error = exc
         with contextlib.suppress(RuntimeError):  # bridge deleted during shutdown

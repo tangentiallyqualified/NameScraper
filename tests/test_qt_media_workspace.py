@@ -43,6 +43,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 return BatchQueueResult(added=len(states))
@@ -1110,6 +1111,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 for state in states:
@@ -1579,6 +1581,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 command_gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -4408,6 +4411,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -4498,6 +4502,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -4605,6 +4610,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -4699,6 +4705,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 for state in states:
@@ -4773,6 +4780,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 overlay = workspace.findChild(BusyOverlay)
@@ -4801,6 +4809,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -4901,6 +4910,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 # Capture checked-state at call time: a successful queue
@@ -5008,6 +5018,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called = True
@@ -5113,6 +5124,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 self.called_with = list(states)
@@ -5397,6 +5409,7 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
                 gating,
                 settings_service=None,
                 tmdb_client=None,
+                provider_for_state=None,
                 progress=None,
             ):
                 return None

@@ -161,6 +161,22 @@ class MediaWorkspace(QWidget):
 
     # ── Internals ────────────────────────────────────────────────
 
+    def _provider_for_state(self, state: ScanState) -> object | None:
+        """Client attributed to *state* — routed through the TV batch
+        orchestrator's provider pool (``provider_for``) when one is active,
+        so a per-show pin/fallback/manual-switch match fetches through its
+        own provider instead of always the window's active client. Falls
+        back to the workspace's active client when no orchestrator is
+        active (movies, or a TV session that hasn't started a batch)."""
+        orchestrator = (
+            getattr(self._media_ctrl, "batch_orchestrator", None)
+            if self._media_ctrl is not None
+            else None
+        )
+        if orchestrator is not None:
+            return orchestrator.provider_for(state)
+        return self._tmdb_provider() if self._tmdb_provider is not None else None
+
     def _on_folder_selected(self, path: str) -> None:
         self._lifecycle_coordinator.on_folder_selected(path)
 
@@ -279,6 +295,9 @@ class MediaWorkspace(QWidget):
             match_picker_dialog=MatchPickerDialog,
             warning_box=QMessageBox,
         )
+
+    def _on_source_selected(self, provider_name: str) -> None:
+        self._action_coordinator.switch_source(provider_name)
 
     def _queue_eligibility(self, states: list[ScanState]):
         return self._action_coordinator.queue_eligibility(states)

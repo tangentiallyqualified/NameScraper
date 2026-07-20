@@ -62,6 +62,8 @@ def start_tv_batch_session(
     folder: Path,
     tmdb: Any,
     discovery_service: TVLibraryDiscoveryService,
+    *,
+    fallback_provider: Any | None = None,
 ) -> None:
     controller._batch_mode = True
     controller._active_content_mode = MediaType.TV
@@ -71,6 +73,9 @@ def start_tv_batch_session(
         tmdb,
         folder,
         discovery_service=discovery_service,
+        fallback_provider=fallback_provider,
+        provider_overrides=controller._settings.tv_provider_overrides,
+        id_tag_routing=controller._settings.tv_id_tag_routing_enabled,
     )
     controller._batch_states = []
     controller._active_scan = None

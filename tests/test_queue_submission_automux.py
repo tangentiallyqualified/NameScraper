@@ -1,4 +1,5 @@
 """Queue submission ensures and bakes mux plans into REMUX jobs."""
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -51,12 +52,30 @@ def _settings(tmp_path):
 
 
 def _probe_ok():
-    return ProbeResult(path="a.mkv", ok=True, tracks=[
-        MediaTrack(track_id=0, track_type="video", codec="h264",
-                   language="und", name="", is_default=True, is_forced=False),
-        MediaTrack(track_id=1, track_type="audio", codec="aac",
-                   language="eng", name="", is_default=True, is_forced=False),
-    ])
+    return ProbeResult(
+        path="a.mkv",
+        ok=True,
+        tracks=[
+            MediaTrack(
+                track_id=0,
+                track_type="video",
+                codec="h264",
+                language="und",
+                name="",
+                is_default=True,
+                is_forced=False,
+            ),
+            MediaTrack(
+                track_id=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                name="",
+                is_default=True,
+                is_forced=False,
+            ),
+        ],
+    )
 
 
 def _tv_state(tmp_path):
@@ -65,16 +84,24 @@ def _tv_state(tmp_path):
         original=lib / "Show" / "a.mkv",
         new_name="Show - S01E01 - Pilot.mkv",
         target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
-        season=1, episodes=[1], status="OK", media_type="tv",
-        companions=[CompanionFile(
-            original=lib / "Show" / "a.eng.srt",
-            new_name="Show - S01E01 - Pilot.eng.srt",
-            file_type="subtitle")],
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
+        companions=[
+            CompanionFile(
+                original=lib / "Show" / "a.eng.srt",
+                new_name="Show - S01E01 - Pilot.eng.srt",
+                file_type="subtitle",
+            )
+        ],
     )
     return ScanState(
         folder=lib / "Show",
         media_info={"id": 7, "name": "Show", "year": "2020"},
-        preview_items=[item], scanned=True, checked=True,
+        preview_items=[item],
+        scanned=True,
+        checked=True,
         relative_folder="Show",
     )
 
@@ -88,18 +115,26 @@ def _tv_state_two(tmp_path):
             original=lib / "Show" / f"{name}.mkv",
             new_name=f"Show - S01E0{ep} - Ep.mkv",
             target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
-            season=1, episodes=[ep], status="OK", media_type="tv",
-            companions=[CompanionFile(
-                original=lib / "Show" / f"{name}.eng.srt",
-                new_name=f"Show - S01E0{ep} - Ep.eng.srt",
-                file_type="subtitle")],
+            season=1,
+            episodes=[ep],
+            status="OK",
+            media_type="tv",
+            companions=[
+                CompanionFile(
+                    original=lib / "Show" / f"{name}.eng.srt",
+                    new_name=f"Show - S01E0{ep} - Ep.eng.srt",
+                    file_type="subtitle",
+                )
+            ],
         )
 
     return ScanState(
         folder=lib / "Show",
         media_info={"id": 7, "name": "Show", "year": "2020"},
         preview_items=[_item("a", 1), _item("b", 2)],
-        scanned=True, checked=True, relative_folder="Show",
+        scanned=True,
+        checked=True,
+        relative_folder="Show",
     )
 
 
@@ -122,16 +157,12 @@ def test_per_episode_optout_excludes_only_that_file(tmp_path, monkeypatch):
 
     assert result.added == 1
     job = store.jobs[0]
-    assert job.job_kind == JobKind.REMUX   # index 1 still muxes
-    video_ops = {
-        op.original_relative: op
-        for op in job.rename_ops
-        if op.file_type == "video"
-    }
+    assert job.job_kind == JobKind.REMUX  # index 1 still muxes
+    video_ops = {op.original_relative: op for op in job.rename_ops if op.file_type == "video"}
     a_rel = str(Path("Show/a.mkv"))
     b_rel = str(Path("Show/b.mkv"))
-    assert video_ops[a_rel].mux is None        # opted out -> plain rename
-    assert video_ops[b_rel].mux is not None     # still muxed
+    assert video_ops[a_rel].mux is None  # opted out -> plain rename
+    assert video_ops[b_rel].mux is not None  # still muxed
     # The opted-out episode's subtitle is NOT consumed by a mux, so it keeps
     # its own rename op; the muxed one's subtitle is merged away.
     originals = [op.original_relative for op in job.rename_ops]
@@ -178,9 +209,12 @@ def test_disabled_state_stays_rename(tmp_path, monkeypatch):
     state.automux_disabled = True
     store = _FakeStore()
     add_tv_batch_jobs(
-        store, states=[state],
-        library_root=tmp_path / "lib", output_root=tmp_path / "out",
-        command_gating=_Gating(), settings_service=_settings(tmp_path),
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
     )
     assert store.jobs[0].job_kind == JobKind.RENAME
 
@@ -193,16 +227,24 @@ def _tv_state_correctly_named(tmp_path):
         original=lib / "Show" / "Show - S01E01 - Pilot.mkv",
         new_name="Show - S01E01 - Pilot.mkv",
         target_dir=lib / "Show",
-        season=1, episodes=[1], status="OK", media_type="tv",
-        companions=[CompanionFile(
-            original=lib / "Show" / "Show - S01E01 - Pilot.eng.srt",
-            new_name="Show - S01E01 - Pilot.eng.srt",
-            file_type="subtitle")],
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
+        companions=[
+            CompanionFile(
+                original=lib / "Show" / "Show - S01E01 - Pilot.eng.srt",
+                new_name="Show - S01E01 - Pilot.eng.srt",
+                file_type="subtitle",
+            )
+        ],
     )
     state = ScanState(
         folder=lib / "Show",
         media_info={"id": 7, "name": "Show", "year": "2020"},
-        preview_items=[item], scanned=True, checked=True,
+        preview_items=[item],
+        scanned=True,
+        checked=True,
         relative_folder="Show",
     )
     state.check_vars = {"0": SimpleNamespace(get=lambda: True)}
@@ -291,7 +333,10 @@ def test_get_checked_indices_includes_mux_active_items(tmp_path):
             original=lib / "Show" / f"{name}.mkv",
             new_name=f"Show - S01E0{ep} - Ep.mkv",
             target_dir=lib / "Show",
-            season=1, episodes=[ep], status="OK", media_type="tv",
+            season=1,
+            episodes=[ep],
+            status="OK",
+            media_type="tv",
         )
 
     def _correct(ep: int) -> PreviewItem:
@@ -300,21 +345,25 @@ def test_get_checked_indices_includes_mux_active_items(tmp_path):
             original=lib / "Show" / f"Show - S01E0{ep} - Ep.mkv",
             new_name=f"Show - S01E0{ep} - Ep.mkv",
             target_dir=lib / "Show",
-            season=1, episodes=[ep], status="OK", media_type="tv",
+            season=1,
+            episodes=[ep],
+            status="OK",
+            media_type="tv",
         )
 
-    action_plan = {"subtitle_merges": [
-        {"action": "merge", "source_relative": "Show/x.eng.srt"}]}
+    action_plan = {"subtitle_merges": [{"action": "merge", "source_relative": "Show/x.eng.srt"}]}
     state = ScanState(
         folder=lib / "Show",
         media_info={"id": 7, "name": "Show", "year": "2020"},
         preview_items=[
-            _actionable("a", 1),   # 0: checked + actionable -> in
-            _correct(2),           # 1: checked + mux-active -> in
-            _correct(3),           # 2: checked, no plan -> out
-            _correct(4),           # 3: mux-active but UNCHECKED -> out
+            _actionable("a", 1),  # 0: checked + actionable -> in
+            _correct(2),  # 1: checked + mux-active -> in
+            _correct(3),  # 2: checked, no plan -> out
+            _correct(4),  # 3: mux-active but UNCHECKED -> out
         ],
-        scanned=True, checked=True, relative_folder="Show",
+        scanned=True,
+        checked=True,
+        relative_folder="Show",
     )
     state.mux_plans = {1: action_plan, 3: action_plan}
     state.check_vars = {
@@ -327,6 +376,98 @@ def test_get_checked_indices_includes_mux_active_items(tmp_path):
     assert get_checked_indices_from_state(state) == {0, 1}
 
 
+def _tv_state_named(tmp_path, name, show_id):
+    """A second, independent TV state (own folder/show id) for
+    mixed-provider-batch tests below."""
+    lib = tmp_path / "lib"
+    item = PreviewItem(
+        original=lib / name / "a.mkv",
+        new_name=f"{name} - S01E01 - Pilot.mkv",
+        target_dir=tmp_path / "out" / f"{name} (2020)" / "Season 01",
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
+    )
+    return ScanState(
+        folder=lib / name,
+        media_info={"id": show_id, "name": name, "year": "2020"},
+        preview_items=[item],
+        scanned=True,
+        checked=True,
+        relative_folder=name,
+    )
+
+
+def test_data_source_reflects_state_provider_name_not_shared_client(tmp_path):
+    """A mixed batch's job.data_source must reflect each STATE's own
+    provider attribution (pin/fallback/manual-switch), not the single
+    tmdb_client threaded through the whole add_tv_batch_jobs call — a
+    show pinned to tvdb must record data_source="tvdb" even when the
+    batch's shared client is the tmdb primary."""
+    state = _tv_state(tmp_path)
+    state.provider_name = "tvdb"
+    store = _FakeStore()
+
+    class _SharedClient:
+        provider_name = "tmdb"
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        tmdb_client=_SharedClient(),
+    )
+
+    assert result.added == 1
+    assert store.jobs[0].data_source == "tvdb"
+
+
+def test_provider_for_state_resolves_bake_client_per_show(tmp_path, monkeypatch):
+    """The metadata-plan bake uses provider_for_state(state) per show, not
+    the single shared tmdb_client, when a resolver is given — a mixed
+    batch (some shows tmdb, some tvdb) must bake each show's plan through
+    ITS OWN provider client."""
+    from plex_renamer.app.controllers import _queue_submission_helpers as helpers
+
+    baked_with = []
+    monkeypatch.setattr(
+        helpers,
+        "_bake_metadata_plan",
+        lambda job, settings_service, tmdb_client, library_root: baked_with.append(tmdb_client),
+    )
+
+    state_a = _tv_state_named(tmp_path, "ShowA", 7)
+    state_a.provider_name = "tmdb"
+    state_b = _tv_state_named(tmp_path, "ShowB", 8)
+    state_b.provider_name = "tvdb"
+
+    class _Client:
+        def __init__(self, name):
+            self.provider_name = name
+
+    tmdb_client = _Client("tmdb")
+    tvdb_client = _Client("tvdb")
+
+    def _provider_for_state(state):
+        return tvdb_client if state.provider_name == "tvdb" else tmdb_client
+
+    store = _FakeStore()
+    add_tv_batch_jobs(
+        store,
+        states=[state_a, state_b],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        tmdb_client=tmdb_client,
+        provider_for_state=_provider_for_state,
+    )
+
+    assert baked_with == [tmdb_client, tvdb_client]
+
+
 def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
     monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path: _probe_ok())
     lib = tmp_path / "lib"
@@ -334,22 +475,33 @@ def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
         original=lib / "Movie" / "m.mkv",
         new_name="Movie (2020).mkv",
         target_dir=tmp_path / "out" / "Movie (2020)",
-        season=None, episodes=[], status="OK", media_type="movie",
-        companions=[CompanionFile(
-            original=lib / "Movie" / "m.eng.srt",
-            new_name="Movie (2020).eng.srt",
-            file_type="subtitle")],
+        season=None,
+        episodes=[],
+        status="OK",
+        media_type="movie",
+        companions=[
+            CompanionFile(
+                original=lib / "Movie" / "m.eng.srt",
+                new_name="Movie (2020).eng.srt",
+                file_type="subtitle",
+            )
+        ],
     )
     state = ScanState(
         folder=lib / "Movie",
         media_info={"id": 9, "title": "Movie", "year": "2020"},
-        preview_items=[item], scanned=True, checked=True,
+        preview_items=[item],
+        scanned=True,
+        checked=True,
     )
     store = _FakeStore()
     result = add_movie_batch_jobs(
-        store, states=[state],
-        library_root=lib, output_root=tmp_path / "out",
-        command_gating=_Gating(), settings_service=_settings(tmp_path),
+        store,
+        states=[state],
+        library_root=lib,
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
     )
     assert result.added == 1
     assert store.jobs[0].job_kind == JobKind.REMUX
@@ -378,7 +530,9 @@ def test_mux_only_state_queued_through_real_gating(tmp_path, monkeypatch):
 
     gating = CommandGatingService()
     eligibility = gating.evaluate_scan_state(
-        state, require_resolved_review=True, allow_show_level_queue=True,
+        state,
+        require_resolved_review=True,
+        allow_show_level_queue=True,
     )
     assert eligibility.enabled
     assert eligibility.selected_indices == [0]

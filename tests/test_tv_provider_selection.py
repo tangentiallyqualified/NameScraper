@@ -7,9 +7,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from _provider_fakes import RecordingProvider
 
+from plex_renamer.app.controllers.media_controller import MediaController
+from plex_renamer.app.services.cache_service import PersistentCacheService
+from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.gui_qt._main_window_tmdb import MainWindowTmdbCoordinator
+from plex_renamer.job_store import JobStore
 
 
 class _StatusBar:
@@ -104,3 +110,103 @@ def test_provider_override_round_trip(settings_service: SettingsService) -> None
     assert settings_service.tv_provider_overrides == {
         "breaking bad|2008": {"provider": "tvdb", "show_id": 81189},
     }
+
+
+class _FallbackSettings(_Settings):
+    def __init__(self, source: str, *, fallback_enabled: bool) -> None:
+        super().__init__(source)
+        self.tv_fallback_enabled = fallback_enabled
+
+
+class _FallbackWindow(_Window):
+    def __init__(self, source: str, *, fallback_enabled: bool) -> None:
+        super().__init__(source)
+        self.settings_service = _FallbackSettings(source, fallback_enabled=fallback_enabled)
+
+
+def test_fallback_disabled_returns_none_quietly() -> None:
+    window = _FallbackWindow("tmdb", fallback_enabled=False)
+    client = _coordinator(window).ensure_fallback_provider(api_key_lookup=lambda service: "key")
+    assert client is None
+    assert window._status.messages == []  # pyright: ignore[reportPrivateUsage]
+
+
+def test_fallback_enabled_returns_non_active_provider() -> None:
+    window = _FallbackWindow("tmdb", fallback_enabled=True)
+    client = _coordinator(window).ensure_fallback_provider(
+        api_key_lookup=lambda service: "key" if service == "TVDB" else None
+    )
+    assert client is not None and client.provider_name == "tvdb"
+    assert client is window._tv_provider  # pyright: ignore[reportPrivateUsage]
+    assert window._tmdb is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_fallback_enabled_tmdb_as_other_provider() -> None:
+    window = _FallbackWindow("tvdb", fallback_enabled=True)
+    client = _coordinator(window).ensure_fallback_provider(
+        api_key_lookup=lambda service: "key" if service == "TMDB" else None
+    )
+    assert client is not None and client.provider_name == "tmdb"
+    assert client is window._tmdb  # pyright: ignore[reportPrivateUsage]
+
+
+def test_fallback_enabled_missing_other_key_returns_none_quietly() -> None:
+    window = _FallbackWindow("tmdb", fallback_enabled=True)
+    client = _coordinator(window).ensure_fallback_provider(api_key_lookup=lambda service: None)
+    assert client is None
+    assert window._status.messages == []  # pyright: ignore[reportPrivateUsage]
+
+
+def _make_media_controller(tmp_path: Path, settings: SettingsService) -> MediaController:
+    return MediaController(
+        job_store=JobStore(db_path=tmp_path / "jobs.db"),
+        command_gating=CommandGatingService(),
+        settings=settings,
+        cache_service=PersistentCacheService(db_path=tmp_path / "cache.db"),
+        refresh_policy=RefreshPolicyService(),
+    )
+
+
+def test_orchestrator_receives_fallback_and_pins(tmp_path: Path) -> None:
+    """Construction plumbing: settings flow into BatchTVOrchestrator via
+    ``start_tv_batch`` -> ``MediaControllerTVWorkflow.start_batch`` ->
+    ``start_tv_batch_session``. ``_batch_orchestrator`` is built
+    synchronously before the background discovery worker starts, so it
+    can be asserted on immediately."""
+    settings = SettingsService(path=tmp_path / "settings.json")
+    settings.tv_metadata_source = "tmdb"
+    settings.tv_fallback_enabled = True
+    settings.tv_id_tag_routing_enabled = False
+    pins = {"x|2000": {"provider": "tvdb", "show_id": 5}}
+    settings.tv_provider_overrides = pins
+
+    controller = _make_media_controller(tmp_path, settings)
+    root = tmp_path / "tv_root"
+    root.mkdir()
+
+    tmdb_fake = RecordingProvider("tmdb")
+    tvdb_fake = RecordingProvider("tvdb")
+    controller.start_tv_batch(root, tmdb_fake, tvdb_fake)
+
+    orchestrator = controller.batch_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.fallback_provider is tvdb_fake
+    assert orchestrator.provider_overrides == pins
+    assert orchestrator.id_tag_routing is False
+
+
+def test_orchestrator_without_fallback_provider(tmp_path: Path) -> None:
+    settings = SettingsService(path=tmp_path / "settings.json")
+    settings.tv_id_tag_routing_enabled = True
+
+    controller = _make_media_controller(tmp_path, settings)
+    root = tmp_path / "tv_root"
+    root.mkdir()
+
+    controller.start_tv_batch(root, RecordingProvider("tmdb"))
+
+    orchestrator = controller.batch_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.fallback_provider is None
+    assert orchestrator.provider_overrides == {}
+    assert orchestrator.id_tag_routing is True

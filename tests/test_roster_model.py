@@ -155,6 +155,41 @@ class RosterModelTests(QtSmokeBase):
         self.assertFalse(pixmap.isNull())
         self.assertEqual(len(calls), 1)
 
+    def test_poster_fetch_routes_through_provider_for_state(self):
+        from unittest.mock import patch
+
+        from PIL import Image
+
+        from plex_renamer.gui_qt.widgets import _roster_model as rm
+
+        state = _make_state("Frieren")
+        state.provider_name = "tvdb"
+        calls: list[str] = []
+
+        class _Tmdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tmdb")
+                return Image.new("RGB", (4, 6), (10, 20, 30))
+
+        class _Tvdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tvdb")
+                return Image.new("RGB", (4, 6), (10, 20, 30))
+
+        def _provider_for_state(s):
+            return _Tvdb() if s.provider_name == "tvdb" else _Tmdb()
+
+        model = rm.RosterModel(
+            media_type="tv",
+            tmdb_provider=lambda: _Tmdb(),
+            provider_for_state=_provider_for_state,
+        )
+        with patch.object(rm, "_submit_bg", side_effect=lambda fn: fn()):
+            model.set_states([state], collapsed_groups={})
+        row = model.row_for_state_index(0)
+        self.assertGreaterEqual(row, 0)
+        self.assertEqual(calls, ["tvdb"])
+
     def test_loaded_posters_returns_cached_pixmaps(self):
         from PySide6.QtGui import QPixmap
 

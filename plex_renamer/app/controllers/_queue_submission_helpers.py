@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from ...constants import MediaType
 from ...engine import (
@@ -128,6 +128,7 @@ def add_tv_batch_jobs(
     command_gating: CommandGatingService,
     settings_service=None,
     tmdb_client=None,
+    provider_for_state: Callable[[ScanState], Any] | None = None,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
@@ -173,8 +174,14 @@ def add_tv_batch_jobs(
             checked_indices=checked,
             mux_plans=mux_plans,
         )
-        job.data_source = getattr(tmdb_client, "provider_name", "tmdb")
-        _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
+        # The batch's single tmdb_client is one client for the whole call;
+        # a mixed batch (pins, fallback matches, manual switches) can hold
+        # shows attributed to a DIFFERENT provider than that one, so the
+        # ground-truth source is the state's own attribution, and the bake
+        # client is resolved per-show when a resolver is given.
+        job.data_source = state.provider_name
+        state_client = provider_for_state(state) if provider_for_state is not None else tmdb_client
+        _bake_metadata_plan(job, settings_service, state_client, library_root)
 
         try:
             job_store.add_job(job)

@@ -75,6 +75,7 @@ class MediaWorkspaceUiCoordinator:
             media_type=workspace._media_type,
             settings_service=workspace._settings,
             tmdb_provider=workspace._tmdb_provider,
+            provider_for_state=workspace._provider_for_state,
         )
         workspace._roster_master_check = workspace._roster_panel.master_check
         workspace._roster_queue_btn = workspace._roster_panel.queue_button
@@ -91,6 +92,7 @@ class MediaWorkspaceUiCoordinator:
             media_type=workspace._media_type,
             settings_service=workspace._settings,
             tmdb_provider=workspace._tmdb_provider,
+            provider_for_state=workspace._provider_for_state,
             guide_provider=(
                 workspace._media_ctrl.episode_guide_for_state
                 if workspace._media_ctrl is not None
@@ -123,6 +125,7 @@ class MediaWorkspaceUiCoordinator:
         workspace._fix_match_btn.clicked.connect(workspace._fix_match)
         workspace._queue_inline_btn.clicked.connect(workspace._activate_selected_primary_action)
         panel.automux_button.clicked.connect(workspace._toggle_automux)
+        panel.source_selected.connect(workspace._on_source_selected)
         workspace._queue_inline_btn.setText(workspace._queue_selected_label())
         workspace._sync_action_button_metrics()
 
