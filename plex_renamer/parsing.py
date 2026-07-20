@@ -6,6 +6,7 @@ TV and movie workflows.
 """
 
 from ._parsing_episodes import extract_episode, extract_season_number
+from ._parsing_id_tags import extract_provider_id_tag, strip_provider_id_tags
 from ._parsing_names import (
     build_movie_name,
     build_show_folder_name,
@@ -39,6 +40,7 @@ __all__ = [
     "clean_folder_name",
     "clean_name",
     "extract_episode",
+    "extract_provider_id_tag",
     "extract_season_number",
     "extract_source_title_prefix",
     "extract_year",
@@ -57,4 +59,5 @@ __all__ = [
     "normalize_for_specials",
     "normalize_for_specials_spaced",
     "sanitize_filename",
+    "strip_provider_id_tags",
 ]
