@@ -9,17 +9,22 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from ..._lang_normalize import normalize_lang, normalize_lang_list
 from ..._mkv_locate import find_mkvmerge
+from ...engine._audio_codecs import DEFAULT_CODEC_WEIGHTS
 from .. import _scale
 from ._settings_page import SettingsSectionCard
 
@@ -130,6 +135,37 @@ class AutoMuxSettingsPage(SettingsSectionCard):
             "automux_exclude_commentary",
         )
 
+        body.addWidget(self._group_label("Audio dedup"))
+        self._dedupe_cb = self._toggle(
+            body,
+            "Remove redundant same-language audio tracks",
+            "automux_dedupe_audio",
+        )
+        self._keep_per_layout_cb = self._toggle(
+            body,
+            "Keep the best track from every channel layout",
+            "automux_dedupe_keep_per_layout",
+        )
+        self._lossless_policy_combo = self._build_lossless_policy_combo(body)
+        self._tie_cb = self._toggle(
+            body, "On ties, keep the smaller track", "automux_tie_prefer_smaller"
+        )
+        self._tolerance_spin = self._int_spin_row(
+            body,
+            "Tie tolerance (%)",
+            "automux_tie_tolerance_pct",
+            0,
+            50,
+        )
+        self._transparency_spin = self._int_spin_row(
+            body,
+            "Transparency ceiling (kb/s per channel)",
+            "automux_transparency_kbps_per_channel",
+            32,
+            512,
+        )
+        self._build_codec_weight_grid(body)
+
         body.addWidget(self._group_label("General"))
         self._convert_containers_cb = self._toggle(
             body, "Convert non-MKV containers to MKV", "automux_convert_containers"
@@ -175,6 +211,89 @@ class AutoMuxSettingsPage(SettingsSectionCard):
             edit.setText(str(self._settings.get(key)))
         edit.editingFinished.connect(lambda e=edit, k=key: self._commit_lang(e, k))
         return edit
+
+    def _build_lossless_policy_combo(self, layout: QVBoxLayout) -> QComboBox:
+        row = QHBoxLayout()
+        row.setSpacing(_scale.px(8))
+        row.addWidget(QLabel("Lossless track policy"))
+        combo = QComboBox()
+        combo.addItem("Prefer quality (keep lossless)", "quality")
+        combo.addItem(
+            "Prefer space (drop lossless when a transparent track exists "
+            "— may reduce channel count)",
+            "space",
+        )
+        if self._settings is not None:
+            index = combo.findData(self._settings.automux_lossless_policy)
+            combo.setCurrentIndex(index if index >= 0 else 0)
+        combo.currentIndexChanged.connect(self._on_lossless_policy_changed)
+        row.addWidget(combo, stretch=1)
+        layout.addLayout(row)
+        return combo
+
+    def _on_lossless_policy_changed(self, index: int) -> None:
+        self._set_setting("automux_lossless_policy", self._lossless_policy_combo.itemData(index))
+
+    def _int_spin_row(
+        self,
+        layout: QVBoxLayout,
+        label: str,
+        key: str,
+        minimum: int,
+        maximum: int,
+    ) -> QSpinBox:
+        row = QHBoxLayout()
+        row.setSpacing(_scale.px(8))
+        row.addWidget(QLabel(label))
+        spin = QSpinBox()
+        spin.setRange(minimum, maximum)
+        if self._settings is not None:
+            spin.setValue(int(self._settings.get(key)))
+        spin.valueChanged.connect(lambda value, k=key: self._set_setting(k, int(value)))
+        row.addWidget(spin)
+        row.addStretch()
+        layout.addLayout(row)
+        return spin
+
+    def _build_codec_weight_grid(self, layout: QVBoxLayout) -> None:
+        layout.addWidget(self._group_label("Codec weights"))
+        weights = self._settings.automux_codec_weights if self._settings is not None else {}
+        grid = QGridLayout()
+        grid.setSpacing(_scale.px(8))
+        self._codec_weight_spins: dict[str, QDoubleSpinBox] = {}
+        for row_index, (codec, default) in enumerate(DEFAULT_CODEC_WEIGHTS.items()):
+            grid.addWidget(QLabel(codec), row_index, 0)
+            spin = QDoubleSpinBox()
+            spin.setRange(0.1, 5.0)
+            spin.setSingleStep(0.1)
+            spin.setDecimals(1)
+            spin.setValue(float(weights.get(codec, default)))
+            spin.valueChanged.connect(
+                lambda value, c=codec: self._on_codec_weight_changed(c, value)
+            )
+            grid.addWidget(spin, row_index, 1)
+            self._codec_weight_spins[codec] = spin
+        layout.addLayout(grid)
+
+        self._restore_weights_btn = QPushButton("Restore default weights")
+        self._restore_weights_btn.setProperty("cssClass", "secondary")
+        self._restore_weights_btn.clicked.connect(self._on_restore_default_weights)
+        layout.addWidget(self._restore_weights_btn)
+
+    def _on_codec_weight_changed(self, codec: str, value: float) -> None:
+        if self._settings is None:
+            return
+        weights = dict(self._settings.automux_codec_weights)
+        weights[codec] = round(float(value), 1)
+        self._settings.automux_codec_weights = weights
+
+    def _on_restore_default_weights(self) -> None:
+        if self._settings is not None:
+            self._settings.automux_codec_weights = {}
+        for codec, spin in self._codec_weight_spins.items():
+            spin.blockSignals(True)
+            spin.setValue(DEFAULT_CODEC_WEIGHTS[codec])
+            spin.blockSignals(False)
 
     def _labeled_edit(
         self,
