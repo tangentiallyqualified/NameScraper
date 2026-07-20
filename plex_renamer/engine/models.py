@@ -218,6 +218,7 @@ class ScanState:
     # Match metadata
     confidence: float = 0.0
     match_origin: str = "auto"
+    provider_name: str = "tmdb"
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
     relative_folder: str = ""
@@ -271,6 +272,15 @@ class ScanState:
         return media_id if isinstance(media_id, int) else None
 
     @property
+    def provider_show_key(self) -> tuple[str, int] | None:
+        """Cross-provider show identity — numeric IDs collide between
+        providers, so bare show_id must never be compared across states."""
+        show_id = self.show_id
+        if show_id is None:
+            return None
+        return (self.provider_name, show_id)
+
+    @property
     def display_name(self) -> str:
         name = self.media_info.get("name") or self.media_info.get("title") or self.folder.name
         year = self.media_info.get("year", "")
@@ -280,6 +290,8 @@ class ScanState:
     def needs_review(self) -> bool:
         if self.show_id is not None and self.match_origin == "manual":
             return False
+        if self.match_origin == "fallback":
+            return True
         if self.tie_detected:
             return True
         return self.confidence < get_auto_accept_threshold()
