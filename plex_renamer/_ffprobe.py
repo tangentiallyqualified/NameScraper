@@ -17,11 +17,15 @@ with the ``ProbeResult``/``MediaTrack`` types it operates on.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+# Hide console windows spawned on Windows (mirrors _mkv_probe._CREATION_FLAGS).
+_CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
 def find_ffprobe(explicit: str = "") -> Path | None:
@@ -58,8 +62,11 @@ def probe_audio_bitrates(
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
             check=False,
+            creationflags=_CREATION_FLAGS,
         )
         doc: dict[str, Any] = json.loads(completed.stdout or "{}")
     except Exception:
