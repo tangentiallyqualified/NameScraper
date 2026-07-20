@@ -38,6 +38,7 @@ def mux_settings_from_service(svc: SettingsService) -> MuxSettings:
         strip_track_names=svc.automux_strip_track_names,
         no_fear=svc.automux_no_fear,
         exclude_commentary=svc.automux_exclude_commentary,
+        convert_containers=svc.automux_convert_containers,
     )
 
 
@@ -100,6 +101,7 @@ def plan_for_item(
         settings=settings,
         new_name=item.new_name or "",
         mkvmerge_path=mkvmerge_path,
+        source_name=item.original.name,
     )
     return plan.to_dict() if plan is not None else None
 

@@ -327,6 +327,14 @@ class SettingsService:
     def automux_exclude_commentary(self, value: bool) -> None:
         self.set("automux_exclude_commentary", bool(value))
 
+    @property
+    def automux_convert_containers(self) -> bool:
+        return bool(self.get("automux_convert_containers"))
+
+    @automux_convert_containers.setter
+    def automux_convert_containers(self, value: bool) -> None:
+        self.set("automux_convert_containers", bool(value))
+
     # ── Metadata export ───────────────────────────────────────────────────
 
     @property

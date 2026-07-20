@@ -295,3 +295,11 @@ def test_engine_reexports_are_the_same_objects():
 
     assert svc_mod.plan_has_actions is engine_models.plan_has_actions
     assert svc_mod.file_mux_active is engine_models.file_mux_active
+
+
+def test_mux_settings_from_service_maps_convert_containers(tmp_path: Path) -> None:
+    svc = SettingsService(tmp_path / "settings.json")
+    svc.automux_convert_containers = True
+    assert mux_settings_from_service(svc).convert_containers is True
+    svc.automux_convert_containers = False
+    assert mux_settings_from_service(svc).convert_containers is False

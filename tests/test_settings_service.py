@@ -363,5 +363,21 @@ def test_tv_metadata_source_default_and_roundtrip(tmp_path: Path) -> None:
     assert reloaded.tv_metadata_source == "tvdb"
 
 
+def test_automux_convert_containers_defaults_true_and_round_trips(tmp_path: Path) -> None:
+    svc = SettingsService(path=tmp_path / "settings.json")
+    assert svc.automux_convert_containers is True
+    svc.automux_convert_containers = False
+    reloaded = SettingsService(path=tmp_path / "settings.json")
+    assert reloaded.automux_convert_containers is False
+
+
+def test_convert_containers_does_not_count_toward_any_enabled(tmp_path: Path) -> None:
+    svc = SettingsService(path=tmp_path / "settings.json")
+    # Fresh defaults: merge/strip all off, convert on — AutoMux must stay
+    # inactive (piggyback semantics; spec revision).
+    assert svc.automux_convert_containers is True
+    assert svc.automux_any_enabled is False
+
+
 if __name__ == "__main__":
     unittest.main()

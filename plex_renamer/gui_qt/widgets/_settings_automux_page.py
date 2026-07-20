@@ -131,6 +131,9 @@ class AutoMuxSettingsPage(SettingsSectionCard):
         )
 
         body.addWidget(self._group_label("General"))
+        self._convert_containers_cb = self._toggle(
+            body, "Convert non-MKV containers to MKV", "automux_convert_containers"
+        )
         self._toggle(body, "Strip track names from remuxed files", "automux_strip_track_names")
         self._no_fear_cb = self._toggle(body, "No Fear mode", "automux_no_fear")
         no_fear_note = QLabel(

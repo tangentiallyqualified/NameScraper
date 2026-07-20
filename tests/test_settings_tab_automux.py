@@ -59,6 +59,20 @@ class AutoMuxSettingsPageTests(QtSmokeBase):
         page._no_fear_cb.setChecked(True)
         self.assertTrue(svc.automux_no_fear)
 
+    def test_convert_containers_toggle_persists(self):
+        from PySide6.QtWidgets import QCheckBox
+
+        svc = self._svc(mkvmerge_path=self._fake_exe())
+        page = self._page(svc)
+        checkbox = None
+        for candidate in page.findChildren(QCheckBox):
+            if candidate.text() == "Convert non-MKV containers to MKV":
+                checkbox = candidate
+                break
+        assert checkbox is not None
+        checkbox.setChecked(False)
+        self.assertFalse(svc.automux_convert_containers)
+
     def test_language_list_normalizes_on_edit(self):
         svc = self._svc(mkvmerge_path=self._fake_exe())
         page = self._page(svc)
