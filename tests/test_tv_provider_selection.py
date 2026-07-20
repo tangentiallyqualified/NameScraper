@@ -124,16 +124,12 @@ class _FallbackWindow(_Window):
         self.settings_service = _FallbackSettings(source, fallback_enabled=fallback_enabled)
 
 
-def test_fallback_disabled_returns_none_quietly() -> None:
+def test_other_provider_available_even_when_fallback_matching_disabled() -> None:
+    """I1: ensure_other_provider feeds the pool's second slot whenever the
+    other provider's key exists — id-tag routing and the Source selector
+    need only the key, not the fallback-matching toggle."""
     window = _FallbackWindow("tmdb", fallback_enabled=False)
-    client = _coordinator(window).ensure_fallback_provider(api_key_lookup=lambda service: "key")
-    assert client is None
-    assert window._status.messages == []  # pyright: ignore[reportPrivateUsage]
-
-
-def test_fallback_enabled_returns_non_active_provider() -> None:
-    window = _FallbackWindow("tmdb", fallback_enabled=True)
-    client = _coordinator(window).ensure_fallback_provider(
+    client = _coordinator(window).ensure_other_provider(
         api_key_lookup=lambda service: "key" if service == "TVDB" else None
     )
     assert client is not None and client.provider_name == "tvdb"
@@ -141,18 +137,28 @@ def test_fallback_enabled_returns_non_active_provider() -> None:
     assert window._tmdb is None  # pyright: ignore[reportPrivateUsage]
 
 
-def test_fallback_enabled_tmdb_as_other_provider() -> None:
+def test_other_provider_returns_non_active_provider() -> None:
+    window = _FallbackWindow("tmdb", fallback_enabled=True)
+    client = _coordinator(window).ensure_other_provider(
+        api_key_lookup=lambda service: "key" if service == "TVDB" else None
+    )
+    assert client is not None and client.provider_name == "tvdb"
+    assert client is window._tv_provider  # pyright: ignore[reportPrivateUsage]
+    assert window._tmdb is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_other_provider_tmdb_as_other_provider() -> None:
     window = _FallbackWindow("tvdb", fallback_enabled=True)
-    client = _coordinator(window).ensure_fallback_provider(
+    client = _coordinator(window).ensure_other_provider(
         api_key_lookup=lambda service: "key" if service == "TMDB" else None
     )
     assert client is not None and client.provider_name == "tmdb"
     assert client is window._tmdb  # pyright: ignore[reportPrivateUsage]
 
 
-def test_fallback_enabled_missing_other_key_returns_none_quietly() -> None:
+def test_other_provider_missing_key_returns_none_quietly() -> None:
     window = _FallbackWindow("tmdb", fallback_enabled=True)
-    client = _coordinator(window).ensure_fallback_provider(api_key_lookup=lambda service: None)
+    client = _coordinator(window).ensure_other_provider(api_key_lookup=lambda service: None)
     assert client is None
     assert window._status.messages == []  # pyright: ignore[reportPrivateUsage]
 
@@ -228,6 +234,46 @@ def test_orchestrator_receives_fallback_and_pins(tmp_path: Path) -> None:
     assert orchestrator.fallback_provider is tvdb_fake
     assert orchestrator.provider_overrides == pins
     assert orchestrator.id_tag_routing is False
+
+
+def test_orchestrator_receives_other_provider_and_fallback_matching_flag(tmp_path: Path) -> None:
+    """I1: the pool's second slot must be fed whenever the other provider's
+    client exists — independent of the fallback-matching toggle, which now
+    only suppresses the second-opinion PASS via ``fallback_matching``."""
+    settings = SettingsService(path=tmp_path / "settings.json")
+    settings.tv_metadata_source = "tmdb"
+    settings.tv_fallback_enabled = False
+
+    controller = _make_media_controller(tmp_path, settings)
+    root = tmp_path / "tv_root"
+    root.mkdir()
+
+    tmdb_fake = RecordingProvider("tmdb")
+    tvdb_fake = RecordingProvider("tvdb")
+    controller.start_tv_batch(root, tmdb_fake, tvdb_fake)
+
+    orchestrator = controller.batch_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.fallback_provider is tvdb_fake
+    assert orchestrator.fallback_matching is False
+
+
+def test_orchestrator_fallback_matching_true_when_toggle_enabled(tmp_path: Path) -> None:
+    settings = SettingsService(path=tmp_path / "settings.json")
+    settings.tv_metadata_source = "tmdb"
+    settings.tv_fallback_enabled = True
+
+    controller = _make_media_controller(tmp_path, settings)
+    root = tmp_path / "tv_root"
+    root.mkdir()
+
+    tmdb_fake = RecordingProvider("tmdb")
+    tvdb_fake = RecordingProvider("tvdb")
+    controller.start_tv_batch(root, tmdb_fake, tvdb_fake)
+
+    orchestrator = controller.batch_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.fallback_matching is True
 
 
 def test_orchestrator_without_fallback_provider(tmp_path: Path) -> None:

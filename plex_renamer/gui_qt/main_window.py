@@ -166,8 +166,8 @@ class MainWindow(QMainWindow):
     def _ensure_tv_provider(self) -> Any | None:
         return self._tmdb_coordinator.ensure_tv_provider(api_key_lookup=get_api_key)
 
-    def _ensure_fallback_provider(self) -> Any | None:
-        return self._tmdb_coordinator.ensure_fallback_provider(api_key_lookup=get_api_key)
+    def _ensure_other_provider(self) -> Any | None:
+        return self._tmdb_coordinator.ensure_other_provider(api_key_lookup=get_api_key)
 
     def _provider_named(self, name: str) -> Any | None:
         return self._tmdb_coordinator.provider_named(name, api_key_lookup=get_api_key)

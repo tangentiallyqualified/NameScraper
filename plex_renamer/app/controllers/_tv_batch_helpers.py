@@ -76,6 +76,11 @@ def start_tv_batch_session(
         fallback_provider=fallback_provider,
         provider_overrides=controller._settings.tv_provider_overrides,
         id_tag_routing=controller._settings.tv_id_tag_routing_enabled,
+        # fallback_provider is pooled whenever its key exists (I1 fix) —
+        # this flag independently gates the confidence-based second-opinion
+        # matching PASS on the fallback-MATCHING setting, so pin/id-tag
+        # routing and the Source selector still work with matching off.
+        fallback_matching=controller._settings.tv_fallback_enabled,
     )
     controller._batch_states = []
     controller._active_scan = None

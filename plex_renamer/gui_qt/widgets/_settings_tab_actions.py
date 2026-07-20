@@ -98,10 +98,9 @@ class SettingsTabActionsCoordinator:
         tab = self._tab
         if tab._settings is None or not hasattr(tab, "_fallback_cb"):
             return
-        from ...providers import TV_PROVIDERS, get_tv_provider_spec
+        from ...providers import other_tv_provider_spec
 
-        active = get_tv_provider_spec(tab._settings.tv_metadata_source).name
-        other = next((spec for name, spec in TV_PROVIDERS.items() if name != active), None)
+        other = other_tv_provider_spec(tab._settings.tv_metadata_source)
         available = False
         if other is not None:
             try:

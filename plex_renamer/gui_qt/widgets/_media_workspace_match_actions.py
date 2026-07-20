@@ -32,7 +32,7 @@ def fix_match(
     warning_box: Any = QMessageBox,
 ) -> None:
     state = workspace._selected_state()
-    if state is None or workspace._media_ctrl is None or workspace._tmdb_provider is None:
+    if state is None or workspace._media_ctrl is None:
         return
     if state.queued:
         workspace.status_message.emit(
@@ -40,7 +40,17 @@ def fix_match(
         )
         return
 
-    tmdb = workspace._tmdb_provider()
+    # Route the ENTIRE flow (search + adoption) through the state's OWN
+    # attributed provider, never the window's active client — a
+    # tvdb-attributed state's Fix Match must search tvdb and adopt a
+    # tvdb-shaped id, or the adopted match ends up wrapped in the wrong
+    # provider_name (wrong grouping, wrong job.data_source, wrong scan
+    # client). Movies have no provider pool, so they keep the plain active
+    # client (mirrors the _media_workspace_queue_actions.py gate).
+    if workspace._media_type == "tv":
+        tmdb = workspace._provider_for_state(state)
+    else:
+        tmdb = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
     if tmdb is None:
         workspace.status_message.emit("Metadata source is unavailable.", 4000)
         return
@@ -176,13 +186,15 @@ def apply_selected_match(
             workspace.status_message.emit(f"Updated match to {state.display_name}.", 4000)
             return
 
-        # An explicit *tmdb* (fix_match's search dialog result) stays on the
-        # window's active provider by design. Otherwise (e.g. an alternate
-        # match chosen from state.alternate_matches, which was populated by
-        # whichever provider originally matched this show) resolve through
-        # the state's own provider — a fallback/pinned/switched show's
-        # alternates are foreign-provider dicts the active client can't
-        # score correctly.
+        # fix_match already resolves its client via provider_for(state) (C1
+        # fix), so an explicit *tmdb* and the provider_for(state) fallback
+        # below are always the same client for a given state's attribution.
+        # Falling back here covers callers that don't already have the
+        # client in hand — e.g. an alternate match chosen from
+        # state.alternate_matches, which was populated by whichever
+        # provider originally matched this show; a fallback/pinned/switched
+        # show's alternates are foreign-provider dicts the active client
+        # can't score correctly.
         active_tmdb = tmdb
         if active_tmdb is None:
             active_tmdb = workspace._provider_for_state(state)

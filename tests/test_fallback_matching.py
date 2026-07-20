@@ -235,6 +235,34 @@ def test_unmatched_primary_adopts_fallback_match(
     assert state.needs_review is True
 
 
+def test_fallback_matching_pass_suppressed_when_fallback_matching_disabled(
+    tmp_path: Path, auto_accept_threshold: float
+) -> None:
+    """I1: the fallback provider can be pooled (for pin/id-tag routing)
+    even when the fallback-MATCHING toggle is off — but the confidence-
+    gated second-opinion PASS itself must stay suppressed via the
+    ``fallback_matching`` flag, independent of pool membership."""
+    _make_show(tmp_path, "Widget Falls", "Widget.Falls.S01E01.mkv")
+
+    primary_junk = _result(1, "Some Completely Different Show", "1999")
+    primary = _FixedResultProvider("tmdb", {"widget falls": [primary_junk]})
+    fallback = _FixedResultProvider("tvdb", {"widget falls": [_result(2, "Widget Falls", "2023")]})
+
+    orch = BatchTVOrchestrator(
+        primary,
+        tmp_path,
+        TVLibraryDiscoveryService(),
+        fallback_provider=fallback,
+        fallback_matching=False,
+    )
+    states = orch.discover_shows()
+
+    assert len(states) == 1
+    assert states[0].match_origin == "auto"
+    assert states[0].provider_name == "tmdb"
+    assert fallback.calls == []
+
+
 def test_fallback_adoption_recomputes_season_assignment(
     tmp_path: Path, auto_accept_threshold: float
 ) -> None:

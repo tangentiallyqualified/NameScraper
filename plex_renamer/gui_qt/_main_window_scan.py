@@ -130,8 +130,8 @@ class MainWindowScanCoordinator:
         if media_type == "movie":
             window.media_ctrl.start_movie_batch(folder, client)
             return
-        fallback = window._ensure_fallback_provider()
-        window.media_ctrl.start_tv_batch(folder, client, fallback)
+        other_provider = window._ensure_other_provider()
+        window.media_ctrl.start_tv_batch(folder, client, other_provider)
 
     def _validate_destination_for_scan(self, folder: Path, *, media_type: str) -> bool:
         window = self._window

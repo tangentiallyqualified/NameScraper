@@ -85,7 +85,7 @@ class QtMainWindowTests(QtSmokeBase):
             def _ensure_tv_provider(self):
                 return object()
 
-            def _ensure_fallback_provider(self):
+            def _ensure_other_provider(self):
                 return None
 
         window = _FakeWindow()

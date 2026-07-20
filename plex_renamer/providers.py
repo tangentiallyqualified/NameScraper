@@ -143,3 +143,16 @@ TV_PROVIDERS: dict[str, ProviderSpec] = {
 def get_tv_provider_spec(name: str) -> ProviderSpec:
     """Spec for *name*, falling back to TMDB for unknown values."""
     return TV_PROVIDERS.get(name, TV_PROVIDERS["tmdb"])
+
+
+def other_tv_provider_spec(active_name: str) -> ProviderSpec | None:
+    """The non-active TV provider spec, or ``None`` when there isn't one.
+
+    Shared by every caller that needs "the other" provider regardless of
+    whether it's currently playing an active or a fallback role (e.g. the
+    settings tab's fallback-availability check and the tmdb coordinator's
+    non-active-provider client) — exactly two providers exist today, so
+    this is just "not the active one".
+    """
+    active = get_tv_provider_spec(active_name).name
+    return next((spec for name, spec in TV_PROVIDERS.items() if name != active), None)

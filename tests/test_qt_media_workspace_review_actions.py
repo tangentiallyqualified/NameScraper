@@ -45,6 +45,9 @@ class _FakeProviderClient:
     def __init__(self, name: str) -> None:
         self.provider_name = name
 
+    def search_tv(self, query: str, year: str | None = None) -> list[dict]:
+        return []
+
 
 class _FakeSwitchOrchestrator:
     """Stands in for BatchTVOrchestrator's provider-pool surface used by
@@ -533,6 +536,57 @@ class QtMediaWorkspaceReroutedProviderTests(QtSmokeBase):
         rematched_state, chosen, rematch_client = controller.rematch_calls[0]
         self.assertIs(rematched_state, state)
         self.assertIs(chosen, alternate)
+        self.assertIs(rematch_client, orchestrator.tvdb)
+
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        _scanned_state, scan_client = controller.scan_show_calls[0]
+        self.assertIs(scan_client, orchestrator.tvdb)
+
+        workspace.close()
+
+    def test_fix_match_search_and_adopt_routes_through_states_provider(self):
+        """C1: a tvdb-attributed state's Fix Match dialog must search AND
+        adopt through the state's OWN provider (tvdb), never the window's
+        active client (tmdb here) — otherwise the adopted match's id gets
+        wrapped in the wrong provider_name (wrong grouping, wrong
+        job.data_source, wrong scan client on the next scan)."""
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+            search_results=[{"id": 101, "name": "Example Show", "year": "2024"}],
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        # The window's ACTIVE client is tmdb — distinct from the state's own
+        # (tvdb) attribution, so routing through the wrong one is detectable.
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=controller,
+            tmdb_provider=lambda: orchestrator.tmdb,
+        )
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        chosen = {"id": 909, "name": "Example Show Alt", "year": "2024"}
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick",
+            return_value=chosen,
+        ) as pick_mock:
+            workspace._fix_match()
+
+        self.assertEqual(pick_mock.call_args.kwargs["search_callback"], orchestrator.tvdb.search_tv)
+        self.assertEqual(pick_mock.call_args.kwargs["initial_results"], state.search_results)
+
+        self.assertEqual(state.provider_name, "tvdb")
+        self.assertEqual(len(controller.rematch_calls), 1)
+        rematched_state, chosen_arg, rematch_client = controller.rematch_calls[0]
+        self.assertIs(rematched_state, state)
+        self.assertIs(chosen_arg, chosen)
         self.assertIs(rematch_client, orchestrator.tvdb)
 
         self.assertEqual(len(controller.scan_show_calls), 1)

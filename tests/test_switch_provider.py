@@ -125,6 +125,39 @@ def test_switch_adopts_best_match_and_resets_scan(tmp_path: Path) -> None:
     assert merged_state.media_info.get("id") == 2
 
 
+def test_switch_provider_works_when_fallback_matching_disabled(tmp_path: Path) -> None:
+    """I1: the Source-selector/switch_provider flow only needs the OTHER
+    provider's client pooled — it must keep working with fallback MATCHING
+    off. Previously ``ensure_fallback_provider`` starved the pool's second
+    slot whenever the toggle was off, so switch_provider had nothing to
+    resolve "tvdb" to even though both API keys existed."""
+    folder = _make_show(tmp_path, "Widget Falls", "Widget.Falls.S01E01.mkv")
+    state = _matched_state(folder, provider_name="tmdb")
+
+    primary = RecordingProvider("tmdb")
+    tvdb_match = _result(2, "Widget Falls", "2023")
+    fallback = _FixedSearchProvider("tvdb", [tvdb_match])
+
+    # fallback_matching=False mirrors what _tv_batch_helpers wires from
+    # settings.tv_fallback_enabled=False — the pool is still fed because the
+    # GUI feeds fallback_provider whenever its key exists (I1 fix), never
+    # gated by the matching toggle.
+    orch = BatchTVOrchestrator(
+        primary,
+        tmp_path,
+        TVLibraryDiscoveryService(),
+        fallback_provider=fallback,
+        fallback_matching=False,
+    )
+    orch.states = [state]
+
+    merged_state, switched = orch.switch_provider(state, "tvdb")
+
+    assert switched is True
+    assert merged_state.provider_name == "tvdb"
+    assert merged_state.media_info.get("id") == 2
+
+
 def test_switch_no_results_keeps_state(tmp_path: Path) -> None:
     folder = _make_show(tmp_path, "Widget Falls", "Widget.Falls.S01E01.mkv")
     state = _matched_state(folder, provider_name="tmdb")
@@ -213,6 +246,43 @@ def test_pin_outranks_id_tag(tmp_path: Path) -> None:
     # The tag's own provider (tmdb, the primary here) is never consulted
     # via get_tv_details for this candidate.
     assert not any(call.startswith("get_tv_details") for call in primary.calls)
+
+
+def test_switch_recomputes_season_assignment_for_adopted_name(tmp_path: Path) -> None:
+    """M2: mirrors the fallback-adoption recompute (commit 8e9f763) — the
+    show-name-suffix branch of ``infer_explicit_season_assignment`` depends
+    on the MATCHED show's name, which just changed. Folder "Widget Falls 2"
+    has no season-parseable name on its own and its one episode file is
+    fansub-style (episode number, no season marker), so no explicit S##E##
+    evidence exists either — season can only come from the show-name
+    suffix branch, which only resolves once the adopted (tvdb) name
+    "Widget Falls" is in play."""
+    show = tmp_path / "Widget Falls 2"
+    show.mkdir()
+    (show / "[SubGroup] Widget Falls - 05 [1080p].mkv").write_text("x")
+
+    state = ScanState(
+        folder=show,
+        media_info=_result(1, "Zzz Nonsense Thing", "1999"),
+        confidence=0.9,
+        provider_name="tmdb",
+        match_origin="auto",
+        scanned=True,
+    )
+
+    primary = RecordingProvider("tmdb")
+    tvdb_match = _result(2, "Widget Falls", "2023")
+    fallback = _FixedSearchProvider("tvdb", [tvdb_match])
+
+    orch = BatchTVOrchestrator(
+        primary, tmp_path, TVLibraryDiscoveryService(), fallback_provider=fallback
+    )
+    orch.states = [state]
+
+    merged_state, switched = orch.switch_provider(state, "tvdb")
+
+    assert switched is True
+    assert merged_state.season_assignment == 2
 
 
 def test_show_pin_key_shape(tmp_path: Path) -> None:

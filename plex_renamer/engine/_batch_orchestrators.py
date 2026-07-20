@@ -107,6 +107,12 @@ class BatchTVOrchestrator:
     always using ``self.tmdb`` directly, so id-tag routing / fallback /
     switch-provider flows (later tasks) can attribute a show to either
     provider.
+
+    ``fallback_provider`` being pooled and ``fallback_matching`` being
+    enabled are independent: the pool should be fed whenever the other
+    provider's API key exists (pin routing and ID-tag routing only need
+    that), while ``fallback_matching`` gates just the confidence-based
+    second-opinion PASS in ``_apply_fallback_matches``.
     """
 
     def __init__(
@@ -118,11 +124,19 @@ class BatchTVOrchestrator:
         fallback_provider: MetadataProvider | None = None,
         provider_overrides: dict | None = None,
         id_tag_routing: bool = True,
+        fallback_matching: bool = True,
     ):
         self.tmdb = tmdb
         self.fallback_provider = fallback_provider
         self.provider_overrides = dict(provider_overrides or {})
         self.id_tag_routing = id_tag_routing
+        # Gates ONLY the second-opinion PASS in _apply_fallback_matches —
+        # independent of whether fallback_provider is pooled at all. Pin
+        # routing and ID-tag routing need only the tag/pin provider's key
+        # (spec §2b/§5), not this flag; a caller can pool the other
+        # provider for those purposes while keeping the confidence-gated
+        # second-opinion search suppressed.
+        self.fallback_matching = fallback_matching
         self.root = library_root
         self.states: list[ScanState] = []
         self.discovery_service = discovery_service
@@ -635,7 +649,7 @@ class BatchTVOrchestrator:
                 "Preparing matched shows...",
             )
 
-        if self.fallback_provider is not None:
+        if self.fallback_provider is not None and self.fallback_matching:
             self._apply_fallback_matches(
                 candidates, states, pinned_indices, progress_callback, cancel_event
             )
@@ -1043,6 +1057,15 @@ class BatchTVOrchestrator:
         )
         state.tie_detected = False
         state.season_names = self._season_names_for_match(best, provider=provider)
+        # Mirrors the fallback-adoption recompute (8e9f763): the
+        # show-name-suffix branch of infer_explicit_season_assignment
+        # depends on the MATCHED show's name, which just changed. No
+        # candidate evidence tuple is available here (unlike
+        # discover_shows/_apply_fallback_matches) — passing evidence=None
+        # lets the helper collect direct S##E## evidence from disk itself.
+        state.season_assignment = infer_explicit_season_assignment(
+            state.folder, show_name=best.get("name")
+        )
         state.reset_scan()
         merged = self.merge_rematched_state(state)
         self._apply_duplicate_labels()

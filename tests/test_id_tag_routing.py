@@ -137,6 +137,33 @@ def test_specifically_named_child_does_not_inherit_parent_tag(tmp_path: Path) ->
     assert fallback.calls == ["search_tv_batch"]
 
 
+def test_tag_honored_when_fallback_matching_disabled(tmp_path: Path) -> None:
+    """I1: ID-tag routing needs only the tag provider's key (spec §2b) — it
+    must not be gated by the fallback-MATCHING toggle, which only
+    suppresses the confidence-gated second-opinion PASS in
+    ``_apply_fallback_matches``."""
+    show = tmp_path / "Breaking Bad (2008) {tvdb-81189}"
+    show.mkdir()
+    (show / "Breaking.Bad.S01E01.mkv").touch()
+    primary = RecordingProvider("tmdb")
+    fallback = RecordingProvider("tvdb")
+    orch = BatchTVOrchestrator(
+        primary,
+        tmp_path,
+        TVLibraryDiscoveryService(),
+        fallback_provider=fallback,
+        fallback_matching=False,
+    )
+    states = orch.discover_shows()
+    assert len(states) == 1
+    assert states[0].provider_name == "tvdb"
+    assert states[0].show_id == 81189
+    assert states[0].match_origin == "id_tag"
+    assert "get_tv_details:81189" in fallback.calls
+    assert "search_tv_batch" not in fallback.calls
+    assert primary.calls == []
+
+
 def test_generic_named_child_inherits_umbrella_parent_tag(tmp_path: Path) -> None:
     # A generic-named child ("Specials" is a season/collection label, not a
     # show title) under a tagged umbrella container DOES inherit the

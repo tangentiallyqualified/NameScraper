@@ -109,22 +109,25 @@ class MainWindowTmdbCoordinator:
         )
         return window._tv_provider
 
-    def ensure_fallback_provider(
+    def ensure_other_provider(
         self,
         *,
         api_key_lookup: Callable[[str], str | None],
     ) -> Any | None:
-        """Client for the NON-active TV provider, when fallback is enabled
-        and a key exists for it — quietly ``None`` otherwise (fallback is
-        optional, no status-bar nag)."""
-        from ..providers import TV_PROVIDERS, get_tv_provider_spec
+        """Client for the NON-active TV provider, whenever a key exists for
+        it — quietly ``None`` otherwise (no status-bar nag).
+
+        Gated on key presence ONLY, independent of the
+        ``tv_fallback_enabled`` toggle: id-tag routing and the Source
+        selector need this pool slot fed even with fallback matching off
+        (spec precedence gates only the confidence-based second-opinion
+        matching PASS on that toggle — see
+        ``BatchTVOrchestrator.fallback_matching``)."""
+        from ..providers import other_tv_provider_spec
         from ..tmdb import TMDBClient
 
         window = self._window
-        if not window.settings_service.tv_fallback_enabled:
-            return None
-        active = get_tv_provider_spec(window.settings_service.tv_metadata_source).name
-        other = next((spec for name, spec in TV_PROVIDERS.items() if name != active), None)
+        other = other_tv_provider_spec(window.settings_service.tv_metadata_source)
         if other is None:
             return None
         api_key = api_key_lookup(other.key_service)
@@ -184,8 +187,8 @@ class MainWindowTmdbCoordinator:
                 tmdb_client_factory=TMDBClient,
             )
         # Exactly two providers exist: a non-TMDB spec's client lives in
-        # _tv_provider, the same cache ensure_tv_provider/ensure_fallback_provider
-        # use for the non-TMDB slot (see the comment in ensure_fallback_provider).
+        # _tv_provider, the same cache ensure_tv_provider/ensure_other_provider
+        # use for the non-TMDB slot (see the comment in ensure_other_provider).
         if window._tv_provider is not None:
             return window._tv_provider
         api_key = api_key_lookup(spec.key_service)
