@@ -658,10 +658,15 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         self.assertEqual(len(deferred), automux_mod._WARM_SWEEP_WORKERS)
 
         coordinator.set_executor_busy(True)
-        # Run all captured workers: with the cap at 1, the extra workers
-        # must shed themselves without probing; ONE worker drains the queue.
-        for worker in deferred:
-            worker()
+        # The first worker must SHED (over cap) without probing anything.
+        deferred[0]()
+        self.assertEqual(probed, [])
+        self.assertEqual(coordinator._warm_sweep_active, 2)
+        # Second worker sheds too; the last one survives and drains alone.
+        deferred[1]()
+        self.assertEqual(probed, [])
+        self.assertEqual(coordinator._warm_sweep_active, 1)
+        deferred[2]()
         self.assertEqual(len(probed), 6)  # work still completes
         self.assertEqual(coordinator._warm_sweep_active, 0)
 

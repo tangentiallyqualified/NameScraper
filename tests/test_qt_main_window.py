@@ -275,6 +275,61 @@ class QtMainWindowTests(QtSmokeBase):
         self.assertIn(("tv", False), calls)
         self.assertIn(("movie", False), calls)
 
+    def test_single_job_completion_releases_busy_latch_when_executor_idle(self):
+        # execute_single_job fires "started" but never "finished" — the
+        # main window must release the busy latch itself from
+        # _on_job_completed when the full-queue worker loop isn't running,
+        # or the warm sweep stays downshifted for the rest of the session.
+        from plex_renamer.engine import RenameResult
+        from plex_renamer.gui_qt.main_window import MainWindow
+        from plex_renamer.job_store import RenameJob
+
+        window = MainWindow()
+        calls: list[tuple[str, bool]] = []
+
+        class _Spy:
+            def __init__(self, tag):
+                self._tag = tag
+
+            def set_executor_busy(self, busy):
+                calls.append((self._tag, busy))
+
+        window._tv_workspace._automux = _Spy("tv")
+        window._movie_workspace._automux = _Spy("movie")
+
+        window.queue_ctrl.executor._running = False
+        window._on_job_started(RenameJob())
+        window._on_job_completed(RenameJob(), RenameResult())
+
+        self.assertIn(("tv", False), calls)
+        self.assertIn(("movie", False), calls)
+
+    def test_single_job_completion_keeps_busy_latch_when_executor_running(self):
+        from plex_renamer.engine import RenameResult
+        from plex_renamer.gui_qt.main_window import MainWindow
+        from plex_renamer.job_store import RenameJob
+
+        window = MainWindow()
+        calls: list[tuple[str, bool]] = []
+
+        class _Spy:
+            def __init__(self, tag):
+                self._tag = tag
+
+            def set_executor_busy(self, busy):
+                calls.append((self._tag, busy))
+
+        window._tv_workspace._automux = _Spy("tv")
+        window._movie_workspace._automux = _Spy("movie")
+
+        window.queue_ctrl.executor._running = True
+        window._on_job_started(RenameJob())
+        calls.clear()
+        window._on_job_completed(RenameJob(), RenameResult())
+
+        self.assertNotIn(("tv", False), calls)
+        self.assertNotIn(("movie", False), calls)
+
     def test_queue_bridge_batches_bursty_queue_changed_refreshes(self):
         from plex_renamer.gui_qt._main_window_bridges import QueueBridge
 
