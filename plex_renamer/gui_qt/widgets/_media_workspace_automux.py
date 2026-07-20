@@ -7,6 +7,7 @@ and roster chips, and drives the Enable/Disable AutoMux header button.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
@@ -30,6 +31,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         self._bridge = _PlanBridge(parent)
         self._bridge.plan_ready.connect(self._on_plan_ready)
         self._inflight: set[tuple[int, int]] = set()  # (id(state), index)
+        self._inflight_lock = threading.Lock()
         self._widgets: dict[tuple[int, int], AutoMuxTracksWidget] = {}
 
     # ── Availability ──────────────────────────────────────────────────
@@ -86,17 +88,19 @@ class MediaWorkspaceAutoMuxCoordinator:
         ``_inflight``. Returns the resolved (mkvmerge, source_root, settings)
         for the caller to hand to :meth:`_run_probe`, or ``None`` when the
         probe should not proceed (already in flight, or AutoMux isn't
-        configured)."""
+        configured). Check-and-reserve is atomic: concurrent sweep workers
+        racing the same slot must not both win it."""
         key = (id(state), index)
-        if key in self._inflight:
-            return None
         svc = self._workspace._settings
         source_root = self._source_root()
         mkvmerge = automux_service.resolve_mkvmerge(svc)
         if svc is None or source_root is None or mkvmerge is None:
             return None
         settings = automux_service.mux_settings_from_service(svc)
-        self._inflight.add(key)
+        with self._inflight_lock:
+            if key in self._inflight:
+                return None
+            self._inflight.add(key)
         return mkvmerge, source_root, settings
 
     def _run_probe(self, state, index: int, mkvmerge, source_root, settings) -> None:
@@ -134,7 +138,8 @@ class MediaWorkspaceAutoMuxCoordinator:
         except RuntimeError:
             pass  # bridge deleted during shutdown
         finally:
-            self._inflight.discard(key)
+            with self._inflight_lock:
+                self._inflight.discard(key)
 
     def _on_plan_ready(self, state, index: int, plan, error: str) -> None:
         if state not in self._workspace._current_states():

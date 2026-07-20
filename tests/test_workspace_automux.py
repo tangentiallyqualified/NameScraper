@@ -402,6 +402,44 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             "the selected state (b.mkv) must be probed before the other state",
         )
 
+    def test_begin_probe_reserves_slot_atomically_under_concurrent_callers(self):
+        # The check-then-add on _inflight had no lock: two sweep workers
+        # racing the same (state, index) could both pass the membership
+        # check and both probe. The slow __contains__ widens that race
+        # window so the test fails deterministically without the lock.
+        import threading
+        import time
+
+        workspace, states = self._workspace_with_states()
+        coordinator = workspace._automux
+        state = states[0]
+
+        class _SlowSet(set):
+            def __contains__(self, key):
+                time.sleep(0.05)
+                return super().__contains__(key)
+
+        coordinator._inflight = _SlowSet()
+        barrier = threading.Barrier(4)
+        results: list = []
+
+        def _attempt():
+            barrier.wait(timeout=10)
+            results.append(coordinator._begin_probe(state, 0))
+
+        threads = [threading.Thread(target=_attempt) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertEqual(len(results), 4)
+        self.assertEqual(
+            sum(1 for prepared in results if prepared is not None),
+            1,
+            "exactly one concurrent caller may win the (state, index) slot",
+        )
+
     def test_warm_plans_covers_movie_items_without_file_id(self):
         # Task 1 (spec 1a): the movie scanner never sets file_id, so the old
         # `item.file_id is None` skip condition excluded every movie preview
