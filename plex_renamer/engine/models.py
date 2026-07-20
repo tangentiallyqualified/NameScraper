@@ -334,6 +334,16 @@ class ScanState:
         self.reset_gui_state()
 
 
+def show_pin_key(folder: Path) -> str:
+    """Stable per-show key for provider pins: cleaned title, plus year
+    when the folder name carries one ("breaking bad|2008")."""
+    from ..parsing import best_tv_match_title, extract_year
+
+    title = best_tv_match_title(folder, include_year=False).casefold()
+    year = extract_year(folder.name)
+    return f"{title}|{year}" if year else title
+
+
 def plan_has_actions(plan: dict) -> bool:
     """Mirror of MuxPlan.has_actions for serialized plans (user edits can
     reduce a plan to a no-op; such plans must not force a remux).

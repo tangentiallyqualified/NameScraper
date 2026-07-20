@@ -7,6 +7,7 @@ import threading
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
 from ..parsing import (
@@ -42,7 +43,7 @@ from ._batch_tv_season_merge import (
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
 )
-from ._discovery_ports import MovieLibraryDiscoverer, TVLibraryDiscoverer
+from ._discovery_ports import MovieLibraryDiscoverer, TVDiscoveryCandidateLike, TVLibraryDiscoverer
 from ._rename_execution import check_duplicates
 from ._scan_runtime import ScanCancelledError, _raise_if_cancelled
 from ._state import get_auto_accept_threshold
@@ -62,6 +63,7 @@ from .models import (
     ScanState,
     collect_direct_episode_evidence,
     infer_explicit_season_assignment,
+    show_pin_key,
 )
 from .show_details import show_details_from_tmdb
 
@@ -141,6 +143,22 @@ class BatchTVOrchestrator:
         or stale name).
         """
         return self.provider_named(state.provider_name) or self.tmdb
+
+    def _pinned_provider(self, folder: Path) -> MetadataProvider | None:
+        """Resolve a persisted provider pin for *folder* to a pooled provider.
+
+        Corrupt or unresolvable pins (not a mapping, missing/non-string
+        ``"provider"``, or a provider name not in the pool) are ignored —
+        pruning the stale entry happens the next time the GUI writes
+        ``provider_overrides`` (Task 9's pin-write helper), not here.
+        """
+        pin = self.provider_overrides.get(show_pin_key(folder))
+        if not isinstance(pin, dict):
+            return None
+        provider_name = pin.get("provider")
+        if not isinstance(provider_name, str):
+            return None
+        return self.provider_named(provider_name)
 
     def _apply_duplicate_labels(self) -> None:
         _apply_tv_duplicate_labels(self.states)
@@ -542,26 +560,39 @@ class BatchTVOrchestrator:
 
         _log.info("Discovered %d candidate show folders", len(candidates))
 
-        # Candidates whose folder (or umbrella parent) carries a recognized
-        # provider-ID tag skip the batch search entirely — they're resolved
-        # by a direct get_tv_details lookup below instead.
+        # A persisted provider pin (Task 8: switch_provider) outranks an
+        # ID tag — the pin routes the candidate's SEARCH to the pinned
+        # provider and skips ID-tag resolution entirely. Everything else
+        # falls through to the existing tag-then-search flow. Candidates
+        # whose folder (or umbrella parent) carries a recognized provider-ID
+        # tag skip the batch search entirely — they're resolved by a direct
+        # get_tv_details lookup below instead.
         id_routed: dict[int, ScanState] = {}
-        searchable: list[int] = []
+        provider_by_index: dict[int, MetadataProvider] = {}
+        pinned_indices: set[int] = set()
+        search_groups: dict[str, list[int]] = defaultdict(list)
         for candidate_index, entry in enumerate(candidates):
-            candidate = entry[0]
+            candidate = cast(TVDiscoveryCandidateLike, entry[0])
+            pinned_provider = self._pinned_provider(candidate.folder)
+            if pinned_provider is not None:
+                provider_by_index[candidate_index] = pinned_provider
+                pinned_indices.add(candidate_index)
+                search_groups[pinned_provider.provider_name].append(candidate_index)
+                continue
             state = self._try_id_tag_state(candidate, entry)
             if state is not None:
                 id_routed[candidate_index] = state
             else:
-                searchable.append(candidate_index)
+                provider_by_index[candidate_index] = self.tmdb
+                search_groups[self.tmdb.provider_name].append(candidate_index)
 
-        queries = [(candidates[i][1], candidates[i][4]) for i in searchable]
-        searched_results = (
-            self.tmdb.search_tv_batch(queries, progress_callback=progress_callback)
-            if queries
-            else []
-        )
-        results_by_index = dict(zip(searchable, searched_results, strict=False))
+        results_by_index: dict[int, list[dict]] = {}
+        for indices in search_groups.values():
+            provider = provider_by_index[indices[0]]
+            queries = [(candidates[i][1], candidates[i][4]) for i in indices]
+            searched = provider.search_tv_batch(queries, progress_callback=progress_callback)
+            for i, result in zip(indices, searched, strict=False):
+                results_by_index[i] = result
 
         states: list[ScanState] = []
         total_candidates = len(candidates)
@@ -593,6 +624,7 @@ class BatchTVOrchestrator:
                         episode_evidence,
                         results_by_index[candidate_index],
                         cancel_event=cancel_event,
+                        provider=provider_by_index[candidate_index],
                     )
                 )
             _emit_scan_progress(
@@ -604,7 +636,9 @@ class BatchTVOrchestrator:
             )
 
         if self.fallback_provider is not None:
-            self._apply_fallback_matches(candidates, states, progress_callback, cancel_event)
+            self._apply_fallback_matches(
+                candidates, states, pinned_indices, progress_callback, cancel_event
+            )
 
         _emit_scan_progress(
             progress_callback,
@@ -626,6 +660,7 @@ class BatchTVOrchestrator:
         self,
         candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]],
         states: list[ScanState],
+        pinned_indices: set[int] | None = None,
         progress_callback: Callable[..., object] | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
@@ -639,14 +674,20 @@ class BatchTVOrchestrator:
         because adoption always sets ``match_origin="fallback"``, which
         ``ScanState.needs_review`` treats as always-review regardless of
         the adopted score.
+
+        A candidate whose provider was pinned by the user (``pinned_indices``)
+        is excluded even when its search came back weak: a pin means "use
+        this provider for this show," so a weak-but-pinned match must stay
+        on the pinned provider rather than being second-guessed away from it.
         """
         assert self.fallback_provider is not None
         _raise_if_cancelled(cancel_event)
         threshold = get_auto_accept_threshold()
+        pinned = pinned_indices or set()
         weak = [
             index
             for index, state in enumerate(states)
-            if state.match_origin == "auto" and state.confidence < threshold
+            if index not in pinned and state.match_origin == "auto" and state.confidence < threshold
         ]
         if not weak:
             return
@@ -975,6 +1016,37 @@ class BatchTVOrchestrator:
         merged_state = self.merge_rematched_state(state)
         self._apply_duplicate_labels()
         return merged_state
+
+    def switch_provider(self, state: ScanState, provider_name: str) -> tuple[ScanState, bool]:
+        """Re-resolve *state* on another provider (user action — pins it)."""
+        provider = self.provider_named(provider_name)
+        if provider is None or provider_name == state.provider_name:
+            return state, False
+        raw_name = best_tv_match_title(state.folder, include_year=False)
+        year_hint = extract_year(state.folder.name)
+        try:
+            results = provider.search_tv(raw_name, year_hint)
+        except Exception:
+            _log.exception("switch_provider search failed for %s", state.folder.name)
+            return state, False
+        if not results:
+            return state, False
+        scored = score_tv_results(results, raw_name, year_hint, provider, folder=state.folder)
+        best, best_score = scored[0]
+        state.media_info = best
+        state.confidence = min(best_score, 1.0)
+        state.match_origin = "manual"
+        state.provider_name = provider_name
+        state.search_results = results
+        state.alternate_matches = pick_alternate_matches(
+            scored, selected_id=best.get("id"), limit=3
+        )
+        state.tie_detected = False
+        state.season_names = self._season_names_for_match(best, provider=provider)
+        state.reset_scan()
+        merged = self.merge_rematched_state(state)
+        self._apply_duplicate_labels()
+        return merged, True
 
 
 class BatchMovieOrchestrator:
