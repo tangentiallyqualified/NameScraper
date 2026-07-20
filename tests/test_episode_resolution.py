@@ -861,7 +861,9 @@ class TestConfidenceAdjustments:
             show_info=show,
             alt_show_names=["Solo Leveling", "Ore dake Level Up na Ken"],
         )
-        assert table.assignment_for(entry.file_id).confidence >= COMPATIBLE_PREFIX_FLOOR
+        assignment = table.assignment_for(entry.file_id)
+        assert assignment is not None
+        assert assignment.confidence >= COMPATIBLE_PREFIX_FLOOR
 
     def test_contradictory_prefix_still_caps_when_no_alias_matches(self):
         table = coverage_table()
@@ -875,7 +877,9 @@ class TestConfidenceAdjustments:
             show_info=SHOW,
             alt_show_names=["Another Alias Entirely"],
         )
-        assert table.assignment_for(entry.file_id).confidence <= CONTRADICTORY_PREFIX_CAP
+        assignment = table.assignment_for(entry.file_id)
+        assert assignment is not None
+        assert assignment.confidence <= CONTRADICTORY_PREFIX_CAP
 
     def test_season0_title_only_not_capped_by_prefix(self):
         # Real Animaniacs featurette: the "(480p ...)" quality suffix makes

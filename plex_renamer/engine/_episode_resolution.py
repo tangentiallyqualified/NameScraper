@@ -1060,6 +1060,21 @@ def _acronym_prefix_compatible(
     return len(candidate) >= 2 and candidate in (acronym, acronym_no_stop)
 
 
+def _normalized_show_names(show_name: str, alt_show_names: Sequence[str]) -> list[str]:
+    """Primary show name plus provider aliases, normalized and de-duplicated."""
+    norms = [normalize_for_match(show_name)]
+    for alt_name in alt_show_names:
+        alt_norm = normalize_for_match(alt_name)
+        if alt_norm and alt_norm not in norms:
+            norms.append(alt_norm)
+    return norms
+
+
+def _source_prefix_compatible_any(source_norm: str, show_norms: Sequence[str]) -> bool:
+    """True when the source prefix corroborates any of the show's names."""
+    return any(_source_prefix_compatible(source_norm, norm) for norm in show_norms)
+
+
 def _parse_air_date(value: object) -> date | None:
     if not isinstance(value, str) or not value:
         return None
@@ -1335,12 +1350,7 @@ def apply_confidence_adjustments(
     """
     _auto_resolve_strong_title_conflicts(table)
     show_name = show_info.get("name", "")
-    show_norm = normalize_for_match(show_name)
-    show_norms = [show_norm]
-    for alt_name in alt_show_names:
-        alt_norm = normalize_for_match(alt_name)
-        if alt_norm and alt_norm not in show_norms:
-            show_norms.append(alt_norm)
+    show_norms = _normalized_show_names(show_name, alt_show_names)
     conflicted = table.conflicted_file_ids()
 
     slots_by_season: dict[int, list[EpisodeSlot]] = {}
@@ -1379,7 +1389,7 @@ def apply_confidence_adjustments(
         source_title = extract_source_title_prefix(entry.path.name)
         if source_title:
             source_norm = normalize_for_match(source_title)
-            compatible = any(_source_prefix_compatible(source_norm, norm) for norm in show_norms)
+            compatible = _source_prefix_compatible_any(source_norm, show_norms)
             if (
                 compatible
                 and entry.is_season_relative
