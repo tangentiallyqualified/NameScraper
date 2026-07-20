@@ -16,6 +16,8 @@ the dedup pass bound the linear model where it is least accurate.
 
 from __future__ import annotations
 
+from typing import cast
+
 LOSSLESS_CODECS: frozenset[str] = frozenset({"truehd", "dts_hd_ma", "flac", "pcm", "alac"})
 
 DEFAULT_CODEC_WEIGHTS: dict[str, float] = {
@@ -59,7 +61,7 @@ def canonical_codec(codec: str) -> str:
 
 
 def codec_weight(codec_key: str, user_weights: dict[str, float]) -> float:
-    user_value = user_weights.get(codec_key, 0.0)
+    user_value: object = cast(object, user_weights.get(codec_key, 0.0))
     if isinstance(user_value, (int, float)) and user_value > 0:
         return float(user_value)
     return DEFAULT_CODEC_WEIGHTS.get(codec_key, 1.0)
