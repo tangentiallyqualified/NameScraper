@@ -36,6 +36,7 @@ class MuxSettings:
     strip_track_names: bool = False
     no_fear: bool = False
     exclude_commentary: bool = False
+    convert_containers: bool = False
 
 
 @dataclass
@@ -70,12 +71,18 @@ class MuxPlan:
     no_fear: bool = False
     mkvmerge_path: str = ""  # baked at queue time; re-resolved if stale
     warnings: list[str] = field(default_factory=list)
+    # True when the source container isn't MKV and settings ask for
+    # conversion — counts as a mux action on its own, so a clean MP4
+    # still gets remuxed (losslessly) into an MKV container.
+    container_conversion: bool = False
     user_modified: bool = False
 
     @property
     def has_actions(self) -> bool:
-        return any(not d.keep for d in self.track_decisions) or any(
-            m.action == "merge" for m in self.subtitle_merges
+        return (
+            any(not d.keep for d in self.track_decisions)
+            or any(m.action == "merge" for m in self.subtitle_merges)
+            or self.container_conversion
         )
 
     @property
@@ -88,6 +95,7 @@ class MuxPlan:
     @classmethod
     def from_dict(cls, d: dict) -> MuxPlan:
         d = dict(d)
+        d.setdefault("container_conversion", False)
         d["track_decisions"] = [TrackDecision(**t) for t in d.get("track_decisions", [])]
         d["subtitle_merges"] = [SubtitleMergeDecision(**m) for m in d.get("subtitle_merges", [])]
         return cls(**d)
@@ -178,6 +186,7 @@ def build_mux_plan(
     settings: MuxSettings,
     new_name: str,
     mkvmerge_path: str = "",
+    source_name: str = "",
 ) -> MuxPlan | None:
     """Build the remux plan for one file, or None when no remux is needed."""
     if not probe.ok:
@@ -297,13 +306,10 @@ def build_mux_plan(
     # never steal the default from a full track.
     sub_decisions = [d for d in decisions if d.track_type == "subtitles"]
     if default_sub:
-        merged_matches = [
-            m for m in merges if m.action == "merge" and m.language == default_sub
-        ]
+        merged_matches = [m for m in merges if m.action == "merge" and m.language == default_sub]
         full_merge = next((m for m in merged_matches if not m.forced), None)
         embedded_eligible = [
-            d for d in sub_decisions
-            if d.keep and d.language == default_sub and not d.is_commentary
+            d for d in sub_decisions if d.keep and d.language == default_sub and not d.is_commentary
         ]
         if full_merge is not None:
             full_merge.set_default = True
@@ -316,6 +322,11 @@ def build_mux_plan(
             for d in sub_decisions:
                 d.make_default = False
 
+    convert = bool(
+        settings.convert_containers
+        and source_name
+        and PurePath(source_name).suffix.lower() != ".mkv"
+    )
     plan = MuxPlan(
         output_name=str(PurePath(new_name).with_suffix(".mkv")),
         track_decisions=decisions,
@@ -324,5 +335,6 @@ def build_mux_plan(
         no_fear=settings.no_fear,
         mkvmerge_path=mkvmerge_path,
         warnings=warnings,
+        container_conversion=convert,
     )
     return plan if plan.has_actions else None

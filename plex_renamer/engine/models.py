@@ -328,6 +328,8 @@ def plan_has_actions(plan: dict) -> bool:
 
     Moved from automux_service (round6 §1) so engine-level code can use it
     without an engine -> app import; automux_service re-exports it."""
+    if plan.get("container_conversion"):
+        return True
     if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
         return True
     return any(m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
