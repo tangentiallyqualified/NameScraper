@@ -49,6 +49,9 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "metadata_embed_cover": (bool,),
     "metadata_embed_tags": (bool,),
     "tv_metadata_source": (str,),
+    "tv_fallback_enabled": (bool,),
+    "tv_id_tag_routing_enabled": (bool,),
+    "tv_provider_overrides": (dict,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -97,6 +100,9 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "metadata_embed_cover": True,
     "metadata_embed_tags": True,
     "tv_metadata_source": "tmdb",
+    "tv_fallback_enabled": False,
+    "tv_id_tag_routing_enabled": True,
+    "tv_provider_overrides": {},
 }
 
 

@@ -3,8 +3,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+import pytest
+
+from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.gui_qt._main_window_tmdb import MainWindowTmdbCoordinator
 
 
@@ -79,3 +83,24 @@ def test_invalidate_drops_both_clients() -> None:
     coordinator.ensure_tv_provider(api_key_lookup=lambda service: "key")
     coordinator.invalidate_tmdb()
     assert window._tv_provider is None and window._tmdb is None  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.fixture
+def settings_service(tmp_path: Path) -> SettingsService:
+    """Provide a fresh SettingsService instance for testing."""
+    return SettingsService(path=tmp_path / "settings.json")
+
+
+def test_fallback_and_id_tag_setting_defaults(settings_service: SettingsService) -> None:
+    assert settings_service.tv_fallback_enabled is False
+    assert settings_service.tv_id_tag_routing_enabled is True
+    assert settings_service.tv_provider_overrides == {}
+
+
+def test_provider_override_round_trip(settings_service: SettingsService) -> None:
+    settings_service.tv_provider_overrides = {
+        "breaking bad|2008": {"provider": "tvdb", "show_id": 81189},
+    }
+    assert settings_service.tv_provider_overrides == {
+        "breaking bad|2008": {"provider": "tvdb", "show_id": 81189},
+    }

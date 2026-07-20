@@ -79,6 +79,34 @@ class SettingsService:
         self.set("tv_metadata_source", value)
 
     @property
+    def tv_fallback_enabled(self) -> bool:
+        """Whether to use fallback provider when primary provider has low confidence."""
+        return bool(self.get("tv_fallback_enabled"))
+
+    @tv_fallback_enabled.setter
+    def tv_fallback_enabled(self, value: bool) -> None:
+        self.set("tv_fallback_enabled", bool(value))
+
+    @property
+    def tv_id_tag_routing_enabled(self) -> bool:
+        """Whether to use ID tags for provider routing decisions."""
+        return bool(self.get("tv_id_tag_routing_enabled"))
+
+    @tv_id_tag_routing_enabled.setter
+    def tv_id_tag_routing_enabled(self, value: bool) -> None:
+        self.set("tv_id_tag_routing_enabled", bool(value))
+
+    @property
+    def tv_provider_overrides(self) -> dict:
+        """Per-show provider pin mapping {show_key: {"provider": str, "show_id": int}}."""
+        value = self.get("tv_provider_overrides")
+        return dict(value) if isinstance(value, dict) else {}
+
+    @tv_provider_overrides.setter
+    def tv_provider_overrides(self, value: dict) -> None:
+        self.set("tv_provider_overrides", dict(value))
+
+    @property
     def hide_already_named(self) -> bool:
         """Whether to hide fully-ready items from the library roster."""
         return bool(self.get("hide_already_named"))
