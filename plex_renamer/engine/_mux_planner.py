@@ -37,6 +37,13 @@ class MuxSettings:
     no_fear: bool = False
     exclude_commentary: bool = False
     convert_containers: bool = False
+    dedupe_audio: bool = False
+    dedupe_keep_per_layout: bool = True
+    lossless_policy: str = "quality"
+    tie_prefer_smaller: bool = True
+    tie_tolerance_pct: int = 15
+    transparency_kbps_per_channel: int = 160
+    codec_weights: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

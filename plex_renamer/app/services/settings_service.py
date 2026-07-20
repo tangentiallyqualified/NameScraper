@@ -371,6 +371,64 @@ class SettingsService:
     def automux_convert_containers(self, value: bool) -> None:
         self.set("automux_convert_containers", bool(value))
 
+    @property
+    def automux_dedupe_audio(self) -> bool:
+        return bool(self.get("automux_dedupe_audio"))
+
+    @automux_dedupe_audio.setter
+    def automux_dedupe_audio(self, value: bool) -> None:
+        self.set("automux_dedupe_audio", bool(value))
+
+    @property
+    def automux_dedupe_keep_per_layout(self) -> bool:
+        return bool(self.get("automux_dedupe_keep_per_layout"))
+
+    @automux_dedupe_keep_per_layout.setter
+    def automux_dedupe_keep_per_layout(self, value: bool) -> None:
+        self.set("automux_dedupe_keep_per_layout", bool(value))
+
+    @property
+    def automux_lossless_policy(self) -> str:
+        return str(self.get("automux_lossless_policy"))
+
+    @automux_lossless_policy.setter
+    def automux_lossless_policy(self, value: str) -> None:
+        self.set("automux_lossless_policy", value)
+
+    @property
+    def automux_tie_prefer_smaller(self) -> bool:
+        return bool(self.get("automux_tie_prefer_smaller"))
+
+    @automux_tie_prefer_smaller.setter
+    def automux_tie_prefer_smaller(self, value: bool) -> None:
+        self.set("automux_tie_prefer_smaller", bool(value))
+
+    @property
+    def automux_tie_tolerance_pct(self) -> int:
+        return int(self.get("automux_tie_tolerance_pct"))  # type: ignore[arg-type]
+
+    @automux_tie_tolerance_pct.setter
+    def automux_tie_tolerance_pct(self, value: int) -> None:
+        self.set("automux_tie_tolerance_pct", int(value))
+
+    @property
+    def automux_transparency_kbps_per_channel(self) -> int:
+        return int(self.get("automux_transparency_kbps_per_channel"))  # type: ignore[arg-type]
+
+    @automux_transparency_kbps_per_channel.setter
+    def automux_transparency_kbps_per_channel(self, value: int) -> None:
+        self.set("automux_transparency_kbps_per_channel", int(value))
+
+    @property
+    def automux_codec_weights(self) -> dict[str, float]:
+        """Per-codec preference weight overrides {codec_name: weight}."""
+        value = self.get("automux_codec_weights")
+        return dict(value) if isinstance(value, dict) else {}
+
+    @automux_codec_weights.setter
+    def automux_codec_weights(self, value: dict[str, float]) -> None:
+        self.set("automux_codec_weights", dict(value))
+
     # ── Metadata export ───────────────────────────────────────────────────
 
     @property

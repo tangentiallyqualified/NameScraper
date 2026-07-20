@@ -39,6 +39,13 @@ def mux_settings_from_service(svc: SettingsService) -> MuxSettings:
         no_fear=svc.automux_no_fear,
         exclude_commentary=svc.automux_exclude_commentary,
         convert_containers=svc.automux_convert_containers,
+        dedupe_audio=svc.automux_dedupe_audio,
+        dedupe_keep_per_layout=svc.automux_dedupe_keep_per_layout,
+        lossless_policy=svc.automux_lossless_policy,
+        tie_prefer_smaller=svc.automux_tie_prefer_smaller,
+        tie_tolerance_pct=svc.automux_tie_tolerance_pct,
+        transparency_kbps_per_channel=svc.automux_transparency_kbps_per_channel,
+        codec_weights=svc.automux_codec_weights,
     )
 
 
