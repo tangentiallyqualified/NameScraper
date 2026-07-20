@@ -75,6 +75,7 @@ class TVScanner:
         self.episode_meta: dict[tuple[int, int], dict] = {}
         self._season_dirs: list[tuple[Path, int]] | None = None
         self._tmdb_seasons: dict | None = None
+        self._alt_show_names: list[str] | None = None
         self.assignment_table: EpisodeAssignmentTable | None = None
 
     def _get_season_dirs(self) -> list[tuple[Path, int]]:
@@ -115,6 +116,23 @@ class TVScanner:
             int(season_num): season_data for season_num, season_data in raw_tmdb_seasons.items()
         }
         return self._tmdb_seasons
+
+    def _get_alt_show_names(self) -> list[str]:
+        """Provider alternative titles for the show. Cached after first call.
+
+        Fed to apply_confidence_adjustments so a source-title prefix that
+        matches an alias (e.g. the English name of a show whose provider
+        primary name is non-English) corroborates instead of contradicts.
+        """
+        if self._alt_show_names is None:
+            self._alt_show_names = [
+                title
+                for title, _country in self.tmdb.get_alternative_titles(
+                    self.show_info["id"],
+                    "tv",
+                )
+            ]
+        return self._alt_show_names
 
     @property
     def _media_fields(self) -> dict:
@@ -222,6 +240,7 @@ class TVScanner:
             table,
             show_info=self.show_info,
             show_match_confidence=self._show_match_confidence,
+            alt_show_names=self._get_alt_show_names(),
         )
         # Conflict resolution (inside apply_confidence_adjustments) creates
         # lost-conflict unassignments AFTER the rescues above ran; give those
@@ -274,6 +293,7 @@ class TVScanner:
             table,
             show_info=self.show_info,
             show_match_confidence=self._show_match_confidence,
+            alt_show_names=self._get_alt_show_names(),
         )
         # Post-conflict rescue pass for lost-conflict files (RC35).
         rescue_cross_season_titles(table)

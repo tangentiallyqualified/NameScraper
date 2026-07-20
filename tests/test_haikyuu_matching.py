@@ -446,6 +446,9 @@ class _FakeTMDB:
             return self._SHOW_DATA
         return None
 
+    def get_alternative_titles(self, media_id, media_type="movie"):
+        return []
+
     def get_season_map(self, show_id):
         if show_id != 46260:
             return {}, 0

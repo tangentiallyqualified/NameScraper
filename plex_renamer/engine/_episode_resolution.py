@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -1323,11 +1324,23 @@ def apply_confidence_adjustments(
     *,
     show_info: dict,
     show_match_confidence: float | None = None,
+    alt_show_names: Sequence[str] = (),
 ) -> None:
-    """Raise/cap auto-assignment confidence from corroborating evidence."""
+    """Raise/cap auto-assignment confidence from corroborating evidence.
+
+    ``alt_show_names`` carries the provider's alternative titles/aliases:
+    a source prefix corroborates the show when it matches the primary name
+    OR any alias. Providers whose primary name is non-English (TVDB) would
+    otherwise contradict files carrying the English alias.
+    """
     _auto_resolve_strong_title_conflicts(table)
     show_name = show_info.get("name", "")
     show_norm = normalize_for_match(show_name)
+    show_norms = [show_norm]
+    for alt_name in alt_show_names:
+        alt_norm = normalize_for_match(alt_name)
+        if alt_norm and alt_norm not in show_norms:
+            show_norms.append(alt_norm)
     conflicted = table.conflicted_file_ids()
 
     slots_by_season: dict[int, list[EpisodeSlot]] = {}
@@ -1366,7 +1379,7 @@ def apply_confidence_adjustments(
         source_title = extract_source_title_prefix(entry.path.name)
         if source_title:
             source_norm = normalize_for_match(source_title)
-            compatible = _source_prefix_compatible(source_norm, show_norm)
+            compatible = any(_source_prefix_compatible(source_norm, norm) for norm in show_norms)
             if (
                 compatible
                 and entry.is_season_relative

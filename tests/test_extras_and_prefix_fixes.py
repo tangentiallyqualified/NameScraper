@@ -165,6 +165,9 @@ class TestExtrasFolderNumberClaims:
             def get_tv_details(self, show_id):
                 return {"id": show_id, "seasons": []}
 
+            def get_alternative_titles(self, media_id, media_type="movie"):
+                return []
+
         scanner = TVScanner(
             _FakeTMDB(),
             {"id": 9, "name": "Space War", "year": "1991"},

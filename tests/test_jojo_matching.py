@@ -527,6 +527,9 @@ class _FakeTMDBForOVAScan:
             return self._SEASON_MAP[season_num]
         return {"titles": {}, "posters": {}, "episodes": {}}
 
+    def get_alternative_titles(self, media_id, media_type="movie"):
+        return []
+
 
 class FlatFolderMultiSeasonTests(unittest.TestCase):
     """A flat folder with 13 bare-number files should be distributed across
@@ -653,6 +656,9 @@ class FlatFolderMultiSeasonTests(unittest.TestCase):
                     season_num, {"titles": {}, "posters": {}, "episodes": {}}
                 )
 
+            def get_alternative_titles(self, media_id, media_type="movie"):
+                return []
+
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             for i in range(1, 14):
@@ -711,6 +717,9 @@ class FlatFolderSpecialsOffsetRegressionTests(unittest.TestCase):
                 season_num,
                 {"titles": {}, "posters": {}, "episodes": {}},
             )
+
+        def get_alternative_titles(self, media_id, media_type="movie"):
+            return []
 
     def test_flat_absolute_numbering_ignores_specials_offset(self):
         with TemporaryDirectory() as tmp:

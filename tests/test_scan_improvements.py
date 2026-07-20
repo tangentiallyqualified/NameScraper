@@ -2734,6 +2734,9 @@ class FakeTMDB:
     def get_tv_details(self, show_id):
         return {"seasons": []}
 
+    def get_alternative_titles(self, media_id, media_type="movie"):
+        return []
+
 
 SHOW_INFO = {"id": 5, "name": "Demo Show", "year": "2020"}
 

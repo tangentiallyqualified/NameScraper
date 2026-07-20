@@ -4,6 +4,7 @@ from pathlib import Path
 
 from plex_renamer._parsing_titles import _strip_quality_parens, clean_title_evidence
 from plex_renamer.engine._episode_resolution import (
+    COMPATIBLE_PREFIX_FLOOR,
     CONF_AGREE,
     CONF_NUMBER_INFERRED,
     CONF_NUMBER_RELATIVE,
@@ -839,6 +840,42 @@ class TestConfidenceAdjustments:
         table.assign(entry.file_id, 2, [1], origin=ORIGIN_AUTO, confidence=0.86)
         apply_confidence_adjustments(table, show_info=show)
         assert table.assignment_for(entry.file_id).confidence >= EXPLICIT_EPISODE_FLOOR
+
+    def test_alias_prefix_source_is_not_contradictory(self):
+        """Solo Leveling TVDB regression (real-library run 2026-07-19): the
+        provider's primary show name can be non-English while files carry the
+        English alias. A source prefix matching an alternative title must
+        corroborate the show (compatible-prefix floor), not trip the
+        contradictory-prefix cap.
+        """
+        show = {"id": 11, "name": "俺だけレベルアップな件", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="I'm Used to It"))
+        entry = table.add_file(
+            Path("Solo Leveling (2024) - S01E01 - I'm Used to It.mkv"),
+            is_season_relative=True,
+        )
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.45)
+        apply_confidence_adjustments(
+            table,
+            show_info=show,
+            alt_show_names=["Solo Leveling", "Ore dake Level Up na Ken"],
+        )
+        assert table.assignment_for(entry.file_id).confidence >= COMPATIBLE_PREFIX_FLOOR
+
+    def test_contradictory_prefix_still_caps_when_no_alias_matches(self):
+        table = coverage_table()
+        entry = table.add_file(
+            Path("Totally Different Show S01E01.mkv"),
+            is_season_relative=True,
+        )
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.9)
+        apply_confidence_adjustments(
+            table,
+            show_info=SHOW,
+            alt_show_names=["Another Alias Entirely"],
+        )
+        assert table.assignment_for(entry.file_id).confidence <= CONTRADICTORY_PREFIX_CAP
 
     def test_season0_title_only_not_capped_by_prefix(self):
         # Real Animaniacs featurette: the "(480p ...)" quality suffix makes
