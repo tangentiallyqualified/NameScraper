@@ -62,8 +62,13 @@ def test_tag_ignored_when_setting_off(tmp_path: Path) -> None:
     assert states[0].match_origin == "auto"
     assert states[0].provider_name == "tmdb"
     assert "search_tv_batch" in primary.calls
-    # id_tag_routing is off: the fallback provider is never consulted.
-    assert fallback.calls == []
+    # id_tag_routing is off: no ID-tag lookup runs on the fallback provider.
+    # The primary comes up with no candidates at all (RecordingProvider
+    # returns []), so the resulting unmatched, still-"auto" state is weak
+    # enough to earn a genuine second-opinion fallback search (Task 7
+    # fix: unmatched folders are no longer excluded from that pass).
+    assert "get_tv_details:81189" not in fallback.calls
+    assert fallback.calls == ["search_tv_batch"]
 
 
 def test_tag_ignored_when_provider_missing(tmp_path: Path) -> None:
@@ -122,8 +127,14 @@ def test_specifically_named_child_does_not_inherit_parent_tag(tmp_path: Path) ->
     assert states[0].match_origin != "id_tag"
     assert states[0].show_id != 999
     assert "search_tv_batch" in primary.calls
-    # The parent tag must never be consulted for a specifically-named child.
-    assert fallback.calls == []
+    # The parent tag must never be consulted for a specifically-named
+    # child's ID resolution. The primary still finds no candidates for this
+    # child (RecordingProvider returns []), so the resulting unmatched
+    # state is weak enough to earn a genuine second-opinion fallback search
+    # (Task 7 fix: unmatched folders are no longer excluded from that pass)
+    # — that traffic is legitimate and distinct from tag-based routing.
+    assert "get_tv_details:999" not in fallback.calls
+    assert fallback.calls == ["search_tv_batch"]
 
 
 def test_generic_named_child_inherits_umbrella_parent_tag(tmp_path: Path) -> None:

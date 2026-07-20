@@ -633,13 +633,12 @@ class BatchTVOrchestrator:
         provider; adopted only on a strictly better score, always flagged
         for review (spec: fallback never auto-accepts).
 
-        Only states that already resolved to SOME show on the primary
-        provider are reconsidered here — a folder with no primary
-        candidates at all (``show_id is None``) is a distinct "no match"
-        case (see ``_sort_discovered_show_state``), not a weak match, and
-        must not silently start consulting the fallback provider (id-tag
-        routing relies on zero fallback traffic when a tag is absent or
-        ignored and the primary search comes up empty).
+        A folder the primary couldn't match at all (``show_id is None``,
+        confidence 0.0) is included in ``weak`` too — it's the strongest
+        case for a second opinion, not a reason to skip one. This is safe
+        because adoption always sets ``match_origin="fallback"``, which
+        ``ScanState.needs_review`` treats as always-review regardless of
+        the adopted score.
         """
         assert self.fallback_provider is not None
         _raise_if_cancelled(cancel_event)
@@ -647,9 +646,7 @@ class BatchTVOrchestrator:
         weak = [
             index
             for index, state in enumerate(states)
-            if state.match_origin == "auto"
-            and state.show_id is not None
-            and state.confidence < threshold
+            if state.match_origin == "auto" and state.confidence < threshold
         ]
         if not weak:
             return
@@ -705,6 +702,16 @@ class BatchTVOrchestrator:
             state.search_results = results
             state.tie_detected = tie_detected
             state.season_names = season_names
+            # The show-name-suffix branch of infer_explicit_season_assignment
+            # depends on the MATCHED show's name — recompute against the
+            # adopted (fallback) name rather than leaving the primary-derived
+            # assignment, which season-sibling merges group by right after
+            # this pass (mirrors _build_discovered_show_state).
+            state.season_assignment = infer_explicit_season_assignment(
+                candidate.folder,
+                evidence,
+                show_name=best.get("name"),
+            )
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
         """Merge a rematched season/special state into existing show siblings."""

@@ -206,3 +206,69 @@ def test_fallback_errors_never_break_scan(tmp_path: Path, auto_accept_threshold:
     assert state.media_info.get("id") == 3
     assert state.match_origin == "auto"
     assert state.provider_name == "tmdb"
+
+
+def test_unmatched_primary_adopts_fallback_match(
+    tmp_path: Path, auto_accept_threshold: float
+) -> None:
+    """A folder the primary provider couldn't match AT ALL (no candidates,
+    confidence 0.0) is the strongest case for a second opinion — it must
+    still reach the fallback pass, not be excluded as "not really weak"."""
+    _make_show(tmp_path, "Widget Falls", "Widget.Falls.S01E01.mkv")
+
+    # Primary finds nothing for this folder at all.
+    primary = _FixedResultProvider("tmdb")
+    fallback_exact = _result(5, "Widget Falls", "2023")
+    fallback = _FixedResultProvider("tvdb", {"widget falls": [fallback_exact]})
+
+    orch = BatchTVOrchestrator(
+        primary, tmp_path, TVLibraryDiscoveryService(), fallback_provider=fallback
+    )
+    states = orch.discover_shows()
+
+    assert len(states) == 1
+    state = states[0]
+    assert "search_tv_batch" in fallback.calls
+    assert state.media_info.get("id") == 5
+    assert state.provider_name == "tvdb"
+    assert state.match_origin == "fallback"
+    assert state.needs_review is True
+
+
+def test_fallback_adoption_recomputes_season_assignment(
+    tmp_path: Path, auto_accept_threshold: float
+) -> None:
+    """Season assignment depends on the MATCHED show's name (the
+    show-name+season-suffix branch of ``infer_explicit_season_assignment``).
+    Adoption must recompute it against the adopted (fallback) show name,
+    not silently carry over whatever the primary's name produced.
+
+    Folder "Widget Falls 2" has no season-parseable name on its own
+    (``get_season`` returns None) and its one episode file is fansub-style
+    with an episode number but no season marker, so no explicit S##E##
+    evidence exists either — the season can only come from the show-name
+    suffix branch. Against the primary's unrelated name, that branch finds
+    no prefix match (season_assignment stays None); against the fallback's
+    exact "Widget Falls" name, "widget falls 2" starts with "widget falls"
+    and the "2" suffix resolves to season 2.
+    """
+    show = tmp_path / "Widget Falls 2"
+    show.mkdir()
+    (show / "[SubGroup] Widget Falls - 05 [1080p].mkv").write_text("x")
+
+    primary_junk = _result(1, "Zzz Nonsense Thing", "1999")
+    fallback_exact = _result(2, "Widget Falls", "2023")
+
+    primary = _FixedResultProvider("tmdb", {"widget falls 2": [primary_junk]})
+    fallback = _FixedResultProvider("tvdb", {"widget falls 2": [fallback_exact]})
+
+    orch = BatchTVOrchestrator(
+        primary, tmp_path, TVLibraryDiscoveryService(), fallback_provider=fallback
+    )
+    states = orch.discover_shows()
+
+    assert len(states) == 1
+    state = states[0]
+    assert state.match_origin == "fallback"
+    assert state.media_info.get("id") == 2
+    assert state.season_assignment == 2
