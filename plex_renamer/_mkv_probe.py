@@ -83,7 +83,8 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
 
 
 def clear_probe_cache() -> None:
-    _cache.clear()
+    with _inflight_lock:
+        _cache.clear()
 
 
 def _cache_key(video_path: Path) -> tuple[str, int, int] | None:
@@ -176,7 +177,8 @@ def _probe_uncoalesced(
         return ProbeResult(path=str(video_path), ok=False, error=str(e))
 
     result = parse_identify_json(str(video_path), payload)
-    if len(_cache) >= _CACHE_MAX_ENTRIES:
-        _cache.clear()
-    _cache[key] = result
+    with _inflight_lock:
+        if len(_cache) >= _CACHE_MAX_ENTRIES:
+            _cache.clear()
+        _cache[key] = result
     return result

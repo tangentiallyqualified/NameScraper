@@ -571,6 +571,58 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         coordinator._refill_warm_queue([fresh])
         self.assertEqual(len(deferred), 1, "one entry -> one respawned worker")
 
+    def test_shutdown_clears_warm_queue_so_deferred_workers_probe_nothing(self):
+        # App-close regression: shutdown() must clear the pending queue so
+        # that workers already submitted (and running after the window is
+        # gone) find nothing left to pop and exit immediately -- without
+        # spawning any more 120s-timeout mkvmerge probes.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        workspace, states = self._workspace_with_states(states=states)
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator = workspace._automux
+        coordinator.warm_plans_for_states(states)
+        self.assertTrue(coordinator._warm_queue, "queue must be non-empty before shutdown")
+        self.assertTrue(deferred, "workers must have been spawned before shutdown")
+
+        coordinator.shutdown()
+
+        for worker in deferred:
+            worker()
+
+        self.assertEqual(probed_names, [], "no probes may run once the sweep is shut down")
+        self.assertEqual(
+            coordinator._warm_sweep_active,
+            0,
+            "workers must still release their active slots after an empty queue",
+        )
+
     def test_prioritize_state_moves_its_items_to_the_queue_front(self):
         from unittest.mock import patch
 

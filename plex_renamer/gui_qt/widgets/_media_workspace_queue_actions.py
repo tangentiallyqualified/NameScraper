@@ -293,7 +293,15 @@ def _start_submission(
     bridge.finished.connect(_on_finished)
     workspace._queue_submission_inflight = True
     overlay.show_now()
-    _submit_bg(_worker)
+    try:
+        _submit_bg(_worker)
+    except Exception:
+        # Pool rejected the submit (shutdown): unwind so the overlay
+        # comes down and the guard doesn't wedge the session.
+        workspace._queue_submission_inflight = False
+        overlay.dismiss()
+        bridge.deleteLater()
+        raise
 
 
 def queue_eligibility(workspace, states: list[ScanState]):

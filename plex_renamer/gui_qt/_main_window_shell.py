@@ -68,6 +68,13 @@ class MainWindowShellCoordinator:
         window.media_ctrl.clear_listeners()
         window.queue_ctrl.clear_listeners()
         window.queue_ctrl.close()
+        # Stop the AutoMux warm sweep BEFORE draining the pool: otherwise
+        # its workers keep popping queued entries and spawning fresh
+        # 120s-timeout mkvmerge probes, making the drain's bound decorative.
+        for workspace in (window._tv_workspace, window._movie_workspace):
+            automux = getattr(workspace, "_automux", None)
+            if automux is not None:
+                automux.shutdown()
         # GUI workers (guide builds, poster fetches) must not be mid-flight
         # while Qt tears down — bounded so a stuck TMDB call can't hang quit.
         thread_pool.drain(timeout=3.0)

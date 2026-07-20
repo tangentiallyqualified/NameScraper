@@ -125,7 +125,6 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
 
             with patch(
                 f"{_QUEUE_ACTIONS_MODULE}._submit_bg",
-                create=True,
                 side_effect=lambda fn: deferred.append(fn),
             ):
                 workspace._queue_checked()
@@ -181,7 +180,6 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
 
             with patch(
                 f"{_QUEUE_ACTIONS_MODULE}._submit_bg",
-                create=True,
                 side_effect=lambda fn: deferred.append(fn),
             ):
                 workspace._queue_checked()
@@ -240,7 +238,6 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
             # Synchronous worker: progress emits land inline on the GUI thread.
             with patch(
                 f"{_QUEUE_ACTIONS_MODULE}._submit_bg",
-                create=True,
                 side_effect=lambda fn: fn(),
             ):
                 workspace._queue_checked()
@@ -328,7 +325,6 @@ class QtQueueSubmissionAsyncTests(QtSmokeBase):
 
             with patch(
                 f"{_QUEUE_ACTIONS_MODULE}._submit_bg",
-                create=True,
                 side_effect=lambda fn: deferred.append(fn),
             ):
                 queue_selected_state(workspace, warning_box=_FakeWarningBox)

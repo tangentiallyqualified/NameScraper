@@ -210,6 +210,17 @@ class MediaWorkspaceAutoMuxCoordinator:
         if model is not None:
             model.refresh_state(state_index)
 
+    # ── Shutdown ──────────────────────────────────────────────────────
+
+    def shutdown(self) -> None:
+        """Stop feeding the warm sweep: clear the pending queue so each
+        worker exits after at most its current probe. Called at app close
+        BEFORE thread_pool.drain — without this the drain's bound is
+        decorative, since workers keep popping entries and spawning
+        120s-timeout mkvmerge probes long after the window is gone."""
+        with self._warm_lock:
+            self._warm_queue.clear()
+
     # ── Proactive plan warming (Task 4) ──────────────────────────────
 
     def warm_plans_for_states(self, states) -> None:
@@ -264,8 +275,15 @@ class MediaWorkspaceAutoMuxCoordinator:
             self._warm_sweep_active += spawn
         # Submit OUTSIDE the lock: tests patch _submit_bg to run the worker
         # inline, and the worker takes the lock itself.
-        for _ in range(spawn):
-            _submit_bg(self._warm_sweep_worker)
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
 
     def _warm_sweep_worker(self) -> None:
         """Drain the shared queue one (state, index) at a time. Several of
@@ -334,8 +352,15 @@ class MediaWorkspaceAutoMuxCoordinator:
                 min(_WARM_SWEEP_WORKERS, len(self._warm_queue)) - self._warm_sweep_active,
             )
             self._warm_sweep_active += spawn
-        for _ in range(spawn):
-            _submit_bg(self._warm_sweep_worker)
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
 
     # ── Movie panel (Task 6) / header button (Task 7) ─────────────────
 
