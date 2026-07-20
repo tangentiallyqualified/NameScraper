@@ -43,6 +43,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         self._warm_lock = threading.Lock()
         self._warm_queue: deque[tuple[Any, int]] = deque()
         self._warm_sweep_active = 0
+        self._executor_busy = False
         self._widgets: dict[tuple[int, int], AutoMuxTracksWidget] = {}
 
     # ── Availability ──────────────────────────────────────────────────
@@ -221,6 +222,35 @@ class MediaWorkspaceAutoMuxCoordinator:
         with self._warm_lock:
             self._warm_queue.clear()
 
+    def _effective_cap(self) -> int:
+        """Current sweep worker cap. Call only while holding _warm_lock."""
+        return 1 if self._executor_busy else _WARM_SWEEP_WORKERS
+
+    def set_executor_busy(self, busy: bool) -> None:
+        """Executor running -> downshift the sweep to one probe worker so
+        remux jobs get the NAS bandwidth; idle -> top back up to the full
+        cap from the existing queue. Thread-safe (state under _warm_lock;
+        submits outside it), though in practice the main window calls this
+        on the GUI thread via the executor bridge."""
+        with self._warm_lock:
+            self._executor_busy = bool(busy)
+            if busy:
+                return  # workers shed themselves at their next loop check
+            spawn = max(
+                0,
+                min(self._effective_cap(), len(self._warm_queue)) - self._warm_sweep_active,
+            )
+            self._warm_sweep_active += spawn
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
+
     # ── Proactive plan warming (Task 4) ──────────────────────────────
 
     def warm_plans_for_states(self, states) -> None:
@@ -271,7 +301,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         entries = [entry for state in states for entry in self._pending_items(state)]
         with self._warm_lock:
             self._warm_queue = deque(entries)
-            spawn = max(0, min(_WARM_SWEEP_WORKERS, len(entries)) - self._warm_sweep_active)
+            spawn = max(0, min(self._effective_cap(), len(entries)) - self._warm_sweep_active)
             self._warm_sweep_active += spawn
         # Submit OUTSIDE the lock: tests patch _submit_bg to run the worker
         # inline, and the worker takes the lock itself.
@@ -295,11 +325,17 @@ class MediaWorkspaceAutoMuxCoordinator:
         failure never aborts the sweep. The empty-queue exit decrements
         _warm_sweep_active under the SAME lock hold that observed empty —
         a separately-acquired decrement let a refill see dying workers as
-        active and strand a freshly filled queue with no drainer."""
+        active and strand a freshly filled queue with no drainer. Workers
+        also shed themselves when the effective cap drops below the active
+        count (executor busy)."""
         exited = False
         try:
             while True:
                 with self._warm_lock:
+                    if self._warm_sweep_active > self._effective_cap():
+                        self._warm_sweep_active -= 1
+                        exited = True
+                        return
                     if not self._warm_queue:
                         self._warm_sweep_active -= 1
                         exited = True
@@ -349,7 +385,7 @@ class MediaWorkspaceAutoMuxCoordinator:
             self._warm_queue = deque(entries + remaining)
             spawn = max(
                 0,
-                min(_WARM_SWEEP_WORKERS, len(self._warm_queue)) - self._warm_sweep_active,
+                min(self._effective_cap(), len(self._warm_queue)) - self._warm_sweep_active,
             )
             self._warm_sweep_active += spawn
         submitted = 0

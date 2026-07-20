@@ -623,6 +623,76 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             "workers must still release their active slots after an empty queue",
         )
 
+    def test_executor_busy_downshifts_sweep_to_one_worker(self):
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state(f"s{i}.mkv") for i in range(6)]
+        workspace, states = self._workspace_with_states(states=states)
+        coordinator = workspace._automux
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(len(deferred), automux_mod._WARM_SWEEP_WORKERS)
+
+        coordinator.set_executor_busy(True)
+        # Run all captured workers: with the cap at 1, the extra workers
+        # must shed themselves without probing; ONE worker drains the queue.
+        for worker in deferred:
+            worker()
+        self.assertEqual(len(probed), 6)  # work still completes
+        self.assertEqual(coordinator._warm_sweep_active, 0)
+
+    def test_executor_idle_respawns_sweep_to_full_cap(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state(f"s{i}.mkv") for i in range(6)]
+        workspace, states = self._workspace_with_states(states=states)
+        coordinator = workspace._automux
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        coordinator.set_executor_busy(True)
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(len(deferred), 1)  # busy: capped at one worker
+
+        coordinator.set_executor_busy(False)
+        self.assertEqual(
+            len(deferred),
+            automux_mod._WARM_SWEEP_WORKERS,
+            "going idle must top workers back up to the full cap",
+        )
+
     def test_prioritize_state_moves_its_items_to_the_queue_front(self):
         from unittest.mock import patch
 

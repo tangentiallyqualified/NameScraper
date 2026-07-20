@@ -291,6 +291,7 @@ class MainWindow(QMainWindow):
 
     def _on_job_started(self, _job: RenameJob) -> None:
         self._feedback_coordinator.on_job_started(_job)
+        self._set_workspace_executor_busy(True)
 
     def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
         self._feedback_coordinator.on_job_completed(job, result)
@@ -310,6 +311,14 @@ class MainWindow(QMainWindow):
 
     def _on_queue_finished(self) -> None:
         self._feedback_coordinator.on_queue_finished()
+        self._set_workspace_executor_busy(False)
+
+    def _set_workspace_executor_busy(self, busy: bool) -> None:
+        # Sweep yields to the executor (spec: mkv-conversion-and-latency §3).
+        for workspace in (self._tv_workspace, self._movie_workspace):
+            automux = getattr(workspace, "_automux", None)
+            if automux is not None:
+                automux.set_executor_busy(busy)
 
     # ── Other actions ────────────────────────────────────────────
 
