@@ -45,12 +45,14 @@ class QueueTab(_JobListTab):
         self,
         queue_controller,
         tmdb_provider: Callable[[], object | None] | None = None,
+        provider_by_name: Callable[[str], object | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(
             queue_controller=queue_controller,
             history=False,
             tmdb_provider=tmdb_provider,
+            provider_by_name=provider_by_name,
             parent=parent,
         )
         self._tmdb_provider = tmdb_provider

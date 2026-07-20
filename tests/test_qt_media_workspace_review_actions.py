@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from _scanner_fakes import MetadataScannerFake
 from conftest_qt import QtSmokeBase
@@ -72,9 +73,22 @@ class _FakeSwitchMediaController(_FakeMediaController):
         super().__init__(state)
         self.batch_orchestrator = orchestrator
         self.scan_show_calls: list[tuple[ScanState, object]] = []
+        self.rematch_calls: list[tuple[ScanState, dict, object]] = []
 
     def scan_show(self, state: ScanState, tmdb) -> None:
         self.scan_show_calls.append((state, tmdb))
+
+    def assign_season(self, state: ScanState, season_num: int | None) -> None:
+        # Mirrors the real controller's assign_season shape used elsewhere
+        # in this suite (test_qt_media_workspace.py): mutates in place and
+        # returns None, so prompt_assign_season's effective_state falls
+        # back to the state it was called with.
+        state.season_assignment = season_num
+
+    def rematch_tv_state(self, state: ScanState, chosen: dict, tmdb) -> ScanState:
+        self.rematch_calls.append((state, chosen, tmdb))
+        state.media_info = chosen
+        return state
 
 
 def _section_titles(panel: MediaWorkPanel) -> list[str]:
@@ -452,3 +466,77 @@ class QtMediaWorkspaceSourceSelectorTests(QtSmokeBase):
             )
 
             workspace.close()
+
+
+class QtMediaWorkspaceReroutedProviderTests(QtSmokeBase):
+    """Regression coverage for the other two per-show consumers rerouted
+    through ``provider_for(state)`` in Task 9 (prompt_assign_season and
+    apply_selected_match's default-fallback path) — each asserts a
+    provider_name="tvdb" state routes through the fallback client rather
+    than the window's active client."""
+
+    def tearDown(self):
+        self._dispose_top_level_widgets(MediaWorkspace)
+        super().tearDown()
+
+    def test_prompt_assign_season_rescans_through_states_provider(self):
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        workspace = MediaWorkspace(media_type="tv", media_controller=controller)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getInt",
+            return_value=(2, True),
+        ):
+            workspace._prompt_assign_season(state)
+
+        self.assertEqual(state.season_assignment, 2)
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        scanned_state, client = controller.scan_show_calls[0]
+        self.assertIs(scanned_state, state)
+        self.assertIs(client, orchestrator.tvdb)
+
+        workspace.close()
+
+    def test_apply_alternate_match_default_routes_through_states_provider(self):
+        alternate = {"id": 202, "name": "Example Show Alt", "year": "2024"}
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+            alternate_matches=[alternate],
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        workspace = MediaWorkspace(media_type="tv", media_controller=controller)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        workspace._apply_alternate_match(state, alternate)
+
+        self.assertEqual(len(controller.rematch_calls), 1)
+        rematched_state, chosen, rematch_client = controller.rematch_calls[0]
+        self.assertIs(rematched_state, state)
+        self.assertIs(chosen, alternate)
+        self.assertIs(rematch_client, orchestrator.tvdb)
+
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        _scanned_state, scan_client = controller.scan_show_calls[0]
+        self.assertIs(scan_client, orchestrator.tvdb)
+
+        workspace.close()

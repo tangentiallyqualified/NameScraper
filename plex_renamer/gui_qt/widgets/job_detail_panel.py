@@ -221,11 +221,16 @@ class JobDetailPanel(QFrame):
     def __init__(
         self,
         tmdb_provider: Callable[[], object | None] | None = None,
+        provider_by_name: Callable[[str], object | None] | None = None,
         persist_poster_path: Callable[[str, str | None], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._tmdb_provider = tmdb_provider
+        # Resolves a client by a JOB's own recorded provider name
+        # (RenameJob.data_source) rather than the window's currently-active
+        # source — see JobDetailPosterWorkflow._resolve_provider.
+        self._provider_by_name = provider_by_name
         self._persist_poster_path = persist_poster_path
         self._history_mode: bool = False
         self._current_job_id: str | None = None

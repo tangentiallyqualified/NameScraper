@@ -157,6 +157,41 @@ def test_fallback_enabled_missing_other_key_returns_none_quietly() -> None:
     assert window._status.messages == []  # pyright: ignore[reportPrivateUsage]
 
 
+def test_provider_named_resolves_non_active_provider_independent_of_fallback_setting() -> None:
+    # provider_named must resolve "tvdb" by name even when fallback is
+    # disabled and tmdb is the active source: job-detail posters resolve
+    # by the JOB's own recorded provider, not by the fallback toggle.
+    window = _FallbackWindow("tmdb", fallback_enabled=False)
+    client = _coordinator(window).provider_named(
+        "tvdb", api_key_lookup=lambda service: "key" if service == "TVDB" else None
+    )
+    assert client is not None and client.provider_name == "tvdb"
+    assert client is window._tv_provider  # pyright: ignore[reportPrivateUsage]
+
+
+def test_provider_named_tmdb_returns_tmdb_client() -> None:
+    window = _Window("tvdb")
+    client = _coordinator(window).provider_named("tmdb", api_key_lookup=lambda service: "key")
+    assert client is not None and client.provider_name == "tmdb"
+    assert client is window._tmdb  # pyright: ignore[reportPrivateUsage]
+
+
+def test_provider_named_missing_key_falls_back_to_tmdb_client() -> None:
+    window = _Window("tvdb")
+    client = _coordinator(window).provider_named(
+        "tvdb", api_key_lookup=lambda service: "key" if service == "TMDB" else None
+    )
+    assert client is not None and client.provider_name == "tmdb"
+
+
+def test_provider_named_unknown_name_falls_back_to_tmdb_client() -> None:
+    window = _Window("tvdb")
+    client = _coordinator(window).provider_named(
+        "nonexistent", api_key_lookup=lambda service: "key"
+    )
+    assert client is not None and client.provider_name == "tmdb"
+
+
 def _make_media_controller(tmp_path: Path, settings: SettingsService) -> MediaController:
     return MediaController(
         job_store=JobStore(db_path=tmp_path / "jobs.db"),

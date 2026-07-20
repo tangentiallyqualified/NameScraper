@@ -149,6 +149,59 @@ class MainWindowTmdbCoordinator:
         )
         return window._tv_provider
 
+    def provider_named(
+        self,
+        name: str,
+        *,
+        api_key_lookup: Callable[[str], str | None],
+    ) -> Any | None:
+        """Client for the TV provider named *name* — independent of which
+        provider is currently "active" or whether fallback is enabled.
+
+        Job-detail poster fetches (Queue/History) must resolve by the
+        JOB's own recorded provider (``RenameJob.data_source``), not by
+        the window's current settings — a job queued while TVDB was
+        active still carries a TVDB numeric ID after the user switches
+        the active source back to TMDB. Falls back to the TMDB client
+        (``ensure_tmdb``) when *name* is unresolvable or its key is
+        missing — the same "active client" behavior Queue/History used
+        before this method existed, so a missing key degrades exactly as
+        before instead of ever leaving Queue/History without a poster
+        client entirely."""
+        from ..providers import TV_PROVIDERS
+        from ..tmdb import TMDBClient
+
+        window = self._window
+        spec = TV_PROVIDERS.get(name)
+        if spec is None:
+            return self.ensure_tmdb(
+                api_key_lookup=api_key_lookup,
+                tmdb_client_factory=TMDBClient,
+            )
+        if spec.name == "tmdb":
+            return self.ensure_tmdb(
+                api_key_lookup=api_key_lookup,
+                tmdb_client_factory=TMDBClient,
+            )
+        # Exactly two providers exist: a non-TMDB spec's client lives in
+        # _tv_provider, the same cache ensure_tv_provider/ensure_fallback_provider
+        # use for the non-TMDB slot (see the comment in ensure_fallback_provider).
+        if window._tv_provider is not None:
+            return window._tv_provider
+        api_key = api_key_lookup(spec.key_service)
+        if not api_key:
+            return self.ensure_tmdb(
+                api_key_lookup=api_key_lookup,
+                tmdb_client_factory=TMDBClient,
+            )
+        window._tv_provider = spec.factory(
+            api_key,
+            language=window.settings_service.match_language,
+            cache_service=window._cache_service,
+            refresh_policy=window._refresh_policy,
+        )
+        return window._tv_provider
+
     def invalidate_tmdb(self) -> None:
         window = self._window
         self.persist_tmdb_cache_snapshot()

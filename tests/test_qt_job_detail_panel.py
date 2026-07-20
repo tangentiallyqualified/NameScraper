@@ -81,6 +81,84 @@ class QtJobDetailPanelTests(QtSmokeBase):
         self.assertEqual(persisted, [(job.job_id, "/poster.jpg")])
         panel.close()
 
+    def test_job_detail_panel_resolves_poster_provider_by_job_data_source(self):
+        """A job whose data_source is the NON-default provider (e.g. tvdb)
+        must fetch its poster through the tvdb-named client, not whatever
+        the panel's plain tmdb_provider callback returns — the job's own
+        tmdb_id lives in the tvdb ID namespace."""
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        tmdb = MagicMock()
+        tmdb.get_cached_poster_path = MagicMock(return_value=None)
+        tmdb.fetch_image = MagicMock(return_value=None)
+        tmdb.fetch_poster = MagicMock(return_value=None)
+
+        tvdb = MagicMock()
+        tvdb.get_cached_poster_path = MagicMock(return_value=None)
+        tvdb.fetch_image = MagicMock(return_value=None)
+        tvdb.fetch_poster = MagicMock(return_value=None)
+
+        clients = {"tmdb": tmdb, "tvdb": tvdb}
+        panel = JobDetailPanel(
+            tmdb_provider=lambda: tmdb,
+            provider_by_name=lambda name: clients.get(name),
+        )
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            tmdb_id=81189,
+            media_name="Example Show",
+            poster_path=None,
+            data_source="tvdb",
+        )
+
+        panel.set_job(job)
+        self._app.processEvents()
+        QTest.qWait(10)
+        self._app.processEvents()
+
+        tvdb.fetch_poster.assert_called_once()
+        tmdb.fetch_poster.assert_not_called()
+        panel.close()
+
+    def test_job_detail_panel_active_data_source_uses_matching_client(self):
+        """A job whose data_source is the currently-active provider still
+        fetches through that (matching) client via provider_by_name."""
+        from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
+        from plex_renamer.job_store import RenameJob
+
+        tmdb = MagicMock()
+        tmdb.get_cached_poster_path = MagicMock(return_value=None)
+        tmdb.fetch_image = MagicMock(return_value=None)
+        tmdb.fetch_poster = MagicMock(return_value=None)
+
+        tvdb = MagicMock()
+        tvdb.fetch_poster = MagicMock(return_value=None)
+
+        clients = {"tmdb": tmdb, "tvdb": tvdb}
+        panel = JobDetailPanel(
+            tmdb_provider=lambda: tmdb,
+            provider_by_name=lambda name: clients.get(name),
+        )
+        job = RenameJob(
+            library_root="C:/library",
+            source_folder="Show",
+            tmdb_id=123,
+            media_name="Example Show",
+            poster_path=None,
+            data_source="tmdb",
+        )
+
+        panel.set_job(job)
+        self._app.processEvents()
+        QTest.qWait(10)
+        self._app.processEvents()
+
+        tmdb.fetch_poster.assert_called_once()
+        tvdb.fetch_poster.assert_not_called()
+        panel.close()
+
     def test_job_detail_panel_shows_folder_plan_and_preview_lines(self):
         from plex_renamer.gui_qt.widgets.job_detail_panel import JobDetailPanel
         from plex_renamer.job_store import RenameJob, RenameOp

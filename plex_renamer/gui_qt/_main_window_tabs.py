@@ -57,10 +57,12 @@ class MainWindowTabsCoordinator:
         window._queue_tab = QueueTab(
             window.queue_ctrl,
             tmdb_provider=window._ensure_tmdb,
+            provider_by_name=window._provider_named,
         )
         window._history_tab = HistoryTab(
             window.queue_ctrl,
             tmdb_provider=window._ensure_tmdb,
+            provider_by_name=window._provider_named,
         )
         window._settings_tab = SettingsTab(
             settings_service=window.settings_service,
