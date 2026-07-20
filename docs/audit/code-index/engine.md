@@ -1,4 +1,4 @@
-<!-- Generated from audit input 476c007b67ee; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input f609ca7fd5b8; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
@@ -58,7 +58,7 @@
 - `match_segmented_title_run(raw_title, titles, expected_count) -> tuple[tuple[int, ...], bool] | None` — Resolve a combined multi-segment title into an episode run by titles.
 - `resolve_file(*, parsed_episodes, raw_title, is_season_relative, season_titles, season, season_hint) -> Resolution` — Apply the 6-rule resolution policy for one file against one season. (used by: plex_renamer.engine._tv_scanner_consolidated, plex_renamer.engine._tv_scanner_normal)
 - `resolve_table_conflicts(table) -> None` — Public entry: resolve slot conflicts (used after sibling table merges). (used by: plex_renamer.engine._batch_tv_episode_claims)
-- `apply_confidence_adjustments(table, *, show_info, show_match_confidence) -> None` — Raise/cap auto-assignment confidence from corroborating evidence. (used by: plex_renamer.engine._tv_scanner)
+- `apply_confidence_adjustments(table, *, show_info, show_match_confidence, alt_show_names) -> None` — Raise/cap auto-assignment confidence from corroborating evidence. (used by: plex_renamer.engine._tv_scanner)
 - `apply_uniform_offset_rescue(table) -> None` — Follow a uniform title-anchor offset for number-only siblings. (used by: plex_renamer.engine._tv_scanner)
 - `rescue_cross_season_titles(table) -> None` — Rescue single-episode files SKIPped as 'episode not in TMDB season' — (used by: plex_renamer.engine._tv_scanner)
 - `rescue_explicit_hint_slots(table) -> None` — Re-anchor lost-conflict files to their explicit S##E## slots (RC44). (used by: plex_renamer.engine._tv_scanner)

@@ -2598,7 +2598,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 890
+                  "startLine": 891
                 }
               }
             }
@@ -10393,7 +10393,7 @@
                 },
                 "region": {
                   "startColumn": 49,
-                  "startLine": 670
+                  "startLine": 671
                 }
               }
             }
@@ -10420,7 +10420,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 781
+                  "startLine": 782
                 }
               }
             }
@@ -10447,7 +10447,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 792
+                  "startLine": 793
                 }
               }
             }
@@ -10474,7 +10474,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 813
+                  "startLine": 814
                 }
               }
             }
@@ -10501,7 +10501,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 823
+                  "startLine": 824
                 }
               }
             }
@@ -10528,7 +10528,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 841
+                  "startLine": 842
                 }
               }
             }
@@ -10555,7 +10555,7 @@
                 },
                 "region": {
                   "startColumn": 52,
-                  "startLine": 877
+                  "startLine": 918
                 }
               }
             }
@@ -10582,7 +10582,7 @@
                 },
                 "region": {
                   "startColumn": 49,
-                  "startLine": 900
+                  "startLine": 941
                 }
               }
             }
@@ -10609,7 +10609,7 @@
                 },
                 "region": {
                   "startColumn": 54,
-                  "startLine": 921
+                  "startLine": 962
                 }
               }
             }
@@ -10636,7 +10636,7 @@
                 },
                 "region": {
                   "startColumn": 57,
-                  "startLine": 1068
+                  "startLine": 1109
                 }
               }
             }
@@ -11128,18 +11128,18 @@
                 },
                 "region": {
                   "startColumn": 13,
-                  "startLine": 169
+                  "startLine": 172
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11155,7 +11155,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 176
+                  "startLine": 179
                 }
               }
             }
@@ -11182,7 +11182,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 180
+                  "startLine": 183
                 }
               }
             }
@@ -11209,7 +11209,7 @@
                 },
                 "region": {
                   "startColumn": 85,
-                  "startLine": 180
+                  "startLine": 183
                 }
               }
             }
@@ -11242,12 +11242,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_karasuno_to_season_3::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_karasuno_to_season_3::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11269,12 +11269,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_to_the_top_to_season_4::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_to_the_top_to_season_4::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11296,12 +11296,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_folder_preserves_season_zero_hint::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_folder_preserves_season_zero_hint::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11323,12 +11323,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_root_is_not_treated_as_extras_unmatched::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_root_is_not_treated_as_extras_unmatched::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11350,12 +11350,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_merged_specials_folder_keeps_ok_preview_status::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_merged_specials_folder_keeps_ok_preview_status::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11404,12 +11404,12 @@
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ..."
+            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_nested_titled_specials_folder_is_treated_as_season_zero::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_nested_titled_specials_folder_is_treated_as_season_zero::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11776,18 +11776,18 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 570
+                  "startLine": 573
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ..."
+            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_ova_distributes_across_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_ova_distributes_across_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11803,18 +11803,18 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 597
+                  "startLine": 600
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ..."
+            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_title_matching_assigns_correct_files_to_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_title_matching_assigns_correct_files_to_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11830,18 +11830,18 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 624
+                  "startLine": 627
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ..."
+            "text": "Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_sequential_fallback_for_generic_filenames::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_sequential_fallback_for_generic_filenames::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11857,18 +11857,18 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 664
+                  "startLine": 670
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ..."
+            "text": "Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::reportArgumentType::Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::reportArgumentType::Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -11884,18 +11884,18 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 730
+                  "startLine": 739
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ..."
+            "text": "Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderSpecialsOffsetRegressionTests.test_flat_absolute_numbering_ignores_specials_offset::reportArgumentType::Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_jojo_matching.FlatFolderSpecialsOffsetRegressionTests.test_flat_absolute_numbering_ignores_specials_offset::reportArgumentType::Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -27928,18 +27928,18 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 2756
+                  "startLine": 2759
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
+            "text": "Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_scan_improvements.make_scanner::reportArgumentType::Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_scan_improvements.make_scanner::reportArgumentType::Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -27955,7 +27955,7 @@
                 },
                 "region": {
                   "startColumn": 26,
-                  "startLine": 2811
+                  "startLine": 2814
                 }
               }
             }
@@ -27982,7 +27982,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 2814
+                  "startLine": 2817
                 }
               }
             }
@@ -28009,7 +28009,7 @@
                 },
                 "region": {
                   "startColumn": 22,
-                  "startLine": 2815
+                  "startLine": 2818
                 }
               }
             }
@@ -28036,7 +28036,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 2819
+                  "startLine": 2822
                 }
               }
             }
@@ -29470,18 +29470,18 @@
                 },
                 "region": {
                   "startColumn": 25,
-                  "startLine": 205
+                  "startLine": 210
                 }
               }
             }
           ],
           "message": {
-            "text": "Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ..."
+            "text": "Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ..."
           },
           "properties": {
             "analyzer": "pyright",
             "category": "typing",
-            "qualifiedSymbol": "tests.test_tv_scanner_normal.test_all_tmdb_seasons_get_slots_even_without_local_folders::reportArgumentType::Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
+            "qualifiedSymbol": "tests.test_tv_scanner_normal.test_all_tmdb_seasons_get_slots_even_without_local_folders::reportArgumentType::Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ...#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -29497,7 +29497,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 208
+                  "startLine": 213
                 }
               }
             }
@@ -29524,7 +29524,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 209
+                  "startLine": 214
                 }
               }
             }
@@ -29551,7 +29551,7 @@
                 },
                 "region": {
                   "startColumn": 29,
-                  "startLine": 212
+                  "startLine": 217
                 }
               }
             }
@@ -29578,7 +29578,7 @@
                 },
                 "region": {
                   "startColumn": 11,
-                  "startLine": 213
+                  "startLine": 218
                 }
               }
             }

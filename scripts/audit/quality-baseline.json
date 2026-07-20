@@ -10,7 +10,7 @@
    "loc": 1065
   },
   "plex_renamer/engine/_episode_resolution.py": {
-   "loc": 1969
+   "loc": 1992
   },
   "plex_renamer/engine/_tv_scanner_consolidated.py": {
    "loc": 720
@@ -73,7 +73,7 @@
    "loc": 551
   },
   "tests/test_episode_resolution.py": {
-   "loc": 1105
+   "loc": 1146
   },
   "tests/test_episode_table_delegate.py": {
    "loc": 979
@@ -82,7 +82,7 @@
    "loc": 687
   },
   "tests/test_jojo_matching.py": {
-   "loc": 746
+   "loc": 755
   },
   "tests/test_media_controller.py": {
    "loc": 1945
@@ -103,7 +103,7 @@
    "loc": 1106
   },
   "tests/test_scan_improvements.py": {
-   "loc": 2873
+   "loc": 2876
   },
   "tests/test_work_panel.py": {
    "loc": 911
@@ -2512,10 +2512,12 @@
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:27dced094c9514184c1983402a02c05d10c904156f13318d12650d0243454e60#1",
     "sha256:90781f3efdcb4ec0fcc56cd2214ffbf3333758a8b7d36c672a661660246717df#1",
+    "sha256:4f9b8491ba4deee622e6c29ca383c71279fa604b7aff389b0bf5ba279f4453c3#1",
     "sha256:4f535c8812ab879d7bf2cac93e0e502c7a074a9478bd1a35635fac402169c61f#1",
     "sha256:06185522e4085460db5f973d6987f2c5f42519fccd56836e5e5ed9842962de8d#1",
-    "sha256:bb038b59bc5b38c1ff841d570472b954a8a8b090705541495d2b9e8f25b12f57#1",
+    "sha256:f0e5bd3f7c5275597e3f93faa42b6c249288a44200092bdb76eca0442c778c86#1",
     "sha256:ce00e52dca755a4d6d4ecae8c00cdf7c5b6388812dd964f7dbdf43ff83f9946e#1",
+    "sha256:cde81381f73daf66abeb7529a0a5e49134c1724e0ce2541ff73f116637963e5a#1",
     "sha256:a01a0db83fbe67639b270513dc8d571694592f5ac8ac5cb6fa4241d287467200#1",
     "sha256:0afa8b400639ce6a515e0410be4aee2c0f4be1e736d8ec034a8374358fbd4f21#1",
     "sha256:1ee375d12cf653f9b26caea8b59629b6b80c288ee32f3ae42b8bfe1121e04050#1",
@@ -2525,6 +2527,7 @@
     "sha256:733629bf355bc47c186fa1c1142566dfc700cf8e397b475ab711476aa89545f7#1",
     "sha256:a9af1d4608a657961a7a24cbf63f284d9eaad26edf3a334df8b00d5266a5a916#1",
     "sha256:1d33272c2850e91357cf4f87c4edd603b98ef039262db4609468e565f21291a4#1",
+    "sha256:c83c24708180817334ce19a8498fbc64ccaa0f287b018e4805556f2da12bda73#1",
     "sha256:53aa93d2523d556db6a903637dac527e4291b4a9130d1791495a3f12cebbe6d6#1",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#1",
     "sha256:70e11693b667da96faefb988f361a247a9fd488461b414f9a24dadbdb06a4fbc#1",
@@ -2548,18 +2551,29 @@
     "sha256:ca1aa96a8ca5cbc559eaad0b589718df629ddb347e198a223349fb380100b65a#1",
     "sha256:7b5aaef0e0094027b82022a3fed0d56d27a7fe8b384b1d017379a0c87874c573#1",
     "sha256:d035991bbc1a89ed073fd100629732a68cf25003afa9689c93e9dee9924322eb#1",
-    "sha256:501dcc82b6eb2d4d41341dd979587a167c3e2bae1bfb51c4b6e78e90c8783fad#1",
-    "sha256:ac170bed3d9b77b76cfc5de64f738f27f870b4a6cd06c7840ba2687d2bd050e6#1",
-    "sha256:1286c61e7e308ca19d1870fcc77b91e234f8f829f1925a5578a7ca1685f7c9c5#1",
-    "sha256:384f2ca4e4cd5b06ded19eb89d0838f83c40da390920062b144993bef9b36529#1",
-    "sha256:e0a77fee978032e91bb1fcea8cf152113eeb60fea7a5bf169be4953e60a6d045#1",
-    "sha256:290b7b0eb72b1b071cbec9679bf296b392cfe130357ef29eb65283c9db04e808#1",
-    "sha256:12c7c9368e546c52e7a44176e0f829f54beb8a501afef41c572643c185be33ee#1",
-    "sha256:aaa7799673d4854cbc4b41629a60895989fc5fe775a972dabe086ab432e4b628#1",
-    "sha256:70b311266fde90f686695f8e1ffaea7f368cd812eee2846c94bd3b40772f4b6d#1",
-    "sha256:2806c8e1375f27a05c670fef17f4331abdf664545eac44edadaa0b0331508c9a#1",
-    "sha256:9b103586b5b77a417948bb48dc5cb7a2844abb113dba9e77542fb816199874df#1",
-    "sha256:bc0bf005fda91c0862d439a391ffb318c2aed1465b1ba92a6df812207ed87975#1",
+    "sha256:22be98cda770d93db1bae2395210f39695d2ed3243f6f34988f5a618ed2ccee4#1",
+    "sha256:8aa022cf85191bd1ed97b15164c979215ca7a0ef4baab049fa65ecd60465517a#1",
+    "sha256:c7ae244a5735a71fc4bbbbecccd1709ffff9fe7d70b2b5769bf371f6394f3dee#1",
+    "sha256:fc742218801ddbe08cfad234f8a61c4d6bbe28702e061e8d9b4af0292359ab90#1",
+    "sha256:327f92d7217a0fa885c45b6092e9f8afc7e7975739f31aa8b7dee9d8fe69b7b6#1",
+    "sha256:2966e5735cee042c1d39990b16bab3efe6e18c2e5cb0fca0d77e585147b12ccc#1",
+    "sha256:5f4007fc537013c7d9d93ce9122a85da3eaeddb31d3f85c22c72f75403c952dc#1",
+    "sha256:7e50248f9d8f4a761614c87da558c4eff077d99c693563838fea7e57e77fe541#1",
+    "sha256:5d09e0101a6e30dd0f0f50428976667812e2f2cf9c555269120f73345f4d1b33#1",
+    "sha256:0d1295c86c8de99554a5dce3a96af26410a197f63941de1a5d3c3632b9bf7dd0#1",
+    "sha256:2a016664632ec70e06908801a160445cd0b19ce5555fd5a2754d81015ed5f9c2#1",
+    "sha256:d159e0829f9af1eeafca9cd7cf71166b32fbac31c16a84561d7cb9b1669bd386#1",
+    "sha256:8165299fc94f9833f5d22c2892d97a2fcc77f25e25d0c090435da5df7b0a5e96#1",
+    "sha256:0e7e802936b96ddfd377c138f54fd914f053ec877a0de8c936ae9a4203c784ae#1",
+    "sha256:4ec6c994a730142598052aa0cb89c6db0a44534707f7e2f12187459abcd230f3#1",
+    "sha256:be14d05f643dce8d94d883aa21e79d0734ce8bd72972300313084799554a26a2#1",
+    "sha256:54a1f4dae91c93f7e56aff343f760695964370de89cf8092ea99aee6c7c32e8d#1",
+    "sha256:a49f9ee357936fc89b40b3eab07cac873b01a9fcbe4c4cb8cf86cf1c73cedbc1#1",
+    "sha256:c62f3c60c972d802ae28c29cc857208af5f20a3acff581222856f8d1a545a1a0#1",
+    "sha256:d3e6c2c1ec6bfe3fa4036f06aa478ab9951c36c7283127eea253a2a0eda31457#1",
+    "sha256:26a8efee90ead1320849e26cc4ca125c716b9d5da6b66b3bd3c8f637a2d12f47#1",
+    "sha256:d92e2e9782086859984b5bda77adaf171fe49065faedb8a51f6361fe409c8549#1",
+    "sha256:e6b2fbc9ff59f27a5742eb1bca03ab60db94fb1daf1ab1cfdc180cf7c7b0aa39#1",
     "sha256:06f93fd8836bc5141d525662030a4f6967471f5377ee0cd01f5e1a836299dbae#1",
     "sha256:bbf943cf64be03966e898baa5d5aa2a6d10d765bd0eaf57583d670d9fd2ba5ab#1",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#2",
@@ -2568,6 +2582,7 @@
     "sha256:b5d13af409a054dd8036e21eacc0485caddf34562f58202fce7f17b6fa4ab2a7#1",
     "sha256:bc0ce8273796687a5ab4ca6325ef38c5a744f62241732aa2b7b8abcaff648636#1",
     "sha256:db9242fd5231a11da2ddd0e1c354ac13f082297bfd3d0675da2da1b7439df59a#1",
+    "sha256:e19b8a2d1ad3d0f196951015497bfd25fe5bc55a4ae82e6122fb2e98d0a9eff7#1",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#3",
     "sha256:434a0d6ad24290110ca9fb7972f582a210fb6ab7781c62b700aefa5439652130#1",
     "sha256:b22ff2bd3d8ce451c38db1224a5c4a6284715a82bb95b853da99b241210c1cab#2",
@@ -7162,6 +7177,7 @@
     "sha256:a6284e6d3d43bdfbf0da732945adb2b4f31147c92bea47aee100d7f556c22d00#1",
     "sha256:2636bce5f7ef0e8804b374f8d40db3795d2909f9945a62f30359a27d98bb06db#1",
     "sha256:66ec018201fb03f10df19f1a56a1264beb2654e8f07c2f163f023ebd53a751e4#1",
+    "sha256:5cbe4bae24b50570580a136cf1b1828af9649e7e4f995aa231b091e3ffdadeec#1",
     "sha256:9e63ee62217c139d62ff0aa136c668cdcd631edd06b7f3dcadfdf769e2eb1faa#1",
     "sha256:665cb56a58ecc551b98eeddf2b0a0a5c7ce41121bebc7848fd88566430ee84db#1",
     "sha256:44d0eeece1059e62da3ab94c31798e3b8d5095cde83ef235cf5493181faa2a2b#1",
@@ -7599,6 +7615,15 @@
     "sha256:48d61d637349a0289baefbdd74a9d22bf7ce14b1e9a8cd4c7369b6264dce5a6f#1",
     "sha256:285de3cbf3b9a8b55b8ae2c6b28f8ad82bddee6b9ed4418bb8cea101caf1bcc7#1",
     "sha256:b1d4385ce45f492cae0c60d3117130e3d8849f3b8090081c2b1375c994d7f3ab#1",
+    "sha256:751d50e68b24aa677e69708a4c1269eb75b5700335f78cff03e44a43f0292f96#1",
+    "sha256:434893373c3af385c8b91f0770d5f09f2700013ccab80db8ef6934f37f7a38b3#1",
+    "sha256:0a871157d9dc9fecd8019917b6184e7f3201a2c6450cd85dcef3d69e6aa5481a#1",
+    "sha256:27483962c9aa901d52b7309f605545f695947288115700952e97a91f4b9c1c95#1",
+    "sha256:05a465dfe3c9d4a29f0929fa4b3bd950d4b838e969c23021bd879acebb521fe4#1",
+    "sha256:7f4652af1961cd72b131cc4b094f1802b513453d25da31b8ff661445556649ac#1",
+    "sha256:049859e49c7aab9fa35828f684c8081624342e09b9a7591954de20fc243f4ceb#1",
+    "sha256:cfc8fff97fd0560e82a3f8eb81ae2c33351e1996616013e5d34574142fa809d3#1",
+    "sha256:31c6964fdb82eafa0455227f43fe950fa4c7d1cb9ded3f5f3da6eebe7c892703#1",
     "sha256:977946ef8dbf1cff0e38964c7892d05a7a89f4f51bb102e0d8fca796e29f894f#1",
     "sha256:5f2f1de66be77fe0f3b36270b0bc202a763d6c579729a863ccc2e194c348159c#1",
     "sha256:06f93fd8836bc5141d525662030a4f6967471f5377ee0cd01f5e1a836299dbae#14",
@@ -7718,7 +7743,7 @@
     "sha256:d6984a9eecb9db4aefcdebdffac8ea93963fc5dd76ced518103357179c6bb7bc#1",
     "sha256:4d8249a823662e546afc32d3b25be4033c17d5cd9bde840a4840d3fd8970ae57#2",
     "sha256:d262109308b9ceacdf621c2d8c39ee6f9691897a48bc47cefc9754f772f43928#1",
-    "sha256:ebf4c1ef0cd727a29f0cdc8055745fca323f3be6bad757877c9324470a9294bc#1",
+    "sha256:d46d98cdd6d0b2e2337cdc86847fa02249bbe35b988f1c0a5c2bbe00ff830d46#1",
     "sha256:442965956b720bbc59af6cbdcd4d1e8eb25e22590d77db7316277c44519fe248#1",
     "sha256:80170d0f449c24bcad68dc2dd4b989eea9952373daed34e14a0a3bb06f9fe00a#1",
     "sha256:24f07f1248613ee7468d7dd3ad113ef5e10446635710cf1f99da24767750c35e#1",
@@ -7745,7 +7770,7 @@
     "sha256:d4e818821dc85135b6f1aea29edca2ef26aa377ec666e24f51d3972f334502f9#1",
     "sha256:420792f1d8b478c30dab44a9cebd0056a405bec0b94e339a40c189ff72b3d8e7#1",
     "sha256:fe07574458fe8b790300dda5484714f399833645f06a1ac0da7004b52269b9da#1",
-    "sha256:90460d76e5d8a14381bd7630c19cced7ad2a4e29999f67b6a723a91a6936f17e#1",
+    "sha256:cc1bd693839f52ba486917dc30207b26985a7292b35ddeb6f8f83d194a5ff915#1",
     "sha256:4018b77cdae6949a203e0c1b2ac559a4176969c4530dd207dbcb6cf60c51100b#2",
     "sha256:fb11742d95b85ca641cb75296f452cee72475ff797231a6122e1144c6c612f5e#1",
     "sha256:be345c31a0491cf47bb1e8630336691a2f6350a07232d92f9a4cc55f31774604#1",
@@ -8573,6 +8598,7 @@
     "sha256:3ce4b2874e71dfe872c31bdcdb8bf9d2393b54de26996914bfe8274af0c1c36f#1",
     "sha256:be6bf5c5a47e1216712160d35d07d1e2302eff9cd9a5e525e9b6ee0f3f9c309c#1",
     "sha256:3d1e45d2bfa66a2af30e39c032b376f56e52abe59d006b1001ca497e34bd96c3#1",
+    "sha256:d9d9d6c4f404907cc45bffa3572e1366cc82d825de846efc5d86d694031a9105#1",
     "sha256:1b467d0acc23ebfd642e8659ab2779c472035a9e9e86ef8bb74bbcad544aa501#1",
     "sha256:f13f33ea6819629b20f18aa9ac1a2bbffeeef00cac35eb421dc133546e0ba75a#1",
     "sha256:ae9a988041318b4f2a1281d6077d86ccbec99f9d39b0a1ae109f146c30bb4106#1",
@@ -8587,6 +8613,10 @@
     "sha256:09f72732075f43643cb6ff31b2c1c3a67d8695565124834701194543c7ccfab3#1",
     "sha256:11d471e7735b3e24cddbb930a47209060845bd9a511400aa10dbdb98f9ee9129#1",
     "sha256:14b20171427553a91eae2d14398a0d03eae87a7109946c53a456ebd0abfdedb7#1",
+    "sha256:936c89833ebdb0c6716a31e1dc608b339f67532294dfef87eb3fe705733c5e7f#1",
+    "sha256:7acae941c36b5dfd96e9ba0b604c4e2ab4cd8d99344a7a59f560e27db408b921#1",
+    "sha256:eb337f012f942feb7aaaaabb0946ca0fa2cab5c86156b20cbf84bf6e212e0bbd#1",
+    "sha256:e1cf4dad0a7aada8df3aa3755b644e991a2a46df469b1d04647565f9ceb6cc6a#1",
     "sha256:50150bde05684044f92334478a1d06ca2630d23dd449f55226dd001fa561fc0b#1",
     "sha256:e04329b46f691db22650b32a87edec8d0843ccb11584298f7dd4ff484567e795#1",
     "sha256:40a9941102d48fdc17098f0b7e9f77a1649f502a15b2bd8f3b06a346e3d43860#1",
@@ -17188,13 +17218,14 @@
     "sha256:dfeda0750a7a43f256ff4d3dd85274dab30e59bc00108f3fd34ec413c254004a#1",
     "sha256:b2653f65fcb2295307939a81151c169098810898fc6ef78652ae6d001ae4bb03#2",
     "sha256:6ceb9e434c3e65b6ed0919458a1f36b04e9b8204a4d5fb52ce0a953e313ebb2d#1",
-    "sha256:191f56f042c92eee264f1c9bc7cd66384f8679d4af1a54976242264fabe49c55#1",
+    "sha256:26ecabe4155677d43f0ef44efec50b69696d2a407c728dc855f45fb5f6eb3957#1",
+    "sha256:faa3644adce42ab2d703f7db55b116107f66a271286cd4c4887a9256dee2195b#1",
     "sha256:4b5302f9b1635db412e29106e31bb57f01b829c3a8831d3437cfd9e88df9c0cf#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#4",
     "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#1",
     "sha256:e488d2a98fcc04954ebd0da0ca1ef03d7fb8315888befc1a32a8b711c53ce4ac#1",
-    "sha256:b3cfccc84afb8fee17c9c902f26e8abf287a624619542b8b64a0872f966ac811#1",
-    "sha256:aa0f4e51470b196e2ad80e6817e8588370f88f919c4932af051b3ee40c68f36d#1",
+    "sha256:f956b808e78ec26ccdda88c583695e7af99ce4c41dd5dc1c8870a24b1308bec1#1",
+    "sha256:668ae2f0bbe4147248d488226ed228a2618ce3d2b00f9af5c11a17c0c3c429de#1",
     "sha256:2ef427aab436947e779f0906b95a53d02290e0293d9b5c7dffb10b67ecf92c2f#1",
     "sha256:b2f40abd953d324119a668c56212709f7362ffbe8287fd5fced8a719d4f38ad7#1",
     "sha256:d799ea67e6390b487a3a6abf517aae4b97549d65cfd554337c62fcabc79be004#1",
@@ -17210,7 +17241,7 @@
     "sha256:a3e79e107aa5011a357fdd75e3bec6719f696d847b80d6a03bc8650c7164e631#1",
     "sha256:b2653f65fcb2295307939a81151c169098810898fc6ef78652ae6d001ae4bb03#4",
     "sha256:6ceb9e434c3e65b6ed0919458a1f36b04e9b8204a4d5fb52ce0a953e313ebb2d#2",
-    "sha256:191f56f042c92eee264f1c9bc7cd66384f8679d4af1a54976242264fabe49c55#2",
+    "sha256:191f56f042c92eee264f1c9bc7cd66384f8679d4af1a54976242264fabe49c55#1",
     "sha256:1d5dcc1d3b745b7a686422b9f2a347366ed65160331fe3c033071bb1ed3c8606#1",
     "sha256:7078765a444909aaa39de5b52ebd66a7193c7062488ad0ab8df09fc2c1dc7df2#6",
     "sha256:86b2eb57a874e683ed49c9bc6ed28c4d51578e13cd1a8431fce45a0400483614#1",
@@ -22243,9 +22274,9 @@
   "full_suite": true,
   "package_floors": {
    "plex_renamer": {
-    "covered": 2946,
-    "percent": 86.1,
-    "statements": 3420
+    "covered": 2960,
+    "percent": 86.2,
+    "statements": 3435
    },
    "plex_renamer/app": {
     "covered": 4,
@@ -22268,9 +22299,9 @@
     "statements": 1763
    },
    "plex_renamer/engine": {
-    "covered": 3449,
+    "covered": 3464,
     "percent": 89.5,
-    "statements": 3855
+    "statements": 3870
    },
    "plex_renamer/gui_qt": {
     "covered": 956,
@@ -22283,9 +22314,9 @@
     "statements": 244
    },
    "plex_renamer/gui_qt/widgets": {
-    "covered": 8222,
-    "percent": 88.6,
-    "statements": 9276
+    "covered": 8234,
+    "percent": 88.8,
+    "statements": 9277
    }
   },
   "scope_id": "8b742b57ed68d18ae6c5d9bcf6aa6f890fcc68ba1c03d945cacbc9a44ebc0cd0",
@@ -24654,7 +24685,7 @@
    "analyzer": "pyright",
    "path": "tests/test_extras_and_prefix_fixes.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_extras_and_prefix_fixes.TestExtrasFolderNumberClaims.test_gundam_layout_scans_root_episodes_once_and_nested_extras::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
@@ -24678,19 +24709,19 @@
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_folder_preserves_season_zero_hint::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_folder_preserves_season_zero_hint::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_root_is_not_treated_as_extras_unmatched::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_flat_specials_root_is_not_treated_as_extras_unmatched::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_merged_specials_folder_keeps_ok_preview_status::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_merged_specials_folder_keeps_ok_preview_status::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
@@ -24702,19 +24733,19 @@
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_nested_titled_specials_folder_is_treated_as_season_zero::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.SpecialsSeasonHintRegressionTests.test_nested_titled_specials_folder_is_treated_as_season_zero::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_karasuno_to_season_3::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_karasuno_to_season_3::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_haikyuu_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_to_the_top_to_season_4::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present ...#1"
+   "symbol": "tests.test_haikyuu_matching.TMDBSeasonNameMatchingTests.test_match_to_the_top_to_season_4::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
@@ -24786,31 +24817,31 @@
    "analyzer": "pyright",
    "path": "tests/test_jojo_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_ova_distributes_across_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_ova_distributes_across_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_jojo_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::reportArgumentType::Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_flat_single_season_not_affected::reportArgumentType::Argument of type \"_FakeSingleSeason\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeSingleSeason\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_jojo_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_sequential_fallback_for_generic_filenames::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_sequential_fallback_for_generic_filenames::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_jojo_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_title_matching_assigns_correct_files_to_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+   "symbol": "tests.test_jojo_matching.FlatFolderMultiSeasonTests.test_title_matching_assigns_correct_files_to_seasons::reportArgumentType::Argument of type \"_FakeTMDBForOVAScan\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeTMDBForOVAScan\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
    "path": "tests/test_jojo_matching.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_jojo_matching.FlatFolderSpecialsOffsetRegressionTests.test_flat_absolute_numbering_ignores_specials_offset::reportArgumentType::Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_alternative_titles\" is not present ...#1"
+   "symbol": "tests.test_jojo_matching.FlatFolderSpecialsOffsetRegressionTests.test_flat_absolute_numbering_ignores_specials_offset::reportArgumentType::Argument of type \"_FakeInuyashaTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_FakeInuyashaTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"fetch_image\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
@@ -28368,7 +28399,7 @@
    "analyzer": "pyright",
    "path": "tests/test_scan_improvements.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_scan_improvements.make_scanner::reportArgumentType::Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
+   "symbol": "tests.test_scan_improvements.make_scanner::reportArgumentType::Argument of type \"FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
@@ -28686,7 +28717,7 @@
    "analyzer": "pyright",
    "path": "tests/test_tv_scanner_normal.py",
    "rule": "reportArgumentType",
-   "symbol": "tests.test_tv_scanner_normal.test_all_tmdb_seasons_get_slots_even_without_local_folders::reportArgumentType::Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_alternative_titles\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present ...#1"
+   "symbol": "tests.test_tv_scanner_normal.test_all_tmdb_seasons_get_slots_even_without_local_folders::reportArgumentType::Argument of type \"_SeasonMapTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"__init__\" \"_SeasonMapTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"fetch_image\" is not present \"fetch_poster\" is not present \"fetch_image_bytes\" is not present ...#1"
   },
   {
    "analyzer": "pyright",
